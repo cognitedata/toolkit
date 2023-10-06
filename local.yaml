@@ -1,0 +1,2 @@
+# This should be a used to specify which modules and packages to deploy locally.
+deploy: ["apm_simple"]

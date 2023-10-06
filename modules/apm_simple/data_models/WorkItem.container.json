@@ -1,0 +1,99 @@
+{
+    "space": "{{apm_simple_space}}",
+    "externalId": "WorkItem",
+    "usedFor": "node",
+    "properties": {
+        "workOrder": {
+            "type": {
+                "type": "direct"
+            },
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "workOrder"
+        },
+        "itemName": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "itemName"
+        },
+        "method": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "method"
+        },
+        "criticality": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "criticality"
+        },
+        "description": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "description"
+        },
+        "itemInfo": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "itemInfo"
+        },
+        "toBeDone": {
+            "type": {
+                "type": "boolean",
+                "list": false
+            },
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "toBeDone"
+        },
+        "title": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "title"
+        },
+        "isCompleted": {
+            "type": {
+                "type": "boolean",
+                "list": false
+            },
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "isCompleted"
+        }
+    },
+    "createdTime": 1688131246177,
+    "lastUpdatedTime": 1688131246177,
+    "isGlobal": false,
+    "name": "WorkItem",
+    "constraints": {},
+    "indexes": {}
+}
