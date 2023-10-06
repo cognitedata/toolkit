@@ -1,0 +1,54 @@
+externalId: tutorial-load-assets
+name: tutorial-load-Assets
+query: >-
+  /* MAPPING_MODE_ENABLED: true */
+  /* {"version":1,"sourceType":"raw","mappings":[
+  {"from":"externalId","to":"externalId","asType":"STRING"},
+  {"from":"categoryId","to":"categoryId","asType":"INT"},
+  {"from":"isCriticalLine","to":"isCriticalLine","asType":"BOOLEAN"},
+  {"from":"sourceDb","to":"sourceDb","asType":"STRING"},
+  {"from":"updatedDate","to":"updatedDate","asType":"TIMESTAMP"},
+  {"from":"createdDate","to":"createdDate","asType":"TIMESTAMP"},
+  {"from":"parentExternalId","to":"parent","asType":"STRUCT<`space`:STRING, `externalId`:STRING>"},
+  {"from":"description","to":"description","asType":"STRING"},
+  {"from":"tag","to":"tag","asType":"STRING"},
+  {"from":"areaId","to":"areaId","asType":"INT"},
+  {"from":"isActive","to":"isActive","asType":"BOOLEAN"}],
+  "sourceLevel1":"{{apm_simple_raw_db}}","sourceLevel2":"assets"} */
+  select
+    cast(`externalId` as STRING) as externalId,
+    cast(`categoryId` as INT) as categoryId,
+    cast(`isCriticalLine` as BOOLEAN) as isCriticalLine,
+    cast(`sourceDb` as STRING) as sourceDb,
+    cast(`updatedDate` as TIMESTAMP) as updatedDate,
+    cast(`createdDate` as TIMESTAMP) as createdDate,
+    node_reference('{{apm_simple_space}}', `parentExternalId`) as parent,
+    cast(`description` as STRING) as description,
+    cast(`tag` as STRING) as tag,
+    cast(`areaId` as INT) as areaId,
+    cast(`isActive` as BOOLEAN) as isActive
+  from
+    `{{apm_simple_raw_db}}`.`assets`;
+destination:
+  dataModel:
+    space: {{apm_simple_space}}
+    externalId: {{apm_simple_datamodel}}
+    version: "1"
+    destinationType: Asset
+  instanceSpace: {{apm_simple_space}}
+  type: instances
+ignoreNullFields: true
+shared: true
+action: upsert
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{clientId}}
+  clientSecret: {{clientId}}
+  tokenUrl: {{tokenUrl}}
+  # Optional: If idP requires providing the scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes:
+    - {{scopes}}
+  # Optional: If idP requires providing the audience
+  audience: {{audience}}

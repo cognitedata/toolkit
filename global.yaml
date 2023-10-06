@@ -1,0 +1,3 @@
+# This should be a used to create packages of modules that can be deployed.
+packages:
+  infield: ["moduleA", "moduleB"]

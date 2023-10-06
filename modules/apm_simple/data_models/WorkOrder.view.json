@@ -1,0 +1,334 @@
+{
+    "externalId": "WorkOrder",
+    "space": "{{apm_simple_space}}",
+    "version": "659c59a4a8afe9",
+    "createdTime": 1688131650371,
+    "lastUpdatedTime": 1688131650371,
+    "writable": true,
+    "usedFor": "node",
+    "isGlobal": false,
+    "properties": {
+        "startTime": {
+            "type": {
+                "type": "timestamp",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "startTime",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "startTime"
+        },
+        "endTime": {
+            "type": {
+                "type": "timestamp",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "endTime",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "endTime"
+        },
+        "title": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "title",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "title"
+        },
+        "description": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "description",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "description"
+        },
+        "programNumber": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "programNumber",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "programNumber"
+        },
+        "workOrderNumber": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "workOrderNumber",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "workOrderNumber"
+        },
+        "status": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "status",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "status"
+        },
+        "dueDate": {
+            "type": {
+                "type": "timestamp",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "dueDate",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "dueDate"
+        },
+        "isActive": {
+            "type": {
+                "type": "boolean",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "isActive",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "isActive"
+        },
+        "workPackageNumber": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "workPackageNumber",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "workPackageNumber"
+        },
+        "createdDate": {
+            "type": {
+                "type": "timestamp",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "createdDate",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "createdDate"
+        },
+        "plannedStart": {
+            "type": {
+                "type": "timestamp",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "plannedStart",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "plannedStart"
+        },
+        "priorityDescription": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "priorityDescription",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "priorityDescription"
+        },
+        "durationHours": {
+            "type": {
+                "type": "int32",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "durationHours",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "durationHours"
+        },
+        "actualHours": {
+            "type": {
+                "type": "int32",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "actualHours",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "actualHours"
+        },
+        "isCancelled": {
+            "type": {
+                "type": "boolean",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "isCancelled",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "isCancelled"
+        },
+        "isCompleted": {
+            "type": {
+                "type": "boolean",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "isCompleted",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "isCompleted"
+        },
+        "percentageProgress": {
+            "type": {
+                "type": "int32",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "percentageProgress",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "percentageProgress"
+        },
+        "isSafetyCritical": {
+            "type": {
+                "type": "boolean",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder"
+            },
+            "containerPropertyIdentifier": "isSafetyCritical",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "isSafetyCritical"
+        },
+        "workItems": {
+            "type": {
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder.workItems"
+            },
+            "source": {
+                "type": "view",
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkItem",
+                "version": "94d2b7121128a2"
+            },
+            "name": "workItems",
+            "direction": "outwards"
+        },
+        "linkedAssets": {
+            "type": {
+                "space": "{{apm_simple_space}}",
+                "externalId": "WorkOrder.linkedAssets"
+            },
+            "source": {
+                "type": "view",
+                "space": "{{apm_simple_space}}",
+                "externalId": "Asset",
+                "version": "8069f1498c7f9a"
+            },
+            "name": "linkedAssets",
+            "direction": "outwards"
+        }
+    },
+    "name": "WorkOrder",
+    "implements": []
+}
