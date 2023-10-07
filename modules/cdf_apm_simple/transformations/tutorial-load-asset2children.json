@@ -1,0 +1,21 @@
+{
+  "external_id": "tutorial-load-asset2children",
+  "name": "tutorial-load-Asset2children",
+  "destination": {
+    "type": "instances",
+    "data_model": {
+      "space": "{{apm_simple_space}}",
+      "external_id": "{{apm_simple_datamodel}}",
+      "version": "1",
+      "destination_type": "Asset",
+      "destination_relationship_from_type": "children"
+    },
+    "instance_space": "{{apm_simple_space}}"
+  },
+  "conflict_mode": "upsert",
+  "is_public": true,
+  "ignore_null_fields": true,
+  "has_source_oidc_credentials": false,
+  "has_destination_oidc_credentials": false,
+  "owner_is_current_user": true
+}

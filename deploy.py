@@ -1,8 +1,17 @@
 #!/usr/bin/env python
 import argparse
 import logging
+import json
+from pathlib import Path
 from dotenv import load_dotenv
-from utils.build import build_config
+from utils.utils import CDFToolConfig
+from utils.load import (
+    load_raw,
+    load_readwrite_group,
+    load_timeseries_metadata,
+)
+from utils.datamodel import load_datamodel_dump
+from utils.transformations import load_transformations_dump
 
 log = logging.getLogger(__name__)
 
@@ -14,7 +23,40 @@ load_dotenv(".env")
 
 def run(build_dir: str) -> None:
     print(f"Deploying config files from {build_dir}...")
-    print("TODO!!!! (simply load_data.py from data-model-examples)")
+    # Configure a client and load credentials from environment
+    build_path = Path(__file__).parent / build_dir
+    if not build_path.is_dir():
+        print(f"{build_dir} does not exists.")
+        exit(1)
+    ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
+    print("Using following configurations: ")
+    print(ToolGlobals)
+    # TODO: This is a very limited support. Needs to be expanded to support configurable groups.
+    if Path(f"{build_dir}/auth").is_dir():
+        capabilities = json.loads(
+            (build_path / "auth/readwrite.capabilities.json").read_text()
+        )
+        load_readwrite_group(
+            ToolGlobals, capabilities=capabilities, source_id="readwrite"
+        )
+    if Path(f"{build_dir}/raw").is_dir():
+        # TODO: load_raw only loads one database as configured in ToolGlobals.config, needs more dynamic support
+        load_raw(ToolGlobals, drop=True, file=None, directory=f"f{build_dir}/raw")
+    if Path(f"{build_dir}/timeseries").is_dir():
+        load_timeseries_metadata(
+            ToolGlobals, drop=True, file=None, directory=f"f{build_dir}/timeseries"
+        )
+    if Path(f"{build_dir}/transformations").is_dir():
+        load_transformations_dump(
+            ToolGlobals, file=None, drop=True, directory=f"{build_dir}/transformations"
+        )
+    if Path(f"{build_dir}/data_models").is_dir():
+        load_datamodel_dump(
+            ToolGlobals, drop=True, directory=f"{build_dir}/data_models"
+        )
+    if ToolGlobals.failed:
+        print(f"Failure to load as expected.")
+        exit(1)
 
 
 if __name__ == "__main__":

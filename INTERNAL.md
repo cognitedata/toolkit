@@ -9,7 +9,8 @@ the apm_simple configuration is used as a skeleton for an example model so we ca
 
 As this is a public repository, the work tasks should be managed in Github issues.
 The global.yaml file in this repo should be updated to configure groups of modules that
-can be deployed.
+can be deployed. Use the `cdf_` prefix for modules that are official Cognite product modules.
+These should be validated by product teams and tested as part of product development.
 
 ### Adding a new module
 
@@ -48,5 +49,23 @@ of the heavy-lifting done by code in the ./utils directory. Both this template r
 data-model-examples repo can then be updated to use the new service and thus become
 simpler and easier to maintain.
 
+> NOTE!! The utils only support raw, data models, time series, (partial) groups, and transformations. 
+> It also
+> has some support for loading of data that may be used as example data for CDF projects. However,
+> to the extent possible, this repository should not contain data, only goverend configurations.
+
 ## Testing
 
+The `cdf_` prefixed modules should be tested as part of the product development. Our internal
+test framework for scenario based testing can be found in the Cognite private big-smoke repository.
+
+> TODO Define how to make sure that modules get tested in big-smoke.
+
+The `deploy.py` script will automatically clean configurations before trying to load, so you can
+try to apply the configuration multiple times without having to clean up manually. There is also
+a skeleton for a `clean.py` script, but the current delete functions in utils do not accept a directory
+as input (like the load_* functions), so the directory is hardcoded (not a lot of work though).
+
+> Also note that the utils/ directory has several datamodel delete functions (like cleaning out an
+> entire project), as well as several useful dump functions that creates json for datamodels and
+> transformations.

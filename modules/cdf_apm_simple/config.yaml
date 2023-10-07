@@ -1,0 +1,10 @@
+# Only valid for this module, loads template variables from environment
+clientId: ${TRANSFORMATIONS_CLIENT_ID}
+clientSecret: ${TRANSFORMATIONS_CLIENT_SECRET}
+tokenUrl: ${TRANSFORMATIONS_TOKEN_URL}
+# Optional: If idP requires providing the scopes
+cdfProjectName: ${TRANSFORMATIONS_PROJECT}
+scopes:
+  - ${TRANSFORMATIONS_SCOPES}
+# Optional: If idP requires providing the audience
+audience: ${TRANSFORMATIONS_AUDIENCE}

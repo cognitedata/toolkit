@@ -2,7 +2,7 @@
 import argparse
 import logging
 from dotenv import load_dotenv
-from utils.build import build_config
+from utils.templates import build_config
 
 log = logging.getLogger(__name__)
 
