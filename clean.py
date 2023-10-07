@@ -32,7 +32,7 @@ def run(build_dir: str) -> None:
     ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
     print("Using following configurations: ")
     print(ToolGlobals)
-    # TODO: Clean up based on configurations in build directory.
+    # TODO: #4 Clean up based on configurations in build directory.
     print("TODO: Not yet implemented.")
     print(
         "  The current utils/ delete tooling needs to be adapted to pick up configurations in"

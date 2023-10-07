@@ -1,6 +1,6 @@
 # Official Cognite Data Fusion project templates
 
->For Cogniters working on this repo, please refer to [INTERNAL](./INTERNAL.md) for more details. 
+>For Cogniters working on this repo, please refer to [INTERNAL](./INTERNAL.md) for more details.
 
 This repository contains a set of Cognite Data Fusion (CDF) project templates that can be used to
 bootstrap CDF projects. The templates are modular and validated as official CDF project templates
@@ -163,6 +163,6 @@ merged into a single directory structure.
 
 ```yaml
 
-TODO: specify the structure of the global.yaml and local-yaml files.
+TODO: #5 specify the structure of the global.yaml and local-yaml files.
 
 ```
