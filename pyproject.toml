@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "cdf-project-templates"
+version = "0.1.0"
+description = "Official Cognite Data Fusion project templates"
+authors = ["Greger Wedel <greger.wedel@cognite.com>"]
+license = "Apache-2"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.12"
+python-dotenv = "^1.0.0"
+cognite-sdk = {version = "6.28.2", extras = ["pandas"]}
+pandas = "^2.1.1"
+pyyaml = "^6.0.1"
+dacite = "^1.8.1"
+regex = "^2023.6.3"
+chardet = "^5.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
