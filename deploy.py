@@ -31,7 +31,7 @@ def run(build_dir: str) -> None:
     ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
     print("Using following configurations: ")
     print(ToolGlobals)
-    # TODO: This is a very limited support. Needs to be expanded to support configurable groups.
+    # TODO: #6 This is a very limited support. Needs to be expanded to support configurable groups.
     if Path(f"{build_dir}/auth").is_dir():
         capabilities = json.loads(
             (build_path / "auth/readwrite.capabilities.json").read_text()
@@ -40,7 +40,7 @@ def run(build_dir: str) -> None:
             ToolGlobals, capabilities=capabilities, source_id="readwrite"
         )
     if Path(f"{build_dir}/raw").is_dir():
-        # TODO: load_raw only loads one database as configured in ToolGlobals.config, needs more dynamic support
+        # TODO: #7 load_raw only loads one database as configured in ToolGlobals.config, needs more dynamic support
         load_raw(ToolGlobals, drop=True, file=None, directory=f"f{build_dir}/raw")
     if Path(f"{build_dir}/timeseries").is_dir():
         load_timeseries_metadata(
