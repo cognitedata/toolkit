@@ -12,6 +12,18 @@ The above diagram shows the high-level scope of governed configurations that can
 this repository. The templates are organized in modules that can be used individually or in
 combination.
 
+## Quick summary
+
+These are the steps to get started with these templates:
+
+1. Create a new repository based on this template.
+2. Edit `local.yaml` to specify the modules you want to deploy.
+3. Edit `config.yaml` to change any global variables you want to change.
+4. (optional) For each `cdf_*` module, edit the `config.yaml` file to change any variables you want to change.
+5. (optional) Add any modules of your own that you may want to add (don't use `cdf_*` prefix).
+6. Run `./build.py` to create a build/ directory with the configurations.
+7. Run `./deploy.py` to deploy the configurations to your CDF project.
+
 ## Target usage
 
 Any user with admin control of a CDF project may use the templates. However, please be aware of the
@@ -20,11 +32,12 @@ following:
 - The templates are designed to manage the lifecyle of a project, starting with a new project (day 0 and 1),
   i.e. either provisioned from Cognite or done as part of initial setup.
   If you have an existing project, you may use the templates,
-  but if you have overlaps in external IDs for configuration entities like transformations, data models, etc, 
+  but if you have overlaps in external IDs for configuration entities like transformations, data models, etc,
   you will have to adjust the template before applying it to your project.
 - Once a project is provisioned from these templates, you can continue to manage the governed parts of
   your projects using the templates. This repo is a Github template, so you can start a new repository
-  based on this template and use it to manage your project.
+  based on this template and use it to manage your project. Your own modules should NOT have the `cdf_`
+  prefix as it is reserved for official Cognite product modules.
 - Currently, the utils/ directory contains Python code based on the Cognite Python SDK that is
   used to manage the project and the configurations are pushed to the various services in CDF as part
   of the deploy step. Over time, it is expected that this deployment of individual configurations will
