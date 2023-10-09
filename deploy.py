@@ -4,6 +4,7 @@ import logging
 import json
 from pathlib import Path
 from dotenv import load_dotenv
+from utils.templates import read_yaml_files
 from utils.utils import CDFToolConfig
 from utils.load import (
     load_raw,
@@ -29,6 +30,8 @@ def run(build_dir: str) -> None:
         print(f"{build_dir} does not exists.")
         exit(1)
     ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
+    # TODO: #14 This is confusing heritage from data-model-examples. Refactor to use config.yaml and module structure.
+    ToolGlobals.example = "default"
     print("Using following configurations: ")
     print(ToolGlobals)
     # TODO: #6 This is a very limited support. Needs to be expanded to support configurable groups.
@@ -63,6 +66,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(epilog="Further functionality to be added")
     parser.add_argument(
         "build_dir",
+        default="./build",
+        nargs="?",
         help="Where to pick up the config files to deploy",
     )
     args, unknown_args = parser.parse_known_args()

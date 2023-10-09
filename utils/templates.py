@@ -77,6 +77,7 @@ def process_config_files(dirs, yaml_data, build_dir="./build"):
 
 
 def build_config(dir: str = "./build"):
+    # TODO #13 Add support for global.yaml and local.yaml configurations of modules and packages to pick up
     process_config_files(
         dirs=TMPL_DIRS,
         yaml_data=read_yaml_files(yaml_dirs=YAML_DIRS),
