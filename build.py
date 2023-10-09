@@ -23,6 +23,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(epilog="Further functionality to be added")
     parser.add_argument(
         "build_dir",
+        default="./build",
+        nargs="?",
         help="Where to write the config files",
     )
     args, unknown_args = parser.parse_known_args()
