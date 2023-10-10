@@ -1,7 +1,7 @@
 externalId: '{{apm_simple_datamodel}}'
 name: '{{apm_simple_datamodel}}'
 space: '{{apm_simple_space}}'
-version: '1'
+version: '{{apm_simple_datamodel_version}}'
 views:
 - externalId: Asset
   space: '{{apm_simple_space}}'

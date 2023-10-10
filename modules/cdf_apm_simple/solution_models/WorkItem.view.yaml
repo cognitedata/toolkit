@@ -1,5 +1,7 @@
 externalId: WorkItem
 name: WorkItem
+space: '{{apm_simple_space}}'
+version: "{{apm_simple_view_WorkItem_version}}"
 properties:
   criticality:
     container:
@@ -75,5 +77,3 @@ properties:
       type: container
     containerPropertyIdentifier: workOrder
     name: workOrder
-space: '{{apm_simple_space}}'
-version: 94d2b7121128a2

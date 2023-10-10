@@ -1,5 +1,7 @@
 externalId: Asset
 name: Asset
+space: '{{apm_simple_space}}'
+version: "{{apm_simple_view_Asset_version}}"
 properties:
   areaId:
     container:
@@ -96,5 +98,4 @@ properties:
       type: container
     containerPropertyIdentifier: updatedDate
     name: updatedDate
-space: '{{apm_simple_space}}'
-version: 8069f1498c7f9a
+

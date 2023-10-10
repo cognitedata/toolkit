@@ -1,6 +1,6 @@
 import json
 
-from cognite.client.data_classes.data_modeling import DataModelList, ViewId, ViewList, ContainerList, View, Container, DataModel
+from cognite.client.data_classes.data_modeling import View, Container, DataModel
 from pathlib import Path
 import re
 import yaml
@@ -27,7 +27,6 @@ def main():
         yaml_file = file.parent / f"{match.group(1)}{type_}.yaml"
         yaml_file.write_text(yaml.dump(items.as_apply().dump(camel_case=True)))
         print("Converted", file, "to", yaml_file)
-
 
 
 if __name__ == '__main__':
