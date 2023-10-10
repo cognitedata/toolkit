@@ -16,7 +16,7 @@ import os
 import json
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.data_classes.data_modeling import ViewId
-from utils.transformations_config import parse_transformation_configs
+from scripts.transformations_config import parse_transformation_configs
 from .utils import CDFToolConfig
 
 

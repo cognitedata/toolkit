@@ -4,15 +4,14 @@ import logging
 import json
 from pathlib import Path
 from dotenv import load_dotenv
-from utils.templates import read_yaml_files
-from utils.utils import CDFToolConfig
-from utils.load import (
+from scripts.utils import CDFToolConfig
+from scripts.load import (
     load_raw,
     load_readwrite_group,
     load_timeseries_metadata,
 )
-from utils.datamodel import load_datamodel_dump
-from utils.transformations import load_transformations_dump
+from scripts.datamodel import load_datamodel_dump
+from scripts.transformations import load_transformations_dump
 
 log = logging.getLogger(__name__)
 

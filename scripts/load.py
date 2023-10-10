@@ -19,8 +19,8 @@ from typing import List, Dict, Any
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.data_classes.iam import Group
 from .utils import CDFToolConfig
-from utils.transformations_config import parse_transformation_configs
-from utils.transformations_api import (
+from scripts.transformations_config import parse_transformation_configs
+from scripts.transformations_api import (
     to_transformation,
     get_existing_transformation_ext_ids,
     get_new_transformation_ids,
