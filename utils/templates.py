@@ -1,5 +1,7 @@
+from __future__ import annotations
 import os
 import yaml
+from typing import Any
 from pathlib import Path
 
 # Directory paths for YAML and JSON files
@@ -20,11 +22,12 @@ def read_yaml_files(yaml_dirs):
     data = {}
     for directory in yaml_dirs:
         for yaml_file in Path(directory).glob("config.yaml"):
-            with open(yaml_file, "r") as f:
-                try:
-                    data.update(yaml.safe_load(f))
-                except:
-                    ...
+            try:
+                config_data = yaml.safe_load(yaml_file.read_text())
+            except yaml.YAMLError:
+                print(f"Error reading {yaml_file}")
+                continue
+            data.update(unpack_config(config_data))
     # Replace env variables of ${ENV_VAR} with actual value from environment
     for k, v in os.environ.items():
         for k2, v2 in data.items():
@@ -35,6 +38,23 @@ def read_yaml_files(yaml_dirs):
                 else:
                     data[k2] = data[k2].replace(f"${{{k}}}", v)
     return data
+
+
+def unpack_config(data: dict[str, dict | str]) -> dict[str, str]:
+    """
+    Unpacks a config dictionary into a flat dictionary with concatenated keys
+
+    >>> unpack_config({"a_": {"b": 1}})
+    {'a_b': 1}
+    """
+    out = {}
+    for k, v in data.items():
+        if isinstance(v, dict):
+            for k2, v2 in unpack_config(v).items():
+                out[f"{k}{k2}"] = v2
+        else:
+            out[k] = v
+    return out
 
 
 def process_config_files(dirs, yaml_data, build_dir="./build"):
