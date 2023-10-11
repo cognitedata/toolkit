@@ -227,7 +227,7 @@ class CDFToolConfig:
         # Since we now have a new configuration, check the dataset and set the id
         self._data_set_id = self.verify_dataset()
 
-    def verify_client(self, capabilities: dict[list] = {}) -> CogniteClient:
+    def verify_client(self, capabilities: dict[list] | None = None) -> CogniteClient:
         """Verify that the client has correct credentials and required access rights
 
         Supply requirement CDF ACLs to verify if you have correct access
@@ -246,6 +246,7 @@ class CDFToolConfig:
             CogniteClient: Verified client with access rights
             Re-raises underlying SDK exception
         """
+        capabilities = capabilities or {}
         try:
             # Using the token/inspect endpoint to check if the client has access to the project.
             # The response also includes access rights, which can be used to check if the client has the
