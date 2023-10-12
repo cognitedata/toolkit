@@ -1,21 +1,30 @@
+from __future__ import annotations
+
 import datetime
 import json
 import os
-from cognite.client.data_classes.data_modeling import (
-    ViewId,
-    DirectRelationReference,
-    DirectRelation,
-)
-from cognite.client.data_classes.data_modeling.data_models import (
-    DataModel,
-    DataModelList,
-)
-from cognite.client.data_classes.data_modeling.views import View
-from cognite.client.data_classes.data_modeling.spaces import SpaceApply
-from cognite.client.data_classes.data_modeling.containers import Container
+from collections import defaultdict
+from pathlib import Path
+import re
+from typing import Union
+from dataclasses import dataclass
+
+import yaml
+from cognite.client.data_classes._base import CogniteResource
+from cognite.client.data_classes.data_modeling import View, ViewApply, SpaceApply, ContainerApply, DataModel, DataModelList, DataModelApply, ViewId, DirectRelationReference, DirectRelation
+from cognite.client.exceptions import CogniteAPIError
+
 from .delete import delete_datamodel
 
 from .utils import CDFToolConfig
+
+
+@dataclass
+class Difference:
+    added: list[CogniteResource]
+    removed: list[CogniteResource]
+    changed: list[CogniteResource]
+    unchanged: list[CogniteResource]
 
 
 def load_datamodel(ToolGlobals: CDFToolConfig, drop: bool, directory=None) -> None:
@@ -198,78 +207,41 @@ def clean_out_datamodels(
 def load_datamodel_dump(
     ToolGlobals: CDFToolConfig,
     drop: bool,
-    directory=None,
-    dry_run=False,
-    only_drop=False,
+    directory: Path | None =None,
+    dry_run: bool =False,
+    only_drop: bool=False,
 ) -> None:
     if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/data_model"
-    model_files = []
-    # Pick up all the datamodels.
-    for dirpath, _, filenames in os.walk(directory):
-        for f in filenames:
-            if "model.json" in f:
-                model_files.append(f"{dirpath}/{f}")
-    print(f"Found {len(model_files)} data models in {directory}.")
-    view_files = []
-    # Pick up all the views.
-    for dirpath, _, filenames in os.walk(directory):
-        for f in filenames:
-            if "view.json" in f:
-                view_files.append(f"{dirpath}/{f}")
-    print(f"Found {len(view_files)} views in {directory}.")
-    container_files = []
-    # Pick up all the containers.
-    for dirpath, _, filenames in os.walk(directory):
-        for f in filenames:
-            if "container.json" in f:
-                container_files.append(f"{dirpath}/{f}")
-    print(f"Found {len(container_files)} containers in {directory}.")
-    containers = []
-    for f in container_files:
-        with open(f"{f}", "rt") as file:
-            # Load container and convert to apply (write) version of view as we are reading
-            # in a dump from a file.
-            # The dump is from API /models/containers
-            containers.append(Container.load(json.load(file)).as_apply())
-    views = []
-    for f in view_files:
-        with open(f"{f}", "rt") as file:
-            # Load view and convert to apply (write) version of view as we are reading
-            # in a dump from a file.
-            # The dump is from API /models/views/byids.
-            views.append(View.load(json.load(file)).as_apply())
-    datamodels = []
-    for f in model_files:
-        with open(f"{f}", "rt") as file:
-            # Load view and convert to apply (write) version of view as we are reading
-            # in a dump from a file.
-            # The dump is from API /models/views/byids.
-            datamodels.append(DataModel.load(json.load(file)).as_apply())
+        directory = Path(f"./examples/{ToolGlobals.example}/data_model")
+    model_files_by_type: dict[str, list[Path]] = defaultdict(list)
+    models_pattern = re.compile(r"^(\w+\.)?(container|view|datamodel)\.yaml$")
+    for file in directory.glob("**/*.yaml"):
+        if not (match := models_pattern.match(file.name)):
+            continue
+        model_files_by_type[match.group(2)].append(file)
+    for type_, files in model_files_by_type.items():
+        print(f"Found {len(files)} {type_}s in {directory}.")
+
+    cognite_resources_by_type: dict[str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]] = defaultdict(list)
+    for type_, files in model_files_by_type.items():
+        resource_cls = {
+            "container": ContainerApply,
+            "view": ViewApply,
+            "datamodel": DataModelApply,
+        }[type_]
+        for file in files:
+            cognite_resources_by_type[type_].append(
+                resource_cls.load(yaml.safe_load(file.read_text()))
+            )
     print("Loaded from files: ")
-    print(f"  {len(containers)} containers")
-    print(f"  {len(views)} views")
-    print(f"  {len(datamodels)} data models")
-    space_list = []
-    container_list = []
-    view_list = []
-    model_list = []
-    for v in datamodels:
-        if v.space not in space_list:
-            space_list.append(v.space)
-        if (v.space, v.external_id) not in model_list:
-            model_list.append((v.space, v.external_id))
-    for v in views:
-        if v.space not in space_list:
-            space_list.append(v.space)
-        if (v.space, v.external_id) not in view_list:
-            view_list.append((v.space, v.external_id))
-    for c in containers:
-        if c.space not in space_list:
-            space_list.append(c.space)
-        if (v.space, v.external_id) not in container_list:
-            container_list.append((v.space, v.external_id))
+    for type_, resources in cognite_resources_by_type.items():
+        print(f"  {type_}: {len(resources)}")
+
+    space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
+
     print(f"Found {len(space_list)} spaces")
+    cognite_resources_by_type["space"] = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
+
     # Clear any delete errors
     ToolGlobals.failed = False
     client = ToolGlobals.verify_client(
@@ -278,70 +250,75 @@ def load_datamodel_dump(
             "dataModelInstancesAcl": ["READ", "WRITE"],
         }
     )
-    if dry_run:
-        return
+
+    existing_resources_by_type: dict[str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]] = defaultdict(list)
+    resource_api_by_type = {
+        "container": client.data_modeling.containers,
+        "view": client.data_modeling.views,
+        "datamodel": client.data_modeling.data_models,
+        "space": client.data_modeling.spaces,
+    }
+    for type_, resources in cognite_resources_by_type.items():
+        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve([r.as_id() for r in resources])
+
+    differences: dict[str, Difference] = {}
+    for type_, resources in cognite_resources_by_type.items():
+        new_by_id = {r.as_id(): r for r in resources}
+        existing_by_id = {r.as_id(): r for r in existing_resources_by_type[type_]}
+
+        added = [r for r in resources if r.as_id() not in existing_by_id]
+        removed = [r for r in existing_resources_by_type[type_] if r.as_id() not in new_by_id]
+
+        changed = []
+        unchanged = []
+        for existing_id in (set(new_by_id.keys()) & set(existing_by_id.keys())):
+            if new_by_id[existing_id] == existing_by_id[existing_id]:
+                unchanged.append(new_by_id[existing_id])
+            else:
+                changed.append(new_by_id[existing_id])
+
+        differences[type_] = Difference(added, removed, changed, unchanged)
+
+    creation_order = ["space", "container", "view", "datamodel"]
+
+    if not only_drop:
+        for type_ in creation_order:
+            items = differences[type_]
+            if items.added:
+                print(f"Found {len(items.added)} new {type_}s.")
+                if dry_run:
+                    print(f"  Would create {len(items.added)} {type_}s.")
+                    continue
+                resource_api_by_type[type_].apply(items.added)
+                print(f"  Created {len(items.added)} {type_}s.")
+            if items.changed:
+                print(f"Found {len(items.changed)} changed {type_}s.")
+                if dry_run:
+                    print(f"  Would update {len(items.changed)} {type_}s.")
+                    continue
+                resource_api_by_type[type_].apply(items.changed)
+                print(f"  Updated {len(items.changed)} {type_}s.")
+            if items.unchanged:
+                print(f"Found {len(items.unchanged)} unchanged {type_}s.")
+
     if drop:
-        print("Deleting...")
-        try:
-            client.data_modeling.containers.delete([c for c in containers])
-            print(f"  Deleted {len(containers)} containers.")
-        except:
-            print("  Was not able to delete containers. May not exist.")
-        try:
-            client.data_modeling.views.delete([v for v in views])
-            print(f"  Deleted {len(views)} views.")
-        except:
-            print("  Was not able to delete views. May not exist.")
-        try:
-            client.data_modeling.data_models.delete([d for d in datamodels])
-            print(f"  Deleted {len(datamodels)} data models.")
-        except:
-            print("  Was not able to delete data models. May not exist.")
-        try:
-            client.data_modeling.spaces.delete([d for d in space_list])
-            print(f"  Deleted {len(space_list)} spaces.")
-        except:
-            print("  Was not able to delete spaces. May not exist.")
-        if only_drop:
-            return
-    print("Writing...")
-    try:
-        client.data_modeling.spaces.apply(
-            [
-                SpaceApply(space=s, name=s, description=f"Imported space")
-                for s in space_list
-            ]
-        )
-    except Exception as e:
-        print(f"  Failed to write spaces")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    print(f"  Created {len(space_list)} spaces.")
-    try:
-        client.data_modeling.containers.apply([c for c in containers])
-        print(f"  Created {len(containers)} containers.")
-    except Exception as e:
-        print(f"  Failed to write containers.")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    try:
-        client.data_modeling.views.apply([v for v in views])
-        print(f"  Created {len(views)} views.")
-    except Exception as e:
-        print(f"  Failed to write views.")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    try:
-        client.data_modeling.data_models.apply([d for d in datamodels])
-    except Exception as e:
-        print(f"  Failed to write data models.")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    print(f"  Created {len(datamodels)} data models.")
+        for type_ in reversed(creation_order):
+            items = differences[type_]
+            if items.removed:
+                print(f"Found {len(items.removed)} removed {type_}s.")
+                if dry_run:
+                    print(f"  Would delete {len(items.removed)} {type_}s.")
+                    continue
+                try:
+                    resource_api_by_type[type_].delete(items.removed)
+                except CogniteAPIError as e:
+                    # Typically spaces can not be deleted if there are other
+                    # resources in the space.
+                    print(f"  Failed to delete {len(items.removed)} {type_}s.")
+                    print(e)
+                    ToolGlobals.failed = True
+                    continue
+                print(f"  Deleted {len(items.removed)} {type_}s.")
 
 
 def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> None:

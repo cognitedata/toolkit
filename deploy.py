@@ -16,7 +16,7 @@ from scripts.transformations import load_transformations_dump
 log = logging.getLogger(__name__)
 
 # This is a convenience object that has a CDF client (.client) and
-# allows access to environment variables (.environ) using consistent
+# allows access to environment variables (.environ) using a consistent
 # naming scheme that is also aligned with recommendations externally.
 load_dotenv(".env")
 
@@ -52,9 +52,13 @@ def run(build_dir: str) -> None:
         load_transformations_dump(
             ToolGlobals, file=None, drop=True, directory=f"{build_dir}/transformations"
         )
-    if Path(f"{build_dir}/data_models").is_dir():
+    if (models_dir := Path(f"{build_dir}/domain_models")).is_dir():
         load_datamodel_dump(
-            ToolGlobals, drop=True, directory=f"{build_dir}/data_models"
+            ToolGlobals, drop=True, directory=models_dir, dry_run=True
+        )
+    if (models_dir := Path(f"{build_dir}/solution_models")).is_dir():
+        load_datamodel_dump(
+            ToolGlobals, drop=True, directory=models_dir, dry_run=True
         )
     if ToolGlobals.failed:
         print(f"Failure to load as expected.")
