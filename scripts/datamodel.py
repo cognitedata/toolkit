@@ -283,6 +283,8 @@ def load_datamodel_dump(
 
     if not only_drop:
         for type_ in creation_order:
+            if type_ not in differences:
+                continue
             items = differences[type_]
             if items.added:
                 print(f"Found {len(items.added)} new {type_}s.")
@@ -303,6 +305,8 @@ def load_datamodel_dump(
 
     if drop:
         for type_ in reversed(creation_order):
+            if type_ not in differences:
+                continue
             items = differences[type_]
             if items.removed:
                 print(f"Found {len(items.removed)} removed {type_}s.")
