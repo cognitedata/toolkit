@@ -1,7 +1,10 @@
-
 apm_simple_raw_db: tutorial_apm
 apm_simple_datamodel: tutorial_apm_simple
 apm_simple_space: tutorial_apm_simple
 apm_simple_data_set: Valhall_System_23
 apm_simple_data_set_desc: Valhall_System_23
+apm_simple_datamodel_version: "1"
+apm_simple_view_Asset_version: "1"
+apm_simple_view_WorkOrder_version: "1"
+apm_simple_view_WorkItem_version: "1"
 cdf_cluster: ${CDF_CLUSTER}

@@ -4,20 +4,19 @@ import logging
 import json
 from pathlib import Path
 from dotenv import load_dotenv
-from utils.templates import read_yaml_files
-from utils.utils import CDFToolConfig
-from utils.load import (
+from scripts.utils import CDFToolConfig
+from scripts.load import (
     load_raw,
     load_readwrite_group,
     load_timeseries_metadata,
 )
-from utils.datamodel import load_datamodel_dump
-from utils.transformations import load_transformations_dump
+from scripts.datamodel import load_datamodel_dump
+from scripts.transformations import load_transformations_dump
 
 log = logging.getLogger(__name__)
 
 # This is a convenience object that has a CDF client (.client) and
-# allows access to environment variables (.environ) using consistent
+# allows access to environment variables (.environ) using a consistent
 # naming scheme that is also aligned with recommendations externally.
 load_dotenv(".env")
 
@@ -53,9 +52,9 @@ def run(build_dir: str) -> None:
         load_transformations_dump(
             ToolGlobals, file=None, drop=True, directory=f"{build_dir}/transformations"
         )
-    if Path(f"{build_dir}/data_models").is_dir():
+    if (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_datamodel_dump(
-            ToolGlobals, drop=True, directory=f"{build_dir}/data_models"
+            ToolGlobals, drop=True, directory=models_dir, dry_run=True
         )
     if ToolGlobals.failed:
         print(f"Failure to load as expected.")

@@ -1,2 +1,2 @@
-# This should be a used to specify which modules and packages to deploy locally.
+# This should be a used to specify which modules and packages to deploy locally and it the GitHub Action.
 deploy: ["apm_simple"]

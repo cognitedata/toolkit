@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import json
 import os
@@ -34,8 +35,8 @@ class CDFToolConfig:
         example: name of the example folder you want to use
     Functions:
         config: configuration for the example (.get("config_name"))
-        verify_client: verify that the client has correct credentials and specified access capabilties
-        veryify_dataset: verify that the data set exists and that the client has access to it
+        verify_client: verify that the client has correct credentials and specified access capabilities
+        verify_dataset: verify that the data set exists and that the client has access to it
 
     To add a new example, add a new entry here with the same name as the folder.
     These values are used by the python scripts.
@@ -110,10 +111,10 @@ class CDFToolConfig:
             # We can infer scopes and audience from the cluster value.
             # However, the URL to use to retrieve the token, as well as
             # the client id and secret, must be set as environment variables.
-            self._scopes = self.environ(
+            self._scopes = [self.environ(
                 "IDP_SCOPES",
-                [f"https://{self._cluster}.cognitedata.com/.default"],
-            )
+                f"https://{self._cluster}.cognitedata.com/.default",
+            )]
             self._audience = self.environ(
                 "IDP_AUDIENCE", f"https://{self._cluster}.cognitedata.com"
             )
@@ -226,7 +227,7 @@ class CDFToolConfig:
         # Since we now have a new configuration, check the dataset and set the id
         self._data_set_id = self.verify_dataset()
 
-    def verify_client(self, capabilities: dict[list] = {}) -> CogniteClient:
+    def verify_client(self, capabilities: dict[str, list[str]] | None = None) -> CogniteClient:
         """Verify that the client has correct credentials and required access rights
 
         Supply requirement CDF ACLs to verify if you have correct access
@@ -245,6 +246,7 @@ class CDFToolConfig:
             CogniteClient: Verified client with access rights
             Re-raises underlying SDK exception
         """
+        capabilities = capabilities or {}
         try:
             # Using the token/inspect endpoint to check if the client has access to the project.
             # The response also includes access rights, which can be used to check if the client has the
@@ -256,7 +258,7 @@ class CDFToolConfig:
                 )
         except Exception as e:
             raise e
-        # iterate over all the capabilties we need
+        # iterate over all the capabilities we need
         for cap, actions in capabilities.items():
             # Find the right capability in our granted capabilities
             for k in resp.capabilities:

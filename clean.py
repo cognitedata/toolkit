@@ -4,8 +4,8 @@ import logging
 import json
 from pathlib import Path
 from dotenv import load_dotenv
-from utils.utils import CDFToolConfig
-from utils.delete import (
+from scripts.utils import CDFToolConfig
+from scripts.delete import (
     delete_raw,
     delete_timeseries,
     delete_datamodel,

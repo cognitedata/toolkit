@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from .utils import CDFToolConfig
-from utils.transformations_config import parse_transformation_configs
+from scripts.transformations_config import parse_transformation_configs
 from typing import Sequence
 import json
 from cognite.client import CogniteClient
