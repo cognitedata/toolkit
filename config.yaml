@@ -1,6 +1,6 @@
 apm_simple_:
   raw_db: tutorial_apm
-  data_model: tutorial_apm_simple
+  datamodel: tutorial_apm_simple
   space: tutorial_apm_simple
   data_set: Valhall_System_23
   data_set_desc: Valhall_System_23
