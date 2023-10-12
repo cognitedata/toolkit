@@ -45,7 +45,7 @@ properties:
       externalId: Asset
       space: '{{apm_simple_space}}'
       type: view
-      version: 8069f1498c7f9a
+      version: '{{apm_simple_view_Asset_version}}'
     type:
       externalId: WorkItem.linkedAssets
       space: '{{apm_simple_space}}'
