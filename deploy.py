@@ -52,13 +52,9 @@ def run(build_dir: str) -> None:
         load_transformations_dump(
             ToolGlobals, file=None, drop=True, directory=f"{build_dir}/transformations"
         )
-    if (models_dir := Path(f"{build_dir}/domain_models")).is_dir():
+    if (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_datamodel_dump(
-            ToolGlobals, drop=True, directory=models_dir, dry_run=False
-        )
-    if (models_dir := Path(f"{build_dir}/solution_models")).is_dir():
-        load_datamodel_dump(
-            ToolGlobals, drop=True, directory=models_dir, dry_run=False
+            ToolGlobals, drop=True, directory=models_dir, dry_run=True
         )
     if ToolGlobals.failed:
         print(f"Failure to load as expected.")
