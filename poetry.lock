@@ -187,13 +187,13 @@ files = [
 
 [[package]]
 name = "cognite-sdk"
-version = "6.32.1"
+version = "6.32.2"
 description = "Cognite Python SDK"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "cognite_sdk-6.32.1-py3-none-any.whl", hash = "sha256:cfa40be84b77dba08780468630174c142627bf779142cbbc065c8403ee35a6a8"},
-    {file = "cognite_sdk-6.32.1.tar.gz", hash = "sha256:de56de49d3be9a30bcd2836c9487ff34adbc856bb23630c12d111d440a5b2b27"},
+    {file = "cognite_sdk-6.32.2-py3-none-any.whl", hash = "sha256:f888b779a37ddadaabd7e56ef6c3b9f3f1e75ae5cae031f60875bc4968d904dd"},
+    {file = "cognite_sdk-6.32.2.tar.gz", hash = "sha256:c59edcb28736a83587a5f8fdc7f3413c786728a92ddd997c748d166d410ad549"},
 ]
 
 [package.dependencies]
@@ -779,4 +779,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "0bd4efd1bbfd77ddaac57335253ed533cc1140b91e97016d973cb107c8b48116"
+content-hash = "8450eff11cf2b5422048fba35e691764f356afed74c03476fbce2562e3872645"
