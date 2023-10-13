@@ -17,20 +17,20 @@ query: >-
   {"from":"","to":"tag","asType":"STRING"},
   {"from":"","to":"areaId","asType":"INT"},
   {"from":"","to":"isActive","asType":"BOOLEAN"}],
-  "sourceLevel1":"{{apm_simple_raw_db}}","sourceLevel2":"timeseries2assets"} */
+  "sourceLevel1":"{{raw_db}}","sourceLevel2":"timeseries2assets"} */
 
   select
     cast(`asset` as STRING) as externalId,
     array(timeseries) as metrics
   from
-    `{{apm_simple_raw_db}}`.`timeseries2assets`;
+    `{{raw_db}}`.`timeseries2assets`;
 destination:
   dataModel:
-    space: {{apm_simple_space}}
-    externalId: {{apm_simple_datamodel}}
+    space: {{space}}
+    externalId: {{datamodel}}
     version: '1'
     destinationType: Asset
-  instanceSpace: {{apm_simple_space}}
+  instanceSpace: {{space}}
   type: instances
 ignoreNullFields: true
 shared: true

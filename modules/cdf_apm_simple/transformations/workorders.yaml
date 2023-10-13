@@ -23,7 +23,7 @@ query: >-
   {"from":"dueDate","to":"dueDate","asType":"TIMESTAMP"},
   {"from":"createdDate","to":"createdDate","asType":"TIMESTAMP"},
   {"from":"programNumber","to":"programNumber","asType":"STRING"}],
-  "sourceLevel1":"{{apm_simple_raw_db}}","sourceLevel2":"workorders"} */
+  "sourceLevel1":"{{raw_db}}","sourceLevel2":"workorders"} */
   select
   cast(`externalId` as STRING) as externalId,
   cast(`isCompleted` as BOOLEAN) as isCompleted,
@@ -46,14 +46,14 @@ query: >-
   cast(`createdDate` as TIMESTAMP) as createdDate,
   cast(`programNumber` as STRING) as programNumber
   from
-  `{{apm_simple_raw_db}}`.`workorders`;
+  `{{raw_db}}`.`workorders`;
 destination:
   dataModel:
-    space: {{apm_simple_space}}
-    externalId: {{apm_simple_datamodel}}
+    space: {{space}}
+    externalId: {{datamodel}}
     version: "1"
     destinationType: WorkOrder
-  instanceSpace: {{apm_simple_space}}
+  instanceSpace: {{space}}
   type: instances
 ignoreNullFields: true
 shared: true

@@ -179,5 +179,5 @@ properties:
       collation: ucs_basic
       list: false
       type: text
-space: '{{apm_simple_space}}'
+space: '{{space}}'
 usedFor: node

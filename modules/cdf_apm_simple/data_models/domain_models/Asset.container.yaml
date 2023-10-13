@@ -112,5 +112,5 @@ properties:
     type:
       list: false
       type: timestamp
-space: '{{apm_simple_space}}'
+space: '{{space}}'
 usedFor: node
