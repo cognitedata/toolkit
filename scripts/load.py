@@ -29,23 +29,27 @@ from scripts.transformations_api import (
 from cognite.client.exceptions import CogniteNotFoundError
 
 
-def load_raw(ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None) -> None:
+def load_raw(
+    ToolGlobals: CDFToolConfig,
+    file: str,
+    raw_db: str = None,
+    drop: bool = False,
+    directory=None,
+) -> None:
     """Load raw data from csv files into CDF Raw
 
     Args:
         file: name of file to load, if empty load all files
         drop: whether to drop existing data
     """
-    if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/data/raw"
+    if directory is None or raw_db is None:
+        raise ValueError("directory and raw_db must be specified")
     client = ToolGlobals.verify_client(capabilities={"rawAcl": ["READ", "WRITE"]})
     # The name of the raw database to create is picked up from the inventory.py file, which
     # again is templated with cookiecutter based on the user's input.
-    raw_db = ToolGlobals.config("raw_db")
+
     if raw_db == "":
-        print(
-            f"Could not find raw_db in inventory.py for example {ToolGlobals.example}."
-        )
+        print(f"Could not find raw_db in inventory.py.")
         ToolGlobals.failed = True
         return
     try:
@@ -55,11 +59,9 @@ def load_raw(ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None) 
                 for table in tables:
                     client.raw.tables.delete(raw_db, table.name)
             client.raw.databases.delete(raw_db)
-            print(f"Deleted {raw_db} for example {ToolGlobals.example}.")
+            print(f"Deleted {raw_db}.")
     except:
-        print(
-            f"Failed to delete {raw_db} for example {ToolGlobals.example}. It may not exist."
-        )
+        print(f"Failed to delete {raw_db}. It may not exist.")
     try:
         # Creating the raw database and tables is actually not necessary as
         # the SDK will create them automatically when inserting data with insert_dataframe()
@@ -67,9 +69,7 @@ def load_raw(ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None) 
         # However, it is included to show how you can use the SDK.
         client.raw.databases.create(raw_db)
     except Exception as e:
-        print(
-            f"Failed to create {raw_db} for example {ToolGlobals.example}: {e.message}"
-        )
+        print(f"Failed to create {raw_db}: {e.message}")
         ToolGlobals.failed = True
         return
     files = []
@@ -77,7 +77,7 @@ def load_raw(ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None) 
         # Only load the supplied filename.
         files.append(file)
     else:
-        # Pick up all the .csv files in the data folder of the example.
+        # Pick up all the .csv files in the data folder.
         for _, _, filenames in os.walk(directory):
             for f in filenames:
                 if ".csv" in f:
@@ -97,7 +97,7 @@ def load_raw(ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None) 
                     ensure_parent=True,
                 )
             except Exception as e:
-                print(f"Failed to upload {f} for example {ToolGlobals.example}")
+                print(f"Failed to upload {f}")
                 print(e)
                 ToolGlobals.failed = True
                 return
@@ -105,17 +105,21 @@ def load_raw(ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None) 
 
 
 def load_files(
-    ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None
+    ToolGlobals: CDFToolConfig,
+    id_prefix: str = "example",
+    file: str = None,
+    drop: bool = False,
+    directory=None,
 ) -> None:
     if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/data/files"
+        raise ValueError("directory must be specified")
     try:
         client = ToolGlobals.verify_client(capabilities={"filesAcl": ["READ", "WRITE"]})
         files = []
         if file is not None and len(file) > 0:
             files.append(file)
         else:
-            # Pick up all the files in the files folder of the example.
+            # Pick up all the files in the files folder.
             for _, _, filenames in os.walk(directory):
                 for f in filenames:
                     files.append(f)
@@ -127,14 +131,12 @@ def load_files(
                 path=f"{directory}/{f}",
                 data_set_id=ToolGlobals.data_set_id,
                 name=f,
-                external_id=ToolGlobals.example + "_" + f,
+                external_id=id_prefix + "_" + f,
                 overwrite=drop,
             )
-        print(
-            f"Uploaded successfully {len(files)} files/documents from example {ToolGlobals.example}"
-        )
+        print(f"Uploaded successfully {len(files)} files/documents.")
     except Exception as e:
-        print(f"Failed to upload files for example {ToolGlobals.example}")
+        print(f"Failed to upload files")
         print(e)
         ToolGlobals.failed = True
         return
@@ -153,7 +155,7 @@ def load_timeseries_metadata(
     ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None
 ) -> None:
     if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/data/timeseries"
+        raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(
         capabilities={"timeseriesAcl": ["READ", "WRITE"]}
     )
@@ -162,7 +164,7 @@ def load_timeseries_metadata(
         # Only load the supplied filename.
         files.append(file)
     else:
-        # Pick up all the .json files in the data folder of the example.
+        # Pick up all the .json files in the data folder.
         for _, _, filenames in os.walk(directory):
             for f in filenames:
                 if ".json" in f:
@@ -188,17 +190,13 @@ def load_timeseries_metadata(
     try:
         if drop:
             client.time_series.delete(external_id=drop_ts, ignore_unknown_ids=True)
-            print(
-                f"Deleted {len(drop_ts)} timeseries for example {ToolGlobals.example}."
-            )
+            print(f"Deleted {len(drop_ts)} timeseries.")
     except Exception as e:
-        print(
-            f"Failed to delete {t.external_id} for example {ToolGlobals.example}. It may not exist."
-        )
+        print(f"Failed to delete {t.external_id}. It may not exist.")
     try:
         client.time_series.create(timeseries)
     except Exception as e:
-        print(f"Failed to upload timeseries for example {ToolGlobals.example}.")
+        print(f"Failed to upload timeseries.")
         print(e)
         ToolGlobals.failed = True
         return
@@ -209,7 +207,7 @@ def load_timeseries_datapoints(
     ToolGlobals: CDFToolConfig, file: str, directory=None
 ) -> None:
     if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/data/timeseries/datapoints"
+        raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(
         capabilities={"timeseriesAcl": ["READ", "WRITE"]}
     )
@@ -218,7 +216,7 @@ def load_timeseries_datapoints(
         # Only load the supplied filename.
         files.append(file)
     else:
-        # Pick up all the .csv files in the data folder of the example.
+        # Pick up all the .csv files in the data folder.
         for _, _, filenames in os.walk(directory):
             for f in filenames:
                 if ".csv" in f:
@@ -234,7 +232,7 @@ def load_timeseries_datapoints(
             client.time_series.data.insert_dataframe(dataframe)
         print(f"Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
     except Exception as e:
-        print(f"Failed to upload datapoints for example {ToolGlobals.example}.")
+        print(f"Failed to upload datapoints.")
         print(e)
         ToolGlobals.failed = True
         return
@@ -244,7 +242,7 @@ def load_transformations(
     ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None
 ) -> None:
     if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/transformations"
+        raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(
         capabilities={"transformationsAcl": ["READ", "WRITE"]}
     )
@@ -282,16 +280,12 @@ def load_transformations(
             new_transformation_ext_ids,
         )
     except Exception as e:
-        print(f"Failed to upsert transformations for example {ToolGlobals.example}.")
+        print(f"Failed to upsert transformations.")
         print(e)
         ToolGlobals.failed = True
         return
-    print(
-        f"Updated {len(updated_transformations)} transformations for example {ToolGlobals.example}."
-    )
-    print(
-        f"Created {len(created_transformations)} transformations for example {ToolGlobals.example}."
-    )
+    print(f"Updated {len(updated_transformations)} transformations.")
+    print(f"Created {len(created_transformations)} transformations.")
 
 
 def load_readwrite_group(
