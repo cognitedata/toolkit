@@ -1,0 +1,216 @@
+{
+    "externalId": "Asset",
+    "space": "tutorial_apm_simple",
+    "version": "8069f1498c7f9a",
+    "createdTime": 1688131650371,
+    "lastUpdatedTime": 1688131650371,
+    "writable": true,
+    "usedFor": "node",
+    "isGlobal": false,
+    "properties": {
+        "parent": {
+            "type": {
+                "type": "direct",
+                "source": {
+                    "type": "view",
+                    "space": "tutorial_apm_simple",
+                    "externalId": "Asset",
+                    "version": "8069f1498c7f9a"
+                }
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "parent",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "parent"
+        },
+        "tag": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "tag",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "tag"
+        },
+        "description": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "description",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "description"
+        },
+        "sourceDb": {
+            "type": {
+                "type": "text",
+                "list": false,
+                "collation": "ucs_basic"
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "sourceDb",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "sourceDb"
+        },
+        "areaId": {
+            "type": {
+                "type": "int32",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "areaId",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "areaId"
+        },
+        "categoryId": {
+            "type": {
+                "type": "int32",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "categoryId",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "categoryId"
+        },
+        "createdDate": {
+            "type": {
+                "type": "timestamp",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "createdDate",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "createdDate"
+        },
+        "isCriticalLine": {
+            "type": {
+                "type": "boolean",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "isCriticalLine",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "isCriticalLine"
+        },
+        "isActive": {
+            "type": {
+                "type": "boolean",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "isActive",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "isActive"
+        },
+        "updatedDate": {
+            "type": {
+                "type": "timestamp",
+                "list": false
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "updatedDate",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "updatedDate"
+        },
+        "metrics": {
+            "type": {
+                "type": "timeseries",
+                "list": true
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "metrics",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "metrics"
+        },
+        "documents": {
+            "type": {
+                "type": "file",
+                "list": true
+            },
+            "container": {
+                "type": "container",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset"
+            },
+            "containerPropertyIdentifier": "documents",
+            "nullable": true,
+            "autoIncrement": false,
+            "name": "documents"
+        },
+        "children": {
+            "type": {
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset.children"
+            },
+            "source": {
+                "type": "view",
+                "space": "tutorial_apm_simple",
+                "externalId": "Asset",
+                "version": "8069f1498c7f9a"
+            },
+            "name": "children",
+            "direction": "outwards"
+        }
+    },
+    "name": "Asset",
+    "implements": []
+}

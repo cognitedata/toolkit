@@ -15,6 +15,8 @@ pyyaml = "^6.0.1"
 dacite = "^1.8.1"
 regex = "^2023.6.3"
 chardet = "^5.1.0"
+pydantic = "^2.4.2"
+pytest = "^7.4.2"
 
 [build-system]
 requires = ["poetry-core"]

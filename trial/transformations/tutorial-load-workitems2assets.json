@@ -1,0 +1,21 @@
+{
+  "external_id": "tutorial-load-workitems2assets",
+  "name": "tutorial-load-workitems2assets",
+  "destination": {
+    "type": "instances",
+    "data_model": {
+      "space": "tutorial_apm_simple",
+      "external_id": "tutorial_apm_simple",
+      "version": "1",
+      "destination_type": "WorkItem",
+      "destination_relationship_from_type": "linkedAssets"
+    },
+    "instance_space": "tutorial_apm_simple"
+  },
+  "conflict_mode": "upsert",
+  "is_public": true,
+  "ignore_null_fields": true,
+  "has_source_oidc_credentials": false,
+  "has_destination_oidc_credentials": false,
+  "owner_is_current_user": true
+}
