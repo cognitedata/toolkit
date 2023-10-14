@@ -25,55 +25,28 @@ from cognite.client.credentials import OAuthClientCredentials, Token
 logger = logging.getLogger(__name__)
 
 
-# To add a new example, add a new entry here with the same name as the folder
-# These values are used by the python scripts.
 class CDFToolConfig:
     """Configurations for how to store data in CDF
 
     Properties:
         client: active CogniteClient
-        example: name of the example folder you want to use
     Functions:
-        config: configuration for the example (.get("config_name"))
         verify_client: verify that the client has correct credentials and specified access capabilities
         verify_dataset: verify that the data set exists and that the client has access to it
 
-    To add a new example, add a new entry here with the same name as the folder.
-    These values are used by the python scripts.
     """
 
     def __init__(
         self,
-        client_name: str = "Generic Cognite examples library",
-        config: dict | None = None,
+        client_name: str = "Generic Cognite config deploy tool",
         token: str = None,
     ) -> None:
         self._data_set_id: int = 0
-        self._example = None
+        self._data_set = None
         self._failed = False
         self._environ = {}
         if token is not None:
             self._environ["CDF_TOKEN"] = token
-        if config is not None:
-            self._config = config
-        else:
-            try:
-                with open(f"./inventory.json", "rt") as file:
-                    self._config = json.load(file)
-            except Exception as e:
-                logger.info(
-                    "Not loading configuration from inventory.json file, using 'default' as values for all attributes."
-                )
-                self._config = {
-                    "default": {
-                        "raw_db": "default",
-                        "data_set": "default",
-                        "data_set_desc": "-",
-                        "model_space": "default",
-                        "data_model": "default",
-                    }
-                }
-                self._example = "default"
         if (
             self.environ("CDF_URL", default=None, fail=False) is None
             and self.environ("CDF_CLUSTER", default=None, fail=False) is None
@@ -111,10 +84,12 @@ class CDFToolConfig:
             # We can infer scopes and audience from the cluster value.
             # However, the URL to use to retrieve the token, as well as
             # the client id and secret, must be set as environment variables.
-            self._scopes = [self.environ(
-                "IDP_SCOPES",
-                f"https://{self._cluster}.cognitedata.com/.default",
-            )]
+            self._scopes = [
+                self.environ(
+                    "IDP_SCOPES",
+                    f"https://{self._cluster}.cognitedata.com/.default",
+                )
+            ]
             self._audience = self.environ(
                 "IDP_AUDIENCE", f"https://{self._cluster}.cognitedata.com"
             )
@@ -156,31 +131,12 @@ class CDFToolConfig:
 
     @property
     def data_set_id(self) -> int:
-        return self._data_set_id
+        return self._data_set_id if self._data_set_id > 0 else None
 
     # Use this to ignore the data set when verifying the client's access capabilities
-    # Set the example property to configure the data set and verify it
     def clear_dataset(self):
         self._data_set_id = 0
-
-    def config(self, attr: str) -> str:
-        """Helper function to get configuration for an example (from inventory.json).
-
-        This function uses the example property in this class as a key to get the configuration,
-        so example must be set before calling the function.
-
-        Args:
-            attr: name of configuration variable
-
-        Yields:
-            Value of the configuration variable for example
-            Raises ValueError if configuration variable is not set
-        """
-        if attr not in self._config.get(self._example, {}):
-            raise ValueError(
-                f"{attr} property must be set in CDFToolConfig()/inventory.json."
-            )
-        return self._config.get(self._example, {}).get(attr, "")
+        self._data_set = None
 
     def environ(
         self, attr: str, default: str | List[str] = None, fail: bool = True
@@ -214,20 +170,20 @@ class CDFToolConfig:
         return self._environ[attr]
 
     @property
-    def example(self) -> str:
-        return self._example
+    def data_set(self) -> str:
+        return self._data_set
 
-    @example.setter
-    def example(self, value: str):
-        if value is None or value not in self._config:
-            raise ValueError(
-                "example must be set to one of the values in the inventory.json file used by CDFToolConfig()."
-            )
-        self._example = value
+    @data_set.setter
+    def data_set(self, value: str):
+        if value is None:
+            raise ValueError("Please provide an externalId of a dataset.")
+        self._data_set = value
         # Since we now have a new configuration, check the dataset and set the id
-        self._data_set_id = self.verify_dataset()
+        self._data_set_id = self.verify_dataset(data_set_name=value)
 
-    def verify_client(self, capabilities: dict[str, list[str]] | None = None) -> CogniteClient:
+    def verify_client(
+        self, capabilities: dict[str, list[str]] | None = None
+    ) -> CogniteClient:
         """Verify that the client has correct credentials and required access rights
 
         Supply requirement CDF ACLs to verify if you have correct access
@@ -285,12 +241,13 @@ class CDFToolConfig:
                 continue
         return self._client
 
-    def verify_dataset(self, data_set_name: str = None) -> int | None:
+    def verify_dataset(
+        self, data_set_name: str = None, create: bool = True
+    ) -> int | None:
         """Verify that the configured data set exists and is accessible
 
-        This function can be used independent of example config by supplying the data set name.
-        It will then ignore the example config and use the supplied name.
-        Calling this function directly will not influence verify_client().
+        If the data set does not exist, it will be created unless create=False.
+        If create=False and the data set does not exist, verify_dataset will return 0.
 
         Args:
             data_set_name (str, optional): name of the data set to verify
@@ -299,31 +256,22 @@ class CDFToolConfig:
             Re-raises underlying SDK exception
         """
 
-        def get_dataset_name() -> str:
-            """Helper function to get the dataset name from the inventory.json file"""
-            return (
-                data_set_name
-                if data_set_name is not None and len(data_set_name) > 0
-                else self.config("data_set")
-            )
-
         client = self.verify_client(capabilities={"datasetsAcl": ["READ", "WRITE"]})
         try:
-            data_set = client.data_sets.retrieve(external_id=get_dataset_name())
+            data_set = client.data_sets.retrieve(external_id=data_set_name)
             if data_set is not None:
                 return data_set.id
         except Exception as e:
             raise CogniteAuthError(
                 f"Don't have correct access rights. Need READ and WRITE on datasetsAcl."
             )
+        if not create:
+            return 0
         try:
             # name can be empty, but is useful for UI purposes
             data_set = DataSet(
-                external_id=get_dataset_name(),
-                name=get_dataset_name(),
-                description=self.config("data_set_desc")
-                if self.config("data_set_desc") != ""
-                else "Test data set for tutorials",
+                external_id=data_set_name,
+                name=data_set_name,
             )
             data_set = client.data_sets.create(data_set)
             return data_set.id

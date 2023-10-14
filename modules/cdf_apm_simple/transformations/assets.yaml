@@ -14,7 +14,7 @@ query: >-
   {"from":"tag","to":"tag","asType":"STRING"},
   {"from":"areaId","to":"areaId","asType":"INT"},
   {"from":"isActive","to":"isActive","asType":"BOOLEAN"}],
-  "sourceLevel1":"{{apm_simple_raw_db}}","sourceLevel2":"assets"} */
+  "sourceLevel1":"{{raw_db}}","sourceLevel2":"assets"} */
   select
     cast(`externalId` as STRING) as externalId,
     cast(`categoryId` as INT) as categoryId,
@@ -22,20 +22,20 @@ query: >-
     cast(`sourceDb` as STRING) as sourceDb,
     cast(`updatedDate` as TIMESTAMP) as updatedDate,
     cast(`createdDate` as TIMESTAMP) as createdDate,
-    node_reference('{{apm_simple_space}}', `parentExternalId`) as parent,
+    node_reference('{{space}}', `parentExternalId`) as parent,
     cast(`description` as STRING) as description,
     cast(`tag` as STRING) as tag,
     cast(`areaId` as INT) as areaId,
     cast(`isActive` as BOOLEAN) as isActive
   from
-    `{{apm_simple_raw_db}}`.`assets`;
+    `{{raw_db}}`.`assets`;
 destination:
   dataModel:
-    space: {{apm_simple_space}}
-    externalId: {{apm_simple_datamodel}}
+    space: {{space}}
+    externalId: {{datamodel}}
     version: "1"
     destinationType: Asset
-  instanceSpace: {{apm_simple_space}}
+  instanceSpace: {{space}}
   type: instances
 ignoreNullFields: true
 shared: true

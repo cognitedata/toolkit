@@ -32,7 +32,7 @@ import os
 
 def run_transformations(ToolGlobals: CDFToolConfig, directory: str = None):
     if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/transformations"
+        raise ValueError("directory must be specified")
     ToolGlobals.failed = False
     client = ToolGlobals.verify_client(
         capabilities={"transformationsAcl": ["READ", "WRITE"]}
@@ -42,13 +42,9 @@ def run_transformations(ToolGlobals: CDFToolConfig, directory: str = None):
     try:
         for t in transformations_ext_ids:
             client.transformations.run(transformation_external_id=t, wait=False)
-        print(
-            f"Started {len(transformations_ext_ids)} transformation jobs for example {ToolGlobals.example}."
-        )
+        print(f"Started {len(transformations_ext_ids)} transformation jobs.")
     except Exception as e:
-        print(
-            f"Failed to start transformation jobs for example {ToolGlobals.example}. They may not exist."
-        )
+        print(f"Failed to start transformation jobs. They may not exist.")
         print(e)
         ToolGlobals.failed = True
 
@@ -120,7 +116,7 @@ def load_transformations_dump(
     necessary config. Schedules, authentication, etc is not supported.
     """
     if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/transformations/dump"
+        raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(
         capabilities={"transformationsAcl": ["READ", "WRITE"]}
     )
@@ -129,7 +125,7 @@ def load_transformations_dump(
         # Only load the supplied filename.
         files.append(file)
     else:
-        # Pick up all the .json files in the data folder of the example.
+        # Pick up all the .json files in the data folder.
         for _, _, filenames in os.walk(directory):
             for f in filenames:
                 if ".json" in f:

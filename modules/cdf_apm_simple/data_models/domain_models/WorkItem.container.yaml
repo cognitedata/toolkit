@@ -88,5 +88,5 @@ properties:
     type:
       container: null
       type: direct
-space: '{{apm_simple_space}}'
+space: '{{space}}'
 usedFor: node
