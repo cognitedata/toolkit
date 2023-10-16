@@ -1,17 +1,17 @@
-externalId: '{{apm_simple_datamodel}}'
-name: '{{apm_simple_datamodel}}'
-space: '{{apm_simple_space}}'
-version: '{{apm_simple_datamodel_version}}'
+externalId: '{{datamodel}}'
+name: '{{datamodel}}'
+space: '{{space}}'
+version: '{{datamodel_version}}'
 views:
 - externalId: Asset
-  space: '{{apm_simple_space}}'
+  space: '{{space}}'
   type: view
-  version: 8069f1498c7f9a
+  version: "{{view_Asset_version}}"
 - externalId: WorkOrder
-  space: '{{apm_simple_space}}'
+  space: '{{space}}'
   type: view
-  version: 659c59a4a8afe9
+  version: "{{view_WorkOrder_version}}"
 - externalId: WorkItem
-  space: '{{apm_simple_space}}'
+  space: '{{space}}'
   type: view
-  version: 94d2b7121128a2
+  version: "{{view_WorkItem_version}}"

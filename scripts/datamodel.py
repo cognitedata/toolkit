@@ -11,7 +11,18 @@ from dataclasses import dataclass
 
 import yaml
 from cognite.client.data_classes._base import CogniteResource
-from cognite.client.data_classes.data_modeling import View, ViewApply, SpaceApply, ContainerApply, DataModel, DataModelList, DataModelApply, ViewId, DirectRelationReference, DirectRelation
+from cognite.client.data_classes.data_modeling import (
+    View,
+    ViewApply,
+    SpaceApply,
+    ContainerApply,
+    DataModel,
+    DataModelList,
+    DataModelApply,
+    ViewId,
+    DirectRelationReference,
+    DirectRelation,
+)
 from cognite.client.exceptions import CogniteAPIError
 
 from .delete import delete_datamodel
@@ -27,9 +38,16 @@ class Difference:
     unchanged: list[CogniteResource]
 
 
-def load_datamodel(ToolGlobals: CDFToolConfig, drop: bool, directory=None) -> None:
-    if directory is None:
-        directory = f"./examples/{ToolGlobals.example}"
+def load_datamodel(
+    ToolGlobals: CDFToolConfig,
+    space_name: str = None,
+    model_name: str = None,
+    drop: bool = False,
+    directory=None,
+) -> None:
+    """Load a graphql datamode from file."""
+    if space_name is None or model_name is None or directory is None:
+        raise ValueError("space_name, model_name, and directory must be supplied.")
     with open(f"{directory}/datamodel.graphql", "rt") as file:
         # Read directly into a string.
         datamodel = file.read()
@@ -43,18 +61,16 @@ def load_datamodel(ToolGlobals: CDFToolConfig, drop: bool, directory=None) -> No
             "dataModelInstancesAcl": ["READ", "WRITE"],
         }
     )
-    space_name = ToolGlobals.config("model_space")
-    model_name = ToolGlobals.config("data_model")
     try:
         client.data_modeling.spaces.apply(
             SpaceApply(
                 space=space_name,
                 name=space_name,
-                description=f"Space for {ToolGlobals.example} example",
+                description=f"Space for {model_name}",
             )
         )
     except Exception as e:
-        print(f"Failed to write space {space_name} for example {ToolGlobals.example}.")
+        print(f"Failed to write space {space_name}.")
         print(e)
         ToolGlobals.failed = True
         return
@@ -64,12 +80,10 @@ def load_datamodel(ToolGlobals: CDFToolConfig, drop: bool, directory=None) -> No
             (space_name, model_name, "1"),
             dml=datamodel,
             name=model_name,
-            description=f"Data model for {ToolGlobals.example} example",
+            description=f"Data model for {model_name}",
         )
     except Exception as e:
-        print(
-            f"Failed to write data model {model_name} to space {space_name} for example {ToolGlobals.example}."
-        )
+        print(f"Failed to write data model {model_name} to space {space_name}.")
         print(e)
         ToolGlobals.failed = True
         return
@@ -207,12 +221,12 @@ def clean_out_datamodels(
 def load_datamodel_dump(
     ToolGlobals: CDFToolConfig,
     drop: bool,
-    directory: Path | None =None,
-    dry_run: bool =False,
-    only_drop: bool=False,
+    directory: Path | None = None,
+    dry_run: bool = False,
+    only_drop: bool = False,
 ) -> None:
     if directory is None:
-        directory = Path(f"./examples/{ToolGlobals.example}/data_model")
+        raise ValueError("directory must be supplied.")
     model_files_by_type: dict[str, list[Path]] = defaultdict(list)
     models_pattern = re.compile(r"^(\w+\.)?(container|view|datamodel)\.yaml$")
     for file in directory.glob("**/*.yaml"):
@@ -222,7 +236,9 @@ def load_datamodel_dump(
     for type_, files in model_files_by_type.items():
         print(f"Found {len(files)} {type_}s in {directory}.")
 
-    cognite_resources_by_type: dict[str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]] = defaultdict(list)
+    cognite_resources_by_type: dict[
+        str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]
+    ] = defaultdict(list)
     for type_, files in model_files_by_type.items():
         resource_cls = {
             "container": ContainerApply,
@@ -237,10 +253,18 @@ def load_datamodel_dump(
     for type_, resources in cognite_resources_by_type.items():
         print(f"  {type_}: {len(resources)}")
 
-    space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
+    space_list = list(
+        {
+            r.space
+            for _, resources in cognite_resources_by_type.items()
+            for r in resources
+        }
+    )
 
     print(f"Found {len(space_list)} spaces")
-    cognite_resources_by_type["space"] = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
+    cognite_resources_by_type["space"] = [
+        SpaceApply(space=s, name=s, description="Imported space") for s in space_list
+    ]
 
     # Clear any delete errors
     ToolGlobals.failed = False
@@ -251,7 +275,9 @@ def load_datamodel_dump(
         }
     )
 
-    existing_resources_by_type: dict[str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]] = defaultdict(list)
+    existing_resources_by_type: dict[
+        str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]
+    ] = defaultdict(list)
     resource_api_by_type = {
         "container": client.data_modeling.containers,
         "view": client.data_modeling.views,
@@ -259,7 +285,9 @@ def load_datamodel_dump(
         "space": client.data_modeling.spaces,
     }
     for type_, resources in cognite_resources_by_type.items():
-        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve([r.as_id() for r in resources])
+        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve(
+            [r.as_id() for r in resources]
+        )
 
     differences: dict[str, Difference] = {}
     for type_, resources in cognite_resources_by_type.items():
@@ -267,11 +295,13 @@ def load_datamodel_dump(
         existing_by_id = {r.as_id(): r for r in existing_resources_by_type[type_]}
 
         added = [r for r in resources if r.as_id() not in existing_by_id]
-        removed = [r for r in existing_resources_by_type[type_] if r.as_id() not in new_by_id]
+        removed = [
+            r for r in existing_resources_by_type[type_] if r.as_id() not in new_by_id
+        ]
 
         changed = []
         unchanged = []
-        for existing_id in (set(new_by_id.keys()) & set(existing_by_id.keys())):
+        for existing_id in set(new_by_id.keys()) & set(existing_by_id.keys()):
             if new_by_id[existing_id] == existing_by_id[existing_id]:
                 unchanged.append(new_by_id[existing_id])
             else:

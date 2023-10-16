@@ -1,8 +1,10 @@
 from __future__ import annotations
 import os
+import shutil
 import yaml
 from typing import Any
 from pathlib import Path
+import glob
 
 # Directory paths for YAML and JSON files
 YAML_DIRS = ["./"]
@@ -42,7 +44,10 @@ def read_yaml_files(yaml_dirs):
 
 
 def process_config_files(dirs, yaml_data, build_dir="./build"):
-    Path(build_dir).mkdir(exist_ok=True)
+    
+    if Path(build_dir).exists:
+        shutil.rmtree(build_dir)
+    Path(build_dir).mkdir()
 
     local_yaml_path = ""
     yaml_local = {}

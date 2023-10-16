@@ -3,7 +3,7 @@ from pydantic import ValidationError
 import pytest
 import os
 
-from modules.cdf_apm_simple.raw.worker import RawDatabaseContent, Worker
+from scripts.worker import RawDatabaseContent, Worker
 from cognite.client.testing import CogniteClientMock
 
 

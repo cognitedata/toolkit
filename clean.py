@@ -37,7 +37,7 @@ def run(build_dir: str) -> None:
     print(
         "  The current utils/ delete tooling needs to be adapted to pick up configurations in"
     )
-    print("  ./build/ directory and not (as today) use hard-coded examples directory.")
+    print("  ./build/ directory.")
     if ToolGlobals.failed:
         print(f"Failure to load as expected.")
         exit(1)

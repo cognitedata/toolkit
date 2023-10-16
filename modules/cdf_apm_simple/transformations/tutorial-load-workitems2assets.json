@@ -4,13 +4,13 @@
   "destination": {
     "type": "instances",
     "data_model": {
-      "space": "{{apm_simple_space}}",
-      "external_id": "{{apm_simple_datamodel}}",
+      "space": "{{space}}",
+      "external_id": "{{datamodel}}",
       "version": "1",
       "destination_type": "WorkItem",
       "destination_relationship_from_type": "linkedAssets"
     },
-    "instance_space": "{{apm_simple_space}}"
+    "instance_space": "{{space}}"
   },
   "conflict_mode": "upsert",
   "is_public": true,

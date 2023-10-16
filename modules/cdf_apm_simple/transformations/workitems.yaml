@@ -13,11 +13,11 @@ query: >-
   {"from":"criticality","to":"criticality","asType":"STRING"},
   {"from":"method","to":"method","asType":"STRING"},
   {"from":"isCompleted","to":"isCompleted","asType":"BOOLEAN"}],
-  "sourceLevel1":"{{apm_simple_raw_db}}","sourceLevel2":"workitems"} */
+  "sourceLevel1":"{{raw_db}}","sourceLevel2":"workitems"} */
   select
     cast(`externalId` as STRING) as externalId,
     cast(`description` as STRING) as description,
-    node_reference('{{apm_simple_space}}', `workOrder`) as workOrder,
+    node_reference('{{space}}', `workOrder`) as workOrder,
     cast(`toBeDone` as BOOLEAN) as toBeDone,
     cast(`itemInfo` as STRING) as itemInfo,
     cast(`itemName` as STRING) as itemName,
@@ -26,14 +26,14 @@ query: >-
     cast(`method` as STRING) as method,
     cast(`isCompleted` as BOOLEAN) as isCompleted
   from
-    `{{apm_simple_raw_db}}`.`workitems`;
+    `{{raw_db}}`.`workitems`;
 destination:
   dataModel:
-    space: {{apm_simple_space}}
-    externalId: {{apm_simple_datamodel}}
+    space: {{space}}
+    externalId: {{datamodel}}
     version: "1"
     destinationType: WorkItem
-  instanceSpace: {{apm_simple_space}}
+  instanceSpace: {{space}}
   type: instances
 ignoreNullFields: true
 shared: true

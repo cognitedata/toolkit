@@ -20,18 +20,13 @@ from scripts.transformations_config import parse_transformation_configs
 from .utils import CDFToolConfig
 
 
-def delete_raw(ToolGlobals: CDFToolConfig, dry_run=False) -> None:
-    """Delete raw data from CDF raw based om csv files in the example"""
+def delete_raw(ToolGlobals: CDFToolConfig, raw_db: str = None, dry_run=False) -> None:
+    """Delete raw data from CDF raw based om csv files"""
     client = ToolGlobals.verify_client(capabilities={"rawAcl": ["READ", "WRITE"]})
     # The name of the raw database to create is picked up from the inventory.py file, which
     # again is templated with cookiecutter based on the user's input.
-    raw_db = ToolGlobals.config("raw_db")
-    if raw_db == "":
-        print(
-            f"Could not find RAW db {raw_db} in inventory.py for example {ToolGlobals.example}."
-        )
-        ToolGlobals.failed = True
-        return
+    if raw_db is None or len(raw_db) == 0:
+        raise ValueError("raw_db must be specified")
     try:
         tables = client.raw.tables.list(raw_db)
         if len(tables) > 0:
@@ -40,22 +35,20 @@ def delete_raw(ToolGlobals: CDFToolConfig, dry_run=False) -> None:
                     client.raw.tables.delete(raw_db, table.name)
         if not dry_run:
             client.raw.databases.delete(raw_db)
-        print(f"Deleted RAW db {raw_db} for example {ToolGlobals.example}.")
+        print(f"Deleted RAW db {raw_db}.")
     except:
-        print(
-            f"Failed to delete RAW db {raw_db} for example {ToolGlobals.example}. It may not exist."
-        )
+        print(f"Failed to delete RAW db {raw_db}. It may not exist.")
 
 
 def delete_files(ToolGlobals: CDFToolConfig, dry_run=False, directory=None) -> None:
     if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/data/files"
+        raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(capabilities={"filesAcl": ["READ", "WRITE"]})
     files = []
-    # Pick up all the files in the files folder of the example.
+    # Pick up all the files in the files folder.
     for _, _, filenames in os.walk(directory):
         for f in filenames:
-            files.append(ToolGlobals.example + "_" + f)
+            files.append(f)
     if len(files) == 0:
         return
     count = 0
@@ -67,25 +60,23 @@ def delete_files(ToolGlobals: CDFToolConfig, dry_run=False, directory=None) -> N
         except Exception as e:
             pass
     if count > 0:
-        print(f"Deleted {count} files for example {ToolGlobals.example}")
+        print(f"Deleted {count} files")
         return
-    print(
-        f"Failed to delete files for example {ToolGlobals.example}. They may not exist."
-    )
+    print(f"Failed to delete files. They may not exist.")
 
 
 def delete_timeseries(
     ToolGlobals: CDFToolConfig, dry_run=False, directory=None
 ) -> None:
-    """Delete timeseries from CDF based on json files in the example"""
+    """Delete timeseries from CDF based on json files"""
 
     if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/data/timeseries"
+        raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(
         capabilities={"timeseriesAcl": ["READ", "WRITE"]}
     )
     files = []
-    # Pick up all the .json files in the data folder of the example.
+    # Pick up all the .json files in the data folder.
     for _, _, filenames in os.walk(directory):
         for f in filenames:
             if ".json" in f:
@@ -114,18 +105,16 @@ def delete_timeseries(
         except Exception as e:
             pass
     if count > 0:
-        print(f"Deleted {count} timeseries for example {ToolGlobals.example}.")
+        print(f"Deleted {count} timeseries.")
     else:
-        print(
-            f"Failed to delete timeseries for example {ToolGlobals.example}. They may not exist."
-        )
+        print(f"Failed to delete timeseries. They may not exist.")
 
 
 def delete_transformations(
     ToolGlobals: CDFToolConfig, dry_run=False, directory=None
 ) -> None:
     if directory is None:
-        directory = f"./examples/{ToolGlobals.example}/transformations"
+        raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(
         capabilities={"transformationsAcl": ["READ", "WRITE"]}
     )
@@ -134,20 +123,20 @@ def delete_transformations(
     try:
         if not dry_run:
             client.transformations.delete(external_id=transformations_ext_ids)
-        print(
-            f"Deleted {len(transformations_ext_ids)} transformations for example {ToolGlobals.example}."
-        )
+        print(f"Deleted {len(transformations_ext_ids)} transformations.")
     except Exception as e:
-        print(
-            f"Failed to delete transformations for example {ToolGlobals.example}. They may not exist."
-        )
+        print(f"Failed to delete transformations. They may not exist.")
         return
 
 
 def delete_datamodel(
-    ToolGlobals: CDFToolConfig, instances_only=True, dry_run=False
+    ToolGlobals: CDFToolConfig,
+    space_name: str = None,
+    model_name: str = None,
+    instances_only=True,
+    dry_run=False,
 ) -> None:
-    """Delete data model from CDF based on the data model in the example
+    """Delete data model from CDF based on the data model
 
     Note that deleting the data model does not delete the views it consists of or
     the instances stored across one or more containers. Hence, the clean up data, you
@@ -155,29 +144,24 @@ def delete_datamodel(
     delete these, and then delete the containers and views, before finally deleting the
     data model itself.
     """
-
+    if space_name is None or model_name is None:
+        raise ValueError("space_name and model_name must be specified")
     client = ToolGlobals.verify_client(
         capabilities={
             "dataModelsAcl": ["READ", "WRITE"],
             "dataModelInstancesAcl": ["READ", "WRITE"],
         }
     )
-    space_name = ToolGlobals.config("model_space")
-    model_name = ToolGlobals.config("data_model")
     try:
         data_model = client.data_modeling.data_models.retrieve(
             (space_name, model_name, "1")
         )
     except Exception as e:
-        print(
-            f"Failed to retrieve data model {model_name} for example {ToolGlobals.example}"
-        )
+        print(f"Failed to retrieve data model {model_name}")
         print(e)
         return
     if len(data_model) == 0:
-        print(
-            f"Failed to retrieve data model {model_name} for example {ToolGlobals.example}"
-        )
+        print(f"Failed to retrieve data model {model_name}")
         view_list = []
     else:
         view_list = [
@@ -225,18 +209,14 @@ def delete_datamodel(
             f"Found {node_count} nodes and deleted {node_delete} nodes from {id} in {model_name}."
         )
     try:
-        containers = client.data_modeling.containers.list(
-            space=ToolGlobals.config("model_space"), limit=None
-        )
+        containers = client.data_modeling.containers.list(space=space_name, limit=None)
     except Exception as e:
-        print(f"Failed to retrieve containers for example {ToolGlobals.example}")
+        print(f"Failed to retrieve containers")
         print(e)
         ToolGlobals.failed = True
         return
     container_list = [(space_name, c.external_id) for c in containers.data]
-    print(
-        f"Found {len(container_list)} containers in the space {space_name} for example {ToolGlobals.example}"
-    )
+    print(f"Found {len(container_list)} containers in the space {space_name}")
     # Find any remaining nodes in the space
     node_count = 0
     node_delete = 0
@@ -264,9 +244,7 @@ def delete_datamodel(
                 f"Deleted {len(container_list)} containers in data model {model_name}."
             )
     except Exception as e:
-        print(
-            f"Failed to delete containers in {space_name} for example {ToolGlobals.example}"
-        )
+        print(f"Failed to delete containers in {space_name}")
         print(e)
         ToolGlobals.failed = True
     try:
@@ -275,9 +253,7 @@ def delete_datamodel(
                 client.data_modeling.views.delete(view_list)
             print(f"Deleted {len(view_list)} views in data model {model_name}.")
     except Exception as e:
-        print(
-            f"Failed to delete views in {space_name} for example {ToolGlobals.example}"
-        )
+        print(f"Failed to delete views in {space_name}")
         print(e)
         ToolGlobals.failed = True
     try:
@@ -286,9 +262,7 @@ def delete_datamodel(
                 client.data_modeling.data_models.delete((space_name, model_name, "1"))
             print(f"Deleted the data model {model_name}.")
     except Exception as e:
-        print(
-            f"Failed to delete data model in {space_name} for example {ToolGlobals.example}"
-        )
+        print(f"Failed to delete data model in {space_name}")
         print(e)
         ToolGlobals.failed = True
     try:
@@ -298,6 +272,6 @@ def delete_datamodel(
                 client.data_modeling.spaces.delete(space_name)
             print(f"Deleted the space {space_name}.")
     except Exception as e:
-        print(f"Failed to delete space {space_name} for example {ToolGlobals.example}")
+        print(f"Failed to delete space {space_name}")
         print(e)
         ToolGlobals.failed = True
