@@ -12,7 +12,6 @@ from dataclasses import dataclass
 import yaml
 from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.data_modeling import (
-    View,
     ViewApply,
     SpaceApply,
     ContainerApply,
@@ -228,7 +227,7 @@ def load_datamodel_dump(
     if directory is None:
         raise ValueError("directory must be supplied.")
     model_files_by_type: dict[str, list[Path]] = defaultdict(list)
-    models_pattern = re.compile(r"^(\w+\.)?(container|view|datamodel)\.yaml$")
+    models_pattern = re.compile(r"^(.*\.)?(container|view|datamodel)\.yaml$")
     for file in directory.glob("**/*.yaml"):
         if not (match := models_pattern.match(file.name)):
             continue
@@ -319,14 +318,14 @@ def load_datamodel_dump(
             if items.added:
                 print(f"Found {len(items.added)} new {type_}s.")
                 if dry_run:
-                    print(f"  Would create {len(items.added)} {type_}s.")
+                    print(f"  Would have created {len(items.added)} {type_}s.")
                     continue
                 resource_api_by_type[type_].apply(items.added)
                 print(f"  Created {len(items.added)} {type_}s.")
             if items.changed:
                 print(f"Found {len(items.changed)} changed {type_}s.")
                 if dry_run:
-                    print(f"  Would update {len(items.changed)} {type_}s.")
+                    print(f"  Would have updated {len(items.changed)} {type_}s.")
                     continue
                 resource_api_by_type[type_].apply(items.changed)
                 print(f"  Updated {len(items.changed)} {type_}s.")
@@ -341,7 +340,7 @@ def load_datamodel_dump(
             if items.removed:
                 print(f"Found {len(items.removed)} removed {type_}s.")
                 if dry_run:
-                    print(f"  Would delete {len(items.removed)} {type_}s.")
+                    print(f"  Would have deleted {len(items.removed)} {type_}s.")
                     continue
                 try:
                     resource_api_by_type[type_].delete(items.removed)

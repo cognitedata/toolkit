@@ -9,6 +9,8 @@ YAML_DIRS = ["./"]
 TMPL_DIRS = ["./common", "./modules"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md"]
+# Which suffixes to exclude when we create indexed files (i.e. they are bundled with their main config file)
+EXCL_INDEX_SUFFIX = ["sql"]
 
 
 def read_module_config(root_dir: str = "./", tmpl_dirs: str = TMPL_DIRS) -> list[str]:
@@ -121,15 +123,17 @@ def process_config_files(dirs, yaml_data, build_dir="./build"):
                 cdf_path = split_path[len(split_path) - 1]
                 new_path = Path(f"{build_dir}/{cdf_path}")
                 new_path.mkdir(exist_ok=True, parents=True)
-                if not indices.get(cdf_path):
-                    indices[cdf_path] = 1
-                else:
-                    indices[cdf_path] += 1
-                # Get rid of the local index
-                if re.match("^[0-9]+\\.", file):
-                    file = file.split(".", 1)[1]
-                # Apply the global index
-                file = f"{indices[cdf_path]}.{file}"
+                # For .sql and other dependent files, we do not prefix as we expect them
+                # to be named with the external_id of the entitiy they are associated with.
+                if file.split(".")[-1] not in EXCL_INDEX_SUFFIX:
+                    if not indices.get(cdf_path):
+                        indices[cdf_path] = 1
+                    else:
+                        indices[cdf_path] += 1
+                    # Get rid of the local index
+                    if re.match("^[0-9]+\\.", file):
+                        file = file.split(".", 1)[1]
+                    file = f"{indices[cdf_path]}.{file}"
                 with open(new_path / file, "w") as f:
                     f.write(content)
 

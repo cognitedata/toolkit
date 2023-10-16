@@ -21,7 +21,8 @@
             "request": "launch",
             "program": "./deploy.py",
             "args": [
-                "build"
+                "--dry-run",
+                "--drop"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
