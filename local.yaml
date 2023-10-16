@@ -1,2 +1,4 @@
-# This should be a used to specify which modules and packages to deploy locally and it the GitHub Action.
-deploy: ["apm_simple"]
+# This should be a used to specify which modules and packages to deploy locally and in the GitHub Action.
+# You can have multiple deploy commands.
+# Order is important.
+deploy: ["infield", "cdf_apm_simple"]
