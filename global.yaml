@@ -1,3 +1,5 @@
 # This should be a used to create packages of modules that can be deployed.
+# Only one packages command is allowed, with each package below it.
+# Packages cannot be recursively defined.
 packages:
-  infield: ["moduleA", "moduleB"]
+  infield: ["cdf_idp_default", "cdf_auth_readwrite_all"]

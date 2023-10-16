@@ -1,7 +1,7 @@
 from __future__ import annotations
 import os
 import yaml
-from typing import Any
+import re
 from pathlib import Path
 
 # Directory paths for YAML and JSON files
@@ -11,7 +11,50 @@ TMPL_DIRS = ["./common", "./modules"]
 EXCL_FILES = ["README.md"]
 
 
-def read_yaml_files(yaml_dirs):
+def read_module_config(root_dir: str = "./", tmpl_dirs: str = TMPL_DIRS) -> list[str]:
+    """Read the global configuration files and return a list of modules in correct order.
+
+    The presence of a module directory in tmpl_dirs is verified.
+    Yields:
+        List of modules in the order they should be processed.
+        Exception(ValueError) if a module is not found in tmpl_dirs.
+    """
+    global_config = read_yaml_files(root_dir, "global.yaml")
+    local_config = read_yaml_files(root_dir, "local.yaml")
+    modules = []
+    for k, v in local_config.items():
+        if k == "deploy":
+            for m in v:
+                for g2, g3 in global_config.get("packages", {}).items():
+                    if m == g2:
+                        for m2 in g3:
+                            if m2 not in modules:
+                                modules.append(m2)
+                    else:
+                        modules.append(m)
+
+    load_list = []
+    module_dirs = {}
+    for d in tmpl_dirs:
+        if not module_dirs.get(d):
+            module_dirs[d] = []
+        for dirnames in os.listdir(d):
+            module_dirs[d].append(dirnames)
+    for m in modules:
+        found = False
+        for dir, mod in module_dirs.items():
+            if m in mod:
+                load_list.append(f"{dir}/{m}")
+                found = True
+                break
+        if not found:
+            raise ValueError(
+                f"Module {m} not found in template directories {tmpl_dirs}."
+            )
+    return load_list
+
+
+def read_yaml_files(yaml_dirs, name: str = "config.yaml"):
     """Read all YAML files in the given directories and return a dictionary
 
     This function will not traverse into sub-directories.
@@ -21,7 +64,7 @@ def read_yaml_files(yaml_dirs):
 
     data = {}
     for directory in yaml_dirs:
-        for yaml_file in Path(directory).glob("config.yaml"):
+        for yaml_file in Path(directory).glob(name):
             try:
                 config_data = yaml.safe_load(yaml_file.read_text())
             except yaml.YAMLError:
@@ -40,14 +83,16 @@ def read_yaml_files(yaml_dirs):
     return data
 
 
-
 def process_config_files(dirs, yaml_data, build_dir="./build"):
     Path(build_dir).mkdir(exist_ok=True)
 
     local_yaml_path = ""
     yaml_local = {}
+    indices = {}
     for directory in dirs:
         for dirpath, _, filenames in os.walk(directory):
+            # Sort to support 1., 2. etc prefixes
+            filenames.sort()
             # When we have traversed out of the module, reset the local yaml config
             if local_yaml_path not in dirpath:
                 local_yaml_path == ""
@@ -76,14 +121,23 @@ def process_config_files(dirs, yaml_data, build_dir="./build"):
                 cdf_path = split_path[len(split_path) - 1]
                 new_path = Path(f"{build_dir}/{cdf_path}")
                 new_path.mkdir(exist_ok=True, parents=True)
+                if not indices.get(cdf_path):
+                    indices[cdf_path] = 1
+                else:
+                    indices[cdf_path] += 1
+                # Get rid of the local index
+                if re.match("^[0-9]+\\.", file):
+                    file = file.split(".", 1)[1]
+                # Apply the global index
+                file = f"{indices[cdf_path]}.{file}"
                 with open(new_path / file, "w") as f:
                     f.write(content)
 
 
 def build_config(dir: str = "./build"):
-    # TODO #13 Add support for global.yaml and local.yaml configurations of modules and packages to pick up
+    modules = read_module_config(root_dir="./", tmpl_dirs=TMPL_DIRS)
     process_config_files(
-        dirs=TMPL_DIRS,
+        dirs=modules,
         yaml_data=read_yaml_files(yaml_dirs=YAML_DIRS),
         build_dir=dir,
     )
