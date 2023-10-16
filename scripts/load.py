@@ -14,6 +14,7 @@
 
 import os
 import json
+import re
 import pandas as pd
 from typing import List, Dict, Any
 from cognite.client.data_classes.time_series import TimeSeries
@@ -32,7 +33,7 @@ from cognite.client.exceptions import CogniteNotFoundError
 def load_raw(
     ToolGlobals: CDFToolConfig,
     file: str,
-    raw_db: str = None,
+    raw_db: str = "default",
     drop: bool = False,
     dry_run: bool = False,
     directory=None,
@@ -43,45 +44,10 @@ def load_raw(
         file: name of file to load, if empty load all files
         drop: whether to drop existing data
     """
-    if directory is None or raw_db is None:
-        raise ValueError("directory and raw_db must be specified")
+    if directory is None:
+        raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(capabilities={"rawAcl": ["READ", "WRITE"]})
-    # The name of the raw database to create is picked up from the inventory.py file, which
-    # again is templated with cookiecutter based on the user's input.
 
-    if raw_db == "":
-        print(f"Could not find raw_db in inventory.py.")
-        ToolGlobals.failed = True
-        return
-    try:
-        if drop:
-            tables = client.raw.tables.list(raw_db)
-            if len(tables) > 0:
-                for table in tables:
-                    if not dry_run:
-                        client.raw.tables.delete(raw_db, table.name)
-                    else:
-                        print("Would have deleted table: " + table.name)
-            if not dry_run:
-                client.raw.databases.delete(raw_db)
-                print(f"Deleted {raw_db}.")
-            else:
-                print(f"Would have deleted {raw_db}.")
-    except:
-        print(f"Failed to delete {raw_db} RAW database. It may not exist.")
-    try:
-        # Creating the raw database and tables is actually not necessary as
-        # the SDK will create them automatically when inserting data with insert_dataframe()
-        # using the ensure_parent=True argument.
-        # However, it is included to show how you can use the SDK.
-        if not dry_run:
-            client.raw.databases.create(raw_db)
-        else:
-            print(f"Would have created {raw_db} RAW database.")
-    except Exception as e:
-        print(f"Failed to create {raw_db}: {e.message}")
-        ToolGlobals.failed = True
-        return
     files = []
     if file:
         # Only load the supplied filename.
@@ -94,30 +60,35 @@ def load_raw(
                     files.append(f)
     if len(files) == 0:
         return
-    print(f"Uploading {len(files)} .csv files to {raw_db} RAW database...")
+    print(
+        f"Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename..."
+    )
     for f in files:
+        (_, db, _) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
+        if db is None or len(db) == 0:
+            db = raw_db
         with open(f"{directory}/{f}", "rt") as file:
             dataframe = pd.read_csv(file, dtype=str)
             dataframe = dataframe.fillna("")
             try:
                 if not dry_run:
+                    client.raw.tables.delete(db, f[:-4])
                     client.raw.rows.insert_dataframe(
-                        db_name=raw_db,
+                        db_name=db,
                         table_name=f[:-4],
                         dataframe=dataframe,
                         ensure_parent=True,
                     )
+                    print("Deleted table: " + f[:-4])
+                    print(f"Uploaded {f} to {db} RAW database.")
                 else:
-                    print(f"Would have uploaded {f} to {raw_db} RAW database.")
+                    print("Would have deleted table: " + f[:-4])
+                    print(f"Would have uploaded {f} to {db} RAW database.")
             except Exception as e:
                 print(f"Failed to upload {f}")
                 print(e)
                 ToolGlobals.failed = True
                 return
-    if not dry_run:
-        print(
-            f"Successfully uploaded {len(files)} raw csv files to {raw_db} RAW database."
-        )
 
 
 def load_files(

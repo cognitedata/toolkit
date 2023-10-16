@@ -121,17 +121,17 @@ def clean_out_datamodels(
         ToolGlobals.failed = True
         return
     print(f"Found:")
-    print(f"  {len(spaces)} spaces")
-    print(f"  {len(containers)} containers")
-    print(f"  {len(views)} views")
-    print(f"  {len(data_models)} data models")
+    print(f"  {len(spaces)} space(s)")
+    print(f"  {len(containers)} container(s)")
+    print(f"  {len(views)} view(s)")
+    print(f"  {len(data_models)} data model(s)")
     print("Deleting...")
     try:
         if not dry_run:
             client.data_modeling.containers.delete(
                 [(c.space, c.external_id) for c in containers.data]
             )
-        print(f"  Deleted {len(containers)} containers.")
+        print(f"  Deleted {len(containers)} container(s).")
     except Exception as e:
         print("  Was not able to delete containers. May not exist.")
         print(e)
@@ -318,19 +318,19 @@ def load_datamodel_dump(
             if items.added:
                 print(f"Found {len(items.added)} new {type_}s.")
                 if dry_run:
-                    print(f"  Would have created {len(items.added)} {type_}s.")
+                    print(f"  Would have created {len(items.added)} {type_}(s).")
                     continue
                 resource_api_by_type[type_].apply(items.added)
                 print(f"  Created {len(items.added)} {type_}s.")
             if items.changed:
                 print(f"Found {len(items.changed)} changed {type_}s.")
                 if dry_run:
-                    print(f"  Would have updated {len(items.changed)} {type_}s.")
+                    print(f"  Would have updated {len(items.changed)} {type_}(s).")
                     continue
                 resource_api_by_type[type_].apply(items.changed)
                 print(f"  Updated {len(items.changed)} {type_}s.")
             if items.unchanged:
-                print(f"Found {len(items.unchanged)} unchanged {type_}s.")
+                print(f"Found {len(items.unchanged)} unchanged {type_}(s).")
 
     if drop:
         for type_ in reversed(creation_order):
@@ -340,18 +340,18 @@ def load_datamodel_dump(
             if items.removed:
                 print(f"Found {len(items.removed)} removed {type_}s.")
                 if dry_run:
-                    print(f"  Would have deleted {len(items.removed)} {type_}s.")
+                    print(f"  Would have deleted {len(items.removed)} {type_}(s).")
                     continue
                 try:
                     resource_api_by_type[type_].delete(items.removed)
                 except CogniteAPIError as e:
                     # Typically spaces can not be deleted if there are other
                     # resources in the space.
-                    print(f"  Failed to delete {len(items.removed)} {type_}s.")
+                    print(f"  Failed to delete {len(items.removed)} {type_}(s).")
                     print(e)
                     ToolGlobals.failed = True
                     continue
-                print(f"  Deleted {len(items.removed)} {type_}s.")
+                print(f"  Deleted {len(items.removed)} {type_}(s).")
 
 
 def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> None:
