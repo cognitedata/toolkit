@@ -45,9 +45,10 @@ def read_yaml_files(yaml_dirs):
 
 def process_config_files(dirs, yaml_data, build_dir="./build"):
     
-    if Path(build_dir).exists:
-        shutil.rmtree(build_dir)
-    Path(build_dir).mkdir()
+    path = Path(build_dir)
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir()
 
     local_yaml_path = ""
     yaml_local = {}
