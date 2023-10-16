@@ -1,6 +1,17 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "local>cognitedata/renovate-config"
-  ]
+      "local>cognitedata/renovate-config"
+  ],
+  "packageRules": [
+  {
+    "matchDatasources": ["npm"],
+    "matchUpdateTypes": ["minor", "patch"],
+    "automerge": true,
+    "schedule": [
+      "after 10pm every weekday",
+      "before 5am every weekday"
+    ]
+  }
+]
 }
