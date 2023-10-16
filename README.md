@@ -161,8 +161,30 @@ The global.yaml and `local.yaml` files are then used by the _build_ step  to
 process the configurations and create a `build/` directory where all the configurations are
 merged into a single directory structure.
 
-```yaml
+The `global.yaml` file has a simple structure. It currently only supports the global
+configuration `packages` and only one. Each of the packages than can be loaded in local.yaml should
+be defined as a list of modules. Packages that have been defined in global.yaml cannot
+be used recursively in other packages, i.e. all modules have to be included in a package definition.
 
-TODO: #5 specify the structure of the global.yaml and local-yaml files.
+```yaml global.yaml
+
+packages:
+  <pkg_name1>: ["package1", "package2", ...]
+  <pkg_name2>: ["package1", "package3", ...]
 
 ```
+
+The `local.yaml` file is the actual configuration for a specific build and load operation.
+Currently, it only supports `deploy` configurations. You can have multiple deploy configurations
+in your file:
+
+```yaml local.yaml
+
+deploy: ["<a_base_module", "pkg_name2"]
+deploy: ["<another_base_module", "pkg_name3"]
+
+```
+
+The order of configuration is important. In the above example, `a_base_module` will be loaded before
+the modules in `pkg_name2`, which will be loaded before `another_base_module`. Finally, `pkg_name3`
+modules will be loaded.
