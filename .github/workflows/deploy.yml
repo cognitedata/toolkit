@@ -1,0 +1,21 @@
+name: Deploy modules
+
+on:
+    push:
+        branches:
+            - ghactions
+
+jobs:
+
+    build-modules:
+        runs-on: ubuntu-latest
+        name: Loadmaster
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Package step
+              uses: ./
+              id: build-package 
+
+
+

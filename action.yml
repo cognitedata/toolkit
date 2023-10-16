@@ -1,0 +1,53 @@
+name: 'Deploy to Transformations'
+description: 'Deploy a set of transformations to Transformations from yaml manifests'
+inputs:
+  api-key:
+    description: 'API key for authenticating with Transformations'
+    required: false
+  token-url:
+    description: 'Token url to use for fetching OAuth2 tokens'
+    required: false
+  cdf-project-name:
+    description: 'CDF project name (only required when using OAuth2 credentials)'
+    required: false
+  scopes:
+    description: 'List of OAuth2 scopes (space separated)'
+    required: false
+  audience:
+    description: 'OAuth2 audience'
+    required: false
+  client-id:
+    description: 'OAuth2 client ID'
+    required: false
+  client-secret:
+    description: 'OAuth2 client secret'
+    required: false
+  cluster:
+    description: 'CDF Cluster'
+    required: false
+    default: 'europe-west1-1'
+  path:
+    description: >-
+      The path to a directory containing transformation manifests.
+      This is relative to $GITHUB_WORKSPACE,
+      which will be the root of the repository when using actions/checkout with default settings.
+    required: true
+  legacy-mode:
+    description: 'Parse transformation manifests in legacy mode'
+    required: false
+    default: "false"
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  env:
+    TRANSFORMATIONS_API_KEY: ${{ inputs.api-key }}
+    TRANSFORMATIONS_TOKEN_URL: ${{ inputs.token-url }}
+    TRANSFORMATIONS_PROJECT: ${{ inputs.cdf-project-name }}
+    TRANSFORMATIONS_CLIENT_ID: ${{ inputs.client-id }}
+    TRANSFORMATIONS_CLIENT_SECRET: ${{ inputs.client-secret }}
+    TRANSFORMATIONS_SCOPES: ${{ inputs.scopes }}
+    TRANSFORMATIONS_AUDIENCE: ${{ inputs.audience }}
+    TRANSFORMATIONS_CLUSTER: "${{ inputs.cluster }}"
+    TRANSFORMATIONS_LEGACY_MODE: ${{ inputs.legacy-mode }}
+  args: ["deploy", "${{ inputs.path }}" , "--debug"]
+  
