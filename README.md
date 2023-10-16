@@ -187,4 +187,5 @@ deploy: ["<another_base_module", "pkg_name3"]
 
 The order of configuration is important. In the above example, `a_base_module` will be loaded before
 the modules in `pkg_name2`, which will be loaded before `another_base_module`. Finally, `pkg_name3`
-modules will be loaded.
+modules will be loaded. If a module is loaded through more than one package, the first time it is loaded
+will be the only time it is loaded.

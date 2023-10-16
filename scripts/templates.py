@@ -28,7 +28,8 @@ def read_module_config(root_dir: str = "./", tmpl_dirs: str = TMPL_DIRS) -> list
                 for g2, g3 in global_config.get("packages", {}).items():
                     if m == g2:
                         for m2 in g3:
-                            modules.append(m2)
+                            if m2 not in modules:
+                                modules.append(m2)
                     else:
                         modules.append(m)
 
