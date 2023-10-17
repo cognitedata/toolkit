@@ -17,7 +17,7 @@ RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
 RUN pip3 install --target=/app -r requirements.txt --no-deps
 
 # Keep the same folder structure for imports
-COPY cognite/loadmaster /app/cognite/loadmaster
+COPY cognite/loadmaster/ /app/cognite/loadmaster/
  
 
 # A distroless container image with Python and some basics like SSL certificates

@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import argparse
+import os
 import logging
 from dotenv import load_dotenv
 from scripts.templates import build_config
+import pathlib
 
 log = logging.getLogger(__name__)
 
@@ -14,8 +16,9 @@ load_dotenv(".env")
 
 def run(build_dir: str) -> None:
     print(
-        f"Building config files from templates in ./modules and ./common into {build_dir}..."
+        f"Building config files from templates in into {build_dir}..."
     )
+
     build_config(build_dir)
 
 
