@@ -34,6 +34,7 @@ def load_raw(
     file: str,
     raw_db: str = None,
     drop: bool = False,
+    dry_run: bool = False,
     directory=None,
 ) -> None:
     """Load raw data from csv files into CDF Raw
@@ -57,17 +58,26 @@ def load_raw(
             tables = client.raw.tables.list(raw_db)
             if len(tables) > 0:
                 for table in tables:
-                    client.raw.tables.delete(raw_db, table.name)
-            client.raw.databases.delete(raw_db)
-            print(f"Deleted {raw_db}.")
+                    if not dry_run:
+                        client.raw.tables.delete(raw_db, table.name)
+                    else:
+                        print("Would have deleted table: " + table.name)
+            if not dry_run:
+                client.raw.databases.delete(raw_db)
+                print(f"Deleted {raw_db}.")
+            else:
+                print(f"Would have deleted {raw_db}.")
     except:
-        print(f"Failed to delete {raw_db}. It may not exist.")
+        print(f"Failed to delete {raw_db} RAW database. It may not exist.")
     try:
         # Creating the raw database and tables is actually not necessary as
         # the SDK will create them automatically when inserting data with insert_dataframe()
         # using the ensure_parent=True argument.
         # However, it is included to show how you can use the SDK.
-        client.raw.databases.create(raw_db)
+        if not dry_run:
+            client.raw.databases.create(raw_db)
+        else:
+            print(f"Would have created {raw_db} RAW database.")
     except Exception as e:
         print(f"Failed to create {raw_db}: {e.message}")
         ToolGlobals.failed = True
@@ -90,18 +100,24 @@ def load_raw(
             dataframe = pd.read_csv(file, dtype=str)
             dataframe = dataframe.fillna("")
             try:
-                client.raw.rows.insert_dataframe(
-                    db_name=raw_db,
-                    table_name=f[:-4],
-                    dataframe=dataframe,
-                    ensure_parent=True,
-                )
+                if not dry_run:
+                    client.raw.rows.insert_dataframe(
+                        db_name=raw_db,
+                        table_name=f[:-4],
+                        dataframe=dataframe,
+                        ensure_parent=True,
+                    )
+                else:
+                    print(f"Would have uploaded {f} to {raw_db} RAW database.")
             except Exception as e:
                 print(f"Failed to upload {f}")
                 print(e)
                 ToolGlobals.failed = True
                 return
-    print(f"Successfully uploaded {len(files)} raw csv files to {raw_db} RAW database.")
+    if not dry_run:
+        print(
+            f"Successfully uploaded {len(files)} raw csv files to {raw_db} RAW database."
+        )
 
 
 def load_files(
@@ -109,6 +125,7 @@ def load_files(
     id_prefix: str = "example",
     file: str = None,
     drop: bool = False,
+    dry_run: bool = False,
     directory=None,
 ) -> None:
     if directory is None:
@@ -127,14 +144,18 @@ def load_files(
             return
         print(f"Uploading {len(files)} files/documents to CDF...")
         for f in files:
-            client.files.upload(
-                path=f"{directory}/{f}",
-                data_set_id=ToolGlobals.data_set_id,
-                name=f,
-                external_id=id_prefix + "_" + f,
-                overwrite=drop,
-            )
-        print(f"Uploaded successfully {len(files)} files/documents.")
+            if not dry_run:
+                client.files.upload(
+                    path=f"{directory}/{f}",
+                    data_set_id=ToolGlobals.data_set_id,
+                    name=f,
+                    external_id=id_prefix + "_" + f,
+                    overwrite=drop,
+                )
+        if not dry_run:
+            print(f"Uploaded successfully {len(files)} files/documents.")
+        else:
+            print(f"Would have uploaded {len(files)} files/documents.")
     except Exception as e:
         print(f"Failed to upload files")
         print(e)
@@ -143,16 +164,26 @@ def load_files(
 
 
 def load_timeseries(
-    ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None
+    ToolGlobals: CDFToolConfig,
+    file: str,
+    drop: bool = False,
+    dry_run: bool = False,
+    directory: str = None,
 ) -> None:
-    load_timeseries_metadata(ToolGlobals, file, drop, directory=directory)
+    load_timeseries_metadata(
+        ToolGlobals, file, drop, dry_run=dry_run, directory=directory
+    )
     if directory is not None:
         directory = f"{directory}/datapoints"
-    load_timeseries_datapoints(ToolGlobals, file, directory=directory)
+    load_timeseries_datapoints(ToolGlobals, file, dry_run=dry_run, directory=directory)
 
 
 def load_timeseries_metadata(
-    ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None
+    ToolGlobals: CDFToolConfig,
+    file: str,
+    drop: bool,
+    dry_run: bool = False,
+    directory=None,
 ) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
@@ -189,12 +220,18 @@ def load_timeseries_metadata(
             drop_ts.append(t.external_id)
     try:
         if drop:
-            client.time_series.delete(external_id=drop_ts, ignore_unknown_ids=True)
-            print(f"Deleted {len(drop_ts)} timeseries.")
+            if not dry_run:
+                client.time_series.delete(external_id=drop_ts, ignore_unknown_ids=True)
+                print(f"Deleted {len(drop_ts)} timeseries.")
+            else:
+                print(f"Would have deleted {len(drop_ts)} timeseries.")
     except Exception as e:
         print(f"Failed to delete {t.external_id}. It may not exist.")
     try:
-        client.time_series.create(timeseries)
+        if not dry_run:
+            client.time_series.create(timeseries)
+        else:
+            print(f"Would have created {len(timeseries)} timeseries.")
     except Exception as e:
         print(f"Failed to upload timeseries.")
         print(e)
@@ -204,7 +241,7 @@ def load_timeseries_metadata(
 
 
 def load_timeseries_datapoints(
-    ToolGlobals: CDFToolConfig, file: str, directory=None
+    ToolGlobals: CDFToolConfig, file: str, dry_run: bool = False, directory=None
 ) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
@@ -228,9 +265,19 @@ def load_timeseries_datapoints(
         for f in files:
             with open(f"{directory}/{f}", "rt") as file:
                 dataframe = pd.read_csv(file, parse_dates=True, index_col=0)
-            print(f"Uploading {f} as datapoints to CDF timeseries...")
-            client.time_series.data.insert_dataframe(dataframe)
-        print(f"Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
+            if not dry_run:
+                print(f"Uploading {f} as datapoints to CDF timeseries...")
+                client.time_series.data.insert_dataframe(dataframe)
+            else:
+                print(f"Would have uploaded {f} as datapoints to CDF timeseries...")
+        if not dry_run:
+            print(
+                f"Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries."
+            )
+        else:
+            print(
+                f"Would have uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries."
+            )
     except Exception as e:
         print(f"Failed to upload datapoints.")
         print(e)
@@ -239,7 +286,11 @@ def load_timeseries_datapoints(
 
 
 def load_transformations(
-    ToolGlobals: CDFToolConfig, file: str, drop: bool, directory=None
+    ToolGlobals: CDFToolConfig,
+    file: str,
+    drop: bool,
+    dry_run: bool = False,
+    directory=None,
 ) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
@@ -263,7 +314,12 @@ def load_transformations(
     transformations_ext_ids = [t.external_id for t in configs.values()]
     try:
         if drop:
-            client.transformations.delete(external_id=transformations_ext_ids)
+            if not dry_run:
+                client.transformations.delete(external_id=transformations_ext_ids)
+            else:
+                print(
+                    f"Would have deleted {len(transformations_ext_ids)} transformations."
+                )
     except CogniteNotFoundError:
         pass
     try:
@@ -273,24 +329,35 @@ def load_transformations(
         new_transformation_ext_ids = get_new_transformation_ids(
             transformations_ext_ids, existing_transformations_ext_ids
         )
-        _, updated_transformations, created_transformations = upsert_transformations(
-            client,
-            transformations,
-            existing_transformations_ext_ids,
-            new_transformation_ext_ids,
-        )
+        if not dry_run:
+            (
+                _,
+                updated_transformations,
+                created_transformations,
+            ) = upsert_transformations(
+                client,
+                transformations,
+                existing_transformations_ext_ids,
+                new_transformation_ext_ids,
+            )
+        else:
+            print(
+                f"Would have updated and created {len(transformations)} transformations."
+            )
     except Exception as e:
         print(f"Failed to upsert transformations.")
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"Updated {len(updated_transformations)} transformations.")
-    print(f"Created {len(created_transformations)} transformations.")
+    if not dry_run:
+        print(f"Updated {len(updated_transformations)} transformations.")
+        print(f"Created {len(created_transformations)} transformations.")
 
 
 def load_readwrite_group(
     ToolGlobals: CDFToolConfig,
     capabilities: List[Dict[str, Any]],
+    dry_run: bool = False,
     source_id="readwrite",
 ) -> None:
     client = ToolGlobals.verify_client(
@@ -308,20 +375,26 @@ def load_readwrite_group(
             old_group_id = group.id
             break
     try:
-        group = client.iam.groups.create(
-            Group(
-                name=source_id,
-                source_id=source_id,
-                capabilities=capabilities,
+        if not dry_run:
+            group = client.iam.groups.create(
+                Group(
+                    name=source_id,
+                    source_id=source_id,
+                    capabilities=capabilities,
+                )
             )
-        )
+        else:
+            print(f"Would have created group {source_id}.")
     except Exception as e:
         print(f"Failed to create group {source_id}.")
         ToolGlobals.failed = True
         return
     if old_group_id:
         try:
-            client.iam.groups.delete(id=old_group_id)
+            if not dry_run:
+                client.iam.groups.delete(id=old_group_id)
+            else:
+                print(f"Would have deleted group {old_group_id}.")
         except Exception as e:
             print(f"Failed to delete group {old_group_id}.")
             ToolGlobals.failed = True

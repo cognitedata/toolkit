@@ -34,10 +34,13 @@ def run(build_dir: str, drop: bool = True, dry_run: bool = True) -> None:
     # TODO: #6 This is a very limited support. Needs to be expanded to support configurable groups.
     if Path(f"{build_dir}/auth").is_dir():
         capabilities = json.loads(
-            (build_path / "auth/readwrite.capabilities.json").read_text()
+            (build_path / "auth/1.readwrite.capabilities.json").read_text()
         )
         load_readwrite_group(
-            ToolGlobals, capabilities=capabilities, source_id="readwrite"
+            ToolGlobals,
+            capabilities=capabilities,
+            source_id="readwrite",
+            dry_run=dry_run,
         )
     if Path(f"{build_dir}/raw").is_dir():
         # TODO: #7 load_raw only loads one database as configured in ToolGlobals.config, needs more dynamic support
@@ -47,28 +50,45 @@ def run(build_dir: str, drop: bool = True, dry_run: bool = True) -> None:
             raw_db="default",
             drop=drop,
             file=None,
-            directory=f"f{build_dir}/raw",
+            dry_run=dry_run,
+            directory=f"{build_dir}/raw",
         )
-    # TODO: #21 Implement dry-run consistently across.
     if Path(f"{build_dir}/timeseries").is_dir():
         load_timeseries_metadata(
-            ToolGlobals, drop=drop, file=None, directory=f"f{build_dir}/timeseries"
+            ToolGlobals,
+            drop=drop,
+            file=None,
+            dry_run=dry_run,
+            directory=f"{build_dir}/timeseries",
         )
     if Path(f"{build_dir}/transformations").is_dir():
         load_transformations_dump(
-            ToolGlobals, file=None, drop=drop, directory=f"{build_dir}/transformations"
+            ToolGlobals,
+            file=None,
+            drop=drop,
+            dry_run=dry_run,
+            directory=f"{build_dir}/transformations",
         )
     if (models_dir := Path(f"{build_dir}/source_models")).is_dir():
         load_datamodel_dump(
-            ToolGlobals, drop=drop, directory=models_dir, dry_run=dry_run
+            ToolGlobals,
+            drop=drop,
+            directory=models_dir,
+            dry_run=dry_run,
         )
     if (models_dir := Path(f"{build_dir}/domain_models")).is_dir():
         load_datamodel_dump(
-            ToolGlobals, drop=drop, directory=models_dir, dry_run=dry_run
+            ToolGlobals,
+            drop=drop,
+            directory=models_dir,
+            dry_run=dry_run,
         )
     if (models_dir := Path(f"{build_dir}/solution_models")).is_dir():
         load_datamodel_dump(
-            ToolGlobals, drop=drop, directory=models_dir, dry_run=dry_run
+            ToolGlobals,
+            drop=drop,
+            directory=models_dir,
+            dry_run=dry_run,
         )
     if ToolGlobals.failed:
         print(f"Failure to load as expected.")
@@ -78,10 +98,14 @@ def run(build_dir: str, drop: bool = True, dry_run: bool = True) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(epilog="Further functionality to be added")
     parser.add_argument(
-        "--dry-run", help="whether to do a dry-run", type=bool, default=False
+        "--dry-run",
+        help="whether to do a dry-run, do dry-run if present",
+        action="store_true",
     )
     parser.add_argument(
-        "--drop", help="whether to drop existing data", type=bool, default=True
+        "--drop",
+        help="whether to drop existing data, drop data if present",
+        action="store_true",
     )
     parser.add_argument(
         "build_dir",
