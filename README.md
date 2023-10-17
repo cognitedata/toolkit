@@ -154,7 +154,7 @@ Template variables in files in the common/ and modules/ directories should be in
 If you want template variables to be replaced by environment variables, use the following format in the
 .yaml file: `variable_name: ${ENV_VAR_NAME}`.
 
-> You can also put `local.yaml` files in the
+> You can also put `config.yaml` files in the
 > `<modules>/<my_module>/`` directory. Any values here have only scope in that module.
 
 The global.yaml and `local.yaml` files are then used by the _build_ step  to
@@ -189,3 +189,21 @@ The order of configuration is important. In the above example, `a_base_module` w
 the modules in `pkg_name2`, which will be loaded before `another_base_module`. Finally, `pkg_name3`
 modules will be loaded. If a module is loaded through more than one package, the first time it is loaded
 will be the only time it is loaded.
+
+### Module configuration files
+
+In each module directory, each type needs a separate firectory, e.g. raw, transformations, etc. In each
+directory, you can use prefixes of type 1.<filename.suffix>, 2.<filename2.suffix> to control the order of
+deployment. If the configurations have a dependent file, e.g. for transformations where a transformation
+can have a .sql file with the SQL code, the dependent file should have a filename of the external_id
+of the entity it is associated with.
+
+Example:
+`2.tutorial-load-asset2children.yaml` defines the transformation with the external_id
+`tutorial-load-asset2children`. The SQL code for the transformation should be in the file
+`tutorial-load-asset2children.sql` (without the numeric prefix).
+
+For RAW tables, you can only load table definitions for a single database in each module.
+The database name should be configured in the module's `config.yaml` using the `raw_db` key.
+It is possible to load example data in the table by having a file with multiple lines as
+sample data.
