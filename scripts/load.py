@@ -15,9 +15,10 @@
 import os
 import json
 import re
+import yaml
 import pandas as pd
 from typing import List, Dict, Any
-from cognite.client.data_classes.time_series import TimeSeries
+from cognite.client.data_classes.time_series import TimeSeries, TimeSeriesProperty
 from cognite.client.data_classes.iam import Group
 from .utils import CDFToolConfig
 from scripts.transformations_config import parse_transformation_configs
@@ -28,6 +29,15 @@ from scripts.transformations_api import (
     upsert_transformations,
 )
 from cognite.client.exceptions import CogniteNotFoundError
+
+
+class TimeSeriesLoad:
+    @staticmethod
+    def load(props: list[dict], file: str = "unknown") -> [TimeSeries]:
+        try:
+            return [TimeSeries(**prop) for prop in props]
+        except:
+            raise ValueError(f"Failed to load timeseries from yaml files: {file}.")
 
 
 def load_raw(
@@ -170,18 +180,17 @@ def load_timeseries_metadata(
         # Pick up all the .json files in the data folder.
         for _, _, filenames in os.walk(directory):
             for f in filenames:
-                if ".json" in f:
+                if ".yaml" in f:
                     files.append(f)
     # Read timeseries metadata
     timeseries: list[TimeSeries] = []
     for f in files:
         with open(f"{directory}/{f}", "rt") as file:
-            ts = json.load(file)
-            for t in ts:
-                ts = TimeSeries()
-                for k, v in t.items():
-                    ts.__setattr__(k, v)
-                timeseries.append(ts)
+            timeseries.extend(
+                TimeSeriesLoad.load(
+                    yaml.safe_load(file.read()), file=f"{directory}/{f}"
+                ),
+            )
     if len(timeseries) == 0:
         return
     drop_ts: list[str] = []
@@ -209,7 +218,7 @@ def load_timeseries_metadata(
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"Loaded {len(timeseries)} timeseries from {len(files)} files.")
+    print(f"Created {len(timeseries)} timeseries from {len(files)} files.")
 
 
 def load_timeseries_datapoints(

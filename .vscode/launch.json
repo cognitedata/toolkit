@@ -21,8 +21,9 @@
             "request": "launch",
             "program": "./deploy.py",
             "args": [
-                "--dry-run",
-                "--drop"
+                //"--dry-run",
+                "--drop",
+                "--include=timeseries"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
