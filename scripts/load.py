@@ -64,8 +64,9 @@ def load_raw(
         f"Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename..."
     )
     for f in files:
-        (_, db, _) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
-        if db is None or len(db) == 0:
+        try:
+            (_, db, _) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
+        except:
             db = raw_db
         with open(f"{directory}/{f}", "rt") as file:
             dataframe = pd.read_csv(file, dtype=str)
