@@ -1,28 +1,26 @@
----
 name: Deploy modules
-
 on:
-    push:
-        branches:
-            - ghactions
-
+  push:
+    branches:
+      - ghactions
 jobs:
-
-    build-modules:
-        runs-on: ubuntu-latest
-        name: Loadmaster
-        steps:
-            - uses: actions/checkout@v4
-
-            - uses: actions/setup-python@v4
-              with:
-                python-version: 3.9
-            - uses: snok/install-poetry@v1
-              with:
-                version: 1.6.1
-                virtualenvs-create: false
-            - name: Install dependencies
-              run: poetry install
-            - name: Build the package
-              run: |
-                poetry run python build.py
+  build-modules:
+    runs-on: ubuntu-latest
+    name: Loadmaster
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+      - uses: snok/install-poetry@v1
+        with:
+          version: 1.6.1
+          virtualenvs-create: false
+      - name: Install dependencies
+        run: poetry install
+      - name: "Build the package"
+        run: |
+          poetry run python build.py --package
+      - name: "Deploy the package"
+        run: |
+          poetry run python deploy.py --package
