@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import json
 import re
 import yaml
 import pandas as pd
@@ -83,7 +82,8 @@ def load_raw(
             dataframe = dataframe.fillna("")
             try:
                 if not dry_run:
-                    client.raw.tables.delete(db, f[:-4])
+                    if drop:
+                        client.raw.tables.delete(db, f[:-4])
                     client.raw.rows.insert_dataframe(
                         db_name=db,
                         table_name=f[:-4],
