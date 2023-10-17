@@ -24,7 +24,6 @@ def read_yaml_files(yaml_dirs):
 
     data = {}
     for directory in yaml_dirs:
-        print(f"Reading YAML files from {directory}")
         
         if not Path(directory).exists():
             raise FileNotFoundError(f"Directory {directory} does not exist")
@@ -99,19 +98,8 @@ def build_config(dir: str = "./build"):
 
     try:
 
-        print(pathlib.Path(dir).resolve())
-        print(__file__)
-        dir = os.path.dirname(__file__)
-        dirs = [d for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
-
-        print("listdirs", dirs)
-        print("YAML_DIRS", YAML_DIRS)
-        
-        
         yaml_files = read_yaml_files(yaml_dirs=YAML_DIRS)
         
-        print(f"Found {yaml_files} YAML files")
-
         process_config_files(
             dirs=TMPL_DIRS,
             yaml_data=yaml_files,
