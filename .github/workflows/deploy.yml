@@ -1,3 +1,4 @@
+---
 name: Deploy modules
 
 on:
@@ -12,7 +13,7 @@ jobs:
         name: Loadmaster
         steps:
             - uses: actions/checkout@v4
-      
+
             - uses: actions/setup-python@v2
               with:
                 python-version: 3.9
@@ -22,8 +23,5 @@ jobs:
             - name: Install dependencies
               run: poetry install
             - name: Run my script
-            run: |
+              run: |
                 poetry run python build.py
-
-
-
