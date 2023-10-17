@@ -19,9 +19,9 @@ jobs:
                 python-version: 3.9
             - uses: snok/install-poetry@v1.2
               with:
-                version: 1.2.0
+                version: 1.0.5
             - name: Install dependencies
               run: poetry install
-            - name: Run my script
+            - name: Build the package
               run: |
                 poetry run python build.py
