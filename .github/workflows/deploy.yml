@@ -12,12 +12,12 @@ jobs:
         runs-on: ubuntu-latest
         name: Loadmaster
         steps:
-            - uses: actions/checkout
+            - uses: actions/checkout@v4
 
-            - uses: actions/setup-python
+            - uses: actions/setup-python@v4
               with:
                 python-version: 3.9
-            - uses: snok/install-poetry
+            - uses: snok/install-poetry@v1.2
               with:
                 version: 1.2.0
             - name: Install dependencies
