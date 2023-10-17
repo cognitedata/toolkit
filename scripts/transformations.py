@@ -108,6 +108,7 @@ def load_transformations_dump(
     ToolGlobals: CDFToolConfig,
     file: str = None,
     drop: bool = False,
+    dry_run: bool = False,
     directory: str = None,
 ) -> None:
     """Load transformations from dump folder.
@@ -168,8 +169,13 @@ def load_transformations_dump(
     print(f"Found {len(transformations)} transformations in {directory}.")
     try:
         if drop:
-            client.transformations.delete(external_id=ext_ids, ignore_unknown_ids=True)
-            print(f"Deleted {len(ext_ids)} transformations.")
+            if not dry_run:
+                client.transformations.delete(
+                    external_id=ext_ids, ignore_unknown_ids=True
+                )
+                print(f"Deleted {len(ext_ids)} transformations.")
+            else:
+                print(f"Would have deleted {len(ext_ids)} transformations.")
     except CogniteNotFoundError:
         pass
     for t in transformations:
@@ -177,8 +183,11 @@ def load_transformations_dump(
             t.query = file.read()
             t.data_set_id = ToolGlobals.data_set_id
     try:
-        client.transformations.create(transformations)
-        print(f"Created {len(transformations)} transformation.")
+        if not dry_run:
+            client.transformations.create(transformations)
+            print(f"Created {len(transformations)} transformation.")
+        else:
+            print(f"Would have created {len(transformations)} transformation.")
     except Exception as e:
         print(f"Failed to create transformations.")
         print(e)
