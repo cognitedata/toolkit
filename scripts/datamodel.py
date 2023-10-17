@@ -37,7 +37,7 @@ class Difference:
     unchanged: list[CogniteResource]
 
 
-def load_datamodel(
+def load_datamodel_graphql(
     ToolGlobals: CDFToolConfig,
     space_name: str = None,
     model_name: str = None,
@@ -217,7 +217,7 @@ def clean_out_datamodels(
     print(f"  Deleted {i} spaces.")
 
 
-def load_datamodel_dump(
+def load_datamodel(
     ToolGlobals: CDFToolConfig,
     drop: bool,
     directory: Path | None = None,

@@ -16,8 +16,7 @@ import os
 import re
 import yaml
 import pandas as pd
-from typing import List, Dict, Any
-from cognite.client.data_classes.time_series import TimeSeries, TimeSeriesProperty
+from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.data_classes.iam import Group
 from .utils import CDFToolConfig
 from scripts.transformations_config import parse_transformation_configs
@@ -35,8 +34,24 @@ class TimeSeriesLoad:
     def load(props: list[dict], file: str = "unknown") -> [TimeSeries]:
         try:
             return [TimeSeries(**prop) for prop in props]
-        except:
-            raise ValueError(f"Failed to load timeseries from yaml files: {file}.")
+        except Exception as e:
+            raise ValueError(f"Failed to load timeseries from yaml files: {file}.\n{e}")
+
+
+class GroupLoad:
+    @staticmethod
+    def load(props: list[dict], file: str = "unknown") -> [Group]:
+        try:
+            return [
+                Group(
+                    name=props.get("name"),
+                    source_id=props.get("source_id"),
+                    capabilities=props.get("capabilities"),
+                    metadata=props.get("metadata"),
+                )
+            ]
+        except Exception as e:
+            raise ValueError(f"Failed to load group from yaml files: {file}.\n{e}")
 
 
 def load_raw(
@@ -177,7 +192,7 @@ def load_timeseries_metadata(
         # Only load the supplied filename.
         files.append(file)
     else:
-        # Pick up all the .json files in the data folder.
+        # Pick up all the .yaml files in the data folder.
         for _, _, filenames in os.walk(directory):
             for f in filenames:
                 if ".yaml" in f:
@@ -335,47 +350,63 @@ def load_transformations(
         print(f"Created {len(created_transformations)} transformations.")
 
 
-def load_readwrite_group(
+def load_groups(
     ToolGlobals: CDFToolConfig,
-    capabilities: List[Dict[str, Any]],
+    file: str = None,
+    directory: str = None,
     dry_run: bool = False,
-    source_id="readwrite",
 ) -> None:
+    if directory is None:
+        raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(
         capabilities={"groupsAcl": ["LIST", "READ", "CREATE", "DELETE"]}
     )
     try:
-        groups = client.iam.groups.list(all=True)
+        old_groups = client.iam.groups.list(all=True).data
     except Exception as e:
         print(f"Failed to retrieve groups.")
         ToolGlobals.failed = True
         return
-    old_group_id = None
-    for group in groups:
-        if group.source_id == source_id:
-            old_group_id = group.id
-            break
-    try:
-        if not dry_run:
-            group = client.iam.groups.create(
-                Group(
-                    name=source_id,
-                    source_id=source_id,
-                    capabilities=capabilities,
-                )
+    files = []
+    if file:
+        # Only load the supplied filename.
+        files.append(file)
+    else:
+        # Pick up all the .yaml files in the folder.
+        for _, _, filenames in os.walk(directory):
+            for f in filenames:
+                if ".yaml" in f:
+                    files.append(f)
+    groups: list[Group] = []
+    for f in files:
+        with open(f"{directory}/{f}", "rt") as file:
+            groups.extend(
+                GroupLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
             )
-        else:
-            print(f"Would have created group {source_id}.")
-    except Exception as e:
-        print(f"Failed to create group {source_id}.")
-        ToolGlobals.failed = True
-        return
-    if old_group_id:
+
+    for group in groups:
+        old_group_id = None
+        for g in old_groups:
+            if g.source_id == group.source_id:
+                old_group_id = g.id
+                break
         try:
             if not dry_run:
-                client.iam.groups.delete(id=old_group_id)
+                group = client.iam.groups.create(group)
+                print(f"Created group {group.name}.")
             else:
-                print(f"Would have deleted group {old_group_id}.")
+                print(f"Would have created group {group.name}.")
         except Exception as e:
-            print(f"Failed to delete group {old_group_id}.")
+            print(f"Failed to create group {group.name}: \n{e}")
             ToolGlobals.failed = True
+            return
+        if old_group_id:
+            try:
+                if not dry_run:
+                    client.iam.groups.delete(id=old_group_id)
+                    print(f"Deleted old group {old_group_id}.")
+                else:
+                    print(f"Would have deleted group {old_group_id}.")
+            except Exception as e:
+                print(f"Failed to delete group {old_group_id}.")
+                ToolGlobals.failed = True

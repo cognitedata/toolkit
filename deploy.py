@@ -7,10 +7,10 @@ from dotenv import load_dotenv
 from scripts.utils import CDFToolConfig
 from scripts.load import (
     load_raw,
-    load_readwrite_group,
+    load_groups,
     load_timeseries_metadata,
 )
-from scripts.datamodel import load_datamodel_dump
+from scripts.datamodel import load_datamodel
 from scripts.transformations import load_transformations_dump
 
 log = logging.getLogger(__name__)
@@ -33,15 +33,10 @@ def run(
     ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
     print("Using following configurations: ")
     print(ToolGlobals)
-    # TODO: #6 This is a very limited support. Needs to be expanded to support configurable groups.
     if (include is None or "groups" in include) and Path(f"{build_dir}/auth").is_dir():
-        capabilities = json.loads(
-            (build_path / "auth/1.readwrite.capabilities.json").read_text()
-        )
-        load_readwrite_group(
+        load_groups(
             ToolGlobals,
-            capabilities=capabilities,
-            source_id="readwrite",
+            directory=f"{build_dir}/auth",
             dry_run=dry_run,
         )
     if (include is None or "raw" in include) and Path(f"{build_dir}/raw").is_dir():
@@ -78,7 +73,7 @@ def run(
     if (include is None or "source_models" in include) and (
         models_dir := Path(f"{build_dir}/source_models")
     ).is_dir():
-        load_datamodel_dump(
+        load_datamodel(
             ToolGlobals,
             drop=drop,
             directory=models_dir,
@@ -87,7 +82,7 @@ def run(
     if (include is None or "domain_models" in include) and (
         models_dir := Path(f"{build_dir}/domain_models")
     ).is_dir():
-        load_datamodel_dump(
+        load_datamodel(
             ToolGlobals,
             drop=drop,
             directory=models_dir,
@@ -96,7 +91,7 @@ def run(
     if (include is None or "solution_models" in include) and (
         models_dir := Path(f"{build_dir}/solution_models")
     ).is_dir():
-        load_datamodel_dump(
+        load_datamodel(
             ToolGlobals,
             drop=drop,
             directory=models_dir,

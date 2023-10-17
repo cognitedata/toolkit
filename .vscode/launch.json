@@ -23,7 +23,7 @@
             "args": [
                 //"--dry-run",
                 "--drop",
-                "--include=timeseries"
+                "--include=groups"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

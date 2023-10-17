@@ -1,1 +1,2 @@
 cdf_cluster: ${CDF_CLUSTER}
+template_version: 0.0.1
