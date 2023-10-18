@@ -1,0 +1,46 @@
+externalId: ChecklistItem
+usedFor: node
+properties:
+  order:
+    type:
+      type: int32
+      list: false
+    nullable: true
+  status:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  note:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  asset:
+    type:
+      type: direct
+      container:
+        type: container
+        space: cdf_core
+        externalId: Asset
+    nullable: true
+  files:
+    type:
+      type: file
+      list: true
+    nullable: true
+indexes:
+  order:
+    properties:
+    - order
+    indexType: btree
+  status:
+    properties:
+    - status
+    indexType: btree
+  asset:
+    properties:
+    - asset
+    indexType: btree 

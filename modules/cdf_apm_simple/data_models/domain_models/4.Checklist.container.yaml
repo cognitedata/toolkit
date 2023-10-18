@@ -1,0 +1,46 @@
+externalId: Checklist
+usedFor: node
+properties:
+  type:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  status:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  rootLocation:
+    type:
+      type: direct
+      container:
+        type: container
+        space: cdf_core
+        externalId: Asset
+    nullable: true
+  assignedTo:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
+indexes:
+  type:
+    properties:
+    - type
+    indexType: btree
+  status:
+    properties:
+    - status
+    indexType: btree
+  rootLocation:
+    properties:
+    - rootLocation
+    indexType: btree
+  assignedTo:
+    properties:
+    - assignedTo
+    indexType: inverted

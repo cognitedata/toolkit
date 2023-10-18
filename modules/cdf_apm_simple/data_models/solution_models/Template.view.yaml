@@ -1,0 +1,51 @@
+externalId: Template
+name: "Template"
+description: "The Template view is used for creating standardized maintenance and inspection tasks. It defines the status of the template (e.g., draft, ready) and includes a list of template items (tasks) that can be reused for various maintenance and inspection activities."
+version: v3
+implements:
+  - type: view
+    space: cdf_core
+    externalId: Describable
+    version: v1
+  - type: view
+    space: cdf_apps_shared
+    externalId: Creatable
+    version: v1
+properties:
+  status:
+    description: "Status of the template eg. draft, ready, etc."
+    container:
+      type: container
+      space: cdf_apm
+      externalId: Template
+    containerPropertyIdentifier: status
+  templateItems:
+    description: "List of template items / tasks within the template"
+    type: 
+      space: cdf_apm
+      externalId: referenceTemplateItems
+    source: 
+      type: view
+      space: cdf_apm
+      externalId: TemplateItem
+      version: v3
+    direction: outwards
+  rootLocation:
+    description: "Root location (asset) associated with the checklist"
+    source:
+      type: view
+      space: cdf_core
+      externalId: Asset
+      version: v1
+    container:
+      type: container
+      space: cdf_apm
+      externalId: Template
+    containerPropertyIdentifier: rootLocation
+  assignedTo:
+    description: "List of users or disciplines assigned to the template"
+    container:
+      type: container
+      space: cdf_apm
+      externalId: Template
+    containerPropertyIdentifier: assignedTo

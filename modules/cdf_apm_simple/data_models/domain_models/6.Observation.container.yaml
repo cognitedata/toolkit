@@ -1,0 +1,65 @@
+externalId: Observation
+usedFor: node
+properties:
+  status:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  asset:
+    type:
+      type: direct
+      container:
+        type: container
+        space: cdf_core
+        externalId: Asset
+    nullable: true
+  files:
+    type:
+      type: file
+      list: true
+    nullable: true
+  rootLocation:
+    type:
+      type: direct
+      container:
+        type: container
+        space: cdf_core
+        externalId: Asset
+    nullable: true
+  troubleshooting:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  priority:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  type:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+indexes:
+  status:
+    properties:
+    - status
+    indexType: btree
+  priority:
+    properties:
+    - priority
+    indexType: btree
+  type:
+    properties:
+    - type
+    indexType: btree
+  asset:
+    properties:
+    - asset
+    indexType: btree

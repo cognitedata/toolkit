@@ -1,0 +1,60 @@
+externalId: MeasurementReading
+usedFor: node
+properties:
+  type:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  order:
+    type:
+      type: int32
+      list: false
+    nullable: true
+  timeseries:
+    type:
+      type: timeseries
+      list: false
+    nullable: true
+  min:
+    type:
+      type: float64
+      list: false
+    nullable: true
+  max:
+    type:
+      type: float64
+      list: false
+    nullable: true
+  options:
+    type:
+      type: json
+      list: true
+    nullable: true
+  measuredAt:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+  numericReading:
+    type:
+      type: float64
+      list: false
+    nullable: true
+  stringReading:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+indexes:
+  type:
+    properties:
+    - type
+    indexType: btree
+  order:
+    properties:
+    - order
+    indexType: btree
+    cursorable: true

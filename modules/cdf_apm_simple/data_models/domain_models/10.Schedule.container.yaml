@@ -1,0 +1,56 @@
+externalId: Schedule
+usedFor: node
+properties:
+  status:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  timezone:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  exceptionDates:
+    type:
+      type: timestamp
+      list: true
+    nullable: true
+  freq:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  interval:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  byDay:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
+  until:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+indexes:
+  until:
+    properties:
+    - until
+    indexType: btree
+  exceptionDates:
+    properties:
+    - exceptionDates
+    indexType: btree
+  status:
+    properties:
+    - status
+    indexType: btree

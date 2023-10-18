@@ -1,0 +1,53 @@
+externalId: ApmAppData
+name: ApmAppData
+version: v3
+description: "APM data models within the cognite applications space"
+views:
+  - type: view
+    externalId: Checklist
+    space: cdf_apm
+    version: v3
+  - type: view
+    externalId: ChecklistItem
+    space: cdf_apm
+    version: v3
+  - type: view
+    externalId: Observation
+    space: cdf_apm
+    version: v3
+  - type: view
+    externalId: Template
+    space: cdf_apm
+    version: v3
+  - type: view
+    externalId: TemplateItem
+    space: cdf_apm
+    version: v3
+  - type: view
+    externalId: MeasurementReading
+    space: cdf_apm
+    version: v3
+  - type: view
+    externalId: Schedule
+    space: cdf_apm
+    version: v3
+  - type: view  # Needed in this model for graphql
+    externalId: CDF_User
+    space: cdf_apps_shared
+    version: v1
+  - type: view  # Needed for graphql
+    externalId: CDF_UserPreferences
+    space: cdf_apps_shared
+    version: v1
+  - type: view  # Needed for graphql
+    externalId: Asset
+    space: cdf_core
+    version: v1
+
+# These are needed for edges, not sure where to put them
+globalNodes:
+- externalId: referenceChecklistItems
+- externalId: referenceTemplateItems
+- externalId: referenceMeasurements
+- externalId: referenceSchedules
+- externalId: referenceObservations

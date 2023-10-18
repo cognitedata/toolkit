@@ -1,0 +1,26 @@
+externalId: TemplateItem
+usedFor: node
+properties:
+  order:
+    type:
+      type: int32
+      list: false
+    nullable: true
+  asset:
+    type:
+      type: direct
+      container:
+        type: container
+        space: cdf_core
+        externalId: Asset
+    nullable: true
+indexes:
+  order:
+    properties:
+    - order
+    indexType: btree
+    cursorable: true
+  asset:
+    properties:
+    - asset
+    indexType: btree
