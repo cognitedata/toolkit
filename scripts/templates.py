@@ -4,7 +4,7 @@ import yaml
 import re
 from pathlib import Path
 
-# Directory paths for YAML and JSON files
+# Directory paths for YAML files
 YAML_DIRS = ["./"]
 TMPL_DIRS = ["./common", "./modules"]
 # Add any other files below that should be included in a build

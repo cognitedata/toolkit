@@ -2,14 +2,17 @@
 
 ## Initial starting point
 
-The initial starting point for this repository is the data-model-examples repository, and
+The initial starting point for this repository was the data-model-examples repository, and
 the apm_simple configuration is used as a skeleton for an example model so we can start iterating.
 
 ## Workflow
 
-As this is a public repository, the work tasks should be managed in Github issues.
+As this is a public repository, the work tasks should be managed in Github issues, while
+we use [Jira](https://cognitedata.atlassian.net/jira/software/c/projects/CDF/boards/882) to
+manage internal work tasks.
 The global.yaml file in this repo should be updated to configure groups of modules that
-can be deployed. Use the `cdf_` prefix for modules that are official Cognite product modules.
+can be deployed (as specified in local.yaml).
+Use the `cdf_` prefix for modules that are official Cognite product modules.
 These should be validated by product teams and tested as part of product development.
 
 ### Adding a new module
@@ -33,26 +36,30 @@ changes and naming conventions except where we design for it.
 
 ## Data formats
 
-All the configurations should be kept in JSON and in a format that is compatible with the CDF API.
-For transformations, we will support importing yaml files for backwards compatibility, but the storage
-of the configuration will be in JSON format.
+All the configurations should be kept in YAML and in a format that is compatible with the CDF API, thus
+using snake_case, camelCase is not supported (e.g. external_id and not externalId).
+The configuration files should be loaded directly into the Python SDK's support data classes for direct
+use towards the CDF API. No client side schema validation should be done to ensure that you can immediately
+add a yaml configuration property without upcoming anything else than the version of the Python SDK.
 
-## Tooling and utils/ directory
+## Tooling and scripts/ directory
 
-The ./utils directory is initally copied from <https://github.com/cognitedata/data-model-examples>
-repository as it has initial Python logic for dumping and loading data to and from the APIs.
-There is no need to keep the two repos in sync, and we can iterate on the tooling in ./utils
-to make it easier to work with the templates.
+The ./scripts directory is originally from <https://github.com/cognitedata/data-model-examples>
+repository, but substantially refactored to support a CI/CD aka `CDF-as-code`` workflow.
 
-The intent is to establish a `v1/<project>/config` CDF service that will take over most
-of the heavy-lifting done by code in the ./utils directory. Both this template repo and
-data-model-examples repo can then be updated to use the new service and thus become
-simpler and easier to maintain.
+We want to add client-side logic/validation as part of the deployment process, e.g. validation
+of data models, transformations, contextualizations, etc to ensure integrity and proper
+functioning configuration.
 
-> NOTE!! The utils only support raw, data models, time series, (partial) groups, and transformations. 
-> It also
-> has some support for loading of data that may be used as example data for CDF projects. However,
+The future intent is to establish a `v1/<project>/config` CDF service that will take over this
+validation done by code in the ./scripts directory. We also want to push as much generic logic
+into the Python SDK as possible.
+
+> NOTE!! The scripts currently support raw, data models, time series,  groups, and transformations.
+> It also has some support for loading of data that may be used as example data for CDF projects. However,
 > to the extent possible, this repository should not contain data, only goverend configurations.
+> There is also a dump.py file with functions to dump configurations from CDF into yaml files, thus
+> supporting the workflow from UI-based iteration on configurations to CI/CD-based governed configurations.
 
 ## Testing
 
@@ -63,9 +70,6 @@ test framework for scenario based testing can be found in the Cognite private bi
 
 The `deploy.py` script will automatically clean configurations before trying to load, so you can
 try to apply the configuration multiple times without having to clean up manually. There is also
-a skeleton for a `clean.py` script, but the current delete functions in utils do not accept a directory
-as input (like the load_* functions), so the directory is hardcoded (not a lot of work though).
+a skeleton for a `clean.py` script that will be used to clean up configurations using the scripts/delete.py
+functions.
 
-> Also note that the utils/ directory has several datamodel delete functions (like cleaning out an
-> entire project), as well as several useful dump functions that creates json for datamodels and
-> transformations.
