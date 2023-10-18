@@ -42,8 +42,8 @@ def run(build_dir: str, drop: bool = True, dry_run: bool = True) -> None:
             dry_run=dry_run,
         )
     if Path(f"{build_dir}/raw").is_dir():
-        # TODO: #7 load_raw only loads one database as configured in ToolGlobals.config, needs more dynamic support
-        # Now hardcoded to load into "default" database. This must be configurable in the module (config.yaml)
+        # load_raw() will assume that the RAW database name is set like this in the filename:
+        # <index>.<raw_db>.<tablename>.csv
         load_raw(
             ToolGlobals,
             raw_db="default",
