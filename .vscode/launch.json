@@ -23,7 +23,7 @@
             "args": [
                 //"--dry-run",
                 "--drop",
-                "--include=transformations"
+                //"--include=transformations"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

@@ -6,12 +6,12 @@ views:
 - externalId: Asset
   space: '{{space}}'
   type: view
-  version: "{{view_Asset_version}}"
+  version: '{{view_Asset_version}}'
 - externalId: WorkOrder
   space: '{{space}}'
   type: view
-  version: "{{view_WorkOrder_version}}"
+  version: '{{view_WorkOrder_version}}'
 - externalId: WorkItem
   space: '{{space}}'
   type: view
-  version: "{{view_WorkItem_version}}"
+  version: '{{view_WorkItem_version}}'
