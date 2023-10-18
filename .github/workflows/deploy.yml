@@ -7,6 +7,15 @@ jobs:
   build-modules:
     runs-on: ubuntu-latest
     environment: trial-572dca111144a5196a6b1
+    env:
+        CDF_CLUSTER: ${{ secrets.CDF_CLUSTER }}
+        CDF_PROJECT: ${{ secrets.CDF_PROJECT }}
+        IDP_CLIENT_ID: ${{ secrets.IDP_CLIENT_ID }}
+        IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
+        IDP_TOKEN_URL: ${{ secrets.IDP_TOKEN_URL }}
+        IDP_SCOPES: ${{ secrets.IDP_SCOPES }}
+        IDP_AUDIENCE: ${{ secrets.IDP_AUDIENCE }}
+        CDF_URL: ${{ secrets.CDF_URL }}
     name: Loadmaster
     steps:
       - uses: actions/checkout@v4
