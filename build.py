@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 import argparse
-import os
 import logging
 from dotenv import load_dotenv
 from scripts.templates import build_config
-import pathlib
 
 log = logging.getLogger(__name__)
 
