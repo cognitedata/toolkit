@@ -55,6 +55,12 @@ class Difference:
     changed: list[CogniteResource]
     unchanged: list[CogniteResource]
 
+    def __iter__(self):
+        return iter([self.added, self.removed, self.changed, self.unchanged])
+
+    def __next__(self):
+        return next([self.added, self.removed, self.changed, self.unchanged])
+
 
 class TimeSeriesLoad:
     @staticmethod
@@ -585,19 +591,41 @@ def load_datamodel_graphql(
 
 def load_datamodel(
     ToolGlobals: CDFToolConfig,
-    drop: bool,
+    drop: bool = False,
+    delete_removed: bool = True,
+    delete_containers: bool = False,
+    delete_spaces: bool = False,
     directory: Path | None = None,
     dry_run: bool = False,
     only_drop: bool = False,
 ) -> None:
+    """Load containers, views, spaces, and data models from a directory
+
+        Note that this function will never delete instances, but will delete all
+        the properties found in containers if delete_containers is specified.
+        delete_spaces will fail unless also the edges and nodes have been deleted,
+        e.g. using the clean_out_datamodel() function.
+
+        Note that if delete_spaces flag is True, an attempt will be made to delete the space,
+        but if it fails, the loading will continue. If delete_containers is True, the loading
+        will abort if deletion fails.
+    Args:
+        drop: Whether to drop all existing resources before loading.
+        delete_removed: Whether to delete (previous) resources that are not in the directory.
+        delete_containers: Whether to delete containers including data in the instances.
+        delete_spaces: Whether to delete spaces (requires containers and instances to be deleted).
+        directory: Directory to load from.
+        dry_run: Whether to perform a dry run and only print out what will happen.
+        only_drop: Whether to only drop existing resources and not load new ones.
+    """
     if directory is None:
         raise ValueError("directory must be supplied.")
     model_files_by_type: dict[str, list[Path]] = defaultdict(list)
-    models_pattern = re.compile(r"^(.*\.)?(container|view|datamodel)\.yaml$")
-    for file in directory.glob("**/*.yaml"):
+    models_pattern = re.compile(r"^.*\.?(container|view|datamodel)\.yaml$")
+    for file in directory.rglob("*.yaml"):
         if not (match := models_pattern.match(file.name)):
             continue
-        model_files_by_type[match.group(2)].append(file)
+        model_files_by_type[match.group(1)].append(file)
     for type_, files in model_files_by_type.items():
         print(f"Found {len(files)} {type_}s in {directory}.")
 
@@ -626,7 +654,7 @@ def load_datamodel(
         }
     )
 
-    print(f"Found {len(space_list)} spaces")
+    print(f"Found {len(space_list)} space(s)")
     cognite_resources_by_type["space"] = [
         SpaceApply(space=s, name=s, description="Imported space") for s in space_list
     ]
@@ -676,6 +704,48 @@ def load_datamodel(
 
     creation_order = ["space", "container", "view", "datamodel"]
 
+    if drop:
+        # Clean out all old resources
+        for type_ in reversed(creation_order):
+            items = differences.get(type_)
+            if items is None:
+                continue
+            if type_ == "container" and not delete_containers:
+                print(
+                    "Skipping deletion of containers as delete_containers flag is not set."
+                )
+                continue
+            if type_ == "space" and not delete_spaces:
+                print("Skipping deletion of spaces as delete_spaces flag is not set.")
+                continue
+            deleted = 0
+            for i in items:
+                if len(i) == 0:
+                    continue
+                # for i2 in i:
+                try:
+                    if not dry_run:
+                        if type_ == "space":
+                            for i2 in i:
+                                resource_api_by_type[type_].delete(i2.space)
+                        else:
+                            resource_api_by_type[type_].delete(i)
+                    deleted += 1
+                except CogniteAPIError as e:
+                    # Typically spaces can not be deleted if there are other
+                    # resources in the space.
+                    print(f"  Failed to delete {type_}(s):\n{e}")
+                    print(e)
+                    ToolGlobals.failed = True
+                    if type_ == "space":
+                        print("  Deletion of space was not successful, continuing.")
+                        continue
+                    return
+            if not dry_run:
+                print(f"  Deleted {deleted} {type_}(s).")
+            else:
+                print(f"  Would have deleted {deleted} {type_}(s).")
+
     if not only_drop:
         for type_ in creation_order:
             if type_ not in differences:
@@ -698,7 +768,7 @@ def load_datamodel(
             if items.unchanged:
                 print(f"Found {len(items.unchanged)} unchanged {type_}(s).")
 
-    if drop:
+    if delete_removed and not drop:
         for type_ in reversed(creation_order):
             if type_ not in differences:
                 continue

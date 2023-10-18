@@ -23,7 +23,7 @@
             "args": [
                 //"--dry-run",
                 "--drop",
-                "--include=groups"
+                "--include=data_models"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

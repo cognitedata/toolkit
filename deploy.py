@@ -9,6 +9,7 @@ from scripts.load import (
     load_groups,
     load_timeseries_metadata,
 )
+from scripts.delete import clean_out_datamodels
 from scripts.load import (
     load_datamodel,
     load_transformations_dump,
@@ -71,31 +72,18 @@ def run(
             dry_run=dry_run,
             directory=f"{build_dir}/transformations",
         )
-    if (include is None or "source_models" in include) and (
-        models_dir := Path(f"{build_dir}/source_models")
+    if (include is None or "data_models" in include) and (
+        models_dir := Path(f"{build_dir}/data_models")
     ).is_dir():
+        # WARNING!!!! The below command will delete EVERYTHING in ALL data models
+        # in the project, including instances.
+        # clean_out_datamodels(ToolGlobals, dry_run=dry_run, instances=True)
         load_datamodel(
             ToolGlobals,
             drop=drop,
             directory=models_dir,
-            dry_run=dry_run,
-        )
-    if (include is None or "domain_models" in include) and (
-        models_dir := Path(f"{build_dir}/domain_models")
-    ).is_dir():
-        load_datamodel(
-            ToolGlobals,
-            drop=drop,
-            directory=models_dir,
-            dry_run=dry_run,
-        )
-    if (include is None or "solution_models" in include) and (
-        models_dir := Path(f"{build_dir}/solution_models")
-    ).is_dir():
-        load_datamodel(
-            ToolGlobals,
-            drop=drop,
-            directory=models_dir,
+            delete_containers=False,  # Also delete properties that have been ingested (leaving empty instances)
+            delete_spaces=False,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
             dry_run=dry_run,
         )
     if ToolGlobals.failed:
@@ -107,7 +95,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(epilog="Further functionality to be added")
     parser.add_argument(
         "--include",
-        help="restrict deploy to: groups,raw,timeseries,transformations,source_models,domain_models,solution_models",
+        help="restrict deploy to: groups,raw,timeseries,transformations,data_models",
         type=str,
         default=None,
     )
