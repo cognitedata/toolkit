@@ -138,7 +138,12 @@ def process_config_files(dirs, yaml_data, build_dir="./build"):
                     # Get rid of the local index
                     if re.match("^[0-9]+\\.", file):
                         file = file.split(".", 1)[1]
-                    file = f"{indices[cdf_path]}.{file}"
+                    # If we are processing raw tables, we want to pick up the raw_db config.yaml
+                    # variable to determine the database name.
+                    if dirpath.split("/")[-1] == "raw":
+                        file = f"{indices[cdf_path]}.{yaml_local.get('raw_db', 'default')}.{file}"
+                    else:
+                        file = f"{indices[cdf_path]}.{file}"
                 with open(new_path / file, "w") as f:
                     f.write(content)
 
