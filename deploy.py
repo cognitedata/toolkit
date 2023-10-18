@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import logging
-import json
 from pathlib import Path
 from dotenv import load_dotenv
 from scripts.utils import CDFToolConfig
@@ -10,8 +9,10 @@ from scripts.load import (
     load_groups,
     load_timeseries_metadata,
 )
-from scripts.datamodel import load_datamodel
-from scripts.transformations import load_transformations_dump
+from scripts.load import (
+    load_datamodel,
+    load_transformations_dump,
+)
 
 log = logging.getLogger(__name__)
 
@@ -127,7 +128,10 @@ if __name__ == "__main__":
         help="Where to pick up the config files to deploy",
     )
     args, unknown_args = parser.parse_known_args()
-    include = args.include.split(",")
+    if args.include is not None:
+        include = args.include.split(",")
+    else:
+        include = None
     run(
         build_dir=args.build_dir,
         dry_run=args.dry_run,

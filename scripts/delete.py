@@ -16,7 +16,7 @@ import os
 import json
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.data_classes.data_modeling import ViewId
-from scripts.transformations_config import parse_transformation_configs
+from .transformations_config import parse_transformation_configs
 from .utils import CDFToolConfig
 
 
@@ -275,3 +275,133 @@ def delete_datamodel(
         print(f"Failed to delete space {space_name}")
         print(e)
         ToolGlobals.failed = True
+
+
+def clean_out_datamodels(
+    ToolGlobals: CDFToolConfig, dry_run=False, directory=None, instances=False
+) -> None:
+    """WARNING!!!!
+
+    Destructive: will delete all containers, views, data models, and spaces either
+    found in local directory or GLOBALLY!!! (if not supplied)
+    """
+    if directory is not None:
+        from .load import load_datamodel
+
+        load_datamodel(
+            ToolGlobals, drop=True, directory=directory, dry_run=dry_run, only_drop=True
+        )
+        return
+    print("WARNING: This will delete all data models, views, containers, and spaces.")
+    ToolGlobals.failed = False
+    client = ToolGlobals.verify_client(
+        capabilities={
+            "dataModelsAcl": ["READ", "WRITE"],
+            "dataModelInstancesAcl": ["READ", "WRITE"],
+        }
+    )
+    try:
+        spaces = client.data_modeling.spaces.list(limit=-1)
+        containers = client.data_modeling.containers.list(limit=-1)
+        views = client.data_modeling.views.list(limit=-1, all_versions=True)
+        data_models = client.data_modeling.data_models.list(limit=-1, all_versions=True)
+    except Exception as e:
+        print(f"Failed to retrieve everything needed.")
+        print(e)
+        ToolGlobals.failed = True
+        return
+    print(f"Found:")
+    print(f"  {len(spaces)} space(s)")
+    print(f"  {len(containers)} container(s)")
+    print(f"  {len(views)} view(s)")
+    print(f"  {len(data_models)} data model(s)")
+    print("Deleting...")
+    try:
+        if not dry_run:
+            client.data_modeling.containers.delete(
+                [(c.space, c.external_id) for c in containers.data]
+            )
+        print(f"  Deleted {len(containers)} container(s).")
+    except Exception as e:
+        print("  Was not able to delete containers. May not exist.")
+        print(e)
+    try:
+        if not dry_run:
+            client.data_modeling.views.delete(
+                [(v.space, v.external_id, v.version) for v in views.data]
+            )
+        print(f"  Deleted {len(views)} views.")
+    except Exception as e:
+        print("  Was not able to delete views. May not exist.")
+        print(e)
+    try:
+        if not dry_run:
+            client.data_modeling.data_models.delete(
+                [(d.space, d.external_id, d.version) for d in data_models.data]
+            )
+        print(f"  Deleted {len(data_models)} data models.")
+    except Exception as e:
+        print("  Was not able to delete data models. May not exist.")
+        print(e)
+    i = 0
+    for s in spaces.data:
+        if instances:
+            print("Found --instances flag and will delete remaining nodes and edges.")
+            # Find any remaining edges in the space
+            edge_count = 0
+            edge_delete = 0
+            for instance_list in client.data_modeling.instances(
+                instance_type="edge",
+                include_typing=True,
+                limit=None,
+                filter={
+                    "equals": {
+                        "property": ["edge", "space"],
+                        "value": s.space,
+                    }
+                },
+                chunk_size=1000,
+            ):
+                instances = [(s.space, i.external_id) for i in instance_list.data]
+                if not dry_run:
+                    ret = client.data_modeling.instances.delete(edges=instances)
+                    edge_delete += len(ret.edges)
+                edge_count += len(instance_list)
+            print(
+                f"Found {edge_count} edges and deleted {edge_delete} instances from {s.space}."
+            )
+            # Find any remaining nodes in the space
+            node_count = 0
+            node_delete = 0
+            for instance_list in client.data_modeling.instances(
+                instance_type="node",
+                include_typing=True,
+                limit=None,
+                filter={
+                    "equals": {
+                        "property": ["node", "space"],
+                        "value": s.space,
+                    }
+                },
+                chunk_size=1000,
+            ):
+                instances = [(s.space, i.external_id) for i in instance_list.data]
+                if not dry_run:
+                    ret = client.data_modeling.instances.delete(nodes=instances)
+                    node_delete += len(ret.nodes)
+                node_count += len(instance_list)
+            print(
+                f"Found {node_count} instances and deleted {node_delete} instances from {s.space}."
+            )
+        else:
+            print(
+                "Did not find --instances flag and will try to delete space without deleting remaining nodes and edges."
+            )
+        try:
+            if not dry_run:
+                client.data_modeling.spaces.delete(s.space)
+            i += 1
+        except Exception as e:
+            print(f"  Was not able to delete space {s.space}.")
+            print(e)
+    print(f"  Deleted {i} spaces.")
