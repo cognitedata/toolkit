@@ -30,6 +30,5 @@ if __name__ == "__main__":
         nargs="?",
         help="Where to write the config files",
     )
-    print("ENV PROJ", os.environ.get("CDF_PROJECT", "not accessed"))
     args, unknown_args = parser.parse_known_args()
     run(args.build_dir)
