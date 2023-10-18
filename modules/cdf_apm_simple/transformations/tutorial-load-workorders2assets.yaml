@@ -1,14 +1,5 @@
 externalId: tutorial-load-workorders2assets
 name: tutorial-load-Workorders2assets
-query: >-
-  /* MAPPING_MODE_ENABLED: true */
-  /* {"version":1,"sourceType":"raw","mappings":[{"from":"externalId","to":"externalId","asType":"STRING"},{"from":"sourceExternalId","to":"startNode","asType":"STRUCT<`space`:STRING, `externalId`:STRING>"},{"to":"endNode","asType":"STRUCT<`space`:STRING, `externalId`:STRING>","from":"targetExternalId"}],"sourceLevel1":"{{raw_db}}","sourceLevel2":"workorder2assets"} */
-  select
-    cast(`externalId` as STRING) as externalId,
-    node_reference('{{space}}', `sourceExternalId`) as startNode,
-    node_reference('{{space}}', `targetExternalId`) as endNode
-  from
-    `{{raw_db}}`.`workorder2assets`;
 destination:
   dataModel:
     space: {{space}}

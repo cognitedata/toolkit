@@ -23,7 +23,7 @@
             "args": [
                 //"--dry-run",
                 "--drop",
-                "--include=data_models"
+                "--include=transformations"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

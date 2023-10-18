@@ -16,7 +16,6 @@ import os
 import re
 import yaml
 import pandas as pd
-import json
 from collections import defaultdict
 from pathlib import Path
 from typing import Union
@@ -27,7 +26,6 @@ from cognite.client.data_classes.iam import Group
 from cognite.client.data_classes import (
     Transformation,
     TransformationList,
-    TransformationDestination,
 )
 from cognite.client.data_classes.transformations.common import DataModelInfo
 from cognite.client.data_classes.data_modeling import (
@@ -38,13 +36,6 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.exceptions import CogniteAPIError
 from .utils import CDFToolConfig
-from scripts.transformations_config import parse_transformation_configs
-from scripts.transformations_api import (
-    to_transformation,
-    get_existing_transformation_ext_ids,
-    get_new_transformation_ids,
-    upsert_transformations,
-)
 from cognite.client.exceptions import CogniteNotFoundError
 
 
@@ -316,75 +307,6 @@ def load_timeseries_datapoints(
 
 def load_transformations(
     ToolGlobals: CDFToolConfig,
-    file: str,
-    drop: bool,
-    dry_run: bool = False,
-    directory=None,
-) -> None:
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(
-        capabilities={"transformationsAcl": ["READ", "WRITE"]}
-    )
-    tmp = ""
-    if file:
-        # Only load the supplied filename.
-        os.mkdir(f"{directory}/tmp")
-        os.system(f"cp {directory}/{file} {directory}/tmp/")
-        tmp = "tmp/"
-    configs = parse_transformation_configs(f"{directory}/{tmp}")
-    if len(tmp) > 0:
-        os.system(f"rm -rf {directory}/tmp")
-    cluster = ToolGlobals.environ("CDF_CLUSTER")
-    transformations = [
-        to_transformation(client, conf_path, configs[conf_path], cluster)
-        for conf_path in configs
-    ]
-    transformations_ext_ids = [t.external_id for t in configs.values()]
-    try:
-        if drop:
-            if not dry_run:
-                client.transformations.delete(external_id=transformations_ext_ids)
-            else:
-                print(
-                    f"Would have deleted {len(transformations_ext_ids)} transformations."
-                )
-    except CogniteNotFoundError:
-        pass
-    try:
-        existing_transformations_ext_ids = get_existing_transformation_ext_ids(
-            client, transformations_ext_ids
-        )
-        new_transformation_ext_ids = get_new_transformation_ids(
-            transformations_ext_ids, existing_transformations_ext_ids
-        )
-        if not dry_run:
-            (
-                _,
-                updated_transformations,
-                created_transformations,
-            ) = upsert_transformations(
-                client,
-                transformations,
-                existing_transformations_ext_ids,
-                new_transformation_ext_ids,
-            )
-        else:
-            print(
-                f"Would have updated and created {len(transformations)} transformations."
-            )
-    except Exception as e:
-        print(f"Failed to upsert transformations.")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    if not dry_run:
-        print(f"Updated {len(updated_transformations)} transformations.")
-        print(f"Created {len(created_transformations)} transformations.")
-
-
-def load_transformations_dump(
-    ToolGlobals: CDFToolConfig,
     file: str = None,
     drop: bool = False,
     dry_run: bool = False,
@@ -405,47 +327,19 @@ def load_transformations_dump(
         # Only load the supplied filename.
         files.append(file)
     else:
-        # Pick up all the .json files in the data folder.
+        # Pick up all the .yaml files in the data folder.
         for _, _, filenames in os.walk(directory):
             for f in filenames:
-                if ".json" in f:
+                if ".yaml" in f:
                     files.append(f)
     transformations: TransformationList = []
     for f in files:
         with open(f"{directory}/{f}", "rt") as file:
-            tf = json.load(file)
-            if type(tf) == dict:
-                tf = [tf]
-            # This code basically runs through the propertoes of the Transformation class and
-            # converts the nested dicts into the right objects.
-            # Full serialization and deserialization of the entire transformations API is not supported.
-            for t in tf:
-                ta = Transformation()
-                for k, v in t.items():
-                    if k == "destination":
-                        # The destination dict is converted into a TransformationDestination object.
-                        ta.destination = TransformationDestination(v["type"])
-                        v.pop("type")
-                        for k2, v2 in v.items():
-                            # The data_model dict is converted into a DataModelInfo object.
-                            if k2 == "data_model":
-                                ta.destination.data_model = DataModelInfo(
-                                    space=v2.get("space"),
-                                    version=v2.get("version"),
-                                    external_id=v2.get("external_id"),
-                                    destination_type=v2.get("destination_type"),
-                                )
-                            else:
-                                # Here we just pick up the values for each attribute in the dict and sets
-                                # the corresponding property on the object.
-                                ta.destination.__setattr__(k2, v2)
-                    else:
-                        # Here we just pick up the values for each attribute in the dict and sets
-                        # the corresponding property on the object.
-                        ta.__setattr__(k, v)
-                transformations.append(ta)
-    ext_ids = [t.external_id for t in transformations]
+            transformations.append(
+                Transformation._load(yaml.safe_load(file.read())),
+            )
     print(f"Found {len(transformations)} transformations in {directory}.")
+    ext_ids = [t.external_id for t in transformations]
     try:
         if drop:
             if not dry_run:

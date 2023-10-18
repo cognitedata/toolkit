@@ -3,6 +3,9 @@ from __future__ import annotations
 import datetime
 import json
 import os
+import tempfile
+from typing import Sequence
+from cognite.client import CogniteClient
 
 from cognite.client.data_classes.data_modeling import (
     DataModelList,

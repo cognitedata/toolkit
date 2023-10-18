@@ -9,10 +9,11 @@ from scripts.load import (
     load_groups,
     load_timeseries_metadata,
 )
-from scripts.delete import clean_out_datamodels
+
+# from scripts.delete import clean_out_datamodels
 from scripts.load import (
     load_datamodel,
-    load_transformations_dump,
+    load_transformations,
 )
 
 log = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ def run(
     if (include is None or "transformations" in include) and Path(
         f"{build_dir}/transformations"
     ).is_dir():
-        load_transformations_dump(
+        load_transformations(
             ToolGlobals,
             file=None,
             drop=drop,
