@@ -36,9 +36,6 @@ class CDFToolConfig:
 
     """
 
-    _client: CogniteClient = None
-    _environ: dict[str, str] = None
-
     def __init__(
         self,
         client_name: str = "Generic Cognite config deploy tool",
