@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 # This is a convenience object that has a CDF client (.client) and
 # allows access to environment variables (.environ) using a consistent
 # naming scheme that is also aligned with recommendations externally.
-load_dotenv(".env", override=True)
+load_dotenv(".local/.env_dev", override=True)
 
 def run(build_dir: str, drop: bool = True, dry_run: bool = True) -> None:
     print(f"Deploying config files from {build_dir}...")

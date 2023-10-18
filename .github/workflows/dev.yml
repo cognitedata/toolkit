@@ -1,12 +1,12 @@
-name: Deploy modules
+name: Deploy modules to dev
 on:
   push:
     branches:
-      - ghactions
+      - main
 jobs:
   build-modules:
     runs-on: ubuntu-latest
-    environment: trial-572dca111144a5196a6b1
+    environment: dev
     env:
         CDF_CLUSTER: ${{ secrets.CDF_CLUSTER }}
         CDF_PROJECT: ${{ secrets.CDF_PROJECT }}
