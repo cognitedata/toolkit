@@ -36,6 +36,9 @@ class CDFToolConfig:
 
     """
 
+    _client: CogniteClient = None
+    _environ: dict[str, str] = None
+
     def __init__(
         self,
         client_name: str = "Generic Cognite config deploy tool",
@@ -45,6 +48,7 @@ class CDFToolConfig:
         self._data_set = None
         self._failed = False
         self._environ = {}
+        
         if token is not None:
             self._environ["CDF_TOKEN"] = token
         if (
@@ -55,6 +59,12 @@ class CDFToolConfig:
             # and credentials are preset to logged in user (no env vars are set!).
             self._client = CogniteClient()
             return
+
+
+
+
+
+
 
         # CDF_CLUSTER and CDF_PROJECT are minimum requirements to know where to connect.
         # Above they were forced default to None and fail was False, here we
@@ -181,9 +191,7 @@ class CDFToolConfig:
         # Since we now have a new configuration, check the dataset and set the id
         self._data_set_id = self.verify_dataset(data_set_name=value)
 
-    def verify_client(
-        self, capabilities: dict[str, list[str]] | None = None
-    ) -> CogniteClient:
+    def verify_client( self, capabilities: dict[str, list[str]] | None = None) -> None:
         """Verify that the client has correct credentials and required access rights
 
         Supply requirement CDF ACLs to verify if you have correct access
@@ -256,9 +264,9 @@ class CDFToolConfig:
             Re-raises underlying SDK exception
         """
 
-        client = self.verify_client(capabilities={"datasetsAcl": ["READ", "WRITE"]})
+        self.verify_client(capabilities={"datasetsAcl": ["READ", "WRITE"]})
         try:
-            data_set = client.data_sets.retrieve(external_id=data_set_name)
+            data_set = self.client.data_sets.retrieve(external_id=data_set_name)
             if data_set is not None:
                 return data_set.id
         except Exception as e:
@@ -273,7 +281,7 @@ class CDFToolConfig:
                 external_id=data_set_name,
                 name=data_set_name,
             )
-            data_set = client.data_sets.create(data_set)
+            data_set = self.client.data_sets.create(data_set)
             return data_set.id
         except Exception as e:
             raise CogniteAuthError(
