@@ -14,7 +14,7 @@ load_dotenv(".env")
 
 def run(build_dir: str, clean: bool = False) -> None:
     print(
-        f"Building config files from templates in into {build_dir}..."
+        f"Building config files from templates into {build_dir}..."
     )
 
     build_config(dir = build_dir, clean=clean)
