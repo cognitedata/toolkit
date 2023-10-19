@@ -10,6 +10,7 @@
             "request": "launch",
             "program": "./build.py",
             "args": [
+                "--clean",
                 "build"
             ],
             "console": "integratedTerminal",

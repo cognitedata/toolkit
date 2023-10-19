@@ -30,8 +30,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--clean",
-        default=False,
+        action="store_true",
         help="Clean the build directory before building",
     )
     args, unknown_args = parser.parse_known_args()
-    run(args.build_dir)
+    run(args.build_dir, clean=args.clean)
