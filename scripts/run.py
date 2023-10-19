@@ -14,17 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .utils import CDFToolConfig
+from typing import Optional
+
 from .transformations_config import parse_transformation_configs
+from .utils import CDFToolConfig
 
 
-def run_transformations(ToolGlobals: CDFToolConfig, directory: str = None):
+def run_transformations(ToolGlobals: CDFToolConfig, directory: Optional[str] = None):
     if directory is None:
         raise ValueError("directory must be specified")
     ToolGlobals.failed = False
-    client = ToolGlobals.verify_client(
-        capabilities={"transformationsAcl": ["READ", "WRITE"]}
-    )
+    client = ToolGlobals.verify_client(capabilities={"transformationsAcl": ["READ", "WRITE"]})
     configs = parse_transformation_configs(f"{directory}")
     transformations_ext_ids = [t.external_id for t in configs.values()]
     try:
@@ -32,6 +32,6 @@ def run_transformations(ToolGlobals: CDFToolConfig, directory: str = None):
             client.transformations.run(transformation_external_id=t, wait=False)
         print(f"Started {len(transformations_ext_ids)} transformation jobs.")
     except Exception as e:
-        print(f"Failed to start transformation jobs. They may not exist.")
+        print("Failed to start transformation jobs. They may not exist.")
         print(e)
         ToolGlobals.failed = True
