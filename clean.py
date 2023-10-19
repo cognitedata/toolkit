@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import logging
-import json
 from pathlib import Path
 from dotenv import load_dotenv
 from scripts.utils import CDFToolConfig

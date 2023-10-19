@@ -1,7 +1,7 @@
 externalId: WorkItem
 name: WorkItem
 space: '{{space}}'
-version: "{{view_WorkItem_version}}"
+version: '{{view_WorkItem_version}}'
 properties:
   criticality:
     container:

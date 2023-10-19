@@ -5,7 +5,7 @@ import yaml
 import re
 from pathlib import Path
 
-# Directory paths for YAML and JSON files
+# Directory paths for YAML files
 YAML_DIRS = ["./"]
 TMPL_DIRS = ["./common", "./modules"]
 # Add any other files below that should be included in a build
@@ -33,7 +33,10 @@ def read_module_config(root_dir: str = "./", tmpl_dirs: str = TMPL_DIRS) -> list
                         for m2 in g3:
                             if m2 not in modules:
                                 modules.append(m2)
-                    else:
+                    elif (
+                        m not in modules
+                        and global_config.get("packages", {}).get(m) is None
+                    ):
                         modules.append(m)
 
     load_list = []
@@ -86,8 +89,9 @@ def read_yaml_files(yaml_dirs, name: str = "config.yaml"):
     return data
 
 
-def process_config_files(dirs : [str], yaml_data: str, build_dir : str ="./build", clean : bool = False):
-    
+def process_config_files(
+    dirs: [str], yaml_data: str, build_dir: str = "./build", clean: bool = False
+):
     path = Path(build_dir)
     if path.exists():
         if any(path.iterdir()):
@@ -95,7 +99,9 @@ def process_config_files(dirs : [str], yaml_data: str, build_dir : str ="./build
                 shutil.rmtree(path)
                 path.mkdir()
             else:
-                print("Warning: Build directory is not empty. Use --clean to remove existing files.")
+                print(
+                    "Warning: Build directory is not empty. Use --clean to remove existing files."
+                )
     else:
         path.mkdir()
 
@@ -160,5 +166,5 @@ def build_config(dir: str = "./build", clean: bool = False):
         dirs=modules,
         yaml_data=read_yaml_files(yaml_dirs=YAML_DIRS),
         build_dir=dir,
-        clean = clean,
+        clean=clean,
     )
