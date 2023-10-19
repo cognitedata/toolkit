@@ -1,0 +1,282 @@
+externalId: APM_Operation
+name: "APM_Operation"
+description: "Description of APM_Operation"
+version: "2"
+implements: []
+
+properties:
+  id:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: id
+    nullable: true
+    autoIncrement: false
+    description: "Basic details"
+    name: id
+
+  title:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: title
+    nullable: true
+    autoIncrement: false
+    name: title
+
+  description:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: description
+    nullable: true
+    autoIncrement: false
+    name: description
+
+  source:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: source
+    nullable: true
+    autoIncrement: false
+    name: source
+
+  parentActivityId:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: parentActivityId
+    nullable: true
+    autoIncrement: false
+    name: parentActivityId
+
+  labels:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: labels
+    nullable: true
+    autoIncrement: false
+    name: labels
+
+  startTime:
+    type:
+      type: timestamp
+      list: false
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: startTime
+    nullable: true
+    autoIncrement: false
+    description: "Scheduling"
+    name: startTime
+
+  endTime:
+    type:
+      type: timestamp
+      list: false
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: endTime
+    nullable: true
+    autoIncrement: false
+    name: endTime
+
+  assetExternalId:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: assetExternalId
+    nullable: true
+    autoIncrement: false
+    description: "Contextualisation"
+    name: assetExternalId
+
+  files:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: files
+    nullable: true
+    autoIncrement: false
+    name: files
+
+  assignedTo:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: assignedTo
+    nullable: true
+    autoIncrement: false
+    name: assignedTo
+
+  mainResource:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: mainResource
+    nullable: true
+    autoIncrement: false
+    description: "Standard operation data"
+    name: mainResource
+
+  personHours:
+    type:
+      type: int32
+      list: false
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: personHours
+    nullable: true
+    autoIncrement: false
+    name: personHours
+
+  numberOfMainResource:
+    type:
+      type: int32
+      list: false
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: numberOfMainResource
+    nullable: true
+    autoIncrement: false
+    name: numberOfMainResource
+
+  order:
+    type:
+      type: int32
+      list: false
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: order
+    nullable: true
+    autoIncrement: false
+    name: order
+
+  type:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: type
+    nullable: true
+    autoIncrement: false
+    name: type
+
+  status:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: status
+    nullable: true
+    autoIncrement: false
+    name: status
+
+  isInApp:
+    type:
+      type: boolean
+      list: false
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: isInApp
+    nullable: true
+    autoIncrement: false
+    description: "System data"
+    name: isInApp
+
+  createdAt:
+    type:
+      type: timestamp
+      list: false
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: createdAt
+    nullable: true
+    autoIncrement: false
+    name: createdAt
+
+  createdBy:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Operation
+    containerPropertyIdentifier: createdBy
+    nullable: true

@@ -1,0 +1,193 @@
+externalId: APM_Activity
+usedFor: node
+properties:
+  id:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    description: Basic details
+    name: id
+  title:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: title
+  description:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: description
+  source:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: source
+  startTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+    autoIncrement: false
+    description: Scheduling
+    name: startTime
+  endTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+    autoIncrement: false
+    name: endTime
+  assetExternalIds:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    description: Contextualisation
+    name: assetExternalIds
+  assetExternalId:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: assetExternalId
+  functionalLocation:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: functionalLocation
+  rootLocation:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: rootLocation
+  assignedTo:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: assignedTo
+  subActivities:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: subActivities
+  resource:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    description: Standard Activity Details
+    name: resource
+  type:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: type
+  status:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: status
+  isArchived:
+    type:
+      type: boolean
+      list: false
+    nullable: true
+    autoIncrement: false
+    description: System data
+    name: isArchived
+  isInApp:
+    type:
+      type: boolean
+      list: false
+    nullable: true
+    autoIncrement: false
+    name: isInApp
+  createdAt:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+    autoIncrement: false
+    name: createdAt
+  createdBy:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: createdBy
+  lastUpdatedDate:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+    autoIncrement: false
+    name: lastUpdatedDate
+  mutatedBy:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: mutatedBy
+  cloneOf:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: cloneOf
+  mutatedFields:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
+    autoIncrement: false
+    name: mutatedFields
+  isMutated:
+    type:
+      type: boolean
+      list: false
+    nullable: true
+    autoIncrement: false
+    name: isMutated

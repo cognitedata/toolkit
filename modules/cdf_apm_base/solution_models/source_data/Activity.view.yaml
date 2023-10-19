@@ -1,0 +1,211 @@
+externalId: APM_Activity
+name: APM_Activity
+description: "Description of the APM Activity view."
+version: b39ba62597c839
+implements: []
+
+properties:
+  id:
+    description: "Basic details"
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: id
+    nullable: true
+    autoIncrement: false
+  title:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: title
+    nullable: true
+    autoIncrement: false
+  description:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: description
+    nullable: true
+    autoIncrement: false
+  source:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: source
+    nullable: true
+    autoIncrement: false
+  startTime:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: startTime
+    nullable: true
+    autoIncrement: false
+    description: "Scheduling"
+  endTime:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: endTime
+    nullable: true
+    autoIncrement: false
+  assetExternalIds:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: assetExternalIds
+    nullable: true
+    autoIncrement: false
+    description: "Contextualisation"
+  assetExternalId:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: assetExternalId
+    nullable: true
+    autoIncrement: false
+  functionalLocation:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: functionalLocation
+    nullable: true
+    autoIncrement: false
+  rootLocation:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: rootLocation
+    nullable: true
+    autoIncrement: false
+  assignedTo:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: assignedTo
+    nullable: true
+    autoIncrement: false
+  subActivities:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: subActivities
+    nullable: true
+    autoIncrement: false
+  resource:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: resource
+    nullable: true
+    autoIncrement: false
+    description: "Standard Activity Details"
+  type:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: type
+    nullable: true
+    autoIncrement: false
+  status:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: status
+    nullable: true
+    autoIncrement: false
+  isArchived:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: isArchived
+    nullable: true
+    autoIncrement: false
+    description: "System data"
+  isInApp:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: isInApp
+    nullable: true
+    autoIncrement: false
+  createdAt:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: createdAt
+    nullable: true
+    autoIncrement: false
+  createdBy:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: createdBy
+    nullable: true
+    autoIncrement: false
+  lastUpdatedDate:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: lastUpdatedDate
+    nullable: true
+    autoIncrement: false
+  mutatedBy:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: mutatedBy
+    nullable: true
+    autoIncrement: false
+  cloneOf:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: cloneOf
+    nullable: true
+    autoIncrement: false
+  mutatedFields:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: mutatedFields
+    nullable: true
+    autoIncrement: false
+  isMutated:
+    container:
+      type: container
+      space: APM_SourceData_3
+      externalId: APM_Activity
+    containerPropertyIdentifier: isMutated
+    nullable: true
+    autoIncrement: false
+  notifications:
+    type: view
+    space: APM_SourceData_3
+    externalId: APM_Activity.notifications
+    version: bb15375f78822e
+    name: notifications
+    direction: outwards
