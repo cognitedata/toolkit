@@ -27,7 +27,7 @@ jobs:
         run: poetry install
       - name: "Build the package"
         run: |
-          poetry run python build.py --package
+          poetry run python build.py
       - name: "Deploy the package"
         run: |
-          poetry run python deploy.py --package
+          poetry run python deploy.py
