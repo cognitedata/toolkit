@@ -404,7 +404,7 @@ def load_groups(
     for group in groups:
         old_group_id = None
         for g in old_groups:
-            if g.source_id == group.source_id:
+            if g.name == group.name:
                 old_group_id = g.id
                 break
         try:
