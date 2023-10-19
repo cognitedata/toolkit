@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import shutil
 import yaml
 import re
 from pathlib import Path
@@ -85,8 +86,18 @@ def read_yaml_files(yaml_dirs, name: str = "config.yaml"):
     return data
 
 
-def process_config_files(dirs, yaml_data, build_dir="./build"):
-    Path(build_dir).mkdir(exist_ok=True)
+def process_config_files(dirs : [str], yaml_data: str, build_dir : str ="./build", clean : bool = False):
+    
+    path = Path(build_dir)
+    if path.exists():
+        if any(path.iterdir()):
+            if clean:
+                shutil.rmtree(path)
+                path.mkdir()
+            else:
+                print("Warning: Build directory is not empty. Use --clean to remove existing files.")
+    else:
+        path.mkdir()
 
     local_yaml_path = ""
     yaml_local = {}
@@ -143,10 +154,11 @@ def process_config_files(dirs, yaml_data, build_dir="./build"):
                     f.write(content)
 
 
-def build_config(dir: str = "./build"):
+def build_config(dir: str = "./build", clean: bool = False):
     modules = read_module_config(root_dir="./", tmpl_dirs=TMPL_DIRS)
     process_config_files(
         dirs=modules,
         yaml_data=read_yaml_files(yaml_dirs=YAML_DIRS),
         build_dir=dir,
+        clean = clean,
     )

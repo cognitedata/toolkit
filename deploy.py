@@ -20,7 +20,6 @@ log = logging.getLogger(__name__)
 # naming scheme that is also aligned with recommendations externally.
 load_dotenv(".env")
 
-
 def run(build_dir: str, drop: bool = True, dry_run: bool = True) -> None:
     print(f"Deploying config files from {build_dir}...")
     # Configure a client and load credentials from environment
