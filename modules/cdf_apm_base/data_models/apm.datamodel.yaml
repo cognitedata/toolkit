@@ -46,9 +46,10 @@ views:
     version: v1
 
 # These are needed for edges, not sure where to put them
-globalNodes:
-- externalId: referenceChecklistItems
-- externalId: referenceTemplateItems
-- externalId: referenceMeasurements
-- externalId: referenceSchedules
-- externalId: referenceObservations
+# TODO: GTW - these are failing in loading
+#globalNodes:
+#- externalId: referenceChecklistItems
+#- externalId: referenceTemplateItems
+#- externalId: referenceMeasurements
+#- externalId: referenceSchedules
+#- externalId: referenceObservations

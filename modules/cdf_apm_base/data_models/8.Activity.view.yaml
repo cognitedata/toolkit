@@ -180,9 +180,14 @@ properties:
     containerPropertyIdentifier: isMutated
     
   notifications:
-    type: view
-    space: {{apm_datamodel_space}}
-    externalId: APM_Activity.notifications
-    version: bb15375f78822e
+  #TODO - GTW - this configuration was incomplete, esp type and source need to be verified
+    type:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity.notifications
+    source:
+      type: view
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      version: bb15375f78822e
     name: notifications
     direction: outwards
