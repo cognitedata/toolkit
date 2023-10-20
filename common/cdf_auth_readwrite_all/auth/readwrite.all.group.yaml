@@ -1,4 +1,4 @@
-name: 'Read-write group'
+name: 'cicd:all:read-write'
 source_id: '{{demo_readwrite_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
