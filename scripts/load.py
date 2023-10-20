@@ -613,17 +613,23 @@ def load_datamodel(
                 if dry_run:
                     print(f"  Would have created {len(items.added)} {type_}(s).")
                     continue
-                resource_api_by_type[type_].apply(items.added)
+                for i in items.added:
+                    resource_api_by_type[type_].apply(i)
                 print(f"  Created {len(items.added)} {type_}s.")
             if items.changed:
                 print(f"Found {len(items.changed)} changed {type_}s.")
                 if dry_run:
                     print(f"  Would have updated {len(items.changed)} {type_}(s).")
                     continue
-                resource_api_by_type[type_].apply(items.changed)
+                for i in items.changed:
+                    resource_api_by_type[type_].apply(items.changed)
                 print(f"  Updated {len(items.changed)} {type_}s.")
             if items.unchanged:
                 print(f"Found {len(items.unchanged)} unchanged {type_}(s).")
+                if drop:
+                    for i in items.unchanged:
+                        resource_api_by_type[type_].apply(i)
+                    print(f"  Updated {len(items.changed)} {type_}s.")
 
     if delete_removed and not drop:
         for type_ in reversed(creation_order):

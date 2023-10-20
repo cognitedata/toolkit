@@ -25,7 +25,8 @@
             "args": [
                 //"--dry-run",
                 "--drop",
-                //"--include=transformations"
+                "--drop-data",
+                "--include=data_models"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
