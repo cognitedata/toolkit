@@ -24,7 +24,13 @@ log = logging.getLogger(__name__)
 load_dotenv(".env")
 
 
-def run(build_dir: str, drop: bool = True, dry_run: bool = True, include: Optional[list[str]] = None) -> None:
+def run(
+    build_dir: str,
+    drop: bool = True,
+    drop_data: bool = False,
+    dry_run: bool = True,
+    include: Optional[list[str]] = None,
+) -> None:
     print(f"Deploying config files from {build_dir}...")
     # Configure a client and load credentials from environment
     build_path = Path(__file__).parent / build_dir
@@ -75,8 +81,8 @@ def run(build_dir: str, drop: bool = True, dry_run: bool = True, include: Option
             ToolGlobals,
             drop=drop,
             directory=models_dir,
-            delete_containers=False,  # Also delete properties that have been ingested (leaving empty instances)
-            delete_spaces=False,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
+            delete_containers=drop_data,  # Also delete properties that have been ingested (leaving empty instances)
+            delete_spaces=drop_data,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
             dry_run=dry_run,
         )
     if ToolGlobals.failed:
@@ -99,7 +105,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--drop",
-        help="whether to drop existing data, drop data if present",
+        help="whether to drop existing configurations, drop per resource if present",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--drop-data",
+        help="whether to drop existing data, drop data if present (WARNING!! includes data from pipelines)",
         action="store_true",
     )
     parser.add_argument(
@@ -117,5 +128,6 @@ if __name__ == "__main__":
         build_dir=args.build_dir,
         dry_run=args.dry_run,
         drop=args.drop,
+        drop_data=args.drop_data,
         include=include,
     )
