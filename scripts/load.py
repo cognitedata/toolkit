@@ -499,6 +499,7 @@ def load_datamodel(
             continue
         model_files_by_type[match.group(1)].append(file)
     for type_, files in model_files_by_type.items():
+        model_files_by_type[type_].sort()
         print(f"Found {len(files)} {type_}s in {directory}.")
 
     cognite_resources_by_type: dict[
