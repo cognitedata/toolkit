@@ -1,5 +1,6 @@
 externalId: ChecklistItem
 usedFor: node
+space: {{apm_datamodel_space}}
 properties:
   order:
     type:

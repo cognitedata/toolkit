@@ -2,6 +2,7 @@ externalId: MeasurementReading
 name: "Measurement reading"
 description: "The Measurement reading view facilitates the collection of field data by making readings. It supports various measurement types (e.g., numerical, label) and includes information about execution order, associated time series, value ranges, and the timestamp of the last reading."
 version: v3
+space: {{apm_datamodel_space}}
 implements:
   - type: view
     space: cdf_apps_shared

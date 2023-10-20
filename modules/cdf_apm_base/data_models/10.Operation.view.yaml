@@ -2,6 +2,7 @@ externalId: APM_Operation
 name: "APM_Operation"
 description: "Description of APM_Operation"
 version: "2"
+space: {{apm_datamodel_space}}
 implements: []
 
 properties:
@@ -12,7 +13,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: id
     nullable: true
@@ -27,7 +28,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: title
     nullable: true
@@ -41,7 +42,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: description
     nullable: true
@@ -55,7 +56,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: source
     nullable: true
@@ -69,7 +70,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: parentActivityId
     nullable: true
@@ -83,7 +84,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: labels
     nullable: true
@@ -96,7 +97,7 @@ properties:
       list: false
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: startTime
     nullable: true
@@ -110,7 +111,7 @@ properties:
       list: false
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: endTime
     nullable: true
@@ -124,7 +125,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: assetExternalId
     nullable: true
@@ -139,7 +140,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: files
     nullable: true
@@ -153,7 +154,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: assignedTo
     nullable: true
@@ -167,7 +168,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: mainResource
     nullable: true
@@ -181,7 +182,7 @@ properties:
       list: false
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: personHours
     nullable: true
@@ -194,7 +195,7 @@ properties:
       list: false
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: numberOfMainResource
     nullable: true
@@ -207,7 +208,7 @@ properties:
       list: false
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: order
     nullable: true
@@ -221,7 +222,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: type
     nullable: true
@@ -235,7 +236,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: status
     nullable: true
@@ -248,7 +249,7 @@ properties:
       list: false
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: isInApp
     nullable: true
@@ -262,7 +263,7 @@ properties:
       list: false
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: createdAt
     nullable: true
@@ -276,7 +277,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: createdBy
     nullable: true

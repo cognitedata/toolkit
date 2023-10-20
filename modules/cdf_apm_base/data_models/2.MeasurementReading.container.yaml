@@ -1,5 +1,6 @@
 externalId: MeasurementReading
 usedFor: node
+space: {{apm_datamodel_space}}
 properties:
   type:
     type:

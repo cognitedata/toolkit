@@ -2,6 +2,7 @@ externalId: TemplateItem
 name: "Template item"
 description: "The template item view is designed for creating individual maintenance and inspection tasks within a template. It specifies the execution order, associated assets, measurements, schedules, and other relevant details for each task."
 version: v3
+space: {{apm_datamodel_space}}
 implements:
   - type: view
     space: cdf_core

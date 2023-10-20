@@ -2,6 +2,7 @@ externalId: Checklist
 name: "Checklist"
 description: "The Checklist view provides functionality for executing maintenance and inspection work. It maintains a list of checklist items (tasks) associated with specific maintenance and inspection activities."
 version: v3
+space: {{apm_datamodel_space}}
 implements:
   - type: view
     space: cdf_core

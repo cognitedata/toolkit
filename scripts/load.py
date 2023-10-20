@@ -511,6 +511,7 @@ def load_datamodel(
             "datamodel": DataModelApply,
         }[type_]
         for file in files:
+            print(f"  loading {file}...")
             cognite_resources_by_type[type_].append(resource_cls.load(yaml.safe_load(file.read_text())))
     print("Loaded from files: ")
     for type_, resources in cognite_resources_by_type.items():

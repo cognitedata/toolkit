@@ -2,6 +2,7 @@ externalId: Schedule
 name: "Schedule"
 description: "The Schedule view provides a flexible scheduling framework that can be applied across different models, such as Templates, Robotics Missions, and Template Tasks. It aligns with the ICS calendar format and offers features like status tracking, time zone configuration, exception dates, frequency settings, and end date."
 version: v3
+space: {{apm_datamodel_space}}
 implements:
   - type: view
     space: cdf_core

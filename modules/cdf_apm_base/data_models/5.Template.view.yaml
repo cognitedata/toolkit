@@ -2,6 +2,7 @@ externalId: Template
 name: "Template"
 description: "The Template view is used for creating standardized maintenance and inspection tasks. It defines the status of the template (e.g., draft, ready) and includes a list of template items (tasks) that can be reused for various maintenance and inspection activities."
 version: v3
+space: {{apm_datamodel_space}}
 implements:
   - type: view
     space: cdf_core

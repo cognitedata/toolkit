@@ -2,6 +2,7 @@ externalId: APM_Activity
 name: APM_Activity
 description: "Description of the APM Activity view."
 version: b39ba62597c839
+space: {{apm_datamodel_space}}
 implements: []
 
 properties:
@@ -9,7 +10,7 @@ properties:
     description: "Basic details"
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: id
     nullable: true
@@ -17,7 +18,7 @@ properties:
   title:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: title
     nullable: true
@@ -25,7 +26,7 @@ properties:
   description:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: description
     nullable: true
@@ -33,7 +34,7 @@ properties:
   source:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: source
     nullable: true
@@ -41,7 +42,7 @@ properties:
   startTime:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: startTime
     nullable: true
@@ -50,7 +51,7 @@ properties:
   endTime:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: endTime
     nullable: true
@@ -58,7 +59,7 @@ properties:
   assetExternalIds:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: assetExternalIds
     nullable: true
@@ -67,7 +68,7 @@ properties:
   assetExternalId:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: assetExternalId
     nullable: true
@@ -75,7 +76,7 @@ properties:
   functionalLocation:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: functionalLocation
     nullable: true
@@ -83,7 +84,7 @@ properties:
   rootLocation:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: rootLocation
     nullable: true
@@ -91,7 +92,7 @@ properties:
   assignedTo:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: assignedTo
     nullable: true
@@ -99,7 +100,7 @@ properties:
   subActivities:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: subActivities
     nullable: true
@@ -107,7 +108,7 @@ properties:
   resource:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: resource
     nullable: true
@@ -116,7 +117,7 @@ properties:
   type:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: type
     nullable: true
@@ -124,7 +125,7 @@ properties:
   status:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: status
     nullable: true
@@ -132,7 +133,7 @@ properties:
   isArchived:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: isArchived
     nullable: true
@@ -141,7 +142,7 @@ properties:
   isInApp:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: isInApp
     nullable: true
@@ -149,7 +150,7 @@ properties:
   createdAt:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: createdAt
     nullable: true
@@ -157,7 +158,7 @@ properties:
   createdBy:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: createdBy
     nullable: true
@@ -165,7 +166,7 @@ properties:
   lastUpdatedDate:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: lastUpdatedDate
     nullable: true
@@ -173,7 +174,7 @@ properties:
   mutatedBy:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: mutatedBy
     nullable: true
@@ -181,7 +182,7 @@ properties:
   cloneOf:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: cloneOf
     nullable: true
@@ -189,7 +190,7 @@ properties:
   mutatedFields:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: mutatedFields
     nullable: true
@@ -197,14 +198,14 @@ properties:
   isMutated:
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: isMutated
     nullable: true
     autoIncrement: false
   notifications:
     type: view
-    space: APM_SourceData_3
+    space: {{apm_datamodel_space}}
     externalId: APM_Activity.notifications
     version: bb15375f78822e
     name: notifications

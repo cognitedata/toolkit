@@ -1,5 +1,6 @@
 externalId: APM_Notification
 usedFor: node
+space: {{apm_datamodel_space}}
 properties:
   sourceId:
     type:

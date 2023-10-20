@@ -2,6 +2,7 @@ externalId: Observation
 name: "Observation"
 description: "The Observation view captures anomaly reports created by field operators. It records information about the status, associated assets, related files, root locations, troubleshooting details, priority, and the type of observation (e.g., Malfunction report, Maintenance request)."
 version: v3
+space: {{apm_datamodel_space}}
 implements:
   - type: view
     space: cdf_core

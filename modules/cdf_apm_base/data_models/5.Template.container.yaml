@@ -1,5 +1,6 @@
 externalId: Template
 usedFor: node
+space: {{apm_datamodel_space}}
 properties:
   status:
     type:

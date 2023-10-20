@@ -1,6 +1,7 @@
 externalId: ApmAppData
 name: ApmAppData
 version: v3
+space: {{apm_datamodel_space}}
 description: "APM data models within the cognite applications space"
 views:
   - type: view

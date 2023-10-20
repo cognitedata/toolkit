@@ -2,8 +2,8 @@ externalId: APM_Notification
 name: "APM_Notification"
 description: "Description of APM_Notification"
 version: "bb15375f78822e"
+space: {{apm_datamodel_space}}
 implements: []
-
 properties:
   sourceId:
     type:
@@ -12,7 +12,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: sourceId
     nullable: true
@@ -27,7 +27,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: title
     nullable: true
@@ -41,7 +41,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: description
     nullable: true
@@ -55,7 +55,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: source
     nullable: true
@@ -69,7 +69,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: assetExternalId
     nullable: true
@@ -84,7 +84,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: rootLocationExternalId
     nullable: true
@@ -98,7 +98,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: status
     nullable: true
@@ -113,7 +113,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: type
     nullable: true
@@ -127,7 +127,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: priority
     nullable: true
@@ -140,7 +140,7 @@ properties:
       list: false
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: createdDate
     nullable: true
@@ -154,7 +154,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: system
     nullable: true
@@ -169,7 +169,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: subSystem
     nullable: true
@@ -183,7 +183,7 @@ properties:
       collation: ucs_basic
     container:
       type: container
-      space: APM_SourceData_3
+      space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: Country
     nullable: true

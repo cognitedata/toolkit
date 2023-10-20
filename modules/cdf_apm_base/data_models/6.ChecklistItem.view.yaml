@@ -2,6 +2,7 @@ externalId: ChecklistItem
 name: "Checklist item"
 description: "The checklist item view is used for managing individual maintenance and inspection tasks within a checklist. It allows users to track the execution order, status, notes, associated assets, and related observations for each task."
 version: v3
+space: {{apm_datamodel_space}}
 implements:
   - type: view
     space: cdf_core

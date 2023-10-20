@@ -1,5 +1,6 @@
 externalId: Schedule
 usedFor: node
+space: {{apm_datamodel_space}}
 properties:
   status:
     type:
@@ -46,11 +47,14 @@ indexes:
     properties:
     - until
     indexType: btree
+    cursorable: false
   exceptionDates:
     properties:
     - exceptionDates
     indexType: btree
+    cursorable: false
   status:
     properties:
     - status
     indexType: btree
+    cursorable: false

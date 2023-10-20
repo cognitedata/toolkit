@@ -1,5 +1,6 @@
 externalId: APM_Operation
 usedFor: node
+space: {{apm_datamodel_space}}
 properties:
   id:
     type:
