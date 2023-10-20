@@ -6,186 +6,109 @@ space: {{apm_datamodel_space}}
 implements: []
 properties:
   sourceId:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: sourceId
-    nullable: true
-    autoIncrement: false
     description: "Basic details"
     name: sourceId
 
   title:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: title
-    nullable: true
-    autoIncrement: false
     name: title
 
   description:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: description
-    nullable: true
-    autoIncrement: false
     name: description
 
   source:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: source
-    nullable: true
-    autoIncrement: false
     name: source
 
   assetExternalId:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: assetExternalId
-    nullable: true
-    autoIncrement: false
     description: "Contextualisation"
     name: assetExternalId
 
   rootLocationExternalId:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: rootLocationExternalId
-    nullable: true
-    autoIncrement: false
     name: rootLocationExternalId
 
   status:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: status
-    nullable: true
-    autoIncrement: false
     description: "Standard Notification Details"
     name: status
 
   type:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: type
-    nullable: true
-    autoIncrement: false
     name: type
 
   priority:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: priority
-    nullable: true
-    autoIncrement: false
     name: priority
 
   createdDate:
-    type:
-      type: timestamp
-      list: false
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: createdDate
-    nullable: true
-    autoIncrement: false
     name: createdDate
 
   system:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: system
-    nullable: true
-    autoIncrement: false
     description: "Example Customer fields"
     name: system
 
   subSystem:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: subSystem
-    nullable: true
-    autoIncrement: false
     name: subSystem
 
   Country:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: Country
-    nullable: true
-    autoIncrement: false
     name: Country
