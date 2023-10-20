@@ -14,13 +14,13 @@
 from __future__ import annotations
 
 import json
-import os
 import logging
-from typing import List
-from cognite.client.exceptions import CogniteAuthError
-from cognite.client.data_classes.data_sets import DataSet
-from cognite.client import CogniteClient, ClientConfig
+import os
+
+from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials, Token
+from cognite.client.data_classes.data_sets import DataSet
+from cognite.client.exceptions import CogniteAuthError
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +39,13 @@ class CDFToolConfig:
     def __init__(
         self,
         client_name: str = "Generic Cognite config deploy tool",
-        token: str = None,
+        token: str | None = None,
     ) -> None:
         self._data_set_id: int = 0
         self._data_set = None
         self._failed = False
         self._environ = {}
-        
+
         if token is not None:
             self._environ["CDF_TOKEN"] = token
         if (
@@ -57,26 +57,15 @@ class CDFToolConfig:
             self._client = CogniteClient()
             return
 
-
-
-
-
-
-
         # CDF_CLUSTER and CDF_PROJECT are minimum requirements to know where to connect.
         # Above they were forced default to None and fail was False, here we
         # will fail with an exception if they are not set.
         self._cluster = self.environ("CDF_CLUSTER")
         self._project = self.environ("CDF_PROJECT")
         # CDF_URL is optional, but if set, we use that instead of the default URL using cluster.
-        self._cdf_url = self.environ(
-            "CDF_URL", f"https://{self._cluster}.cognitedata.com"
-        )
+        self._cdf_url = self.environ("CDF_URL", f"https://{self._cluster}.cognitedata.com")
         # If CDF_TOKEN is set, we want to use that token instead of client credentials.
-        if (
-            self.environ("CDF_TOKEN", default=None, fail=False) is not None
-            or token is not None
-        ):
+        if self.environ("CDF_TOKEN", default=None, fail=False) is not None or token is not None:
             self._client = CogniteClient(
                 ClientConfig(
                     client_name=client_name,
@@ -97,9 +86,7 @@ class CDFToolConfig:
                     f"https://{self._cluster}.cognitedata.com/.default",
                 )
             ]
-            self._audience = self.environ(
-                "IDP_AUDIENCE", f"https://{self._cluster}.cognitedata.com"
-            )
+            self._audience = self.environ("IDP_AUDIENCE", f"https://{self._cluster}.cognitedata.com")
             self._client = CogniteClient(
                 ClientConfig(
                     client_name=client_name,
@@ -117,9 +104,8 @@ class CDFToolConfig:
             )
 
     def __str__(self):
-        return (
-            f"Cluster {self._cluster} with project {self._project} and config:\n"
-            + json.dumps(self._environ, indent=2, sort_keys=True)
+        return f"Cluster {self._cluster} with project {self._project} and config:\n" + json.dumps(
+            self._environ, indent=2, sort_keys=True
         )
 
     @property
@@ -145,9 +131,7 @@ class CDFToolConfig:
         self._data_set_id = 0
         self._data_set = None
 
-    def environ(
-        self, attr: str, default: str | List[str] = None, fail: bool = True
-    ) -> str:
+    def environ(self, attr: str, default: str | list[str] | None = None, fail: bool = True) -> str:
         """Helper function to load variables from the environment.
 
         Use python-dotenv to load environment variables from an .env file before
@@ -170,9 +154,7 @@ class CDFToolConfig:
         self._environ[attr] = os.environ.get(attr, None)
         if self._environ[attr] is None:
             if default is None and fail:
-                raise ValueError(
-                    f"{attr} property is not available as an environment variable and no default set."
-                )
+                raise ValueError(f"{attr} property is not available as an environment variable and no default set.")
             self._environ[attr] = default
         return self._environ[attr]
 
@@ -188,7 +170,7 @@ class CDFToolConfig:
         # Since we now have a new configuration, check the dataset and set the id
         self._data_set_id = self.verify_dataset(data_set_name=value)
 
-    def verify_client( self, capabilities: dict[str, list[str]] | None = None) -> None:
+    def verify_client(self, capabilities: dict[str, list[str]] | None = None) -> None:
         """Verify that the client has correct credentials and required access rights
 
         Supply requirement CDF ACLs to verify if you have correct access
@@ -214,9 +196,7 @@ class CDFToolConfig:
             # correct access for what you want to do.
             resp = self.client.iam.token.inspect()
             if resp is None or len(resp.capabilities) == 0:
-                raise CogniteAuthError(
-                    f"Don't have any access rights. Check credentials."
-                )
+                raise CogniteAuthError("Don't have any access rights. Check credentials.")
         except Exception as e:
             raise e
         # iterate over all the capabilities we need
@@ -228,27 +208,17 @@ class CDFToolConfig:
                 # For each of the actions (e.g. READ or WRITE) we need, check if we have it
                 for a in actions:
                     if a not in k.get(cap, {}).get("actions", []):
-                        raise CogniteAuthError(
-                            f"Don't have correct access rights. Need {a} on {cap}"
-                        )
+                        raise CogniteAuthError(f"Don't have correct access rights. Need {a} on {cap}")
                 # Check if we either have all scope or data_set_id scope
                 if "all" not in k.get(cap, {}).get("scope", {}) and (
                     self._data_set_id != 0
-                    and str(self._data_set_id)
-                    not in k.get(cap, {})
-                    .get("scope", {})
-                    .get("datasetScope")
-                    .get("ids", [])
+                    and str(self._data_set_id) not in k.get(cap, {}).get("scope", {}).get("datasetScope").get("ids", [])
                 ):
-                    raise CogniteAuthError(
-                        f"Don't have correct access rights. Need {a} on {cap}"
-                    )
+                    raise CogniteAuthError(f"Don't have correct access rights. Need {a} on {cap}")
                 continue
         return self._client
 
-    def verify_dataset(
-        self, data_set_name: str = None, create: bool = True
-    ) -> int | None:
+    def verify_dataset(self, data_set_name: str | None = None, create: bool = True) -> int | None:
         """Verify that the configured data set exists and is accessible
 
         If the data set does not exist, it will be created unless create=False.
@@ -266,10 +236,8 @@ class CDFToolConfig:
             data_set = self.client.data_sets.retrieve(external_id=data_set_name)
             if data_set is not None:
                 return data_set.id
-        except Exception as e:
-            raise CogniteAuthError(
-                f"Don't have correct access rights. Need READ and WRITE on datasetsAcl."
-            )
+        except Exception:
+            raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on datasetsAcl.")
         if not create:
             return 0
         try:
@@ -280,8 +248,8 @@ class CDFToolConfig:
             )
             data_set = self.client.data_sets.create(data_set)
             return data_set.id
-        except Exception as e:
+        except Exception:
             raise CogniteAuthError(
-                f"Don't have correct access rights. Need also WRITE on "
+                "Don't have correct access rights. Need also WRITE on "
                 + "datasetsAcl or that the data set {get_dataset_name()} has been created."
             )

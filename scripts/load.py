@@ -14,29 +14,29 @@
 
 import os
 import re
-import yaml
-import pandas as pd
 from collections import defaultdict
-from pathlib import Path
-from typing import Union
 from dataclasses import dataclass
-from cognite.client.data_classes._base import CogniteResource
-from cognite.client.data_classes.time_series import TimeSeries
-from cognite.client.data_classes.iam import Group
+from pathlib import Path
+from typing import Optional, Union
+
+import pandas as pd
+import yaml
 from cognite.client.data_classes import (
     Transformation,
     TransformationList,
 )
-from cognite.client.data_classes.transformations.common import DataModelInfo
+from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.data_modeling import (
-    ViewApply,
-    SpaceApply,
     ContainerApply,
     DataModelApply,
+    SpaceApply,
+    ViewApply,
 )
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.data_classes.iam import Group
+from cognite.client.data_classes.time_series import TimeSeries
+from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
+
 from .utils import CDFToolConfig
-from cognite.client.exceptions import CogniteNotFoundError
 
 
 @dataclass
@@ -108,15 +108,13 @@ def load_raw(
                     files.append(f)
     if len(files) == 0:
         return
-    print(
-        f"Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename..."
-    )
+    print(f"Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename...")
     for f in files:
         try:
             (_, db, _) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
-        except:
+        except Exception:
             db = raw_db
-        with open(f"{directory}/{f}", "rt") as file:
+        with open(f"{directory}/{f}") as file:
             dataframe = pd.read_csv(file, dtype=str)
             dataframe = dataframe.fillna("")
             try:
@@ -144,7 +142,7 @@ def load_raw(
 def load_files(
     ToolGlobals: CDFToolConfig,
     id_prefix: str = "example",
-    file: str = None,
+    file: Optional[str] = None,
     drop: bool = False,
     dry_run: bool = False,
     directory=None,
@@ -178,7 +176,7 @@ def load_files(
         else:
             print(f"Would have uploaded {len(files)} files/documents.")
     except Exception as e:
-        print(f"Failed to upload files")
+        print("Failed to upload files")
         print(e)
         ToolGlobals.failed = True
         return
@@ -189,11 +187,9 @@ def load_timeseries(
     file: str,
     drop: bool = False,
     dry_run: bool = False,
-    directory: str = None,
+    directory: Optional[str] = None,
 ) -> None:
-    load_timeseries_metadata(
-        ToolGlobals, file, drop, dry_run=dry_run, directory=directory
-    )
+    load_timeseries_metadata(ToolGlobals, file, drop, dry_run=dry_run, directory=directory)
     if directory is not None:
         directory = f"{directory}/datapoints"
     load_timeseries_datapoints(ToolGlobals, file, dry_run=dry_run, directory=directory)
@@ -208,9 +204,7 @@ def load_timeseries_metadata(
 ) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(
-        capabilities={"timeseriesAcl": ["READ", "WRITE"]}
-    )
+    client = ToolGlobals.verify_client(capabilities={"timeseriesAcl": ["READ", "WRITE"]})
     files = []
     if file:
         # Only load the supplied filename.
@@ -224,11 +218,9 @@ def load_timeseries_metadata(
     # Read timeseries metadata
     timeseries: list[TimeSeries] = []
     for f in files:
-        with open(f"{directory}/{f}", "rt") as file:
+        with open(f"{directory}/{f}") as file:
             timeseries.extend(
-                TimeSeriesLoad.load(
-                    yaml.safe_load(file.read()), file=f"{directory}/{f}"
-                ),
+                TimeSeriesLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
             )
     if len(timeseries) == 0:
         return
@@ -245,7 +237,7 @@ def load_timeseries_metadata(
                 print(f"Deleted {len(drop_ts)} timeseries.")
             else:
                 print(f"Would have deleted {len(drop_ts)} timeseries.")
-    except Exception as e:
+    except Exception:
         print(f"Failed to delete {t.external_id}. It may not exist.")
     try:
         if not dry_run:
@@ -253,21 +245,17 @@ def load_timeseries_metadata(
         else:
             print(f"Would have created {len(timeseries)} timeseries.")
     except Exception as e:
-        print(f"Failed to upload timeseries.")
+        print("Failed to upload timeseries.")
         print(e)
         ToolGlobals.failed = True
         return
     print(f"Created {len(timeseries)} timeseries from {len(files)} files.")
 
 
-def load_timeseries_datapoints(
-    ToolGlobals: CDFToolConfig, file: str, dry_run: bool = False, directory=None
-) -> None:
+def load_timeseries_datapoints(ToolGlobals: CDFToolConfig, file: str, dry_run: bool = False, directory=None) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(
-        capabilities={"timeseriesAcl": ["READ", "WRITE"]}
-    )
+    client = ToolGlobals.verify_client(capabilities={"timeseriesAcl": ["READ", "WRITE"]})
     files = []
     if file:
         # Only load the supplied filename.
@@ -283,7 +271,7 @@ def load_timeseries_datapoints(
     print(f"Uploading {len(files)} .csv file(s) as datapoints to CDF timeseries...")
     try:
         for f in files:
-            with open(f"{directory}/{f}", "rt") as file:
+            with open(f"{directory}/{f}") as file:
                 dataframe = pd.read_csv(file, parse_dates=True, index_col=0)
             if not dry_run:
                 print(f"Uploading {f} as datapoints to CDF timeseries...")
@@ -291,15 +279,11 @@ def load_timeseries_datapoints(
             else:
                 print(f"Would have uploaded {f} as datapoints to CDF timeseries...")
         if not dry_run:
-            print(
-                f"Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries."
-            )
+            print(f"Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
         else:
-            print(
-                f"Would have uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries."
-            )
+            print(f"Would have uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
     except Exception as e:
-        print(f"Failed to upload datapoints.")
+        print("Failed to upload datapoints.")
         print(e)
         ToolGlobals.failed = True
         return
@@ -307,10 +291,10 @@ def load_timeseries_datapoints(
 
 def load_transformations(
     ToolGlobals: CDFToolConfig,
-    file: str = None,
+    file: Optional[str] = None,
     drop: bool = False,
     dry_run: bool = False,
-    directory: str = None,
+    directory: Optional[str] = None,
 ) -> None:
     """Load transformations from dump folder.
 
@@ -319,9 +303,7 @@ def load_transformations(
     """
     if directory is None:
         raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(
-        capabilities={"transformationsAcl": ["READ", "WRITE"]}
-    )
+    client = ToolGlobals.verify_client(capabilities={"transformationsAcl": ["READ", "WRITE"]})
     files = []
     if file:
         # Only load the supplied filename.
@@ -334,7 +316,7 @@ def load_transformations(
                     files.append(f)
     transformations: TransformationList = []
     for f in files:
-        with open(f"{directory}/{f}", "rt") as file:
+        with open(f"{directory}/{f}") as file:
             transformations.append(
                 Transformation._load(yaml.safe_load(file.read())),
             )
@@ -343,16 +325,14 @@ def load_transformations(
     try:
         if drop:
             if not dry_run:
-                client.transformations.delete(
-                    external_id=ext_ids, ignore_unknown_ids=True
-                )
+                client.transformations.delete(external_id=ext_ids, ignore_unknown_ids=True)
                 print(f"Deleted {len(ext_ids)} transformations.")
             else:
                 print(f"Would have deleted {len(ext_ids)} transformations.")
     except CogniteNotFoundError:
         pass
     for t in transformations:
-        with open(f"{directory}/{t.external_id}.sql", "rt") as file:
+        with open(f"{directory}/{t.external_id}.sql") as file:
             t.query = file.read()
             t.data_set_id = ToolGlobals.data_set_id
     try:
@@ -362,26 +342,24 @@ def load_transformations(
         else:
             print(f"Would have created {len(transformations)} transformation.")
     except Exception as e:
-        print(f"Failed to create transformations.")
+        print("Failed to create transformations.")
         print(e)
         ToolGlobals.failed = True
 
 
 def load_groups(
     ToolGlobals: CDFToolConfig,
-    file: str = None,
-    directory: str = None,
+    file: Optional[str] = None,
+    directory: Optional[str] = None,
     dry_run: bool = False,
 ) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(
-        capabilities={"groupsAcl": ["LIST", "READ", "CREATE", "DELETE"]}
-    )
+    client = ToolGlobals.verify_client(capabilities={"groupsAcl": ["LIST", "READ", "CREATE", "DELETE"]})
     try:
         old_groups = client.iam.groups.list(all=True).data
-    except Exception as e:
-        print(f"Failed to retrieve groups.")
+    except Exception:
+        print("Failed to retrieve groups.")
         ToolGlobals.failed = True
         return
     files = []
@@ -396,7 +374,7 @@ def load_groups(
                     files.append(f)
     groups: list[Group] = []
     for f in files:
-        with open(f"{directory}/{f}", "rt") as file:
+        with open(f"{directory}/{f}") as file:
             groups.extend(
                 GroupLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
             )
@@ -424,22 +402,22 @@ def load_groups(
                     print(f"Deleted old group {old_group_id}.")
                 else:
                     print(f"Would have deleted group {old_group_id}.")
-            except Exception as e:
+            except Exception:
                 print(f"Failed to delete group {old_group_id}.")
                 ToolGlobals.failed = True
 
 
 def load_datamodel_graphql(
     ToolGlobals: CDFToolConfig,
-    space_name: str = None,
-    model_name: str = None,
+    space_name: Optional[str] = None,
+    model_name: Optional[str] = None,
     drop: bool = False,
     directory=None,
 ) -> None:
     """Load a graphql datamode from file."""
     if space_name is None or model_name is None or directory is None:
         raise ValueError("space_name, model_name, and directory must be supplied.")
-    with open(f"{directory}/datamodel.graphql", "rt") as file:
+    with open(f"{directory}/datamodel.graphql") as file:
         # Read directly into a string.
         datamodel = file.read()
     if drop:
@@ -533,25 +511,15 @@ def load_datamodel(
             "datamodel": DataModelApply,
         }[type_]
         for file in files:
-            cognite_resources_by_type[type_].append(
-                resource_cls.load(yaml.safe_load(file.read_text()))
-            )
+            cognite_resources_by_type[type_].append(resource_cls.load(yaml.safe_load(file.read_text())))
     print("Loaded from files: ")
     for type_, resources in cognite_resources_by_type.items():
         print(f"  {type_}: {len(resources)}")
 
-    space_list = list(
-        {
-            r.space
-            for _, resources in cognite_resources_by_type.items()
-            for r in resources
-        }
-    )
+    space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
 
     print(f"Found {len(space_list)} space(s)")
-    cognite_resources_by_type["space"] = [
-        SpaceApply(space=s, name=s, description="Imported space") for s in space_list
-    ]
+    cognite_resources_by_type["space"] = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
 
     # Clear any delete errors
     ToolGlobals.failed = False
@@ -572,9 +540,7 @@ def load_datamodel(
         "space": client.data_modeling.spaces,
     }
     for type_, resources in cognite_resources_by_type.items():
-        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve(
-            [r.as_id() for r in resources]
-        )
+        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve([r.as_id() for r in resources])
 
     differences: dict[str, Difference] = {}
     for type_, resources in cognite_resources_by_type.items():
@@ -582,9 +548,7 @@ def load_datamodel(
         existing_by_id = {r.as_id(): r for r in existing_resources_by_type[type_]}
 
         added = [r for r in resources if r.as_id() not in existing_by_id]
-        removed = [
-            r for r in existing_resources_by_type[type_] if r.as_id() not in new_by_id
-        ]
+        removed = [r for r in existing_resources_by_type[type_] if r.as_id() not in new_by_id]
 
         changed = []
         unchanged = []
@@ -605,9 +569,7 @@ def load_datamodel(
             if items is None:
                 continue
             if type_ == "container" and not delete_containers:
-                print(
-                    "Skipping deletion of containers as delete_containers flag is not set."
-                )
+                print("Skipping deletion of containers as delete_containers flag is not set.")
                 continue
             if type_ == "space" and not delete_spaces:
                 print("Skipping deletion of spaces as delete_spaces flag is not set.")

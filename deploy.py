@@ -2,19 +2,19 @@
 import argparse
 import logging
 from pathlib import Path
+from typing import Optional
+
 from dotenv import load_dotenv
-from scripts.utils import CDFToolConfig
-from scripts.load import (
-    load_raw,
-    load_groups,
-    load_timeseries_metadata,
-)
 
 # from scripts.delete import clean_out_datamodels
 from scripts.load import (
     load_datamodel,
+    load_groups,
+    load_raw,
+    load_timeseries_metadata,
     load_transformations,
 )
+from scripts.utils import CDFToolConfig
 
 log = logging.getLogger(__name__)
 
@@ -24,9 +24,7 @@ log = logging.getLogger(__name__)
 load_dotenv(".env")
 
 
-def run(
-    build_dir: str, drop: bool = True, dry_run: bool = True, include: list[str] = None
-) -> None:
+def run(build_dir: str, drop: bool = True, dry_run: bool = True, include: Optional[list[str]] = None) -> None:
     print(f"Deploying config files from {build_dir}...")
     # Configure a client and load credentials from environment
     build_path = Path(__file__).parent / build_dir
@@ -53,9 +51,7 @@ def run(
             dry_run=dry_run,
             directory=f"{build_dir}/raw",
         )
-    if (include is None or "timeseries" in include) and Path(
-        f"{build_dir}/timeseries"
-    ).is_dir():
+    if (include is None or "timeseries" in include) and Path(f"{build_dir}/timeseries").is_dir():
         load_timeseries_metadata(
             ToolGlobals,
             drop=drop,
@@ -63,9 +59,7 @@ def run(
             dry_run=dry_run,
             directory=f"{build_dir}/timeseries",
         )
-    if (include is None or "transformations" in include) and Path(
-        f"{build_dir}/transformations"
-    ).is_dir():
+    if (include is None or "transformations" in include) and Path(f"{build_dir}/transformations").is_dir():
         load_transformations(
             ToolGlobals,
             file=None,
@@ -73,9 +67,7 @@ def run(
             dry_run=dry_run,
             directory=f"{build_dir}/transformations",
         )
-    if (include is None or "data_models" in include) and (
-        models_dir := Path(f"{build_dir}/data_models")
-    ).is_dir():
+    if (include is None or "data_models" in include) and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         # WARNING!!!! The below command will delete EVERYTHING in ALL data models
         # in the project, including instances.
         # clean_out_datamodels(ToolGlobals, dry_run=dry_run, instances=True)
@@ -88,7 +80,7 @@ def run(
             dry_run=dry_run,
         )
     if ToolGlobals.failed:
-        print(f"Failure to load as expected.")
+        print("Failure to load as expected.")
         exit(1)
 
 

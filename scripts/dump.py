@@ -5,13 +5,13 @@ import json
 import os
 import tempfile
 from typing import Sequence
-from cognite.client import CogniteClient
 
+from cognite.client import CogniteClient
 from cognite.client.data_classes.data_modeling import (
     DataModelList,
-    ViewId,
-    DirectRelationReference,
     DirectRelation,
+    DirectRelationReference,
+    ViewId,
 )
 
 from .utils import CDFToolConfig
@@ -30,15 +30,9 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> No
     )
     try:
         space = client.data_modeling.spaces.retrieve(space_name)
-        print(
-            f"Found the space {space_name} with name ({space.name}) and description ({space.description})."
-        )
-        print(
-            f"  - created_time: {datetime.datetime.fromtimestamp(space.created_time/1000)}"
-        )
-        print(
-            f"  - last_updated_time: {datetime.datetime.fromtimestamp(space.last_updated_time/1000)}"
-        )
+        print(f"Found the space {space_name} with name ({space.name}) and description ({space.description}).")
+        print(f"  - created_time: {datetime.datetime.fromtimestamp(space.created_time/1000)}")
+        print(f"  - last_updated_time: {datetime.datetime.fromtimestamp(space.last_updated_time/1000)}")
     except Exception as e:
         print(f"Failed to retrieve space {space_name}.")
         print(e)
@@ -53,9 +47,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> No
     for c in container_list:
         print(f"  {c[1]}")
     try:
-        data_model = client.data_modeling.data_models.retrieve(
-            (space_name, model_name, "1"), inline_views=True
-        )
+        data_model = client.data_modeling.data_models.retrieve((space_name, model_name, "1"), inline_views=True)
     except Exception as e:
         print(f"Failed to retrieve data model {model_name} in space {space_name}.")
         print(e)
@@ -67,12 +59,8 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> No
     print(f"  version: {data_model.data[0].version}")
     print(f"  global: {'True' if data_model.data[0].is_global else 'False'}")
     print(f"  description: {data_model.data[0].description}")
-    print(
-        f"  created_time: {datetime.datetime.fromtimestamp(data_model.data[0].created_time/1000)}"
-    )
-    print(
-        f"  last_updated_time: {datetime.datetime.fromtimestamp(data_model.data[0].last_updated_time/1000)}"
-    )
+    print(f"  created_time: {datetime.datetime.fromtimestamp(data_model.data[0].created_time/1000)}")
+    print(f"  last_updated_time: {datetime.datetime.fromtimestamp(data_model.data[0].last_updated_time/1000)}")
     views = data_model.data[0].views
     print(f"  {model_name} has {len(views)} views:")
     direct_relations = 0
@@ -99,7 +87,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> No
 
     print(f"Total direct relations: {direct_relations}")
     print(f"Total edge relations: {edge_relations}")
-    print(f"------------------------------------------")
+    print("------------------------------------------")
 
     # Find any edges in the space
     # Iterate over all the edges in the view 1,000 at the time
@@ -120,9 +108,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> No
     sum = 0
     for count in edge_relations.values():
         sum += count
-    print(
-        f"Found in total {edge_count} edges in space {space_name} spread over {len(edge_relations)} types:"
-    )
+    print(f"Found in total {edge_count} edges in space {space_name} spread over {len(edge_relations)} types:")
     for d, c in edge_relations.items():
         print(f"  {d}: {c}")
     print("------------------------------------------")
@@ -135,9 +121,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> No
         chunk_size=1000,
     ):
         node_count += len(instance_list)
-    print(
-        f"Found in total {node_count} nodes in space {space_name} across all views and containers."
-    )
+    print(f"Found in total {node_count} nodes in space {space_name} across all views and containers.")
     # For all the views in this data model...
     for v in views:
         node_count = 0
@@ -166,30 +150,24 @@ def dump_datamodels_all(
     )
     try:
         print("  spaces...")
-        spaces = client.data_modeling.spaces.list(
-            limit=None, include_global=include_global
-        )
+        spaces = client.data_modeling.spaces.list(limit=None, include_global=include_global)
     except Exception as e:
-        print(f"  Failed to retrieve all spaces.")
+        print("  Failed to retrieve all spaces.")
         print(e)
     spaces = spaces.data
     try:
         print("  containers...")
-        containers = client.data_modeling.containers.list(
-            limit=None, include_global=True
-        )
+        containers = client.data_modeling.containers.list(limit=None, include_global=True)
     except Exception as e:
-        print(f"Failed to retrieve all containers.")
+        print("Failed to retrieve all containers.")
         print(e)
         return
     containers = containers.data
     try:
         print("  views...")
-        views = client.data_modeling.views.list(
-            limit=None, space=None, include_global=include_global
-        )
+        views = client.data_modeling.views.list(limit=None, space=None, include_global=include_global)
     except Exception as e:
-        print(f"  Failed to retrieve all views.")
+        print("  Failed to retrieve all views.")
         print(e)
         return
     views = views.data
@@ -199,7 +177,7 @@ def dump_datamodels_all(
             limit=-1, include_global=include_global, inline_views=True
         )
     except Exception as e:
-        print(f"  Failed to retrieve all data models.")
+        print("  Failed to retrieve all data models.")
         print(e)
         return
     data_models = data_models.data
@@ -209,19 +187,19 @@ def dump_datamodels_all(
     for d in data_models:
         with open(
             f"{target_dir}/{d.space}/{d.external_id}.model.json",
-            "wt",
+            "w",
         ) as file:
             json.dump(d.dump(camel_case=True), file, indent=4)
     for v in views:
         with open(
             f"{target_dir}/{v.space}/{v.external_id}.view.json",
-            "wt",
+            "w",
         ) as file:
             json.dump(v.dump(camel_case=True), file, indent=4)
     for c in containers:
         with open(
             f"{target_dir}//{c.space}/{c.external_id}.container.json",
-            "wt",
+            "w",
         ) as file:
             json.dump(c.dump(camel_case=True), file, indent=4)
 
@@ -245,15 +223,13 @@ def dump_datamodel(
     print(f"Loading data model ({model_name}) in space ({space_name})...")
     try:
         print("  space...")
-        space = client.data_modeling.spaces.retrieve(space_name)
+        client.data_modeling.spaces.retrieve(space_name)
     except Exception as e:
         print(f"Failed to retrieve space {space_name}.")
         print(e)
     try:
         print("  containers...")
-        containers = client.data_modeling.containers.list(
-            space=space_name, limit=None, include_global=True
-        )
+        containers = client.data_modeling.containers.list(space=space_name, limit=None, include_global=True)
     except Exception as e:
         print(f"Failed to retrieve containers for data model {model_name}.")
         print(e)
@@ -261,9 +237,7 @@ def dump_datamodel(
     containers = containers.data
     try:
         print("  data model...")
-        data_model = client.data_modeling.data_models.retrieve(
-            (space_name, model_name, version), inline_views=False
-        )
+        data_model = client.data_modeling.data_models.retrieve((space_name, model_name, version), inline_views=False)
         data_model = data_model.data[0].dump(camel_case=True)
     except Exception as e:
         print(f"Failed to retrieve data model {model_name} in space {space_name}.")
@@ -280,36 +254,34 @@ def dump_datamodel(
         print(e)
         return
     if len(views.data) == 0:
-        print(
-            f"{model_name} in space {space_name} does not have any views in this space."
-        )
+        print(f"{model_name} in space {space_name} does not have any views in this space.")
         views = []
     else:
         views = views.data[0].views
     print("Writing...")
     with open(
         f"{target_dir}/data_model.json",
-        "wt",
+        "w",
     ) as file:
         json.dump(data_model, file, indent=4)
     for v in views:
         with open(
             f"{target_dir}/{v.external_id}.view.json",
-            "wt",
+            "w",
         ) as file:
             json.dump(v.dump(camel_case=True), file, indent=4)
     for c in containers:
         with open(
             f"{target_dir}/{c.external_id}.container.json",
-            "wt",
+            "w",
         ) as file:
             json.dump(c.dump(camel_case=True), file, indent=4)
 
 
 def dump_transformations(
     ToolGlobals: CDFToolConfig,
-    external_ids: Sequence[str] = None,
-    target_dir: str = None,
+    external_ids: Sequence[str] | None = None,
+    target_dir: str | None = None,
     ignore_unknown_ids: bool = True,
 ):
     """Dump transformations from CDF"""
@@ -329,7 +301,7 @@ def dump_transformations(
                 external_ids=external_ids, ignore_unknown_ids=ignore_unknown_ids
             )
     except Exception as e:
-        print(f"Failed to retrieve transformations.")
+        print("Failed to retrieve transformations.")
         print(e)
         return
     # Clean up and write
@@ -349,13 +321,13 @@ def dump_transformations(
         query = t2.pop("query")
         with open(
             f"{target_dir}/{t2.get('external_id') or tempfile.TemporaryFile(dir=target_dir).name}.json",
-            "wt",
+            "w",
         ) as file:
             json.dump(t2, file, indent=2)
         with open(
             f"{target_dir}/{t2.get('external_id') or tempfile.TemporaryFile(dir=target_dir).name}.sql",
-            "wt",
+            "w",
         ) as file:
-            for l in query.splitlines():
-                file.write(l + "\n")
+            for line in query.splitlines():
+                file.write(line + "\n")
     print(f"Done writing {len(transformations)} transformations to {target_dir}.")

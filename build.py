@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 import argparse
 import logging
+
 from dotenv import load_dotenv
+
 from scripts.templates import build_config
 
 log = logging.getLogger(__name__)
@@ -13,11 +15,9 @@ load_dotenv(".env")
 
 
 def run(build_dir: str, clean: bool = False) -> None:
-    print(
-        f"Building config files from templates into {build_dir}..."
-    )
+    print(f"Building config files from templates into {build_dir}...")
 
-    build_config(dir = build_dir, clean=clean)
+    build_config(dir=build_dir, clean=clean)
 
 
 if __name__ == "__main__":
@@ -30,8 +30,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--clean",
-        default=False,
+        action="store_true",
         help="Clean the build directory before building",
     )
     args, unknown_args = parser.parse_known_args()
-    run(args.build_dir)
+    run(args.build_dir, clean=args.clean)

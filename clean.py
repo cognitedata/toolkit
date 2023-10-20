@@ -2,14 +2,10 @@
 import argparse
 import logging
 from pathlib import Path
+
 from dotenv import load_dotenv
+
 from scripts.utils import CDFToolConfig
-from scripts.delete import (
-    delete_raw,
-    delete_timeseries,
-    delete_datamodel,
-    delete_transformations,
-)
 
 log = logging.getLogger(__name__)
 
@@ -20,9 +16,7 @@ load_dotenv(".env")
 
 
 def run(build_dir: str) -> None:
-    print(
-        f"Cleaning configuration in project based on config files from {build_dir}..."
-    )
+    print(f"Cleaning configuration in project based on config files from {build_dir}...")
     # Configure a client and load credentials from environment
     build_path = Path(__file__).parent / build_dir
     if not build_path.is_dir():
@@ -33,12 +27,10 @@ def run(build_dir: str) -> None:
     print(ToolGlobals)
     # TODO: #4 Clean up based on configurations in build directory.
     print("TODO: Not yet implemented.")
-    print(
-        "  The current utils/ delete tooling needs to be adapted to pick up configurations in"
-    )
+    print("  The current utils/ delete tooling needs to be adapted to pick up configurations in")
     print("  ./build/ directory.")
     if ToolGlobals.failed:
-        print(f"Failure to load as expected.")
+        print("Failure to load as expected.")
         exit(1)
 
 

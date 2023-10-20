@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import os
-import shutil
-import yaml
 import re
+import shutil
 from pathlib import Path
+
+import yaml
 
 # Directory paths for YAML files
 YAML_DIRS = ["./"]
@@ -33,10 +35,7 @@ def read_module_config(root_dir: str = "./", tmpl_dirs: str = TMPL_DIRS) -> list
                         for m2 in g3:
                             if m2 not in modules:
                                 modules.append(m2)
-                    elif (
-                        m not in modules
-                        and global_config.get("packages", {}).get(m) is None
-                    ):
+                    elif m not in modules and global_config.get("packages", {}).get(m) is None:
                         modules.append(m)
 
     load_list = []
@@ -54,9 +53,7 @@ def read_module_config(root_dir: str = "./", tmpl_dirs: str = TMPL_DIRS) -> list
                 found = True
                 break
         if not found:
-            raise ValueError(
-                f"Module {m} not found in template directories {tmpl_dirs}."
-            )
+            raise ValueError(f"Module {m} not found in template directories {tmpl_dirs}.")
     return load_list
 
 
@@ -89,9 +86,7 @@ def read_yaml_files(yaml_dirs, name: str = "config.yaml"):
     return data
 
 
-def process_config_files(
-    dirs: [str], yaml_data: str, build_dir: str = "./build", clean: bool = False
-):
+def process_config_files(dirs: [str], yaml_data: str, build_dir: str = "./build", clean: bool = False):
     path = Path(build_dir)
     if path.exists():
         if any(path.iterdir()):
@@ -99,9 +94,7 @@ def process_config_files(
                 shutil.rmtree(path)
                 path.mkdir()
             else:
-                print(
-                    "Warning: Build directory is not empty. Use --clean to remove existing files."
-                )
+                print("Warning: Build directory is not empty. Use --clean to remove existing files.")
     else:
         path.mkdir()
 
@@ -125,7 +118,7 @@ def process_config_files(
                     local_yaml_path = dirpath
                     yaml_local = read_yaml_files([dirpath])
                     continue
-                with open(dirpath + "/" + file, "rt") as f:
+                with open(dirpath + "/" + file) as f:
                     content = f.read()
                 # Replace the local yaml variables
                 for k, v in yaml_local.items():
