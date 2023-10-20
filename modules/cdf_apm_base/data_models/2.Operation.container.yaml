@@ -48,98 +48,14 @@ properties:
       list: false
       collation: ucs_basic
     nullable: true
-  files:
-    type:
-      type: text
-      list: true
-      collation: ucs_basic
-    nullable: true
-  assignedTo:
-    type:
-      type: text
-      list: true
-      collation: ucs_basic
-    nullable: true
-  mainResource:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
-    nullable: true
-  personHours:
-    type:
-      type: int32
-      list: false
-    nullable: true
-  numberOfMainResource:
-    type:
-      type: int32
-      list: false
-    nullable: true
   order:
     type:
       type: int32
-      list: false
-    nullable: true
-  type:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
-    nullable: true
-  status:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
-    nullable: true
-  isInApp:
-    type:
-      type: boolean
-      list: false
-    nullable: true
-  createdAt:
-    type:
-      type: timestamp
-      list: false
-    nullable: true
-  createdBy:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
-    nullable: true
-  lastUpdatedDate:
-    type:
-      type: timestamp
       list: false
     nullable: true
   cloneOf:
     type:
       type: text
       list: false
-      collation: ucs_basic
-    nullable: true
-  mutatedBy:
-    type:
-      type: text
-      list: false
-      collation: ucs_basic
-    nullable: true
-  mutatedFields:
-    type:
-      type: text
-      list: true
-      collation: ucs_basic
-    nullable: true
-  isMutated:
-    type:
-      type: boolean
-      list: false
-    nullable: true
-  labels:
-    type:
-      type: text
-      list: true
       collation: ucs_basic
     nullable: true
