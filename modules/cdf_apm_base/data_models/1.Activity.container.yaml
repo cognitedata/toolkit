@@ -1,111 +1,141 @@
-externalId: APM_Notification
+externalId: APM_Activity
 usedFor: node
 space: {{apm_datamodel_space}}
 properties:
-  sourceId:
+  id:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    description: Basic details
-    name: sourceId
   title:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    name: title
   description:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    name: description
   source:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    name: source
+  startTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+  endTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+  assetExternalIds:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
   assetExternalId:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    description: Contextualisation
-    name: assetExternalId
-  rootLocationExternalId:
+  functionalLocation:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    name: rootLocationExternalId
-  status:
+  rootLocation:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    description: Standard Notification Details
-    name: status
+  assignedTo:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
+  subActivities:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
+  resource:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
   type:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    name: type
-  priority:
+  status:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    name: priority
-  createdDate:
+  isArchived:
+    type:
+      type: boolean
+      list: false
+    nullable: true
+  isInApp:
+    type:
+      type: boolean
+      list: false
+    nullable: true
+  createdAt:
     type:
       type: timestamp
       list: false
     nullable: true
-    autoIncrement: false
-    name: createdDate
-  system:
+  createdBy:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    description: Example Customer fields
-    name: system
-  subSystem:
+  lastUpdatedDate:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+  mutatedBy:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    name: subSystem
-  Country:
+  cloneOf:
     type:
       type: text
       list: false
       collation: ucs_basic
     nullable: true
-    autoIncrement: false
-    name: Country
+  mutatedFields:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
+  isMutated:
+    type:
+      type: boolean
+      list: false
+    nullable: true

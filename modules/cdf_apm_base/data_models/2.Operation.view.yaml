@@ -1,10 +1,8 @@
 externalId: APM_Operation
 name: "APM_Operation"
 description: "Description of APM_Operation"
-version: "2"
+version: {{apm_datamodel_version}}
 space: {{apm_datamodel_space}}
-implements: []
-
 properties:
   id:
     container:
@@ -12,157 +10,114 @@ properties:
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: id
-    description: "Basic details"
-    name: id
-
   title:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: title
-    name: title
-
   description:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: description
-    name: description
-
   source:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: source
-    name: source
-
   parentActivityId:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: parentActivityId
-    name: parentActivityId
-
   labels:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: labels
-    name: labels
-
   startTime:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: startTime
-    description: "Scheduling"
-    name: startTime
-
   endTime:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: endTime
-    name: endTime
-
   assetExternalId:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: assetExternalId
-    description: "Contextualisation"
-    name: assetExternalId
-
   files:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: files
-    name: files
-
   assignedTo:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: assignedTo
-    name: assignedTo
-
-  mainResource:
+   mainResource:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: mainResource
-    description: "Standard operation data"
-    name: mainResource
-
   personHours:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: personHours
-    name: personHours
-
   numberOfMainResource:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: numberOfMainResource
-    name: numberOfMainResource
-
   order:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: order
-    name: order
-
   type:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: type
-    name: type
-
   status:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: status
-    name: status
-
   isInApp:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: isInApp
-    description: "System data"
-    name: isInApp
-
   createdAt:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Operation
     containerPropertyIdentifier: createdAt
-    name: createdAt
-
   createdBy:
     container:
       type: container

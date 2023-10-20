@@ -1,1 +1,2 @@
-apm_datamodel_space: 'APM_SourceData_3'
+apm_datamodel_space: 'APM_SourceData'
+apm_datamodel_version: 'v1'

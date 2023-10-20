@@ -1,9 +1,8 @@
 externalId: APM_Notification
 name: "APM_Notification"
 description: "Description of APM_Notification"
-version: "bb15375f78822e"
+version: {{apm_datamodel_version}}
 space: {{apm_datamodel_space}}
-implements: []
 properties:
   sourceId:
     container:
@@ -11,104 +10,57 @@ properties:
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: sourceId
-    description: "Basic details"
-    name: sourceId
-
   title:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: title
-    name: title
-
   description:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: description
-    name: description
-
   source:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: source
-    name: source
-
   assetExternalId:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: assetExternalId
-    description: "Contextualisation"
-    name: assetExternalId
-
   rootLocationExternalId:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: rootLocationExternalId
-    name: rootLocationExternalId
-
   status:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: status
-    description: "Standard Notification Details"
-    name: status
-
   type:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: type
-    name: type
-
   priority:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: priority
-    name: priority
-
   createdDate:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
     containerPropertyIdentifier: createdDate
-    name: createdDate
-
-  system:
-    container:
-      type: container
-      space: {{apm_datamodel_space}}
-      externalId: APM_Notification
-    containerPropertyIdentifier: system
-    description: "Example Customer fields"
-    name: system
-
-  subSystem:
-    container:
-      type: container
-      space: {{apm_datamodel_space}}
-      externalId: APM_Notification
-    containerPropertyIdentifier: subSystem
-    name: subSystem
-
-  Country:
-    container:
-      type: container
-      space: {{apm_datamodel_space}}
-      externalId: APM_Notification
-    containerPropertyIdentifier: Country
-    name: Country

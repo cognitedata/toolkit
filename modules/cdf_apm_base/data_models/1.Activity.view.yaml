@@ -1,186 +1,154 @@
 externalId: APM_Activity
 name: APM_Activity
 description: "Description of the APM Activity view."
-version: b39ba62597c839
+version: {{apm_datamodel_version}}
 space: {{apm_datamodel_space}}
-implements: []
-
 properties:
   id:
-    description: "Basic details"
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: id
-    
   title:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: title
-    
   description:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: description
-    
   source:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: source
-    
   startTime:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: startTime
-    
-    description: "Scheduling"
   endTime:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: endTime
-    
   assetExternalIds:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: assetExternalIds
-    
-    description: "Contextualisation"
   assetExternalId:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: assetExternalId
-    
   functionalLocation:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: functionalLocation
-    
   rootLocation:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: rootLocation
-    
   assignedTo:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: assignedTo
-    
   subActivities:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: subActivities
-    
   resource:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: resource
-    
-    description: "Standard Activity Details"
   type:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: type
-    
   status:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: status
-    
   isArchived:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: isArchived
-    
-    description: "System data"
   isInApp:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: isInApp
-    
   createdAt:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: createdAt
-    
   createdBy:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: createdBy
-    
   lastUpdatedDate:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: lastUpdatedDate
-    
   mutatedBy:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: mutatedBy
-    
   cloneOf:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: cloneOf
-    
   mutatedFields:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: mutatedFields
-    
   isMutated:
     container:
       type: container
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: isMutated
-    
   notifications:
-  #TODO - GTW - this configuration was incomplete, esp type and source need to be verified
     type:
       space: {{apm_datamodel_space}}
       externalId: APM_Activity.notifications
@@ -188,6 +156,5 @@ properties:
       type: view
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
-      version: bb15375f78822e
-    name: notifications
+      version: {{apm_datamodel_version}}
     direction: outwards

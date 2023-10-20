@@ -1,55 +1,18 @@
-externalId: ApmAppData
-name: ApmAppData
-version: v3
+externalId: APM_SourceData
+name: APM Source data
+version: {{apm_datamodel_version}}
 space: {{apm_datamodel_space}}
-description: "APM data models within the cognite applications space"
+description: "APM data models for customer source data to be consumed by the APM application."
 views:
   - type: view
-    externalId: Checklist
-    space: cdf_apm
-    version: v3
+    externalId: APM_Activity
+    space: {{apm_datamodel_space}}
+    version: {{apm_datamodel_version}}
   - type: view
-    externalId: ChecklistItem
-    space: cdf_apm
-    version: v3
+    externalId: APM_Operation
+    space: {{apm_datamodel_space}}
+    version: {{apm_datamodel_version}}
   - type: view
-    externalId: Observation
-    space: cdf_apm
-    version: v3
-  - type: view
-    externalId: Template
-    space: cdf_apm
-    version: v3
-  - type: view
-    externalId: TemplateItem
-    space: cdf_apm
-    version: v3
-  - type: view
-    externalId: MeasurementReading
-    space: cdf_apm
-    version: v3
-  - type: view
-    externalId: Schedule
-    space: cdf_apm
-    version: v3
-  - type: view  # Needed in this model for graphql
-    externalId: CDF_User
-    space: cdf_apps_shared
-    version: v1
-  - type: view  # Needed for graphql
-    externalId: CDF_UserPreferences
-    space: cdf_apps_shared
-    version: v1
-  - type: view  # Needed for graphql
-    externalId: Asset
-    space: cdf_core
-    version: v1
-
-# These are needed for edges, not sure where to put them
-# TODO: GTW - these are failing in loading
-#globalNodes:
-#- externalId: referenceChecklistItems
-#- externalId: referenceTemplateItems
-#- externalId: referenceMeasurements
-#- externalId: referenceSchedules
-#- externalId: referenceObservations
+    externalId: APM_Notification
+    space: {{apm_datamodel_space}}
+    version: {{apm_datamodel_version}}
