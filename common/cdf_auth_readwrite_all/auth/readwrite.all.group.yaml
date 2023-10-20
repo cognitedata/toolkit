@@ -1,5 +1,5 @@
 name: 'Read-write group'
-source_id: '{{demo_source_id}}'
+source_id: '{{demo_readwrite_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
   template_version: '{{template_version}}'

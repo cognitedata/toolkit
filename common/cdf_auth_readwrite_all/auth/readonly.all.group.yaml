@@ -1,5 +1,5 @@
 name: 'Read-only group'
-source_id: 'read'
+source_id: '{{demo_readonly_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
   template_version: '{{template_version}}'

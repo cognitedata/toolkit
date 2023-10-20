@@ -4,4 +4,6 @@ template_version: 0.0.1
 # provision your own project, the demo_* configurations below must be changed.
 # Please note that these configs are set globally for simple access. When
 # developing your own modules, you should keep module configurations in the module directory.
-demo_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+demo_readwrite_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+demo_readonly_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+
