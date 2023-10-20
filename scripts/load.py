@@ -13,21 +13,69 @@
 # limitations under the License.
 
 import os
-import json
 import re
+from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional, Union
+
 import pandas as pd
-from typing import List, Dict, Any
-from cognite.client.data_classes.time_series import TimeSeries
-from cognite.client.data_classes.iam import Group
-from .utils import CDFToolConfig
-from scripts.transformations_config import parse_transformation_configs
-from scripts.transformations_api import (
-    to_transformation,
-    get_existing_transformation_ext_ids,
-    get_new_transformation_ids,
-    upsert_transformations,
+import yaml
+from cognite.client.data_classes import (
+    Transformation,
+    TransformationList,
 )
-from cognite.client.exceptions import CogniteNotFoundError
+from cognite.client.data_classes._base import CogniteResource
+from cognite.client.data_classes.data_modeling import (
+    ContainerApply,
+    DataModelApply,
+    SpaceApply,
+    ViewApply,
+)
+from cognite.client.data_classes.iam import Group
+from cognite.client.data_classes.time_series import TimeSeries
+from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
+
+from .utils import CDFToolConfig
+
+
+@dataclass
+class Difference:
+    added: list[CogniteResource]
+    removed: list[CogniteResource]
+    changed: list[CogniteResource]
+    unchanged: list[CogniteResource]
+
+    def __iter__(self):
+        return iter([self.added, self.removed, self.changed, self.unchanged])
+
+    def __next__(self):
+        return next([self.added, self.removed, self.changed, self.unchanged])
+
+
+class TimeSeriesLoad:
+    @staticmethod
+    def load(props: list[dict], file: str = "unknown") -> [TimeSeries]:
+        try:
+            return [TimeSeries(**prop) for prop in props]
+        except Exception as e:
+            raise ValueError(f"Failed to load timeseries from yaml files: {file}.\n{e}")
+
+
+class GroupLoad:
+    @staticmethod
+    def load(props: list[dict], file: str = "unknown") -> [Group]:
+        try:
+            return [
+                Group(
+                    name=props.get("name"),
+                    source_id=props.get("source_id"),
+                    capabilities=props.get("capabilities"),
+                    metadata=props.get("metadata"),
+                )
+            ]
+        except Exception as e:
+            raise ValueError(f"Failed to load group from yaml files: {file}.\n{e}")
 
 
 def load_raw(
@@ -60,20 +108,19 @@ def load_raw(
                     files.append(f)
     if len(files) == 0:
         return
-    print(
-        f"Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename..."
-    )
+    print(f"Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename...")
     for f in files:
         try:
             (_, db, _) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
-        except:
+        except Exception:
             db = raw_db
-        with open(f"{directory}/{f}", "rt") as file:
+        with open(f"{directory}/{f}") as file:
             dataframe = pd.read_csv(file, dtype=str)
             dataframe = dataframe.fillna("")
             try:
                 if not dry_run:
-                    client.raw.tables.delete(db, f[:-4])
+                    if drop:
+                        client.raw.tables.delete(db, f[:-4])
                     client.raw.rows.insert_dataframe(
                         db_name=db,
                         table_name=f[:-4],
@@ -95,7 +142,7 @@ def load_raw(
 def load_files(
     ToolGlobals: CDFToolConfig,
     id_prefix: str = "example",
-    file: str = None,
+    file: Optional[str] = None,
     drop: bool = False,
     dry_run: bool = False,
     directory=None,
@@ -129,7 +176,7 @@ def load_files(
         else:
             print(f"Would have uploaded {len(files)} files/documents.")
     except Exception as e:
-        print(f"Failed to upload files")
+        print("Failed to upload files")
         print(e)
         ToolGlobals.failed = True
         return
@@ -140,11 +187,9 @@ def load_timeseries(
     file: str,
     drop: bool = False,
     dry_run: bool = False,
-    directory: str = None,
+    directory: Optional[str] = None,
 ) -> None:
-    load_timeseries_metadata(
-        ToolGlobals, file, drop, dry_run=dry_run, directory=directory
-    )
+    load_timeseries_metadata(ToolGlobals, file, drop, dry_run=dry_run, directory=directory)
     if directory is not None:
         directory = f"{directory}/datapoints"
     load_timeseries_datapoints(ToolGlobals, file, dry_run=dry_run, directory=directory)
@@ -159,29 +204,24 @@ def load_timeseries_metadata(
 ) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(
-        capabilities={"timeseriesAcl": ["READ", "WRITE"]}
-    )
+    client = ToolGlobals.verify_client(capabilities={"timeseriesAcl": ["READ", "WRITE"]})
     files = []
     if file:
         # Only load the supplied filename.
         files.append(file)
     else:
-        # Pick up all the .json files in the data folder.
+        # Pick up all the .yaml files in the data folder.
         for _, _, filenames in os.walk(directory):
             for f in filenames:
-                if ".json" in f:
+                if ".yaml" in f:
                     files.append(f)
     # Read timeseries metadata
     timeseries: list[TimeSeries] = []
     for f in files:
-        with open(f"{directory}/{f}", "rt") as file:
-            ts = json.load(file)
-            for t in ts:
-                ts = TimeSeries()
-                for k, v in t.items():
-                    ts.__setattr__(k, v)
-                timeseries.append(ts)
+        with open(f"{directory}/{f}") as file:
+            timeseries.extend(
+                TimeSeriesLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
+            )
     if len(timeseries) == 0:
         return
     drop_ts: list[str] = []
@@ -197,7 +237,7 @@ def load_timeseries_metadata(
                 print(f"Deleted {len(drop_ts)} timeseries.")
             else:
                 print(f"Would have deleted {len(drop_ts)} timeseries.")
-    except Exception as e:
+    except Exception:
         print(f"Failed to delete {t.external_id}. It may not exist.")
     try:
         if not dry_run:
@@ -205,21 +245,17 @@ def load_timeseries_metadata(
         else:
             print(f"Would have created {len(timeseries)} timeseries.")
     except Exception as e:
-        print(f"Failed to upload timeseries.")
+        print("Failed to upload timeseries.")
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"Loaded {len(timeseries)} timeseries from {len(files)} files.")
+    print(f"Created {len(timeseries)} timeseries from {len(files)} files.")
 
 
-def load_timeseries_datapoints(
-    ToolGlobals: CDFToolConfig, file: str, dry_run: bool = False, directory=None
-) -> None:
+def load_timeseries_datapoints(ToolGlobals: CDFToolConfig, file: str, dry_run: bool = False, directory=None) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(
-        capabilities={"timeseriesAcl": ["READ", "WRITE"]}
-    )
+    client = ToolGlobals.verify_client(capabilities={"timeseriesAcl": ["READ", "WRITE"]})
     files = []
     if file:
         # Only load the supplied filename.
@@ -235,7 +271,7 @@ def load_timeseries_datapoints(
     print(f"Uploading {len(files)} .csv file(s) as datapoints to CDF timeseries...")
     try:
         for f in files:
-            with open(f"{directory}/{f}", "rt") as file:
+            with open(f"{directory}/{f}") as file:
                 dataframe = pd.read_csv(file, parse_dates=True, index_col=0)
             if not dry_run:
                 print(f"Uploading {f} as datapoints to CDF timeseries...")
@@ -243,15 +279,11 @@ def load_timeseries_datapoints(
             else:
                 print(f"Would have uploaded {f} as datapoints to CDF timeseries...")
         if not dry_run:
-            print(
-                f"Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries."
-            )
+            print(f"Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
         else:
-            print(
-                f"Would have uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries."
-            )
+            print(f"Would have uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
     except Exception as e:
-        print(f"Failed to upload datapoints.")
+        print("Failed to upload datapoints.")
         print(e)
         ToolGlobals.failed = True
         return
@@ -259,114 +291,356 @@ def load_timeseries_datapoints(
 
 def load_transformations(
     ToolGlobals: CDFToolConfig,
-    file: str,
-    drop: bool,
+    file: Optional[str] = None,
+    drop: bool = False,
     dry_run: bool = False,
-    directory=None,
+    directory: Optional[str] = None,
 ) -> None:
+    """Load transformations from dump folder.
+
+    This code only gives a partial support for transformations by loading the actual sql query and the
+    necessary config. Schedules, authentication, etc is not supported.
+    """
     if directory is None:
         raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(
-        capabilities={"transformationsAcl": ["READ", "WRITE"]}
-    )
-    tmp = ""
+    client = ToolGlobals.verify_client(capabilities={"transformationsAcl": ["READ", "WRITE"]})
+    files = []
     if file:
         # Only load the supplied filename.
-        os.mkdir(f"{directory}/tmp")
-        os.system(f"cp {directory}/{file} {directory}/tmp/")
-        tmp = "tmp/"
-    configs = parse_transformation_configs(f"{directory}/{tmp}")
-    if len(tmp) > 0:
-        os.system(f"rm -rf {directory}/tmp")
-    cluster = ToolGlobals.environ("CDF_CLUSTER")
-    transformations = [
-        to_transformation(client, conf_path, configs[conf_path], cluster)
-        for conf_path in configs
-    ]
-    transformations_ext_ids = [t.external_id for t in configs.values()]
+        files.append(file)
+    else:
+        # Pick up all the .yaml files in the data folder.
+        for _, _, filenames in os.walk(directory):
+            for f in filenames:
+                if ".yaml" in f:
+                    files.append(f)
+    transformations: TransformationList = []
+    for f in files:
+        with open(f"{directory}/{f}") as file:
+            transformations.append(
+                Transformation._load(yaml.safe_load(file.read())),
+            )
+    print(f"Found {len(transformations)} transformations in {directory}.")
+    ext_ids = [t.external_id for t in transformations]
     try:
         if drop:
             if not dry_run:
-                client.transformations.delete(external_id=transformations_ext_ids)
+                client.transformations.delete(external_id=ext_ids, ignore_unknown_ids=True)
+                print(f"Deleted {len(ext_ids)} transformations.")
             else:
-                print(
-                    f"Would have deleted {len(transformations_ext_ids)} transformations."
-                )
+                print(f"Would have deleted {len(ext_ids)} transformations.")
     except CogniteNotFoundError:
         pass
+    for t in transformations:
+        with open(f"{directory}/{t.external_id}.sql") as file:
+            t.query = file.read()
+            t.data_set_id = ToolGlobals.data_set_id
     try:
-        existing_transformations_ext_ids = get_existing_transformation_ext_ids(
-            client, transformations_ext_ids
-        )
-        new_transformation_ext_ids = get_new_transformation_ids(
-            transformations_ext_ids, existing_transformations_ext_ids
-        )
         if not dry_run:
-            (
-                _,
-                updated_transformations,
-                created_transformations,
-            ) = upsert_transformations(
-                client,
-                transformations,
-                existing_transformations_ext_ids,
-                new_transformation_ext_ids,
-            )
+            client.transformations.create(transformations)
+            print(f"Created {len(transformations)} transformation.")
         else:
-            print(
-                f"Would have updated and created {len(transformations)} transformations."
-            )
+            print(f"Would have created {len(transformations)} transformation.")
     except Exception as e:
-        print(f"Failed to upsert transformations.")
+        print("Failed to create transformations.")
+        print(e)
+        ToolGlobals.failed = True
+
+
+def load_groups(
+    ToolGlobals: CDFToolConfig,
+    file: Optional[str] = None,
+    directory: Optional[str] = None,
+    dry_run: bool = False,
+) -> None:
+    if directory is None:
+        raise ValueError("directory must be specified")
+    client = ToolGlobals.verify_client(capabilities={"groupsAcl": ["LIST", "READ", "CREATE", "DELETE"]})
+    try:
+        old_groups = client.iam.groups.list(all=True).data
+    except Exception:
+        print("Failed to retrieve groups.")
+        ToolGlobals.failed = True
+        return
+    files = []
+    if file:
+        # Only load the supplied filename.
+        files.append(file)
+    else:
+        # Pick up all the .yaml files in the folder.
+        for _, _, filenames in os.walk(directory):
+            for f in filenames:
+                if ".yaml" in f:
+                    files.append(f)
+    groups: list[Group] = []
+    for f in files:
+        with open(f"{directory}/{f}") as file:
+            groups.extend(
+                GroupLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
+            )
+
+    for group in groups:
+        old_group_id = None
+        for g in old_groups:
+            if g.name == group.name:
+                old_group_id = g.id
+                break
+        try:
+            if not dry_run:
+                group = client.iam.groups.create(group)
+                print(f"Created group {group.name}.")
+            else:
+                print(f"Would have created group {group.name}.")
+        except Exception as e:
+            print(f"Failed to create group {group.name}: \n{e}")
+            ToolGlobals.failed = True
+            return
+        if old_group_id:
+            try:
+                if not dry_run:
+                    client.iam.groups.delete(id=old_group_id)
+                    print(f"Deleted old group {old_group_id}.")
+                else:
+                    print(f"Would have deleted group {old_group_id}.")
+            except Exception:
+                print(f"Failed to delete group {old_group_id}.")
+                ToolGlobals.failed = True
+
+
+def load_datamodel_graphql(
+    ToolGlobals: CDFToolConfig,
+    space_name: Optional[str] = None,
+    model_name: Optional[str] = None,
+    drop: bool = False,
+    directory=None,
+) -> None:
+    """Load a graphql datamode from file."""
+    if space_name is None or model_name is None or directory is None:
+        raise ValueError("space_name, model_name, and directory must be supplied.")
+    with open(f"{directory}/datamodel.graphql") as file:
+        # Read directly into a string.
+        datamodel = file.read()
+    if drop:
+        from .delete import delete_datamodel
+
+        delete_datamodel(ToolGlobals, instances_only=False)
+    # Clear any delete errors
+    ToolGlobals.failed = False
+    client = ToolGlobals.verify_client(
+        capabilities={
+            "dataModelsAcl": ["READ", "WRITE"],
+            "dataModelInstancesAcl": ["READ", "WRITE"],
+        }
+    )
+    try:
+        client.data_modeling.spaces.apply(
+            SpaceApply(
+                space=space_name,
+                name=space_name,
+                description=f"Space for {model_name}",
+            )
+        )
+    except Exception as e:
+        print(f"Failed to write space {space_name}.")
         print(e)
         ToolGlobals.failed = True
         return
-    if not dry_run:
-        print(f"Updated {len(updated_transformations)} transformations.")
-        print(f"Created {len(created_transformations)} transformations.")
+    print(f"Created space {space_name}.")
+    try:
+        client.data_modeling.graphql.apply_dml(
+            (space_name, model_name, "1"),
+            dml=datamodel,
+            name=model_name,
+            description=f"Data model for {model_name}",
+        )
+    except Exception as e:
+        print(f"Failed to write data model {model_name} to space {space_name}.")
+        print(e)
+        ToolGlobals.failed = True
+        return
+    print(f"Created data model {model_name}.")
 
 
-def load_readwrite_group(
+def load_datamodel(
     ToolGlobals: CDFToolConfig,
-    capabilities: List[Dict[str, Any]],
+    drop: bool = False,
+    delete_removed: bool = True,
+    delete_containers: bool = False,
+    delete_spaces: bool = False,
+    directory: Path | None = None,
     dry_run: bool = False,
-    source_id="readwrite",
+    only_drop: bool = False,
 ) -> None:
+    """Load containers, views, spaces, and data models from a directory
+
+        Note that this function will never delete instances, but will delete all
+        the properties found in containers if delete_containers is specified.
+        delete_spaces will fail unless also the edges and nodes have been deleted,
+        e.g. using the clean_out_datamodel() function.
+
+        Note that if delete_spaces flag is True, an attempt will be made to delete the space,
+        but if it fails, the loading will continue. If delete_containers is True, the loading
+        will abort if deletion fails.
+    Args:
+        drop: Whether to drop all existing resources before loading.
+        delete_removed: Whether to delete (previous) resources that are not in the directory.
+        delete_containers: Whether to delete containers including data in the instances.
+        delete_spaces: Whether to delete spaces (requires containers and instances to be deleted).
+        directory: Directory to load from.
+        dry_run: Whether to perform a dry run and only print out what will happen.
+        only_drop: Whether to only drop existing resources and not load new ones.
+    """
+    if directory is None:
+        raise ValueError("directory must be supplied.")
+    model_files_by_type: dict[str, list[Path]] = defaultdict(list)
+    models_pattern = re.compile(r"^.*\.?(container|view|datamodel)\.yaml$")
+    for file in directory.rglob("*.yaml"):
+        if not (match := models_pattern.match(file.name)):
+            continue
+        model_files_by_type[match.group(1)].append(file)
+    for type_, files in model_files_by_type.items():
+        print(f"Found {len(files)} {type_}s in {directory}.")
+
+    cognite_resources_by_type: dict[
+        str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]
+    ] = defaultdict(list)
+    for type_, files in model_files_by_type.items():
+        resource_cls = {
+            "container": ContainerApply,
+            "view": ViewApply,
+            "datamodel": DataModelApply,
+        }[type_]
+        for file in files:
+            cognite_resources_by_type[type_].append(resource_cls.load(yaml.safe_load(file.read_text())))
+    print("Loaded from files: ")
+    for type_, resources in cognite_resources_by_type.items():
+        print(f"  {type_}: {len(resources)}")
+
+    space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
+
+    print(f"Found {len(space_list)} space(s)")
+    cognite_resources_by_type["space"] = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
+
+    # Clear any delete errors
+    ToolGlobals.failed = False
     client = ToolGlobals.verify_client(
-        capabilities={"groupsAcl": ["LIST", "READ", "CREATE", "DELETE"]}
+        capabilities={
+            "dataModelsAcl": ["READ", "WRITE"],
+            "dataModelInstancesAcl": ["READ", "WRITE"],
+        }
     )
-    try:
-        groups = client.iam.groups.list(all=True)
-    except Exception as e:
-        print(f"Failed to retrieve groups.")
-        ToolGlobals.failed = True
-        return
-    old_group_id = None
-    for group in groups:
-        if group.source_id == source_id:
-            old_group_id = group.id
-            break
-    try:
-        if not dry_run:
-            group = client.iam.groups.create(
-                Group(
-                    name=source_id,
-                    source_id=source_id,
-                    capabilities=capabilities,
-                )
-            )
-        else:
-            print(f"Would have created group {source_id}.")
-    except Exception as e:
-        print(f"Failed to create group {source_id}.")
-        ToolGlobals.failed = True
-        return
-    if old_group_id:
-        try:
-            if not dry_run:
-                client.iam.groups.delete(id=old_group_id)
+
+    existing_resources_by_type: dict[
+        str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]
+    ] = defaultdict(list)
+    resource_api_by_type = {
+        "container": client.data_modeling.containers,
+        "view": client.data_modeling.views,
+        "datamodel": client.data_modeling.data_models,
+        "space": client.data_modeling.spaces,
+    }
+    for type_, resources in cognite_resources_by_type.items():
+        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve([r.as_id() for r in resources])
+
+    differences: dict[str, Difference] = {}
+    for type_, resources in cognite_resources_by_type.items():
+        new_by_id = {r.as_id(): r for r in resources}
+        existing_by_id = {r.as_id(): r for r in existing_resources_by_type[type_]}
+
+        added = [r for r in resources if r.as_id() not in existing_by_id]
+        removed = [r for r in existing_resources_by_type[type_] if r.as_id() not in new_by_id]
+
+        changed = []
+        unchanged = []
+        for existing_id in set(new_by_id.keys()) & set(existing_by_id.keys()):
+            if new_by_id[existing_id] == existing_by_id[existing_id]:
+                unchanged.append(new_by_id[existing_id])
             else:
-                print(f"Would have deleted group {old_group_id}.")
-        except Exception as e:
-            print(f"Failed to delete group {old_group_id}.")
-            ToolGlobals.failed = True
+                changed.append(new_by_id[existing_id])
+
+        differences[type_] = Difference(added, removed, changed, unchanged)
+
+    creation_order = ["space", "container", "view", "datamodel"]
+
+    if drop:
+        # Clean out all old resources
+        for type_ in reversed(creation_order):
+            items = differences.get(type_)
+            if items is None:
+                continue
+            if type_ == "container" and not delete_containers:
+                print("Skipping deletion of containers as delete_containers flag is not set.")
+                continue
+            if type_ == "space" and not delete_spaces:
+                print("Skipping deletion of spaces as delete_spaces flag is not set.")
+                continue
+            deleted = 0
+            for i in items:
+                if len(i) == 0:
+                    continue
+                # for i2 in i:
+                try:
+                    if not dry_run:
+                        if type_ == "space":
+                            for i2 in i:
+                                resource_api_by_type[type_].delete(i2.space)
+                        else:
+                            resource_api_by_type[type_].delete(i)
+                    deleted += 1
+                except CogniteAPIError as e:
+                    # Typically spaces can not be deleted if there are other
+                    # resources in the space.
+                    print(f"  Failed to delete {type_}(s):\n{e}")
+                    print(e)
+                    ToolGlobals.failed = True
+                    if type_ == "space":
+                        print("  Deletion of space was not successful, continuing.")
+                        continue
+                    return
+            if not dry_run:
+                print(f"  Deleted {deleted} {type_}(s).")
+            else:
+                print(f"  Would have deleted {deleted} {type_}(s).")
+
+    if not only_drop:
+        for type_ in creation_order:
+            if type_ not in differences:
+                continue
+            items = differences[type_]
+            if items.added:
+                print(f"Found {len(items.added)} new {type_}s.")
+                if dry_run:
+                    print(f"  Would have created {len(items.added)} {type_}(s).")
+                    continue
+                resource_api_by_type[type_].apply(items.added)
+                print(f"  Created {len(items.added)} {type_}s.")
+            if items.changed:
+                print(f"Found {len(items.changed)} changed {type_}s.")
+                if dry_run:
+                    print(f"  Would have updated {len(items.changed)} {type_}(s).")
+                    continue
+                resource_api_by_type[type_].apply(items.changed)
+                print(f"  Updated {len(items.changed)} {type_}s.")
+            if items.unchanged:
+                print(f"Found {len(items.unchanged)} unchanged {type_}(s).")
+
+    if delete_removed and not drop:
+        for type_ in reversed(creation_order):
+            if type_ not in differences:
+                continue
+            items = differences[type_]
+            if items.removed:
+                print(f"Found {len(items.removed)} removed {type_}s.")
+                if dry_run:
+                    print(f"  Would have deleted {len(items.removed)} {type_}(s).")
+                    continue
+                try:
+                    resource_api_by_type[type_].delete(items.removed)
+                except CogniteAPIError as e:
+                    # Typically spaces can not be deleted if there are other
+                    # resources in the space.
+                    print(f"  Failed to delete {len(items.removed)} {type_}(s).")
+                    print(e)
+                    ToolGlobals.failed = True
+                    continue
+                print(f"  Deleted {len(items.removed)} {type_}(s).")

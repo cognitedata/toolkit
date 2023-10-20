@@ -1,7 +1,7 @@
 externalId: WorkOrder
 name: WorkOrder
 space: '{{space}}'
-version: "{{view_WorkOrder_version}}"
+version: '{{view_WorkOrder_version}}'
 properties:
   actualHours:
     container:

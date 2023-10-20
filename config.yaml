@@ -1,1 +1,7 @@
 cdf_cluster: ${CDF_CLUSTER}
+template_version: 0.0.1
+# The demo_* configs are used for demo_* packages. If you want to use a demo package to
+# provision your own project, the demo_* configurations below must be changed.
+# Please note that these configs are set globally for simple access. When
+# developing your own modules, you should keep module configurations in the module directory.
+demo_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f

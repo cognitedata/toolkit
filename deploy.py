@@ -1,17 +1,20 @@
 #!/usr/bin/env python
 import argparse
 import logging
-import json
 from pathlib import Path
+from typing import Optional
+
 from dotenv import load_dotenv
-from scripts.utils import CDFToolConfig
+
+# from scripts.delete import clean_out_datamodels
 from scripts.load import (
+    load_datamodel,
+    load_groups,
     load_raw,
-    load_readwrite_group,
     load_timeseries_metadata,
+    load_transformations,
 )
-from scripts.datamodel import load_datamodel_dump
-from scripts.transformations import load_transformations_dump
+from scripts.utils import CDFToolConfig
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +24,7 @@ log = logging.getLogger(__name__)
 load_dotenv(".env")
 
 
-def run(build_dir: str, drop: bool = True, dry_run: bool = True) -> None:
+def run(build_dir: str, drop: bool = True, dry_run: bool = True, include: Optional[list[str]] = None) -> None:
     print(f"Deploying config files from {build_dir}...")
     # Configure a client and load credentials from environment
     build_path = Path(__file__).parent / build_dir
@@ -31,18 +34,13 @@ def run(build_dir: str, drop: bool = True, dry_run: bool = True) -> None:
     ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
     print("Using following configurations: ")
     print(ToolGlobals)
-    # TODO: #6 This is a very limited support. Needs to be expanded to support configurable groups.
-    if Path(f"{build_dir}/auth").is_dir():
-        capabilities = json.loads(
-            (build_path / "auth/1.readwrite.capabilities.json").read_text()
-        )
-        load_readwrite_group(
+    if (include is None or "groups" in include) and Path(f"{build_dir}/auth").is_dir():
+        load_groups(
             ToolGlobals,
-            capabilities=capabilities,
-            source_id="readwrite",
+            directory=f"{build_dir}/auth",
             dry_run=dry_run,
         )
-    if Path(f"{build_dir}/raw").is_dir():
+    if (include is None or "raw" in include) and Path(f"{build_dir}/raw").is_dir():
         # load_raw() will assume that the RAW database name is set like this in the filename:
         # <index>.<raw_db>.<tablename>.csv
         load_raw(
@@ -53,7 +51,7 @@ def run(build_dir: str, drop: bool = True, dry_run: bool = True) -> None:
             dry_run=dry_run,
             directory=f"{build_dir}/raw",
         )
-    if Path(f"{build_dir}/timeseries").is_dir():
+    if (include is None or "timeseries" in include) and Path(f"{build_dir}/timeseries").is_dir():
         load_timeseries_metadata(
             ToolGlobals,
             drop=drop,
@@ -61,42 +59,39 @@ def run(build_dir: str, drop: bool = True, dry_run: bool = True) -> None:
             dry_run=dry_run,
             directory=f"{build_dir}/timeseries",
         )
-    if Path(f"{build_dir}/transformations").is_dir():
-        load_transformations_dump(
+    if (include is None or "transformations" in include) and Path(f"{build_dir}/transformations").is_dir():
+        load_transformations(
             ToolGlobals,
             file=None,
             drop=drop,
             dry_run=dry_run,
             directory=f"{build_dir}/transformations",
         )
-    if (models_dir := Path(f"{build_dir}/source_models")).is_dir():
-        load_datamodel_dump(
+    if (include is None or "data_models" in include) and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+        # WARNING!!!! The below command will delete EVERYTHING in ALL data models
+        # in the project, including instances.
+        # clean_out_datamodels(ToolGlobals, dry_run=dry_run, instances=True)
+        load_datamodel(
             ToolGlobals,
             drop=drop,
             directory=models_dir,
-            dry_run=dry_run,
-        )
-    if (models_dir := Path(f"{build_dir}/domain_models")).is_dir():
-        load_datamodel_dump(
-            ToolGlobals,
-            drop=drop,
-            directory=models_dir,
-            dry_run=dry_run,
-        )
-    if (models_dir := Path(f"{build_dir}/solution_models")).is_dir():
-        load_datamodel_dump(
-            ToolGlobals,
-            drop=drop,
-            directory=models_dir,
+            delete_containers=False,  # Also delete properties that have been ingested (leaving empty instances)
+            delete_spaces=False,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
             dry_run=dry_run,
         )
     if ToolGlobals.failed:
-        print(f"Failure to load as expected.")
+        print("Failure to load as expected.")
         exit(1)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(epilog="Further functionality to be added")
+    parser.add_argument(
+        "--include",
+        help="restrict deploy to: groups,raw,timeseries,transformations,data_models",
+        type=str,
+        default=None,
+    )
     parser.add_argument(
         "--dry-run",
         help="whether to do a dry-run, do dry-run if present",
@@ -114,8 +109,13 @@ if __name__ == "__main__":
         help="Where to pick up the config files to deploy",
     )
     args, unknown_args = parser.parse_known_args()
+    if args.include is not None:
+        include = args.include.split(",")
+    else:
+        include = None
     run(
         build_dir=args.build_dir,
         dry_run=args.dry_run,
         drop=args.drop,
+        include=include,
     )

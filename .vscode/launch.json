@@ -10,6 +10,7 @@
             "request": "launch",
             "program": "./build.py",
             "args": [
+                "--clean",
                 "build"
             ],
             "console": "integratedTerminal",
@@ -21,8 +22,9 @@
             "request": "launch",
             "program": "./deploy.py",
             "args": [
-                "--dry-run",
-                "--drop"
+                //"--dry-run",
+                "--drop",
+                //"--include=transformations"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

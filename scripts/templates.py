@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import os
-import yaml
 import re
+import shutil
 from pathlib import Path
 
-# Directory paths for YAML and JSON files
+import yaml
+
+# Directory paths for YAML files
 YAML_DIRS = ["./"]
 TMPL_DIRS = ["./common", "./modules"]
 # Add any other files below that should be included in a build
@@ -32,7 +35,7 @@ def read_module_config(root_dir: str = "./", tmpl_dirs: str = TMPL_DIRS) -> list
                         for m2 in g3:
                             if m2 not in modules:
                                 modules.append(m2)
-                    else:
+                    elif m not in modules and global_config.get("packages", {}).get(m) is None:
                         modules.append(m)
 
     load_list = []
@@ -50,9 +53,7 @@ def read_module_config(root_dir: str = "./", tmpl_dirs: str = TMPL_DIRS) -> list
                 found = True
                 break
         if not found:
-            raise ValueError(
-                f"Module {m} not found in template directories {tmpl_dirs}."
-            )
+            raise ValueError(f"Module {m} not found in template directories {tmpl_dirs}.")
     return load_list
 
 
@@ -85,8 +86,17 @@ def read_yaml_files(yaml_dirs, name: str = "config.yaml"):
     return data
 
 
-def process_config_files(dirs, yaml_data, build_dir="./build"):
-    Path(build_dir).mkdir(exist_ok=True)
+def process_config_files(dirs: [str], yaml_data: str, build_dir: str = "./build", clean: bool = False):
+    path = Path(build_dir)
+    if path.exists():
+        if any(path.iterdir()):
+            if clean:
+                shutil.rmtree(path)
+                path.mkdir()
+            else:
+                print("Warning: Build directory is not empty. Use --clean to remove existing files.")
+    else:
+        path.mkdir()
 
     local_yaml_path = ""
     yaml_local = {}
@@ -108,7 +118,7 @@ def process_config_files(dirs, yaml_data, build_dir="./build"):
                     local_yaml_path = dirpath
                     yaml_local = read_yaml_files([dirpath])
                     continue
-                with open(dirpath + "/" + file, "rt") as f:
+                with open(dirpath + "/" + file) as f:
                     content = f.read()
                 # Replace the local yaml variables
                 for k, v in yaml_local.items():
@@ -143,10 +153,11 @@ def process_config_files(dirs, yaml_data, build_dir="./build"):
                     f.write(content)
 
 
-def build_config(dir: str = "./build"):
+def build_config(dir: str = "./build", clean: bool = False):
     modules = read_module_config(root_dir="./", tmpl_dirs=TMPL_DIRS)
     process_config_files(
         dirs=modules,
         yaml_data=read_yaml_files(yaml_dirs=YAML_DIRS),
         build_dir=dir,
+        clean=clean,
     )

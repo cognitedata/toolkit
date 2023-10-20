@@ -1,0 +1,25 @@
+externalId: tutorial-load-timeseries2assets
+name: tutorial-load-timeseries2assets
+destination:
+  dataModel:
+    space: {{space}}
+    externalId: {{datamodel}}
+    version: '1'
+    destinationType: Asset
+  instanceSpace: {{space}}
+  type: instances
+ignoreNullFields: true
+shared: true
+action: upsert
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{clientId}}
+  clientSecret: {{clientId}}
+  tokenUrl: {{tokenUrl}}
+  # Optional: If idP requires providing the scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes:
+    - {{scopes}}
+  # Optional: If idP requires providing the audience
+  audience: {{audience}}
