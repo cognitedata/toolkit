@@ -12,7 +12,7 @@ properties:
       externalId: APM_Activity
     containerPropertyIdentifier: id
   title:
-    decription: "Concise title or brief description of the maintenance activity or work order."
+    description: "Concise title or brief description of the maintenance activity or work order."
     container:
       type: container
       space: {{apm_datamodel_space}}
