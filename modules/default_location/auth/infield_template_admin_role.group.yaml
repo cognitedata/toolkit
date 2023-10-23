@@ -1,0 +1,89 @@
+# This role is identical to the normal users, but is used to group user with additional InField feature capabilities for template admins.
+# Typical Learning facilitators / Supervisor / maintenance planner users
+name: 'infield_{{location_name}}_{{tempalte_admin_role_name}}'
+source_id: '{{infield_location_template_admin_users}}'
+metadata:
+  origin: 'cdf-project-templates'
+  template_version: '{{template_version}}'
+capabilities:
+  - threedAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+          ids: [{{location_source_data_dataset}}]
+        }
+  - assetsAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+          ids: [{{location_source_data_dataset}}]
+        }
+  - filesAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+          ids: [{{location_source_data_dataset}}, {{location_app_data_dataset}}]
+        }
+  - filesAcl:
+      actions:
+        - WRITE
+      scope:
+        datasetScope: {
+          ids: [{{location_app_data_dataset}}]
+        }
+  - relationshipsAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+          ids: [{{location_source_data_dataset}}]
+        }
+  - timeSeriesAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+          ids: [{{location_source_data_dataset}}, {{location_app_data_dataset}}]
+        }
+  - timeSeriesAcl:
+      actions:
+        - WRITE
+      scope:
+        datasetScope: {
+          ids: [{{location_app_data_dataset}}]
+        }
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        spaceScope: [
+          'APM_Config',
+          'cdf_apm',
+          'cdf_infield',
+          {{apm_datamodel_space}} # from modules/config.yaml
+        ]
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceScope: [
+          'APM_Config',
+          'cdf_apm',
+          'cdf_core',
+          'cdf_apps_shared'
+          'cdf_infield',
+          'cognite_app_data', # this space must be created to store user profile information
+          {{apm_datamodel_space}} # from modules/config.yaml
+        ]
+  - dataModelInstancesAcl:
+      actions:
+        - WRITE
+      scope:
+        spaceScope: [
+          'cdf_apm',
+          'cognite_app_data', # this space must be created to store user profile information
+          {{apm_datamodel_space}} # from modules/config.yaml
+        ]
