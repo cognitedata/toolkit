@@ -17,12 +17,14 @@ combination.
 These are the steps to get started with these templates:
 
 1. Create a new repository based on this template.
-2. Edit `local.yaml` to specify the modules you want to deploy.
-3. Edit `config.yaml` to change any global variables you want to change.
+2. Edit `local.yaml` to specify the modules you want to deploy for each environment you deploy to.
+3. Edit `config.yaml` to change any global variables you want to change. If you want environment specific
+   variables, you can prefix the variable name with the environment name, e.g. `prod.my_var: something`
 4. (optional) For each `cdf_*` module, edit the `config.yaml` file to change any variables you want to change.
 5. (optional) Add any modules of your own that you may want to add (don't use `cdf_*` prefix).
-6. Run `./build.py` to create a build/ directory with the configurations.
-7. Run `./deploy.py` to deploy the configurations to your CDF project.
+6. Run `./build.py --env=<demo|local|dev|staging|prod>` to create a build/ directory with the
+   configurations.
+7. Run `./deploy.py --env=<demo|local|dev|staging|prod>` to deploy the configurations to your CDF project.
 
 ## Target usage
 
@@ -145,19 +147,26 @@ template. All your local changes on a per customer/project basis should go into 
 
 ### Templating and configuration
 
-Configuration variables should be defined in `config.yaml` files. The root `config.yaml` file has
-scope for all modules, while each module can have its own `config.yaml` file that is only used for
-that module.
+In `local.yaml`, you specify details on the environments you want to deploy. The `build.py` script will
+set CDF_ENVIRON and CDF_BUILD_TYPE = (dev, staging, prod) as environment variables.
+These can be used in the `config.yaml` files.
+
+Configuration variables used across your module configurations should be defined in `config.yaml` files.
+The root `config.yaml` file has scope for all modules, while each module can have its own `config.yaml` 
+file that is only used for that module.
 
 Template variables in files in the common/ and modules/ directories should be in the form
 `{{variable_name}}`.
 If you want template variables to be replaced by environment variables, use the following format in the
-.yaml file: `variable_name: ${ENV_VAR_NAME}`.
+config.yaml file: `variable_name: ${ENV_VAR_NAME}`.
+If you want variables to be set dependent on the environment you deploy to (e.g. `build.py --env=prod`),
+you can prefix the variable with environment name, e.g. use the following format in the config.yaml file:
+ `prod.variable_name: something`.
 
 > You can also put `config.yaml` files in the
 > `<modules>/<my_module>/`` directory. Any values here have only scope in that module.
 
-The global.yaml and `local.yaml` files are then used by the _build_ step  to
+The global.yaml and `local.yaml` files are used by the _build_ step  to
 process the configurations and create a `build/` directory where all the configurations are
 merged into a single directory structure.
 

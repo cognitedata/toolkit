@@ -14,10 +14,10 @@ log = logging.getLogger(__name__)
 load_dotenv(".env")
 
 
-def run(build_dir: str, clean: bool = False) -> None:
+def run(build_dir: str, build_env: str = "dev", clean: bool = False) -> None:
     print(f"Building config files from templates into {build_dir}...")
 
-    build_config(dir=build_dir, clean=clean)
+    build_config(dir=build_dir, build_env=build_env, clean=clean)
 
 
 if __name__ == "__main__":
@@ -26,12 +26,19 @@ if __name__ == "__main__":
         "build_dir",
         default="./build",
         nargs="?",
-        help="Where to write the config files",
+        help="Where to write the module files to deploy",
     )
     parser.add_argument(
         "--clean",
         action="store_true",
         help="Clean the build directory before building",
     )
+    parser.add_argument(
+        "--env",
+        action="store",
+        nargs="?",
+        default="dev",
+        help="The environment to build for, defaults to dev",
+    )
     args, unknown_args = parser.parse_known_args()
-    run(args.build_dir, clean=args.clean)
+    run(args.build_dir, build_env=args.env, clean=args.clean)
