@@ -18,6 +18,7 @@
         },
         {
             "name": "Python: deploy.py",
+            "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
             "program": "./deploy.py",

@@ -30,4 +30,4 @@ jobs:
           poetry run python build.py
       - name: "Deploy the package"
         run: |
-          poetry run python deploy.py
+          poetry run python deploy.py --drop --drop-data
