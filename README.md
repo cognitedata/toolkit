@@ -24,7 +24,8 @@ These are the steps to get started with these templates:
 5. (optional) Add any modules of your own that you may want to add (don't use `cdf_*` prefix).
 6. Run `./build.py --env=<demo|local|dev|staging|prod>` to create a build/ directory with the
    configurations.
-7. Run `./deploy.py --env=<demo|local|dev|staging|prod>` to deploy the configurations to your CDF project.
+7. Copy `.env.tmpl` to .env and edit the file to set the environment variables for your project.
+8. Run `./deploy.py --env=<demo|local|dev|staging|prod>` to deploy the configurations to your CDF project.
 
 ## Target usage
 
