@@ -14,6 +14,7 @@ from scripts.load import (
     load_timeseries_metadata,
     load_transformations,
 )
+from scripts.templates import read_environ_config
 from scripts.utils import CDFToolConfig
 
 log = logging.getLogger(__name__)
@@ -26,12 +27,15 @@ load_dotenv(".env")
 
 def run(
     build_dir: str,
+    build_env: str = "dev",
     drop: bool = True,
     drop_data: bool = False,
     dry_run: bool = True,
     include: Optional[list[str]] = None,
 ) -> None:
-    print(f"Deploying config files from {build_dir}...")
+    # Set environment variables from local.yaml
+    read_environ_config(build_env=build_env)
+    print(f"Deploying config files from {build_dir} to environment {build_env}...")
     # Configure a client and load credentials from environment
     build_path = Path(__file__).parent / build_dir
     if not build_path.is_dir():
@@ -119,6 +123,13 @@ if __name__ == "__main__":
         nargs="?",
         help="Where to pick up the config files to deploy",
     )
+    parser.add_argument(
+        "--env",
+        action="store",
+        nargs="?",
+        default="dev",
+        help="The environment to build for, defaults to dev",
+    )
     args, unknown_args = parser.parse_known_args()
     if args.include is not None:
         include = args.include.split(",")
@@ -126,6 +137,7 @@ if __name__ == "__main__":
         include = None
     run(
         build_dir=args.build_dir,
+        build_env=args.env,
         dry_run=args.dry_run,
         drop=args.drop,
         drop_data=args.drop_data,

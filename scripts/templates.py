@@ -16,7 +16,11 @@ EXCL_FILES = ["README.md"]
 EXCL_INDEX_SUFFIX = ["sql"]
 
 
-def read_module_config(root_dir: str = "./", tmpl_dirs: str = TMPL_DIRS) -> list[str]:
+def read_environ_config(
+    root_dir: str = "./",
+    build_env: str = "dev",
+    tmpl_dirs: str = TMPL_DIRS,
+) -> list[str]:
     """Read the global configuration files and return a list of modules in correct order.
 
     The presence of a module directory in tmpl_dirs is verified.
@@ -27,16 +31,32 @@ def read_module_config(root_dir: str = "./", tmpl_dirs: str = TMPL_DIRS) -> list
     global_config = read_yaml_files(root_dir, "global.yaml")
     local_config = read_yaml_files(root_dir, "local.yaml")
     modules = []
-    for k, v in local_config.items():
-        if k == "deploy":
-            for m in v:
-                for g2, g3 in global_config.get("packages", {}).items():
-                    if m == g2:
-                        for m2 in g3:
-                            if m2 not in modules:
-                                modules.append(m2)
-                    elif m not in modules and global_config.get("packages", {}).get(m) is None:
-                        modules.append(m)
+    for env, defs in local_config.items():
+        if env != build_env:
+            continue
+        os.environ["CDF_ENVIRON"] = env
+        for k, v in defs.items():
+            if k == "project":
+                if os.environ["CDF_PROJECT"] != v:
+                    if env == "dev" or env == "local":
+                        print(
+                            f"WARNING!!! Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
+                        )
+                    else:
+                        raise ValueError(
+                            f"Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
+                        )
+            if k == "type":
+                os.environ["CDF_BUILD_TYPE"] = v
+            elif k == "deploy":
+                for m in v:
+                    for g2, g3 in global_config.get("packages", {}).items():
+                        if m == g2:
+                            for m2 in g3:
+                                if m2 not in modules:
+                                    modules.append(m2)
+                        elif m not in modules and global_config.get("packages", {}).get(m) is None:
+                            modules.append(m)
 
     load_list = []
     module_dirs = {}
@@ -86,7 +106,13 @@ def read_yaml_files(yaml_dirs, name: str = "config.yaml"):
     return data
 
 
-def process_config_files(dirs: [str], yaml_data: str, build_dir: str = "./build", clean: bool = False):
+def process_config_files(
+    dirs: [str],
+    yaml_data: str,
+    build_dir: str = "./build",
+    build_env: str = "dev",
+    clean: bool = False,
+):
     path = Path(build_dir)
     if path.exists():
         if any(path.iterdir()):
@@ -122,10 +148,22 @@ def process_config_files(dirs: [str], yaml_data: str, build_dir: str = "./build"
                     content = f.read()
                 # Replace the local yaml variables
                 for k, v in yaml_local.items():
+                    if "." in k:
+                        # If the key has a dot, it is a build_env specific variable.
+                        # Skip if it's the wrong environment.
+                        if k.split(".")[0] != build_env:
+                            continue
+                        k = k.split(".", 2)[1]
                     # assuming template variables are in the format {{key}}
                     content = content.replace(f"{{{{{k}}}}}", str(v))
                 # Replace the root yaml variables
                 for k, v in yaml_data.items():
+                    if "." in k:
+                        # If the key has a dot, it is a build_env specific variable.
+                        # Skip if it's the wrong environment.
+                        if k.split(".")[0] != build_env:
+                            continue
+                        k = k.split(".", 2)[1]
                     # assuming template variables are in the format {{key}}
                     content = content.replace(f"{{{{{k}}}}}", str(v))
 
@@ -153,11 +191,14 @@ def process_config_files(dirs: [str], yaml_data: str, build_dir: str = "./build"
                     f.write(content)
 
 
-def build_config(dir: str = "./build", clean: bool = False):
-    modules = read_module_config(root_dir="./", tmpl_dirs=TMPL_DIRS)
+def build_config(dir: str = "./build", build_env: str = "dev", clean: bool = False):
+    if build_env is None:
+        raise ValueError("build_env must be specified")
+    modules = read_environ_config(root_dir="./", tmpl_dirs=TMPL_DIRS, build_env=build_env)
     process_config_files(
         dirs=modules,
         yaml_data=read_yaml_files(yaml_dirs=YAML_DIRS),
         build_dir=dir,
+        build_env=build_env,
         clean=clean,
     )

@@ -27,7 +27,7 @@ jobs:
         run: poetry install
       - name: "Build the package"
         run: |
-          poetry run python build.py
+          poetry run python build.py --env=demo
       - name: "Deploy the package"
         run: |
-          poetry run python deploy.py --drop --drop-data
+          poetry run python deploy.py --drop --drop-data --env=demo
