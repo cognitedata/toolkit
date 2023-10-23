@@ -11,6 +11,7 @@
             "program": "./build.py",
             "args": [
                 "--clean",
+                "--env=local",
                 "build"
             ],
             "console": "integratedTerminal",
@@ -25,6 +26,7 @@
             "args": [
                 //"--dry-run",
                 "--drop",
+                "--env=dev",
                 "--include=data_models"
             ],
             "console": "integratedTerminal",
