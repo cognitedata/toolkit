@@ -162,6 +162,7 @@ def process_config_files(
                             continue
                         k = k.split(".", 2)[1]
                     # assuming template variables are in the format {{key}}
+                    # TODO: issue warning if key is not found, this can indicate a config file error
                     content = content.replace(f"{{{{{k}}}}}", str(v))
                 # Replace the root yaml variables
                 for k, v in yaml_data.items():
