@@ -55,6 +55,7 @@ capabilities:
   - dataModelsAcl:
       actions:
         - READ
+        - WRITE
       scope:
         all: {}
   - dataModelInstancesAcl:
