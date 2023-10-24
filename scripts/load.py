@@ -493,7 +493,7 @@ def load_datamodel(
     if directory is None:
         raise ValueError("directory must be supplied.")
     model_files_by_type: dict[str, list[Path]] = defaultdict(list)
-    models_pattern = re.compile(r"^.*\.?(container|view|datamodel)\.yaml$")
+    models_pattern = re.compile(r"^.*\.?(space|container|view|datamodel)\.yaml$")
     for file in directory.rglob("*.yaml"):
         if not (match := models_pattern.match(file.name)):
             continue
@@ -507,6 +507,7 @@ def load_datamodel(
     ] = defaultdict(list)
     for type_, files in model_files_by_type.items():
         resource_cls = {
+            "space": SpaceApply,
             "container": ContainerApply,
             "view": ViewApply,
             "datamodel": DataModelApply,

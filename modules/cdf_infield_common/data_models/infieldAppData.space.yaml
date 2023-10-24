@@ -1,5 +1,4 @@
 ---
-externalId: cognite_app_data
-name: 'cognite_app_data'
-usedFor: node
 space: cognite_app_data
+name: cognite_app_data
+description: Space for Infield App Data
