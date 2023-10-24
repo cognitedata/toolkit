@@ -30,6 +30,7 @@ def read_environ_config(
     """
     global_config = read_yaml_files(root_dir, "global.yaml")
     local_config = read_yaml_files(root_dir, "local.yaml")
+    print(f"Environment is {build_env}, using that section in local.yaml.\n")
     modules = []
     for env, defs in local_config.items():
         if env != build_env:
@@ -42,11 +43,12 @@ def read_environ_config(
                         print(
                             f"WARNING!!! Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
                         )
+                        print(f"Environment is {env}, continuing...")
                     else:
                         raise ValueError(
                             f"Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
                         )
-            if k == "type":
+            elif k == "type":
                 os.environ["CDF_BUILD_TYPE"] = v
             elif k == "deploy":
                 for m in v:
@@ -57,7 +59,8 @@ def read_environ_config(
                                     modules.append(m2)
                         elif m not in modules and global_config.get("packages", {}).get(m) is None:
                             modules.append(m)
-
+    if len(modules) == 0:
+        print(f"WARNING! Found no defined modules in local.yaml, have you configured the environment ({build_env})?")
     load_list = []
     module_dirs = {}
     for d in tmpl_dirs:
