@@ -1,6 +1,6 @@
 # This role is identical to the normal users, but is used to group user with additional InField feature capabilities for template admins.
 # Typical Learning facilitators / Supervisor / maintenance planner users
-name: 'infield_{{location_name}}_{{tempalte_admin_role_name}}'
+name: 'infield_{{location_name}}_{{template_admin_role_name}}'
 source_id: '{{infield_location_template_admin_users}}'
 metadata:
   origin: 'cdf-project-templates'
