@@ -18,13 +18,13 @@ demo:
   # Order is important.
   deploy: ["demo_infield", "cdf_apm_simple"]
 local: # Only used for local development and iterations, should not be used in CI/CD
-  project: ""
+  project: "<customer>-dev"
   type: "dev"
   deploy: ["demo_infield", "cdf_apm_simple"]
 dev:
   project: "<customer>-dev"
   type: "dev"
-  deploy: []
+  deploy: ["demo_infield", "cdf_apm_simple"]
 staging:
   project: "<customer>-staging"
   type: "staging"
