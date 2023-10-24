@@ -32,33 +32,37 @@ def read_environ_config(
     local_config = read_yaml_files(root_dir, "local.yaml")
     print(f"Environment is {build_env}, using that section in local.yaml.\n")
     modules = []
-    for env, defs in local_config.items():
-        if env != build_env:
-            continue
-        os.environ["CDF_ENVIRON"] = env
-        for k, v in defs.items():
-            if k == "project":
-                if os.environ["CDF_PROJECT"] != v:
-                    if env == "dev" or env == "local":
-                        print(
-                            f"WARNING!!! Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
-                        )
-                        print(f"Environment is {env}, continuing...")
-                    else:
-                        raise ValueError(
-                            f"Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
-                        )
-            elif k == "type":
-                os.environ["CDF_BUILD_TYPE"] = v
-            elif k == "deploy":
-                for m in v:
-                    for g2, g3 in global_config.get("packages", {}).items():
-                        if m == g2:
-                            for m2 in g3:
-                                if m2 not in modules:
-                                    modules.append(m2)
-                        elif m not in modules and global_config.get("packages", {}).get(m) is None:
-                            modules.append(m)
+
+    try:
+        defs = local_config[build_env]
+    except KeyError:
+        raise ValueError(f"Environment {build_env} not found in local.yaml")
+
+    os.environ["CDF_ENVIRON"] = build_env
+    for k, v in defs.items():
+        if k == "project":
+            if os.environ["CDF_PROJECT"] != v:
+                if build_env == "dev" or build_env == "local":
+                    print(
+                        f"WARNING!!! Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
+                    )
+                    print(f"Environment is {build_env}, continuing...")
+                else:
+                    raise ValueError(
+                        f"Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
+                    )
+        elif k == "type":
+            os.environ["CDF_BUILD_TYPE"] = v
+        elif k == "deploy":
+            for m in v:
+                for g2, g3 in global_config.get("packages", {}).items():
+                    if m == g2:
+                        for m2 in g3:
+                            if m2 not in modules:
+                                modules.append(m2)
+                    elif m not in modules and global_config.get("packages", {}).get(m) is None:
+                        modules.append(m)
+
     if len(modules) == 0:
         print(f"WARNING! Found no defined modules in local.yaml, have you configured the environment ({build_env})?")
     load_list = []
