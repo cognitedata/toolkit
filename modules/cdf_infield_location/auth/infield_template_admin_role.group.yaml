@@ -63,7 +63,9 @@ capabilities:
           'APM_Config',
           'cdf_apm',
           'cdf_infield',
-          {{apm_datamodel_space}} # from modules/config.yaml
+          'cdf_core',
+          'cdf_apps_shared'
+          {{apm_datamodel_space}} # from modules/config.yaml (APM_SourceData)
         ]
   - dataModelInstancesAcl:
       actions:
@@ -72,18 +74,15 @@ capabilities:
         spaceScope: [
           'APM_Config',
           'cdf_apm',
-          'cdf_core',
-          'cdf_apps_shared'
-          'cdf_infield',
           'cognite_app_data', # this space must be created to store user profile information
-          {{apm_datamodel_space}} # from modules/config.yaml
+          {{location_source_data_space}}, # from modules/config.yaml
+          {{location_app_data_space}} # from modules/config.yaml
         ]
   - dataModelInstancesAcl:
       actions:
         - WRITE
       scope:
         spaceScope: [
-          'cdf_apm',
           'cognite_app_data', # this space must be created to store user profile information
-          {{apm_datamodel_space}} # from modules/config.yaml
+          {{location_app_data_space}} # from modules/config.yaml
         ]
