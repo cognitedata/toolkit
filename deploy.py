@@ -50,6 +50,9 @@ def run(
             directory=f"{build_dir}/auth",
             dry_run=dry_run,
         )
+    if ToolGlobals.failed:
+        print("Failure to load as expected.")
+        exit(1)
     if (include is None or "raw" in include) and Path(f"{build_dir}/raw").is_dir():
         # load_raw() will assume that the RAW database name is set like this in the filename:
         # <index>.<raw_db>.<tablename>.csv
@@ -61,6 +64,9 @@ def run(
             dry_run=dry_run,
             directory=f"{build_dir}/raw",
         )
+    if ToolGlobals.failed:
+        print("Failure to load as expected.")
+        exit(1)
     if (include is None or "timeseries" in include) and Path(f"{build_dir}/timeseries").is_dir():
         load_timeseries_metadata(
             ToolGlobals,
@@ -69,6 +75,9 @@ def run(
             dry_run=dry_run,
             directory=f"{build_dir}/timeseries",
         )
+    if ToolGlobals.failed:
+        print("Failure to load as expected.")
+        exit(1)
     if (include is None or "transformations" in include) and Path(f"{build_dir}/transformations").is_dir():
         load_transformations(
             ToolGlobals,
@@ -77,6 +86,9 @@ def run(
             dry_run=dry_run,
             directory=f"{build_dir}/transformations",
         )
+    if ToolGlobals.failed:
+        print("Failure to load as expected.")
+        exit(1)
     if (include is None or "data_models" in include) and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         # WARNING!!!! The below command will delete EVERYTHING in ALL data models
         # in the project, including instances.
