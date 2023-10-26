@@ -335,9 +335,9 @@ def load_transformations(
     for f in files:
         with open(f"{directory}/{f}") as file:
             config = yaml.safe_load(file.read())
-            source_oidc_credentials = config.get("source_oidc_credentials") or config.get("authentication") or {}
+            source_oidc_credentials = config.get("authentication", {}).get("read") or config.get("authentication") or {}
             destination_oidc_credentials = (
-                config.get("destination_oidc_credentials") or config.get("authentication") or {}
+                config.get("authentication", {}).get("write") or config.get("authentication") or {}
             )
             tmp = Transformation._load(config, ToolGlobals.client)
             transformations.append(
