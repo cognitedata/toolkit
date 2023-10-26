@@ -6,7 +6,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "./build.py --clean --env=local"
+            "command": "./build.py --clean --env=local --override_env"
         }
     ]
 }

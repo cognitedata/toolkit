@@ -20,7 +20,7 @@ demo:
 local: # Only used for local development and iterations, should not be used in CI/CD
   project: "<customer>-dev"
   type: "dev"
-  deploy: ["cdf_infield_location"]
+  deploy: ["cdf_apm_base", "cdf_infield_common", "cdf_apm_simple"]
 dev:
   project: "<customer>-dev"
   type: "dev"
