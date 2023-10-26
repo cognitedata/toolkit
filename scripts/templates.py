@@ -175,9 +175,6 @@ def process_config_files(
                     # assuming template variables are in the format {{key}}
                     content = content.replace(f"{{{{{k}}}}}", str(v))
 
-                for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-                    print(f"WARNING: Unmatched template variable {unmatched} in {dirpath}/{file}")
-
                 split_path = dirpath.split("/")
                 cdf_path = split_path[len(split_path) - 1]
                 new_path = Path(f"{build_dir}/{cdf_path}")
@@ -198,6 +195,10 @@ def process_config_files(
                         file = f"{indices[cdf_path]}.{yaml_local.get('raw_db', 'default')}.{file}"
                     else:
                         file = f"{indices[cdf_path]}.{file}"
+
+                for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
+                    print(f"WARNING: Unresolved template variable {unmatched} in {new_path}/{file}")
+
                 with open(new_path / file, "w") as f:
                     f.write(content)
 
