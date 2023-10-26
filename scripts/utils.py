@@ -45,6 +45,12 @@ class CDFToolConfig:
         self._data_set = None
         self._failed = False
         self._environ = {}
+        self.oauth_credentials = OAuthClientCredentials(
+            token_url="",
+            client_id="",
+            client_secret="",
+            scopes=[],
+        )
 
         if token is not None:
             self._environ["CDF_TOKEN"] = token
@@ -87,19 +93,20 @@ class CDFToolConfig:
                 )
             ]
             self._audience = self.environ("IDP_AUDIENCE", f"https://{self._cluster}.cognitedata.com")
+            self.oauth_credentials = OAuthClientCredentials(
+                token_url=self.environ("IDP_TOKEN_URL"),
+                client_id=self.environ("IDP_CLIENT_ID"),
+                # client secret should not be stored in-code, so we load it from an environment variable
+                client_secret=self.environ("IDP_CLIENT_SECRET"),
+                scopes=self._scopes,
+                audience=self._audience,
+            )
             self._client = CogniteClient(
                 ClientConfig(
                     client_name=client_name,
                     base_url=self._cdf_url,
                     project=self._project,
-                    credentials=OAuthClientCredentials(
-                        token_url=self.environ("IDP_TOKEN_URL"),
-                        client_id=self.environ("IDP_CLIENT_ID"),
-                        # client secret should not be stored in-code, so we load it from an environment variable
-                        client_secret=self.environ("IDP_CLIENT_SECRET"),
-                        scopes=self._scopes,
-                        audience=self._audience,
-                    ),
+                    credentials=self.oauth_credentials,
                 )
             )
 
@@ -202,9 +209,11 @@ class CDFToolConfig:
         # iterate over all the capabilities we need
         for cap, actions in capabilities.items():
             # Find the right capability in our granted capabilities
+            found = False
             for k in resp.capabilities:
                 if len(k.get(cap, {})) == 0:
                     continue
+                found = True
                 # For each of the actions (e.g. READ or WRITE) we need, check if we have it
                 for a in actions:
                     if a not in k.get(cap, {}).get("actions", []):
@@ -216,6 +225,8 @@ class CDFToolConfig:
                 ):
                     raise CogniteAuthError(f"Don't have correct access rights. Need {a} on {cap}")
                 continue
+            if not found:
+                raise CogniteAuthError(f"Don't have correct access rights. Need {actions} on {cap}")
         return self._client
 
     def verify_dataset(self, data_set_name: str | None = None, create: bool = True) -> int | None:
