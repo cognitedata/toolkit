@@ -2,7 +2,7 @@ name: 'cicd:all:read-write'
 source_id: '{{demo_readwrite_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
-  template_version: '{{template_version}}'
+  cdf_template_version: '{{cdf_template_version}}'
 capabilities:
   - projectsAcl:
       actions:
