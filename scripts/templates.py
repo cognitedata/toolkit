@@ -162,6 +162,7 @@ def process_config_files(
                             continue
                         k = k.split(".", 2)[1]
                     # assuming template variables are in the format {{key}}
+                    # TODO: issue warning if key is not found, this can indicate a config file error
                     content = content.replace(f"{{{{{k}}}}}", str(v))
                 # Replace the root yaml variables
                 for k, v in yaml_data.items():
@@ -194,6 +195,10 @@ def process_config_files(
                         file = f"{indices[cdf_path]}.{yaml_local.get('raw_db', 'default')}.{file}"
                     else:
                         file = f"{indices[cdf_path]}.{file}"
+
+                for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
+                    print(f"WARNING: Unresolved template variable {unmatched} in {new_path}/{file}")
+
                 with open(new_path / file, "w") as f:
                     f.write(content)
 

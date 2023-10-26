@@ -1,0 +1,16 @@
+---
+location_name: default
+module_version: '1'
+apm_datamodel_space: default_apm_datamodel_space
+
+# admin role
+infield_location_checklist_admin_users_source_id: [infield_location_checklist_admin_users_source_id]
+
+# normal role
+infield_location_normal_users_source_id: [infield_location_normal_users_source_id]
+
+# template admin role
+infield_location_template_admin_users_source_id: [infield_location_template_admin_users_source_id]
+
+# viewer role
+infield_location_viewer_users_source_id: [infield_location_viewer_users_source_id]
