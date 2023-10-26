@@ -4,7 +4,8 @@ template_version: '1'
 apm_datamodel_space: default_apm_datamodel_space
 location_app_data_dataset: default_location_app_data_dataset
 location_source_data_dataset: default_location_source_data_dataset
-
+location_source_data_space: default_location_source_data_space
+location_app_data_space: default_location_app_data_space
 
 # admin role
 infield_location_checklist_admin_users_source_id: [infield_location_checklist_admin_users_source_id]
