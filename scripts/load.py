@@ -216,7 +216,7 @@ def load_timeseries_metadata(
 ) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(capabilities={"timeseriesAcl": ["READ", "WRITE"]})
+    client = ToolGlobals.verify_client(capabilities={"timeSeriesAcl": ["READ", "WRITE"]})
     files = []
     if file:
         # Only load the supplied filename.
