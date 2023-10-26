@@ -1,5 +1,5 @@
 cdf_cluster: ${CDF_CLUSTER}
-template_version: 0.0.1
+cdf_template_version: 0.0.1
 # The demo_* configs are used for demo_* packages. If you want to use a demo package to
 # provision your own project, the demo_* configurations below must be changed.
 # Please note that these configs are set globally for simple access. When
