@@ -1,7 +1,7 @@
 # Only valid for this module, loads template variables from environment
-raw_db: tutorial_apm
-datamodel: tutorial_apm_simple
-space: tutorial_apm_simple
+raw_db: apm_simple
+datamodel: apm_simple
+space: apm_simple
 data_set: Valhall_System_23
 data_set_desc: Valhall_System_23
 datamodel_version: '1'

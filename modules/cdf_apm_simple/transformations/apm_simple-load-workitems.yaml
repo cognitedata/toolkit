@@ -1,12 +1,11 @@
-externalId: tutorial-load-asset2children
-name: tutorial-load-Asset2children
+externalId: apm_simple-load-workitems
+name: apm_simple-load-Workitems
 destination:
   dataModel:
     space: {{space}}
     externalId: {{datamodel}}
     version: '1'
-    destinationType: Asset
-    destinationRelationshipFromType: children
+    destinationType: WorkItem
   instanceSpace: {{space}}
   type: instances
 ignoreNullFields: true
@@ -16,7 +15,7 @@ action: upsert
 # You can also use different credentials for the running transformations than the ones you use to deploy
 authentication:
   clientId: {{clientId}}
-  clientSecret: {{clientId}}
+  clientSecret: {{clientSecret}}
   tokenUrl: {{tokenUrl}}
   # Optional: If idP requires providing the scopes
   cdfProjectName: {{cdfProjectName}}
@@ -24,3 +23,7 @@ authentication:
     - {{scopes}}
   # Optional: If idP requires providing the audience
   audience: {{audience}}
+schedule:
+  # every hour
+  interval: '0 * * * *'
+  is_paused: true
