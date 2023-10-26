@@ -12,6 +12,7 @@
             "args": [
                 "--clean",
                 "--env=local",
+                "--override_env",
                 "build"
             ],
             "console": "integratedTerminal",
@@ -26,8 +27,9 @@
             "args": [
                 //"--dry-run",
                 "--drop",
-                "--env=dev",
-                "--include=data_models"
+                "--drop-data",
+                "--env=local",
+                "--include=transformations"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

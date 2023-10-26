@@ -1,19 +1,19 @@
 # Only valid for this module, loads template variables from environment
-raw_db: tutorial_apm
-datamodel: tutorial_apm_simple
-space: tutorial_apm_simple
+raw_db: apm_simple
+datamodel: apm_simple
+space: apm_simple
 data_set: Valhall_System_23
 data_set_desc: Valhall_System_23
 datamodel_version: '1'
 view_Asset_version: '1'
 view_WorkOrder_version: '1'
 view_WorkItem_version: '1'
-clientId: ${TRANSFORMATIONS_CLIENT_ID}
-clientSecret: ${TRANSFORMATIONS_CLIENT_SECRET}
-tokenUrl: ${TRANSFORMATIONS_TOKEN_URL}
+clientId: ${IDP_CLIENT_ID}
+clientSecret: ${IDP_CLIENT_SECRET}
+tokenUrl: ${IDP_TOKEN_URL}
 # Optional: If idP requires providing the scopes
-cdfProjectName: ${TRANSFORMATIONS_PROJECT}
+cdfProjectName: ${CDP_PROJECT}
 scopes:
-  - ${TRANSFORMATIONS_SCOPES}
+  - ${IDP_SCOPES}
 # Optional: If idP requires providing the audience
-audience: ${TRANSFORMATIONS_AUDIENCE}
+audience: ${IDP_AUDIENCE}
