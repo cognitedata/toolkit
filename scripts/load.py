@@ -21,9 +21,12 @@ from typing import Optional, Union
 
 import pandas as pd
 import yaml
+from cognite.client import CogniteClient
 from cognite.client.data_classes import (
+    OidcCredentials,
     Transformation,
     TransformationList,
+    TransformationSchedule,
 )
 from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.data_modeling import (
@@ -94,7 +97,7 @@ def load_raw(
     """
     if directory is None:
         raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(capabilities={"rawAcl": ["READ", "WRITE"]})
+    client: CogniteClient = ToolGlobals.verify_client(capabilities={"rawAcl": ["READ", "WRITE"]})
 
     files = []
     if file:
@@ -106,12 +109,13 @@ def load_raw(
             for f in filenames:
                 if ".csv" in f:
                     files.append(f)
+    files.sort()
     if len(files) == 0:
         return
     print(f"Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename...")
     for f in files:
         try:
-            (_, db, _) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
+            (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
         except Exception:
             db = raw_db
         with open(f"{directory}/{f}") as file:
@@ -120,10 +124,18 @@ def load_raw(
             try:
                 if not dry_run:
                     if drop:
-                        client.raw.tables.delete(db, f[:-4])
+                        try:
+                            client.raw.tables.delete(db, table_name)
+                        except Exception:
+                            ...
+                    try:
+                        client.raw.databases.create(db)
+                        print("Created database: " + db)
+                    except Exception:
+                        ...
                     client.raw.rows.insert_dataframe(
                         db_name=db,
-                        table_name=f[:-4],
+                        table_name=table_name,
                         dataframe=dataframe,
                         ensure_parent=True,
                     )
@@ -303,7 +315,12 @@ def load_transformations(
     """
     if directory is None:
         raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(capabilities={"transformationsAcl": ["READ", "WRITE"]})
+    client: CogniteClient = ToolGlobals.verify_client(
+        capabilities={
+            "transformationsAcl": ["READ", "WRITE"],
+            "sessionsAcl": ["CREATE"],
+        }
+    )
     files = []
     if file:
         # Only load the supplied filename.
@@ -317,8 +334,44 @@ def load_transformations(
     transformations: TransformationList = []
     for f in files:
         with open(f"{directory}/{f}") as file:
+            config = yaml.safe_load(file.read())
+            source_oidc_credentials = config.get("source_oidc_credentials") or config.get("authentication") or {}
+            destination_oidc_credentials = (
+                config.get("destination_oidc_credentials") or config.get("authentication") or {}
+            )
+            tmp = Transformation._load(config, ToolGlobals.client)
             transformations.append(
-                Transformation._load(yaml.safe_load(file.read())),
+                Transformation(
+                    id=tmp.id,
+                    external_id=tmp.external_id,
+                    name=tmp.name,
+                    query=tmp.query,
+                    destination=tmp.destination,
+                    conflict_mode=tmp.conflict_mode,
+                    is_public=tmp.is_public,
+                    ignore_null_fields=tmp.ignore_null_fields,
+                    source_oidc_credentials=OidcCredentials(
+                        client_id=source_oidc_credentials.get("clientId", ""),
+                        client_secret=source_oidc_credentials.get("clientSecret", ""),
+                        scopes=ToolGlobals.oauth_credentials.scopes,
+                        token_uri=ToolGlobals.oauth_credentials.token_url,
+                        cdf_project_name=ToolGlobals.client.config.project,
+                    ),
+                    destination_oidc_credentials=OidcCredentials(
+                        client_id=destination_oidc_credentials.get("clientId", ""),
+                        client_secret=destination_oidc_credentials.get("clientSecret", ""),
+                        scopes=ToolGlobals.oauth_credentials.scopes,
+                        token_uri=ToolGlobals.oauth_credentials.token_url,
+                        cdf_project_name=ToolGlobals.client.config.project,
+                    ),
+                    schedule=TransformationSchedule(
+                        external_id=tmp.external_id,
+                        interval=config.get("schedule", {}).get("interval", ""),
+                    ),
+                    has_source_oidc_credentials=(len(source_oidc_credentials) > 0),
+                    has_destination_oidc_credentials=(len(destination_oidc_credentials) > 0),
+                    data_set_id=tmp.data_set_id,
+                )
             )
     print(f"Found {len(transformations)} transformations in {directory}.")
     ext_ids = [t.external_id for t in transformations]
@@ -338,6 +391,9 @@ def load_transformations(
     try:
         if not dry_run:
             client.transformations.create(transformations)
+            for t in transformations:
+                if t.schedule.interval != "":
+                    client.transformations.schedules.create(t.schedule)
             print(f"Created {len(transformations)} transformation.")
         else:
             print(f"Would have created {len(transformations)} transformation.")
@@ -625,13 +681,16 @@ def load_datamodel(
                     continue
                 for i in items.changed:
                     resource_api_by_type[type_].apply(items.changed)
-                print(f"  Updated {len(items.changed)} {type_}s.")
+                if drop:
+                    print(f"  Created {len(items.changed)} {type_}s that were changed (--drop specified).")
+                else:
+                    print(f"  Updated {len(items.changed)} {type_}s.")
             if items.unchanged:
                 print(f"Found {len(items.unchanged)} unchanged {type_}(s).")
                 if drop:
                     for i in items.unchanged:
                         resource_api_by_type[type_].apply(i)
-                    print(f"  Updated {len(items.changed)} {type_}s.")
+                    print(f"  Created {len(items.changed)} unchanged {type_}s (--drop specified).")
 
     if delete_removed and not drop:
         for type_ in reversed(creation_order):
