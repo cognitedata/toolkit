@@ -175,6 +175,9 @@ def process_config_files(
                     # assuming template variables are in the format {{key}}
                     content = content.replace(f"{{{{{k}}}}}", str(v))
 
+                for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
+                    print(f"WARNING: Unmatched template variable {unmatched} in {dirpath}/{file}")
+
                 split_path = dirpath.split("/")
                 cdf_path = split_path[len(split_path) - 1]
                 new_path = Path(f"{build_dir}/{cdf_path}")

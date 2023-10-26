@@ -1,6 +1,6 @@
 # This role is identical to the normal users, but is used to group user with additional InField feature capabilities for checklist admins.
 # Typical Team captain / Supervisor users
-name: 'infield_{{location_name}}_checklist_admin_role_name'
+name: 'infield_{{location_name}}_checklist_admins}}'
 source_id: '{{infield_location_checklist_admin_users_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
