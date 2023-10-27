@@ -577,7 +577,7 @@ def load_datamodel(
 
     space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
 
-    print(f"Found {len(space_list)} space(s)")
+    print(f"Found {len(space_list)} implicit space(s) in container, view, and data model files.")
     cognite_resources_by_type["space"] = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
 
     # Clear any delete errors
@@ -662,6 +662,8 @@ def load_datamodel(
                 print(f"  Would have deleted {deleted} {type_}(s).")
 
     if not only_drop:
+        # For apply, we want to restrict number of workers to avoid concurrency issues.
+        ToolGlobals.client.config.max_workers = 1
         for type_ in creation_order:
             if type_ not in differences:
                 continue
@@ -675,14 +677,13 @@ def load_datamodel(
                     resource_api_by_type[type_].apply(i)
                 print(f"  Created {len(items.added)} {type_}s.")
             if items.changed:
-                print(f"Found {len(items.changed)} changed {type_}s.")
                 if dry_run:
-                    print(f"  Would have updated {len(items.changed)} {type_}(s).")
+                    print(f"  Would have created/updated {len(items.changed)} {type_}(s).")
                     continue
                 for i in items.changed:
                     resource_api_by_type[type_].apply(items.changed)
                 if drop:
-                    print(f"  Created {len(items.changed)} {type_}s that were changed (--drop specified).")
+                    print(f"  Created {len(items.changed)} {type_}s (--drop specified).")
                 else:
                     print(f"  Updated {len(items.changed)} {type_}s.")
             if items.unchanged:
