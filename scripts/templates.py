@@ -201,6 +201,13 @@ def process_config_files(
 
                 with open(new_path / file, "w") as f:
                     f.write(content)
+                if file.endswith(".yaml"):
+                    with open(new_path / file) as f:
+                        try:
+                            yaml.safe_load(f.read())
+                        except Exception as e:
+                            print(f"ERROR! YAML validation error for {file} after substituting config variables: \n{e}")
+                            exit(1)
 
 
 def build_config(dir: str = "./build", build_env: str = "dev", clean: bool = False):

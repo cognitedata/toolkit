@@ -11,25 +11,33 @@
 # deploy to must have the same project name configured below. This is a safety measure
 # to prevent you from accidentily deploying to the wrong environment.
 demo:
-  project: "project-loader-dev"
-  type: "dev"
+  project: project-loader-dev
+  type: dev
   # This should be a used to specify which modules and packages to deploy locally and in the GitHub Action.
   # You can have multiple deploy commands.
   # Order is important.
-  deploy: ["demo_infield", "cdf_apm_simple"]
-local: # Only used for local development and iterations, should not be used in CI/CD
-  project: "<customer>-dev"
-  type: "dev"
-  deploy: ["cdf_apm_base", "cdf_apm_simple", "cdf_infield_common", "cdf_infield_location" ]
+  deploy:
+    - demo_infield
+    - cdf_apm_simple
+local:
+  project: <customer>-dev
+  type: dev
+  deploy:
+    - cdf_apm_base
+    - cdf_apm_simple
+    - cdf_infield_common
+    - cdf_infield_location
 dev:
-  project: "<customer>-dev"
-  type: "dev"
-  deploy: ["demo_infield", "cdf_apm_simple" ]
+  project: <customer>-dev
+  type: dev
+  deploy:
+    - demo_infield
+    - cdf_apm_simple
 staging:
-  project: "<customer>-staging"
-  type: "staging"
+  project: <customer>-staging
+  type: staging
   deploy: []
 prod:
-  project: "<customer>-prod"
-  type: "prod"
+  project: <customer>-prod
+  type: prod
   deploy: []
