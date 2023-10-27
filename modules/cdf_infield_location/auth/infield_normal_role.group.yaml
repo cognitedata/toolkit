@@ -64,8 +64,8 @@ capabilities:
           'cdf_apm',
           'cdf_infield',
           'cdf_core',
-          'cdf_apps_shared'
-          '{{apm_datamodel_space}}' # from modules/config.yaml (APM_SourceData)
+          'cdf_apps_shared',
+          '{{apm_datamodel_space}}', # from modules/config.yaml (APM_SourceData)
         ]
   - dataModelInstancesAcl:
       actions:
