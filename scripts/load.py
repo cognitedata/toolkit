@@ -590,7 +590,12 @@ def load_datamodel(
     space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
 
     print(f"Found {len(space_list)} implicit space(s) in container, view, and data model files.")
-    cognite_resources_by_type["space"] = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
+    implicit_spaces = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
+
+    if cognite_resources_by_type.get("space"):
+        cognite_resources_by_type["space"] + implicit_spaces
+    else:
+        cognite_resources_by_type["space"] = implicit_spaces
 
     # Clear any delete errors
     ToolGlobals.failed = False
