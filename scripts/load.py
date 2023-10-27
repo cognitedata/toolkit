@@ -353,6 +353,7 @@ def load_transformations(
                     source_oidc_credentials=OidcCredentials(
                         client_id=source_oidc_credentials.get("clientId", ""),
                         client_secret=source_oidc_credentials.get("clientSecret", ""),
+                        audience=source_oidc_credentials.get("audience", ""),
                         scopes=ToolGlobals.oauth_credentials.scopes,
                         token_uri=ToolGlobals.oauth_credentials.token_url,
                         cdf_project_name=ToolGlobals.client.config.project,
@@ -360,6 +361,7 @@ def load_transformations(
                     destination_oidc_credentials=OidcCredentials(
                         client_id=destination_oidc_credentials.get("clientId", ""),
                         client_secret=destination_oidc_credentials.get("clientSecret", ""),
+                        audience=source_oidc_credentials.get("audience", ""),
                         scopes=ToolGlobals.oauth_credentials.scopes,
                         token_uri=ToolGlobals.oauth_credentials.token_url,
                         cdf_project_name=ToolGlobals.client.config.project,
