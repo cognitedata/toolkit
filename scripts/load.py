@@ -434,7 +434,17 @@ def load_groups(
             groups.extend(
                 GroupLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
             )
-
+    # Find and create data_sets
+    for group in groups:
+        for capability in group.capabilities:
+            for _, actions in capability.items():
+                data_set_ext_ids = actions.get("scope", {}).get("datasetScope", {}).get("ids", [])
+                if len(data_set_ext_ids) == 0:
+                    continue
+                ids = []
+                for ext_id in data_set_ext_ids:
+                    ids.append(ToolGlobals.verify_dataset(ext_id))
+                actions["scope"]["datasetScope"]["ids"] = ids
     for group in groups:
         old_group_id = None
         for g in old_groups:
