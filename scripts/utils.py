@@ -216,8 +216,15 @@ class CDFToolConfig:
                 found = True
                 # For each of the actions (e.g. READ or WRITE) we need, check if we have it
                 for a in actions:
-                    if a not in k.get(cap, {}).get("actions", []):
-                        raise CogniteAuthError(f"Don't have correct access rights. Need {a} on {cap}")
+                    if cap not in k:
+                        continue
+                    if a not in k[cap].get("actions", []):
+                        # Get rid of this capability, it does not have all the necessary actions.
+                        # Continue in case we have more capabilities that can be used.
+                        k.pop(cap)
+                        found = False
+                        continue
+                        # raise CogniteAuthError(f"Don't have correct access rights. Need {a} on {cap}")
                 # Check if we either have all scope or data_set_id scope
                 if "all" not in k.get(cap, {}).get("scope", {}) and (
                     self._data_set_id != 0

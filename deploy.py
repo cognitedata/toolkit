@@ -44,15 +44,6 @@ def run(
     ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
     print("Using following configurations: ")
     print(ToolGlobals)
-    if (include is None or "groups" in include) and Path(f"{build_dir}/auth").is_dir():
-        load_groups(
-            ToolGlobals,
-            directory=f"{build_dir}/auth",
-            dry_run=dry_run,
-        )
-    if ToolGlobals.failed:
-        print("Failure to load as expected.")
-        exit(1)
     if (include is None or "raw" in include) and Path(f"{build_dir}/raw").is_dir():
         # load_raw() will assume that the RAW database name is set like this in the filename:
         # <index>.<raw_db>.<tablename>.csv
@@ -99,6 +90,15 @@ def run(
             directory=models_dir,
             delete_containers=drop_data,  # Also delete properties that have been ingested (leaving empty instances)
             delete_spaces=drop_data,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
+            dry_run=dry_run,
+        )
+    if ToolGlobals.failed:
+        print("Failure to load as expected.")
+        exit(1)
+    if (include is None or "groups" in include) and Path(f"{build_dir}/auth").is_dir():
+        load_groups(
+            ToolGlobals,
+            directory=f"{build_dir}/auth",
             dry_run=dry_run,
         )
     if ToolGlobals.failed:
