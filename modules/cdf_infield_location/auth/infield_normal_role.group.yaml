@@ -11,49 +11,49 @@ capabilities:
         - READ
       scope:
         datasetScope: {
-          ids: [infield_{{location_name}}_source_data_dataset]
+          ids: ['infield_{{location_name}}_source_data_dataset']
         }
   - assetsAcl:
       actions:
         - READ
       scope:
         datasetScope: {
-          ids: [infield_{{location_name}}_source_data_dataset]
+          ids: ['infield_{{location_name}}_source_data_dataset']
         }
   - filesAcl:
       actions:
         - READ
       scope:
         datasetScope: {
-          ids: [infield_{{location_name}}_source_data_dataset, infield_{{location_name}}_app_data_dataset]
+          ids: ['infield_{{location_name}}_source_data_dataset', 'infield_{{location_name}}_app_data_dataset']
         }
   - filesAcl:
       actions:
         - WRITE
       scope:
         datasetScope: {
-          ids: [infield_{{location_name}}_app_data_dataset]
+          ids: ['infield_{{location_name}}_app_data_dataset']
         }
   - relationshipsAcl:
       actions:
         - READ
       scope:
         datasetScope: {
-          ids: [infield_{{location_name}}_source_data_dataset]
+          ids: ['infield_{{location_name}}_source_data_dataset']
         }
   - timeSeriesAcl:
       actions:
         - READ
       scope:
         datasetScope: {
-          ids: [infield_{{location_name}}_source_data_dataset, infield_{{location_name}}_app_data_dataset]
+          ids: ['infield_{{location_name}}_source_data_dataset', 'infield_{{location_name}}_app_data_dataset']
         }
   - timeSeriesAcl:
       actions:
         - WRITE
       scope:
         datasetScope: {
-          ids: [infield_{{location_name}}_app_data_dataset]
+          ids: ['infield_{{location_name}}_app_data_dataset']
         }
   - dataModelsAcl:
       actions:
