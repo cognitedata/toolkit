@@ -16,3 +16,7 @@ packages:
     - cdf_apm_base
     - cdf_infield_common
     - cdf_infield_location
+  asset_migration:
+    - example_pump_assets
+    - cdf_asset_migration
+    - example_pump_assets
