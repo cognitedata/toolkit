@@ -19,7 +19,6 @@ from typing import Optional
 from cognite.client.data_classes.data_modeling import ViewId
 from cognite.client.data_classes.time_series import TimeSeries
 
-# from scripts.transformations.transformations_config import parse_transformation_configs
 from .utils import CDFToolConfig
 
 
