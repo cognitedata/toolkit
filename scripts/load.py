@@ -477,8 +477,8 @@ def load_groups(
 
 def load_datamodel_graphql(
     ToolGlobals: CDFToolConfig,
-    space_name: str | None = None,
-    model_name: str | None = None,
+    space_name: Optional[str] = None,
+    model_name: Optional[str] = None,
     drop: bool = False,
     directory=None,
 ) -> None:
@@ -535,7 +535,7 @@ def load_datamodel(
     delete_removed: bool = True,
     delete_containers: bool = False,
     delete_spaces: bool = False,
-    directory: Path | None = None,
+    directory: Optional[Path] = None,
     dry_run: bool = False,
     only_drop: bool = False,
 ) -> None:
