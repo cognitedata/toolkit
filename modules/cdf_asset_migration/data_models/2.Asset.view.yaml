@@ -38,3 +38,10 @@ properties:
       type: container
     containerPropertyIdentifier: metadata
     name: metadata
+  labels:
+    container:
+        externalId: Asset
+        space: '{{space}}'
+        type: container
+    containerPropertyIdentifier: labels
+    name: labels
