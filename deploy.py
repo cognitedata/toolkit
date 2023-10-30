@@ -159,9 +159,12 @@ if __name__ == "__main__":
         for i, module in enumerate(build_modules):
             print(f"{i}) {module.name}")
         print("a) All")
+        print("\nq) Quit")
         answer = input("Select module to deploy: ")
         if answer.casefold() == "a":
             build_dir = "./build"
+        elif answer.casefold() == "q":
+            exit(0)
         else:
             try:
                 build_dir = f"build/{build_modules[int(answer)].name}"
