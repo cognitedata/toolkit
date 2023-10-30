@@ -26,7 +26,7 @@ FROM (
 UNION ALL
 --- 3. Pumps
 SELECT
-    PumpModel as name,
+    concat("Pump ", PumpModel) as name,
     dataset_id("src:lift_pump_stations") AS dataSetId,
     GlobalID as externalId,
     concat("lift_station:", lower(replace(LiftStationID, ' ', '_'))) as parentExternalId,
