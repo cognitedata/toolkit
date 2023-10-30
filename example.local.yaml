@@ -9,7 +9,7 @@
 # 
 # If you set CDF_PROJECT as an environment variable, the environment you are trying to
 # deploy to must have the same project name configured below. This is a safety measure
-# to prevent you from accidentily deploying to the wrong environment.
+# to prevent you from accidentally deploying to the wrong environment.
 demo:
   project: project-loader-dev
   type: dev

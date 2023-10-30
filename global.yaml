@@ -1,4 +1,4 @@
-# This should be a used to create packages of modules that can be deployed.
+# This should be used to create packages of modules that can be deployed.
 # Only one packages command is allowed, with each package below it.
 # Packages cannot be recursively defined.
 packages:
@@ -17,6 +17,6 @@ packages:
     - cdf_infield_common
     - cdf_infield_location
   asset_migration:
-    - example_pump_assets
-    - cdf_asset_migration
-    - example_pump_assets
+    - example_pump_asset_hierarchy
+#    - cdf_asset_data_model_migration
+#    - example_pump_data_model
