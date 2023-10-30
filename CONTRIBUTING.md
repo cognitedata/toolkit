@@ -1,21 +1,30 @@
-# INTERNAL NOTES
+# Contributing
 
-## Initial starting point
+## How to contribute
 
-The initial starting point for this repository was the data-model-examples repository, and
-the apm_simple configuration is used as a skeleton for an example model so we can start iterating.
+We are always looking for ways to improve the templates and the workflow. You can
+[file bugs](https://github.com/cognitedata/cdf-project-templates/issues/new/choose) in the repo.
 
-## Workflow
+We are also looking for contributions to new modules, especially example modules can be very
+useful for others. Please open a PR with your suggested changes or propose a functionality
+by creating an issue.
 
-As this is a public repository, the work tasks should be managed in Github issues, while
-we use [Jira](https://cognitedata.atlassian.net/jira/software/c/projects/CDF/boards/882) to
-manage internal work tasks.
-The global.yaml file in this repo should be updated to configure groups of modules that
-can be deployed (as specified in local.yaml).
-Use the `cdf_` prefix for modules that are official Cognite product modules.
-These should be validated by product teams and tested as part of product development.
+## Module ownership
 
-### Adding a new module
+The official cdf_* modules are owned by the respective teams in Cognite. Any changes to these
+will be reviewed by the teams to ensure that nothing breaks. If you open a PR on these modules,
+the PR will be reviewed by the team owning the module.
+
+## Adding a new module
+
+Adding a new module consists of the following steps:
+
+1. Determine where to put it (common, modules, or examples)
+2. Create a new directory for the module with sub-directories per configuration type the module needs
+3. Add a `config.yaml` file to the module root directory if you have variables in the templates
+4. Add a `README.md` file to the module root directory with a description of the module and variables
+5. Update `global.yaml` with the new module if it is part of a package
+6. Add a description of the module in the [module and package documentation](../docs/overview.md)
 
 Each module should be as standalone as possible, but they can be dependent on either modules
 in ./common or other modules in ./modules. If you need to deploy a data model as a foundational
@@ -36,30 +45,27 @@ changes and naming conventions except where we design for it.
 
 ## Data formats
 
-All the configurations should be kept in YAML and in a format that is compatible with the CDF API, thus
-using snake_case, camelCase is not supported (e.g. external_id and not externalId).
-The configuration files should be loaded directly into the Python SDK's support data classes for direct
+All the configurations should be kept in YAML and in a format that is compatible with the CDF API.
+Use either camelCase or snake_case, mixing is not supported.
+The configuration files are loaded directly into the Python SDK's support data classes for direct
 use towards the CDF API. No client side schema validation should be done to ensure that you can immediately
 add a yaml configuration property without upcoming anything else than the version of the Python SDK.
 
 ## Tooling and scripts/ directory
 
-The ./scripts directory is originally from <https://github.com/cognitedata/data-model-examples>
-repository, but substantially refactored to support a CI/CD aka `CDF-as-code`` workflow.
-
 We want to add client-side logic/validation as part of the deployment process, e.g. validation
 of data models, transformations, contextualizations, etc to ensure integrity and proper
 functioning configuration.
 
-The future intent is to establish a `v1/<project>/config` CDF service that will take over this
+The future, current plan is to establish a `v1/<project>/config` CDF service that will take over this
 validation done by code in the ./scripts directory. We also want to push as much generic logic
 into the Python SDK as possible.
 
-> NOTE!! The scripts currently support raw, data models, time series,  groups, and transformations.
+> NOTE!! The scripts currently support raw, data models, time series, groups, and transformations.
 > It also has some support for loading of data that may be used as example data for CDF projects. However,
-> to the extent possible, this repository should not contain data, only goverend configurations.
-> There is also a dump.py file with functions to dump configurations from CDF into yaml files, thus
-> supporting the workflow from UI-based iteration on configurations to CI/CD-based governed configurations.
+> to the extent possible, this repository should not contain data, only governed configurations.
+> The scripts are continuosly under development to simplify management of configurations, and
+> we are pushing the functionality into the Python SDK when that makes sense.
 
 ## Testing
 
@@ -68,8 +74,6 @@ test framework for scenario based testing can be found in the Cognite private bi
 
 > TODO Define how to make sure that modules get tested in big-smoke.
 
-The `deploy.py` script will automatically clean configurations before trying to load, so you can
+The `deploy.py` script will clean configurations before trying to load if you specify `--drop`, so you can
 try to apply the configuration multiple times without having to clean up manually. There is also
-a skeleton for a `clean.py` script that will be used to clean up configurations using the scripts/delete.py
-functions.
-
+a skeleton for a `clean.py` script that will be used to clean up configurations using the scripts/delete.py functions.
