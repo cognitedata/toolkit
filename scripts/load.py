@@ -353,6 +353,7 @@ def load_transformations(
                     source_oidc_credentials=OidcCredentials(
                         client_id=source_oidc_credentials.get("clientId", ""),
                         client_secret=source_oidc_credentials.get("clientSecret", ""),
+                        audience=source_oidc_credentials.get("audience", ""),
                         scopes=ToolGlobals.oauth_credentials.scopes,
                         token_uri=ToolGlobals.oauth_credentials.token_url,
                         cdf_project_name=ToolGlobals.client.config.project,
@@ -360,6 +361,7 @@ def load_transformations(
                     destination_oidc_credentials=OidcCredentials(
                         client_id=destination_oidc_credentials.get("clientId", ""),
                         client_secret=destination_oidc_credentials.get("clientSecret", ""),
+                        audience=source_oidc_credentials.get("audience", ""),
                         scopes=ToolGlobals.oauth_credentials.scopes,
                         token_uri=ToolGlobals.oauth_credentials.token_url,
                         cdf_project_name=ToolGlobals.client.config.project,
@@ -588,8 +590,11 @@ def load_datamodel(
     space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
 
     print(f"Found {len(space_list)} implicit space(s) in container, view, and data model files.")
-    cognite_resources_by_type["space"] = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
-
+    implicit_spaces = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
+    for s in implicit_spaces:
+        if s.name not in [s2.name for s2 in cognite_resources_by_type["space"]]:
+            cognite_resources_by_type["space"].append(s)
+    print(f"Total number of space(s):  {len(space_list)}")
     # Clear any delete errors
     ToolGlobals.failed = False
     client = ToolGlobals.verify_client(
@@ -661,8 +666,8 @@ def load_datamodel(
                     # resources in the space.
                     print(f"  Failed to delete {type_}(s):\n{e}")
                     print(e)
-                    ToolGlobals.failed = True
                     if type_ == "space":
+                        ToolGlobals.failed = False
                         print("  Deletion of space was not successful, continuing.")
                         continue
                     return

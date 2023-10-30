@@ -79,7 +79,7 @@ capabilities:
               'cdf_apm',
               'cognite_app_data', # this space must be created to store user profile information
               'infield_{{location_name}}_source_data_space', # from modules/config.yaml
-              'infield_{{location_name}}_app_data_dataset' # from modules/config.yaml
+              'infield_{{location_name}}_app_data_space' # from modules/config.yaml
             ]
         }
   - dataModelInstancesAcl:
@@ -89,6 +89,6 @@ capabilities:
         spaceIdScope: {
             spaceIds: [
               'cognite_app_data', # this space must be created to store user profile information
-              'infield_{{location_name}}_app_data_dataset' # from modules/config.yaml
+              'infield_{{location_name}}_app_data_space' # from modules/config.yaml
             ]
         }
