@@ -171,6 +171,8 @@ if __name__ == "__main__":
             except ValueError:
                 print(f"Invalid selection: {answer}")
                 exit(1)
+    else:
+        build_dir = args.build_dir
     run(
         build_dir=build_dir,
         build_env=args.env,
