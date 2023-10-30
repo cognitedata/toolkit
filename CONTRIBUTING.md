@@ -15,6 +15,8 @@ The official cdf_* modules are owned by the respective teams in Cognite. Any cha
 will be reviewed by the teams to ensure that nothing breaks. If you open a PR on these modules,
 the PR will be reviewed by the team owning the module.
 
+cdf_infield_location is an example of a team-owned module.
+
 ## Adding a new module
 
 Adding a new module consists of the following steps:

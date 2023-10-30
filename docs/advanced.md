@@ -19,9 +19,7 @@ following:
   prefix as it is reserved for official Cognite product modules.
 - Currently, the scripts/ directory contains Python code based on the Cognite Python SDK that is
   used to manage the project and the configurations are pushed to the various services in CDF as part
-  of the deploy step. Over time, it is expected that this deployment of individual configurations will
-  be replaced by CDF APIs that will allow lifecycle management of the configurations, as well as
-  offer validation and integrity checks.
+  of the deploy step.
 
 ## CI/CD pipeline
 
