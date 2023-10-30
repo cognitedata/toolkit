@@ -2,3 +2,12 @@
 view_Asset_version: "2"
 datamodel_version: "2"
 datamodel: "AssetHierarchy"
+clientId: ${IDP_CLIENT_ID}
+clientSecret: ${IDP_CLIENT_SECRET}
+tokenUrl: ${IDP_TOKEN_URL}
+# Optional: If idP requires providing the scopes
+cdfProjectName: ${CDF_PROJECT}
+scopes:
+  - ${IDP_SCOPES}
+# Optional: If idP requires providing the audience
+audience: ${IDP_AUDIENCE}
