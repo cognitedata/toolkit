@@ -29,7 +29,20 @@
                 "--drop",
                 "--drop-data",
                 "--env=local",
-                "--include=transformations"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: clean.py",
+            "preLaunchTask": "build",
+            "type": "python",
+            "request": "launch",
+            "program": "./clean.py",
+            "args": [
+                //"--dry-run",
+                "--env=local",
+                "--include=everything"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
