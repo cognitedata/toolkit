@@ -61,7 +61,7 @@ properties:
       collation: ucs_basic
       list: true
       type: text
-# Include Labels and GeoLocation?
+# Include GeoLocation?
 indexes:
   nameIndex:
     properties:
