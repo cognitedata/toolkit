@@ -51,4 +51,27 @@ properties:
     type:
       list: false
       type: json
+  labels:
+    autoIncrement: false
+    defaultValue: null
+    description: The labels of the asset.
+    name: labels
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: true
+      type: text
 # Include Labels and GeoLocation?
+indexes:
+  nameIndex:
+    properties:
+      - name
+    indexType: btree
+  sourceIndex:
+    properties:
+      - source
+    indexType: btree
+  labels:
+    properties:
+      - labels
+    indexType: inverted
