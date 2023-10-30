@@ -1,4 +1,4 @@
 # Only valid for this module, loads template variables from environment
-view_Asset_version: "1"
-datamodel_version: "1"
+view_Asset_version: "2"
+datamodel_version: "2"
 datamodel: "AssetHierarchy"
