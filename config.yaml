@@ -6,3 +6,4 @@ cdf_template_version: 0.0.1
 # developing your own modules, you should keep module configurations in the module directory.
 demo_readwrite_source_id: 7df143fd-0082-4251-95c3-aebd80992d81
 demo_readonly_source_id: 7df143fd-0082-4251-95c3-aebd80992d81
+space: cdfTemplate
