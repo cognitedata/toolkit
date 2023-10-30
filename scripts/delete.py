@@ -19,7 +19,7 @@ from typing import Optional
 from cognite.client.data_classes.data_modeling import ViewId
 from cognite.client.data_classes.time_series import TimeSeries
 
-from .transformations_config import parse_transformation_configs
+# from scripts.transformations.transformations_config import parse_transformation_configs
 from .utils import CDFToolConfig
 
 
@@ -109,19 +109,19 @@ def delete_timeseries(ToolGlobals: CDFToolConfig, dry_run=False, directory=None)
         print("Failed to delete timeseries. They may not exist.")
 
 
-def delete_transformations(ToolGlobals: CDFToolConfig, dry_run=False, directory=None) -> None:
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(capabilities={"transformationsAcl": ["READ", "WRITE"]})
-    configs = parse_transformation_configs(directory)
-    transformations_ext_ids = [t.external_id for t in configs.values()]
-    try:
-        if not dry_run:
-            client.transformations.delete(external_id=transformations_ext_ids)
-        print(f"Deleted {len(transformations_ext_ids)} transformations.")
-    except Exception:
-        print("Failed to delete transformations. They may not exist.")
-        return
+# def delete_transformations(ToolGlobals: CDFToolConfig, dry_run=False, directory=None) -> None:
+#     if directory is None:
+#         raise ValueError("directory must be specified")
+#     client = ToolGlobals.verify_client(capabilities={"transformationsAcl": ["READ", "WRITE"]})
+#     configs = parse_transformation_configs(directory)
+#     transformations_ext_ids = [t.external_id for t in configs.values()]
+#     try:
+#         if not dry_run:
+#             client.transformations.delete(external_id=transformations_ext_ids)
+#         print(f"Deleted {len(transformations_ext_ids)} transformations.")
+#     except Exception:
+#         print("Failed to delete transformations. They may not exist.")
+#         return
 
 
 def delete_datamodel(
