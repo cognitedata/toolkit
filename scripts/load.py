@@ -17,7 +17,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import pandas as pd
 import yaml
@@ -477,8 +477,8 @@ def load_groups(
 
 def load_datamodel_graphql(
     ToolGlobals: CDFToolConfig,
-    space_name: Optional[str] = None,
-    model_name: Optional[str] = None,
+    space_name: str | None = None,
+    model_name: str | None = None,
     drop: bool = False,
     directory=None,
 ) -> None:
@@ -570,9 +570,9 @@ def load_datamodel(
         model_files_by_type[type_].sort()
         print(f"Found {len(files)} {type_}s in {directory}.")
 
-    cognite_resources_by_type: dict[
-        str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]
-    ] = defaultdict(list)
+    cognite_resources_by_type: dict[str, list[ContainerApply | ViewApply | DataModelApply | SpaceApply]] = defaultdict(
+        list
+    )
     for type_, files in model_files_by_type.items():
         resource_cls = {
             "space": SpaceApply,
@@ -606,9 +606,9 @@ def load_datamodel(
         }
     )
 
-    existing_resources_by_type: dict[
-        str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]
-    ] = defaultdict(list)
+    existing_resources_by_type: dict[str, list[ContainerApply | ViewApply | DataModelApply | SpaceApply]] = defaultdict(
+        list
+    )
     resource_api_by_type = {
         "container": client.data_modeling.containers,
         "view": client.data_modeling.views,
