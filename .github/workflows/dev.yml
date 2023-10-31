@@ -29,9 +29,9 @@ jobs:
         run: |
           poetry run python build.py --env=demo
       # be careful, this works as promised
-      # - name: "Delete old data"
-      #   run: |
-      #     poetry run python clean.py --include everything --env=demo
+      - name: "Delete existing resources including data"
+        run: |
+          poetry run python clean.py --env=demo
       - name: "Deploy the package"
         run: |
           poetry run python deploy.py --drop --drop-data --env=demo

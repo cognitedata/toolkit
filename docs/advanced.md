@@ -174,3 +174,17 @@ For RAW tables, you can only load table definitions for a single database in eac
 The database name should be configured in the module's `config.yaml` using the `raw_db` key.
 It is possible to load example data in the table by having a file with multiple lines as
 sample data.
+
+### Spaces and instance deletion (data models)
+
+Please note that `deploy.py` and `clean.py` will ONLY delete data in spaces that have been explicitly
+defined by a `<space_name>.space.yaml` file in `data_models/` of the module. This is to avoid that
+implicitly defined spaces referenced in the view and data model configurations are deleted. If you want
+a space to be cleaned up, add an explicit space configuration file.
+
+### Groups and group deletion
+
+When deleting groups as part of `clean.py`, the script will only delete groups that the running
+user/service principal is NOT a member of. This is to prevent that a cleaning operation removes
+access rights from the running user. See the `clean.py` script for how you can force deletion
+of any group.
