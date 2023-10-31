@@ -6,7 +6,14 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from scripts.delete import clean_out_datamodels
+from scripts.delete import (
+    delete_groups,
+    delete_raw,
+    delete_timeseries,
+    delete_transformations,
+)
+from scripts.load import load_datamodel
+from scripts.templates import read_environ_config
 from scripts.utils import CDFToolConfig
 
 log = logging.getLogger(__name__)
@@ -17,8 +24,16 @@ log = logging.getLogger(__name__)
 load_dotenv(".env")
 
 
-def run(build_dir: str, build_env: str = "dev", dry_run: bool = True, include: Optional[str] = None) -> None:
+def run(
+    build_dir: str,
+    build_env: str = "dev",
+    dry_run: bool = True,
+    include: Optional[str] = None,
+) -> None:
     print(f"Cleaning configuration in project based on config files from {build_dir}...")
+    # Set environment variables from local.yaml
+    read_environ_config(build_env=build_env)
+    print(f"Cleaning project from {build_dir} to environment {build_env}...")
     # Configure a client and load credentials from environment
     build_path = Path(__file__).parent / build_dir
     if not build_path.is_dir():
@@ -27,28 +42,60 @@ def run(build_dir: str, build_env: str = "dev", dry_run: bool = True, include: O
     ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
     print("Using following configurations: ")
     print(ToolGlobals)
-
-    if include == "everything":
-        clean_out_datamodels(ToolGlobals=ToolGlobals, directory=None, dry_run=dry_run, instances=True)
-        return
-
-    if include:
-        print(f"Recursively deleting {include}")
-
-        directory = Path.joinpath(build_path, include)
-        if not directory.is_dir():
-            print(f"{directory} does not exists.")
-            exit(1)
-
-        clean_out_datamodels(ToolGlobals=ToolGlobals, directory=directory, dry_run=dry_run)
-        return
-
-    # TODO: #4 Clean up based on configurations in build directory.
-    print("TODO: Not yet implemented.")
-    print("  The current utils/ delete tooling needs to be adapted to pick up configurations in")
-    print("  ./build/ directory.")
+    if (include is None or "raw" in include) and Path(f"{build_dir}/raw").is_dir():
+        # load_raw() will assume that the RAW database name is set like this in the filename:
+        # <index>.<raw_db>.<tablename>.csv
+        delete_raw(
+            ToolGlobals,
+            raw_db="default",
+            dry_run=dry_run,
+            directory=f"{build_dir}/raw",
+        )
     if ToolGlobals.failed:
-        print("Failure to load as expected.")
+        print("Failure to clean raw as expected.")
+        exit(1)
+    if (include is None or "timeseries" in include) and Path(f"{build_dir}/timeseries").is_dir():
+        delete_timeseries(
+            ToolGlobals,
+            dry_run=dry_run,
+            directory=f"{build_dir}/timeseries",
+        )
+    if ToolGlobals.failed:
+        print("Failure to clean timeseries as expected.")
+        exit(1)
+    if (include is None or "transformations" in include) and Path(f"{build_dir}/transformations").is_dir():
+        delete_transformations(
+            ToolGlobals,
+            dry_run=dry_run,
+            directory=f"{build_dir}/transformations",
+        )
+    if ToolGlobals.failed:
+        print("Failure to clean transformations as expected.")
+        exit(1)
+    if (include is None or "data_models" in include) and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+        # We use the load_datamodel with only_drop=True to ensure that we get a clean
+        # deletion of the data model entities and instances.
+        load_datamodel(
+            ToolGlobals,
+            drop=True,
+            only_drop=True,
+            directory=models_dir,
+            delete_removed=True,
+            delete_spaces=True,  # Also delete properties that have been ingested (leaving empty instances)
+            delete_containers=True,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
+            dry_run=dry_run,
+        )
+    if ToolGlobals.failed:
+        print("Failure to delete data models as expected.")
+        exit(1)
+    if (include is None or "groups" in include) and Path(f"{build_dir}/auth").is_dir():
+        delete_groups(
+            ToolGlobals,
+            directory=f"{build_dir}/auth",
+            dry_run=dry_run,
+        )
+    if ToolGlobals.failed:
+        print("Failure to clean as expected.")
         exit(1)
 
 
@@ -72,8 +119,17 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--env", action="store", nargs="?", default="dev", help="The environment to build for, defaults to dev"
+        "--env",
+        action="store",
+        nargs="?",
+        default="dev",
+        help="The environment to clean, defaults to dev",
     )
 
     args, unknown_args = parser.parse_known_args()
-    run(build_dir=args.build_dir, build_env=args.env, dry_run=args.dry_run, include=args.include)
+    run(
+        build_dir=args.build_dir,
+        build_env=args.env,
+        dry_run=args.dry_run,
+        include=args.include,
+    )

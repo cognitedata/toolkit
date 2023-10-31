@@ -29,6 +29,7 @@
                 "--drop",
                 "--drop-data",
                 "--env=local",
+                "--include=data_models",
             ],
             "console": "integratedTerminal",
             "justMyCode": false
@@ -42,7 +43,7 @@
             "args": [
                 //"--dry-run",
                 "--env=local",
-                "--include=everything"
+                //"--include=data_models"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

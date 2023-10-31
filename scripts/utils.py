@@ -20,9 +20,36 @@ import os
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials, Token
 from cognite.client.data_classes.data_sets import DataSet
+from cognite.client.data_classes.iam import Group
+from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.exceptions import CogniteAuthError
 
 logger = logging.getLogger(__name__)
+
+
+class TimeSeriesLoad:
+    @staticmethod
+    def load(props: list[dict], file: str = "unknown") -> [TimeSeries]:
+        try:
+            return [TimeSeries(**prop) for prop in props]
+        except Exception as e:
+            raise ValueError(f"Failed to load timeseries from yaml files: {file}.\n{e}")
+
+
+class GroupLoad:
+    @staticmethod
+    def load(props: list[dict], file: str = "unknown") -> [Group]:
+        try:
+            return [
+                Group(
+                    name=props.get("name"),
+                    source_id=props.get("source_id"),
+                    capabilities=props.get("capabilities"),
+                    metadata=props.get("metadata"),
+                )
+            ]
+        except Exception as e:
+            raise ValueError(f"Failed to load group from yaml files: {file}.\n{e}")
 
 
 class CDFToolConfig:
