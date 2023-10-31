@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import glob
 import os
 import re
 from typing import Optional
@@ -46,10 +47,7 @@ def delete_raw(
 
     files = []
     # Pick up all the .csv files in the data folder.
-    for _, _, filenames in os.walk(directory):
-        for f in filenames:
-            if ".csv" in f:
-                files.append(f)
+    files = glob.glob(f"{directory}/**/*.csv", recursive=True)
     files.sort()
     if len(files) == 0:
         return
@@ -132,10 +130,7 @@ def delete_timeseries(ToolGlobals: CDFToolConfig, dry_run=False, directory=None)
     client = ToolGlobals.verify_client(capabilities={"timeSeriesAcl": ["READ", "WRITE"]})
     files = []
     # Pick up all the .yaml files in the data folder.
-    for _, _, filenames in os.walk(directory):
-        for f in filenames:
-            if ".yaml" in f:
-                files.append(f)
+    files = glob.glob(f"{directory}/**/*.yaml", recursive=True)
     # Read timeseries metadata
     timeseries: list[TimeSeries] = []
     for f in files:
@@ -181,10 +176,7 @@ def delete_transformations(
     )
     files = []
     # Pick up all the .yaml files in the data folder.
-    for _, _, filenames in os.walk(directory):
-        for f in filenames:
-            if ".yaml" in f:
-                files.append(f)
+    files = glob.glob(f"{directory}/**/*.yaml", recursive=True)
     transformations = []
     for f in files:
         with open(f"{directory}/{f}") as file:
