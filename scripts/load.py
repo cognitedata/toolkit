@@ -680,7 +680,7 @@ def load_datamodel(
                     print(f"  Would have created/updated {len(items.changed)} {type_}(s).")
                     continue
                 for i in items.changed:
-                    resource_api_by_type[type_].apply(i.changed)
+                    resource_api_by_type[type_].apply(i)
                 if drop:
                     print(f"  Created {len(items.changed)} {type_}s (--drop specified).")
                 else:
