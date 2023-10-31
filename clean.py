@@ -89,9 +89,13 @@ def run(
         print("Failure to delete data models as expected.")
         exit(1)
     if (include is None or "groups" in include) and Path(f"{build_dir}/auth").is_dir():
+        # NOTE! If you want to force deletion of groups that the current running user/service principal
+        # is a member of, set my_own=True. This may result in locking out the CI/CD service principal
+        # and is thus default not set to True.
         delete_groups(
             ToolGlobals,
             directory=f"{build_dir}/auth",
+            my_own=False,
             dry_run=dry_run,
         )
     if ToolGlobals.failed:
