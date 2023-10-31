@@ -207,10 +207,21 @@ def delete_groups(
     ToolGlobals: CDFToolConfig,
     directory: Optional[str] = None,
     dry_run: bool = False,
+    my_own: bool = False,
 ) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(capabilities={"groupsAcl": ["LIST", "READ", "CREATE", "DELETE"]})
+    try:
+        resp = client.iam.token.inspect()
+        if resp is None or len(resp.capabilities) == 0:
+            print("Failed to retrieve capabilities for the current service principal.")
+    except Exception as e:
+        raise e
+    for p in resp.projects:
+        if p.url_name != ToolGlobals.project:
+            continue
+        my_groups = p.groups
     try:
         old_groups = client.iam.groups.list(all=True).data
     except Exception:
@@ -237,6 +248,9 @@ def delete_groups(
                 break
         if not old_group_id:
             print(f"Group {group.name} does not exist.")
+            continue
+        if old_group_id in my_groups and not my_own:
+            print(f"My service principal is member of group {group.name} - skipping...")
             continue
         try:
             if not dry_run:
