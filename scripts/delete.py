@@ -55,9 +55,12 @@ def delete_raw(
     dbs = []
     for f in files:
         try:
-            (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
+            (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f.split("/")[-1]).groups()
             if db not in dbs:
                 dbs.append(db)
+            if table_name is None:
+                print(f"Not able to parse table_name from {f}.")
+                continue
         except Exception:
             db = raw_db
         if not dry_run:
@@ -73,7 +76,7 @@ def delete_raw(
                 continue
             print("Deleted table: " + table_name)
         else:
-            print("Would have deleted table: " + f[:-4])
+            print(f"Would have deleted table: {table_name}")
     for db in dbs:
         if not dry_run:
             try:
@@ -134,7 +137,7 @@ def delete_timeseries(ToolGlobals: CDFToolConfig, dry_run=False, directory=None)
     # Read timeseries metadata
     timeseries: list[TimeSeries] = []
     for f in files:
-        with open(f"{directory}/{f}") as file:
+        with open(f"{f}") as file:
             timeseries.extend(
                 TimeSeriesLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
             )
@@ -179,7 +182,7 @@ def delete_transformations(
     files = glob.glob(f"{directory}/**/*.yaml", recursive=True)
     transformations = []
     for f in files:
-        with open(f"{directory}/{f}") as file:
+        with open(f"{f}") as file:
             config = yaml.safe_load(file.read())
             tmp = Transformation._load(config, ToolGlobals.client)
             transformations.append(tmp.external_id)
