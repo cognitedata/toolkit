@@ -17,7 +17,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import pandas as pd
 import yaml
@@ -506,7 +506,7 @@ def load_datamodel(
     delete_removed: bool = True,
     delete_containers: bool = False,
     delete_spaces: bool = False,
-    directory: Path | None = None,
+    directory: Optional[Path] = None,
     dry_run: bool = False,
     only_drop: bool = False,
 ) -> None:
@@ -541,9 +541,9 @@ def load_datamodel(
         model_files_by_type[type_].sort()
         print(f"Found {len(files)} {type_}s in {directory}.")
 
-    cognite_resources_by_type: dict[
-        str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]
-    ] = defaultdict(list)
+    cognite_resources_by_type: dict[str, list[ContainerApply | ViewApply | DataModelApply | SpaceApply]] = defaultdict(
+        list
+    )
     for type_, files in model_files_by_type.items():
         resource_cls = {
             "space": SpaceApply,
@@ -576,9 +576,9 @@ def load_datamodel(
         }
     )
 
-    existing_resources_by_type: dict[
-        str, list[Union[ContainerApply, ViewApply, DataModelApply, SpaceApply]]
-    ] = defaultdict(list)
+    existing_resources_by_type: dict[str, list[ContainerApply | ViewApply | DataModelApply | SpaceApply]] = defaultdict(
+        list
+    )
     resource_api_by_type = {
         "container": client.data_modeling.containers,
         "view": client.data_modeling.views,
@@ -680,7 +680,7 @@ def load_datamodel(
                     print(f"  Would have created/updated {len(items.changed)} {type_}(s).")
                     continue
                 for i in items.changed:
-                    resource_api_by_type[type_].apply(i.changed)
+                    resource_api_by_type[type_].apply(i)
                 if drop:
                     print(f"  Created {len(items.changed)} {type_}s (--drop specified).")
                 else:
