@@ -39,3 +39,10 @@ properties:
     type:
       list: false
       type: float64
+constraint:
+  requiredAsset:
+    type: requires
+    require:
+      type: container
+      space: '{{space}}'
+      externalId: Asset
