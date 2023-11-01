@@ -39,7 +39,8 @@ from cognite.client.data_classes.iam import Group
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 
-from .utils import CDFToolConfig
+from .delete import delete_instances
+from .utils import CDFToolConfig, GroupLoad, TimeSeriesLoad
 
 
 @dataclass
@@ -54,31 +55,6 @@ class Difference:
 
     def __next__(self):
         return next([self.added, self.removed, self.changed, self.unchanged])
-
-
-class TimeSeriesLoad:
-    @staticmethod
-    def load(props: list[dict], file: str = "unknown") -> [TimeSeries]:
-        try:
-            return [TimeSeries(**prop) for prop in props]
-        except Exception as e:
-            raise ValueError(f"Failed to load timeseries from yaml files: {file}.\n{e}")
-
-
-class GroupLoad:
-    @staticmethod
-    def load(props: list[dict], file: str = "unknown") -> [Group]:
-        try:
-            return [
-                Group(
-                    name=props.get("name"),
-                    source_id=props.get("source_id"),
-                    capabilities=props.get("capabilities"),
-                    metadata=props.get("metadata"),
-                )
-            ]
-        except Exception as e:
-            raise ValueError(f"Failed to load group from yaml files: {file}.\n{e}")
 
 
 def load_raw(
@@ -139,10 +115,10 @@ def load_raw(
                         dataframe=dataframe,
                         ensure_parent=True,
                     )
-                    print("Deleted table: " + f[:-4])
+                    print("Deleted table: " + table_name)
                     print(f"Uploaded {f} to {db} RAW database.")
                 else:
-                    print("Would have deleted table: " + f[:-4])
+                    print("Would have deleted table: " + table_name)
                     print(f"Would have uploaded {f} to {db} RAW database.")
             except Exception as e:
                 print(f"Failed to upload {f}")
@@ -479,7 +455,6 @@ def load_datamodel_graphql(
     ToolGlobals: CDFToolConfig,
     space_name: Optional[str] = None,
     model_name: Optional[str] = None,
-    drop: bool = False,
     directory=None,
 ) -> None:
     """Load a graphql datamode from file."""
@@ -488,10 +463,6 @@ def load_datamodel_graphql(
     with open(f"{directory}/datamodel.graphql") as file:
         # Read directly into a string.
         datamodel = file.read()
-    if drop:
-        from .delete import delete_datamodel
-
-        delete_datamodel(ToolGlobals, instances_only=False)
     # Clear any delete errors
     ToolGlobals.failed = False
     client = ToolGlobals.verify_client(
@@ -587,6 +558,7 @@ def load_datamodel(
     for type_, resources in cognite_resources_by_type.items():
         print(f"  {type_}: {len(resources)}")
 
+    explicit_space_list = [s.space for s in cognite_resources_by_type["space"]]
     space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
 
     print(f"Found {len(space_list)} implicit space(s) in container, view, and data model files.")
@@ -657,10 +629,22 @@ def load_datamodel(
                     if not dry_run:
                         if type_ == "space":
                             for i2 in i:
-                                resource_api_by_type[type_].delete(i2.space)
+                                # Only delete spaces that have been explicitly defined
+                                if i2.space in explicit_space_list:
+                                    delete_instances(
+                                        ToolGlobals,
+                                        space_name=i2.space,
+                                        dry_run=dry_run,
+                                    )
+                                    ret = resource_api_by_type["space"].delete(i2.space)
+                                    if len(ret) > 0:
+                                        deleted += 1
+                                        print(f"  -- deleted {len(ret)} of {type_}.")
                         else:
-                            resource_api_by_type[type_].delete(i)
-                    deleted += 1
+                            ret = resource_api_by_type[type_].delete(i)
+                            if len(ret) > 0:
+                                print(f"  -- deleted {len(ret)} of {type_}.")
+                            deleted += len(ret)
                 except CogniteAPIError as e:
                     # Typically spaces can not be deleted if there are other
                     # resources in the space.
@@ -696,7 +680,7 @@ def load_datamodel(
                     print(f"  Would have created/updated {len(items.changed)} {type_}(s).")
                     continue
                 for i in items.changed:
-                    resource_api_by_type[type_].apply(items.changed)
+                    resource_api_by_type[type_].apply(i)
                 if drop:
                     print(f"  Created {len(items.changed)} {type_}s (--drop specified).")
                 else:

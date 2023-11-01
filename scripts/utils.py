@@ -20,9 +20,36 @@ import os
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials, Token
 from cognite.client.data_classes.data_sets import DataSet
+from cognite.client.data_classes.iam import Group
+from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.exceptions import CogniteAuthError
 
 logger = logging.getLogger(__name__)
+
+
+class TimeSeriesLoad:
+    @staticmethod
+    def load(props: list[dict], file: str = "unknown") -> [TimeSeries]:
+        try:
+            return [TimeSeries(**prop) for prop in props]
+        except Exception as e:
+            raise ValueError(f"Failed to load timeseries from yaml files: {file}.\n{e}")
+
+
+class GroupLoad:
+    @staticmethod
+    def load(props: list[dict], file: str = "unknown") -> [Group]:
+        try:
+            return [
+                Group(
+                    name=props.get("name"),
+                    source_id=props.get("source_id"),
+                    capabilities=props.get("capabilities"),
+                    metadata=props.get("metadata"),
+                )
+            ]
+        except Exception as e:
+            raise ValueError(f"Failed to load group from yaml files: {file}.\n{e}")
 
 
 class CDFToolConfig:
@@ -133,6 +160,10 @@ class CDFToolConfig:
         return self._client
 
     @property
+    def project(self) -> str:
+        return self._project
+
+    @property
     def data_set_id(self) -> int:
         return self._data_set_id if self._data_set_id > 0 else None
 
@@ -212,31 +243,20 @@ class CDFToolConfig:
         # iterate over all the capabilities we need
         for cap, actions in capabilities.items():
             # Find the right capability in our granted capabilities
-            found = False
+            relevant_caps = []
             for k in resp.capabilities:
                 if len(k.get(cap, {})) == 0:
                     continue
-                found = True
-                # For each of the actions (e.g. READ or WRITE) we need, check if we have it
-                for a in actions:
-                    if cap not in k:
-                        continue
-                    if a not in k[cap].get("actions", []):
-                        # Get rid of this capability, it does not have all the necessary actions.
-                        # Continue in case we have more capabilities that can be used.
-                        k.pop(cap)
-                        found = False
-                        continue
-                        # raise CogniteAuthError(f"Don't have correct access rights. Need {a} on {cap}")
-                # Check if we either have all scope or data_set_id scope
-                if "all" not in k.get(cap, {}).get("scope", {}) and (
+                # Either scope all or dataset scope to our dataset
+                if "all" in k.get(cap, {}).get("scope", {}) or (
                     self._data_set_id != 0
-                    and str(self._data_set_id) not in k.get(cap, {}).get("scope", {}).get("datasetScope").get("ids", [])
+                    and str(self._data_set_id) in k.get(cap, {}).get("scope", {}).get("datasetScope").get("ids", [])
                 ):
-                    raise CogniteAuthError(f"Don't have correct access rights. Need {a} on {cap}")
-                continue
-            if not found:
-                raise CogniteAuthError(f"Don't have correct access rights. Need {actions} on {cap}")
+                    relevant_caps.extend(k[cap].get("actions"))
+            if False in [(a in relevant_caps) for a in actions]:
+                raise CogniteAuthError(
+                    f"Don't have correct access rights. Need {actions} on {cap}.\n" f"Only have {relevant_caps}"
+                )
         return self._client
 
     def verify_dataset(self, data_set_name: str | None = None, create: bool = True) -> int | None:
