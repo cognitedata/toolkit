@@ -2,6 +2,7 @@
 view_Asset_version: "2"
 datamodel_version: "2"
 datamodel: "AssetHierarchy"
+root_asset_external_id: "lift_pump_stations:root"
 clientId: ${IDP_CLIENT_ID}
 clientSecret: ${IDP_CLIENT_SECRET}
 tokenUrl: ${IDP_TOKEN_URL}
