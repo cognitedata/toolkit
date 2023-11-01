@@ -46,3 +46,14 @@ properties:
       type: container
     containerPropertyIdentifier: source
     name: source
+  pumps:
+    type:
+      space: '{{space}}'
+      externalId: LiftStation.pumps
+    source:
+      space: '{{space}}'
+      externalId: Pump
+      version: '{{view_Pump_version}}'
+      type: view
+    direction: outwards
+    name: pumps

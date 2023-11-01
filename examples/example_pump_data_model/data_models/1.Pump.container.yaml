@@ -8,7 +8,7 @@ properties:
     defaultValue: null
     description: The flow the pump was designed for given in gallons per minute.
     name: DesignPointFlowGPM
-    nullable: false
+    nullable: true
     type:
       list: false
       type: float64
@@ -26,7 +26,7 @@ properties:
     defaultValue: null
     description: The low head of the pump given in feet.
     name: LowHeadFT
-    nullable: false
+    nullable: true
     type:
       list: false
       type: float64
@@ -39,9 +39,9 @@ properties:
     type:
       list: false
       type: float64
-constraint:
+constraints:
   requiredAsset:
-    type: requires
+    constraintType: requires
     require:
       type: container
       space: '{{space}}'
