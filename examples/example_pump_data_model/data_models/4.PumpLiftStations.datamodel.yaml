@@ -1,0 +1,9 @@
+externalId: '{{datamodel}}'
+name: '{{datamodel}}'
+space: '{{space}}'
+version: '{{datamodel_version}}'
+views:
+- externalId: Asset
+  space: '{{space}}'
+  type: view
+  version: '{{view_Asset_version}}'
