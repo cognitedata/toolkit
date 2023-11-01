@@ -102,10 +102,8 @@ def read_yaml_files(
     if name is None:
         # Order is important!
         for directory in yaml_dirs:
-            for yaml_file in Path(directory).glob("default.config.yaml"):
-                files.append(yaml_file)
-            for yaml_file in Path(directory).glob("config.yaml"):
-                files.append(yaml_file)
+            files.extend(Path(directory).glob("default.config.yaml"))
+            files.extend(Path(directory).glob("config.yaml"))
     else:
         name = re.compile(f"^{name}")
         for directory in yaml_dirs:
@@ -117,8 +115,8 @@ def read_yaml_files(
     for yaml_file in files:
         try:
             config_data = yaml.safe_load(yaml_file.read_text())
-        except yaml.YAMLError:
-            print(f"Error reading {yaml_file}")
+        except yaml.YAMLError as e:
+            print(f"Error reading {yaml_file}: {e}")
             continue
         data.update(config_data)
     # Replace env variables of ${ENV_VAR} with actual value from environment

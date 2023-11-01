@@ -54,7 +54,8 @@ use towards the CDF API. No client side schema validation should be done to ensu
 add a yaml configuration property without upcoming anything else than the version of the Python SDK.
 
 > NOTE!! As of now, any non-recognised properties will just be ignored by the Python SDK. If you don't
-> get the desired configuration deployed, check your spelling and use of snake_case vs camelCase.
+> get the desired configuration deployed, check your spelling and use of snake_case vs camelCase. The Python SDK
+> expects camelCase.
 
 ## Tooling and scripts/ directory
 
