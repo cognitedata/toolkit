@@ -1,5 +1,5 @@
-externalId: asset_hierarchy_migration-load-data_model
-name: asset_hierarchy_migration-load-data_model
+externalId: asset_hierarchy_replication-load-data_model
+name: asset_hierarchy_replication-load-data_model
 destination:
   dataModel:
     space: {{space}}
