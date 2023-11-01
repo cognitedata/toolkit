@@ -32,6 +32,15 @@ properties:
     type:
       container: null
       type: direct
+  root:
+    autoIncrement: false
+    defaultValue: null
+    description: The root asset of the hierarchy.
+    name: root
+    nullable: true
+    type:
+      container: null
+      type: direct
   source:
     autoIncrement: false
     defaultValue: null

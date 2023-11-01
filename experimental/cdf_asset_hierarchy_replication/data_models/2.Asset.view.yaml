@@ -28,6 +28,17 @@ properties:
      external_id: Asset
      space: '{{space}}'
      version: '{{view_Asset_version}}'
+  root:
+   container:
+     externalId: Asset
+     space: '{{space}}'
+     type: container
+   containerPropertyIdentifier: root
+   name: root
+   source:
+     external_id: Asset
+     space: '{{space}}'
+     version: '{{view_Asset_version}}'
   source:
     container:
       externalId: Asset
