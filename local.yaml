@@ -1,3 +1,7 @@
+# EDIT THIS FILE!!!
+#
+# This file controls which modules will be built and deployed.
+#
 # local.yaml should be checked into code repository.
 # It contains the environment definitions to control build and deploy.
 # Use build.sh --env <env> to specify which environment to build and deploy
@@ -11,13 +15,13 @@
 # deploy to must have the same project name configured below. This is a safety measure
 # to prevent you from accidentily deploying to the wrong environment.
 demo:
-  project: project-loader-dev
+  project: <a-demo-project>
   type: dev
   # This should be a used to specify which modules and packages to deploy locally and in the GitHub Action.
   # You can have multiple deploy commands.
   # Order is important.
   deploy:
-    - demo_infield
+    - cdf_demo_infield
     - cdf_apm_simple
 local:
   project: <customer>-dev
@@ -31,13 +35,15 @@ dev:
   project: <customer>-dev
   type: dev
   deploy:
-    - demo_infield
+    - cdf_demo_infield
     - cdf_apm_simple
 staging:
   project: <customer>-staging
   type: staging
-  deploy: []
+  deploy:
+    - cdf_infield
 prod:
   project: <customer>-prod
   type: prod
-  deploy: []
+  deploy:
+    - cdf_infield

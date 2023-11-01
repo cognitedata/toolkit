@@ -7,9 +7,9 @@ from pathlib import Path
 
 import yaml
 
-# Directory paths for YAML files
+# Directory paths for YAML files (relative to the root of the module)
 YAML_DIRS = ["./"]
-TMPL_DIRS = ["./common", "./modules", "./examples"]
+TMPL_DIRS = ["./common", "./modules", "./local_modules", "./examples"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md"]
 # Which suffixes to exclude when we create indexed files (i.e. they are bundled with their main config file)
@@ -28,7 +28,9 @@ def read_environ_config(
         List of modules in the order they should be processed.
         Exception(ValueError) if a module is not found in tmpl_dirs.
     """
-    global_config = read_yaml_files(root_dir, "global.yaml")
+    global_config = read_yaml_files(root_dir, "default.packages.yaml")
+    packages = global_config.get("packages", {})
+    packages.update(read_yaml_files(root_dir, "packages.yaml").get("packages", {}))
     local_config = read_yaml_files(root_dir, "local.yaml")
     print(f"Environment is {build_env}, using that section in local.yaml.\n")
     modules = []
@@ -55,12 +57,12 @@ def read_environ_config(
             os.environ["CDF_BUILD_TYPE"] = v
         elif k == "deploy":
             for m in v:
-                for g2, g3 in global_config.get("packages", {}).items():
+                for g2, g3 in packages.items():
                     if m == g2:
                         for m2 in g3:
                             if m2 not in modules:
                                 modules.append(m2)
-                    elif m not in modules and global_config.get("packages", {}).get(m) is None:
+                    elif m not in modules and packages.get(m) is None:
                         modules.append(m)
 
     if len(modules) == 0:
@@ -84,23 +86,41 @@ def read_environ_config(
     return load_list
 
 
-def read_yaml_files(yaml_dirs, name: str = "config.yaml"):
+def read_yaml_files(
+    yaml_dirs: list[str],
+    name: str | None = None,
+):
     """Read all YAML files in the given directories and return a dictionary
 
     This function will not traverse into sub-directories.
 
     yaml_dirs: list of directories to read YAML files from
+    name: (optional) name of the file(s) to read, either filename or regex. Defaults to config.yaml and default.config.yaml
     """
 
+    files = []
+    if name is None:
+        # Order is important!
+        for directory in yaml_dirs:
+            for yaml_file in Path(directory).glob("default.config.yaml"):
+                files.append(yaml_file)
+            for yaml_file in Path(directory).glob("config.yaml"):
+                files.append(yaml_file)
+    else:
+        name = re.compile(f"^{name}")
+        for directory in yaml_dirs:
+            for file in Path(directory).glob("*.yaml"):
+                if not (name.match(file.name)):
+                    continue
+                files.append(file)
     data = {}
-    for directory in yaml_dirs:
-        for yaml_file in Path(directory).glob(name):
-            try:
-                config_data = yaml.safe_load(yaml_file.read_text())
-            except yaml.YAMLError:
-                print(f"Error reading {yaml_file}")
-                continue
-            data.update(config_data)
+    for yaml_file in files:
+        try:
+            config_data = yaml.safe_load(yaml_file.read_text())
+        except yaml.YAMLError:
+            print(f"Error reading {yaml_file}")
+            continue
+        data.update(config_data)
     # Replace env variables of ${ENV_VAR} with actual value from environment
     for k, v in os.environ.items():
         for k2, v2 in data.items():
@@ -146,7 +166,7 @@ def process_config_files(
                 if file in EXCL_FILES:
                     continue
                 # Skip the config.yaml file
-                if file == "config.yaml":
+                if file == "config.yaml" or file == "default.config.yaml":
                     # Pick up this local yaml files
                     local_yaml_path = dirpath
                     yaml_local = read_yaml_files([dirpath])

@@ -85,23 +85,24 @@ with directories for each type of configuration, e.g. ./modules/<moduleA>/transf
 The recognized configuration types are:
 
 ```text
-./modules|common/<moduleA>/
-                              |- data_models/
-                              |- data_sets/
-                              |- auth/
-                              |- functions/
-                              |- transformations/
-                              |- raw/
-                              |- ext_pipelines/
-                              |- extractors/
+./modules|common|examples|local_modules/<moduleA>/
+                                                |- data_models/
+                                                |- data_sets/
+                                                |- auth/
+                                                |- functions/
+                                                |- transformations/
+                                                |- raw/
+                                                |- ext_pipelines/
+                                                |- extractors/
 
 ```
 
-The `global.yaml` file is used as a configuration file to specify groups of modules. The `local.yaml`
+The `default.packages.yaml` file is used as a configuration file to specify groups of modules. The `local.yaml`
 file in root is used to specify the actual modules that should be deployed.
 
-Normally, you should not touch `global.yaml` as this will evolve as new functionality is added to this
-template. All your local changes on a per customer/project basis should go into the `local.yaml` file.
+You should not touch `default.packages.yaml` as this will evolve as new functionality is added to this
+template. All your local changes on a per customer/project basis should go into the `local.yaml` file. However,
+you can also add your own local packages by editing the packages.yaml.
 
 ## Templating and configuration
 
@@ -110,25 +111,23 @@ set CDF_ENVIRON and CDF_BUILD_TYPE = (dev, staging, prod) as environment variabl
 These can be used in the `config.yaml` files.
 
 Configuration variables used across your module configurations should be defined in `config.yaml` files.
-The root `config.yaml` file has scope for all modules, while each module can have its own `config.yaml` 
-file that is only used for that module.
+The root `default.config.yaml` and `config.yaml` files have scope for all modules, while each module can have its own `config.yaml`
+file that is only used for that module (with defaults found in `default.config.yaml`).
 
-Template variables in files in the common/ and modules/ directories should be in the form
-`{{variable_name}}`.
+Template variables in files in the modules  should be in the form `{{variable_name}}`.
 If you want template variables to be replaced by environment variables, use the following format in the
 config.yaml file: `variable_name: ${ENV_VAR_NAME}`.
 If you want variables to be set dependent on the environment you deploy to (e.g. `build.py --env=prod`),
-you can prefix the variable with environment name, e.g. use the following format in the config.yaml file:
+you can prefix the variable with environment name, e.g. use the following format in the config.yaml files:
  `prod.variable_name: something`.
 
-> You can also put `config.yaml` files in the
-> `<modules>/<my_module>/`` directory. Any values here have only scope in that module.
+> You can also put `config.yaml` files in `local_modules/<my_module>/`` directories. Any values here have only scope in that module.
 
-The global.yaml and `local.yaml` files are used by the _build_ step  to
+The *.config.yaml and `local.yaml` files are used by the _build_ step  to
 process the configurations and create a `build/` directory where all the configurations are
 merged into a single directory structure.
 
-The `global.yaml` file has a simple structure. It currently only supports the global
+The `default.packages.yaml` file has a simple structure. It currently only supports the global
 configuration `packages` and only one. Each of the packages than can be loaded in local.yaml should
 be defined as a list of modules. Packages that have been defined in global.yaml cannot
 be used recursively in other packages, i.e. all modules have to be included in a package definition.
@@ -142,28 +141,44 @@ packages:
 ```
 
 The `local.yaml` file is the actual configuration for a specific build and load operation.
-Currently, it only supports `deploy` configurations. You can have multiple deploy configurations
-in your file:
+The structure defines the environment at the root level (dev and prod below) with project name,
+type (dev, staging, prod) and then one or more deploy commands referring to packages or modules:
 
 ```yaml local.yaml
 
-deploy: ["<a_base_module", "pkg_name2"]
-deploy: ["<another_base_module", "pkg_name3"]
+dev:
+  project: <a-demo-project>
+  type: dev
+  # This should be a used to specify which modules and packages to deploy locally and in the GitHub Action.
+  # You can have multiple deploy commands.
+  # Order is important.
+  deploy:
+    - cdf_demo_infield
+    - cdf_apm_simple
+prod:
+  project: <customer>-dev
+  type: dev
+  deploy:
+    - cdf_apm_base
+    - cdf_apm_simple
+    - cdf_infield_common
+    - cdf_infield_location
 
 ```
 
-The order of configuration is important. In the above example, `a_base_module` will be loaded before
-the modules in `pkg_name2`, which will be loaded before `another_base_module`. Finally, `pkg_name3`
-modules will be loaded. If a module is loaded through more than one package, the first time it is loaded
+The order of configuration is important. In the above example, `cdf_apm_base` will be loaded before
+the modules in `cdf_apm_simple`. If a module is loaded through more than one package, the first time it is loaded
 will be the only time it is loaded.
 
 ## Module configuration files
 
-In each module directory, each type needs a separate firectory, e.g. raw, transformations, etc. In each
+In each module directory, each type needs a separate directory, e.g. raw, transformations, etc. In each
 directory, you can use prefixes of type 1.<filename.suffix>, 2.<filename2.suffix> to control the order of
-deployment. If the configurations have a dependent file, e.g. for transformations where a transformation
-can have a .sql file with the SQL code, the dependent file should have a filename of the external_id
-of the entity it is associated with.
+deployment. 
+
+> If the configurations have a dependent file, e.g. for transformations where a transformation
+> can have a .sql file with the SQL code, the dependent file should have a filename of the external_id
+> of the entity it is associated with.
 
 Example:
 `2.tutorial-load-asset2children.yaml` defines the transformation with the external_id

@@ -23,9 +23,9 @@ Adding a new module consists of the following steps:
 
 1. Determine where to put it (common, modules, or examples)
 2. Create a new directory for the module with sub-directories per configuration type the module needs
-3. Add a `config.yaml` file to the module root directory if you have variables in the templates
+3. Add a `default.config.yaml` file to the module root directory if you have variables in the templates
 4. Add a `README.md` file to the module root directory with a description of the module and variables
-5. Update `global.yaml` with the new module if it is part of a package
+5. Update `default.packages.yaml` with the new module if it is part of a package
 6. Add a description of the module in the [module and package documentation](../docs/overview.md)
 
 Each module should be as standalone as possible, but they can be dependent on either modules
@@ -53,19 +53,20 @@ The configuration files are loaded directly into the Python SDK's support data c
 use towards the CDF API. No client side schema validation should be done to ensure that you can immediately
 add a yaml configuration property without upcoming anything else than the version of the Python SDK.
 
+> NOTE!! As of now, any non-recognised properties will just be ignored by the Python SDK. If you don't
+> get the desired configuration deployed, check your spelling and use of snake_case vs camelCase.
+
 ## Tooling and scripts/ directory
 
 We want to add client-side logic/validation as part of the deployment process, e.g. validation
 of data models, transformations, contextualizations, etc to ensure integrity and proper
-functioning configuration.
-
-The future, current plan is to establish a `v1/<project>/config` CDF service that will take over this
-validation done by code in the ./scripts directory. We also want to push as much generic logic
-into the Python SDK as possible.
+functioning configuration. We may in the future introduce more SDK and CDF server-side
+validation.
 
 > NOTE!! The scripts currently support raw, data models, time series, groups, and transformations.
 > It also has some support for loading of data that may be used as example data for CDF projects. However,
 > to the extent possible, this repository should not contain data, only governed configurations.
+> Of course, where data population of e.g. data model is part of the configuration, that is fine.
 > The scripts are continuosly under development to simplify management of configurations, and
 > we are pushing the functionality into the Python SDK when that makes sense.
 
