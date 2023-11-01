@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import difflib
 import logging
 from pathlib import Path
 from typing import Optional
@@ -39,7 +40,13 @@ def run(
     # Configure a client and load credentials from environment
     build_path = Path(__file__).parent / build_dir
     if not build_path.is_dir():
-        print(f"{build_dir} does not exists.")
+        alternatives = {
+            folder.name: f"{folder.parent.name}/{folder.name}"
+            for folder in build_path.parent.iterdir()
+            if folder.is_dir()
+        }
+        matches = difflib.get_close_matches(build_path.name, list(alternatives.keys()), n=3, cutoff=0.3)
+        print(f"{build_dir} does not exists. Did you mean one of these? {[alternatives[m] for m in matches]}")
         exit(1)
     ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
     print("Using following configurations: ")

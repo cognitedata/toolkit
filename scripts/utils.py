@@ -138,8 +138,11 @@ class CDFToolConfig:
             )
 
     def __str__(self):
+        environment = self._environ.copy()
+        if "IDP_CLIENT_SECRET" in environment:
+            environment["IDP_CLIENT_SECRET"] = "***"
         return f"Cluster {self._cluster} with project {self._project} and config:\n" + json.dumps(
-            self._environ, indent=2, sort_keys=True
+            environment, indent=2, sort_keys=True
         )
 
     @property
