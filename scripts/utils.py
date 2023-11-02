@@ -211,7 +211,7 @@ class CDFToolConfig:
         # Since we now have a new configuration, check the dataset and set the id
         self._data_set_id = self.verify_dataset(data_set_name=value)
 
-    def verify_client(self, capabilities: dict[str, list[str]] | None = None) -> None:
+    def verify_client(self, capabilities: dict[str, list[str]] | None = None) -> CogniteClient:
         """Verify that the client has correct credentials and required access rights
 
         Supply requirement CDF ACLs to verify if you have correct access

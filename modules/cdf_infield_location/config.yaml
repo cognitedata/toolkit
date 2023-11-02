@@ -2,6 +2,12 @@
 location_name: default
 module_version: '1'
 apm_datamodel_space: 'APM_SourceData'
+apm_app_config_external_id: 'default-infield-config-minimal'
+
+# the root asset for this location 
+root_asset_external_id: 'WMT:VAL'
+
+
 
 # the following properties are required for 
 # infield and must be updated for each location

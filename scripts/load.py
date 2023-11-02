@@ -32,6 +32,7 @@ from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
+    NodeApply,
     SpaceApply,
     ViewApply,
 )
@@ -712,3 +713,37 @@ def load_datamodel(
                     ToolGlobals.failed = True
                     continue
                 print(f"  Deleted {len(items.removed)} {type_}(s).")
+
+
+def load_app_config(
+    ToolGlobals: CDFToolConfig,
+    drop: bool = False,
+    directory: Optional[Path] = None,
+    dry_run: bool = False,
+    only_drop: bool = False,
+) -> None:
+    """Insert app_config"""
+
+    for file in directory.rglob("*.yaml"):
+        if file.name == "config.yaml":
+            continue
+        print(f"Found {file}.")
+
+        app_config: dict = yaml.safe_load(file.read_text())
+
+        # todo: generalisable
+        app_data_space_id: str = app_config.get("appDataSpaceId")
+        app_data_space_version: str = app_config.get("appDataSpaceVersion")
+        # customer_data_space_id: str = app_config.get("customerDataSpaceId")
+        # customer_data_space_version: str = app_config.get("customerDataSpaceVersion")
+        external_id: str = app_config.get("externalId")
+        # feature_configuration: dict = app_config.get("featureConfiguration")
+
+        # todo: check ACL write capability for all neccessary spaces
+        client: CogniteClient = ToolGlobals.verify_client()
+
+        configApply = NodeApply(
+            space=app_data_space_id, external_id=external_id, existing_version=app_data_space_version, sources=[]
+        )
+        res = client.data_modeling.instances.apply(configApply, replace=True)
+        print(res)
