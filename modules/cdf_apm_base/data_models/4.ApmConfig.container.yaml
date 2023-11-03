@@ -35,5 +35,5 @@ properties:
   featureConfiguration:
     type:
       type: json
-      list: true
+      list: false
     nullable: true
