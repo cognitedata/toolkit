@@ -733,24 +733,15 @@ def load_app_config(
 
         app_config: dict = yaml.safe_load(file.read_text())
 
-        # todo: generalisable
+        # todo: generalisable(?)
         app_data_space_external_id: str = app_config.get("appDataSpaceId")
+        # todo: get from config.yaml
         app_data_config_view_external_id: str = "APM_Config"  # app_config.get("viewExternalId")
         app_data_space_version: str = app_config.get("appDataSpaceVersion")
-        # customer_data_space_id: str = app_config.get("customerDataSpaceId")
-        # customer_data_space_version: str = app_config.get("customerDataSpaceVersion")
         config_external_id: str = app_config.get("externalId")
-        # feature_configuration: dict = app_config.get("featureConfiguration")
 
         # todo: check ACL write capability for all neccessary spaces
-
         client: CogniteClient = ToolGlobals.verify_client()
-
-        # views: Union[None, ViewList] = client.data_modeling.views.retrieve(ids=(app_data_space_external_id, app_data_config_view_external_id, app_data_space_version), all_versions=False)
-        # if not views:
-        #     print(f"View {app_data_config_view_external_id} not found in space {app_data_space_external_id}.")
-        #     ToolGlobals.failed = True
-        #     return
 
         view = ViewId(
             space=app_data_space_external_id,
