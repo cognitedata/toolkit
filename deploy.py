@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 # from scripts.delete import clean_out_datamodels
 from scripts.load import (
+    load_app_config,
     load_datamodel,
     load_groups,
     load_raw,
@@ -111,6 +112,16 @@ def run(
     if ToolGlobals.failed:
         print("Failure to load as expected.")
         exit(1)
+
+    if (include is None or "app_config" in include) and (app_config_dir := Path(f"{build_dir}/app_config")).is_dir():
+        load_app_config(
+            ToolGlobals,
+            directory=app_config_dir,
+            dry_run=dry_run,
+        )
+        if ToolGlobals.failed:
+            print("Failure to load as expected.")
+            exit(1)
 
 
 if __name__ == "__main__":
