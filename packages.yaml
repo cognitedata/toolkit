@@ -1,0 +1,10 @@
+# EDIT THIS FILE!
+#
+# This should be a used to create packages of modules that can be deployed.
+# Only one packages command is allowed, with each package below it.
+# Packages cannot be recursively defined.
+packages:
+  # NOTE! Do NOT use package names prefixed with cdf_ as these are reserved for CDF packages.
+  my_package:
+    - module_a
+    - module_b

@@ -27,17 +27,19 @@ The templates have been designed to be copied and checked into your own
 Git repository, so you can manage changes and control how your CDF projects are configured
 using YAML configuration files. The most important files are [local.yaml](./local.yaml) where you specify what
 to load into a project, and the root [config.yaml](./config.yaml) file where you can set global
-variables.
+variables. You will find globally set configuration defaults in `default.config.yaml` files. These variables
+can always be overridden by setting the same variable in a `config.yaml` file in the same directory.
 
 ### Modules
 
-The basic concepts are **modules** and **packages**. Modules live in the `modules/`, `common/`, and `examples/`
+The basic concepts are **modules** and **packages**. Modules live in the `modules/`, `local_modules`, `common/`, and `examples/`
 directories. Each module is a self-contained set of configurations that configure some functionality
 in a CDF project. The configurations are in YAML files that follow the
 [CDF API specifications](https://api-docs.cognite.com). The yaml files are grouped in directories
 inside the module's directory by CDF API type, see e.g. [examples/cdf_apm_simple](./examples/cdf_apm_simple).
-In the root of the module directory, you will find a `config.yaml` file that defines the CDF project-specific
-variables you can set for the module. Typically, there will also be a README.md in the module directory
+In the root of the module directory, you will find a `default.config.yaml` file that defines the CDF project-specific
+variables you can set for the module. Create your own `config.yaml` in the same directory overriding the default values.
+Typically, there will also be a README.md in the module directory
 that explains in more detail how the module has been built up and what you get when loading the module.
 
 ### Packages
@@ -46,7 +48,8 @@ Modules can depend on each other to form packages. For example, you may need to 
 Management (APM) functionality in your project before you install Infield or Maintain (APM
 applications). A package is basically a list of modules
 where the order is important. You can refer to packages and modules interchangeably in [local.yaml](./local.yaml).
-All packages are defined in the [global.yaml](./global.yaml) file.
+All default packages are defined in the [default.packages.yaml](./default.packages.yaml) file. You can add your own
+packages by editing packages.yaml in the root of your repository.
 
 ### Environments
 
@@ -79,11 +82,11 @@ So, with the above concepts in mind, these are the practical steps to go through
 
 1. Create a new repository based on this template (delete/change the .github/ directory!).
 2. Edit `local.yaml` to specify the modules you want to deploy for each environment you deploy to.
-3. Edit `config.yaml` to change any global variables you want to change. If you want environment specific
+3. Edit `config.yaml` to override any global variables you want to change. If you want environment specific
    variables, you can prefix the variable name with the environment name, e.g. `prod.my_var: something`
-4. (optional) For each `cdf_*` module, edit the `config.yaml` file in the module directory to change any
-   variables you want to change.
-5. (optional) Add any modules of your own that you may want to add (don't use `cdf_*` prefix).
+4. (optional) For each `cdf_*` module, add/edit a `config.yaml` file in the module directory to override any
+   variables you want to change from the `default.config.yaml` file.
+5. (optional) Add any modules of your own that you may want to add in the `local_modules` folder (don't use `cdf_*` prefix).
 6. Copy `.env.tmpl` to .env and edit the file to set the environment variables for your project.
 7. Run `./build.py --env=<demo|local|dev|staging|prod>` to create a build/ directory with the
    configurations.

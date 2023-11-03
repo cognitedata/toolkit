@@ -25,6 +25,9 @@ jobs:
           virtualenvs-create: false
       - name: Install dependencies
         run: poetry install
+      - name: "Pre-processing for demo environment"
+        run: |
+          ./demo/preproc.sh
       - name: "Build the package"
         run: |
           poetry run python build.py --env=demo
