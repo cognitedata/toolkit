@@ -46,4 +46,4 @@ jobs:
 
       - name: "Deploy the package"
         run: |
-          poetry run python deploy.py --drop --drop-data --env=demo
+          poetry run python deploy.py --env=demo
