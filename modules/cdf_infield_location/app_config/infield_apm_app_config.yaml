@@ -8,3 +8,7 @@ featureConfiguration:
     - assetExternalId: {{root_asset_external_id}}
       appDataInstanceSpace: app_data_instance_space
       sourceDataInstanceSpace: infield_{{location_name}}_location_app_data_space
+      templateAdmins:
+      - infield_{{location_name}}_template_admins
+      checklistAdmins:
+      - infield_{{location_name}}_checklist_admins
