@@ -32,8 +32,11 @@ from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
+    NodeApply,
+    NodeOrEdgeData,
     SpaceApply,
     ViewApply,
+    ViewId,
 )
 from cognite.client.data_classes.iam import Group
 from cognite.client.data_classes.time_series import TimeSeries
@@ -712,3 +715,51 @@ def load_datamodel(
                     ToolGlobals.failed = True
                     continue
                 print(f"  Deleted {len(items.removed)} {type_}(s).")
+
+
+def load_app_config(
+    ToolGlobals: CDFToolConfig,
+    drop: bool = False,
+    directory: Optional[Path] = None,
+    dry_run: bool = False,
+    only_drop: bool = False,
+) -> None:
+    """Insert app_config"""
+
+    for file in directory.rglob("*.yaml"):
+        if file.name == "config.yaml":
+            continue
+        print(f"Found {file}.")
+
+        app_config: dict = yaml.safe_load(file.read_text())
+
+        # todo: generalisable(?)
+        app_data_space_external_id: str = app_config.get("appDataSpaceId")
+        # todo: get from config.yaml
+        app_data_config_view_external_id: str = "APM_Config"  # app_config.get("viewExternalId")
+        app_data_space_version: str = app_config.get("appDataSpaceVersion")
+        config_external_id: str = app_config.get("externalId")
+
+        # todo: check ACL write capability for all neccessary spaces
+        client: CogniteClient = ToolGlobals.verify_client()
+
+        view = ViewId(
+            space=app_data_space_external_id,
+            external_id=app_data_config_view_external_id,
+            version=app_data_space_version,
+        )
+
+        configApply = NodeApply(
+            space=app_data_space_external_id,
+            external_id=app_config.pop("externalId"),
+            sources=[NodeOrEdgeData(source=view, properties=app_config)],
+        )
+        if not dry_run:
+            try:
+                res = (client.data_modeling.instances.apply(configApply, replace=True),)
+                print(res)
+
+            except CogniteAPIError as e:
+                print(f"Failed to create app config {config_external_id}:\n{e}")
+                ToolGlobals.failed = True
+                return
