@@ -680,6 +680,9 @@ def load_datamodel(
                 else:
                     for i in items.added:
                         resource_api_by_type[type_].apply(i)
+                        import time
+
+                        time.sleep(3.0)
                 print(f"  Created {len(items.added)} {type_}s.")
             if items.changed:
                 if dry_run:
