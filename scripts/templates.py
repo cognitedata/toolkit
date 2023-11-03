@@ -9,7 +9,7 @@ import yaml
 
 # Directory paths for YAML files (relative to the root of the module)
 YAML_DIRS = ["./"]
-TMPL_DIRS = ["./common", "./modules", "./local_modules", "./examples", "/.experimental"]
+TMPL_DIRS = ["./common", "./modules", "./local_modules", "./examples", "./experimental"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md"]
 # Which suffixes to exclude when we create indexed files (i.e. they are bundled with their main config file)

@@ -31,6 +31,7 @@ local:
     - cdf_apm_simple
     - cdf_infield_common
     - cdf_infield_location
+    - cdf_asset_hierarchy_replication
 dev:
   project: <customer>-dev
   type: dev

@@ -45,4 +45,4 @@ constraints:
     require:
       type: container
       space: '{{space}}'
-      externalId: Asset
+      externalId: AssetSimple

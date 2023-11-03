@@ -1,0 +1,39 @@
+externalId: AssetSimple
+name: AssetSimple
+space: '{{space}}'
+usedFor: node
+properties:
+  name:
+    autoIncrement: false
+    defaultValue: null
+    description: The name of the asset.
+    name: name
+    nullable: false
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  description:
+    autoIncrement: false
+    defaultValue: null
+    description: The description of the asset.
+    name: description
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  parent:
+    autoIncrement: false
+    defaultValue: null
+    description: This used to specify the parent-child relationship.
+    name: parent
+    nullable: true
+    type:
+      container: null
+      type: direct
+indexes:
+  nameIndex:
+    properties:
+      - name
+    indexType: btree

@@ -276,3 +276,5 @@ tmp/
 
 # temporary ignore this, should not be merged.
 local.yaml
+
+playground
