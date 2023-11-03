@@ -1,11 +1,11 @@
 externalId: sync_assets_from_hierarchy_to_apm
-name: Sync assets from Hierarchy to APM model
+name: Sync assets from Asset Hierarchy to APM Asset model
 destination:
   view:
     space:  cdf_core
     externalId: Asset
     version: 'v1'
-  instanceSpace: infield_default_location_source_data_space
+  instanceSpace: 'infield_{{location_name}}_source_data_space'
   type: nodes
 action: upsert
 ignoreNullFields: true
