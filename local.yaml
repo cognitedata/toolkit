@@ -21,15 +21,21 @@ demo:
   # You can have multiple deploy commands.
   # Order is important.
   deploy:
-    - demo_infield
-    - cdf_apm_simple
-local:
-  project: trial-572dca111144a5196a6b1
-  type: dev
-  deploy:
-    - demo_infield
     - cdf_demo_infield
     - cdf_apm_simple
+local:
+  project: <customer>-dev
+  type: dev
+  deploy:
+    - cdf_apm_base
+    - cdf_apm_simple
+    - cdf_infield_common
+    - cdf_infield_location
+dev:
+  project: <customer>-dev
+  type: dev
+  deploy:
+    - cdf_demo_infield
     - cdf_apm_simple
 staging:
   project: <customer>-staging
