@@ -5,7 +5,7 @@ destination:
     space:  cdf_core
     externalId: Asset
     version: 'v1'
-  instanceSpace: 'infield_{{location_name}}_source_data_space'
+  instanceSpace: 'infield_{{location_name}}_location_source_data_space'
   type: nodes
 action: upsert
 ignoreNullFields: true
