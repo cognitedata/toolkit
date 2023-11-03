@@ -160,13 +160,38 @@ if __name__ == "__main__":
         default="dev",
         help="The environment to build for, defaults to dev",
     )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Whether to use interactive mode",
+        default=False,
+    )
     args, unknown_args = parser.parse_known_args()
     if args.include is not None:
         include = args.include.split(",")
     else:
         include = None
+    if args.interactive:
+        build_modules = list((Path(__file__).parent / "build").iterdir())
+        for i, module in enumerate(build_modules):
+            print(f"{i}) {module.name}")
+        print("a) All")
+        print("\nq) Quit")
+        answer = input("Select module to deploy: ")
+        if answer.casefold() == "a":
+            build_dir = "./build"
+        elif answer.casefold() == "q":
+            exit(0)
+        else:
+            try:
+                build_dir = f"build/{build_modules[int(answer)].name}"
+            except ValueError:
+                print(f"Invalid selection: {answer}")
+                exit(1)
+    else:
+        build_dir = args.build_dir
     run(
-        build_dir=args.build_dir,
+        build_dir=build_dir,
         build_env=args.env,
         dry_run=args.dry_run,
         drop=args.drop,
