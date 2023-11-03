@@ -32,6 +32,7 @@ local:
     - cdf_infield_common
     - cdf_infield_location
     - cdf_asset_hierarchy_replication
+    - example_pump_data_model
 dev:
   project: <customer>-dev
   type: dev
