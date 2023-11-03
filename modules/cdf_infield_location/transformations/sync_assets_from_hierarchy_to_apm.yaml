@@ -1,4 +1,4 @@
-externalId: sync_assets_from_hierarchy_to_dm
+externalId: sync_assets_from_hierarchy_to_apm
 name: Sync assets from Hierarchy to APM model
 destination:
   view:
