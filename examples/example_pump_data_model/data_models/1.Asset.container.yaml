@@ -27,7 +27,7 @@ properties:
     autoIncrement: false
     defaultValue: null
     description: The type of the asset.
-    name: description
+    name: assetType
     nullable: true
     type:
       collation: ucs_basic

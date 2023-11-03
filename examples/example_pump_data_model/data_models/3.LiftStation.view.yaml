@@ -17,6 +17,13 @@ properties:
       type: container
     containerPropertyIdentifier: description
     name: description
+  assetType:
+    container:
+      externalId: AssetSimple
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: assetType
+    name: assetType
   pumps:
     type:
       space: '{{space}}'
