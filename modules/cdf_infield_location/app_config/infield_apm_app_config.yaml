@@ -1,0 +1,10 @@
+appDataSpaceId: 'APM_Config'
+appDataSpaceVersion: '1'
+customerDataSpaceId: APM_SourceData
+customerDataSpaceVersion: '1'
+externalId: default_infield_config_minimal
+featureConfiguration: 
+  rootLocationConfigurations:
+    - assetExternalId: {{root_asset_external_id}}
+      appDataInstanceSpace: app_data_instance_space
+      sourceDataInstanceSpace: infield_{{location_name}}_location_app_data_space
