@@ -1,8 +1,9 @@
-appDataSpaceId: cognite_app_data
+appDataSpaceId: 'APM_Config'
 appDataSpaceVersion: '1'
+viewExternalId: 'APM_Config'
 customerDataSpaceId: APM_SourceData
 customerDataSpaceVersion: '1'
-externalId: default-infield-config-minimal
+externalId: default_infield_config_minimal
 featureConfiguration:
   accessConfiguration:
     accessGroups: []

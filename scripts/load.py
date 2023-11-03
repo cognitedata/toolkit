@@ -33,8 +33,10 @@ from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
     NodeApply,
+    NodeOrEdgeData,
     SpaceApply,
     ViewApply,
+    ViewId,
 )
 from cognite.client.data_classes.iam import Group
 from cognite.client.data_classes.time_series import TimeSeries
@@ -732,18 +734,42 @@ def load_app_config(
         app_config: dict = yaml.safe_load(file.read_text())
 
         # todo: generalisable
-        app_data_space_id: str = app_config.get("appDataSpaceId")
+        app_data_space_external_id: str = app_config.get("appDataSpaceId")
+        app_data_config_view_external_id: str = app_config.get("viewExternalId")
         app_data_space_version: str = app_config.get("appDataSpaceVersion")
         # customer_data_space_id: str = app_config.get("customerDataSpaceId")
         # customer_data_space_version: str = app_config.get("customerDataSpaceVersion")
-        external_id: str = app_config.get("externalId")
-        # feature_configuration: dict = app_config.get("featureConfiguration")
+        config_external_id: str = app_config.get("externalId")
+        feature_configuration: dict = app_config.get("featureConfiguration")
 
         # todo: check ACL write capability for all neccessary spaces
+
         client: CogniteClient = ToolGlobals.verify_client()
 
-        configApply = NodeApply(
-            space=app_data_space_id, external_id=external_id, existing_version=app_data_space_version, sources=[]
+        # views: Union[None, ViewList] = client.data_modeling.views.retrieve(ids=(app_data_space_external_id, app_data_config_view_external_id, app_data_space_version), all_versions=False)
+        # if not views:
+        #     print(f"View {app_data_config_view_external_id} not found in space {app_data_space_external_id}.")
+        #     ToolGlobals.failed = True
+        #     return
+
+        view = ViewId(
+            space=app_data_space_external_id,
+            external_id=app_data_config_view_external_id,
+            version=app_data_space_version,
         )
-        res = client.data_modeling.instances.apply(configApply, replace=True)
-        print(res)
+
+        configApply = NodeApply(
+            space=app_data_space_external_id,
+            external_id=config_external_id,
+            existing_version=app_data_space_version,
+            sources=[NodeOrEdgeData(source=view, properties=feature_configuration)],
+        )
+        if not dry_run:
+            try:
+                res = client.data_modeling.instances.apply(configApply, replace=True)
+                print(res)
+
+            except CogniteAPIError as e:
+                print(f"Failed to create app config {config_external_id}:\n{e}")
+                ToolGlobals.failed = True
+                return
