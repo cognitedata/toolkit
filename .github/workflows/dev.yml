@@ -35,6 +35,15 @@ jobs:
       - name: "Delete existing resources including data"
         run: |
           poetry run python clean.py --env=demo
+
+      - name: Give CDF some time to clean up and release locks
+        run: |
+            #!/bin/bash
+
+            sleep 60
+
+            echo "Proceeding"
+
       - name: "Deploy the package"
         run: |
           poetry run python deploy.py --drop --drop-data --env=demo
