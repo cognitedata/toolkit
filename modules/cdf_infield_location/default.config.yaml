@@ -11,17 +11,9 @@ root_asset_external_id: 'WMT:VAL'
 
 # the following properties are required for 
 # infield and must be updated for each location
-
-# admin role
 infield_location_checklist_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-
-# normal role
 infield_location_normal_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
-
-# template admin role
 infield_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-
-# viewer role
 infield_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
 
