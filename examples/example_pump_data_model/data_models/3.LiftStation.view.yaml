@@ -31,6 +31,8 @@ properties:
 filter:
   equals:
     property:
+      - {{space}}
+      - AssetSimple
       - assetType
     value:
       - liftStation
