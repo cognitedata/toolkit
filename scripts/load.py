@@ -675,15 +675,21 @@ def load_datamodel(
                 if dry_run:
                     print(f"  Would have created {len(items.added)} {type_}(s).")
                     continue
-                for i in items.added:
-                    resource_api_by_type[type_].apply(i)
+                if type_ == "space":
+                    resource_api_by_type[type_].apply(items.added)
+                else:
+                    for i in items.added:
+                        resource_api_by_type[type_].apply(i)
                 print(f"  Created {len(items.added)} {type_}s.")
             if items.changed:
                 if dry_run:
                     print(f"  Would have created/updated {len(items.changed)} {type_}(s).")
                     continue
-                for i in items.changed:
-                    resource_api_by_type[type_].apply(i)
+                if type_ == "space":
+                    resource_api_by_type[type_].apply(items.changed)
+                else:
+                    for i in items.changed:
+                        resource_api_by_type[type_].apply(i)
                 if drop:
                     print(f"  Created {len(items.changed)} {type_}s (--drop specified).")
                 else:
@@ -691,8 +697,11 @@ def load_datamodel(
             if items.unchanged:
                 print(f"Found {len(items.unchanged)} unchanged {type_}(s).")
                 if drop:
-                    for i in items.unchanged:
-                        resource_api_by_type[type_].apply(i)
+                    if type_ == "space":
+                        resource_api_by_type[type_].apply(items.unchanged)
+                    else:
+                        for i in items.unchanged:
+                            resource_api_by_type[type_].apply(i)
                     print(f"  Created {len(items.changed)} unchanged {type_}s (--drop specified).")
 
     if delete_removed and not drop:
