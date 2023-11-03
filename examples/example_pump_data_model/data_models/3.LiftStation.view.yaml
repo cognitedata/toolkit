@@ -28,3 +28,9 @@ properties:
       type: view
     direction: outwards
     name: pumps
+filter:
+  equals:
+    property:
+      - assetType
+    value:
+      - liftStation

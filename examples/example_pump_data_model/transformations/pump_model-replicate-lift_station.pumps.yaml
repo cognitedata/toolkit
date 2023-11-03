@@ -1,0 +1,28 @@
+externalId: pump_model-replicate-lift_station_pumps
+name: pump_model-replicate-lift_station_pumps
+destination:
+  dataModel:
+    space: {{space}}
+    externalId: {{datamodel}}
+    version: '{{view_LiftStation_version}}'
+    destinationType: LiftStation
+    destinationRelationshipFromType: pumps
+  instanceSpace: {{space}}
+  type: instances
+
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{clientId}}
+  clientSecret: {{clientSecret}}
+  tokenUrl: {{tokenUrl}}
+  # Optional: If idP requires providing the scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes:
+    - {{scopes}}
+  # Optional: If idP requires providing the audience
+  audience: {{audience}}
+schedule:
+  # every hour
+  interval: '0 * * * *'
+  isPaused: true

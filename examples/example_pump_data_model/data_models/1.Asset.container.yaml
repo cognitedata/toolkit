@@ -23,6 +23,16 @@ properties:
       collation: ucs_basic
       list: false
       type: text
+  assetType:
+    autoIncrement: false
+    defaultValue: null
+    description: The type of the asset.
+    name: description
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
   parent:
     autoIncrement: false
     defaultValue: null

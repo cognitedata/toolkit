@@ -56,3 +56,9 @@ properties:
       type: container
     containerPropertyIdentifier: LowHeadFlowGPM
     name: LowHeadFlowGPM
+filter:
+  equals:
+    property:
+      - assetType
+    value:
+      - pump
