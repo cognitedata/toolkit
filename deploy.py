@@ -149,7 +149,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "build_dir",
-        default=None,
+        default="./build",
         nargs="?",
         help="Where to pick up the config files to deploy",
     )
@@ -160,12 +160,18 @@ if __name__ == "__main__":
         default="dev",
         help="The environment to build for, defaults to dev",
     )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Whether to use interactive mode",
+        default=False,
+    )
     args, unknown_args = parser.parse_known_args()
     if args.include is not None:
         include = args.include.split(",")
     else:
         include = None
-    if args.build_dir is None:
+    if args.interactive:
         build_modules = list((Path(__file__).parent / "build").iterdir())
         for i, module in enumerate(build_modules):
             print(f"{i}) {module.name}")
