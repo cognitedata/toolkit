@@ -132,7 +132,7 @@ def read_yaml_files(
 
 
 def process_config_files(
-    dirs: [str],
+    dirs: list[str],
     yaml_data: str,
     build_dir: str = "./build",
     build_env: str = "dev",
@@ -209,7 +209,7 @@ def process_config_files(
                         file = file.split(".", 1)[1]
                     # If we are processing raw tables, we want to pick up the raw_db config.yaml
                     # variable to determine the database name.
-                    if dirpath.split("/")[-1] == "raw":
+                    if Path(dirpath).name == "raw":
                         file = f"{indices[cdf_path]}.{yaml_local.get('raw_db', 'default')}.{file}"
                     else:
                         file = f"{indices[cdf_path]}.{file}"
