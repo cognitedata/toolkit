@@ -38,3 +38,6 @@ jobs:
       - name: "Deploy the package"
         run: |
           poetry run python deploy.py --env=demo
+      - name: "Run transformations and other post-processing"
+        run: |
+          poetry run python ./demo/postproc.py
