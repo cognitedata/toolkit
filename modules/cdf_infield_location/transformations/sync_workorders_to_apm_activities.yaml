@@ -1,12 +1,13 @@
-externalId: sync_assets_from_hierarchy_to_apm
-name: Sync assets from Asset Hierarchy to APM Asset model
+externalId: sync_workorders_to_apm_activities
+name: Sync workorders to APM Activities
 destination:
-  view:
-    space:  cdf_core
-    externalId: Asset
-    version: 'v1'
+  dataModel:
+    space: APM_SourceData
+    externalId: APM_SourceData
+    version: "1"
+    destinationType: APM_Activity
   instanceSpace: 'infield_{{location_name}}_location_source_data_space'
-  type: nodes
+  type: instances
 ignoreNullFields: true
 shared: true
 action: upsert

@@ -1,5 +1,5 @@
-externalId: sync_assets_from_hierarchy_to_apm
-name: Sync assets from Asset Hierarchy to APM Asset model
+externalId: sync_asset_parents_from_hierarchy_to_apm
+name: Sync asset parent relationships from Asset Hierarchy to APM Asset model
 destination:
   view:
     space:  cdf_core

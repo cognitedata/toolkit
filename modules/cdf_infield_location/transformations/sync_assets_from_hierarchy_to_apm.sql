@@ -1,9 +1,5 @@
 select
-  cast(asset.externalId as STRING) as externalId,
-  (case
-    when isnull(asset.parentExternalId) then null
-    else node_reference('infield_{{location_name}}_location_source_data_space', asset.parentExternalId) 
-  end) as parent,  
+  cast(asset.externalId as STRING) as externalId, 
   cast("Asset Hierarachy" as STRING) as source,
   node_reference('infield_{{location_name}}_location_source_data_space', cast(rootAsset.externalId as STRING)) as root,
   cast(asset.description as STRING) as description,
