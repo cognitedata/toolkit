@@ -6,8 +6,8 @@ externalId: default_infield_config_minimal
 featureConfiguration: 
   rootLocationConfigurations:
     - assetExternalId: {{root_asset_external_id}}
-      appDataInstanceSpace: infield_{{location_name}}_location_source_data_space
-      sourceDataInstanceSpace: infield_{{location_name}}_location_app_data_space
+      appDataInstanceSpace: infield_{{location_name}}_location_app_data_space
+      sourceDataInstanceSpace: infield_{{location_name}}_location_source_data_space
       templateAdmins:
       - infield_{{location_name}}_template_admins
       checklistAdmins:
