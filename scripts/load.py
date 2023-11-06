@@ -675,24 +675,35 @@ def load_datamodel(
                 if dry_run:
                     print(f"  Would have created {len(items.added)} {type_}(s).")
                     continue
-                if type_ == "space":
-                    resource_api_by_type[type_].apply(items.added)
-                else:
-                    for i in items.added:
-                        resource_api_by_type[type_].apply(i)
-                        import time
-
-                        time.sleep(5.0)
+                attempts = 5
+                while attempts > 0:
+                    try:
+                        resource_api_by_type[type_].apply(items.added)
+                        attempts = 0
+                    except Exception as e:
+                        attempts -= 1
+                        if attempts > 0:
+                            continue
+                        print(f"Failed to create {type_}(s):\n{e}")
+                        ToolGlobals.failed = True
+                        return
                 print(f"  Created {len(items.added)} {type_}s.")
             if items.changed:
                 if dry_run:
                     print(f"  Would have created/updated {len(items.changed)} {type_}(s).")
                     continue
-                if type_ == "space":
-                    resource_api_by_type[type_].apply(items.changed)
-                else:
-                    for i in items.changed:
-                        resource_api_by_type[type_].apply(i)
+                attempts = 5
+                while attempts > 0:
+                    try:
+                        resource_api_by_type[type_].apply(items.changed)
+                        attempts = 0
+                    except Exception as e:
+                        attempts -= 1
+                        if attempts > 0:
+                            continue
+                        print(f"Failed to create {type_}(s):\n{e}")
+                        ToolGlobals.failed = True
+                        return
                 if drop:
                     print(f"  Created {len(items.changed)} {type_}s (--drop specified).")
                 else:
@@ -700,11 +711,18 @@ def load_datamodel(
             if items.unchanged:
                 print(f"Found {len(items.unchanged)} unchanged {type_}(s).")
                 if drop:
-                    if type_ == "space":
-                        resource_api_by_type[type_].apply(items.unchanged)
-                    else:
-                        for i in items.unchanged:
-                            resource_api_by_type[type_].apply(i)
+                    attempts = 5
+                    while attempts > 0:
+                        try:
+                            resource_api_by_type[type_].apply(items.unchanged)
+                            attempts = 0
+                        except Exception as e:
+                            attempts -= 1
+                            if attempts > 0:
+                                continue
+                            print(f"Failed to create {type_}(s):\n{e}")
+                            ToolGlobals.failed = True
+                            return
                     print(f"  Created {len(items.changed)} unchanged {type_}s (--drop specified).")
 
     if delete_removed and not drop:
