@@ -8,6 +8,7 @@
     cast('2023-11-06T09:00:00' as TIMESTAMP) as startTime,
     cast('2023-11-10T09:00:00' as TIMESTAMP) as endTime,
     cast(`title` as STRING) as title,
-    '{{root_asset_external_id}}' as rootLocation
+    '{{root_asset_external_id}}' as rootLocation,
+    'workmate' as source
   from
     `{{raw_db}}`.`{{workorder_table_name}}`;
