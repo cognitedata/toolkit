@@ -20,6 +20,12 @@ properties:
       list: false
       collation: ucs_basic
     nullable: true
+  assignedTo:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
   source:
     type:
       type: text
