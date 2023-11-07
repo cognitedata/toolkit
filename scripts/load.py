@@ -23,10 +23,8 @@ import pandas as pd
 import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
-    OidcCredentials,
     Transformation,
     TransformationList,
-    TransformationSchedule,
 )
 from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.data_modeling import (
@@ -300,60 +298,17 @@ def load_transformations(
             "sessionsAcl": ["CREATE"],
         }
     )
-    files = []
+    files: list[Path] = []
     if file:
         # Only load the supplied filename.
-        files.append(file)
+        files.append(Path(file))
     else:
         # Pick up all the .yaml files in the data folder.
         for _, _, filenames in os.walk(directory):
             for f in filenames:
                 if ".yaml" in f:
-                    files.append(f)
-    transformations: TransformationList = []
-    for f in files:
-        with open(f"{directory}/{f}") as file:
-            config = yaml.safe_load(file.read())
-            source_oidc_credentials = config.get("authentication", {}).get("read") or config.get("authentication") or {}
-            destination_oidc_credentials = (
-                config.get("authentication", {}).get("write") or config.get("authentication") or {}
-            )
-            tmp = Transformation._load(config, ToolGlobals.client)
-            transformations.append(
-                Transformation(
-                    id=tmp.id,
-                    external_id=tmp.external_id,
-                    name=tmp.name,
-                    query=tmp.query,
-                    destination=tmp.destination,
-                    conflict_mode=tmp.conflict_mode,
-                    is_public=tmp.is_public,
-                    ignore_null_fields=tmp.ignore_null_fields,
-                    source_oidc_credentials=OidcCredentials(
-                        client_id=source_oidc_credentials.get("clientId", ""),
-                        client_secret=source_oidc_credentials.get("clientSecret", ""),
-                        audience=source_oidc_credentials.get("audience", ""),
-                        scopes=ToolGlobals.oauth_credentials.scopes,
-                        token_uri=ToolGlobals.oauth_credentials.token_url,
-                        cdf_project_name=ToolGlobals.client.config.project,
-                    ),
-                    destination_oidc_credentials=OidcCredentials(
-                        client_id=destination_oidc_credentials.get("clientId", ""),
-                        client_secret=destination_oidc_credentials.get("clientSecret", ""),
-                        audience=source_oidc_credentials.get("audience", ""),
-                        scopes=ToolGlobals.oauth_credentials.scopes,
-                        token_uri=ToolGlobals.oauth_credentials.token_url,
-                        cdf_project_name=ToolGlobals.client.config.project,
-                    ),
-                    schedule=TransformationSchedule(
-                        external_id=tmp.external_id,
-                        interval=config.get("schedule", {}).get("interval", ""),
-                    ),
-                    has_source_oidc_credentials=(len(source_oidc_credentials) > 0),
-                    has_destination_oidc_credentials=(len(destination_oidc_credentials) > 0),
-                    data_set_id=tmp.data_set_id,
-                )
-            )
+                    files.append(Path(f))
+    transformations = TransformationList([Transformation.load(f.read_text()) for f in files])
     print(f"Found {len(transformations)} transformations in {directory}.")
     ext_ids = [t.external_id for t in transformations]
     try:

@@ -15,6 +15,7 @@
 import glob
 import os
 import re
+from pathlib import Path
 from typing import Optional
 
 import yaml
@@ -182,10 +183,8 @@ def delete_transformations(
     files = glob.glob(f"{directory}/**/*.yaml", recursive=True)
     transformations = []
     for f in files:
-        with open(f"{f}") as file:
-            config = yaml.safe_load(file.read())
-            tmp = Transformation._load(config, ToolGlobals.client)
-            transformations.append(tmp.external_id)
+        tmp = Transformation.load(Path(f).read_text(), ToolGlobals.client)
+        transformations.append(tmp.external_id)
     print(f"Found {len(transformations)} transformations in {directory}.")
     try:
         if not dry_run:
