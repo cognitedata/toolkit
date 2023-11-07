@@ -15,6 +15,7 @@
 import glob
 import os
 import re
+from pathlib import Path
 from typing import Optional
 
 import yaml
@@ -55,7 +56,7 @@ def delete_raw(
     dbs = []
     for f in files:
         try:
-            (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f.split("/")[-1]).groups()
+            (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", Path(f).name).groups()
             if db not in dbs:
                 dbs.append(db)
             if table_name is None:
@@ -182,10 +183,10 @@ def delete_transformations(
     files = glob.glob(f"{directory}/**/*.yaml", recursive=True)
     transformations = []
     for f in files:
-        with open(f"{f}") as file:
-            config = yaml.safe_load(file.read())
-            tmp = Transformation._load(config, ToolGlobals.client)
-            transformations.append(tmp.external_id)
+        # The yaml.safe_load is necessary du to a bug in v7 pre release, can be removed
+        # when v7 is released.
+        tmp = Transformation.load(yaml.safe_load(Path(f).read_text()), ToolGlobals.client)
+        transformations.append(tmp.external_id)
     print(f"Found {len(transformations)} transformations in {directory}.")
     try:
         if not dry_run:

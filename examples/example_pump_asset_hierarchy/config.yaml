@@ -4,7 +4,7 @@ data_set: src:lift_pump_stations
 data_set_desc: This dataset <a href="https://data.bendoregon.gov/maps/collections-pump">lift_pump_stations</a> contains the lift pump stations.
 clientId: ${IDP_CLIENT_ID}
 clientSecret: ${IDP_CLIENT_SECRET}
-tokenUrl: ${IDP_TOKEN_URL}
+tokenUri: ${IDP_TOKEN_URL}
 # Optional: If idP requires providing the scopes
 cdfProjectName: ${CDF_PROJECT}
 scopes:
