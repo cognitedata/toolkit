@@ -198,24 +198,20 @@ files = [
 
 [[package]]
 name = "cognite-sdk"
-version = "7.0.0a1"
+version = "7.0.0"
 description = "Cognite Python SDK"
 optional = false
-python-versions = ">=3.8,<4.0"
-files = [
-    {file = "cognite_sdk-7.0.0a1-py3-none-any.whl", hash = "sha256:e687975c87df73c32d9c105555b36beedc3680ab10299e713c5902404c6ab934"},
-    {file = "cognite_sdk-7.0.0a1.tar.gz", hash = "sha256:db151a43b7ea686414a1c7772d6e1a049b11e50efbe3041982afde3781e11ea3"},
-]
+python-versions = "^3.8"
+files = []
+develop = false
 
 [package.dependencies]
-msal = ">=1,<2"
-pandas = {version = ">=1.4", optional = true, markers = "extra == \"pandas\" or extra == \"all\""}
+msal = "^1"
 protobuf = ">=3.16.0"
-requests = ">=2,<3"
-requests_oauthlib = ">=1,<2"
-sortedcontainers = ">=2.2,<3.0"
-typing_extensions = ">=4"
-tzdata = {version = ">=2023.3", markers = "sys_platform == \"win32\""}
+requests = "^2"
+requests_oauthlib = "^1"
+sortedcontainers = "^2.2"
+typing_extensions = ">= 4"
 
 [package.extras]
 all = ["backports-zoneinfo[tzdata] (>=0.2.1)", "geopandas (>=0.10.0)", "pandas (>=1.4)", "pip (>=20.0.0)", "shapely (>=1.7.0)", "sympy"]
@@ -226,6 +222,12 @@ pandas = ["backports-zoneinfo[tzdata] (>=0.2.1)", "pandas (>=1.4)"]
 pyodide = ["pyodide-http (>=0.2.0,<0.3.0)"]
 sympy = ["sympy"]
 yaml = ["PyYAML (>=6.0,<7.0)"]
+
+[package.source]
+type = "git"
+url = "https://github.com/cognitedata/cognite-sdk-python.git"
+reference = "v7-release"
+resolved_reference = "ceeb156914df1390af907a8ae13aa00da902b425"
 
 [[package]]
 name = "colorama"
@@ -402,13 +404,13 @@ files = [
 
 [[package]]
 name = "msal"
-version = "1.24.1"
+version = "1.25.0"
 description = "The Microsoft Authentication Library (MSAL) for Python library"
 optional = false
 python-versions = ">=2.7"
 files = [
-    {file = "msal-1.24.1-py2.py3-none-any.whl", hash = "sha256:ce4320688f95c301ee74a4d0e9dbcfe029a63663a8cc61756f40d0d0d36574ad"},
-    {file = "msal-1.24.1.tar.gz", hash = "sha256:aa0972884b3c6fdec53d9a0bd15c12e5bd7b71ac1b66d746f54d128709f3f8f8"},
+    {file = "msal-1.25.0-py2.py3-none-any.whl", hash = "sha256:386df621becb506bc315a713ec3d4d5b5d6163116955c7dde23622f156b81af6"},
+    {file = "msal-1.25.0.tar.gz", hash = "sha256:f44329fdb59f4f044c779164a34474b8a44ad9e4940afbc4c3a3a2bbe90324d9"},
 ]
 
 [package.dependencies]
@@ -1117,4 +1119,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "af8a5b2b85ed746466c0a8c0b340566cfc9c1558305240d7b70de741f8051f17"
+content-hash = "c43154933d3461ade19642667ab2da6dea2dca01e70a0fefa64914d4a88d24bc"
