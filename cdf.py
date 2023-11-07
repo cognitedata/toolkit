@@ -11,6 +11,13 @@ from rich import print
 from rich.panel import Panel
 from typing_extensions import Annotated
 
+from scripts.delete import (
+    delete_groups,
+    delete_raw,
+    delete_timeseries,
+    delete_transformations,
+)
+
 # from scripts.delete import clean_out_datamodels
 from scripts.load import (
     load_datamodel,
@@ -252,6 +259,118 @@ def deploy(
         )
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to load as expected.")
+        exit(1)
+
+
+@app.command("clean")
+def clean(
+    build_dir: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="Where to write the built module files to deploy",
+            allow_dash=True,
+        ),
+    ] = "build",
+    build_env: Annotated[
+        Optional[str],
+        typer.Option(
+            "--env",
+            "-e",
+            help="Build environment to build for",
+        ),
+    ] = "dev",
+    dry_run: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--dry-run",
+            "-r",
+            help="Whether to do a dry-run, do dry-run if present",
+        ),
+    ] = False,
+    include: Annotated[
+        Optional[List[CDFDataTypes]],
+        typer.Option(
+            "--include",
+            "-i",
+            help="Specify which resources to deploy",
+        ),
+    ] = None,
+) -> None:
+    if len(include) == 0:
+        include = [datatype for datatype in CDFDataTypes]
+    print(
+        Panel(
+            f"[bold]Cleaning configuration in project based on config files from {build_dir} to environment {build_env}...[/]"
+        )
+    )
+    # Set environment variables from local.yaml
+    read_environ_config(build_env=build_env)
+    # Configure a client and load credentials from environment
+    build_path = Path(__file__).parent / build_dir
+    if not build_path.is_dir():
+        print(f"{build_dir} does not exists.")
+        exit(1)
+    ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
+    print("Using following configurations: ")
+    print(ToolGlobals)
+    if CDFDataTypes.raw in include and Path(f"{build_dir}/raw").is_dir():
+        # load_raw() will assume that the RAW database name is set like this in the filename:
+        # <index>.<raw_db>.<tablename>.csv
+        delete_raw(
+            ToolGlobals,
+            raw_db="default",
+            dry_run=dry_run,
+            directory=f"{build_dir}/raw",
+        )
+    if ToolGlobals.failed:
+        print("[bold red]ERROR: [/] Failure to clean raw as expected.")
+        exit(1)
+    if CDFDataTypes.timeseries in include and Path(f"{build_dir}/timeseries").is_dir():
+        delete_timeseries(
+            ToolGlobals,
+            dry_run=dry_run,
+            directory=f"{build_dir}/timeseries",
+        )
+    if ToolGlobals.failed:
+        print("[bold red]ERROR: [/] Failure to clean timeseries as expected.")
+        exit(1)
+    if CDFDataTypes.transformations in include and Path(f"{build_dir}/transformations").is_dir():
+        delete_transformations(
+            ToolGlobals,
+            dry_run=dry_run,
+            directory=f"{build_dir}/transformations",
+        )
+    if ToolGlobals.failed:
+        print("[bold red]ERROR: [/] Failure to clean transformations as expected.")
+        exit(1)
+    if CDFDataTypes.data_models in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+        # We use the load_datamodel with only_drop=True to ensure that we get a clean
+        # deletion of the data model entities and instances.
+        load_datamodel(
+            ToolGlobals,
+            drop=True,
+            only_drop=True,
+            directory=models_dir,
+            delete_removed=True,
+            delete_spaces=True,  # Also delete properties that have been ingested (leaving empty instances)
+            delete_containers=True,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
+            dry_run=dry_run,
+        )
+    if ToolGlobals.failed:
+        print("[bold red]ERROR: [/] Failure to delete data models as expected.")
+        exit(1)
+    if CDFDataTypes.groups in include and Path(f"{build_dir}/auth").is_dir():
+        # NOTE! If you want to force deletion of groups that the current running user/service principal
+        # is a member of, set my_own=True. This may result in locking out the CI/CD service principal
+        # and is thus default not set to True.
+        delete_groups(
+            ToolGlobals,
+            directory=f"{build_dir}/auth",
+            my_own=False,
+            dry_run=dry_run,
+        )
+    if ToolGlobals.failed:
+        print("[bold red]ERROR: [/] Failure to clean groups as expected.")
         exit(1)
 
 

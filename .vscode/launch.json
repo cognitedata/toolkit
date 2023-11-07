@@ -8,7 +8,7 @@
             "name": "Python: build.py",
             "type": "python",
             "request": "launch",
-            "program": "./build.py",
+            "program": "./cdf.py build",
             "args": [
                 "--clean",
                 "--env=local",
@@ -23,7 +23,7 @@
             "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
-            "program": "./deploy.py",
+            "program": "./cdf.py deploy",
             "args": [
                 //"--dry-run",
                 "--drop",
@@ -39,7 +39,7 @@
             "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
-            "program": "./clean.py",
+            "program": "./cdf.py clean",
             "args": [
                 //"--dry-run",
                 "--env=local",
@@ -54,8 +54,7 @@
             "request": "launch",
             "program": "./cdf.py",
             "args": [
-                "deploy",
-                "--interactive",
+                "clean",
                 "-r"
             ],
             "console": "integratedTerminal",

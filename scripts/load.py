@@ -600,6 +600,7 @@ def load_datamodel(
     creation_order = ["space", "container", "view", "datamodel"]
 
     if drop:
+        print("[bold]Deleting existing configurations...[/]")
         # Clean out all old resources
         for type_ in reversed(creation_order):
             items = differences.get(type_)
@@ -612,7 +613,6 @@ def load_datamodel(
                 print("  [bold]INFO:[/] Skipping deletion of spaces as delete_spaces flag is not set...")
                 continue
             deleted = 0
-            print("[bold]Deleting existing configurations...[/]")
             for i in items:
                 if len(i) == 0:
                     continue
