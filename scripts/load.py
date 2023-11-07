@@ -750,7 +750,6 @@ def load_datamodel(
 
 def load_nodes(
     ToolGlobals: CDFToolConfig,
-    drop: bool = False,
     directory: Optional[Path] = None,
     dry_run: bool = False,
 ) -> None:
@@ -794,6 +793,7 @@ def load_nodes(
                     NodeApply(
                         space=node_space,
                         external_id=n.pop("externalId"),
+                        existing_version=n.pop("existingVersion", None),
                         sources=[NodeOrEdgeData(source=view, properties=n)],
                     )
                 )
@@ -802,7 +802,12 @@ def load_nodes(
 
         if not dry_run:
             try:
-                client.data_modeling.instances.apply(nodes=node_list, replace=drop)
+                client.data_modeling.instances.apply(
+                    nodes=node_list,
+                    auto_create_direct_relations=nodes.get("autoCreateDirectRelations", True),
+                    skip_on_version_conflict=nodes.get("skipOnVersionConflict", False),
+                    replace=nodes.get("replace", False),
+                )
                 print(f"Created {len(node_list)} nodes in {node_space}.")
             except CogniteAPIError as e:
                 print(f"Failed to create {len(node_list)} node(s) in {node_space}:\n{e}")

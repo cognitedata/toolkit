@@ -1,3 +1,6 @@
+autoCreateDirectRelations: True
+skipOnVersionConflict: False
+replace: True
 view:
   space: APM_Config
   externalId: APM_Config

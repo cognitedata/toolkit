@@ -106,7 +106,6 @@ def run(
     if (include is None or "instances" in include) and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_nodes(
             ToolGlobals,
-            drop=drop,
             directory=models_dir,
             dry_run=dry_run,
         )
