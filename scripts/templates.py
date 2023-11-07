@@ -193,7 +193,7 @@ def process_config_files(
                     # assuming template variables are in the format {{key}}
                     content = content.replace(f"{{{{{k}}}}}", str(v))
 
-                split_path = dirpath.split("/")
+                split_path = Path(dirpath).parts
                 cdf_path = split_path[len(split_path) - 1]
                 new_path = Path(f"{build_dir}/{cdf_path}")
                 new_path.mkdir(exist_ok=True, parents=True)
