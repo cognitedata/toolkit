@@ -33,6 +33,7 @@ from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
     NodeApply,
+    NodeApplyList,
     NodeOrEdgeData,
     SpaceApply,
     ViewApply,
@@ -747,49 +748,68 @@ def load_datamodel(
                 print(f"  Deleted {len(items.removed)} {type_}(s).")
 
 
-def load_app_config(
+def load_nodes(
     ToolGlobals: CDFToolConfig,
-    drop: bool = False,
     directory: Optional[Path] = None,
     dry_run: bool = False,
-    only_drop: bool = False,
 ) -> None:
-    """Insert app_config"""
+    """Insert nodes"""
 
-    for file in directory.rglob("*.yaml"):
+    for file in directory.rglob("*.node.yaml"):
         if file.name == "config.yaml":
             continue
         print(f"Found {file}.")
 
-        app_config: dict = yaml.safe_load(file.read_text())
-
-        # todo: generalisable(?)
-        app_data_space_external_id: str = app_config.get("appDataSpaceId")
-        # todo: get from config.yaml
-        app_data_config_view_external_id: str = "APM_Config"  # app_config.get("viewExternalId")
-        app_data_space_version: str = app_config.get("appDataSpaceVersion")
-        config_external_id: str = app_config.get("externalId")
-
-        # todo: check ACL write capability for all neccessary spaces
-        client: CogniteClient = ToolGlobals.verify_client()
-
-        view = ViewId(
-            space=app_data_space_external_id,
-            external_id=app_data_config_view_external_id,
-            version=app_data_space_version,
+        client: CogniteClient = ToolGlobals.verify_client(
+            capabilities={
+                "dataModelsAcl": ["READ"],
+                "dataModelInstancesAcl": ["READ", "WRITE"],
+            }
         )
 
-        configApply = NodeApply(
-            space=app_data_space_external_id,
-            external_id=app_config.pop("externalId"),
-            sources=[NodeOrEdgeData(source=view, properties=app_config)],
-        )
+        nodes: dict = yaml.safe_load(file.read_text())
+
+        try:
+            view = ViewId(
+                space=nodes["view"]["space"],
+                external_id=nodes["view"]["externalId"],
+                version=nodes["view"]["version"],
+            )
+        except KeyError:
+            raise KeyError(
+                f"Expected view configuration not found in {file}:\nview:\n  space: <space>\n  externalId: <view_external_id>\n  version: <view_version>"
+            )
+
+        try:
+            node_space: str = nodes["destination"]["space"]
+        except KeyError:
+            raise KeyError(
+                f"Expected destination space configuration in {file}:\ndestination:\n  space: <destination_space_external_id>"
+            )
+        node_list: NodeApplyList = []
+        try:
+            for n in nodes.get("nodes", []):
+                node_list.append(
+                    NodeApply(
+                        space=node_space,
+                        external_id=n.pop("externalId"),
+                        existing_version=n.pop("existingVersion", None),
+                        sources=[NodeOrEdgeData(source=view, properties=n)],
+                    )
+                )
+        except Exception as e:
+            raise KeyError(f"Failed to parse node {n} in {file}:\n{e}")
+
         if not dry_run:
             try:
-                res = (client.data_modeling.instances.apply(configApply, replace=True),)
-                print(res)
-
+                client.data_modeling.instances.apply(
+                    nodes=node_list,
+                    auto_create_direct_relations=nodes.get("autoCreateDirectRelations", True),
+                    skip_on_version_conflict=nodes.get("skipOnVersionConflict", False),
+                    replace=nodes.get("replace", False),
+                )
+                print(f"Created {len(node_list)} nodes in {node_space}.")
             except CogniteAPIError as e:
-                print(f"Failed to create app config {config_external_id}:\n{e}")
+                print(f"Failed to create {len(node_list)} node(s) in {node_space}:\n{e}")
                 ToolGlobals.failed = True
                 return

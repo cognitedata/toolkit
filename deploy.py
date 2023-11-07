@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 
 # from scripts.delete import clean_out_datamodels
 from scripts.load import (
-    load_app_config,
     load_datamodel,
     load_groups,
+    load_nodes,
     load_raw,
     load_timeseries_metadata,
     load_transformations,
@@ -63,9 +63,9 @@ def run(
             dry_run=dry_run,
             directory=f"{build_dir}/raw",
         )
-    if ToolGlobals.failed:
-        print("Failure to load as expected.")
-        exit(1)
+        if ToolGlobals.failed:
+            print("Failure to load as expected.")
+            exit(1)
     if (include is None or "timeseries" in include) and Path(f"{build_dir}/timeseries").is_dir():
         load_timeseries_metadata(
             ToolGlobals,
@@ -74,9 +74,9 @@ def run(
             dry_run=dry_run,
             directory=f"{build_dir}/timeseries",
         )
-    if ToolGlobals.failed:
-        print("Failure to load as expected.")
-        exit(1)
+        if ToolGlobals.failed:
+            print("Failure to load as expected.")
+            exit(1)
     if (include is None or "transformations" in include) and Path(f"{build_dir}/transformations").is_dir():
         load_transformations(
             ToolGlobals,
@@ -85,9 +85,9 @@ def run(
             dry_run=dry_run,
             directory=f"{build_dir}/transformations",
         )
-    if ToolGlobals.failed:
-        print("Failure to load as expected.")
-        exit(1)
+        if ToolGlobals.failed:
+            print("Failure to load as expected.")
+            exit(1)
     if (include is None or "data_models" in include) and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         # WARNING!!!! The below command will delete EVERYTHING in ALL data models
         # in the project, including instances.
@@ -100,9 +100,18 @@ def run(
             delete_spaces=drop_data,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
             dry_run=dry_run,
         )
-    if ToolGlobals.failed:
-        print("Failure to load as expected.")
-        exit(1)
+        if ToolGlobals.failed:
+            print("Failure to load data models as expected.")
+            exit(1)
+    if (include is None or "instances" in include) and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+        load_nodes(
+            ToolGlobals,
+            directory=models_dir,
+            dry_run=dry_run,
+        )
+        if ToolGlobals.failed:
+            print("Failure to load instances as expected.")
+            exit(1)
     if (include is None or "groups" in include) and Path(f"{build_dir}/auth").is_dir():
         load_groups(
             ToolGlobals,
@@ -113,22 +122,12 @@ def run(
         print("Failure to load as expected.")
         exit(1)
 
-    if (include is None or "app_config" in include) and (app_config_dir := Path(f"{build_dir}/app_config")).is_dir():
-        load_app_config(
-            ToolGlobals,
-            directory=app_config_dir,
-            dry_run=dry_run,
-        )
-        if ToolGlobals.failed:
-            print("Failure to load as expected.")
-            exit(1)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(epilog="Further functionality to be added")
     parser.add_argument(
         "--include",
-        help="restrict deploy to: groups,raw,timeseries,transformations,data_models",
+        help="restrict deploy to: groups,raw,timeseries,transformations,data_models,instances",
         type=str,
         default=None,
     )
