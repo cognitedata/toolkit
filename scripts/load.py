@@ -26,7 +26,6 @@ from cognite.client.data_classes import (
     OidcCredentials,
     Transformation,
     TransformationList,
-    TransformationSchedule,
 )
 from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.data_modeling import (
@@ -290,60 +289,25 @@ def load_transformations(
             "sessionsAcl": ["CREATE"],
         }
     )
-    files = []
     if file:
         # Only load the supplied filename.
-        files.append(file)
+        files = [Path(file)]
     else:
-        # Pick up all the .yaml files in the data folder.
-        for _, _, filenames in os.walk(directory):
-            for f in filenames:
-                if ".yaml" in f:
-                    files.append(f)
-    transformations: TransformationList = []
+        files = list(Path(directory).glob("*.yaml"))
+    transformations = TransformationList([])
     for f in files:
-        with open(f"{directory}/{f}") as file:
-            config = yaml.safe_load(file.read())
-            source_oidc_credentials = config.get("authentication", {}).get("read") or config.get("authentication") or {}
-            destination_oidc_credentials = (
-                config.get("authentication", {}).get("write") or config.get("authentication") or {}
-            )
-            tmp = Transformation._load(config, ToolGlobals.client)
-            transformations.append(
-                Transformation(
-                    id=tmp.id,
-                    external_id=tmp.external_id,
-                    name=tmp.name,
-                    query=tmp.query,
-                    destination=tmp.destination,
-                    conflict_mode=tmp.conflict_mode,
-                    is_public=tmp.is_public,
-                    ignore_null_fields=tmp.ignore_null_fields,
-                    source_oidc_credentials=OidcCredentials(
-                        client_id=source_oidc_credentials.get("clientId", ""),
-                        client_secret=source_oidc_credentials.get("clientSecret", ""),
-                        audience=source_oidc_credentials.get("audience", ""),
-                        scopes=ToolGlobals.oauth_credentials.scopes,
-                        token_uri=ToolGlobals.oauth_credentials.token_url,
-                        cdf_project_name=ToolGlobals.client.config.project,
-                    ),
-                    destination_oidc_credentials=OidcCredentials(
-                        client_id=destination_oidc_credentials.get("clientId", ""),
-                        client_secret=destination_oidc_credentials.get("clientSecret", ""),
-                        audience=source_oidc_credentials.get("audience", ""),
-                        scopes=ToolGlobals.oauth_credentials.scopes,
-                        token_uri=ToolGlobals.oauth_credentials.token_url,
-                        cdf_project_name=ToolGlobals.client.config.project,
-                    ),
-                    schedule=TransformationSchedule(
-                        external_id=tmp.external_id,
-                        interval=config.get("schedule", {}).get("interval", ""),
-                    ),
-                    has_source_oidc_credentials=(len(source_oidc_credentials) > 0),
-                    has_destination_oidc_credentials=(len(destination_oidc_credentials) > 0),
-                    data_set_id=tmp.data_set_id,
-                )
-            )
+        raw = yaml.safe_load(f.read_text())
+        # The `authentication` key is custom for this template:
+        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
+        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
+        transformation = Transformation.load(raw)
+        transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+            source_oidc_credentials
+        )
+        transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+            destination_oidc_credentials
+        )
+        transformations.append(transformation)
     print(f"[bold]Loading {len(transformations)} transformations from {directory}...[/]")
     ext_ids = [t.external_id for t in transformations]
     try:
@@ -364,6 +328,7 @@ def load_transformations(
             client.transformations.create(transformations)
             for t in transformations:
                 if t.schedule.interval != "":
+                    t.schedule.external_id = t.external_id
                     client.transformations.schedules.create(t.schedule)
             print(f"  Created {len(transformations)} transformation.")
         else:

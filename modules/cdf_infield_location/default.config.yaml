@@ -21,7 +21,7 @@ infield_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 # Transformation credentials
 clientId: ${IDP_CLIENT_ID}
 clientSecret: ${IDP_CLIENT_SECRET}
-tokenUrl: ${IDP_TOKEN_URL}
+tokenUri: ${IDP_TOKEN_URL}
 # Optional: If idP requires providing the scopes
 cdfProjectName: ${CDP_PROJECT}
 scopes:
