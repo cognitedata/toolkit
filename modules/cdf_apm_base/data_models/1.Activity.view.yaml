@@ -25,6 +25,13 @@ properties:
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: description
+  assignedTo:
+    description: "Who the maintenance activity or work order has been assigned to."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: assignedTo
   source:
     description: "Origin of the activity or work order, such as SAP, Comos, etc."
     container:
