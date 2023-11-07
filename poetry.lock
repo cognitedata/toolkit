@@ -198,13 +198,13 @@ files = [
 
 [[package]]
 name = "cognite-sdk"
-version = "6.37.0"
+version = "6.39.1"
 description = "Cognite Python SDK"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "cognite_sdk-6.37.0-py3-none-any.whl", hash = "sha256:e0a7675de98caca5e273677498de097d9902e9b444f8e3b301a78b998459ea6e"},
-    {file = "cognite_sdk-6.37.0.tar.gz", hash = "sha256:56e9ceb593f1d4cb26c58d7574080f11837332c20add49c228e52f6a32865c03"},
+    {file = "cognite_sdk-6.39.1-py3-none-any.whl", hash = "sha256:1d9e5bd7651ddf0aefef603781871a520fee86ff818e079e4c7aca823d4e88c7"},
+    {file = "cognite_sdk-6.39.1.tar.gz", hash = "sha256:f9189aa6d2a467f0560d7b1cade0cd4d7bfaaae1af3c741eb65ca2578b92c8ce"},
 ]
 
 [package.dependencies]
@@ -1129,4 +1129,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "cfb56223d5fd3fca842faad29bd12d84e1cb7cfac0d556709197b8818671905f"
+content-hash = "9ce964fac50c42e9e8caf5bbf610f107be99b7d773fe5b72c48ae99e460be8f3"
