@@ -47,6 +47,19 @@
             ],
             "console": "integratedTerminal",
             "justMyCode": false
+        },
+        {
+            "name": "Python: cdf.py",
+            "type": "python",
+            "request": "launch",
+            "program": "./cdf.py",
+            "args": [
+                "deploy",
+                "--interactive",
+                "-r"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }
