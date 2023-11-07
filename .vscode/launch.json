@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: build.py",
+            "name": "Python: build",
             "type": "python",
             "request": "launch",
             "program": "./cdf.py build",
@@ -19,7 +19,7 @@
             "justMyCode": false
         },
         {
-            "name": "Python: deploy.py",
+            "name": "Python: deploy",
             "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
@@ -35,7 +35,7 @@
             "justMyCode": false
         },
         {
-            "name": "Python: clean.py",
+            "name": "Python: clean",
             "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
