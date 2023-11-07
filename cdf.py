@@ -168,6 +168,9 @@ def deploy(
             except ValueError:
                 print(f"Invalid selection: {answer}")
                 exit(1)
+    else:
+        if len(include) == 0:
+            include = [datatype for datatype in CDFDataTypes]
     print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     # Configure a client and load credentials from environment
     build_path = Path(__file__).parent / build_dir

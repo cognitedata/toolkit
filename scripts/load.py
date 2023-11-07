@@ -42,6 +42,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.iam import Group
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
+from rich import print
 
 from .delete import delete_instances
 from .utils import CDFToolConfig, GroupLoad, TimeSeriesLoad
@@ -92,7 +93,7 @@ def load_raw(
     files.sort()
     if len(files) == 0:
         return
-    print(f"Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename...")
+    print(f"[bold]Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename...[/]")
     for f in files:
         try:
             (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
@@ -110,7 +111,7 @@ def load_raw(
                             ...
                     try:
                         client.raw.databases.create(db)
-                        print("Created database: " + db)
+                        print("  Created database: " + db)
                     except Exception:
                         ...
                     client.raw.rows.insert_dataframe(
@@ -119,13 +120,13 @@ def load_raw(
                         dataframe=dataframe,
                         ensure_parent=True,
                     )
-                    print("Deleted table: " + table_name)
-                    print(f"Uploaded {f} to {db} RAW database.")
+                    print("  Deleted table: " + table_name)
+                    print(f"  Uploaded {f} to {db} RAW database.")
                 else:
-                    print("Would have deleted table: " + table_name)
-                    print(f"Would have uploaded {f} to {db} RAW database.")
+                    print("  Would have deleted table: " + table_name)
+                    print(f"  Would have uploaded {f} to {db} RAW database.")
             except Exception as e:
-                print(f"Failed to upload {f}")
+                print(f"[bold red]ERROR:[/] Failed to upload {f}")
                 print(e)
                 ToolGlobals.failed = True
                 return
@@ -153,7 +154,7 @@ def load_files(
                     files.append(f)
         if len(files) == 0:
             return
-        print(f"Uploading {len(files)} files/documents to CDF...")
+        print(f"[bold]Uploading {len(files)} files/documents to CDF...[/]")
         for f in files:
             if not dry_run:
                 client.files.upload(
@@ -164,27 +165,14 @@ def load_files(
                     overwrite=drop,
                 )
         if not dry_run:
-            print(f"Uploaded successfully {len(files)} files/documents.")
+            print(f"  Uploaded successfully {len(files)} files/documents.")
         else:
-            print(f"Would have uploaded {len(files)} files/documents.")
+            print(f"  Would have uploaded {len(files)} files/documents.")
     except Exception as e:
-        print("Failed to upload files")
+        print("[bold red]ERROR:[/] Failed to upload files")
         print(e)
         ToolGlobals.failed = True
         return
-
-
-def load_timeseries(
-    ToolGlobals: CDFToolConfig,
-    file: str,
-    drop: bool = False,
-    dry_run: bool = False,
-    directory: Optional[str] = None,
-) -> None:
-    load_timeseries_metadata(ToolGlobals, file, drop, dry_run=dry_run, directory=directory)
-    if directory is not None:
-        directory = f"{directory}/datapoints"
-    load_timeseries_datapoints(ToolGlobals, file, dry_run=dry_run, directory=directory)
 
 
 def load_timeseries_metadata(
@@ -216,6 +204,7 @@ def load_timeseries_metadata(
             )
     if len(timeseries) == 0:
         return
+    print(f"[bold]Uploading {len(timeseries)} timeseries to CDF...[/]")
     drop_ts: list[str] = []
     for t in timeseries:
         # Set the context info for this CDF project
@@ -226,22 +215,22 @@ def load_timeseries_metadata(
         if drop:
             if not dry_run:
                 client.time_series.delete(external_id=drop_ts, ignore_unknown_ids=True)
-                print(f"Deleted {len(drop_ts)} timeseries.")
+                print(f"  Deleted {len(drop_ts)} timeseries.")
             else:
-                print(f"Would have deleted {len(drop_ts)} timeseries.")
+                print(f"  Would have deleted {len(drop_ts)} timeseries.")
     except Exception:
-        print(f"Failed to delete {t.external_id}. It may not exist.")
+        print(f"[bold red]ERROR:[/] Failed to delete {t.external_id}. It may not exist.")
     try:
         if not dry_run:
             client.time_series.create(timeseries)
         else:
-            print(f"Would have created {len(timeseries)} timeseries.")
+            print(f"  Would have created {len(timeseries)} timeseries.")
     except Exception as e:
-        print("Failed to upload timeseries.")
+        print("[bold red]ERROR:[/] Failed to upload timeseries.")
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"Created {len(timeseries)} timeseries from {len(files)} files.")
+    print(f"  Created {len(timeseries)} timeseries from {len(files)} files.")
 
 
 def load_timeseries_datapoints(ToolGlobals: CDFToolConfig, file: str, dry_run: bool = False, directory=None) -> None:
@@ -260,22 +249,22 @@ def load_timeseries_datapoints(ToolGlobals: CDFToolConfig, file: str, dry_run: b
                     files.append(f)
     if len(files) == 0:
         return
-    print(f"Uploading {len(files)} .csv file(s) as datapoints to CDF timeseries...")
+    print(f"[bold]Uploading {len(files)} .csv file(s) as datapoints to CDF timeseries...[/]")
     try:
         for f in files:
             with open(f"{directory}/{f}") as file:
                 dataframe = pd.read_csv(file, parse_dates=True, index_col=0)
             if not dry_run:
-                print(f"Uploading {f} as datapoints to CDF timeseries...")
+                print(f"  Uploading {f} as datapoints to CDF timeseries...")
                 client.time_series.data.insert_dataframe(dataframe)
             else:
-                print(f"Would have uploaded {f} as datapoints to CDF timeseries...")
+                print(f"  Would have uploaded {f} as datapoints to CDF timeseries...")
         if not dry_run:
-            print(f"Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
+            print(f"  Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
         else:
-            print(f"Would have uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
+            print(f"  Would have uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
     except Exception as e:
-        print("Failed to upload datapoints.")
+        print("[bold red]ERROR:[/] Failed to upload datapoints.")
         print(e)
         ToolGlobals.failed = True
         return
@@ -355,15 +344,15 @@ def load_transformations(
                     data_set_id=tmp.data_set_id,
                 )
             )
-    print(f"Found {len(transformations)} transformations in {directory}.")
+    print(f"[bold]Loading {len(transformations)} transformations from {directory}...[/]")
     ext_ids = [t.external_id for t in transformations]
     try:
         if drop:
             if not dry_run:
                 client.transformations.delete(external_id=ext_ids, ignore_unknown_ids=True)
-                print(f"Deleted {len(ext_ids)} transformations.")
+                print(f"  Deleted {len(ext_ids)} transformations.")
             else:
-                print(f"Would have deleted {len(ext_ids)} transformations.")
+                print(f"  Would have deleted {len(ext_ids)} transformations.")
     except CogniteNotFoundError:
         pass
     for t in transformations:
@@ -376,11 +365,11 @@ def load_transformations(
             for t in transformations:
                 if t.schedule.interval != "":
                     client.transformations.schedules.create(t.schedule)
-            print(f"Created {len(transformations)} transformation.")
+            print(f"  Created {len(transformations)} transformation.")
         else:
-            print(f"Would have created {len(transformations)} transformation.")
+            print(f"  Would have created {len(transformations)} transformation.")
     except Exception as e:
-        print("Failed to create transformations.")
+        print("[bold red]ERROR:[/] Failed to create transformations.")
         print(e)
         ToolGlobals.failed = True
 
@@ -390,6 +379,7 @@ def load_groups(
     file: Optional[str] = None,
     directory: Optional[str] = None,
     dry_run: bool = False,
+    verbose: bool = False,
 ) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
@@ -397,7 +387,7 @@ def load_groups(
     try:
         old_groups = client.iam.groups.list(all=True).data
     except Exception:
-        print("Failed to retrieve groups.")
+        print("[bold red]ERROR:[/] Failed to retrieve groups.")
         ToolGlobals.failed = True
         return
     files = []
@@ -416,6 +406,7 @@ def load_groups(
             groups.extend(
                 GroupLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
             )
+    print(f"[bold]Loading {len(groups)} groups from {directory}...[/]")
     # Find and create data_sets
     for group in groups:
         for capability in group.capabilities:
@@ -427,6 +418,7 @@ def load_groups(
                 for ext_id in data_set_ext_ids:
                     ids.append(ToolGlobals.verify_dataset(ext_id))
                 actions["scope"]["datasetScope"]["ids"] = ids
+    existing_groups = 0
     for group in groups:
         old_group_id = None
         for g in old_groups:
@@ -436,23 +428,34 @@ def load_groups(
         try:
             if not dry_run:
                 group = client.iam.groups.create(group)
-                print(f"Created group {group.name}.")
+                if verbose:
+                    print(f"  Created group {group.name}.")
             else:
-                print(f"Would have created group {group.name}.")
+                if verbose:
+                    print(f"  Would have created group {group.name}.")
         except Exception as e:
-            print(f"Failed to create group {group.name}: \n{e}")
+            print(f"[bold red]ERROR:[/] Failed to create group {group.name}: \n{e}")
             ToolGlobals.failed = True
             return
         if old_group_id:
+            existing_groups += 1
             try:
                 if not dry_run:
                     client.iam.groups.delete(id=old_group_id)
-                    print(f"Deleted old group {old_group_id}.")
+                    if verbose:
+                        print(f"  Deleted old group {old_group_id}.")
                 else:
-                    print(f"Would have deleted group {old_group_id}.")
+                    if verbose:
+                        print(f"  Would have deleted group {old_group_id}.")
             except Exception:
-                print(f"Failed to delete group {old_group_id}.")
+                print(f"[bold red]ERROR:[/] Failed to delete group {old_group_id}.")
                 ToolGlobals.failed = True
+    if not dry_run:
+        print(f"  Created {len(groups)} groups.")
+        print(f"  Deleted {existing_groups} old groups.")
+    else:
+        print(f"  Would have created {len(groups)} groups.")
+        print(f"  Wuld have deleted {existing_groups} old groups.")
 
 
 def load_datamodel_graphql(
@@ -461,7 +464,7 @@ def load_datamodel_graphql(
     model_name: Optional[str] = None,
     directory=None,
 ) -> None:
-    """Load a graphql datamode from file."""
+    """Load a graphql datamodel from file."""
     if space_name is None or model_name is None or directory is None:
         raise ValueError("space_name, model_name, and directory must be supplied.")
     with open(f"{directory}/datamodel.graphql") as file:
@@ -475,20 +478,7 @@ def load_datamodel_graphql(
             "dataModelInstancesAcl": ["READ", "WRITE"],
         }
     )
-    try:
-        client.data_modeling.spaces.apply(
-            SpaceApply(
-                space=space_name,
-                name=space_name,
-                description=f"Space for {model_name}",
-            )
-        )
-    except Exception as e:
-        print(f"Failed to write space {space_name}.")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    print(f"Created space {space_name}.")
+    print(f"[bold]Loading data model {model_name} into space {space_name} from {directory}...[/]")
     try:
         client.data_modeling.graphql.apply_dml(
             (space_name, model_name, "1"),
@@ -497,11 +487,11 @@ def load_datamodel_graphql(
             description=f"Data model for {model_name}",
         )
     except Exception as e:
-        print(f"Failed to write data model {model_name} to space {space_name}.")
+        print(f"[bold red]ERROR:[/] Failed to write data model {model_name} to space {space_name}.")
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"Created data model {model_name}.")
+    print(f"  Created data model {model_name}.")
 
 
 def load_datamodel(
@@ -541,9 +531,10 @@ def load_datamodel(
         if not (match := models_pattern.match(file.name)):
             continue
         model_files_by_type[match.group(1)].append(file)
+    print("[bold]Loading...[/]")
     for type_, files in model_files_by_type.items():
         model_files_by_type[type_].sort()
-        print(f"Found {len(files)} {type_}s in {directory}.")
+        print(f"  {len(files)} of type {type_}s in {directory}")
 
     cognite_resources_by_type: dict[str, list[ContainerApply | ViewApply | DataModelApply | SpaceApply]] = defaultdict(
         list
@@ -556,21 +547,17 @@ def load_datamodel(
             "datamodel": DataModelApply,
         }[type_]
         for file in files:
-            print(f"  loading {file}...")
             cognite_resources_by_type[type_].append(resource_cls.load(yaml.safe_load(file.read_text())))
-    print("Loaded from files: ")
-    for type_, resources in cognite_resources_by_type.items():
-        print(f"  {type_}: {len(resources)}")
 
     explicit_space_list = [s.space for s in cognite_resources_by_type["space"]]
     space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
 
-    print(f"Found {len(space_list)} implicit space(s) in container, view, and data model files.")
     implicit_spaces = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
     for s in implicit_spaces:
         if s.name not in [s2.name for s2 in cognite_resources_by_type["space"]]:
             cognite_resources_by_type["space"].append(s)
-    print(f"Total number of space(s):  {len(space_list)}")
+    nr_of_spaces = len(cognite_resources_by_type["space"])
+    print(f"  found {len(implicit_spaces)} space(s) referenced in config files giving a total of {nr_of_spaces}")
     # Clear any delete errors
     ToolGlobals.failed = False
     client = ToolGlobals.verify_client(
@@ -619,12 +606,13 @@ def load_datamodel(
             if items is None:
                 continue
             if type_ == "container" and not delete_containers:
-                print("Skipping deletion of containers as delete_containers flag is not set.")
+                print("  [bold]INFO:[/] Skipping deletion of containers as delete_containers flag is not set...")
                 continue
             if type_ == "space" and not delete_spaces:
-                print("Skipping deletion of spaces as delete_spaces flag is not set.")
+                print("  [bold]INFO:[/] Skipping deletion of spaces as delete_spaces flag is not set...")
                 continue
             deleted = 0
+            print("[bold]Deleting existing configurations...[/]")
             for i in items:
                 if len(i) == 0:
                     continue
@@ -643,20 +631,16 @@ def load_datamodel(
                                     ret = resource_api_by_type["space"].delete(i2.space)
                                     if len(ret) > 0:
                                         deleted += 1
-                                        print(f"  -- deleted {len(ret)} of {type_}.")
                         else:
                             ret = resource_api_by_type[type_].delete(i)
-                            if len(ret) > 0:
-                                print(f"  -- deleted {len(ret)} of {type_}.")
                             deleted += len(ret)
                 except CogniteAPIError as e:
                     # Typically spaces can not be deleted if there are other
                     # resources in the space.
-                    print(f"  Failed to delete {type_}(s):\n{e}")
-                    print(e)
+                    print(f"  [bold]ERROR:[/] Failed to delete {type_}(s):\n{e}")
                     if type_ == "space":
                         ToolGlobals.failed = False
-                        print("  Deletion of space was not successful, continuing.")
+                        print("  [bold]INFO:[/] Deletion of space was not successful, continuing.")
                         continue
                     return
             if not dry_run:
@@ -665,16 +649,14 @@ def load_datamodel(
                 print(f"  Would have deleted {deleted} {type_}(s).")
 
     if not only_drop:
-        # For apply, we want to restrict number of workers to avoid concurrency issues.
-        ToolGlobals.client.config.max_workers = 1
+        print("[bold]Creating new configurations...[/]")
         for type_ in creation_order:
             if type_ not in differences:
                 continue
             items = differences[type_]
             if items.added:
-                print(f"Found {len(items.added)} new {type_}s.")
+                print(f"  {len(items.added)} added {type_}(s) to be created...")
                 if dry_run:
-                    print(f"  Would have created {len(items.added)} {type_}(s).")
                     continue
                 attempts = 5
                 while attempts > 0:
@@ -685,13 +667,13 @@ def load_datamodel(
                         attempts -= 1
                         if attempts > 0:
                             continue
-                        print(f"Failed to create {type_}(s):\n{e}")
+                        print(f"[bold]ERROR:[/] Failed to create {type_}(s):\n{e}")
                         ToolGlobals.failed = True
                         return
-                print(f"  Created {len(items.added)} {type_}s.")
-            if items.changed:
+                print(f"  Created {len(items.added)} {type_}(s).")
+            elif items.changed:
+                print(f"  {len(items.added)} changed {type_}(s) to be created...")
                 if dry_run:
-                    print(f"  Would have created/updated {len(items.changed)} {type_}(s).")
                     continue
                 attempts = 5
                 while attempts > 0:
@@ -702,15 +684,17 @@ def load_datamodel(
                         attempts -= 1
                         if attempts > 0:
                             continue
-                        print(f"Failed to create {type_}(s):\n{e}")
+                        print(f"[bold]ERROR:[/] Failed to create {type_}(s):\n{e}")
                         ToolGlobals.failed = True
                         return
                 if drop:
-                    print(f"  Created {len(items.changed)} {type_}s (--drop specified).")
+                    print(
+                        f"  Created {len(items.changed)} {type_}s that could have been updated instead (--drop specified)."
+                    )
                 else:
-                    print(f"  Updated {len(items.changed)} {type_}s.")
-            if items.unchanged:
-                print(f"Found {len(items.unchanged)} unchanged {type_}(s).")
+                    print(f"  Updated {len(items.changed)} {type_}(s).")
+            elif items.unchanged:
+                print(f"  {len(items.unchanged)} unchanged {type_}(s).")
                 if drop:
                     attempts = 5
                     while attempts > 0:
@@ -721,10 +705,12 @@ def load_datamodel(
                             attempts -= 1
                             if attempts > 0:
                                 continue
-                            print(f"Failed to create {type_}(s):\n{e}")
+                            print(f"[bold]ERROR:[/] Failed to create {type_}(s):\n{e}")
                             ToolGlobals.failed = True
                             return
-                    print(f"  Created {len(items.changed)} unchanged {type_}s (--drop specified).")
+                    print(
+                        f"  Created {len(items.changed)} unchanged {type_}(s) that could have been skipped (--drop specified)."
+                    )
 
     if delete_removed and not drop:
         for type_ in reversed(creation_order):
@@ -732,7 +718,6 @@ def load_datamodel(
                 continue
             items = differences[type_]
             if items.removed:
-                print(f"Found {len(items.removed)} removed {type_}s.")
                 if dry_run:
                     print(f"  Would have deleted {len(items.removed)} {type_}(s).")
                     continue
@@ -741,11 +726,11 @@ def load_datamodel(
                 except CogniteAPIError as e:
                     # Typically spaces can not be deleted if there are other
                     # resources in the space.
-                    print(f"  Failed to delete {len(items.removed)} {type_}(s).")
+                    print(f"[bold]ERROR:[/] Failed to delete {len(items.removed)} {type_}(s).")
                     print(e)
                     ToolGlobals.failed = True
                     continue
-                print(f"  Deleted {len(items.removed)} {type_}(s).")
+                print(f"  Deleted {len(items.removed)} {type_}(s) that were removed.")
 
 
 def load_nodes(
@@ -758,7 +743,6 @@ def load_nodes(
     for file in directory.rglob("*.node.yaml"):
         if file.name == "config.yaml":
             continue
-        print(f"Found {file}.")
 
         client: CogniteClient = ToolGlobals.verify_client(
             capabilities={
@@ -799,7 +783,7 @@ def load_nodes(
                 )
         except Exception as e:
             raise KeyError(f"Failed to parse node {n} in {file}:\n{e}")
-
+        print(f"[bold]Loading {len(node_list)} nodes from {directory}...[/]")
         if not dry_run:
             try:
                 client.data_modeling.instances.apply(
@@ -808,8 +792,8 @@ def load_nodes(
                     skip_on_version_conflict=nodes.get("skipOnVersionConflict", False),
                     replace=nodes.get("replace", False),
                 )
-                print(f"Created {len(node_list)} nodes in {node_space}.")
+                print(f"  Created {len(node_list)} nodes in {node_space}.")
             except CogniteAPIError as e:
-                print(f"Failed to create {len(node_list)} node(s) in {node_space}:\n{e}")
+                print(f"[bold]ERROR:[/] Failed to create {len(node_list)} node(s) in {node_space}:\n{e}")
                 ToolGlobals.failed = True
                 return
