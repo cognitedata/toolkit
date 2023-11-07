@@ -30,6 +30,15 @@ to load into a project, and the root [config.yaml](./config.yaml) file where you
 variables. You will find globally set configuration defaults in `default.config.yaml` files. These variables
 can always be overridden by setting the same variable in a `config.yaml` file in the same directory.
 
+### Identity Provider (Authentication and Authorization)
+
+You can use any Identity Provider like Azure Entra (aka Active Directory), Auth0, or others suppored by CDF.
+The tools here will load information about the project and the identity provider from environment variables.
+
+The quickstart is that you should copy the .env.tmpl file to .env and set the environment variables for local use
+of the scripts. See [Identity Provider documetation](./docs/idp.md) for more details on what the various
+configurations are.
+
 ### Modules
 
 The basic concepts are **modules** and **packages**. Modules live in the `modules/`, `local_modules`, `common/`, and `examples/`
