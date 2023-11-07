@@ -56,7 +56,7 @@ def delete_raw(
     dbs = []
     for f in files:
         try:
-            (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f.split("/")[-1]).groups()
+            (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", Path(f).name).groups()
             if db not in dbs:
                 dbs.append(db)
             if table_name is None:
@@ -183,7 +183,9 @@ def delete_transformations(
     files = glob.glob(f"{directory}/**/*.yaml", recursive=True)
     transformations = []
     for f in files:
-        tmp = Transformation.load(Path(f).read_text(), ToolGlobals.client)
+        # The yaml.safe_load is necessary du to a bug in v7 pre release, can be removed
+        # when v7 is released.
+        tmp = Transformation.load(yaml.safe_load(Path(f).read_text()), ToolGlobals.client)
         transformations.append(tmp.external_id)
     print(f"Found {len(transformations)} transformations in {directory}.")
     try:

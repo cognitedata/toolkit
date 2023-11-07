@@ -298,17 +298,14 @@ def load_transformations(
             "sessionsAcl": ["CREATE"],
         }
     )
-    files: list[Path] = []
     if file:
         # Only load the supplied filename.
-        files.append(Path(file))
+        files = [Path(file)]
     else:
-        # Pick up all the .yaml files in the data folder.
-        for _, _, filenames in os.walk(directory):
-            for f in filenames:
-                if ".yaml" in f:
-                    files.append(Path(f))
-    transformations = TransformationList([Transformation.load(f.read_text()) for f in files])
+        files = list(Path(directory).glob("*.yaml"))
+    # The yaml.safe_load is necessary du to a bug in v7 pre-release, can be removed
+    # when v7 is released.
+    transformations = TransformationList([Transformation.load(yaml.safe_load(f.read_text())) for f in files])
     print(f"Found {len(transformations)} transformations in {directory}.")
     ext_ids = [t.external_id for t in transformations]
     try:
@@ -329,6 +326,7 @@ def load_transformations(
             client.transformations.create(transformations)
             for t in transformations:
                 if t.schedule.interval != "":
+                    t.schedule.external_id = t.external_id
                     client.transformations.schedules.create(t.schedule)
             print(f"Created {len(transformations)} transformation.")
         else:
