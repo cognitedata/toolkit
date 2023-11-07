@@ -23,8 +23,7 @@ clientId: ${IDP_CLIENT_ID}
 clientSecret: ${IDP_CLIENT_SECRET}
 tokenUri: ${IDP_TOKEN_URL}
 # Optional: If idP requires providing the scopes
-cdfProjectName: ${CDP_PROJECT}
-scopes:
-  - ${IDP_SCOPES}
+cdfProjectName: ${CDF_PROJECT}
+scopes: ${IDP_SCOPES}
 # Optional: If idP requires providing the audience
 audience: ${IDP_AUDIENCE}
