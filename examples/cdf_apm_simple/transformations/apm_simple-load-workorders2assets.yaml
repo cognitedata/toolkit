@@ -17,7 +17,7 @@ action: upsert
 authentication:
   clientId: {{clientId}}
   clientSecret: {{clientSecret}}
-  tokenUrl: {{tokenUrl}}
+  tokenUri: {{tokenUri}}
   # Optional: If idP requires providing the scopes
   cdfProjectName: {{cdfProjectName}}
   scopes:

@@ -23,6 +23,7 @@ import pandas as pd
 import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
+    OidcCredentials,
     Transformation,
     TransformationList,
 )
@@ -303,9 +304,20 @@ def load_transformations(
         files = [Path(file)]
     else:
         files = list(Path(directory).glob("*.yaml"))
-    # The yaml.safe_load is necessary du to a bug in v7 pre-release, can be removed
-    # when v7 is released.
-    transformations = TransformationList([Transformation.load(yaml.safe_load(f.read_text())) for f in files])
+    transformations = TransformationList([])
+    for f in files:
+        raw = yaml.safe_load(f.read_text())
+        # The `authentication` key is custom for this template:
+        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
+        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
+        transformation = Transformation.load(raw)
+        transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+            source_oidc_credentials
+        )
+        transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+            destination_oidc_credentials
+        )
+        transformations.append(transformation)
     print(f"Found {len(transformations)} transformations in {directory}.")
     ext_ids = [t.external_id for t in transformations]
     try:
