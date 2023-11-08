@@ -16,6 +16,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
+from typing import Any
 
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials, Token
@@ -290,3 +292,7 @@ class CDFToolConfig:
                 "Don't have correct access rights. Need also WRITE on "
                 + "datasetsAcl or that the data set {get_dataset_name()} has been created."
             )
+
+
+def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any]:
+    ...
