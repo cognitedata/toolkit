@@ -78,6 +78,6 @@ test framework for scenario based testing can be found in the Cognite private bi
 
 > TODO Define how to make sure that modules get tested in big-smoke.
 
-The `deploy.py` script will clean configurations before trying to load if you specify `--drop`, so you can
+The `cdf.py deploy` script command will clean configurations before trying to load if you specify `--drop`, so you can
 try to apply the configuration multiple times without having to clean up manually. There is also
-a skeleton for a `clean.py` script that will be used to clean up configurations using the scripts/delete.py functions.
+a skeleton for a `cdf.py clean` script command that will be used to clean up configurations using the scripts/delete.py functions.

@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 
 import yaml
+from rich import print
 
 # Directory paths for YAML files (relative to the root of the module)
 YAML_DIRS = ["./"]
@@ -32,7 +33,7 @@ def read_environ_config(
     packages = global_config.get("packages", {})
     packages.update(read_yaml_files(root_dir, "packages.yaml").get("packages", {}))
     local_config = read_yaml_files(root_dir, "local.yaml")
-    print(f"Environment is {build_env}, using that section in local.yaml.\n")
+    print(f"  Environment is {build_env}, using that section in local.yaml.\n")
     modules = []
 
     try:
@@ -46,9 +47,9 @@ def read_environ_config(
             if os.environ["CDF_PROJECT"] != v:
                 if build_env == "dev" or build_env == "local":
                     print(
-                        f"WARNING!!! Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
+                        f"  [bold red]WARNING:[/] Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
                     )
-                    print(f"Environment is {build_env}, continuing...")
+                    print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
                 else:
                     raise ValueError(
                         f"Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
@@ -66,7 +67,9 @@ def read_environ_config(
                         modules.append(m)
 
     if len(modules) == 0:
-        print(f"WARNING! Found no defined modules in local.yaml, have you configured the environment ({build_env})?")
+        print(
+            f"  [bold red]WARNING:[/] Found no defined modules in local.yaml, have you configured the environment ({build_env})?"
+        )
     load_list = []
     module_dirs = {}
     for d in tmpl_dirs:
@@ -116,7 +119,7 @@ def read_yaml_files(
         try:
             config_data = yaml.safe_load(yaml_file.read_text())
         except yaml.YAMLError as e:
-            print(f"Error reading {yaml_file}: {e}")
+            print(f"  [bold red]ERROR:[/] reading {yaml_file}: {e}")
             continue
         data.update(config_data)
     # Replace env variables of ${ENV_VAR} with actual value from environment
@@ -145,7 +148,7 @@ def process_config_files(
                 shutil.rmtree(path)
                 path.mkdir()
             else:
-                print("Warning: Build directory is not empty. Use --clean to remove existing files.")
+                print("  [bold red]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
         path.mkdir()
 
@@ -215,7 +218,7 @@ def process_config_files(
                         file = f"{indices[cdf_path]}.{file}"
 
                 for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-                    print(f"WARNING: Unresolved template variable {unmatched} in {new_path}/{file}")
+                    print(f"  [bold red]WARNING:[/] Unresolved template variable {unmatched} in {new_path}/{file}")
 
                 with open(new_path / file, "w") as f:
                     f.write(content)
@@ -224,7 +227,9 @@ def process_config_files(
                         try:
                             yaml.safe_load(f.read())
                         except Exception as e:
-                            print(f"ERROR! YAML validation error for {file} after substituting config variables: \n{e}")
+                            print(
+                                f"  [bold red]ERROR:[/] YAML validation error for {file} after substituting config variables: \n{e}"
+                            )
                             exit(1)
 
 
