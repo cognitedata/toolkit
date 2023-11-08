@@ -28,6 +28,7 @@ from cognite.client.data_classes import (
     TransformationList,
 )
 from cognite.client.data_classes._base import CogniteResource
+from cognite.client.data_classes.capabilities import DataSetScope
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
@@ -38,12 +39,12 @@ from cognite.client.data_classes.data_modeling import (
     ViewApply,
     ViewId,
 )
-from cognite.client.data_classes.iam import Group
+from cognite.client.data_classes.iam import Group, GroupList
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 
 from .delete import delete_instances
-from .utils import CDFToolConfig, GroupLoad, TimeSeriesLoad
+from .utils import CDFToolConfig, TimeSeriesLoad
 
 
 @dataclass
@@ -375,23 +376,16 @@ def load_groups(
             for f in filenames:
                 if ".yaml" in f:
                     files.append(f)
-    groups: list[Group] = []
+    groups: GroupList = GroupList([])
     for f in files:
         with open(f"{directory}/{f}") as file:
-            groups.extend(
-                GroupLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
-            )
+            groups.append(Group.load(yaml.safe_load(file.read())))
     # Find and create data_sets
     for group in groups:
         for capability in group.capabilities:
-            for _, actions in capability.items():
-                data_set_ext_ids = actions.get("scope", {}).get("datasetScope", {}).get("ids", [])
-                if len(data_set_ext_ids) == 0:
-                    continue
-                ids = []
-                for ext_id in data_set_ext_ids:
-                    ids.append(ToolGlobals.verify_dataset(ext_id))
-                actions["scope"]["datasetScope"]["ids"] = ids
+            if isinstance(capability.scope, DataSetScope) and capability.scope.ids:
+                ids = [ToolGlobals.verify_dataset(ext_id) for ext_id in capability.scope.ids]
+                capability.scope = DataSetScope(ids=ids)
     for group in groups:
         old_group_id = None
         for g in old_groups:
@@ -400,6 +394,7 @@ def load_groups(
                 break
         try:
             if not dry_run:
+                group.capabilities = []
                 group = client.iam.groups.create(group)
                 print(f"Created group {group.name}.")
             else:

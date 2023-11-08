@@ -32,7 +32,7 @@ from cognite.client.data_classes.iam import Group
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.exceptions import CogniteAPIError
 
-from .utils import CDFToolConfig, GroupLoad, TimeSeriesLoad
+from .utils import CDFToolConfig, TimeSeriesLoad
 
 
 def delete_raw(
@@ -233,8 +233,8 @@ def delete_groups(
     groups: list[Group] = []
     for f in files:
         with open(f"{directory}/{f}") as file:
-            groups.extend(
-                GroupLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
+            groups.append(
+                Group.load(yaml.safe_load(file.read())),
             )
     for group in groups:
         old_group_id = None
