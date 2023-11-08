@@ -120,10 +120,23 @@ class CDFToolConfig:
                 )
             )
 
+    def as_string(self):
+        environment = self._environ.copy()
+        if "IDP_CLIENT_SECRET" in environment:
+            environment["IDP_CLIENT_SECRET"] = "***"
+        if "TRANSFORMATIONS_CLIENT_SECRET" in environment:
+            environment["TRANSFORMATIONS_CLIENT_SECRET"] = "***"
+        envs = ""
+        for e in environment:
+            envs += f"  {e}={environment[e]}\n"
+        return f"Cluster {self._cluster} with project {self._project} and config:\n{envs}"
+
     def __str__(self):
         environment = self._environ.copy()
         if "IDP_CLIENT_SECRET" in environment:
             environment["IDP_CLIENT_SECRET"] = "***"
+        if "TRANSFORMATIONS_CLIENT_SECRET" in environment:
+            environment["TRANSFORMATIONS_CLIENT_SECRET"] = "***"
         return f"Cluster {self._cluster} with project {self._project} and config:\n" + json.dumps(
             environment, indent=2, sort_keys=True
         )
