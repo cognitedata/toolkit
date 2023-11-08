@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     OidcCredentials,
@@ -40,12 +39,12 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 from cognite.client.data_classes.iam import Group, GroupList
-from cognite.client.data_classes.time_series import TimeSeries
+from cognite.client.data_classes.time_series import TimeSeriesList
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from rich import print
 
 from .delete import delete_instances
-from .utils import CDFToolConfig, TimeSeriesLoad
+from .utils import CDFToolConfig, load_yaml_inject_variables
 
 
 @dataclass
@@ -196,12 +195,13 @@ def load_timeseries_metadata(
                 if ".yaml" in f:
                     files.append(f)
     # Read timeseries metadata
-    timeseries: list[TimeSeries] = []
+    timeseries = TimeSeriesList([])
     for f in files:
-        with open(f"{directory}/{f}") as file:
-            timeseries.extend(
-                TimeSeriesLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
-            )
+        timeseries.extend(
+            TimeSeriesList.load(
+                load_yaml_inject_variables(Path(f"{directory}/{f}"), ToolGlobals.environment_variables())
+            ),
+        )
     if len(timeseries) == 0:
         return
     print(f"[bold]Uploading {len(timeseries)} timeseries to CDF...[/]")
@@ -297,7 +297,7 @@ def load_transformations(
         files = list(Path(directory).glob("*.yaml"))
     transformations = TransformationList([])
     for f in files:
-        raw = yaml.safe_load(f.read_text())
+        raw = load_yaml_inject_variables(f, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
@@ -368,8 +368,9 @@ def load_groups(
                     files.append(f)
     groups: GroupList = GroupList([])
     for f in files:
-        with open(f"{directory}/{f}") as file:
-            groups.append(Group.load(yaml.safe_load(file.read())))
+        groups.append(
+            Group.load(load_yaml_inject_variables(Path(f"{directory}/{f}"), ToolGlobals.environment_variables()))
+        )
     print(f"[bold]Loading {len(groups)} groups from {directory}...[/]")
     # Find and create data_sets
     for group in groups:
@@ -507,7 +508,9 @@ def load_datamodel(
             "datamodel": DataModelApply,
         }[type_]
         for file in files:
-            cognite_resources_by_type[type_].append(resource_cls.load(yaml.safe_load(file.read_text())))
+            cognite_resources_by_type[type_].append(
+                resource_cls.load(load_yaml_inject_variables(file, ToolGlobals.environment_variables()))
+            )
 
     explicit_space_list = [s.space for s in cognite_resources_by_type["space"]]
     space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
@@ -711,7 +714,7 @@ def load_nodes(
             }
         )
 
-        nodes: dict = yaml.safe_load(file.read_text())
+        nodes: dict = load_yaml_inject_variables(file, ToolGlobals.environment_variables())
 
         try:
             view = ViewId(

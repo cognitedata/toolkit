@@ -16,7 +16,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
+from typing import Any
 
+import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials, Token
 from cognite.client.data_classes.data_sets import DataSet
@@ -119,6 +122,9 @@ class CDFToolConfig:
                     credentials=self.oauth_credentials,
                 )
             )
+
+    def environment_variables(self) -> dict[str, str]:
+        return self._environ.copy()
 
     def as_string(self):
         environment = self._environ.copy()
@@ -290,3 +296,12 @@ class CDFToolConfig:
                 "Don't have correct access rights. Need also WRITE on "
                 + "datasetsAcl or that the data set {get_dataset_name()} has been created."
             )
+
+
+def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any]:
+    content = filepath.read_text()
+    for key, value in variables.items():
+        if value is None:
+            continue
+        content = content.replace("${%s}" % key, value)
+    return yaml.safe_load(content)
