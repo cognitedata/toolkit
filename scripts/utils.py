@@ -301,5 +301,7 @@ class CDFToolConfig:
 def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any]:
     content = filepath.read_text()
     for key, value in variables.items():
+        if value is None:
+            continue
         content = content.replace("${%s}" % key, value)
     return yaml.safe_load(content)
