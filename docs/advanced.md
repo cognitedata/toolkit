@@ -106,7 +106,7 @@ you can also add your own local packages by editing the packages.yaml.
 
 ## Templating and configuration
 
-In `local.yaml`, you specify details on the environments you want to deploy. The `build.py` script will
+In `local.yaml`, you specify details on the environments you want to deploy. The `cdf.py build` script command will
 set CDF_ENVIRON and CDF_BUILD_TYPE = (dev, staging, prod) as environment variables.
 These can be used in the `config.yaml` files.
 
@@ -117,7 +117,7 @@ file that is only used for that module (with defaults found in `default.config.y
 Template variables in files in the modules  should be in the form `{{variable_name}}`.
 If you want template variables to be replaced by environment variables, use the following format in the
 config.yaml file: `variable_name: ${ENV_VAR_NAME}`.
-If you want variables to be set dependent on the environment you deploy to (e.g. `build.py --env=prod`),
+If you want variables to be set dependent on the environment you deploy to (e.g. `cdf.py build --env=prod`),
 you can prefix the variable with environment name, e.g. use the following format in the config.yaml files:
  `prod.variable_name: something`.
 
@@ -192,14 +192,14 @@ sample data.
 
 ### Spaces and instance deletion (data models)
 
-Please note that `deploy.py` and `clean.py` will ONLY delete data in spaces that have been explicitly
+Please note that `cdf.py deploy` and `cdf.py deploy` will ONLY delete data in spaces that have been explicitly
 defined by a `<space_name>.space.yaml` file in `data_models/` of the module. This is to avoid that
 implicitly defined spaces referenced in the view and data model configurations are deleted. If you want
 a space to be cleaned up, add an explicit space configuration file.
 
 ### Groups and group deletion
 
-When deleting groups as part of `clean.py`, the script will only delete groups that the running
+When deleting groups as part of `cdf.py clean`, the script command will only delete groups that the running
 user/service principal is NOT a member of. This is to prevent that a cleaning operation removes
-access rights from the running user. See the `clean.py` script for how you can force deletion
+access rights from the running user. See the `cd.py clean` script command for how you can force deletion
 of any group.

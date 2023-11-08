@@ -31,6 +31,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.iam import Group
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.exceptions import CogniteAPIError
+from rich import print
 
 from .utils import CDFToolConfig, TimeSeriesLoad
 
@@ -52,7 +53,9 @@ def delete_raw(
     files.sort()
     if len(files) == 0:
         return
-    print(f"Found {len(files)} .csv files, using RAW db {raw_db} if not set in the filename...")
+    print(
+        f"[bold]Deleting {len(files)} RAW tables, using RAW db {raw_db} if not set in the filename in directory {directory}...[/]"
+    )
     dbs = []
     for f in files:
         try:
@@ -60,7 +63,7 @@ def delete_raw(
             if db not in dbs:
                 dbs.append(db)
             if table_name is None:
-                print(f"Not able to parse table_name from {f}.")
+                print(f"  [bold red]WARNING: [/] Not able to parse table_name from {f}. Skipping...")
                 continue
         except Exception:
             db = raw_db
@@ -69,29 +72,29 @@ def delete_raw(
                 client.raw.tables.delete(db, table_name)
             except CogniteAPIError as e:
                 if e.code == 404:
-                    print(f"Table {table_name} does not exist.")
+                    print(f"  [bold red]WARNING: [/] Table {table_name} does not exist. Continuing...")
                     continue
             except Exception:
-                print(f"Failed to delete table: {table_name}")
+                print(f"[bold red]ERROR: [/] Failed to delete table: {table_name}")
                 ToolGlobals.failed = True
                 continue
-            print("Deleted table: " + table_name)
+            print("  Deleted table: " + table_name)
         else:
-            print(f"Would have deleted table: {table_name}")
+            print(f"  Would have deleted table: {table_name}")
     for db in dbs:
         if not dry_run:
             try:
                 client.raw.databases.delete(db)
-                print("Deleted database: " + db)
+                print("  Deleted database: " + db)
             except CogniteAPIError as e:
                 if e.code == 404:
-                    print(f"Database {db} does not exist.")
+                    print(f"  [bold red]WARNING: [/] Database {db} does not exist. Continuing...")
                     continue
             except Exception:
-                print(f"Failed to delete database: {db}")
+                print(f"[bold red]ERROR: [/] Failed to delete database: {db}")
                 ToolGlobals.failed = True
         else:
-            print("Would have deleted database: " + db)
+            print("  Would have deleted database: " + db)
 
 
 def delete_files(ToolGlobals: CDFToolConfig, dry_run=False, directory=None) -> None:
@@ -106,6 +109,7 @@ def delete_files(ToolGlobals: CDFToolConfig, dry_run=False, directory=None) -> N
     if len(files) == 0:
         return
     count = 0
+    print(f"[bold]Deleting {len(files)} from directory {directory}...[/]")
     for f in files:
         try:
             if not dry_run:
@@ -113,16 +117,16 @@ def delete_files(ToolGlobals: CDFToolConfig, dry_run=False, directory=None) -> N
             count += 1
         except CogniteAPIError as e:
             if e.code == 404:
-                print(f"File {f} does not exist.")
+                print(f"  [bold red]WARNING: [/] File {f} does not exist.")
                 continue
         except Exception as e:
-            print(f"Failed to delete file: {f}:\n{e}")
+            print(f"  [bold red]WARNING: [/] Failed to delete file: {f}:\n{e}")
             continue
     if count > 0:
         if dry_run:
-            print(f"Would have deleted {count} files")
+            print(f"  Would have deleted {count} files")
         else:
-            print(f"Deleted {count} files")
+            print(f"  Deleted {count} files")
         return
 
 
@@ -145,6 +149,7 @@ def delete_timeseries(ToolGlobals: CDFToolConfig, dry_run=False, directory=None)
     if len(timeseries) == 0:
         return
     drop_ts: list[str] = []
+    print(f"[bold]Deleting {len(timeseries)} timeseries from directory {directory}...[/]")
     for t in timeseries:
         # Set the context info for this CDF project
         t.data_set_id = ToolGlobals.data_set_id
@@ -152,15 +157,15 @@ def delete_timeseries(ToolGlobals: CDFToolConfig, dry_run=False, directory=None)
     try:
         if not dry_run:
             client.time_series.delete(external_id=drop_ts, ignore_unknown_ids=True)
-            print(f"Deleted {len(drop_ts)} timeseries.")
+            print(f"  Deleted {len(drop_ts)} timeseries.")
         else:
-            print(f"Would have deleted {len(drop_ts)} timeseries.")
+            print(f"  Would have deleted {len(drop_ts)} timeseries.")
     except CogniteAPIError as e:
         if e.code == 404:
-            print(f"Timeseries {drop_ts} does not exist.")
+            print(f"  [bold red]WARNING: [/] Timeseries {drop_ts} does not exist. Continuing...")
             return
     except Exception as e:
-        print(f"Failed to delete {t.external_id}\n{e}.")
+        print(f"[bold red]ERROR: [/] Failed to delete {t.external_id}\n{e}.")
 
 
 def delete_transformations(
@@ -191,11 +196,11 @@ def delete_transformations(
     try:
         if not dry_run:
             client.transformations.delete(external_id=transformations, ignore_unknown_ids=True)
-            print(f"Deleted {len(transformations)} transformations.")
+            print(f"  Deleted {len(transformations)} transformations.")
         else:
-            print(f"Would have deleted {len(transformations)} transformations.")
+            print(f"  Would have deleted {len(transformations)} transformations.")
     except Exception as e:
-        print(f"Failed to delete transformations.\{e}")
+        print(f"[bold red]ERROR: [/] Failed to delete transformations.\{e}")
         ToolGlobals.failed = True
 
 
@@ -204,6 +209,7 @@ def delete_groups(
     directory: Optional[str] = None,
     dry_run: bool = False,
     my_own: bool = False,
+    verbose: bool = False,
 ) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
@@ -236,6 +242,8 @@ def delete_groups(
             groups.append(
                 Group.load(yaml.safe_load(file.read())),
             )
+    print(f"[bold]Deleting {len(groups)} group(s)...[/]")
+    nr_of_old_groups = 0
     for group in groups:
         old_group_id = None
         for g in old_groups:
@@ -243,20 +251,27 @@ def delete_groups(
                 old_group_id = g.id
                 break
         if not old_group_id:
-            print(f"Group {group.name} does not exist.")
+            print(f"  [bold red]INFO: [/] Group {group.name} does not exist.")
             continue
         if old_group_id in my_groups and not my_own:
-            print(f"My service principal is member of group {group.name} - skipping...")
+            print(f"  [bold red]INFO: [/] My service principal is member of group {group.name} - skipping...")
             continue
+        nr_of_old_groups += 1
         try:
             if not dry_run:
                 client.iam.groups.delete(id=old_group_id)
-                print(f"Deleted old group {old_group_id}.")
+                if verbose:
+                    print(f"  Deleted old group {old_group_id}.")
             else:
-                print(f"Would have deleted group {old_group_id}.")
+                if verbose:
+                    print(f"  Would have deleted group {old_group_id}.")
         except Exception:
-            print(f"Failed to delete group {old_group_id}.")
+            print(f"[bold red]ERROR: [/] Failed to delete group {old_group_id}.")
             ToolGlobals.failed = True
+    if not dry_run:
+        print(f"  Deleted {nr_of_old_groups} groups.")
+    else:
+        print(f"  Would have deleted {nr_of_old_groups} groups.")
 
 
 def delete_instances(
@@ -282,7 +297,9 @@ def delete_instances(
             "dataModelInstancesAcl": ["READ", "WRITE"],
         }
     )
+    print(f"[bold]Deleting instances in space {space_name}...[/]")
     if delete_edges:
+        print("  Deleting edges...")
         # It's best practice to delete edges first as edges are deleted when nodes are deleted,
         # but this cascading delete is more expensive than deleting the edges directly.
         #
@@ -303,11 +320,12 @@ def delete_instances(
                     edge_delete += len(ret.edges)
                 edge_count += len(instance_list)
         except Exception as e:
-            print(f"Failed to delete edges in {space_name}.\n{e}")
+            print(f"[bold red]ERROR: [/] Failed to delete edges in {space_name}.\n{e}")
             ToolGlobals.failed = True
             return
-        print(f"Found {edge_count} edges and deleted {edge_delete} edges from space {space_name}.")
+        print(f"    Found {edge_count} edges and deleted {edge_delete} edges from space {space_name}.")
     if delete_nodes:
+        print("  Deleting nodes...")
         # Find any nodes in the space
         node_count = 0
         node_delete = 0
@@ -324,10 +342,10 @@ def delete_instances(
                     node_delete += len(ret.nodes)
                 node_count += len(instance_list)
         except Exception as e:
-            print(f"Failed to delete nodes in {space_name}.\n{e}")
+            print(f"[bold red]ERROR: [/] Failed to delete nodes in {space_name}.\n{e}")
             ToolGlobals.failed = True
             return
-        print(f"Found {node_count} nodes and deleted {node_delete} nodes from {space_name}.")
+        print(f"    Found {node_count} nodes and deleted {node_delete} nodes from {space_name}.")
 
 
 def delete_containers(ToolGlobals: CDFToolConfig, dry_run=False, containers: ContainerList = None) -> None:
@@ -341,11 +359,12 @@ def delete_containers(ToolGlobals: CDFToolConfig, dry_run=False, containers: Con
     try:
         if not dry_run:
             client.data_modeling.containers.delete(containers.as_ids())
-            print(f"  Deleted {len(containers)} container(s).")
+            print(f"    Deleted {len(containers)} container(s).")
         else:
-            print(f"  Would have deleted {len(containers)} container(s).")
+            print(f"    Would have deleted {len(containers)} container(s).")
     except Exception as e:
-        print(f"  Was not able to delete containers. May not exist.\n{e}")
+        print(f"    [bold red]WARNING: [/] Was not able to delete containers. May not exist.\n{e}")
+        ToolGlobals.failed = True
 
 
 def delete_views(ToolGlobals: CDFToolConfig, dry_run=False, views: ViewList = None) -> None:
@@ -360,9 +379,11 @@ def delete_views(ToolGlobals: CDFToolConfig, dry_run=False, views: ViewList = No
     try:
         if not dry_run:
             client.data_modeling.views.delete(views.as_ids())
-        print(f"Deleted {len(views.as_ids())} views.")
+            print(f"    Deleted {len(views.as_ids())} views.")
+        else:
+            print(f"    Would have deleted {len(views.as_ids())} views.")
     except Exception as e:
-        print(f"Failed to delete views.\n{e}")
+        print(f"[bold red]ERROR: [/] Failed to delete views.\n{e}")
         ToolGlobals.failed = True
 
 
@@ -378,9 +399,11 @@ def delete_spaces(ToolGlobals: CDFToolConfig, dry_run=False, spaces: SpaceList =
     try:
         if not dry_run:
             client.data_modeling.spaces.delete(spaces.as_ids())
-        print(f"Deleted {len(spaces.as_ids())} space(s).")
+            print(f"    Deleted {len(spaces.as_ids())} space(s).")
+        else:
+            print(f"    Would have deleted {len(spaces.as_ids())} space(s).")
     except Exception as e:
-        print(f"Failed to delete {len(spaces.as_ids())} space(s).\n{e}")
+        print(f"[bold red]ERROR: [/] Failed to delete {len(spaces.as_ids())} space(s).\n{e}")
         ToolGlobals.failed = True
 
 
@@ -396,9 +419,11 @@ def delete_datamodels(ToolGlobals: CDFToolConfig, dry_run=False, datamodels: Dat
     try:
         if not dry_run:
             client.data_modeling.data_models.delete(datamodels.as_ids())
-        print(f"Deleted {len(datamodels.as_ids())} data model(s).")
+            print(f"    Deleted {len(datamodels.as_ids())} data model(s).")
+        else:
+            print(f"    Would have deleted {len(datamodels.as_ids())} data model(s).")
     except Exception as e:
-        print(f"Failed to delete {len(datamodels.as_ids())} data model(s).\n{e}")
+        print(f"[bold red]ERROR: [/] Failed to delete {len(datamodels.as_ids())} data model(s).\n{e}")
         ToolGlobals.failed = True
 
 
@@ -439,23 +464,23 @@ def delete_datamodel_all(
     try:
         data_model = client.data_modeling.data_models.retrieve((space_name, model_name, version))
     except Exception as e:
-        print(f"Failed to retrieve data model {model_name}, version {version}.")
+        print(f"[bold red]ERROR: [/] Failed to retrieve data model {model_name}, version {version}.")
         print(e)
         return
     if len(data_model) == 0:
-        print(f"Failed to retrieve data model {model_name}, version {version}.")
+        print(f"[bold red]ERROR: [/] Failed to retrieve data model {model_name}, version {version}.")
         view_list = []
     else:
         views: ViewList = data_model.data[0].views
-    print(f"Found {len(views.as_ids())} views in the data model: {model_name}")
+    print(f"[bold]Deleting {len(views.as_ids())} views in the data model {model_name}...[/]")
     try:
         containers = client.data_modeling.containers.list(space=space_name, limit=None)
     except Exception as e:
-        print("Failed to retrieve containers")
+        print("[bold red]ERROR: [/] Failed to retrieve containers")
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"Found {len(containers.as_ids())} containers in the space {space_name}")
+    print(f"  Deleting {len(containers.as_ids())} containers in the space {space_name}")
     if delete_nodes or delete_edges:
         delete_instances(
             ToolGlobals,
@@ -498,7 +523,7 @@ def clean_out_datamodels(ToolGlobals: CDFToolConfig, dry_run=False, instances=Fa
         print(e)
         ToolGlobals.failed = True
         return
-    print("Found:")
+    print("[bold]Deleting everything in data modeling for this project...[/]")
     print(f"  {len(spaces)} space(s)")
     print(f"  {len(containers)} container(s)")
     print(f"  {len(views)} view(s)")
@@ -512,6 +537,7 @@ def clean_out_datamodels(ToolGlobals: CDFToolConfig, dry_run=False, instances=Fa
             delete_instances(ToolGlobals, space_name=s.space, dry_run=dry_run)
         else:
             print(
-                "Did not find --instances flag and will try to delete space without deleting remaining nodes and edges."
+                "[bold red]INFO[/]Did not find --instances flag and will try to delete empty spaces without deleting remaining nodes and edges."
             )
     delete_spaces(ToolGlobals, dry_run=dry_run, spaces=spaces)
+    ToolGlobals.failed = False
