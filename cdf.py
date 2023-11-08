@@ -31,6 +31,8 @@ from scripts.templates import build_config, read_environ_config
 from scripts.utils import CDFToolConfig
 
 app = typer.Typer()
+auth_app = typer.Typer()
+app.add_typer(auth_app, name="auth")
 
 
 # These are the supported data types for deploying to a CDF project.
@@ -48,18 +50,29 @@ class CDFDataTypes(str, Enum):
 @dataclass
 class Common:
     override_env: bool
+    verbose: bool
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def common(
     ctx: typer.Context,
+    verbose: bool = typer.Option(
+        default=False,
+        help="Turn on to get more verbose output",
+    ),
     override_env: bool = typer.Option(
         default=False,
         help="Use .env file to override current environment variables",
     ),
 ):
-    """Common Entry Point"""
-    ctx.obj = Common(override_env)
+    if ctx.invoked_subcommand is None:
+        print(
+            "[bold]A tool to manage and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.[/]"
+        )
+        print("[bold yellow]Usage:[/] cdf.py [OPTIONS] COMMAND [ARGS]...")
+        print("       Use --help for more information.")
+        return
+    ctx.obj = Common(verbose=verbose, override_env=override_env)
     if ctx.obj.override_env:
         print("  [bold red]WARNING:[/] Overriding environment variables with values from .env file...")
     load_dotenv(".env", override=ctx.obj.override_env)
@@ -91,6 +104,7 @@ def build(
         ),
     ] = True,
 ) -> None:
+    """Build configuration files from the module templates to a local build directory."""
     print(Panel(f"[bold]Building config files from templates into {build_dir} for environment {build_env}...[/bold]"))
 
     build_config(dir=build_dir, build_env=build_env, clean=clean)
@@ -98,6 +112,7 @@ def build(
 
 @app.command("deploy")
 def deploy(
+    ctx: typer.Context,
     build_dir: Annotated[
         Optional[str],
         typer.Argument(
@@ -154,6 +169,7 @@ def deploy(
         ),
     ] = None,
 ) -> None:
+    """Deploy one or more configuration types from the built configrations to a CDF environment of your choice (as set in local.yaml)."""
     # Set environment variables from local.yaml
     read_environ_config(build_env=build_env)
     if interactive:
@@ -256,6 +272,7 @@ def deploy(
             ToolGlobals,
             directory=f"{build_dir}/auth",
             dry_run=dry_run,
+            verbose=ctx.obj.verbose,
         )
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to load as expected.")
@@ -296,6 +313,7 @@ def clean(
         ),
     ] = None,
 ) -> None:
+    """Clean up a CDF environment as set in local.yaml based on the configuration files in the build directory."""
     if len(include) == 0:
         include = [datatype for datatype in CDFDataTypes]
     print(
@@ -372,6 +390,12 @@ def clean(
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to clean groups as expected.")
         exit(1)
+
+
+@auth_app.command("bootstrap")
+def auth_bootstrap():
+    """Interactively bootstrap a CDF project with a service account and a user account."""
+    pass
 
 
 if __name__ == "__main__":
