@@ -51,19 +51,40 @@ class CDFDataTypes(str, Enum):
 class Common:
     override_env: bool
     verbose: bool
+    cluster: str
+    project: str
+    ToolGlobals: CDFToolConfig
 
 
 @app.callback(invoke_without_command=True)
 def common(
     ctx: typer.Context,
-    verbose: bool = typer.Option(
-        default=False,
-        help="Turn on to get more verbose output",
-    ),
-    override_env: bool = typer.Option(
-        default=False,
-        help="Use .env file to override current environment variables",
-    ),
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            help="Turn on to get more verbose output",
+        ),
+    ] = False,
+    override_env: Annotated[
+        bool,
+        typer.Option(
+            help="Use .env file to override current environment variables",
+        ),
+    ] = False,
+    cluster: Annotated[
+        Optional[str],
+        typer.Option(
+            envvar="CDF_CLUSTER",
+            help="Cognite Data Fusion cluster to use",
+        ),
+    ] = None,
+    project: Annotated[
+        Optional[str],
+        typer.Option(
+            envvar="CDF_PROJECT",
+            help="Cognite Data Fusion project to use",
+        ),
+    ] = None,
 ):
     if ctx.invoked_subcommand is None:
         print(
@@ -72,14 +93,27 @@ def common(
         print("[bold yellow]Usage:[/] cdf.py [OPTIONS] COMMAND [ARGS]...")
         print("       Use --help for more information.")
         return
-    ctx.obj = Common(verbose=verbose, override_env=override_env)
-    if ctx.obj.override_env:
+    if override_env:
         print("  [bold red]WARNING:[/] Overriding environment variables with values from .env file...")
-    load_dotenv(".env", override=ctx.obj.override_env)
+    load_dotenv(".env", override=override_env)
+    # Override cluster and project from the options/env variables
+    ToolGlobals = CDFToolConfig(
+        client_name="cdf-project-templates",
+        cluster=cluster,
+        project=project,
+    )
+    ctx.obj = Common(
+        verbose=verbose,
+        override_env=override_env,
+        cluster=cluster,
+        project=project,
+        ToolGlobals=ToolGlobals,
+    )
 
 
 @app.command("build")
 def build(
+    ctx: typer.Context,
     build_dir: Annotated[
         Optional[str],
         typer.Argument(
@@ -208,7 +242,7 @@ def deploy(
             f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you mean one of these? {[alternatives[m] for m in matches]}"
         )
         exit(1)
-    ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
+    ToolGlobals = ctx.obj.ToolGlobals
     print(ToolGlobals.as_string())
     if CDFDataTypes.raw in include and Path(f"{build_dir}/raw").is_dir():
         # load_raw() will assume that the RAW database name is set like this in the filename:
@@ -281,6 +315,7 @@ def deploy(
 
 @app.command("clean")
 def clean(
+    ctx: typer.Context,
     build_dir: Annotated[
         Optional[str],
         typer.Argument(
@@ -328,7 +363,7 @@ def clean(
     if not build_path.is_dir():
         print(f"{build_dir} does not exists.")
         exit(1)
-    ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
+    ToolGlobals = ctx.obj.ToolGlobals
     print("Using following configurations: ")
     print(ToolGlobals)
     if CDFDataTypes.raw in include and Path(f"{build_dir}/raw").is_dir():

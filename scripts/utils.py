@@ -50,6 +50,8 @@ class CDFToolConfig:
         self,
         client_name: str = "Generic Cognite config deploy tool",
         token: str | None = None,
+        cluster: str | None = None,
+        project: str | None = None,
     ) -> None:
         self._data_set_id: int = 0
         self._data_set = None
@@ -62,6 +64,14 @@ class CDFToolConfig:
             scopes=[],
         )
 
+        # CDF_CLUSTER and CDF_PROJECT are minimum requirements and can be overridden
+        # when instansiating the class.
+        if cluster is not None and len(cluster) > 0:
+            self._cluster = cluster
+            self._environ["CDF_CLUSTER"] = cluster
+        if project is not None and len(project) > 0:
+            self._project = project
+            self._environ["CDF_PROJECT"] = project
         if token is not None:
             self._environ["CDF_TOKEN"] = token
         if (
