@@ -122,15 +122,6 @@ def read_yaml_files(
             print(f"  [bold red]ERROR:[/] reading {yaml_file}: {e}")
             continue
         data.update(config_data)
-    # Replace env variables of ${ENV_VAR} with actual value from environment
-    for k, v in os.environ.items():
-        for k2, v2 in data.items():
-            if f"${{{k}}}" in v2:
-                if isinstance(data[k2], list):
-                    for i in range(len(data[k2])):
-                        data[k2][i] = data[k2][i].replace(f"${{{k}}}", v)
-                else:
-                    data[k2] = data[k2].replace(f"${{{k}}}", v)
     return data
 
 
@@ -196,7 +187,7 @@ def process_config_files(
                     # assuming template variables are in the format {{key}}
                     content = content.replace(f"{{{{{k}}}}}", str(v))
 
-                split_path = dirpath.split("/")
+                split_path = Path(dirpath).parts
                 cdf_path = split_path[len(split_path) - 1]
                 new_path = Path(f"{build_dir}/{cdf_path}")
                 new_path.mkdir(exist_ok=True, parents=True)
