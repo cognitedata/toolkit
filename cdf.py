@@ -11,6 +11,7 @@ from rich import print
 from rich.panel import Panel
 from typing_extensions import Annotated
 
+from scripts import bootstrap
 from scripts.delete import (
     delete_groups,
     delete_raw,
@@ -427,10 +428,67 @@ def clean(
         exit(1)
 
 
-@auth_app.command("bootstrap")
-def auth_bootstrap():
-    """Interactively bootstrap a CDF project with a service account and a user account."""
-    pass
+@auth_app.callback(invoke_without_command=True)
+def auth_main(ctx: typer.Context):
+    """Test, validate, and configure authentication and authorization for CDF projects."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf.py auth --help[/] for more information.")
+
+
+@auth_app.command("verify")
+def auth_verify(
+    ctx: typer.Context,
+    dry_run: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--dry-run",
+            "-r",
+            help="Whether to do a dry-run, do dry-run if present",
+        ),
+    ] = False,
+    group_file: Annotated[
+        Optional[str],
+        typer.Option(
+            "--group-file",
+            "-f",
+            help="Group yaml configuration file to use for group verification",
+        ),
+    ] = "/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
+    group_id: Annotated[
+        Optional[int],
+        typer.Option(
+            "--group-id",
+            "-g",
+            help="CDF group id to update with the group configuration specified with --group-file",
+        ),
+    ] = 0,
+    update_group: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--update-group",
+            "-u",
+            help="Whether to update the group with the group configuration. Can be used instead of --group-id if only one group",
+        ),
+    ] = False,
+):
+    """Verify auth capabilities against a group config and
+    interactively bootstrap a CDF project with a service account and a user account.
+
+    Needed capabilites for bootstrapping:
+    "projectsAcl": ["LIST", "READ"],
+    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
+
+    The default bootstrap group configuration is readwrite.all.group.yaml from the cdf_auth_readwrite_all common module.
+    """
+    ToolGlobals = ctx.obj.ToolGlobals
+    bootstrap.check_auth(
+        ToolGlobals,
+        group_id=group_id,
+        group_file=group_file,
+        update_group=update_group,
+        dry_run=dry_run,
+        verbose=ctx.obj.verbose,
+    )
 
 
 if __name__ == "__main__":
