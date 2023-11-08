@@ -45,7 +45,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from rich import print
 
 from .delete import delete_instances
-from .utils import CDFToolConfig, TimeSeriesLoad
+from .utils import CDFToolConfig, TimeSeriesLoad, load_yaml_inject_variables
 
 
 @dataclass
@@ -297,7 +297,7 @@ def load_transformations(
         files = list(Path(directory).glob("*.yaml"))
     transformations = TransformationList([])
     for f in files:
-        raw = yaml.safe_load(f.read_text())
+        raw = load_yaml_inject_variables(f, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}

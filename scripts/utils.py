@@ -122,6 +122,9 @@ class CDFToolConfig:
                 )
             )
 
+    def environment_variables(self) -> dict[str, str]:
+        return self._environ.copy()
+
     def as_string(self):
         environment = self._environ.copy()
         if "IDP_CLIENT_SECRET" in environment:
