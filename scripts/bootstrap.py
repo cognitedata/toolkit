@@ -178,6 +178,22 @@ def check_auth(
                 "    [bold red]ERROR[/]: Unable to continue, the service principal/application configured for this client does not have the basic read group access rights."
             )
             return
+    project_info = ToolGlobals.client.get(f"/api/v1/projects/{project}").json()
+    print("Checking identity provider settings...")
+    oidc = project_info.get("oidcConfiguration", {})
+    tenant_id = None
+    if "https://login.windows.net" in oidc.get("tokenUrl"):
+        tenant_id = oidc.get("tokenUrl").split("/")[-3]
+        print(f"  [bold green]OK[/]: Azure Entra (aka ActiveDirectory) with tenant id ({tenant_id}).")
+    elif "auth0.com" in oidc.get("tokenUrl"):
+        tenant_id = oidc.get("tokenUrl").split("/")[2].split(".")[0]
+        print(f"  [bold green]OK[/] - Auth0 with tenant id ({tenant_id}).")
+    else:
+        print(f"  [bold yellow]WARNING[/]: Unknown identity provider {oidc.get('tokenUrl')}")
+    accessClaims = [c.get("claimName") for c in oidc.get("accessClaims", {})]
+    print(
+        f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {accessClaims}"
+    )
     print("Checking CDF groups...")
     try:
         groups = ToolGlobals.client.iam.groups.list().data
