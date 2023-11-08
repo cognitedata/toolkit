@@ -1,12 +1,13 @@
 from unittest.mock import Mock, patch
 
 import pytest
+import yaml
 from cognite.client._api.assets import AssetsAPI
 from cognite.client._api.iam import TokenAPI, TokenInspection
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 
-from scripts.utils import CDFToolConfig
+from scripts.utils import CDFToolConfig, load_yaml_inject_variables
 
 
 def mocked_init(self, client_name: str):
@@ -56,3 +57,12 @@ def test_dataset_create():
         # the dataset does not exist, create
         instance.verify_dataset("test", True)
         assert instance._client.data_sets.create.call_count == 1
+
+
+def test_load_yaml_inject_variables(tmp_path) -> None:
+    my_file = tmp_path / "test.yaml"
+    my_file.write_text(yaml.safe_dump({"test": "${TEST}"}))
+
+    loaded = load_yaml_inject_variables(my_file, {"TEST": "my_injected_value"})
+
+    assert loaded["test"] == "my_injected_value"

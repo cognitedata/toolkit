@@ -19,6 +19,7 @@ properties:
     name: categoryId
   children:
     direction: outwards
+    connectionType: multiEdgeConnection
     name: children
     source:
       externalId: Asset
