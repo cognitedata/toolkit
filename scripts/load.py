@@ -387,7 +387,6 @@ def load_groups(
                 break
         try:
             if not dry_run:
-                group.capabilities = []
                 group = client.iam.groups.create(group)
                 if verbose:
                     print(f"  Created group {group.name}.")
