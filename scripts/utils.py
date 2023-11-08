@@ -19,6 +19,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials, Token
 from cognite.client.data_classes.data_sets import DataSet
@@ -298,4 +299,7 @@ class CDFToolConfig:
 
 
 def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any]:
-    ...
+    content = filepath.read_text()
+    for key, value in variables.items():
+        content = content.replace("${%s}" % key, value)
+    return yaml.safe_load(content)
