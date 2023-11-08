@@ -9,7 +9,9 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "7.0.0a1", extras = ["pandas"]}
+#cognite-sdk = {version = "7.0.0a3", extras = ["pandas"]}
+# Temporary fix while waiting for pre-release v7
+cognite-sdk = {git = "https://github.com/cognitedata/cognite-sdk-python.git", branch = "v7-release"}
 pandas = "^2.1.1"
 pyyaml = "^6.0.1"
 dacite = "^1.8.1"

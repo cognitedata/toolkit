@@ -212,24 +212,20 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cognite-sdk"
-version = "7.0.0a1"
+version = "7.0.0"
 description = "Cognite Python SDK"
 optional = false
-python-versions = ">=3.8,<4.0"
-files = [
-    {file = "cognite_sdk-7.0.0a1-py3-none-any.whl", hash = "sha256:e687975c87df73c32d9c105555b36beedc3680ab10299e713c5902404c6ab934"},
-    {file = "cognite_sdk-7.0.0a1.tar.gz", hash = "sha256:db151a43b7ea686414a1c7772d6e1a049b11e50efbe3041982afde3781e11ea3"},
-]
+python-versions = "^3.8"
+files = []
+develop = false
 
 [package.dependencies]
-msal = ">=1,<2"
-pandas = {version = ">=1.4", optional = true, markers = "extra == \"pandas\" or extra == \"all\""}
+msal = "^1"
 protobuf = ">=3.16.0"
-requests = ">=2,<3"
-requests_oauthlib = ">=1,<2"
-sortedcontainers = ">=2.2,<3.0"
-typing_extensions = ">=4"
-tzdata = {version = ">=2023.3", markers = "sys_platform == \"win32\""}
+requests = "^2"
+requests_oauthlib = "^1"
+sortedcontainers = "^2.2"
+typing_extensions = ">= 4"
 
 [package.extras]
 all = ["backports-zoneinfo[tzdata] (>=0.2.1)", "geopandas (>=0.10.0)", "pandas (>=1.4)", "pip (>=20.0.0)", "shapely (>=1.7.0)", "sympy"]
@@ -240,6 +236,12 @@ pandas = ["backports-zoneinfo[tzdata] (>=0.2.1)", "pandas (>=1.4)"]
 pyodide = ["pyodide-http (>=0.2.0,<0.3.0)"]
 sympy = ["sympy"]
 yaml = ["PyYAML (>=6.0,<7.0)"]
+
+[package.source]
+type = "git"
+url = "https://github.com/cognitedata/cognite-sdk-python.git"
+reference = "v7-release"
+resolved_reference = "d5de2c70f9286fcd665e726b1404be048b577c99"
 
 [[package]]
 name = "colorama"
@@ -1233,4 +1235,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "d753576fbbcc705e1927a36a1a198271e54dd6fce82ed23c6c814bbb0cf049f4"
+content-hash = "d1ff60230b3e1a1ab621bb452e081b53400290dc78c22bb35d13a4e6e9dc3fef"
