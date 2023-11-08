@@ -40,6 +40,7 @@ properties:
     name: itemName
   linkedAssets:
     direction: outwards
+    connectionType: multiEdgeConnection
     name: linkedAssets
     source:
       externalId: Asset

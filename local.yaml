@@ -15,7 +15,7 @@
 # deploy to must have the same project name configured below. This is a safety measure
 # to prevent you from accidentally deploying to the wrong environment.
 demo:
-  project: <a-demo-project>
+  project: albert
   type: dev
   # This should be a used to specify which modules and packages to deploy locally and in the GitHub Action.
   # You can have multiple deploy commands.

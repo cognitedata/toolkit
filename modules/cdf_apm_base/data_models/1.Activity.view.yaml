@@ -71,6 +71,7 @@ properties:
       externalId: APM_Notification
       version: {{apm_datamodel_version}}
     direction: outwards
+    connectionType: multiEdgeConnection
   rootLocation:
     description: "Primary location tied to the activity, useful for location-based filtering. It refers to the external ID of the location set in InField."
     container:

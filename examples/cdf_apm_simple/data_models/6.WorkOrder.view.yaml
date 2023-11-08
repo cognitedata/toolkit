@@ -75,6 +75,7 @@ properties:
     name: isSafetyCritical
   linkedAssets:
     direction: outwards
+    connectionType: multiEdgeConnection
     name: linkedAssets
     source:
       externalId: Asset
@@ -134,6 +135,7 @@ properties:
     containerPropertyIdentifier: title
     name: title
   workItems:
+    connectionType: multiEdgeConnection
     direction: outwards
     name: workItems
     source:
