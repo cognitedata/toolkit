@@ -62,11 +62,13 @@ def check_auth(
     print("[bold]Checking current service principal/application...[/]")
     if cluster is None or len(cluster) == 0:
         print("  [bold red]ERROR:[/]Environment variable CDF_CLUSTER must be set.")
+        ToolGlobals.failed = True
         return
     if verbose:
         print(f"  CDF_CLUSTER={cluster} is set correctly.")
     if project is None or len(project) == 0:
         print("  [bold red]ERROR:[/]Environment variable CDF_PROJECT must be set.")
+        ToolGlobals.failed = True
         return
     if verbose:
         print(f"  CDF_PROJECT={project} is set correctly.")
@@ -77,9 +79,11 @@ def check_auth(
             print("  CDF_TOKEN is not set, expecting IDP_CLIENT_ID and IDP_CLIENT_SECRET...")
         if client_id is None or len(client_id) == 0:
             print("  [bold red]ERROR:[/]Environment variable IDP_CLIENT_ID must be set.")
+            ToolGlobals.failed = True
             return
         if client_secret is None or len(client_secret) == 0:
             print("  [bold red]ERROR:[/]Environment variable IDP_CLIENT_SECRET must be set.")
+            ToolGlobals.failed = True
             return
     print("  [bold green]OK[/]")
     print("Checking basic project configuration...")
@@ -92,12 +96,14 @@ def check_auth(
             print(
                 "  [bold red]ERROR[/]: Valid authentication token, but it does not give any access rights. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
             )
+            ToolGlobals.failed = True
             return
         print("  [bold green]OK[/]")
     except Exception:
         print(
             "  [bold red]ERROR[/]: Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
         )
+        ToolGlobals.failed = True
         return
     print("Checking environment variables...")
     ok = True
@@ -141,12 +147,14 @@ def check_auth(
             print(
                 "  [bold red]ERROR[/]: The service principal/application configured for this client does not have access to any projects."
             )
+            ToolGlobals.failed = True
             return
         projects = ""
         projects = projects.join(f"  - {p.url_name}\n" for p in resp.projects)
         print(projects[0:-1])
     except Exception as e:
         print(f"  [bold red]ERROR[/]: Failed to process project information from inspect()\n{e}")
+        ToolGlobals.failed = True
         return
     print(f"[italic]Focusing on project {project} only from here on.[/]")
     print(
@@ -177,6 +185,7 @@ def check_auth(
             print(
                 "    [bold red]ERROR[/]: Unable to continue, the service principal/application configured for this client does not have the basic read group access rights."
             )
+            ToolGlobals.failed = True
             return
     project_info = ToolGlobals.client.get(f"/api/v1/projects/{project}").json()
     print("Checking identity provider settings...")
@@ -199,6 +208,7 @@ def check_auth(
         groups = ToolGlobals.client.iam.groups.list().data
     except Exception:
         print("  [bold red]ERROR[/]: Unable to retrieve CDF groups.")
+        ToolGlobals.failed = True
         return
     print(
         Panel(
@@ -218,6 +228,7 @@ def check_auth(
                 "  [bold red]ERROR[/]: You have specified --update-group. "
                 + "         With multiple groups available, you must use the --group-id option to specify which group to update."
             )
+            ToolGlobals.failed = True
             return
     else:
         print("  [bold green]OK[/] - Only one group is used for this service principal/application.")
@@ -313,6 +324,7 @@ def check_auth(
                 break
         if group is None:
             print(f"  [bold red]ERROR[/]: Unable to find --group-id={group_id} in CDF.")
+            ToolGlobals.failed = True
             return
         read_write.name = group.name
         read_write.source_id = group.source_id
@@ -329,6 +341,7 @@ def check_auth(
                 )
         except Exception as e:
             print(f"  [bold red]ERROR[/]: Unable to create new group {read_write.name}.\n{e}")
+            ToolGlobals.failed = True
             return
         try:
             if not dry_run:
@@ -338,4 +351,5 @@ def check_auth(
                 print(f"  [bold green]OK[/] - Would have deleted old group {group_id}.")
         except Exception as e:
             print(f"  [bold red]ERROR[/]: Unable to delete old group {group_id}.\n{e}")
+            ToolGlobals.failed = True
             return

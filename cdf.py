@@ -489,6 +489,9 @@ def auth_verify(
         dry_run=dry_run,
         verbose=ctx.obj.verbose,
     )
+    if ToolGlobals.failed:
+        print("[bold red]ERROR: [/] Failure to verify access rights.")
+        exit(1)
 
 
 if __name__ == "__main__":
