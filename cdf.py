@@ -454,22 +454,22 @@ def auth_verify(
             help="Group yaml configuration file to use for group verification",
         ),
     ] = "/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
-    group_id: Annotated[
-        Optional[int],
-        typer.Option(
-            "--group-id",
-            "-g",
-            help="CDF group id to update with the group configuration specified with --group-file",
-        ),
-    ] = 0,
     update_group: Annotated[
-        Optional[bool],
+        Optional[int],
         typer.Option(
             "--update-group",
             "-u",
-            help="Whether to update the group with the group configuration. Can be used instead of --group-id if only one group",
+            help="Used to update an existing group with the configurations from the configuration file. Set to the group id to update or 1 to update the only available group",
         ),
-    ] = False,
+    ] = 0,
+    create_group: Annotated[
+        Optional[str],
+        typer.Option(
+            "--create-group",
+            "-c",
+            help="Used to create a new group with the configurations from the configuration file. Set to the source id that the new group should be configured with",
+        ),
+    ] = None,
 ):
     """Verify auth capabilities against a group config and
     interactively bootstrap a CDF project with a service account and a user account.
@@ -480,12 +480,15 @@ def auth_verify(
 
     The default bootstrap group configuration is readwrite.all.group.yaml from the cdf_auth_readwrite_all common module.
     """
+    if create_group is not None and update_group != 0:
+        print("[bold red]ERROR: [/] --create-group and --update-group are mutually exclusive.")
+        exit(1)
     ToolGlobals = ctx.obj.ToolGlobals
     bootstrap.check_auth(
         ToolGlobals,
-        group_id=group_id,
         group_file=group_file,
         update_group=update_group,
+        create_group=create_group,
         dry_run=dry_run,
         verbose=ctx.obj.verbose,
     )
