@@ -11,6 +11,7 @@ from rich import print
 from rich.panel import Panel
 from typing_extensions import Annotated
 
+from scripts import bootstrap
 from scripts.delete import (
     delete_groups,
     delete_raw,
@@ -31,6 +32,8 @@ from scripts.templates import build_config, read_environ_config
 from scripts.utils import CDFToolConfig
 
 app = typer.Typer()
+auth_app = typer.Typer()
+app.add_typer(auth_app, name="auth")
 
 
 # These are the supported data types for deploying to a CDF project.
@@ -48,25 +51,70 @@ class CDFDataTypes(str, Enum):
 @dataclass
 class Common:
     override_env: bool
+    verbose: bool
+    cluster: str
+    project: str
+    ToolGlobals: CDFToolConfig
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def common(
     ctx: typer.Context,
-    override_env: bool = typer.Option(
-        default=False,
-        help="Use .env file to override current environment variables",
-    ),
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            help="Turn on to get more verbose output",
+        ),
+    ] = False,
+    override_env: Annotated[
+        bool,
+        typer.Option(
+            help="Use .env file to override current environment variables",
+        ),
+    ] = False,
+    cluster: Annotated[
+        Optional[str],
+        typer.Option(
+            envvar="CDF_CLUSTER",
+            help="Cognite Data Fusion cluster to use",
+        ),
+    ] = None,
+    project: Annotated[
+        Optional[str],
+        typer.Option(
+            envvar="CDF_PROJECT",
+            help="Cognite Data Fusion project to use",
+        ),
+    ] = None,
 ):
-    """Common Entry Point"""
-    ctx.obj = Common(override_env)
-    if ctx.obj.override_env:
+    if ctx.invoked_subcommand is None:
+        print(
+            "[bold]A tool to manage and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.[/]"
+        )
+        print("[bold yellow]Usage:[/] cdf.py [OPTIONS] COMMAND [ARGS]...")
+        print("       Use --help for more information.")
+        return
+    if override_env:
         print("  [bold red]WARNING:[/] Overriding environment variables with values from .env file...")
-    load_dotenv(".env", override=ctx.obj.override_env)
+    load_dotenv(".env", override=override_env)
+    # Override cluster and project from the options/env variables
+    ToolGlobals = CDFToolConfig(
+        client_name="cdf-project-templates",
+        cluster=cluster,
+        project=project,
+    )
+    ctx.obj = Common(
+        verbose=verbose,
+        override_env=override_env,
+        cluster=cluster,
+        project=project,
+        ToolGlobals=ToolGlobals,
+    )
 
 
 @app.command("build")
 def build(
+    ctx: typer.Context,
     build_dir: Annotated[
         Optional[str],
         typer.Argument(
@@ -91,6 +139,7 @@ def build(
         ),
     ] = True,
 ) -> None:
+    """Build configuration files from the module templates to a local build directory."""
     print(Panel(f"[bold]Building config files from templates into {build_dir} for environment {build_env}...[/bold]"))
 
     build_config(dir=build_dir, build_env=build_env, clean=clean)
@@ -98,6 +147,7 @@ def build(
 
 @app.command("deploy")
 def deploy(
+    ctx: typer.Context,
     build_dir: Annotated[
         Optional[str],
         typer.Argument(
@@ -154,6 +204,7 @@ def deploy(
         ),
     ] = None,
 ) -> None:
+    """Deploy one or more configuration types from the built configrations to a CDF environment of your choice (as set in local.yaml)."""
     # Set environment variables from local.yaml
     read_environ_config(build_env=build_env)
     if interactive:
@@ -192,7 +243,7 @@ def deploy(
             f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you mean one of these? {[alternatives[m] for m in matches]}"
         )
         exit(1)
-    ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
+    ToolGlobals = ctx.obj.ToolGlobals
     print(ToolGlobals.as_string())
     if CDFDataTypes.raw in include and Path(f"{build_dir}/raw").is_dir():
         # load_raw() will assume that the RAW database name is set like this in the filename:
@@ -256,6 +307,7 @@ def deploy(
             ToolGlobals,
             directory=f"{build_dir}/auth",
             dry_run=dry_run,
+            verbose=ctx.obj.verbose,
         )
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to load as expected.")
@@ -264,6 +316,7 @@ def deploy(
 
 @app.command("clean")
 def clean(
+    ctx: typer.Context,
     build_dir: Annotated[
         Optional[str],
         typer.Argument(
@@ -296,6 +349,7 @@ def clean(
         ),
     ] = None,
 ) -> None:
+    """Clean up a CDF environment as set in local.yaml based on the configuration files in the build directory."""
     if len(include) == 0:
         include = [datatype for datatype in CDFDataTypes]
     print(
@@ -310,7 +364,7 @@ def clean(
     if not build_path.is_dir():
         print(f"{build_dir} does not exists.")
         exit(1)
-    ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
+    ToolGlobals = ctx.obj.ToolGlobals
     print("Using following configurations: ")
     print(ToolGlobals)
     if CDFDataTypes.raw in include and Path(f"{build_dir}/raw").is_dir():
@@ -371,6 +425,72 @@ def clean(
         )
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to clean groups as expected.")
+        exit(1)
+
+
+@auth_app.callback(invoke_without_command=True)
+def auth_main(ctx: typer.Context):
+    """Test, validate, and configure authentication and authorization for CDF projects."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf.py auth --help[/] for more information.")
+
+
+@auth_app.command("verify")
+def auth_verify(
+    ctx: typer.Context,
+    dry_run: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--dry-run",
+            "-r",
+            help="Whether to do a dry-run, do dry-run if present",
+        ),
+    ] = False,
+    group_file: Annotated[
+        Optional[str],
+        typer.Option(
+            "--group-file",
+            "-f",
+            help="Group yaml configuration file to use for group verification",
+        ),
+    ] = "/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
+    group_id: Annotated[
+        Optional[int],
+        typer.Option(
+            "--group-id",
+            "-g",
+            help="CDF group id to update with the group configuration specified with --group-file",
+        ),
+    ] = 0,
+    update_group: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--update-group",
+            "-u",
+            help="Whether to update the group with the group configuration. Can be used instead of --group-id if only one group",
+        ),
+    ] = False,
+):
+    """Verify auth capabilities against a group config and
+    interactively bootstrap a CDF project with a service account and a user account.
+
+    Needed capabilites for bootstrapping:
+    "projectsAcl": ["LIST", "READ"],
+    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
+
+    The default bootstrap group configuration is readwrite.all.group.yaml from the cdf_auth_readwrite_all common module.
+    """
+    ToolGlobals = ctx.obj.ToolGlobals
+    bootstrap.check_auth(
+        ToolGlobals,
+        group_id=group_id,
+        group_file=group_file,
+        update_group=update_group,
+        dry_run=dry_run,
+        verbose=ctx.obj.verbose,
+    )
+    if ToolGlobals.failed:
+        print("[bold red]ERROR: [/] Failure to verify access rights.")
         exit(1)
 
 

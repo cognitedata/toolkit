@@ -8,12 +8,12 @@
             "name": "Python: build",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py build",
+            "program": "./cdf.py",
             "args": [
+                "--override-env",
+                "build",
                 "--clean",
                 "--env=local",
-                "--override_env",
-                "build"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
@@ -23,8 +23,9 @@
             "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py deploy",
+            "program": "./cdf.py",
             "args": [
+                "deploy",
                 //"--dry-run",
                 "--drop",
                 "--drop-data",
@@ -39,8 +40,9 @@
             "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py clean",
+            "program": "./cdf.py",
             "args": [
+                "clean",
                 //"--dry-run",
                 "--env=local",
                 //"--include=data_models"
