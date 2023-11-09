@@ -18,6 +18,10 @@ from typing import Optional
 
 import yaml
 from cognite.client import CogniteClient
+from cognite.client.data_classes.capabilities import (
+    ProjectCapabilitiesList,
+    ProjectCapability,
+)
 from cognite.client.data_classes.iam import Group
 from rich import print
 from rich.columns import Columns
@@ -240,79 +244,27 @@ def check_auth(
             Loader=yaml.Loader,
         )
     )
-    error = False
-    all_acls = []
-    for g in groups:
-        all_acls.extend(g.capabilities)
-    for cap in read_write.capabilities:
-        all_ok = False
-        if type(cap) not in [type(a) for a in all_acls]:
-            print(
-                f"  [bold yellow]WARNING[/]: The capability {cap._capability_name} is not present in the CDF project."
-            )
-            error = True
-            continue
-        for a in all_acls:
-            all_ok = True
-            if type(a) is not type(cap):
-                continue
-            for action in cap.actions:
-                if action in a.actions:
-                    continue
-                all_ok = False
-                break
-            if all_ok:
-                break
-        if not all_ok:
-            print(
-                f"  [bold yellow]WARNING[/]: The ACL {cap._capability_name} does not have all needed actions present."
-            )
-            error = True
-        if all_ok and verbose:
-            print(f"  [bold green]OK[/] - {cap._capability_name} is present in the CDF project.")
-    if not verbose:
-        if not error:
-            print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
-        print(
-            "  [bold]Only missing ACLs were shown[/]: Use --verbose to see which ACLs are present in the CDF project."
-        )
+    diff = resp.capabilities.compare(read_write.capabilities)
+    if len(diff) > 0:
+        for d in diff:
+            print(f"  [bold yellow]WARNING[/]: The capability {d} is not present in the CDF project.")
+    else:
+        print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
     print("---------------------")
-    print(
-        f"Checking for ACLs in CDF groups not found in group configuration file (i.e. will be lost if overwritten): {group_file}..."
+    # Create a list of capabilities from the flattened list of acls in the group file.
+    read_write_cap_list = ProjectCapabilitiesList(
+        [ProjectCapability(pc, project_scope=[project]) for pc in read_write.capabilities]
     )
-    error = False
-    for cap in all_acls:
-        all_ok = False
-        if type(cap) not in [type(a) for a in all_acls]:
+    # Flatten out into a list of acls in the existing project
+    existing_cap_list = [c.capability for c in resp.capabilities.data]
+    loosing = read_write_cap_list.compare(existing_cap_list, project=project)
+    if len(loosing) > 0:
+        for d in loosing:
             print(
-                f"  [bold yellow]WARNING[/]: The capability {cap._capability_name} not present in group configuration."
+                f"  [bold yellow]WARNING[/]: The capability {d} will be lost in the project if overwritten by group config file."
             )
-            error = True
-            continue
-        for a in read_write.capabilities:
-            all_ok = True
-            if type(a) is not type(cap):
-                continue
-            for action in cap.actions:
-                if action in a.actions:
-                    continue
-                all_ok = False
-                break
-            if all_ok:
-                break
-        if not all_ok:
-            print(
-                f"  [bold yellow]WARNING[/]: The ACL {cap._capability_name} does not have all needed actions present."
-            )
-            error = True
-        if all_ok and verbose:
-            print(f"  [bold green]OK[/] - {cap._capability_name} is present in the group definition.")
-    if not verbose:
-        if not error:
-            print("  [bold green]OK[/] - All the group's capabilities are present in the group definition.")
-        print(
-            "  [bold]Only missing ACLs were shown[/]: Use --verbose to see which ACLs are present in the group definition."
-        )
+    else:
+        print("  [bold green]OK[/] - All capabilities from the CDF project are also present in the group config file.")
     print("---------------------")
     if len(groups) == 1 and group_id == 0 and update_group:
         group_id = groups[0].id
