@@ -11,7 +11,7 @@ sys.path.append(root_folder)
 
 from dotenv import load_dotenv  # noqa: E402
 
-from scripts.utils import CDFToolConfig  # noqa: E402
+from cdf_project_template.utils import CDFToolConfig  # noqa: E402
 
 log = logging.getLogger(__name__)
 
