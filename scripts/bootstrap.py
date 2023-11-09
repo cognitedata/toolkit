@@ -21,6 +21,8 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
     ProjectCapabilitiesList,
     ProjectCapability,
+    ProjectsScope,
+    UserProfilesAcl,
 )
 from cognite.client.data_classes.iam import Group
 from rich import print
@@ -244,7 +246,7 @@ def check_auth(
             Loader=yaml.Loader,
         )
     )
-    diff = resp.capabilities.compare(read_write.capabilities)
+    diff = resp.capabilities.compare(read_write.capabilities, project=project)
     if len(diff) > 0:
         for d in diff:
             print(f"  [bold yellow]WARNING[/]: The capability {d} is not present in the CDF project.")
@@ -253,15 +255,16 @@ def check_auth(
     print("---------------------")
     # Create a list of capabilities from the flattened list of acls in the group file.
     read_write_cap_list = ProjectCapabilitiesList(
-        [ProjectCapability(pc, project_scope=[project]) for pc in read_write.capabilities]
+        [ProjectCapability(pc, project_scope=ProjectsScope([project])) for pc in read_write.capabilities]
     )
     # Flatten out into a list of acls in the existing project
     existing_cap_list = [c.capability for c in resp.capabilities.data]
     loosing = read_write_cap_list.compare(existing_cap_list, project=project)
+    loosing = [l for l in loosing if type(l) is not UserProfilesAcl]  # noqa: E741
     if len(loosing) > 0:
         for d in loosing:
             print(
-                f"  [bold yellow]WARNING[/]: The capability {d} will be lost in the project if overwritten by group config file."
+                f"  [bold yellow]WARNING[/]: The capability {d} will be removed in the project if overwritten by group config file."
             )
     else:
         print("  [bold green]OK[/] - All capabilities from the CDF project are also present in the group config file.")

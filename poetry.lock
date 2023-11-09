@@ -241,7 +241,7 @@ yaml = ["PyYAML (>=6.0,<7.0)"]
 type = "git"
 url = "https://github.com/cognitedata/cognite-sdk-python.git"
 reference = "compare-capabilities"
-resolved_reference = "1ed50cb18ad010b061383a3d91af702b8f6eed0e"
+resolved_reference = "9d0c8e37d84f4a5fb1744727ed3cd40ce8c710f7"
 
 [[package]]
 name = "colorama"
