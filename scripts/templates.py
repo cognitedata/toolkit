@@ -138,6 +138,7 @@ def process_config_files(
             if clean:
                 shutil.rmtree(path)
                 path.mkdir()
+                print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir}.")
             else:
                 print("  [bold red]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
