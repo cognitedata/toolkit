@@ -1,7 +1,7 @@
 # This role has only viewer capabilities in InField and cannot create data like templates, checklist, images etc.
 # Typical Reliability users or other business users. 
 name: 'infield_{{location_name}}_viewers'
-source_id: '{{infield_location_viewer_users_source_id}}'
+sourceId: '{{infield_location_viewer_users_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
   module_version: '{{module_version}}'

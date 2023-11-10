@@ -14,23 +14,27 @@
 
 import os
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from cognite.client import CogniteClient
+from cognite.client.data_classes.capabilities import (
+    ProjectCapabilitiesList,
+    ProjectCapability,
+    ProjectsScope,
+    UserProfilesAcl,
+)
 from cognite.client.data_classes.iam import Group
 from rich import print
-from rich.columns import Columns
-from rich.panel import Panel
+from rich.table import Table
 
 from .utils import CDFToolConfig
 
 
 def check_auth(
     ToolGlobals: CDFToolConfig,
-    group_id: int = 0,
-    group_file: Optional[str] = None,
-    update_group: bool = False,
+    group_file: str | None = None,
+    update_group: int = 0,
+    create_group: str | None = None,
     dry_run: bool = False,
     verbose: bool = False,
 ) -> CogniteClient:
@@ -210,23 +214,22 @@ def check_auth(
         print("  [bold red]ERROR[/]: Unable to retrieve CDF groups.")
         ToolGlobals.failed = True
         return
-    print(
-        Panel(
-            Columns(
-                [f"{g.id} {g.name} {g.source_id}" for g in groups],
-                title="CDF Group ids, Names, and Source Ids",
-            )
-        )
-    )
+    tbl = Table(title="CDF Group ids, Names, and Source Ids")
+    tbl.add_column("Id", justify="left")
+    tbl.add_column("Name", justify="left")
+    tbl.add_column("Source Id", justify="left")
+    for g in groups:
+        tbl.add_row(str(g.id), g.name, g.source_id)
+    print(tbl)
     if len(groups) > 1:
         print(
             "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
         )
-        print("          This is not recommended.")
-        if group_id == 0 and update_group:
+        print("           This is not recommended.")
+        if update_group == 1:
             print(
-                "  [bold red]ERROR[/]: You have specified --update-group. "
-                + "         With multiple groups available, you must use the --group-id option to specify which group to update."
+                "  [bold red]ERROR[/]: You have specified --update-group=1.\n"
+                + "         With multiple groups available, you must use the --update_group=<full-group-i> option to specify which group to update."
             )
             ToolGlobals.failed = True
             return
@@ -240,95 +243,69 @@ def check_auth(
             Loader=yaml.Loader,
         )
     )
-    error = False
-    all_acls = []
-    for g in groups:
-        all_acls.extend(g.capabilities)
-    for cap in read_write.capabilities:
-        all_ok = False
-        if type(cap) not in [type(a) for a in all_acls]:
-            print(
-                f"  [bold yellow]WARNING[/]: The capability {cap._capability_name} is not present in the CDF project."
-            )
-            error = True
-            continue
-        for a in all_acls:
-            all_ok = True
-            if type(a) is not type(cap):
-                continue
-            for action in cap.actions:
-                if action in a.actions:
-                    continue
-                all_ok = False
-                break
-            if all_ok:
-                break
-        if not all_ok:
-            print(
-                f"  [bold yellow]WARNING[/]: The ACL {cap._capability_name} does not have all needed actions present."
-            )
-            error = True
-        if all_ok and verbose:
-            print(f"  [bold green]OK[/] - {cap._capability_name} is present in the CDF project.")
-    if not verbose:
-        if not error:
-            print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
+    diff = resp.capabilities.compare(read_write.capabilities, project=project)
+    if len(diff) > 0:
+        for d in diff:
+            print(f"  [bold yellow]WARNING[/]: The capability {d} is not present in the CDF project.")
+    else:
+        print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
+    # Flatten out into a list of acls in the existing project
+    existing_cap_list = [c.capability for c in resp.capabilities.data]
+    if len(groups) > 1:
         print(
-            "  [bold]Only missing ACLs were shown[/]: Use --verbose to see which ACLs are present in the CDF project."
+            "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
         )
     print("---------------------")
-    print(
-        f"Checking for ACLs in CDF groups not found in group configuration file (i.e. will be lost if overwritten): {group_file}..."
-    )
-    error = False
-    for cap in all_acls:
-        all_ok = False
-        if type(cap) not in [type(a) for a in all_acls]:
-            print(
-                f"  [bold yellow]WARNING[/]: The capability {cap._capability_name} not present in group configuration."
-            )
-            error = True
-            continue
-        for a in read_write.capabilities:
-            all_ok = True
-            if type(a) is not type(cap):
-                continue
-            for action in cap.actions:
-                if action in a.actions:
-                    continue
-                all_ok = False
-                break
-            if all_ok:
-                break
-        if not all_ok:
-            print(
-                f"  [bold yellow]WARNING[/]: The ACL {cap._capability_name} does not have all needed actions present."
-            )
-            error = True
-        if all_ok and verbose:
-            print(f"  [bold green]OK[/] - {cap._capability_name} is present in the group definition.")
-    if not verbose:
-        if not error:
-            print("  [bold green]OK[/] - All the group's capabilities are present in the group definition.")
-        print(
-            "  [bold]Only missing ACLs were shown[/]: Use --verbose to see which ACLs are present in the group definition."
-        )
-    print("---------------------")
-    if len(groups) == 1 and group_id == 0 and update_group:
-        group_id = groups[0].id
-    if update_group and group_id != 0:
-        print(f"Updating group {group_id}...")
+    if len(groups) > 1 and update_group > 1:
+        print(f"Checking group config file against capabilities only from the group {update_group}...")
         for g in groups:
-            if g.id == group_id:
-                group = g
+            if g.id == update_group:
+                existing_cap_list = g.capabilities
                 break
-        if group is None:
-            print(f"  [bold red]ERROR[/]: Unable to find --group-id={group_id} in CDF.")
-            ToolGlobals.failed = True
-            return
-        read_write.name = group.name
-        read_write.source_id = group.source_id
-        read_write.metadata = group.metadata
+    else:
+        if len(groups) > 1:
+            print("Checking group config file against capabilities across [bold]ALL[/] groups...")
+        else:
+            print("Checking group config file against capabilities in the group...")
+    # Create a list of capabilities from the flattened list of acls in the group file.
+    read_write_cap_list = ProjectCapabilitiesList(
+        [ProjectCapability(pc, project_scope=ProjectsScope([project])) for pc in read_write.capabilities]
+    )
+    loosing = read_write_cap_list.compare(existing_cap_list, project=project)
+    loosing = [l for l in loosing if type(l) is not UserProfilesAcl]  # noqa: E741
+    if len(loosing) > 0:
+        for d in loosing:
+            if len(groups) > 1:
+                print(
+                    f"  [bold yellow]WARNING[/]: The capability {d} may be lost if\n"
+                    + "           switching to relying on only one group based on group config file for access."
+                )
+            else:
+                print(
+                    f"  [bold yellow]WARNING[/]: The capability {d} will be removed in the project if overwritten by group config file."
+                )
+    else:
+        print("  [bold green]OK[/] - All capabilities from the CDF project are also present in the group config file.")
+    print("---------------------")
+    if len(groups) == 1 and update_group == 1:
+        update_group = groups[0].id
+    if update_group > 1 or create_group is not None:
+        if update_group > 0:
+            print(f"Updating group {update_group}...")
+            for g in groups:
+                if g.id == update_group:
+                    group = g
+                    break
+            if group is None:
+                print(f"  [bold red]ERROR[/]: Unable to find --group-id={update_group} in CDF.")
+                ToolGlobals.failed = True
+                return
+            read_write.name = group.name
+            read_write.source_id = group.source_id
+            read_write.metadata = group.metadata
+        else:
+            print(f"Creating new group based on {group_file}...")
+            read_write.source_id = create_group
         try:
             if not dry_run:
                 new = ToolGlobals.client.iam.groups.create(read_write)
@@ -343,13 +320,14 @@ def check_auth(
             print(f"  [bold red]ERROR[/]: Unable to create new group {read_write.name}.\n{e}")
             ToolGlobals.failed = True
             return
-        try:
-            if not dry_run:
-                ToolGlobals.client.iam.groups.delete(group_id)
-                print(f"  [bold green]OK[/] - Deleted old group {group_id}.")
-            else:
-                print(f"  [bold green]OK[/] - Would have deleted old group {group_id}.")
-        except Exception as e:
-            print(f"  [bold red]ERROR[/]: Unable to delete old group {group_id}.\n{e}")
-            ToolGlobals.failed = True
-            return
+        if update_group:
+            try:
+                if not dry_run:
+                    ToolGlobals.client.iam.groups.delete(update_group)
+                    print(f"  [bold green]OK[/] - Deleted old group {update_group}.")
+                else:
+                    print(f"  [bold green]OK[/] - Would have deleted old group {update_group}.")
+            except Exception as e:
+                print(f"  [bold red]ERROR[/]: Unable to delete old group {update_group}.\n{e}")
+                ToolGlobals.failed = True
+                return

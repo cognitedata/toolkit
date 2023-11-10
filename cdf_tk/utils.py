@@ -22,6 +22,7 @@ from typing import Any
 import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials, Token
+from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_sets import DataSet
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.exceptions import CogniteAuthError
@@ -223,7 +224,12 @@ class CDFToolConfig:
         # Since we now have a new configuration, check the dataset and set the id
         self._data_set_id = self.verify_dataset(data_set_name=value)
 
-    def verify_client(self, capabilities: dict[str, list[str]] | None = None) -> CogniteClient:
+    def verify_client(
+        self,
+        capabilities: list[dict(str, list[str])] | None = None,
+        data_set_id: int = 0,
+        space_id: str | None = None,
+    ) -> CogniteClient:
         """Verify that the client has correct credentials and required access rights
 
         Supply requirement CDF ACLs to verify if you have correct access
@@ -237,6 +243,7 @@ class CDFToolConfig:
         Args:
             capabilities (dict[list], optional): access capabilities to verify
             data_set_id (int): id of dataset that access should be granted to
+            space_id (str): id of space that access should be granted to
 
         Yields:
             CogniteClient: Verified client with access rights
@@ -248,27 +255,35 @@ class CDFToolConfig:
             # The response also includes access rights, which can be used to check if the client has the
             # correct access for what you want to do.
             resp = self.client.iam.token.inspect()
-            if resp is None or len(resp.capabilities) == 0:
+            if resp is None or len(resp.capabilities.data) == 0:
                 raise CogniteAuthError("Don't have any access rights. Check credentials.")
         except Exception as e:
             raise e
-        # iterate over all the capabilities we need
-        for cap, actions in capabilities.items():
-            # Find the right capability in our granted capabilities
-            relevant_caps = []
-            for k in resp.capabilities:
-                if len(k.get(cap, {})) == 0:
-                    continue
-                # Either scope all or dataset scope to our dataset
-                if "all" in k.get(cap, {}).get("scope", {}) or (
-                    self._data_set_id != 0
-                    and str(self._data_set_id) in k.get(cap, {}).get("scope", {}).get("datasetScope").get("ids", [])
-                ):
-                    relevant_caps.extend(k[cap].get("actions"))
-            if False in [(a in relevant_caps) for a in actions]:
-                raise CogniteAuthError(
-                    f"Don't have correct access rights. Need {actions} on {cap}.\n" f"Only have {relevant_caps}"
+        scope = {}
+        if data_set_id > 0:
+            scope["dataSetScope"] = {"ids": [data_set_id]}
+        if space_id is not None:
+            scope["spaceScope"] = {"ids": [space_id]}
+        if space_id is None and data_set_id == 0:
+            scope["all"] = {}
+        try:
+            caps = [
+                Capability.load(
+                    {
+                        cap: {
+                            "actions": actions,
+                            "scope": scope,
+                        },
+                    }
                 )
+                for cap, actions in capabilities.items()
+            ] or None
+        except Exception:
+            raise ValueError(f"Failed to load capabilities from {capabilities}. Wrong syntax?")
+        comp = resp.capabilities.compare(caps)
+        if len(comp) > 0:
+            print(f"Capabilities mismatch: {comp}")
+            raise CogniteAuthError("Don't have correct access rights.")
         return self._client
 
     def verify_dataset(self, data_set_name: str | None = None, create: bool = True) -> int | None:
