@@ -252,20 +252,41 @@ def check_auth(
             print(f"  [bold yellow]WARNING[/]: The capability {d} is not present in the CDF project.")
     else:
         print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
+    # Flatten out into a list of acls in the existing project
+    existing_cap_list = [c.capability for c in resp.capabilities.data]
+    if len(groups) > 1:
+        print(
+            "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
+        )
     print("---------------------")
+    if len(groups) > 1 and group_id > 1:
+        print(f"Checking group config file against capabilities only from the group {group_id}...")
+        for g in groups:
+            if g.id == group_id:
+                existing_cap_list = g.capabilities
+                break
+    else:
+        if len(groups) > 1:
+            print("Checking group config file against capabilities across [bold]ALL[/] groups...")
+        else:
+            print("Checking group config file against capabilities in the group...")
     # Create a list of capabilities from the flattened list of acls in the group file.
     read_write_cap_list = ProjectCapabilitiesList(
         [ProjectCapability(pc, project_scope=ProjectsScope([project])) for pc in read_write.capabilities]
     )
-    # Flatten out into a list of acls in the existing project
-    existing_cap_list = [c.capability for c in resp.capabilities.data]
     loosing = read_write_cap_list.compare(existing_cap_list, project=project)
     loosing = [l for l in loosing if type(l) is not UserProfilesAcl]  # noqa: E741
     if len(loosing) > 0:
         for d in loosing:
-            print(
-                f"  [bold yellow]WARNING[/]: The capability {d} will be removed in the project if overwritten by group config file."
-            )
+            if len(groups) > 1:
+                print(
+                    f"  [bold yellow]WARNING[/]: The capability {d} may be lost if\n"
+                    + "           switching to relying on only one group based on group config file for access."
+                )
+            else:
+                print(
+                    f"  [bold yellow]WARNING[/]: The capability {d} will be removed in the project if overwritten by group config file."
+                )
     else:
         print("  [bold green]OK[/] - All capabilities from the CDF project are also present in the group config file.")
     print("---------------------")
