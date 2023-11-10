@@ -240,8 +240,8 @@ yaml = ["PyYAML (>=6.0,<7.0)"]
 [package.source]
 type = "git"
 url = "https://github.com/cognitedata/cognite-sdk-python.git"
-reference = "compare-capabilities"
-resolved_reference = "9d0c8e37d84f4a5fb1744727ed3cd40ce8c710f7"
+reference = "v7-release"
+resolved_reference = "37f0f5fd21e6eff2997600cb82b71b477d334eef"
 
 [[package]]
 name = "colorama"
@@ -1235,4 +1235,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "d7cc43ebaecfe39e56d214abb0e054f1deb8bfd4cd2206fdf7952b99fbbf9e33"
+content-hash = "d1ff60230b3e1a1ab621bb452e081b53400290dc78c22bb35d13a4e6e9dc3fef"
