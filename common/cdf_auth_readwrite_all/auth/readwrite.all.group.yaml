@@ -1,5 +1,5 @@
 name: 'cicd:all:read-write'
-source_id: '{{readwrite_source_id}}'
+sourceId: '{{readwrite_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
   cdf_template_version: '{{cdf_template_version}}'

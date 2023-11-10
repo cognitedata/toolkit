@@ -33,11 +33,14 @@ jobs:
           poetry run python cdf.py build --env=demo
       - name: "Verify and create access rights"
         run: |
-          poetry run python cdf.py auth verify --update-group
+          poetry run python cdf.py auth verify
       # be careful, this works as promised
       - name: "Delete existing resources including data"
         run: |
           poetry run python cdf.py clean --env=demo
+      - name: "Allow some time for data modeling to finish syncing of deletions"
+        run: |
+          sleep 60
       - name: "Deploy the package"
         run: |
           poetry run python cdf.py deploy --env=demo

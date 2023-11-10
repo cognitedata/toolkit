@@ -14,7 +14,6 @@
 
 import os
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from cognite.client import CogniteClient
@@ -26,17 +25,16 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.iam import Group
 from rich import print
-from rich.columns import Columns
-from rich.panel import Panel
+from rich.table import Table
 
 from .utils import CDFToolConfig
 
 
 def check_auth(
     ToolGlobals: CDFToolConfig,
-    group_id: int = 0,
-    group_file: Optional[str] = None,
-    update_group: bool = False,
+    group_file: str | None = None,
+    update_group: int = 0,
+    create_group: str | None = None,
     dry_run: bool = False,
     verbose: bool = False,
 ) -> CogniteClient:
@@ -216,23 +214,22 @@ def check_auth(
         print("  [bold red]ERROR[/]: Unable to retrieve CDF groups.")
         ToolGlobals.failed = True
         return
-    print(
-        Panel(
-            Columns(
-                [f"{g.id} {g.name} {g.source_id}" for g in groups],
-                title="CDF Group ids, Names, and Source Ids",
-            )
-        )
-    )
+    tbl = Table(title="CDF Group ids, Names, and Source Ids")
+    tbl.add_column("Id", justify="left")
+    tbl.add_column("Name", justify="left")
+    tbl.add_column("Source Id", justify="left")
+    for g in groups:
+        tbl.add_row(str(g.id), g.name, g.source_id)
+    print(tbl)
     if len(groups) > 1:
         print(
             "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
         )
-        print("          This is not recommended.")
-        if group_id == 0 and update_group:
+        print("           This is not recommended.")
+        if update_group == 1:
             print(
-                "  [bold red]ERROR[/]: You have specified --update-group. "
-                + "         With multiple groups available, you must use the --group-id option to specify which group to update."
+                "  [bold red]ERROR[/]: You have specified --update-group=1.\n"
+                + "         With multiple groups available, you must use the --update_group=<full-group-i> option to specify which group to update."
             )
             ToolGlobals.failed = True
             return
@@ -259,10 +256,10 @@ def check_auth(
             "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
         )
     print("---------------------")
-    if len(groups) > 1 and group_id > 1:
-        print(f"Checking group config file against capabilities only from the group {group_id}...")
+    if len(groups) > 1 and update_group > 1:
+        print(f"Checking group config file against capabilities only from the group {update_group}...")
         for g in groups:
-            if g.id == group_id:
+            if g.id == update_group:
                 existing_cap_list = g.capabilities
                 break
     else:
@@ -290,21 +287,25 @@ def check_auth(
     else:
         print("  [bold green]OK[/] - All capabilities from the CDF project are also present in the group config file.")
     print("---------------------")
-    if len(groups) == 1 and group_id == 0 and update_group:
-        group_id = groups[0].id
-    if update_group and group_id != 0:
-        print(f"Updating group {group_id}...")
-        for g in groups:
-            if g.id == group_id:
-                group = g
-                break
-        if group is None:
-            print(f"  [bold red]ERROR[/]: Unable to find --group-id={group_id} in CDF.")
-            ToolGlobals.failed = True
-            return
-        read_write.name = group.name
-        read_write.source_id = group.source_id
-        read_write.metadata = group.metadata
+    if len(groups) == 1 and update_group == 1:
+        update_group = groups[0].id
+    if update_group > 1 or create_group is not None:
+        if update_group > 0:
+            print(f"Updating group {update_group}...")
+            for g in groups:
+                if g.id == update_group:
+                    group = g
+                    break
+            if group is None:
+                print(f"  [bold red]ERROR[/]: Unable to find --group-id={update_group} in CDF.")
+                ToolGlobals.failed = True
+                return
+            read_write.name = group.name
+            read_write.source_id = group.source_id
+            read_write.metadata = group.metadata
+        else:
+            print(f"Creating new group based on {group_file}...")
+            read_write.source_id = create_group
         try:
             if not dry_run:
                 new = ToolGlobals.client.iam.groups.create(read_write)
@@ -319,13 +320,14 @@ def check_auth(
             print(f"  [bold red]ERROR[/]: Unable to create new group {read_write.name}.\n{e}")
             ToolGlobals.failed = True
             return
-        try:
-            if not dry_run:
-                ToolGlobals.client.iam.groups.delete(group_id)
-                print(f"  [bold green]OK[/] - Deleted old group {group_id}.")
-            else:
-                print(f"  [bold green]OK[/] - Would have deleted old group {group_id}.")
-        except Exception as e:
-            print(f"  [bold red]ERROR[/]: Unable to delete old group {group_id}.\n{e}")
-            ToolGlobals.failed = True
-            return
+        if update_group:
+            try:
+                if not dry_run:
+                    ToolGlobals.client.iam.groups.delete(update_group)
+                    print(f"  [bold green]OK[/] - Deleted old group {update_group}.")
+                else:
+                    print(f"  [bold green]OK[/] - Would have deleted old group {update_group}.")
+            except Exception as e:
+                print(f"  [bold red]ERROR[/]: Unable to delete old group {update_group}.\n{e}")
+                ToolGlobals.failed = True
+                return
