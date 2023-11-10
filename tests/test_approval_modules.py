@@ -89,6 +89,16 @@ def test_module_approval(
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval
         cdf_tool.failed = False
+        counter = 0
+
+        def fake_data_set(*args, **kwargs) -> int:
+            nonlocal counter
+            counter += 1
+            return counter
+
+        cdf_tool.verify_dataset = fake_data_set
+        cdf_tool.data_set_id = 999
+
         context.obj = Common(
             verbose=False, override_env=True, cluster="pytest", project="pytest-project", ToolGlobals=cdf_tool
         )

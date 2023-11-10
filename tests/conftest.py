@@ -8,13 +8,29 @@ from cognite.client._api.data_modeling.containers import ContainersAPI
 from cognite.client._api.data_modeling.data_models import DataModelsAPI
 from cognite.client._api.data_modeling.spaces import SpacesAPI
 from cognite.client._api.data_modeling.views import ViewsAPI
+from cognite.client._api.data_sets import DataSetsAPI
 from cognite.client._api.iam import GroupsAPI
 from cognite.client._api.time_series import TimeSeriesAPI
-from cognite.client._api.transformations import TransformationsAPI
+from cognite.client._api.transformations import TransformationsAPI, TransformationSchedulesAPI
 from cognite.client._api_client import APIClient
-from cognite.client.data_classes import GroupList, TimeSeriesList, TransformationList
+from cognite.client.data_classes import (
+    DataSetList,
+    GroupList,
+    TimeSeriesList,
+    TransformationList,
+    TransformationScheduleList,
+)
 from cognite.client.data_classes._base import CogniteResourceList
-from cognite.client.data_classes.data_modeling import ContainerList, DataModelList, SpaceList, ViewList
+from cognite.client.data_classes.data_modeling import (
+    ContainerApplyList,
+    ContainerList,
+    DataModelApplyList,
+    DataModelList,
+    SpaceApplyList,
+    SpaceList,
+    ViewApplyList,
+    ViewList,
+)
 from cognite.client.testing import monkeypatch_cognite_client
 
 
@@ -30,12 +46,16 @@ def cognite_client_approval() -> CogniteClient:
     with monkeypatch_cognite_client() as client:
         state: dict[str, CogniteResourceList] = {}
         client.iam.groups = create_mock_api(GroupsAPI, GroupList, state)
+        client.data_sets = create_mock_api(DataSetsAPI, DataSetList, state)
         client.timeseries = create_mock_api(TimeSeriesAPI, TimeSeriesList, state)
         client.transformations = create_mock_api(TransformationsAPI, TransformationList, state)
-        client.data_modeling.containers = create_mock_api(ContainersAPI, ContainerList, state)
-        client.data_modeling.views = create_mock_api(ViewsAPI, ViewList, state)
-        client.data_modeling.data_models = create_mock_api(DataModelsAPI, DataModelList, state)
-        client.data_modeling.spaces = create_mock_api(SpacesAPI, SpaceList, state)
+        client.transformations.schedules = create_mock_api(
+            TransformationSchedulesAPI, TransformationScheduleList, state
+        )
+        client.data_modeling.containers = create_mock_api(ContainersAPI, ContainerList, state, ContainerApplyList)
+        client.data_modeling.views = create_mock_api(ViewsAPI, ViewList, state, ViewApplyList)
+        client.data_modeling.data_models = create_mock_api(DataModelsAPI, DataModelList, state, DataModelApplyList)
+        client.data_modeling.spaces = create_mock_api(SpacesAPI, SpaceList, state, SpaceApplyList)
 
         def dump() -> dict[str, Any]:
             dumped = {}
@@ -55,22 +75,33 @@ def cognite_client_approval() -> CogniteClient:
 
 
 def create_mock_api(
-    api_client: type[APIClient], read_list_cls: type[CogniteResourceList], state: dict[str, CogniteResourceList]
+    api_client: type[APIClient],
+    read_list_cls: type[CogniteResourceList],
+    state: dict[str, CogniteResourceList],
+    write_list_cls: type[CogniteResourceList] | None = None,
 ) -> MagicMock:
     mock = MagicMock(spec=api_client)
     mock.list.return_value = read_list_cls([])
+    if hasattr(api_client, "retrieve"):
+        mock.retrieve.return_value = read_list_cls([])
+    if hasattr(api_client, "retrieve_multiple"):
+        mock.retrieve_multiple.return_value = read_list_cls([])
+
     resource_cls = read_list_cls._RESOURCE
-    state[resource_cls.__name__] = read_list_cls([])
+    write_list_cls = write_list_cls or read_list_cls
+    write_resource_cls = write_list_cls._RESOURCE
+
+    state[resource_cls.__name__] = write_list_cls([])
 
     def create(*args, **kwargs) -> Any:
         created = []
         for value in itertools.chain(args, kwargs.values()):
-            if isinstance(value, resource_cls):
+            if isinstance(value, write_resource_cls):
                 created.append(value)
-            elif isinstance(value, Sequence) and all(isinstance(v, resource_cls) for v in value):
+            elif isinstance(value, Sequence) and all(isinstance(v, write_resource_cls) for v in value):
                 created.extend(value)
         state[resource_cls.__name__].extend(created)
-        return read_list_cls(created)
+        return write_list_cls(created)
 
     if hasattr(api_client, "create"):
         mock.create = create
