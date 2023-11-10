@@ -17,6 +17,12 @@ from pathlib import Path
 
 import yaml
 from cognite.client import CogniteClient
+from cognite.client.data_classes.capabilities import (
+    ProjectCapabilitiesList,
+    ProjectCapability,
+    ProjectsScope,
+    UserProfilesAcl,
+)
 from cognite.client.data_classes.iam import Group
 from rich import print
 from rich.table import Table
@@ -222,7 +228,7 @@ def check_auth(
         print("           This is not recommended.")
         if update_group == 1:
             print(
-                "  [bold red]ERROR[/]: You have specified --update-group=1. "
+                "  [bold red]ERROR[/]: You have specified --update-group=1.\n"
                 + "         With multiple groups available, you must use the --update_group=<full-group-i> option to specify which group to update."
             )
             ToolGlobals.failed = True
@@ -237,80 +243,49 @@ def check_auth(
             Loader=yaml.Loader,
         )
     )
-    error = False
-    all_acls = []
-    for g in groups:
-        if g.capabilities:
-            all_acls.extend(g.capabilities)
-    for cap in read_write.capabilities:
-        all_ok = False
-        if type(cap) not in [type(a) for a in all_acls]:
-            print(
-                f"  [bold yellow]WARNING[/]: The capability {cap._capability_name} is not present in the CDF project."
-            )
-            error = True
-            continue
-        for a in all_acls:
-            all_ok = True
-            if type(a) is not type(cap):
-                continue
-            for action in cap.actions:
-                if action in a.actions:
-                    continue
-                all_ok = False
-                break
-            if all_ok:
-                break
-        if not all_ok:
-            print(
-                f"  [bold yellow]WARNING[/]: The ACL {cap._capability_name} does not have all needed actions present."
-            )
-            error = True
-        if all_ok and verbose:
-            print(f"  [bold green]OK[/] - {cap._capability_name} is present in the CDF project.")
-    if not verbose:
-        if not error:
-            print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
+    diff = resp.capabilities.compare(read_write.capabilities, project=project)
+    if len(diff) > 0:
+        for d in diff:
+            print(f"  [bold yellow]WARNING[/]: The capability {d} is not present in the CDF project.")
+    else:
+        print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
+    # Flatten out into a list of acls in the existing project
+    existing_cap_list = [c.capability for c in resp.capabilities.data]
+    if len(groups) > 1:
         print(
-            "  [bold]Only missing ACLs were shown[/]: Use --verbose to see which ACLs are present in the CDF project."
+            "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
         )
     print("---------------------")
-    print(
-        f"Checking for ACLs in CDF groups not found in group configuration file (i.e. will be lost if overwritten): {group_file}..."
+    if len(groups) > 1 and update_group > 1:
+        print(f"Checking group config file against capabilities only from the group {update_group}...")
+        for g in groups:
+            if g.id == update_group:
+                existing_cap_list = g.capabilities
+                break
+    else:
+        if len(groups) > 1:
+            print("Checking group config file against capabilities across [bold]ALL[/] groups...")
+        else:
+            print("Checking group config file against capabilities in the group...")
+    # Create a list of capabilities from the flattened list of acls in the group file.
+    read_write_cap_list = ProjectCapabilitiesList(
+        [ProjectCapability(pc, project_scope=ProjectsScope([project])) for pc in read_write.capabilities]
     )
-    error = False
-    for cap in all_acls:
-        all_ok = False
-        if type(cap) not in [type(a) for a in all_acls]:
-            print(
-                f"  [bold yellow]WARNING[/]: The capability {cap._capability_name} not present in group configuration."
-            )
-            error = True
-            continue
-        for a in read_write.capabilities:
-            all_ok = True
-            if type(a) is not type(cap):
-                continue
-            for action in cap.actions:
-                if action in a.actions:
-                    continue
-                all_ok = False
-                break
-            if all_ok:
-                break
-        if not all_ok:
-            print(
-                f"  [bold yellow]WARNING[/]: The ACL {cap._capability_name} does not have all needed actions present."
-            )
-            error = True
-        if all_ok and verbose:
-            print(f"  [bold green]OK[/] - {cap._capability_name} is present in the group definition.")
-    if not verbose:
-        if not error:
-            print("  [bold green]OK[/] - All the group's capabilities are present in the group definition.")
-        print(
-            "  [bold]Only missing ACLs were shown[/]: Use --verbose to see which ACLs are present in the group definition."
-        )
+    loosing = read_write_cap_list.compare(existing_cap_list, project=project)
+    loosing = [l for l in loosing if type(l) is not UserProfilesAcl]  # noqa: E741
+    if len(loosing) > 0:
+        for d in loosing:
+            if len(groups) > 1:
+                print(
+                    f"  [bold yellow]WARNING[/]: The capability {d} may be lost if\n"
+                    + "           switching to relying on only one group based on group config file for access."
+                )
+            else:
+                print(
+                    f"  [bold yellow]WARNING[/]: The capability {d} will be removed in the project if overwritten by group config file."
+                )
+    else:
+        print("  [bold green]OK[/] - All capabilities from the CDF project are also present in the group config file.")
     print("---------------------")
     if len(groups) == 1 and update_group == 1:
         update_group = groups[0].id
