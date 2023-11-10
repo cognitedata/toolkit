@@ -27,7 +27,6 @@ from cognite.client.data_classes import (
     TransformationList,
 )
 from cognite.client.data_classes._base import CogniteResource
-from cognite.client.data_classes.capabilities import DataSetScope
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
@@ -368,16 +367,23 @@ def load_groups(
                     files.append(f)
     groups: GroupList = GroupList([])
     for f in files:
-        groups.append(
-            Group.load(load_yaml_inject_variables(Path(f"{directory}/{f}"), ToolGlobals.environment_variables()))
-        )
-    print(f"[bold]Loading {len(groups)} groups from {directory}...[/]")
-    # Find and create data_sets
-    for group in groups:
-        for capability in group.capabilities:
-            if isinstance(capability.scope, DataSetScope) and capability.scope.ids:
-                ids = [ToolGlobals.verify_dataset(ext_id) for ext_id in capability.scope.ids]
-                capability.scope = DataSetScope(ids=ids)
+        group = load_yaml_inject_variables(Path(f"{directory}/{f}"), ToolGlobals.environment_variables())
+        # Find and create data_sets
+        for capability in group.get("capabilities", []):
+            for _, values in capability.items():
+                if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
+                    if dry_run:
+                        values["scope"]["datasetScope"]["ids"] = [999]
+                    else:
+                        values["scope"]["datasetScope"]["ids"] = [
+                            ToolGlobals.verify_dataset(ext_id)
+                            for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
+                        ]
+        groups.append(Group.load(group))
+    if dry_run:
+        print(f"[bold]Loading {len(groups)} groups from {directory}...[/]")
+    else:
+        print(f"[bold]Loading {len(groups)} groups from {directory} and created necessary data sets...[/]")
     existing_groups = 0
     for group in groups:
         old_group_id = None
