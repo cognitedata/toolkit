@@ -1,5 +1,5 @@
 Database:
-- name: default
+- name: pump_assets
 Transformation:
 - dataSetId: 999
   destination:

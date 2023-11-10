@@ -75,7 +75,7 @@ def test_module_approval(
             return {"test": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]}}
         return read_yaml_files(yaml_dirs, name)
 
-    monkeypatch.setattr("cdf_project_template.templates.read_yaml_files", fake_read_yaml_files)
+    monkeypatch.setattr("cdf_tk.templates.read_yaml_files", fake_read_yaml_files)
     monkeypatch.setenv("CDF_PROJECT", "pytest-project")
     monkeypatch.setenv("IDP_TOKEN_URL", "dummy")
     monkeypatch.setenv("IDP_CLIENT_ID", "dummy")

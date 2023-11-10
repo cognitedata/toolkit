@@ -96,9 +96,14 @@ def load_raw(
     for f in files:
         try:
             (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
-        except Exception:
+        except AttributeError:
             db = raw_db
-            table_name = Path(f).name.split(".")[-1]
+            try:
+                (_, table_name) = re.match(r"(\d+)\.(\w+)\.csv", f).groups()
+            except AttributeError:
+                print(f"[bold red]ERROR:[/] Filename {f} does not match expected format.")
+                ToolGlobals.failed = True
+                return
         with open(f"{directory}/{f}") as file:
             dataframe = pd.read_csv(file, dtype=str)
             dataframe = dataframe.fillna("")
