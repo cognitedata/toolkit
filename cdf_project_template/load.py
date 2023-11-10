@@ -98,6 +98,7 @@ def load_raw(
             (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
         except Exception:
             db = raw_db
+            table_name = Path(f).name.split(".")[-1]
         with open(f"{directory}/{f}") as file:
             dataframe = pd.read_csv(file, dtype=str)
             dataframe = dataframe.fillna("")

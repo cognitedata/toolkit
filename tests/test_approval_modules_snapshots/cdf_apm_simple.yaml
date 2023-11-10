@@ -326,6 +326,15 @@ DataModel:
     space: apm_simple
     type: view
     version: '1'
+Database:
+- name: apm_simple
+- name: apm_simple
+- name: apm_simple
+- name: apm_simple
+- name: apm_simple
+- name: apm_simple
+- name: apm_simple
+- name: apm_simple
 Space:
 - description: Imported space
   name: apm_simple

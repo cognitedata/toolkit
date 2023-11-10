@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import itertools
 from typing import Any, Sequence
 from unittest.mock import MagicMock
@@ -10,10 +12,13 @@ from cognite.client._api.data_modeling.spaces import SpacesAPI
 from cognite.client._api.data_modeling.views import ViewsAPI
 from cognite.client._api.data_sets import DataSetsAPI
 from cognite.client._api.iam import GroupsAPI
+from cognite.client._api.raw import RawDatabasesAPI
 from cognite.client._api.time_series import TimeSeriesAPI
 from cognite.client._api.transformations import TransformationsAPI, TransformationSchedulesAPI
 from cognite.client._api_client import APIClient
 from cognite.client.data_classes import (
+    Database,
+    DatabaseList,
     DataSetList,
     GroupList,
     TimeSeriesList,
@@ -48,6 +53,7 @@ def cognite_client_approval() -> CogniteClient:
         client.iam.groups = create_mock_api(GroupsAPI, GroupList, state)
         client.data_sets = create_mock_api(DataSetsAPI, DataSetList, state)
         client.timeseries = create_mock_api(TimeSeriesAPI, TimeSeriesList, state)
+        client.raw.databases = create_mock_api(RawDatabasesAPI, DatabaseList, state)
         client.transformations = create_mock_api(TransformationsAPI, TransformationList, state)
         client.transformations.schedules = create_mock_api(
             TransformationSchedulesAPI, TransformationScheduleList, state
@@ -100,6 +106,8 @@ def create_mock_api(
                 created.append(value)
             elif isinstance(value, Sequence) and all(isinstance(v, write_resource_cls) for v in value):
                 created.extend(value)
+            elif isinstance(value, str) and issubclass(write_resource_cls, Database):
+                created.append(Database(name=value))
         state[resource_cls.__name__].extend(created)
         return write_list_cls(created)
 

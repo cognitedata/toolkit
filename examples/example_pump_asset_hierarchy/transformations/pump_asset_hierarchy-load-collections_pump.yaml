@@ -11,8 +11,7 @@ authentication:
   tokenUri: {{tokenUri}}
   # Optional: If idP requires providing the scopes
   cdfProjectName: {{cdfProjectName}}
-  scopes:
-    - {{scopes}}
+  scopes: {{scopes}}
   # Optional: If idP requires providing the audience
   audience: {{audience}}
 schedule:
