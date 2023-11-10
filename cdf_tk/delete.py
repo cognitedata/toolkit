@@ -239,8 +239,14 @@ def delete_groups(
     groups: list[Group] = []
     for f in files:
         with open(f"{directory}/{f}") as file:
+            group = yaml.safe_load(file.read())
+            # Find and set dummy integer for data_sets to avoid Group.load() failing
+            for capability in group.get("capabilities", []):
+                for _, values in capability.items():
+                    if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
+                        values["scope"]["datasetScope"]["ids"] = [999]
             groups.append(
-                Group.load(yaml.safe_load(file.read())),
+                Group.load(group),
             )
     print(f"[bold]Deleting {len(groups)} group(s)...[/]")
     nr_of_old_groups = 0

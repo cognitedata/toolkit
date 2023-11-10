@@ -31,8 +31,10 @@ from cdf_tk.load import (
 from cdf_tk.templates import build_config, read_environ_config
 from cdf_tk.utils import CDFToolConfig
 
-app = typer.Typer()
-auth_app = typer.Typer()
+app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
+auth_app = typer.Typer(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
 app.add_typer(auth_app, name="auth")
 
 
