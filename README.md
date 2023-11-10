@@ -30,6 +30,27 @@ to load into a project, and the root [config.yaml](./config.yaml) file where you
 variables. You will find globally set configuration defaults in `default.config.yaml` files. These variables
 can always be overridden by setting the same variable in a `config.yaml` file in the same directory.
 
+### Identity Provider (Authentication and Authorization)
+
+You can use any Identity Provider like Azure Entra (aka Active Directory), Auth0, or others suppored by CDF.
+The tools here will load information about the project and the identity provider from environment variables.
+
+The quickstart is to copy the .env.tmpl file to .env and set the environment variables for local use
+of the scripts. See [Identity Provider documetation](./docs/idp.md) for more details on what the various
+configurations are. You can then run the command `cdf.py auth verify` to verify that you have the
+correct environment variables set and authentication configuration configured correctly. You can also run
+the command with `--update-group` to update the group with the correct capabilities in CDF.
+
+The simplest way to start out with a blank project is to have the below access rights and run the
+command `cdf.py auth verify --update-group --dry-run`.
+
+```json
+"projectsAcl": ["LIST", "READ"],
+"groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
+```
+
+Run `./cdf.py auth verify --help` for more details on the command.
+
 ### Modules
 
 The basic concepts are **modules** and **packages**. Modules live in the `modules/`, `local_modules`, `common/`, and `examples/`
@@ -71,9 +92,9 @@ the modules that should be deployed. Then you deploy what was built to the CDF e
 
 ```mermaid
 flowchart LR
-    A[./build.py --env=dev] -->|parse global config| B(Gather modules)
+    A[./cdf.py build --env=dev] -->|parse global config| B(Gather modules)
     B -->|replace tmpl & env vars| C(Validate syntax)
-    D[./deploy.py --env=dev] -->E{validate}
+    D[./cdf.py deploy --env=dev] -->E{validate}
     E --> G(success: apply)
     E --> H(failure)
 ```
@@ -88,9 +109,9 @@ So, with the above concepts in mind, these are the practical steps to go through
    variables you want to change from the `default.config.yaml` file.
 5. (optional) Add any modules of your own that you may want to add in the `local_modules` folder (don't use `cdf_*` prefix).
 6. Copy `.env.tmpl` to .env and edit the file to set the environment variables for your project.
-7. Run `./build.py --env=<demo|local|dev|staging|prod>` to create a build/ directory with the
+7. Run `./cdf.py build --env=<demo|local|dev|staging|prod>` to create a build/ directory with the
    configurations.
-8. Run `./deploy.py --env=<demo|local|dev|staging|prod>` to deploy the configurations to your CDF project.
+8. Run `./cdf.py deploy --env=<demo|local|dev|staging|prod>` to deploy the configurations to your CDF project.
 
 ### Next steps
 

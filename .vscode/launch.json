@@ -5,26 +5,27 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: build.py",
+            "name": "Python: build",
             "type": "python",
             "request": "launch",
-            "program": "./build.py",
+            "program": "./cdf.py",
             "args": [
+                "--override-env",
+                "build",
                 "--clean",
                 "--env=local",
-                "--override_env",
-                "build"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
         },
         {
-            "name": "Python: deploy.py",
+            "name": "Python: deploy",
             "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
-            "program": "./deploy.py",
+            "program": "./cdf.py",
             "args": [
+                "deploy",
                 //"--dry-run",
                 "--drop",
                 "--drop-data",
@@ -35,15 +36,28 @@
             "justMyCode": false
         },
         {
-            "name": "Python: clean.py",
+            "name": "Python: clean",
             "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
-            "program": "./clean.py",
+            "program": "./cdf.py",
             "args": [
+                "clean",
                 //"--dry-run",
                 "--env=local",
                 //"--include=data_models"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: cdf.py",
+            "type": "python",
+            "request": "launch",
+            "program": "./cdf.py",
+            "args": [
+                "clean",
+                "-r"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

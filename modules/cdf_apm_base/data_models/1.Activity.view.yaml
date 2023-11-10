@@ -25,6 +25,13 @@ properties:
       space: {{apm_datamodel_space}}
       externalId: APM_Activity
     containerPropertyIdentifier: description
+  assignedTo:
+    description: "Who the maintenance activity or work order has been assigned to."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: assignedTo
   source:
     description: "Origin of the activity or work order, such as SAP, Comos, etc."
     container:
@@ -64,6 +71,7 @@ properties:
       externalId: APM_Notification
       version: {{apm_datamodel_version}}
     direction: outwards
+    connectionType: multiEdgeConnection
   rootLocation:
     description: "Primary location tied to the activity, useful for location-based filtering. It refers to the external ID of the location set in InField."
     container:

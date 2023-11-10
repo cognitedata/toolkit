@@ -1,16 +1,16 @@
-externalId: apm_simple-load-assets
-name: apm_simple-load-Assets
+externalId: sync_workorders_to_apm_activities
+name: Sync workorders to APM Activities
 destination:
   dataModel:
-    space: {{space}}
-    externalId: {{datamodel}}
-    version: '1'
-    destinationType: Asset
-  instanceSpace: {{space}}
+    space: APM_SourceData
+    externalId: APM_SourceData
+    version: "1"
+    destinationType: APM_Activity
+  instanceSpace: 'infield_{{location_name}}_location_source_data_space'
   type: instances
 ignoreNullFields: true
 shared: true
-conflictMode: upsert
+action: upsert
 # Specify credentials separately like this:
 # You can also use different credentials for the running transformations than the ones you use to deploy
 authentication:
@@ -26,4 +26,5 @@ authentication:
 schedule:
   # every hour
   interval: '0 * * * *'
-  isPaused: true
+  is_paused: true
+

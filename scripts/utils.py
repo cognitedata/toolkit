@@ -16,11 +16,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
+from typing import Any
 
+import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials, Token
 from cognite.client.data_classes.data_sets import DataSet
-from cognite.client.data_classes.iam import Group
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.exceptions import CogniteAuthError
 
@@ -34,22 +36,6 @@ class TimeSeriesLoad:
             return [TimeSeries(**prop) for prop in props]
         except Exception as e:
             raise ValueError(f"Failed to load timeseries from yaml files: {file}.\n{e}")
-
-
-class GroupLoad:
-    @staticmethod
-    def load(props: list[dict], file: str = "unknown") -> [Group]:
-        try:
-            return [
-                Group(
-                    name=props.get("name"),
-                    source_id=props.get("source_id"),
-                    capabilities=props.get("capabilities"),
-                    metadata=props.get("metadata"),
-                )
-            ]
-        except Exception as e:
-            raise ValueError(f"Failed to load group from yaml files: {file}.\n{e}")
 
 
 class CDFToolConfig:
@@ -67,6 +53,8 @@ class CDFToolConfig:
         self,
         client_name: str = "Generic Cognite config deploy tool",
         token: str | None = None,
+        cluster: str | None = None,
+        project: str | None = None,
     ) -> None:
         self._data_set_id: int = 0
         self._data_set = None
@@ -79,6 +67,14 @@ class CDFToolConfig:
             scopes=[],
         )
 
+        # CDF_CLUSTER and CDF_PROJECT are minimum requirements and can be overridden
+        # when instansiating the class.
+        if cluster is not None and len(cluster) > 0:
+            self._cluster = cluster
+            self._environ["CDF_CLUSTER"] = cluster
+        if project is not None and len(project) > 0:
+            self._project = project
+            self._environ["CDF_PROJECT"] = project
         if token is not None:
             self._environ["CDF_TOKEN"] = token
         if (
@@ -137,10 +133,26 @@ class CDFToolConfig:
                 )
             )
 
+    def environment_variables(self) -> dict[str, str]:
+        return self._environ.copy()
+
+    def as_string(self):
+        environment = self._environ.copy()
+        if "IDP_CLIENT_SECRET" in environment:
+            environment["IDP_CLIENT_SECRET"] = "***"
+        if "TRANSFORMATIONS_CLIENT_SECRET" in environment:
+            environment["TRANSFORMATIONS_CLIENT_SECRET"] = "***"
+        envs = ""
+        for e in environment:
+            envs += f"  {e}={environment[e]}\n"
+        return f"Cluster {self._cluster} with project {self._project} and config:\n{envs}"
+
     def __str__(self):
         environment = self._environ.copy()
         if "IDP_CLIENT_SECRET" in environment:
             environment["IDP_CLIENT_SECRET"] = "***"
+        if "TRANSFORMATIONS_CLIENT_SECRET" in environment:
+            environment["TRANSFORMATIONS_CLIENT_SECRET"] = "***"
         return f"Cluster {self._cluster} with project {self._project} and config:\n" + json.dumps(
             environment, indent=2, sort_keys=True
         )
@@ -294,3 +306,12 @@ class CDFToolConfig:
                 "Don't have correct access rights. Need also WRITE on "
                 + "datasetsAcl or that the data set {get_dataset_name()} has been created."
             )
+
+
+def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any]:
+    content = filepath.read_text()
+    for key, value in variables.items():
+        if value is None:
+            continue
+        content = content.replace("${%s}" % key, value)
+    return yaml.safe_load(content)

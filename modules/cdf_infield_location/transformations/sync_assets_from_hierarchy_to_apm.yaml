@@ -1,16 +1,15 @@
-externalId: apm_simple-load-assets
-name: apm_simple-load-Assets
+externalId: sync_assets_from_hierarchy_to_apm
+name: Sync assets from Asset Hierarchy to APM Asset model
 destination:
-  dataModel:
-    space: {{space}}
-    externalId: {{datamodel}}
-    version: '1'
-    destinationType: Asset
-  instanceSpace: {{space}}
-  type: instances
+  view:
+    space:  cdf_core
+    externalId: Asset
+    version: 'v1'
+  instanceSpace: 'infield_{{location_name}}_location_source_data_space'
+  type: nodes
 ignoreNullFields: true
 shared: true
-conflictMode: upsert
+action: upsert
 # Specify credentials separately like this:
 # You can also use different credentials for the running transformations than the ones you use to deploy
 authentication:
@@ -26,4 +25,5 @@ authentication:
 schedule:
   # every hour
   interval: '0 * * * *'
-  isPaused: true
+  is_paused: true
+

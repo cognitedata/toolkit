@@ -30,11 +30,20 @@ jobs:
           ./demo/preproc.sh
       - name: "Build the package"
         run: |
-          poetry run python build.py --env=demo
+          poetry run python cdf.py build --env=demo
+      - name: "Verify and create access rights"
+        run: |
+          poetry run python cdf.py auth verify
       # be careful, this works as promised
       - name: "Delete existing resources including data"
         run: |
-          poetry run python clean.py --env=demo
+          poetry run python cdf.py clean --env=demo
+      - name: "Allow some time for data modeling to finish syncing of deletions"
+        run: |
+          sleep 60
       - name: "Deploy the package"
         run: |
-          poetry run python deploy.py --drop --drop-data --env=demo
+          poetry run python cdf.py deploy --env=demo
+      - name: "Run transformations and other post-processing"
+        run: |
+          poetry run python ./demo/postproc.py
