@@ -7,7 +7,7 @@ license = "Apache-2"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.12,<3.13"
 python-dotenv = "^1.0.0"
 #cognite-sdk = {version = "7.0.0a3", extras = ["pandas"]}
 # Temporary fix while waiting for pre-release v7
