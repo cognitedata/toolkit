@@ -5,7 +5,7 @@ description = "Official Cognite Data Fusion project templates"
 authors = ["Greger Wedel <greger.wedel@cognite.com>"]
 license = "Apache-2"
 readme = "README.md"
-packages = [{include = "cdf_project_template", from = "."}]
+packages = [{include = "cdf_tk", from = "."}]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"

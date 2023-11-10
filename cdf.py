@@ -11,8 +11,8 @@ from rich import print
 from rich.panel import Panel
 from typing_extensions import Annotated
 
-from cdf_project_template import bootstrap
-from cdf_project_template.delete import (
+from cdf_tk import bootstrap
+from cdf_tk.delete import (
     delete_groups,
     delete_raw,
     delete_timeseries,
@@ -20,7 +20,7 @@ from cdf_project_template.delete import (
 )
 
 # from scripts.delete import clean_out_datamodels
-from cdf_project_template.load import (
+from cdf_tk.load import (
     load_datamodel,
     load_groups,
     load_nodes,
@@ -28,8 +28,8 @@ from cdf_project_template.load import (
     load_timeseries_metadata,
     load_transformations,
 )
-from cdf_project_template.templates import build_config, read_environ_config
-from cdf_project_template.utils import CDFToolConfig
+from cdf_tk.templates import build_config, read_environ_config
+from cdf_tk.utils import CDFToolConfig
 
 app = typer.Typer()
 auth_app = typer.Typer()
@@ -217,7 +217,7 @@ def deploy(
         print("q) Quit")
         answer = input("Select data types to deploy: ")
         if answer.casefold() == "a":
-            build_dir = "./build"
+            build_dir = "build"
         elif answer.casefold() == "q":
             exit(0)
         else:

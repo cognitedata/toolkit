@@ -7,7 +7,7 @@ from cognite.client._api.iam import TokenAPI, TokenInspection
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 
-from cdf_project_template.utils import CDFToolConfig, load_yaml_inject_variables
+from cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 
 def mocked_init(self, client_name: str):
