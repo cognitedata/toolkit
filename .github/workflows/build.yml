@@ -40,6 +40,6 @@ jobs:
           poetry config virtualenvs.create false
           poetry install
 
-      - name: Test Core
+      - name: Run pytest
         run: pytest tests
 
