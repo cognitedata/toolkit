@@ -1,11 +1,12 @@
-externalId: pump_model-replicate-lift_station
-name: pump_model-replicate-lift_station
+externalId: pump_model-populate-pump_container
+name: pump_model-populate-pump_container
 destination:
   dataModel:
     space: {{model_space}}
     externalId: {{data_model}}
     version: '{{view_LiftStation_version}}'
     destinationType: LiftStation
+    destinationRelationshipFromType: pumps
   instanceSpace: {{instance_space}}
   type: instances
 
