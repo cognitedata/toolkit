@@ -5,7 +5,11 @@ version: '{{view_LiftStation_version}}'
 implements:
   - type: view
     space: cdf_core
-    externalId: Asset
+    externalId: Sourceable
+    version: v1
+  - type: view
+    space: cdf_core
+    externalId: Describable
     version: v1
 properties:
   pumps:
@@ -24,4 +28,4 @@ filter:
     property:
       - node
       - externalId
-    value: liftStation
+    value: lift_station
