@@ -82,20 +82,17 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-  externalId: pump_model-populate-pump_container
+  externalId: pump_model-populate-lift_station_pumps_edges
   ignoreNullFields: false
   isPublic: true
-  name: pump_model-populate-pump_container
+  name: pump_model-populate-lift_station_pumps_edges
   ownerIsCurrentUser: true
-  query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(get_json_object(`metadata`,\
-    \ '$.DesignPointHeadFT') as DOUBLE) as DesignPointHeadFT,\n  cast(get_json_object(`metadata`,\
-    \ '$.LowHeadFT') as DOUBLE) as LowHeadFT,\n  cast(get_json_object(`metadata`,\
-    \ '$.DesignPointFlowGPM') as DOUBLE) as DesignPointFlowGPM,\n  cast(get_json_object(`metadata`,\
-    \ '$.LowHeadFlowGPM') as DOUBLE) as LowHeadFlowGPM\nfrom\n  cdf_data_models(\"\
-    ExtendedSourceDataModels\", \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n\
-    \  startswith(title, 'Pump')\n"
+  query: "select\n  concat(cast(`parent`.externalId as STRING), ':', cast(`externalId`\
+    \ as STRING)) as externalId,\n  `parent` as startNode,\n  node_reference('cdfTemplateInstances',\
+    \ cast(`externalId` as STRING)) as endNode\nfrom\n  cdf_data_models(\"ExtendedSourceDataModels\"\
+    , \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
   schedule:
-    externalId: pump_model-populate-pump_container
+    externalId: pump_model-populate-lift_station_pumps_edges
     interval: 0 * * * *
     isPaused: true
   sourceOidcCredentials:
@@ -146,7 +143,7 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: pump_model-populate-pump_container
+- externalId: pump_model-populate-lift_station_pumps_edges
   interval: 0 * * * *
   isPaused: true
 - externalId: pump_model-populate-pump_container

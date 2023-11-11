@@ -1,5 +1,5 @@
-externalId: pump_model-populate-pump_container
-name: pump_model-populate-pump_container
+externalId: pump_model-populate-lift_station_pumps_edges
+name: pump_model-populate-lift_station_pumps_edges
 destination:
   dataModel:
     space: {{model_space}}
