@@ -1,45 +1,27 @@
 externalId: LiftStation
 name: LiftStation
-space: '{{space}}'
+space: '{{model_space}}'
 version: '{{view_LiftStation_version}}'
+implements:
+  - type: view
+    space: cdf_core
+    externalId: Asset
+    version: v1
 properties:
-  name:
-    container:
-      externalId: AssetSimple
-      space: '{{space}}'
-      type: container
-    containerPropertyIdentifier: name
-    name: name
-  description:
-    container:
-      externalId: AssetSimple
-      space: '{{space}}'
-      type: container
-    containerPropertyIdentifier: description
-    name: description
-  assetType:
-    container:
-      externalId: AssetSimple
-      space: '{{space}}'
-      type: container
-    containerPropertyIdentifier: assetType
-    name: assetType
   pumps:
     type:
-      space: '{{space}}'
+      space: '{{model_space}}'
       externalId: LiftStation.pumps
     source:
-      space: '{{space}}'
+      space: '{{model_space}}'
       externalId: Pump
       version: '{{view_Pump_version}}'
       type: view
     direction: outwards
     name: pumps
 filter:
-  equals:
+  prefix:
     property:
-      - {{space}}
-      - AssetSimple
-      - assetType
-    value:
-      - liftStation
+      - node
+      - externalId
+    value: liftStation

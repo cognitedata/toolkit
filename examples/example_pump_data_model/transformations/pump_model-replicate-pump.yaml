@@ -2,11 +2,11 @@ externalId: pump_model-replicate-pump
 name: pump_model-replicate-pump
 destination:
   dataModel:
-    space: {{space}}
-    externalId: {{datamodel}}
+    space: {{model_space}}
+    externalId: {{data_model}}
     version: '{{view_Pump_version}}'
     destinationType: Pump
-  instanceSpace: {{space}}
+  instanceSpace: {{instance_space}}
   type: instances
 
 # Specify credentials separately like this:

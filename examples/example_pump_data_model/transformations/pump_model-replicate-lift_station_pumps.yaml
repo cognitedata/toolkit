@@ -2,12 +2,12 @@ externalId: pump_model-replicate-lift_station_pumps
 name: pump_model-replicate-lift_station_pumps
 destination:
   dataModel:
-    space: {{space}}
-    externalId: {{datamodel}}
+    space: {{model_space}}
+    externalId: {{data_model}}
     version: '{{view_LiftStation_version}}'
     destinationType: LiftStation
     destinationRelationshipFromType: pumps
-  instanceSpace: {{space}}
+  instanceSpace: {{instance_space}}
   type: instances
 
 # Specify credentials separately like this:

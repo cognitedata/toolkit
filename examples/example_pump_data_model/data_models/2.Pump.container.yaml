@@ -1,6 +1,6 @@
 externalId: Pump
 name: Pump
-space: '{{space}}'
+space: '{{model_space}}'
 usedFor: node
 properties:
   DesignPointFlowGPM:
@@ -44,5 +44,5 @@ constraints:
     constraintType: requires
     require:
       type: container
-      space: '{{space}}'
-      externalId: AssetSimple
+      space: cdf_core
+      externalId: Asset

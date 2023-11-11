@@ -1,73 +1,55 @@
 externalId: Pump
 name: Pump
-space: '{{space}}'
+space: '{{model_space}}'
 version: '{{view_Pump_version}}'
+implements:
+  - type: view
+    space: cdf_core
+    externalId: Asset
+    version: v1
 properties:
-  name:
-    container:
-      externalId: AssetSimple
-      space: '{{space}}'
-      type: container
-    containerPropertyIdentifier: name
-    name: name
-  description:
-    container:
-      externalId: AssetSimple
-      space: '{{space}}'
-      type: container
-    containerPropertyIdentifier: description
-    name: description
-  assetType:
-    container:
-      externalId: AssetSimple
-      space: '{{space}}'
-      type: container
-    containerPropertyIdentifier: assetType
-    name: assetType
   liftStation:
    container:
-     externalId: AssetSimple
-     space: '{{space}}'
+     externalId: Asset
+     space: cdf_core
      type: container
    containerPropertyIdentifier: parent
    name: liftStation
    source:
      external_id: LiftStation
-     space: '{{space}}'
+     space: '{{model_space}}'
      version: '{{view_LiftStation_version}}'
   DesignPointFlowGPM:
     container:
       externalId: Pump
-      space: '{{space}}'
+      space: '{{model_space}}'
       type: container
     containerPropertyIdentifier: DesignPointFlowGPM
     name: DesignPointFlowGPM
   DesignPointHeadFT:
     container:
       externalId: Pump
-      space: '{{space}}'
+      space: '{{model_space}}'
       type: container
     containerPropertyIdentifier: DesignPointHeadFT
     name: DesignPointHeadFT
   LowHeadFT:
     container:
       externalId: Pump
-      space: '{{space}}'
+      space: '{{model_space}}'
       type: container
     containerPropertyIdentifier: LowHeadFT
     name: LowHeadFT
   LowHeadFlowGPM:
     container:
       externalId: Pump
-      space: '{{space}}'
+      space: '{{model_space}}'
       type: container
     containerPropertyIdentifier: LowHeadFlowGPM
     name: LowHeadFlowGPM
 filter:
-  equals:
+  prefix:
     property:
-      - {{space}}
-      - AssetSimple
-      - assetType
-    value:
-      - pump
+      - node
+      - externalId
+    value: pump

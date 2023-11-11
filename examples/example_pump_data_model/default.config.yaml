@@ -1,9 +1,10 @@
 # Only valid for this module, loads template variables from environment
-space: cdfTemplate
+model_space: cdfTemplate
+instance_space: cdfTemplateInstances
 view_Pump_version: "1"
 view_LiftStation_version: "1"
-datamodel_version: "1"
-datamodel: "PumpLiftStations"
+data_model_version: "1"
+data_model: "PumpLiftStations"
 clientId: ${IDP_CLIENT_ID}
 clientSecret: ${IDP_CLIENT_SECRET}
 tokenUri: ${IDP_TOKEN_URL}
