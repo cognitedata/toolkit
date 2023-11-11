@@ -138,7 +138,7 @@ def build(
             "-c",
             help="Delete the build directory before building the configurations",
         ),
-    ] = True,
+    ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
     print(Panel(f"[bold]Building config files from templates into {build_dir} for environment {build_env}...[/bold]"))

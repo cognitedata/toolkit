@@ -1,4 +1,5 @@
 # Only valid for this module, loads template variables from environment
+space: cdfTemplate
 view_Asset_version: "1"
 datamodel_version: "1"
 datamodel: "AssetHierarchy"
