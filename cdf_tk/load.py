@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from cognite.client import CogniteClient
@@ -139,7 +139,7 @@ def load_raw(
 def load_files(
     ToolGlobals: CDFToolConfig,
     id_prefix: str = "example",
-    file: Optional[str] = None,
+    file: str | None = None,
     drop: bool = False,
     dry_run: bool = False,
     directory=None,
@@ -277,10 +277,10 @@ def load_timeseries_datapoints(ToolGlobals: CDFToolConfig, file: str, dry_run: b
 
 def load_transformations(
     ToolGlobals: CDFToolConfig,
-    file: Optional[str] = None,
+    file: str | None = None,
     drop: bool = False,
     dry_run: bool = False,
-    directory: Optional[str] = None,
+    directory: str | None = None,
 ) -> None:
     """Load transformations from dump folder.
 
@@ -347,8 +347,8 @@ def load_transformations(
 
 def load_groups(
     ToolGlobals: CDFToolConfig,
-    file: Optional[str] = None,
-    directory: Optional[str] = None,
+    file: str | None = None,
+    directory: str | None = None,
     dry_run: bool = False,
     verbose: bool = False,
 ) -> None:
@@ -432,8 +432,8 @@ def load_groups(
 
 def load_datamodel_graphql(
     ToolGlobals: CDFToolConfig,
-    space_name: Optional[str] = None,
-    model_name: Optional[str] = None,
+    space_name: str | None = None,
+    model_name: str | None = None,
     directory=None,
 ) -> None:
     """Load a graphql datamodel from file."""
@@ -472,7 +472,7 @@ def load_datamodel(
     delete_removed: bool = True,
     delete_containers: bool = False,
     delete_spaces: bool = False,
-    directory: Optional[Path] = None,
+    directory: Path | None = None,
     dry_run: bool = False,
     only_drop: bool = False,
 ) -> None:
@@ -709,7 +709,7 @@ def load_datamodel(
 
 def load_nodes(
     ToolGlobals: CDFToolConfig,
-    directory: Optional[Path] = None,
+    directory: Path | None = None,
     dry_run: bool = False,
 ) -> None:
     """Insert nodes"""
