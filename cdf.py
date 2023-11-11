@@ -3,16 +3,15 @@ import difflib
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import Annotated, Optional
 
 import typer
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
-from typing_extensions import Annotated
 
-from scripts import bootstrap
-from scripts.delete import (
+from cdf_tk import bootstrap
+from cdf_tk.delete import (
     delete_groups,
     delete_raw,
     delete_timeseries,
@@ -20,7 +19,7 @@ from scripts.delete import (
 )
 
 # from scripts.delete import clean_out_datamodels
-from scripts.load import (
+from cdf_tk.load import (
     load_datamodel,
     load_groups,
     load_nodes,
@@ -28,8 +27,8 @@ from scripts.load import (
     load_timeseries_metadata,
     load_transformations,
 )
-from scripts.templates import build_config, read_environ_config
-from scripts.utils import CDFToolConfig
+from cdf_tk.templates import build_config, read_environ_config
+from cdf_tk.utils import CDFToolConfig
 
 app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
 auth_app = typer.Typer(
@@ -198,7 +197,7 @@ def deploy(
         ),
     ] = False,
     include: Annotated[
-        Optional[List[CDFDataTypes]],
+        Optional[list[CDFDataTypes]],
         typer.Option(
             "--include",
             "-i",
@@ -219,7 +218,7 @@ def deploy(
         print("q) Quit")
         answer = input("Select data types to deploy: ")
         if answer.casefold() == "a":
-            build_dir = "./build"
+            build_dir = "build"
         elif answer.casefold() == "q":
             exit(0)
         else:
@@ -343,7 +342,7 @@ def clean(
         ),
     ] = False,
     include: Annotated[
-        Optional[List[CDFDataTypes]],
+        Optional[list[CDFDataTypes]],
         typer.Option(
             "--include",
             "-i",

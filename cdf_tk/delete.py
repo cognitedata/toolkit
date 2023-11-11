@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import glob
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from cognite.client import CogniteClient
@@ -40,7 +40,7 @@ def delete_raw(
     ToolGlobals: CDFToolConfig,
     dry_run=False,
     raw_db: str = "default",
-    directory: Optional[str] = None,
+    directory: str | None = None,
 ) -> None:
     """Delete raw data from CDF raw based om csv files"""
     if directory is None:
@@ -172,7 +172,7 @@ def delete_transformations(
     ToolGlobals: CDFToolConfig,
     drop: bool = False,
     dry_run: bool = False,
-    directory: Optional[str] = None,
+    directory: str | None = None,
 ) -> None:
     """Delete transformations from folder."""
     if directory is None:
@@ -206,7 +206,7 @@ def delete_transformations(
 
 def delete_groups(
     ToolGlobals: CDFToolConfig,
-    directory: Optional[str] = None,
+    directory: str | None = None,
     dry_run: bool = False,
     my_own: bool = False,
     verbose: bool = False,
@@ -435,9 +435,9 @@ def delete_datamodels(ToolGlobals: CDFToolConfig, dry_run=False, datamodels: Dat
 
 def delete_datamodel_all(
     ToolGlobals: CDFToolConfig,
-    space_name: Optional[str] = None,
-    model_name: Optional[str] = None,
-    version: Optional[str] = None,
+    space_name: str | None = None,
+    model_name: str | None = None,
+    version: str | None = None,
     delete_edges=True,
     delete_nodes=True,
     delete_views=True,

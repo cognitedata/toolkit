@@ -226,7 +226,7 @@ class CDFToolConfig:
 
     def verify_client(
         self,
-        capabilities: list[dict(str, list[str])] | None = None,
+        capabilities: list[dict[str, list[str]]] | None = None,
         data_set_id: int = 0,
         space_id: str | None = None,
     ) -> CogniteClient:

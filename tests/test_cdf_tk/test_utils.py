@@ -4,10 +4,17 @@ import pytest
 import yaml
 from cognite.client._api.assets import AssetsAPI
 from cognite.client._api.iam import TokenAPI, TokenInspection
+from cognite.client.data_classes.capabilities import (
+    DataSetsAcl,
+    ProjectCapabilitiesList,
+    ProjectCapability,
+    ProjectsScope,
+)
+from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 
-from scripts.utils import CDFToolConfig, load_yaml_inject_variables
+from cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 
 def mocked_init(self, client_name: str):
@@ -31,17 +38,23 @@ def test_dataset_missing_acl():
 def test_dataset_create():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         instance = CDFToolConfig(client_name="cdf-project-templates")
+        instance._client.config.project = "cdf-project-templates"
         instance._client.iam.token.inspect = Mock(
             spec=TokenAPI.inspect,
             return_value=TokenInspection(
                 subject="",
-                capabilities=[
-                    {
-                        "datasetsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}},
-                        "projectScope": {"projects": ["cdf-project-templates"]},
-                    }
-                ],
-                projects=[{"name": "cdf-project-templates"}],
+                capabilities=ProjectCapabilitiesList(
+                    [
+                        ProjectCapability(
+                            capability=DataSetsAcl(
+                                [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write], scope=DataSetsAcl.Scope.All()
+                            ),
+                            project_scope=ProjectsScope(["cdf-project-templates"]),
+                        )
+                    ],
+                    cognite_client=instance._client,
+                ),
+                projects=[ProjectSpec(url_name="cdf-project-templates", groups=[])],
             ),
         )
 

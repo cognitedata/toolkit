@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 from pathlib import Path
+from typing import Any
 
 import yaml
 from rich import print
@@ -92,7 +93,7 @@ def read_environ_config(
 def read_yaml_files(
     yaml_dirs: list[str],
     name: str | None = None,
-):
+) -> dict[str, Any]:
     """Read all YAML files in the given directories and return a dictionary
 
     This function will not traverse into sub-directories.
