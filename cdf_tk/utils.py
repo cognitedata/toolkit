@@ -21,6 +21,7 @@ from typing import Any
 
 import yaml
 from cognite.client import ClientConfig, CogniteClient
+from cognite.client.config import global_config
 from cognite.client.credentials import OAuthClientCredentials, Token
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_sets import DataSet
@@ -125,6 +126,7 @@ class CDFToolConfig:
                 scopes=self._scopes,
                 audience=self._audience,
             )
+            global_config.disable_pypi_version_check = True
             self._client = CogniteClient(
                 ClientConfig(
                     client_name=client_name,
