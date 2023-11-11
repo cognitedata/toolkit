@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from cognite.client import CogniteClient
@@ -27,7 +27,6 @@ from cognite.client.data_classes import (
     TransformationList,
 )
 from cognite.client.data_classes._base import CogniteResource
-from cognite.client.data_classes.capabilities import DataSetScope
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
@@ -96,8 +95,14 @@ def load_raw(
     for f in files:
         try:
             (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
-        except Exception:
+        except AttributeError:
             db = raw_db
+            try:
+                (_, table_name) = re.match(r"(\d+)\.(\w+)\.csv", f).groups()
+            except AttributeError:
+                print(f"[bold red]ERROR:[/] Filename {f} does not match expected format.")
+                ToolGlobals.failed = True
+                return
         with open(f"{directory}/{f}") as file:
             dataframe = pd.read_csv(file, dtype=str)
             dataframe = dataframe.fillna("")
@@ -134,7 +139,7 @@ def load_raw(
 def load_files(
     ToolGlobals: CDFToolConfig,
     id_prefix: str = "example",
-    file: Optional[str] = None,
+    file: str | None = None,
     drop: bool = False,
     dry_run: bool = False,
     directory=None,
@@ -272,10 +277,10 @@ def load_timeseries_datapoints(ToolGlobals: CDFToolConfig, file: str, dry_run: b
 
 def load_transformations(
     ToolGlobals: CDFToolConfig,
-    file: Optional[str] = None,
+    file: str | None = None,
     drop: bool = False,
     dry_run: bool = False,
-    directory: Optional[str] = None,
+    directory: str | None = None,
 ) -> None:
     """Load transformations from dump folder.
 
@@ -342,8 +347,8 @@ def load_transformations(
 
 def load_groups(
     ToolGlobals: CDFToolConfig,
-    file: Optional[str] = None,
-    directory: Optional[str] = None,
+    file: str | None = None,
+    directory: str | None = None,
     dry_run: bool = False,
     verbose: bool = False,
 ) -> None:
@@ -368,16 +373,23 @@ def load_groups(
                     files.append(f)
     groups: GroupList = GroupList([])
     for f in files:
-        groups.append(
-            Group.load(load_yaml_inject_variables(Path(f"{directory}/{f}"), ToolGlobals.environment_variables()))
-        )
-    print(f"[bold]Loading {len(groups)} groups from {directory}...[/]")
-    # Find and create data_sets
-    for group in groups:
-        for capability in group.capabilities:
-            if isinstance(capability.scope, DataSetScope) and capability.scope.ids:
-                ids = [ToolGlobals.verify_dataset(ext_id) for ext_id in capability.scope.ids]
-                capability.scope = DataSetScope(ids=ids)
+        group = load_yaml_inject_variables(Path(f"{directory}/{f}"), ToolGlobals.environment_variables())
+        # Find and create data_sets
+        for capability in group.get("capabilities", []):
+            for _, values in capability.items():
+                if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
+                    if dry_run:
+                        values["scope"]["datasetScope"]["ids"] = [999]
+                    else:
+                        values["scope"]["datasetScope"]["ids"] = [
+                            ToolGlobals.verify_dataset(ext_id)
+                            for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
+                        ]
+        groups.append(Group.load(group))
+    if dry_run:
+        print(f"[bold]Loading {len(groups)} groups from {directory}...[/]")
+    else:
+        print(f"[bold]Loading {len(groups)} groups from {directory} and created necessary data sets...[/]")
     existing_groups = 0
     for group in groups:
         old_group_id = None
@@ -420,8 +432,8 @@ def load_groups(
 
 def load_datamodel_graphql(
     ToolGlobals: CDFToolConfig,
-    space_name: Optional[str] = None,
-    model_name: Optional[str] = None,
+    space_name: str | None = None,
+    model_name: str | None = None,
     directory=None,
 ) -> None:
     """Load a graphql datamodel from file."""
@@ -460,7 +472,7 @@ def load_datamodel(
     delete_removed: bool = True,
     delete_containers: bool = False,
     delete_spaces: bool = False,
-    directory: Optional[Path] = None,
+    directory: Path | None = None,
     dry_run: bool = False,
     only_drop: bool = False,
 ) -> None:
@@ -697,7 +709,7 @@ def load_datamodel(
 
 def load_nodes(
     ToolGlobals: CDFToolConfig,
-    directory: Optional[Path] = None,
+    directory: Path | None = None,
     dry_run: bool = False,
 ) -> None:
     """Insert nodes"""
