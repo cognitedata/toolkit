@@ -17,6 +17,8 @@ dacite = "^1.8.1"
 regex = "^2023.6.3"
 chardet = "^5.1.0"
 typer = {version = "^0.9.0", extras = ["all"]}
+pytest-icdiff = "*"  # Used for better diffs in pytest
+
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.6.1"
