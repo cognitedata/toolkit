@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "cdf-project-templates"
+name = "cdf-tk"
 version = "0.1.0"
 description = "Official Cognite Data Fusion project templates"
 authors = ["Greger Wedel <greger.wedel@cognite.com>"]
@@ -10,8 +10,6 @@ packages = [{include = "cdf_tk", from = "."}]
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
-#cognite-sdk = {version = "7.0.0a3", extras = ["pandas"]}
-# Temporary fix while waiting for pre-release v7
 cognite-sdk = {version = "7.0.0a3", extras = ["pandas"]}
 pandas = "^2.1.1"
 pyyaml = "^6.0.1"
