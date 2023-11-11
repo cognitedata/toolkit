@@ -6,7 +6,7 @@ data_model_version: '1'
 root_asset_external_id: 'lift_pump_stations:root'
 clientId: ${IDP_CLIENT_ID}
 clientSecret: ${IDP_CLIENT_SECRET}
-tokenUrl: ${IDP_TOKEN_URL}
+tokenUri: ${IDP_TOKEN_URL}
 # Optional: If idP requires providing the scopes
 cdfProjectName: ${CDF_PROJECT}
 scopes:

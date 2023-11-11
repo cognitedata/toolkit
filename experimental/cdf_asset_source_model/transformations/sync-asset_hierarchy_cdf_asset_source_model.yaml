@@ -1,10 +1,10 @@
-externalId: asset_hierarchy_replication-load-data_model
-name: asset_hierarchy_replication-load-data_model
+externalId: sync-asset_hierarchy_cdf_asset_source_model
+name: sync-asset_hierarchy_cdf_asset_source_model
 destination:
   dataModel:
     space: {{model_space}}
     externalId: ExtendedSourceData
-    version: '{{datamodel_version}}'
+    version: '{{data_model_version}}'
     destinationType: Asset
   instanceSpace: {{instance_space}}
   type: instances
