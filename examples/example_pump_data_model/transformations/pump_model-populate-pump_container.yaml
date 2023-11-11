@@ -1,5 +1,5 @@
-externalId: pump_model-replicate-pump
-name: pump_model-replicate-pump
+externalId: pump_model-populate-pump_container
+name: pump_model-populate-pump_container
 destination:
   dataModel:
     space: {{model_space}}
