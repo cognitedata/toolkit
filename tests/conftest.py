@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import itertools
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest

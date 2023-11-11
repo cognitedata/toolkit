@@ -3,13 +3,12 @@ import difflib
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import Annotated, Optional
 
 import typer
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
-from typing_extensions import Annotated
 
 from cdf_tk import bootstrap
 from cdf_tk.delete import (
@@ -198,7 +197,7 @@ def deploy(
         ),
     ] = False,
     include: Annotated[
-        Optional[List[CDFDataTypes]],
+        Optional[list[CDFDataTypes]],
         typer.Option(
             "--include",
             "-i",
@@ -343,7 +342,7 @@ def clean(
         ),
     ] = False,
     include: Annotated[
-        Optional[List[CDFDataTypes]],
+        Optional[list[CDFDataTypes]],
         typer.Option(
             "--include",
             "-i",
