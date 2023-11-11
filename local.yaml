@@ -27,9 +27,7 @@ local:
   project: albert
   type: dev
   deploy:
-#    - example_pump_asset_hierarchy
-    - example_pump_data_model
-    - cdf_asset_source_model
+    - example_pump
 dev:
   project: <customer>-dev
   type: dev
