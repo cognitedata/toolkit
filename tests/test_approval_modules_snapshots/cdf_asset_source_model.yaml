@@ -1,0 +1,46 @@
+Container:
+- externalId: Asset
+  name: Asset
+  properties:
+    metadata:
+      autoIncrement: false
+      description: Custom, application specific metadata. String key -> String value.
+      name: metadata
+      nullable: true
+      type:
+        list: false
+        type: json
+  space: ExtendedSourceDataModels
+  usedFor: node
+DataModel:
+- externalId: ExtendedSourceData
+  name: ExtendedSourceData
+  space: ExtendedSourceDataModels
+  version: '1'
+  views:
+  - externalId: Asset
+    space: ExtendedSourceDataModels
+    type: view
+    version: '1'
+Space:
+- description: Imported space
+  name: ExtendedSourceDataModels
+  space: ExtendedSourceDataModels
+View:
+- externalId: Asset
+  implements:
+  - externalId: Asset
+    space: cdf_core
+    type: view
+    version: v1
+  name: Asset
+  properties:
+    metadata:
+      container:
+        externalId: Asset
+        space: ExtendedSourceDataModels
+        type: container
+      containerPropertyIdentifier: metadata
+      name: metadata
+  space: ExtendedSourceDataModels
+  version: '1'

@@ -1,0 +1,200 @@
+Container:
+- externalId: Asset
+  indexes:
+    labels:
+      indexType: inverted
+      properties:
+      - labels
+    nameIndex:
+      indexType: btree
+      properties:
+      - name
+    sourceIndex:
+      indexType: btree
+      properties:
+      - source
+  name: Asset
+  properties:
+    description:
+      autoIncrement: false
+      description: The description of the asset.
+      name: description
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    labels:
+      autoIncrement: false
+      description: The labels of the asset.
+      name: labels
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: true
+        type: text
+    metadata:
+      autoIncrement: false
+      description: Custom, application specific metadata. String key -> String value.
+      name: metadata
+      nullable: true
+      type:
+        list: false
+        type: json
+    name:
+      autoIncrement: false
+      description: The name of the asset.
+      name: name
+      nullable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    parent:
+      autoIncrement: false
+      description: This used to specify the parent-child relationship.
+      name: parent
+      nullable: true
+      type:
+        type: direct
+    root:
+      autoIncrement: false
+      description: The root asset of the hierarchy.
+      name: root
+      nullable: true
+      type:
+        type: direct
+    source:
+      autoIncrement: false
+      description: The source of the asset.
+      name: source
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: cdfTemplate
+  usedFor: node
+DataModel:
+- externalId: AssetHierarchy
+  name: AssetHierarchy
+  space: cdfTemplate
+  version: '1'
+  views:
+  - externalId: Asset
+    space: cdfTemplate
+    type: view
+    version: '1'
+Space:
+- description: Imported space
+  name: cdfTemplate
+  space: cdfTemplate
+Transformation:
+- dataSetId: 999
+  destination:
+    dataModel:
+      destinationRelationshipFromType: null
+      destinationType: Asset
+      externalId: AssetHierarchy
+      space: cdfTemplate
+      version: '1'
+    instanceSpace: cdfTemplate
+    type: instances
+  destinationOidcCredentials:
+    audience: ${IDP_AUDIENCE}
+    cdfProjectName: ${CDF_PROJECT}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+    scopes: ${IDP_SCOPES}
+    tokenUri: ${IDP_TOKEN_URL}
+  externalId: asset_hierarchy_replication-load-data_model
+  ignoreNullFields: false
+  isPublic: true
+  name: asset_hierarchy_replication-load-data_model
+  ownerIsCurrentUser: true
+  query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference('cdfTemplate',\
+    \ `parentExternalId`) as parent,\n  node_reference('cdfTemplate', 'lift_pump_stations:root')\
+    \ as root,\n  cast(`name` as STRING) as name,\n  cast(`source` as STRING) as source,\n\
+    \  cast(`description` as STRING) as description,\n  cast(`labels` as ARRAY < STRING\
+    \ >) as labels,\n  to_json(`metadata`) as metadata\nfrom\n  cdf_assetSubtree('lift_pump_stations:root')\n\
+    where\n isnotnull(`externalId`) and isnotnull(`parentExternalId`);\n"
+  schedule:
+    externalId: asset_hierarchy_replication-load-data_model
+    interval: 0 * * * *
+    isPaused: true
+  sourceOidcCredentials:
+    audience: ${IDP_AUDIENCE}
+    cdfProjectName: ${CDF_PROJECT}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+    scopes: ${IDP_SCOPES}
+    tokenUri: ${IDP_TOKEN_URL}
+TransformationSchedule:
+- externalId: asset_hierarchy_replication-load-data_model
+  interval: 0 * * * *
+  isPaused: true
+View:
+- externalId: Asset
+  name: Asset
+  properties:
+    description:
+      container:
+        externalId: Asset
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: description
+      name: description
+    labels:
+      container:
+        externalId: Asset
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: labels
+      name: labels
+    metadata:
+      container:
+        externalId: Asset
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: metadata
+      name: metadata
+    name:
+      container:
+        externalId: Asset
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: name
+      name: name
+    parent:
+      container:
+        externalId: Asset
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: parent
+      name: parent
+      source:
+        externalId: Asset
+        space: cdfTemplate
+        type: view
+        version: '1'
+    root:
+      container:
+        externalId: Asset
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: root
+      name: root
+      source:
+        externalId: Asset
+        space: cdfTemplate
+        type: view
+        version: '1'
+    source:
+      container:
+        externalId: Asset
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: source
+      name: source
+  space: cdfTemplate
+  version: '1'

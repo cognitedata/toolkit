@@ -6,7 +6,7 @@ datamodel_version: "1"
 datamodel: "PumpLiftStations"
 clientId: ${IDP_CLIENT_ID}
 clientSecret: ${IDP_CLIENT_SECRET}
-tokenUrl: ${IDP_TOKEN_URL}
+tokenUri: ${IDP_TOKEN_URL}
 # Optional: If idP requires providing the scopes
 cdfProjectName: ${CDF_PROJECT}
 scopes:

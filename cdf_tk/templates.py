@@ -156,16 +156,16 @@ def process_config_files(
             if local_yaml_path not in dirpath:
                 local_yaml_path == ""
                 yaml_local = {}
-            for file in filenames:
-                if file in EXCL_FILES:
+            for file_name in filenames:
+                if file_name in EXCL_FILES:
                     continue
                 # Skip the config.yaml file
-                if file == "config.yaml" or file == "default.config.yaml":
+                if file_name == "config.yaml" or file_name == "default.config.yaml":
                     # Pick up this local yaml files
                     local_yaml_path = dirpath
                     yaml_local = read_yaml_files([dirpath])
                     continue
-                with open(dirpath + "/" + file) as f:
+                with open(dirpath + "/" + file_name) as f:
                     content = f.read()
                 # Replace the local yaml variables
                 for k, v in yaml_local.items():
@@ -193,37 +193,38 @@ def process_config_files(
                 cdf_path = split_path[len(split_path) - 1]
                 new_path = Path(f"{build_dir}/{cdf_path}")
                 new_path.mkdir(exist_ok=True, parents=True)
+
                 # For .sql and other dependent files, we do not prefix as we expect them
                 # to be named with the external_id of the entitiy they are associated with.
-                if file.split(".")[-1] not in EXCL_INDEX_SUFFIX:
+                if file_name.split(".")[-1] not in EXCL_INDEX_SUFFIX:
                     if not indices.get(cdf_path):
                         indices[cdf_path] = 1
                     else:
                         indices[cdf_path] += 1
                     # Get rid of the local index
-                    if re.match("^[0-9]+\\.", file):
-                        file = file.split(".", 1)[1]
+                    if re.match("^[0-9]+\\.", file_name):
+                        file_name = file_name.split(".", 1)[1]
                     # If we are processing raw tables, we want to pick up the raw_db config.yaml
                     # variable to determine the database name.
                     if Path(dirpath).name == "raw":
-                        file = f"{indices[cdf_path]}.{yaml_local.get('raw_db', 'default')}.{file}"
+                        file_name = f"{indices[cdf_path]}.{yaml_local.get('raw_db', 'default')}.{file_name}"
                     else:
-                        file = f"{indices[cdf_path]}.{file}"
+                        file_name = f"{indices[cdf_path]}.{file_name}"
 
+                filepath = new_path / file_name
                 for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-                    print(f"  [bold red]WARNING:[/] Unresolved template variable {unmatched} in {new_path}/{file}")
+                    print(f"  [bold red]WARNING:[/] Unresolved template variable {unmatched} in {new_path}/{file_name}")
 
-                with open(new_path / file, "w") as f:
-                    f.write(content)
-                if file.endswith(".yaml"):
-                    with open(new_path / file) as f:
-                        try:
-                            yaml.safe_load(f.read())
-                        except Exception as e:
-                            print(
-                                f"  [bold red]ERROR:[/] YAML validation error for {file} after substituting config variables: \n{e}"
-                            )
-                            exit(1)
+                filepath.write_text(content)
+
+                if filepath.suffix in {".yaml", ".yml"}:
+                    try:
+                        yaml.safe_load(content)
+                    except yaml.YAMLError as e:
+                        print(
+                            f"  [bold red]ERROR:[/] YAML validation error for {file_name} after substituting config variables: \n{e}"
+                        )
+                        exit(1)
 
 
 def build_config(dir: str = "./build", build_env: str = "dev", clean: bool = False):

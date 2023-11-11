@@ -1,0 +1,356 @@
+Container:
+- externalId: AssetSimple
+  indexes:
+    nameIndex:
+      indexType: btree
+      properties:
+      - name
+  name: AssetSimple
+  properties:
+    assetType:
+      autoIncrement: false
+      description: The type of the asset.
+      name: assetType
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    description:
+      autoIncrement: false
+      description: The description of the asset.
+      name: description
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    name:
+      autoIncrement: false
+      description: The name of the asset.
+      name: name
+      nullable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    parent:
+      autoIncrement: false
+      description: This used to specify the parent-child relationship.
+      name: parent
+      nullable: true
+      type:
+        type: direct
+  space: cdfTemplate
+  usedFor: node
+- constraints:
+    requiredAsset:
+      constraintType: requires
+      require:
+        externalId: AssetSimple
+        space: cdfTemplate
+        type: container
+  externalId: Pump
+  name: Pump
+  properties:
+    DesignPointFlowGPM:
+      autoIncrement: false
+      description: The flow the pump was designed for given in gallons per minute.
+      name: DesignPointFlowGPM
+      nullable: true
+      type:
+        list: false
+        type: float64
+    DesignPointHeadFT:
+      autoIncrement: false
+      description: The flow head pump was designed for given in feet.
+      name: DesignPointHeadFT
+      nullable: true
+      type:
+        list: false
+        type: float64
+    LowHeadFT:
+      autoIncrement: false
+      description: The low head of the pump given in feet.
+      name: LowHeadFT
+      nullable: true
+      type:
+        list: false
+        type: float64
+    LowHeadFlowGPM:
+      autoIncrement: false
+      description: The low head flow of the pump given in gallons per minute.
+      name: DesignPointHeadFT
+      nullable: true
+      type:
+        list: false
+        type: float64
+  space: cdfTemplate
+  usedFor: node
+DataModel:
+- externalId: PumpLiftStations
+  name: PumpLiftStations
+  space: cdfTemplate
+  version: '1'
+  views:
+  - externalId: Pump
+    space: cdfTemplate
+    type: view
+    version: '1'
+  - externalId: LiftStation
+    space: cdfTemplate
+    type: view
+    version: '1'
+Space:
+- description: Imported space
+  name: cdfTemplate
+  space: cdfTemplate
+Transformation:
+- dataSetId: 999
+  destination:
+    dataModel:
+      destinationRelationshipFromType: null
+      destinationType: LiftStation
+      externalId: PumpLiftStations
+      space: cdfTemplate
+      version: '1'
+    instanceSpace: cdfTemplate
+    type: instances
+  destinationOidcCredentials:
+    audience: ${IDP_AUDIENCE}
+    cdfProjectName: ${CDF_PROJECT}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+    scopes: ${IDP_SCOPES}
+    tokenUri: ${IDP_TOKEN_URL}
+  externalId: pump_model-replicate-lift_station
+  ignoreNullFields: false
+  isPublic: true
+  name: pump_model-replicate-lift_station
+  ownerIsCurrentUser: true
+  query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`name` as\
+    \ STRING) as name,\n  cast(`description` as STRING) as description,\n  'liftStation'\
+    \ as assetType\nfrom\n  cdf_data_models(\"cdfTemplate\", \"AssetHierarchy\", \"\
+    1\", \"Asset\")\nwhere\n  -- Bug in the transformation not allowing startswith(externalId,\
+    \ 'lift_station:')\n  not startswith(name, 'Pump')\n"
+  schedule:
+    externalId: pump_model-replicate-lift_station
+    interval: 0 * * * *
+    isPaused: true
+  sourceOidcCredentials:
+    audience: ${IDP_AUDIENCE}
+    cdfProjectName: ${CDF_PROJECT}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+    scopes: ${IDP_SCOPES}
+    tokenUri: ${IDP_TOKEN_URL}
+- dataSetId: 999
+  destination:
+    dataModel:
+      destinationRelationshipFromType: pumps
+      destinationType: LiftStation
+      externalId: PumpLiftStations
+      space: cdfTemplate
+      version: '1'
+    instanceSpace: cdfTemplate
+    type: instances
+  destinationOidcCredentials:
+    audience: ${IDP_AUDIENCE}
+    cdfProjectName: ${CDF_PROJECT}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+    scopes: ${IDP_SCOPES}
+    tokenUri: ${IDP_TOKEN_URL}
+  externalId: pump_model-replicate-lift_station_pumps
+  ignoreNullFields: false
+  isPublic: true
+  name: pump_model-replicate-lift_station_pumps
+  ownerIsCurrentUser: true
+  query: "select\n  concat(cast(`parent` as STRING), ':', cast(`externalId` as STRING))\
+    \ as externalId,\n  `parent` as startNode,\n  node_reference('cdfTemplate', cast(`externalId`\
+    \ as STRING)) as endNode\nfrom\n  cdf_data_models(\"cdfTemplate\", \"AssetHierarchy\"\
+    , \"1\", \"Asset\")\nwhere\n  startswith(name, 'Pump')\n"
+  schedule:
+    externalId: pump_model-replicate-lift_station_pumps
+    interval: 0 * * * *
+    isPaused: true
+  sourceOidcCredentials:
+    audience: ${IDP_AUDIENCE}
+    cdfProjectName: ${CDF_PROJECT}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+    scopes: ${IDP_SCOPES}
+    tokenUri: ${IDP_TOKEN_URL}
+- dataSetId: 999
+  destination:
+    dataModel:
+      destinationRelationshipFromType: null
+      destinationType: Pump
+      externalId: PumpLiftStations
+      space: cdfTemplate
+      version: '1'
+    instanceSpace: cdfTemplate
+    type: instances
+  destinationOidcCredentials:
+    audience: ${IDP_AUDIENCE}
+    cdfProjectName: ${CDF_PROJECT}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+    scopes: ${IDP_SCOPES}
+    tokenUri: ${IDP_TOKEN_URL}
+  externalId: pump_model-replicate-pump
+  ignoreNullFields: false
+  isPublic: true
+  name: pump_model-replicate-pump
+  ownerIsCurrentUser: true
+  query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`name` as\
+    \ STRING) as name,\n  cast(`description` as STRING) as description,\n  'pump'\
+    \ as assetType,\n  cast(get_json_object(`metadata`, '$.DesignPointHeadFT') as\
+    \ DOUBLE) as DesignPointHeadFT,\n  cast(get_json_object(`metadata`, '$.LowHeadFT')\
+    \ as DOUBLE) as LowHeadFT,\n  cast(get_json_object(`metadata`, '$.DesignPointFlowGPM')\
+    \ as DOUBLE) as DesignPointFlowGPM,\n  cast(get_json_object(`metadata`, '$.LowHeadFlowGPM')\
+    \ as DOUBLE) as LowHeadFlowGPM,\n  parent as liftStation\nfrom\n  cdf_data_models(\"\
+    cdfTemplate\", \"AssetHierarchy\", \"1\", \"Asset\")\nwhere\n  startswith(name,\
+    \ 'Pump')\n"
+  schedule:
+    externalId: pump_model-replicate-pump
+    interval: 0 * * * *
+    isPaused: true
+  sourceOidcCredentials:
+    audience: ${IDP_AUDIENCE}
+    cdfProjectName: ${CDF_PROJECT}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+    scopes: ${IDP_SCOPES}
+    tokenUri: ${IDP_TOKEN_URL}
+TransformationSchedule:
+- externalId: pump_model-replicate-lift_station
+  interval: 0 * * * *
+  isPaused: true
+- externalId: pump_model-replicate-lift_station_pumps
+  interval: 0 * * * *
+  isPaused: true
+- externalId: pump_model-replicate-pump
+  interval: 0 * * * *
+  isPaused: true
+View:
+- externalId: LiftStation
+  filter:
+    equals:
+      property:
+      - cdfTemplate
+      - AssetSimple
+      - assetType
+      value:
+      - liftStation
+  name: LiftStation
+  properties:
+    assetType:
+      container:
+        externalId: AssetSimple
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: assetType
+      name: assetType
+    description:
+      container:
+        externalId: AssetSimple
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: description
+      name: description
+    name:
+      container:
+        externalId: AssetSimple
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: name
+      name: name
+    pumps:
+      connectionType: multiEdgeConnection
+      direction: outwards
+      name: pumps
+      source:
+        externalId: Pump
+        space: cdfTemplate
+        type: view
+        version: '1'
+      type:
+        externalId: LiftStation.pumps
+        space: cdfTemplate
+  space: cdfTemplate
+  version: '1'
+- externalId: Pump
+  filter:
+    equals:
+      property:
+      - cdfTemplate
+      - AssetSimple
+      - assetType
+      value:
+      - pump
+  name: Pump
+  properties:
+    DesignPointFlowGPM:
+      container:
+        externalId: Pump
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: DesignPointFlowGPM
+      name: DesignPointFlowGPM
+    DesignPointHeadFT:
+      container:
+        externalId: Pump
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: DesignPointHeadFT
+      name: DesignPointHeadFT
+    LowHeadFT:
+      container:
+        externalId: Pump
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: LowHeadFT
+      name: LowHeadFT
+    LowHeadFlowGPM:
+      container:
+        externalId: Pump
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: LowHeadFlowGPM
+      name: LowHeadFlowGPM
+    assetType:
+      container:
+        externalId: AssetSimple
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: assetType
+      name: assetType
+    description:
+      container:
+        externalId: AssetSimple
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: description
+      name: description
+    liftStation:
+      container:
+        externalId: AssetSimple
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: parent
+      name: liftStation
+      source:
+        externalId: LiftStation
+        space: cdfTemplate
+        type: view
+        version: '1'
+    name:
+      container:
+        externalId: AssetSimple
+        space: cdfTemplate
+        type: container
+      containerPropertyIdentifier: name
+      name: name
+  space: cdfTemplate
+  version: '1'
