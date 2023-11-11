@@ -2,11 +2,11 @@ externalId: asset_hierarchy_replication-load-data_model
 name: asset_hierarchy_replication-load-data_model
 destination:
   dataModel:
-    space: {{space}}
-    externalId: {{datamodel}}
+    space: {{model_space}}
+    externalId: ExtendedSourceData
     version: '{{datamodel_version}}'
     destinationType: Asset
-  instanceSpace: {{space}}
+  instanceSpace: {{instance_space}}
   type: instances
 
 # Specify credentials separately like this:

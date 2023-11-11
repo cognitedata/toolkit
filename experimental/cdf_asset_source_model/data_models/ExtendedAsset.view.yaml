@@ -1,8 +1,9 @@
 externalId: Asset
 name: Asset
-space: '{{extended_source_datamodels_space}}'
-version: '{{view_extended_asset_version}}'
+space: '{{model_space}}'
+version: '{{view_asset_version}}'
 implements:
+  # This gives us all the properties' show commented out below.
   - type: view
     space: cdf_core
     externalId: Asset
@@ -71,7 +72,7 @@ properties:
   metadata:
     container:
       externalId: Asset
-      space: '{{extended_source_datamodels_space}}'
+      space: '{{model_space}}'
       type: container
     containerPropertyIdentifier: metadata
     name: metadata

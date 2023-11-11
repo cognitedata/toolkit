@@ -1,7 +1,7 @@
 select
   cast(`externalId` as STRING) as externalId,
-  node_reference('{{space}}', `parentExternalId`) as parent,
-  node_reference('{{space}}', '{{root_asset_external_id}}') as root,
+  node_reference('{{instance_space}}', `parentExternalId`) as parent,
+  node_reference('{{instance_space}}', '{{root_asset_external_id}}') as root,
   cast(`name` as STRING) as name,
   cast(`source` as STRING) as source,
   cast(`description` as STRING) as description,

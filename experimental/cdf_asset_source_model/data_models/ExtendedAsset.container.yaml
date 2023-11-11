@@ -1,6 +1,6 @@
 externalId: Asset
 name: Asset
-space: '{{extended_source_datamodels_space}}'
+space: '{{model_space}}'
 usedFor: node
 properties:
   metadata:
