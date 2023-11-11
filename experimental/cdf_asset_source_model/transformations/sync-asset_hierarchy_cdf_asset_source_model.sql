@@ -1,4 +1,6 @@
 -- Root Asset
+-- The asset must be set up in hierarchical order as the container for the parent asset requires the
+-- parent asset to be created first.
 select
   cast(`externalId` as STRING) as externalId,
   null as parent,
