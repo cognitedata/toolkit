@@ -148,6 +148,7 @@ Group:
     cdf_template_version: 0.0.1
     origin: cdf-project-templates
   name: cicd:all:read-only
+  sourceId: <change_me>
 - capabilities:
   - projectsAcl:
       actions:
@@ -337,3 +338,4 @@ Group:
     cdf_template_version: 0.0.1
     origin: cdf-project-templates
   name: cicd:all:read-write
+  sourceId: <change_me>

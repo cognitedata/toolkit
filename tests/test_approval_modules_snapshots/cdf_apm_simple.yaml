@@ -352,8 +352,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
   externalId: apm_simple-load-asset-hierarchy
-  hasDestinationOidcCredentials: false
-  hasSourceOidcCredentials: false
   ignoreNullFields: true
   isPublic: true
   name: apm_simple-load-Asset-hierarchy
@@ -391,8 +389,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
   externalId: apm_simple-load-asset2children
-  hasDestinationOidcCredentials: false
-  hasSourceOidcCredentials: false
   ignoreNullFields: true
   isPublic: true
   name: apm_simple-load-Asset2children
@@ -430,8 +426,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
   externalId: apm_simple-load-assets
-  hasDestinationOidcCredentials: false
-  hasSourceOidcCredentials: false
   ignoreNullFields: true
   isPublic: true
   name: apm_simple-load-Assets
@@ -472,8 +466,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
   externalId: apm_simple-load-timeseries2assets
-  hasDestinationOidcCredentials: false
-  hasSourceOidcCredentials: false
   ignoreNullFields: true
   isPublic: true
   name: apm_simple-load-timeseries2assets
@@ -509,8 +501,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
   externalId: apm_simple-load-workitems
-  hasDestinationOidcCredentials: false
-  hasSourceOidcCredentials: false
   ignoreNullFields: true
   isPublic: true
   name: apm_simple-load-Workitems
@@ -550,8 +540,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
   externalId: apm_simple-load-workitems2assets
-  hasDestinationOidcCredentials: false
-  hasSourceOidcCredentials: false
   ignoreNullFields: true
   isPublic: true
   name: apm_simple-load-workitems2assets
@@ -594,8 +582,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
   externalId: apm_simple-load-workitems2workorders
-  hasDestinationOidcCredentials: false
-  hasSourceOidcCredentials: false
   ignoreNullFields: true
   isPublic: true
   name: apm_simple-load-Workitems2workorders
@@ -638,8 +624,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
   externalId: apm_simple-load-workorders
-  hasDestinationOidcCredentials: false
-  hasSourceOidcCredentials: false
   ignoreNullFields: true
   isPublic: true
   name: apm_simple-load-Workorders
@@ -686,8 +670,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
   externalId: apm_simple-load-workorders2assets
-  hasDestinationOidcCredentials: false
-  hasSourceOidcCredentials: false
   ignoreNullFields: true
   isPublic: true
   name: apm_simple-load-Workorders2assets

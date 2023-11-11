@@ -12,8 +12,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
   externalId: pump_asset_hierarchy-load-collections_pump
-  hasDestinationOidcCredentials: false
-  hasSourceOidcCredentials: false
   ignoreNullFields: false
   isPublic: true
   name: pump_asset_hierarchy-load-collections_pump
