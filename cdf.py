@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 import difflib
+import glob
+import os
+import shutil
 from dataclasses import dataclass
 from enum import Enum
+from importlib import resources
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -55,7 +59,6 @@ class Common:
     verbose: bool
     cluster: str
     project: str
-    ToolGlobals: CDFToolConfig
 
 
 @app.callback(invoke_without_command=True)
@@ -92,24 +95,19 @@ def common(
         print(
             "[bold]A tool to manage and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.[/]"
         )
-        print("[bold yellow]Usage:[/] cdf.py [OPTIONS] COMMAND [ARGS]...")
+        print("[bold yellow]Usage:[/] cdf-tk [OPTIONS] COMMAND [ARGS]...")
         print("       Use --help for more information.")
         return
     if override_env:
         print("  [bold red]WARNING:[/] Overriding environment variables with values from .env file...")
+        if cluster is not None or project is not None:
+            print("            --cluster or --project are set and will override .env file values.")
     load_dotenv(".env", override=override_env)
-    # Override cluster and project from the options/env variables
-    ToolGlobals = CDFToolConfig(
-        client_name="cdf-project-templates",
-        cluster=cluster,
-        project=project,
-    )
     ctx.obj = Common(
         verbose=verbose,
         override_env=override_env,
         cluster=cluster,
         project=project,
-        ToolGlobals=ToolGlobals,
     )
 
 
@@ -206,6 +204,12 @@ def deploy(
     ] = None,
 ) -> None:
     """Deploy one or more configuration types from the built configrations to a CDF environment of your choice (as set in local.yaml)."""
+    # Override cluster and project from the options/env variables
+    ToolGlobals = CDFToolConfig(
+        client_name="cdf-project-templates",
+        cluster=ctx.obj.cluster,
+        project=ctx.obj.project,
+    )
     # Set environment variables from local.yaml
     read_environ_config(build_env=build_env)
     if interactive:
@@ -433,7 +437,7 @@ def clean(
 def auth_main(ctx: typer.Context):
     """Test, validate, and configure authentication and authorization for CDF projects."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf.py auth --help[/] for more information.")
+        print("Use [bold yellow]cdf-tk auth --help[/] for more information.")
 
 
 @auth_app.command("verify")
@@ -496,6 +500,115 @@ def auth_verify(
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to verify access rights.")
         exit(1)
+
+
+@app.command("init")
+def main_init(
+    ctx: typer.Context,
+    dry_run: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--dry-run",
+            "-r",
+            help="Whether to do a dry-run, do dry-run if present",
+        ),
+    ] = False,
+    upgrade: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--upgrade",
+            "-u",
+            help="Will upgrade templates in place without overwriting config.yaml files",
+        ),
+    ] = False,
+    init_dir: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="Directory to initialize with templates",
+        ),
+    ] = "new_project",
+):
+    """Initialize a new CDF project with templates."""
+
+    files_to_copy = [
+        "default.config.yaml",
+    ]
+    dirs_to_copy = [
+        "docs",
+    ]
+    if not upgrade:
+        files_to_copy.extend(
+            [
+                "config.yaml",
+                "local.yaml",
+                "packages.yaml",
+                "README.md",
+            ]
+        )
+        dirs_to_copy.append("local_modules")
+    modules_to_copy = [
+        "common",
+        "modules",
+        "examples",
+    ]
+    template_dir = resources.files("cdf_tk").parent
+    target_dir = Path.cwd() / f"{init_dir}"
+    if target_dir.exists():
+        if not upgrade:
+            print(f"Directory {target_dir} already exists.")
+            exit(1)
+        else:
+            print(f"[bold]Upgrading directory {target_dir}...[/b]")
+    if not dry_run and not upgrade:
+        os.mkdir(target_dir)
+    if upgrade:
+        print("  Will upgrade modules and files in place, config.yaml files will not be touched.")
+    print("Will copy these files to {target_dir}:")
+    print(files_to_copy)
+    print("Will copy these module directories to {target_dir}:")
+    print(modules_to_copy)
+    print("Will copy these directories to {target_dir}:")
+    print(dirs_to_copy)
+    for f in files_to_copy:
+        if dry_run and ctx.obj.verbose:
+            print("Would copy file", f, "to", target_dir)
+        elif not dry_run:
+            if ctx.obj.verbose:
+                print("Copying file", f, "to", target_dir)
+            shutil.copyfile(Path(template_dir) / f, target_dir / f)
+    for d in dirs_to_copy:
+        if dry_run and ctx.obj.verbose:
+            if upgrade:
+                print("Would copy and overwrite directory", d, "to", target_dir)
+            else:
+                print("Would copy directory", d, "to", target_dir)
+        elif not dry_run:
+            if ctx.obj.verbose:
+                print("Copying directory", d, "to", target_dir)
+            shutil.copytree(Path(template_dir) / d, target_dir / d, dirs_exist_ok=True)
+    for d in modules_to_copy:
+        if not Path(template_dir / d).exists():
+            os.mkdir(target_dir / d)
+        for m in glob.glob(f"{d}/**/*", recursive=True):
+            if "config.yaml" in m and "default.config.yaml" not in m and upgrade:
+                if dry_run and ctx.obj.verbose:
+                    print(f"Would skip {d}/{m}")
+                continue
+            if dry_run and ctx.obj.verbose:
+                print("Would copy", m, "to", target_dir / m)
+            elif not dry_run:
+                if Path(template_dir / m).is_dir():
+                    if not Path(target_dir / m).exists():
+                        os.mkdir(target_dir / m)
+                    continue
+                if ctx.obj.verbose:
+                    print("Copying file", m, "to", target_dir)
+                shutil.copyfile(Path(template_dir) / m, target_dir / m)
+    if not dry_run:
+        print(f"New project created in {target_dir}.")
+        if upgrade:
+            print("All default.config.yaml files in the modules have been upgraded.")
+            print("Your config.yaml files may need to be updated to override new default variales.")
 
 
 if __name__ == "__main__":
