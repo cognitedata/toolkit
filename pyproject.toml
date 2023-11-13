@@ -1,11 +1,12 @@
 [tool.poetry]
-name = "cdf-tk"
+name = "cognite-toolkit"
 version = "0.1.0"
-description = "Official Cognite Data Fusion project templates"
-authors = ["Greger Wedel <greger.wedel@cognite.com>"]
+description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
+authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
 readme = "README.md"
 packages = [{include = "cdf_tk", from = "."}]
+include = ["cdf.py", "docs/**/**","common/**/*", "modules/**/*", "examples/**/*", "local_modules/**/*", "default.*.yaml", "config.yaml", "local.yaml", "packages.yaml", "README.md"]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
@@ -26,6 +27,9 @@ pre-commit = "^3.5.0"
 pytest = "^7.4.2"
 pep8-naming = "^0.13.3"
 pytest-regressions = "^2.4.2"
+
+[tool.poetry.scripts]
+cdf-tk = "cdf:app"
 
 [build-system]
 requires = ["poetry-core"]

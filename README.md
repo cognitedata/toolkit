@@ -49,7 +49,7 @@ command `cdf.py auth verify --update-group --dry-run`.
 "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
 ```
 
-Run `./cdf.py auth verify --help` for more details on the command.
+Run `cdf-tk auth verify --help` for more details on the command.
 
 ### Modules
 
@@ -92,9 +92,9 @@ the modules that should be deployed. Then you deploy what was built to the CDF e
 
 ```mermaid
 flowchart LR
-    A[./cdf.py build --env=dev] -->|parse global config| B(Gather modules)
+    A[cdf-tk build --env=dev] -->|parse global config| B(Gather modules)
     B -->|replace tmpl & env vars| C(Validate syntax)
-    D[./cdf.py deploy --env=dev] -->E{validate}
+    D[cdf-tk deploy --env=dev] -->E{validate}
     E --> G(success: apply)
     E --> H(failure)
 ```
@@ -109,9 +109,9 @@ So, with the above concepts in mind, these are the practical steps to go through
    variables you want to change from the `default.config.yaml` file.
 5. (optional) Add any modules of your own that you may want to add in the `local_modules` folder (don't use `cdf_*` prefix).
 6. Copy `.env.tmpl` to .env and edit the file to set the environment variables for your project.
-7. Run `./cdf.py build --env=<demo|local|dev|staging|prod>` to create a build/ directory with the
+7. Run `cdf-tk build --env=<demo|local|dev|staging|prod>` to create a build/ directory with the
    configurations.
-8. Run `./cdf.py deploy --env=<demo|local|dev|staging|prod>` to deploy the configurations to your CDF project.
+8. Run `cdf-tk deploy --env=<demo|local|dev|staging|prod>` to deploy the configurations to your CDF project.
 
 ### Next steps
 
