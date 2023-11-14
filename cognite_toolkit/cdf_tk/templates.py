@@ -40,7 +40,8 @@ def read_environ_config(
     local_config = read_yaml_files(root_dir, "local.yaml")
     print(f"  Environment is {build_env}, using that section in local.yaml.\n")
     modules = []
-
+    if len(local_config) == 0:
+        return []
     try:
         defs = local_config[build_env]
     except KeyError:
@@ -99,7 +100,7 @@ def read_environ_config(
 
 
 def read_yaml_files(
-    yaml_dirs: list[str],
+    yaml_dirs: list[str] | str,
     name: str | None = None,
 ) -> dict[str, Any]:
     """Read all YAML files in the given directories and return a dictionary

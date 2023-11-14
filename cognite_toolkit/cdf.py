@@ -153,7 +153,14 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
-    print(Panel(f"[bold]Building config files from templates into {build_dir} for environment {build_env}...[/bold]"))
+    if not Path(source_dir).is_dir() or not (Path(source_dir) / "local.yaml").is_file():
+        print(f"  [bold red]ERROR:[/] {source_dir} does not exist or no local.yaml file found.")
+        exit(1)
+    print(
+        Panel(
+            f"[bold]Building config files from templates into {build_dir} for environment {build_env} using {source_dir} as sources...[/bold]"
+        )
+    )
 
     build_config(build_dir=build_dir, source_dir=source_dir, build_env=build_env, clean=clean)
 
