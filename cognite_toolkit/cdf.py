@@ -2,6 +2,7 @@
 import difflib
 import os
 import shutil
+import tempfile
 from dataclasses import dataclass
 from enum import Enum
 from importlib import resources
@@ -528,6 +529,21 @@ def main_init(
             help="Will upgrade templates in place without overwriting config.yaml files",
         ),
     ] = False,
+    no_backup: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--no-backup",
+            help="Will skip making a backup before upgrading",
+        ),
+    ] = False,
+    clean: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--clean",
+            hidden=True,
+            help="Will delete the new_project directory before starting",
+        ),
+    ] = False,
     init_dir: Annotated[
         Optional[str],
         typer.Argument(
@@ -553,7 +569,7 @@ def main_init(
             ]
         )
         dirs_to_copy.append("local_modules")
-    modules_to_copy = [
+    module_dirs_to_copy = [
         "common",
         "modules",
         "examples",
@@ -562,10 +578,20 @@ def main_init(
     target_dir = Path.cwd() / f"{init_dir}"
     if target_dir.exists():
         if not upgrade:
-            print(f"Directory {target_dir} already exists.")
-            exit(1)
+            if clean:
+                if dry_run:
+                    print(f"Would clean out directory {target_dir}...")
+                else:
+                    print(f"Cleaning out directory {target_dir}...")
+                    shutil.rmtree(target_dir)
+            else:
+                print(f"Directory {target_dir} already exists.")
+                exit(1)
         else:
             print(f"[bold]Upgrading directory {target_dir}...[/b]")
+    elif upgrade:
+        print(f"Found no directory {target_dir} to upgrade.")
+        exit(1)
     if not dry_run and not upgrade:
         os.mkdir(target_dir)
     if upgrade:
@@ -573,7 +599,7 @@ def main_init(
     print(f"Will copy these files to {target_dir}:")
     print(files_to_copy)
     print(f"Will copy these module directories to {target_dir}:")
-    print(modules_to_copy)
+    print(module_dirs_to_copy)
     print(f"Will copy these directories to {target_dir}:")
     print(dirs_to_copy)
     for f in files_to_copy:
@@ -593,25 +619,27 @@ def main_init(
             if ctx.obj.verbose:
                 print("Copying directory", d, "to", target_dir)
             shutil.copytree(Path(template_dir) / d, target_dir / d, dirs_exist_ok=True)
-    for d in modules_to_copy:
-        if not Path(target_dir / d).exists():
+    if upgrade and not no_backup:
+        if dry_run:
+            if ctx.obj.verbose:
+                print(f"Would have backed up {target_dir}")
+        else:
+            backup_dir = tempfile.mkdtemp(prefix=f"{target_dir.name}.", suffix=".bck", dir=Path.cwd())
+            if ctx.obj.verbose:
+                print(f"Backing up {target_dir} to {backup_dir}...")
+            shutil.copytree(Path(target_dir), Path(backup_dir), dirs_exist_ok=True)
+    elif upgrade:
+        print("[bold yellow]WARNING:[/] --no-backup is specified, no backup will be made.")
+    for d in module_dirs_to_copy:
+        if not Path(target_dir / d).exists() and not dry_run:
             os.mkdir(target_dir / d)
-        for m in Path(template_dir / d).glob("**/*"):
-            file_name = m.name
-            if "config.yaml" == file_name and upgrade:
-                if dry_run and ctx.obj.verbose:
-                    print(f"Would skip {d}/{file_name}")
-                continue
-            if dry_run and ctx.obj.verbose:
-                print("Would copy", file_name, "to", target_dir / d / file_name)
-            elif not dry_run:
-                if Path(template_dir / m).is_dir():
-                    if not Path(target_dir / m).exists():
-                        os.mkdir(target_dir / m)
-                    continue
-                if ctx.obj.verbose:
-                    print("Copying file", m, "to", target_dir)
-                shutil.copyfile(Path(template_dir) / m, target_dir / m)
+        if ctx.obj.verbose:
+            if dry_run:
+                print(f"Would have copied modules in {d}")
+            else:
+                print(f"Copying modules in {d}...")
+        if not dry_run:
+            shutil.copytree(Path(template_dir / d), target_dir / d, dirs_exist_ok=True)
     if not dry_run:
         print(f"New project created in {target_dir}.")
         if upgrade:
