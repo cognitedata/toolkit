@@ -1,0 +1,23 @@
+name: 'applications-configuration'
+source_id: '{{applicationsconfiguration_source_id}}'
+metadata:
+  origin: 'cdf-project-templates'
+  cdf_template_version: '{{cdf_template_version}}'
+capabilities:
+
+  - groupsAcl:
+      actions:
+        - LIST
+        - READ
+      scope:
+        currentuserscope: {}
+  - threedAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - assetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
