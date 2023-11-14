@@ -10,10 +10,6 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-from dotenv import load_dotenv
-from rich import print
-from rich.panel import Panel
-
 from cdf_tk import bootstrap
 from cdf_tk.delete import (
     delete_groups,
@@ -33,6 +29,9 @@ from cdf_tk.load import (
 )
 from cdf_tk.templates import build_config, read_environ_config
 from cdf_tk.utils import CDFToolConfig
+from dotenv import load_dotenv
+from rich import print
+from rich.panel import Panel
 
 app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
 auth_app = typer.Typer(
