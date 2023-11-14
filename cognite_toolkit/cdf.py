@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import difflib
-import os
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -593,7 +592,7 @@ def main_init(
         print(f"Found no directory {target_dir} to upgrade.")
         exit(1)
     if not dry_run and not upgrade:
-        os.mkdir(target_dir)
+        target_dir.mkdir(exist_ok=True)
     if upgrade:
         print("  Will upgrade modules and files in place, config.yaml files will not be touched.")
     print(f"Will copy these files to {target_dir}:")
@@ -631,8 +630,8 @@ def main_init(
     elif upgrade:
         print("[bold yellow]WARNING:[/] --no-backup is specified, no backup will be made.")
     for d in module_dirs_to_copy:
-        if not Path(target_dir / d).exists() and not dry_run:
-            os.mkdir(target_dir / d)
+        if not dry_run:
+            (Path(target_dir) / d).mkdir(exist_ok=True)
         if ctx.obj.verbose:
             if dry_run:
                 print(f"Would have copied modules in {d}")
