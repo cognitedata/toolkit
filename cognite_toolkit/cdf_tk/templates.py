@@ -21,7 +21,8 @@ EXCL_INDEX_SUFFIX = ["sql"]
 def read_environ_config(
     root_dir: str = "./",
     build_env: str = "dev",
-    tmpl_dirs: list[str] | None = None,
+    tmpl_dirs: [str] | None = None,
+    set_env_only: bool = False,
 ) -> list[str]:
     """Read the global configuration files and return a list of modules in correct order.
 
@@ -70,7 +71,8 @@ def read_environ_config(
                                 modules.append(m2)
                     elif m not in modules and packages.get(m) is None:
                         modules.append(m)
-
+    if set_env_only:
+        return []
     if len(modules) == 0:
         print(
             f"  [bold red]WARNING:[/] Found no defined modules in local.yaml, have you configured the environment ({build_env})?"
@@ -80,8 +82,11 @@ def read_environ_config(
     for d in tmpl_dirs:
         if not module_dirs.get(d):
             module_dirs[d] = []
-        for dirnames in os.listdir(d):
-            module_dirs[d].append(dirnames)
+        try:
+            for dirnames in Path(d).iterdir():
+                module_dirs[d].append(dirnames.name)
+        except Exception:
+            ...
     for m in modules:
         found = False
         for dir, mod in module_dirs.items():
@@ -245,3 +250,7 @@ def build_config(build_dir: str = "./build", source_dir: str = "./", build_env: 
         build_env=build_env,
         clean=clean,
     )
+    # Copy the root deployment yaml files
+    shutil.copyfile(Path(source_dir) / "local.yaml", Path(build_dir) / "local.yaml")
+    shutil.copyfile(Path(source_dir) / "packages.yaml", Path(build_dir) / "packages.yaml")
+    shutil.copyfile(Path(source_dir) / "default.packages.yaml", Path(build_dir) / "default.packages.yaml")

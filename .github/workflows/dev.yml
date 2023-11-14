@@ -30,20 +30,20 @@ jobs:
           ./demo/preproc.sh
       - name: "Build the package"
         run: |
-          poetry run python ./cognite_toolkit/cdf.py --build-dir=./build build --env=demo ./cognite_toolkit
+          poetry run python ./cognite_toolkit/cdf.py build --build-dir=./build --env=demo ./cognite_toolkit
       - name: "Verify and create access rights"
         run: |
           poetry run python cdf.py auth verify
       # be careful, this works as promised
       - name: "Delete existing resources including data"
         run: |
-          poetry run python ./cognite_toolkit/cdf.py --build-dir=./build clean --env=demo ./cognite_toolkit
+          poetry run python ./cognite_toolkit/cdf.py clean --env=demo ./build
       - name: "Allow some time for data modeling to finish syncing of deletions"
         run: |
           sleep 60
       - name: "Deploy the package"
         run: |
-          poetry run python ./cognite_toolkit/cdf.py --build-dir=./build deploy --env=demo ./cognite_toolkit
+          poetry run python ./cognite_toolkit/cdf.py deploy --env=demo ./build
       - name: "Run transformations and other post-processing"
         run: |
           poetry run python ./demo/postproc.py

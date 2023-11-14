@@ -340,8 +340,7 @@ def load_transformations(
         else:
             print(f"  Would have created {len(transformations)} transformation.")
     except Exception as e:
-        print("[bold red]ERROR:[/] Failed to create transformations.")
-        print(e)
+        print(f"[bold red]ERROR:[/] Failed to create transformations.\n{e}")
         ToolGlobals.failed = True
 
 

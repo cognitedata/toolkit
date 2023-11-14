@@ -6,8 +6,8 @@ from cognite.client._api.assets import AssetsAPI
 from cognite.client._api.iam import TokenAPI, TokenInspection
 from cognite.client.data_classes.capabilities import (
     DataSetsAcl,
-    ProjectCapabilitiesList,
     ProjectCapability,
+    ProjectCapabilityList,
     ProjectsScope,
 )
 from cognite.client.data_classes.iam import ProjectSpec
@@ -43,7 +43,7 @@ def test_dataset_create():
             spec=TokenAPI.inspect,
             return_value=TokenInspection(
                 subject="",
-                capabilities=ProjectCapabilitiesList(
+                capabilities=ProjectCapabilityList(
                     [
                         ProjectCapability(
                             capability=DataSetsAcl(
