@@ -21,7 +21,7 @@ EXCL_INDEX_SUFFIX = ["sql"]
 def read_environ_config(
     root_dir: str = "./",
     build_env: str = "dev",
-    tmpl_dirs: [str] = TMPL_DIRS,
+    tmpl_dirs: list[str] | None = None,
 ) -> list[str]:
     """Read the global configuration files and return a list of modules in correct order.
 
@@ -30,6 +30,7 @@ def read_environ_config(
         List of modules in the order they should be processed.
         Exception(ValueError) if a module is not found in tmpl_dirs.
     """
+    tmpl_dirs = tmpl_dirs or TMPL_DIRS
     if not root_dir.endswith("/"):
         root_dir = root_dir + "/"
     tmpl_dirs = [root_dir + t for t in tmpl_dirs]
@@ -94,7 +95,7 @@ def read_environ_config(
 
 
 def read_yaml_files(
-    yaml_dirs: list[str],
+    yaml_dirs: list[str] | str,
     name: str | None = None,
 ) -> dict[str, Any]:
     """Read all YAML files in the given directories and return a dictionary
@@ -105,7 +106,7 @@ def read_yaml_files(
     name: (optional) name of the file(s) to read, either filename or regex. Defaults to config.yaml and default.config.yaml
     """
 
-    if isinstance(yaml_dirs) is str:
+    if isinstance(yaml_dirs, str):
         yaml_dirs = [yaml_dirs]
     files = []
     if name is None:
