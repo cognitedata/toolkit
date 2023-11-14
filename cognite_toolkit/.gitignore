@@ -271,10 +271,3 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,python,macos,git,windows
 
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
-
-tmp/
-playground/
-new_project/
-# If you need to update the cognite_toolkit template files for local.yaml and config.yaml, comment below
-local.yaml
-config.yaml

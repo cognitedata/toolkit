@@ -8,44 +8,45 @@
             "name": "Python: build",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py",
+            "program": "./cognite_toolkit/cdf.py",
             "args": [
                 "--override-env",
                 "build",
+                "--build-dir=build",
                 "--clean",
                 "--env=local",
+                "./cognite_toolkit/"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
         },
         {
             "name": "Python: deploy",
-            "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py",
+            "program": "./cognite_toolkit/cdf.py",
             "args": [
                 "deploy",
                 //"--dry-run",
                 "--drop",
                 "--drop-data",
                 "--env=local",
-                "--include=data_models",
+                "--include=transformations",
+                "./build"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
         },
         {
             "name": "Python: clean",
-            "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py",
+            "program": "./cognite_toolkit/cdf.py",
             "args": [
                 "clean",
-                //"--dry-run",
+                "--dry-run",
                 "--env=local",
-                //"--include=data_models"
+                "--include=transformations"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
@@ -54,7 +55,7 @@
             "name": "Python: cdf.py",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py",
+            "program": "./cognite_toolkit/cdf.py",
             "args": [
                 "clean",
                 "-r"
