@@ -19,9 +19,6 @@ from pathlib import Path
 import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
-    ProjectCapability,
-    ProjectCapabilityList,
-    ProjectsScope,
     UserProfilesAcl,
 )
 from cognite.client.data_classes.iam import Group
@@ -245,7 +242,11 @@ def check_auth(
         )
     )
 
-    diff = resp.capabilities.compare(read_write.capabilities, project=project)
+    diff = ToolGlobals.client.iam.compare_capabilities(
+        resp.capabilities,
+        read_write.capabilities,
+        project=project,
+    )
     if len(diff) > 0:
         for d in diff:
             print(f"  [bold yellow]WARNING[/]: The capability {d} is not present in the CDF project.")
@@ -269,12 +270,12 @@ def check_auth(
             print("Checking group config file against capabilities across [bold]ALL[/] groups...")
         else:
             print("Checking group config file against capabilities in the group...")
-    # Create a list of capabilities from the flattened list of acls in the group file.
-    _ = ProjectCapabilityList(
-        [ProjectCapability(pc, project_scope=ProjectsScope([project])) for pc in read_write.capabilities]
-    )
 
-    loosing = ToolGlobals.client.iam.compare_capabilities(resp.capabilities, existing_cap_list)
+    loosing = ToolGlobals.client.iam.compare_capabilities(
+        existing_cap_list,
+        resp.capabilities,
+        project=project,
+    )
     loosing = [l for l in loosing if type(l) is not UserProfilesAcl]  # noqa: E741
     if len(loosing) > 0:
         for d in loosing:
