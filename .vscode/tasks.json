@@ -6,7 +6,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "./cdf.py --clean --env=local --override_env build"
+            "command": "./cognite_toolkit/cdf.py --clean --env=local --override_env --build-dir=build build ./cognite_toolkit/"
         }
     ]
 }

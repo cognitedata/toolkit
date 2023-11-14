@@ -18,9 +18,9 @@ import typer
 from cognite.client import CogniteClient
 from pytest import MonkeyPatch
 
-from cdf import Common, build, deploy
-from cdf_tk.templates import TMPL_DIRS, read_yaml_files
-from cdf_tk.utils import CDFToolConfig
+from cognite_toolkit.cdf import Common, build, deploy
+from cognite_toolkit.cdf_tk.templates import TMPL_DIRS, read_yaml_files
+from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
 REPO_ROOT = Path(__file__).parent.parent
 

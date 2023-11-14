@@ -8,12 +8,14 @@
             "name": "Python: build",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py",
+            "program": "./cognite_toolkit/cdf.py",
             "args": [
                 "--override-env",
+                "--build-dir=build",
                 "build",
                 "--clean",
                 "--env=local",
+                "./cognite_toolkit/"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
@@ -23,7 +25,7 @@
             "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py",
+            "program": "./cognite_toolkit/cdf.py",
             "args": [
                 "deploy",
                 //"--dry-run",
@@ -40,7 +42,7 @@
             "preLaunchTask": "build",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py",
+            "program": "./cognite_toolkit/cdf.py",
             "args": [
                 "clean",
                 //"--dry-run",
@@ -54,7 +56,7 @@
             "name": "Python: cdf.py",
             "type": "python",
             "request": "launch",
-            "program": "./cdf.py",
+            "program": "./cognite_toolkit/cdf.py",
             "args": [
                 "clean",
                 "-r"
