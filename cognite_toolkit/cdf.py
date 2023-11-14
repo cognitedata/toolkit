@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import difflib
-import glob
 import os
 import shutil
 from dataclasses import dataclass
@@ -10,8 +9,12 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-from cdf_tk import bootstrap
-from cdf_tk.delete import (
+from dotenv import load_dotenv
+from rich import print
+from rich.panel import Panel
+
+from cognite_toolkit.cdf_tk import bootstrap
+from cognite_toolkit.cdf_tk.delete import (
     delete_groups,
     delete_raw,
     delete_timeseries,
@@ -19,7 +22,7 @@ from cdf_tk.delete import (
 )
 
 # from scripts.delete import clean_out_datamodels
-from cdf_tk.load import (
+from cognite_toolkit.cdf_tk.load import (
     load_datamodel,
     load_groups,
     load_nodes,
@@ -27,11 +30,8 @@ from cdf_tk.load import (
     load_timeseries_metadata,
     load_transformations,
 )
-from cdf_tk.templates import build_config, read_environ_config
-from cdf_tk.utils import CDFToolConfig
-from dotenv import load_dotenv
-from rich import print
-from rich.panel import Panel
+from cognite_toolkit.cdf_tk.templates import build_config, read_environ_config
+from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
 app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
 auth_app = typer.Typer(
@@ -58,6 +58,7 @@ class Common:
     verbose: bool
     cluster: str
     project: str
+    build_dir: str
 
 
 @app.callback(invoke_without_command=True)
@@ -89,6 +90,14 @@ def common(
             help="Cognite Data Fusion project to use",
         ),
     ] = None,
+    build_dir: Annotated[
+        Optional[str],
+        typer.Option(
+            "--build-dir",
+            "-b",
+            help="Where to put/look for the built module files to deploy/clean/analyze",
+        ),
+    ] = "./build",
 ):
     if ctx.invoked_subcommand is None:
         print(
@@ -101,25 +110,32 @@ def common(
         print("  [bold red]WARNING:[/] Overriding environment variables with values from .env file...")
         if cluster is not None or project is not None:
             print("            --cluster or --project are set and will override .env file values.")
-    load_dotenv(".env", override=override_env)
+    if not (Path.cwd() / ".env").is_file():
+        if not (Path.cwd().parent / ".env").is_file():
+            print(" [bold yellow]WARNING:[/] No .env file found in current or parent directory.")
+        else:
+            load_dotenv("../.env", override=override_env)
+    else:
+        load_dotenv(".env", override=override_env)
     ctx.obj = Common(
         verbose=verbose,
         override_env=override_env,
         cluster=cluster,
         project=project,
+        build_dir=build_dir,
     )
 
 
 @app.command("build")
 def build(
     ctx: typer.Context,
-    build_dir: Annotated[
+    source_dir: Annotated[
         Optional[str],
         typer.Argument(
-            help="Where to write the built module files to deploy",
+            help="Where to find the module templates to build from",
             allow_dash=True,
         ),
-    ] = "build",
+    ] = "./",
     build_env: Annotated[
         Optional[str],
         typer.Option(
@@ -135,24 +151,21 @@ def build(
             "-c",
             help="Delete the build directory before building the configurations",
         ),
-    ] = True,
+    ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
-    print(Panel(f"[bold]Building config files from templates into {build_dir} for environment {build_env}...[/bold]"))
+    print(
+        Panel(
+            f"[bold]Building config files from templates into {ctx.obj.build_dir} for environment {build_env}...[/bold]"
+        )
+    )
 
-    build_config(dir=build_dir, build_env=build_env, clean=clean)
+    build_config(build_dir=ctx.obj.build_dir, source_dir=source_dir, build_env=build_env, clean=clean)
 
 
 @app.command("deploy")
 def deploy(
     ctx: typer.Context,
-    build_dir: Annotated[
-        Optional[str],
-        typer.Argument(
-            help="Where to write the built module files to deploy",
-            allow_dash=True,
-        ),
-    ] = "build",
     build_env: Annotated[
         Optional[str],
         typer.Option(
@@ -211,6 +224,7 @@ def deploy(
     )
     # Set environment variables from local.yaml
     read_environ_config(build_env=build_env)
+    build_dir = ctx.obj.build_dir
     if interactive:
         include: CDFDataTypes = []
         mapping = {}
@@ -221,7 +235,7 @@ def deploy(
         print("q) Quit")
         answer = input("Select data types to deploy: ")
         if answer.casefold() == "a":
-            build_dir = "build"
+            ...
         elif answer.casefold() == "q":
             exit(0)
         else:
@@ -321,13 +335,6 @@ def deploy(
 @app.command("clean")
 def clean(
     ctx: typer.Context,
-    build_dir: Annotated[
-        Optional[str],
-        typer.Argument(
-            help="Where to write the built module files to deploy",
-            allow_dash=True,
-        ),
-    ] = "build",
     build_env: Annotated[
         Optional[str],
         typer.Option(
@@ -354,6 +361,7 @@ def clean(
     ] = None,
 ) -> None:
     """Clean up a CDF environment as set in local.yaml based on the configuration files in the build directory."""
+    build_dir = ctx.obj.build_dir
     if len(include) == 0:
         include = [datatype for datatype in CDFDataTypes]
     print(
@@ -532,9 +540,7 @@ def main_init(
     files_to_copy = [
         "default.config.yaml",
     ]
-    dirs_to_copy = [
-        "docs",
-    ]
+    dirs_to_copy = []
     if not upgrade:
         files_to_copy.extend(
             [
@@ -542,6 +548,8 @@ def main_init(
                 "local.yaml",
                 "packages.yaml",
                 "README.md",
+                ".gitignore",
+                ".env.tmpl",
             ]
         )
         dirs_to_copy.append("local_modules")
@@ -550,7 +558,7 @@ def main_init(
         "modules",
         "examples",
     ]
-    template_dir = resources.files("cdf_tk").parent
+    template_dir = resources.files("cognite_toolkit")
     target_dir = Path.cwd() / f"{init_dir}"
     if target_dir.exists():
         if not upgrade:
@@ -562,11 +570,11 @@ def main_init(
         os.mkdir(target_dir)
     if upgrade:
         print("  Will upgrade modules and files in place, config.yaml files will not be touched.")
-    print("Will copy these files to {target_dir}:")
+    print(f"Will copy these files to {target_dir}:")
     print(files_to_copy)
-    print("Will copy these module directories to {target_dir}:")
+    print(f"Will copy these module directories to {target_dir}:")
     print(modules_to_copy)
-    print("Will copy these directories to {target_dir}:")
+    print(f"Will copy these directories to {target_dir}:")
     print(dirs_to_copy)
     for f in files_to_copy:
         if dry_run and ctx.obj.verbose:
@@ -586,15 +594,16 @@ def main_init(
                 print("Copying directory", d, "to", target_dir)
             shutil.copytree(Path(template_dir) / d, target_dir / d, dirs_exist_ok=True)
     for d in modules_to_copy:
-        if not Path(template_dir / d).exists():
+        if not Path(target_dir / d).exists():
             os.mkdir(target_dir / d)
-        for m in glob.glob(f"{d}/**/*", recursive=True):
-            if "config.yaml" in m and "default.config.yaml" not in m and upgrade:
+        for m in Path(template_dir / d).glob("**/*"):
+            file_name = m.name
+            if "config.yaml" == file_name and upgrade:
                 if dry_run and ctx.obj.verbose:
-                    print(f"Would skip {d}/{m}")
+                    print(f"Would skip {d}/{file_name}")
                 continue
             if dry_run and ctx.obj.verbose:
-                print("Would copy", m, "to", target_dir / m)
+                print("Would copy", file_name, "to", target_dir / d / file_name)
             elif not dry_run:
                 if Path(template_dir / m).is_dir():
                     if not Path(target_dir / m).exists():
