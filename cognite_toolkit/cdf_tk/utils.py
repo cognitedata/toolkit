@@ -285,7 +285,7 @@ class CDFToolConfig:
             ] or None
         except Exception:
             raise ValueError(f"Failed to load capabilities from {capabilities}. Wrong syntax?")
-        comp = resp.capabilities.compare(caps)
+        comp = self.client.iam.compare_capabilities(resp.capabilities, caps)
         if len(comp) > 0:
             print(f"Capabilities mismatch: {comp}")
             raise CogniteAuthError("Don't have correct access rights.")

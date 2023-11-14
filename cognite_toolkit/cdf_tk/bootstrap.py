@@ -19,8 +19,8 @@ from pathlib import Path
 import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
-    ProjectCapabilitiesList,
     ProjectCapability,
+    ProjectCapabilityList,
     ProjectsScope,
     UserProfilesAcl,
 )
@@ -244,6 +244,7 @@ def check_auth(
             Loader=yaml.Loader,
         )
     )
+
     diff = resp.capabilities.compare(read_write.capabilities, project=project)
     if len(diff) > 0:
         for d in diff:
@@ -269,10 +270,11 @@ def check_auth(
         else:
             print("Checking group config file against capabilities in the group...")
     # Create a list of capabilities from the flattened list of acls in the group file.
-    read_write_cap_list = ProjectCapabilitiesList(
+    _ = ProjectCapabilityList(
         [ProjectCapability(pc, project_scope=ProjectsScope([project])) for pc in read_write.capabilities]
     )
-    loosing = read_write_cap_list.compare(existing_cap_list, project=project)
+
+    loosing = ToolGlobals.client.iam.compare_capabilities(resp.capabilities, existing_cap_list)
     loosing = [l for l in loosing if type(l) is not UserProfilesAcl]  # noqa: E741
     if len(loosing) > 0:
         for d in loosing:
