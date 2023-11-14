@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -23,71 +24,181 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.iam import Group
 from rich import print
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from .utils import CDFToolConfig
 
 
+@dataclass
+class AuthVariables:
+    cluster: str
+    project: str
+    token: str
+    client_id: str
+    client_secret: str
+    cdf_url: str = None
+    token_url: str = None
+    tenant_id: str = None
+    audience: str = None
+    scopes: str = None
+    ok: bool = False
+    info: str = ""
+
+
+def get_auth_variables(interactive: bool = False, verbose: bool = False) -> AuthVariables:
+    vars = AuthVariables(
+        cluster=os.environ.get("CDF_CLUSTER", None),
+        project=os.environ.get("CDF_PROJECT", None),
+        token=os.environ.get("CDF_TOKEN", None),
+        client_id=os.environ.get("IDP_CLIENT_ID", None),
+        client_secret=os.environ.get("IDP_CLIENT_SECRET", None),
+    )
+    vars.error = False
+    vars.warning = False
+    if vars.cluster is not None and len(vars.cluster) > 0:
+        if verbose:
+            vars.info += f"  CDF_CLUSTER={vars.cluster} is set correctly.\n"
+    else:
+        if interactive:
+            vars.cluster = Prompt.ask("CDF project cluster (e.g. [italic]westeurope-1[/])? ", default="westeurope-1")
+        else:
+            vars.error = True
+            vars.info += "  [bold red]ERROR[/]: Environment variable CDF_CLUSTER must be set.\n"
+    if vars.project is not None and len(vars.project) > 0:
+        if verbose:
+            vars.info += f"  CDF_PROJECT={vars.project} is set correctly.\n"
+    else:
+        if interactive:
+            vars.project = Prompt.ask("CDF project URL name (e.g. [italic]publicdata[/])? ")
+        else:
+            vars.error = True
+            vars.info += "  [bold red]ERROR[/]: Environment variable CDF_PROJECT must be set.\n"
+    if vars.token is None or len(vars.token) == 0:
+        if (
+            vars.client_id is None
+            or len(vars.client_id) == 0
+            or vars.client_secret is None
+            or len(vars.client_secret) == 0
+        ):
+            if interactive:
+                token = Confirm.ask(
+                    "Do you have client id and client secret for a service principal/application? ",
+                    choices=["y", "n"],
+                )
+                if not token:
+                    vars.token = Prompt.ask("OAuth2 token (CDF_TOKEN)? ", password=True)
+                else:
+                    azure = Confirm.ask(
+                        "Do you have Azure Entra/ActiveDirectory as your identity provider ?", choices=["y", "n"]
+                    )
+                    name_of_principal = "Service principal/application"
+                    if azure:
+                        vars.tenant_id = Prompt.ask(
+                            "What is your Entra tenant id (e.g. [italic]12345678-1234-1234-1234-123456789012[/])? "
+                        )
+                        name_of_principal = "Application"
+                        vars.token_url = f"https://login.microsoftonline.com/{vars.tenant_id}/oauth2/v2.0/token"
+                    else:
+                        vars.token_url = Prompt.ask(
+                            "What is your identity provider token endpoint (e.g. [italic]https://myidp.com/oauth2/token[/])? "
+                        )
+                    vars.client_id = Prompt.ask(
+                        f"{name_of_principal} client id (CDF_CLIENT_ID)? ", default=vars.client_id
+                    )
+                    vars.client_secret = Prompt.ask(
+                        f"{name_of_principal} client secret (CDF_CLIENT_SECRET)",
+                        password=True,
+                    )
+            else:
+                vars.error = True
+                vars.info += "  [bold red]ERROR[/]: Environment variables IDP_CLIENT_ID and IDP_CLIENT_SECRET (or CDF_TOKEN) must be set.\n"
+        elif verbose:
+            vars.info += "  CDF_TOKEN is set, using it as Bearer token for authorization.\n"
+    if vars.error:
+        return vars
+    if interactive:
+        print("[bold yellow]WARNING[/] Do not change the below unless you know what you are doing!")
+    vars.cdf_url = os.environ.get("CDF_URL")
+    if vars.cdf_url is None:
+        vars.cdf_url = f"https://{vars.cluster}.cognitedata.com"
+    if interactive:
+        vars.cdf_url = Prompt.ask("What is your CDF URL ? ", default=vars.cdf_url)
+    if vars.cdf_url != f"https://{vars.cluster}.cognitedata.com":
+        vars.warning = True
+        vars.info += f"  [bold yellow]WARNING[/]: CDF_URL is set to {vars.cdf_url}, are you sure it shouldn't be https://{vars.cluster}.cognitedata.com?\n"
+    elif verbose:
+        vars.info += "  CDF_URL is set correctly.\n"
+    vars.audience = os.environ.get("IDP_AUDIENCE")
+    if vars.audience is None:
+        vars.audience = f"https://{vars.cluster}.cognitedata.com"
+        if interactive:
+            vars.audience = Prompt.ask("What is your IDP audience ? ", default=vars.audience)
+    if vars.audience != f"https://{vars.cluster}.cognitedata.com":
+        vars.warning = True
+        vars.info += f"  [bold yellow]WARNING[/]: IDP_AUDIENCE is set to {vars.audience}, are you sure it shouldn't be https://{vars.cluster}.cognitedata.com?\n"
+    elif verbose:
+        vars.info += f"  IDP_AUDIENCE = {vars.audience} is set correctly.\n"
+    vars.scopes = os.environ.get("IDP_SCOPES")
+    if vars.scopes is None:
+        vars.scopes = f"https://{vars.cluster}.cognitedata.com/.default"
+        if interactive:
+            vars.scopes = Prompt.ask("What are your IDP scopes ? ", default=vars.scopes)
+    if vars.scopes != f"https://{vars.cluster}.cognitedata.com/.default":
+        vars.warning = True
+        vars.info += f"  [bold yellow]WARNING[/]: IDP_SCOPES is set to {vars.scopes}, are you sure it shouldn't be https://{vars.cluster}.cognitedata.com/.default?\n"
+    elif verbose:
+        vars.info += f"  IDP_SCOPES = {vars.scopes} is set correctly.\n"
+    if interactive:
+        if Path(".env").exists():
+            print(
+                "[bold red]WARNING[/]: .env file already exists and values have been retrieved from it. It will be overwritten."
+            )
+        write = Confirm.ask(
+            "Do you want to save these to .env file for next time ? ",
+            choices=["y", "n"],
+        )
+        if write:
+            with open(Path(".env"), "w") as f:
+                f.write("# .env file generated by cognite-toolkit\n")
+                f.write("CDF_CLUSTER=" + vars.cluster + "\n")
+                f.write("CDF_PROJECT=" + vars.project + "\n")
+                if vars.token is not None:
+                    f.write("# When using a token, the IDP variables are not needed, so they are not included.\n")
+                    f.write("CDF_TOKEN=" + vars.token + "\n")
+                else:
+                    f.write("IDP_CLIENT_ID=" + vars.client_id + "\n")
+                    f.write("IDP_CLIENT_SECRET=" + vars.client_secret + "\n")
+                    f.write("IDP_TOKEN_URL=" + vars.token_url + "\n")
+                f.write("# The below variables don't have to be set if you have just accepted the defaults.\n")
+                f.write("# They are automatically constructed unless they are set.\n")
+                f.write("CDF_URL=" + vars.cdf_url + "\n")
+                if vars.token is None:
+                    f.write("IDP_AUDIENCE=" + vars.audience + "\n")
+                    f.write("IDP_SCOPES=" + vars.scopes + "\n")
+    return vars
+
+
 def check_auth(
     ToolGlobals: CDFToolConfig,
+    auth_vars: AuthVariables = None,
     group_file: str | None = None,
     update_group: int = 0,
     create_group: str | None = None,
     dry_run: bool = False,
     verbose: bool = False,
 ) -> CogniteClient:
-    cluster = ToolGlobals.environ(
-        "CDF_CLUSTER",
-        None,
-        fail=False,
-    )
-    project = ToolGlobals.environ(
-        "CDF_PROJECT",
-        None,
-        fail=False,
-    )
-    token = ToolGlobals.environ(
-        "CDF_TOKEN",
-        None,
-        fail=False,
-    )
-    client_id = ToolGlobals.environ(
-        "IDP_CLIENT_ID",
-        None,
-        fail=False,
-    )
-    client_secret = ToolGlobals.environ(
-        "IDP_CLIENT_SECRET",
-        None,
-        fail=False,
-    )
-    print("[bold]Checking current service principal/application...[/]")
-    if cluster is None or len(cluster) == 0:
-        print("  [bold red]ERROR:[/]Environment variable CDF_CLUSTER must be set.")
+    print("[bold]Checking current service principal/application and environment configurations...[/]")
+    if auth_vars is None:
+        auth_vars = get_auth_variables(verbose=verbose, interactive=False)
+    if auth_vars.error:
+        print(auth_vars.info)
         ToolGlobals.failed = True
         return
-    if verbose:
-        print(f"  CDF_CLUSTER={cluster} is set correctly.")
-    if project is None or len(project) == 0:
-        print("  [bold red]ERROR:[/]Environment variable CDF_PROJECT must be set.")
-        ToolGlobals.failed = True
-        return
-    if verbose:
-        print(f"  CDF_PROJECT={project} is set correctly.")
-    if token is not None and len(token) > 0:
-        print("  Env variable CDF_TOKEN is set, using it as Bearer token for authorization.")
+    if auth_vars.warning:
+        print(auth_vars.info)
     else:
-        if verbose:
-            print("  CDF_TOKEN is not set, expecting IDP_CLIENT_ID and IDP_CLIENT_SECRET...")
-        if client_id is None or len(client_id) == 0:
-            print("  [bold red]ERROR:[/]Environment variable IDP_CLIENT_ID must be set.")
-            ToolGlobals.failed = True
-            return
-        if client_secret is None or len(client_secret) == 0:
-            print("  [bold red]ERROR:[/]Environment variable IDP_CLIENT_SECRET must be set.")
-            ToolGlobals.failed = True
-            return
-    print("  [bold green]OK[/]")
+        print("  [bold green]OK[/]")
     print("Checking basic project configuration...")
     try:
         # Using the token/inspect endpoint to check if the client has access to the project.
@@ -107,42 +218,6 @@ def check_auth(
         )
         ToolGlobals.failed = True
         return
-    print("Checking environment variables...")
-    ok = True
-    if os.environ.get("CDF_URL") is not None and os.environ.get("CDF_URL") != f"https://{cluster}.cognitedata.com":
-        print(
-            f"  [bold yellow]WARNING[/]: CDF_URL is set to {os.environ.get('CDF_URL')}, are you sure it shouldn't be https://{cluster}.cognitedata.com?"
-        )
-        ok = False
-    elif verbose:
-        print("  CDF_URL is set correctly.")
-    if (
-        os.environ.get("IDP_AUDIENCE") is not None
-        and os.environ.get("IDP_AUDIENCE") != f"https://{cluster}.cognitedata.com"
-    ):
-        print(
-            f"  [bold yellow]WARNING[/]: IDP_AUDIENCE is set to {os.environ.get('IDP_AUDIENCE')}, are you sure it shouldn't be https://{cluster}.cognitedata.com?"
-        )
-        ok = False
-    elif verbose:
-        print("  IDP_AUDIENCE is set correctly.")
-    if (
-        os.environ.get("IDP_SCOPES") is not None
-        and os.environ.get("IDP_SCOPES") != f"https://{cluster}.cognitedata.com/.default"
-    ):
-        print(
-            f"  [bold yellow]WARNING[/]: IDP_SCOPES is set to {os.environ.get('IDP_SCOPES')}, are you sure it shouldn't be https://{cluster}.cognitedata.com/.default?"
-        )
-        ok = False
-    elif verbose:
-        print("  IDP_SCOPES is set correctly.")
-    if not ok:
-        print(
-            "  One or more environment variable checks failed. Should you unset these variables and let them be set default or change them?"
-        )
-    else:
-        print("  [bold green]OK[/]")
-
     try:
         print("Checking projects that the service principal/application has access to...")
         if len(resp.projects) == 0:
@@ -158,7 +233,7 @@ def check_auth(
         print(f"  [bold red]ERROR[/]: Failed to process project information from inspect()\n{e}")
         ToolGlobals.failed = True
         return
-    print(f"[italic]Focusing on project {project} only from here on.[/]")
+    print(f"[italic]Focusing on project {auth_vars.project} only from here on.[/]")
     print(
         "Checking basic project and group manipulation access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
     )
@@ -189,7 +264,7 @@ def check_auth(
             )
             ToolGlobals.failed = True
             return
-    project_info = ToolGlobals.client.get(f"/api/v1/projects/{project}").json()
+    project_info = ToolGlobals.client.get(f"/api/v1/projects/{auth_vars.project}").json()
     print("Checking identity provider settings...")
     oidc = project_info.get("oidcConfiguration", {})
     tenant_id = None
@@ -245,7 +320,7 @@ def check_auth(
     diff = ToolGlobals.client.iam.compare_capabilities(
         resp.capabilities,
         read_write.capabilities,
-        project=project,
+        project=auth_vars.project,
     )
     if len(diff) > 0:
         for d in diff:
@@ -274,7 +349,7 @@ def check_auth(
     loosing = ToolGlobals.client.iam.compare_capabilities(
         existing_cap_list,
         resp.capabilities,
-        project=project,
+        project=auth_vars.project,
     )
     loosing = [l for l in loosing if type(l) is not UserProfilesAcl]  # noqa: E741
     if len(loosing) > 0:
