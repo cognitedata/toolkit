@@ -106,8 +106,12 @@ def common(
         if not (Path.cwd().parent / ".env").is_file():
             print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
         else:
+            if verbose:
+                print("Loading .env file found in parent directory.")
             load_dotenv("../.env", override=override_env)
     else:
+        if verbose:
+            print("Loading .env file found in current directory.")
         load_dotenv(".env", override=override_env)
     ctx.obj = Common(
         verbose=verbose,

@@ -24,6 +24,7 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.iam import Group
 from rich import print
+from rich.markup import escape
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
@@ -53,103 +54,127 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
         token=os.environ.get("CDF_TOKEN", None),
         client_id=os.environ.get("IDP_CLIENT_ID", None),
         client_secret=os.environ.get("IDP_CLIENT_SECRET", None),
+        cdf_url=os.environ.get("CDF_URL", None),
+        tenant_id=os.environ.get("IDP_TENANT_ID", None),
+        audience=os.environ.get("IDP_AUDIENCE", None),
+        scopes=os.environ.get("IDP_SCOPES", None),
     )
     vars.error = False
     vars.warning = False
+    if interactive:
+        if vars.cluster is None or len(vars.cluster) == 0:
+            vars.cluster = "westeurope-1"
+        vars.cluster = Prompt.ask("CDF project cluster (e.g. [italic]westeurope-1[/])? ", default=vars.cluster)
+    if vars.cluster is None or len(vars.cluster) == 0:
+        vars.error = True
+        vars.info += "  [bold red]ERROR[/]: Environment variable CDF_CLUSTER must be set or use --interactive.\n"
+        return vars
     if vars.cluster is not None and len(vars.cluster) > 0:
         if verbose:
             vars.info += f"  CDF_CLUSTER={vars.cluster} is set correctly.\n"
-    else:
-        if interactive:
-            vars.cluster = Prompt.ask("CDF project cluster (e.g. [italic]westeurope-1[/])? ", default="westeurope-1")
-        else:
-            vars.error = True
-            vars.info += "  [bold red]ERROR[/]: Environment variable CDF_CLUSTER must be set.\n"
-    if vars.project is not None and len(vars.project) > 0:
-        if verbose:
-            vars.info += f"  CDF_PROJECT={vars.project} is set correctly.\n"
-    else:
-        if interactive:
-            vars.project = Prompt.ask("CDF project URL name (e.g. [italic]publicdata[/])? ")
-        else:
-            vars.error = True
-            vars.info += "  [bold red]ERROR[/]: Environment variable CDF_PROJECT must be set.\n"
-    if vars.token is None or len(vars.token) == 0:
-        if (
-            vars.client_id is None
-            or len(vars.client_id) == 0
-            or vars.client_secret is None
-            or len(vars.client_secret) == 0
-        ):
-            if interactive:
-                token = Confirm.ask(
-                    "Do you have client id and client secret for a service principal/application? ",
-                    choices=["y", "n"],
-                )
-                if not token:
-                    vars.token = Prompt.ask("OAuth2 token (CDF_TOKEN)? ", password=True)
-                else:
-                    azure = Confirm.ask(
-                        "Do you have Azure Entra/ActiveDirectory as your identity provider ?", choices=["y", "n"]
-                    )
-                    name_of_principal = "Service principal/application"
-                    if azure:
-                        vars.tenant_id = Prompt.ask(
-                            "What is your Entra tenant id (e.g. [italic]12345678-1234-1234-1234-123456789012[/])? "
-                        )
-                        name_of_principal = "Application"
-                        vars.token_url = f"https://login.microsoftonline.com/{vars.tenant_id}/oauth2/v2.0/token"
-                    else:
-                        vars.token_url = Prompt.ask(
-                            "What is your identity provider token endpoint (e.g. [italic]https://myidp.com/oauth2/token[/])? "
-                        )
-                    vars.client_id = Prompt.ask(
-                        f"{name_of_principal} client id (CDF_CLIENT_ID)? ", default=vars.client_id
-                    )
-                    vars.client_secret = Prompt.ask(
-                        f"{name_of_principal} client secret (CDF_CLIENT_SECRET)",
-                        password=True,
-                    )
-            else:
-                vars.error = True
-                vars.info += "  [bold red]ERROR[/]: Environment variables IDP_CLIENT_ID and IDP_CLIENT_SECRET (or CDF_TOKEN) must be set.\n"
-        elif verbose:
-            vars.info += "  CDF_TOKEN is set, using it as Bearer token for authorization.\n"
-    if vars.error:
-        return vars
-    if interactive:
-        print("[bold yellow]WARNING[/] Do not change the below unless you know what you are doing!")
-    vars.cdf_url = os.environ.get("CDF_URL")
+    default_cdf_url = f"https://{vars.cluster}.cognitedata.com"
+    default_audience = f"https://{vars.cluster}.cognitedata.com"
+    default_scopes = f"https://{vars.cluster}.cognitedata.com/.default"
     if vars.cdf_url is None:
-        vars.cdf_url = f"https://{vars.cluster}.cognitedata.com"
+        vars.cdf_url = default_cdf_url
+    if vars.audience is None:
+        vars.audience = default_audience
+    if vars.scopes is None:
+        vars.scopes = default_scopes
     if interactive:
-        vars.cdf_url = Prompt.ask("What is your CDF URL ? ", default=vars.cdf_url)
+        vars.cdf_url = Prompt.ask(
+            f"What is your CDF URL (recommended: [italic]{default_cdf_url}[/]) ? ", default=vars.cdf_url
+        )
+        vars.audience = Prompt.ask(
+            f"What is your IDP audience (recommended: [italic]{default_audience}[/])? ", default=vars.audience
+        )
+        vars.scopes = Prompt.ask(
+            f"What are your IDP scopes (recommended: [italic]{default_scopes}[/]) ? ", default=vars.scopes
+        )
+        vars.project = Prompt.ask("CDF project URL name (e.g. [italic]publicdata[/])? ", default=vars.project)
     if vars.cdf_url != f"https://{vars.cluster}.cognitedata.com":
         vars.warning = True
         vars.info += f"  [bold yellow]WARNING[/]: CDF_URL is set to {vars.cdf_url}, are you sure it shouldn't be https://{vars.cluster}.cognitedata.com?\n"
     elif verbose:
         vars.info += "  CDF_URL is set correctly.\n"
-    vars.audience = os.environ.get("IDP_AUDIENCE")
-    if vars.audience is None:
-        vars.audience = f"https://{vars.cluster}.cognitedata.com"
-        if interactive:
-            vars.audience = Prompt.ask("What is your IDP audience ? ", default=vars.audience)
+    if vars.project is not None and len(vars.project) > 0:
+        if verbose:
+            vars.info += f"  CDF_PROJECT={vars.project} is set correctly.\n"
+    else:
+        vars.error = True
+        vars.info += "  [bold red]ERROR[/]: Environment variable CDF_PROJECT must be set or use --interactive.\n"
+        return vars
     if vars.audience != f"https://{vars.cluster}.cognitedata.com":
         vars.warning = True
         vars.info += f"  [bold yellow]WARNING[/]: IDP_AUDIENCE is set to {vars.audience}, are you sure it shouldn't be https://{vars.cluster}.cognitedata.com?\n"
     elif verbose:
         vars.info += f"  IDP_AUDIENCE = {vars.audience} is set correctly.\n"
-    vars.scopes = os.environ.get("IDP_SCOPES")
-    if vars.scopes is None:
-        vars.scopes = f"https://{vars.cluster}.cognitedata.com/.default"
-        if interactive:
-            vars.scopes = Prompt.ask("What are your IDP scopes ? ", default=vars.scopes)
     if vars.scopes != f"https://{vars.cluster}.cognitedata.com/.default":
         vars.warning = True
         vars.info += f"  [bold yellow]WARNING[/]: IDP_SCOPES is set to {vars.scopes}, are you sure it shouldn't be https://{vars.cluster}.cognitedata.com/.default?\n"
     elif verbose:
         vars.info += f"  IDP_SCOPES = {vars.scopes} is set correctly.\n"
     if interactive:
+        token = False
+        if vars.token is None or len(vars.token) == 0:
+            token = Confirm.ask(
+                "Do you have client id and client secret for a service principal/application? ",
+                choices=["y", "n"],
+            )
+            if not token:
+                vars.token = Prompt.ask("OAuth2 token (CDF_TOKEN)? ", password=True)
+        else:
+            new_token = Prompt.ask("You have set an OAuth2 token (CDF_TOKEN), change it ? ", password=True, default="")
+            if len(new_token) > 0:
+                vars.token = new_token
+            else:
+                print("  Keeping existing token.")
+        if token:
+            azure = Confirm.ask(
+                "Do you have Azure Entra/ActiveDirectory as your identity provider ?", choices=["y", "n"]
+            )
+            name_of_principal = "Service principal/application"
+            if azure:
+                vars.tenant_id = Prompt.ask(
+                    "What is your Entra tenant id (e.g. [italic]12345678-1234-1234-1234-123456789012[/])? ",
+                    default=vars.tenant_id,
+                )
+                name_of_principal = "Application"
+                vars.token_url = f"https://login.microsoftonline.com/{vars.tenant_id}/oauth2/v2.0/token"
+            else:
+                vars.token_url = Prompt.ask(
+                    "What is your identity provider token endpoint (e.g. [italic]https://myidp.com/oauth2/token[/])? "
+                )
+            vars.client_id = Prompt.ask(f"{name_of_principal} client id (CDF_CLIENT_ID)? ", default=vars.client_id)
+            if vars.client_secret is not None and len(vars.client_secret) > 0:
+                new_secret = Prompt.ask(
+                    "You have set a client secret (CDF_CLIENT_SECRET), change it ? ", password=True, default=""
+                )
+                if len(new_secret) > 0:
+                    vars.client_secret = new_secret
+                else:
+                    print("  Keeping existing client secret.")
+            else:
+                vars.client_secret = Prompt.ask(
+                    f"{name_of_principal} client secret (CDF_CLIENT_SECRET)",
+                    password=True,
+                )
+        if (
+            vars.client_id is None
+            or len(vars.client_id) == 0
+            or vars.client_secret is None
+            or len(vars.client_secret) == 0
+        ):
+            if vars.token is None or len(vars.token) == 0:
+                vars.error = True
+                vars.info += "  [bold red]ERROR[/]: Environment variables IDP_CLIENT_ID and IDP_CLIENT_SECRET (or CDF_TOKEN) must be set.\n"
+                return vars
+            elif verbose:
+                vars.info += "  CDF_TOKEN is set, using it as Bearer token for authorization.\n"
+        elif verbose:
+            vars.info += "  IDP_CLIENT_ID and IDP_CLIENT_SECRET are set correctly.\n"
+    if interactive:
+        # Write .env file
         if Path(".env").exists():
             print(
                 "[bold red]WARNING[/]: .env file already exists and values have been retrieved from it. It will be overwritten."
@@ -163,12 +188,14 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
                 f.write("# .env file generated by cognite-toolkit\n")
                 f.write("CDF_CLUSTER=" + vars.cluster + "\n")
                 f.write("CDF_PROJECT=" + vars.project + "\n")
-                if vars.token is not None:
+                if vars.token is not None and len(vars.token) > 0:
                     f.write("# When using a token, the IDP variables are not needed, so they are not included.\n")
                     f.write("CDF_TOKEN=" + vars.token + "\n")
                 else:
                     f.write("IDP_CLIENT_ID=" + vars.client_id + "\n")
                     f.write("IDP_CLIENT_SECRET=" + vars.client_secret + "\n")
+                    if vars.tenant_id is not None and len(vars.tenant_id) > 0:
+                        f.write("IDP_TENANT_ID=" + vars.tenant_id + "\n")
                     f.write("IDP_TOKEN_URL=" + vars.token_url + "\n")
                 f.write("# The below variables don't have to be set if you have just accepted the defaults.\n")
                 f.write("# They are automatically constructed unless they are set.\n")
@@ -233,7 +260,7 @@ def check_auth(
         print(f"  [bold red]ERROR[/]: Failed to process project information from inspect()\n{e}")
         ToolGlobals.failed = True
         return
-    print(f"[italic]Focusing on project {auth_vars.project} only from here on.[/]")
+    print(f"[italic]Focusing on current project {auth_vars.project} only from here on.[/]")
     print(
         "Checking basic project and group manipulation access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
     )
@@ -280,25 +307,40 @@ def check_auth(
     print(
         f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {accessClaims}"
     )
-    print("Checking CDF groups...")
+    print("Checking CDF group memberships for the current client configured...")
     try:
         groups = ToolGlobals.client.iam.groups.list().data
     except Exception:
         print("  [bold red]ERROR[/]: Unable to retrieve CDF groups.")
         ToolGlobals.failed = True
         return
+    read_write = Group.load(
+        yaml.load(
+            Path(f"{Path(__file__).parent.parent.as_posix()}{group_file}").read_text(),
+            Loader=yaml.Loader,
+        )
+    )
     tbl = Table(title="CDF Group ids, Names, and Source Ids")
     tbl.add_column("Id", justify="left")
     tbl.add_column("Name", justify="left")
     tbl.add_column("Source Id", justify="left")
+    matched_group_source_id = None
     for g in groups:
-        tbl.add_row(str(g.id), g.name, g.source_id)
+        if len(groups) > 1 and g.name == read_write.name:
+            matched_group_source_id = g.source_id
+            tbl.add_row(str(g.id), "[bold]" + g.name + "[/]", g.source_id)
+        else:
+            tbl.add_row(str(g.id), g.name, g.source_id)
+    multiple_groups_with_source_id = 0
+    for g in groups:
+        if g.source_id == matched_group_source_id:
+            multiple_groups_with_source_id += 1
     print(tbl)
     if len(groups) > 1:
         print(
             "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
         )
-        print("           This is not recommended.")
+        print("           This is not recommended. The group matching the group config file is marked in bold above.")
         if update_group == 1:
             print(
                 "  [bold red]ERROR[/]: You have specified --update-group=1.\n"
@@ -309,13 +351,19 @@ def check_auth(
     else:
         print("  [bold green]OK[/] - Only one group is used for this service principal/application.")
     print("---------------------")
-    print(f"\nChecking CDF groups access right against capabilities in {group_file} ...")
-    read_write = Group.load(
-        yaml.load(
-            Path(f"{Path(__file__).parent.parent.as_posix()}{group_file}").read_text(),
-            Loader=yaml.Loader,
+    if matched_group_source_id is not None:
+        print("[bold green]RECOMMENDATION[/]:")
+        print(f"  You have {multiple_groups_with_source_id} groups with source id {matched_group_source_id},")
+        print(
+            f"  which is the same source id as the [italic]{escape(read_write.name)}[/] group in the group config file."
         )
-    )
+        print(
+            "  It is recommended that this admin (CI/CD) application/service principal only is member of one group in the identity provider."
+        )
+        print(
+            "  This group's id should be configured as the [italic]readwrite_source_id[/] for the common/cdf_auth_readwrite_all module."
+        )
+    print(f"\nChecking CDF groups access right against capabilities in {group_file} ...")
 
     diff = ToolGlobals.client.iam.compare_capabilities(
         resp.capabilities,
