@@ -277,4 +277,4 @@ playground/
 new_project/
 # If you need to update the cognite_toolkit template files for local.yaml and config.yaml, comment below
 local.yaml
-config.yaml
+#config.yaml
