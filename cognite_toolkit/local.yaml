@@ -15,7 +15,7 @@
 # deploy to must have the same project name configured below. This is a safety measure
 # to prevent you from accidentally deploying to the wrong environment.
 demo:
-  project: <customer>-demo
+  project: <a-demo-project>
   type: dev
   # This should be a used to specify which modules and packages to deploy locally and in the GitHub Action.
   # You can have multiple deploy commands.
@@ -24,10 +24,13 @@ demo:
     - cdf_demo_infield
     - cdf_apm_simple
 local:
-  project: albert
+  project: <customer>-dev
   type: dev
   deploy:
-    - example_pump
+    - cdf_apm_base
+    - cdf_apm_simple
+    - cdf_infield_common
+    - cdf_infield_location
 dev:
   project: <customer>-dev
   type: dev
