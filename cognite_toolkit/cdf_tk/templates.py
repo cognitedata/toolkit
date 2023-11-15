@@ -21,7 +21,7 @@ EXCL_INDEX_SUFFIX = ["sql"]
 def read_environ_config(
     root_dir: str = "./",
     build_env: str = "dev",
-    tmpl_dirs: [str] | None = None,
+    tmpl_dirs: [str] = TMPL_DIRS,
     set_env_only: bool = False,
 ) -> list[str]:
     """Read the global configuration files and return a list of modules in correct order.
@@ -31,7 +31,6 @@ def read_environ_config(
         List of modules in the order they should be processed.
         Exception(ValueError) if a module is not found in tmpl_dirs.
     """
-    tmpl_dirs = tmpl_dirs or TMPL_DIRS
     if not root_dir.endswith("/"):
         root_dir = root_dir + "/"
     tmpl_dirs = [root_dir + t for t in tmpl_dirs]
