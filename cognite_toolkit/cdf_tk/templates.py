@@ -9,8 +9,6 @@ from typing import Any
 import yaml
 from rich import print
 
-# Directory paths for YAML files (relative to the root of the module)
-YAML_DIRS = ["./"]
 TMPL_DIRS = ["common", "modules", "local_modules", "examples"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md"]
@@ -245,7 +243,7 @@ def build_config(build_dir: str = "./build", source_dir: str = "./", build_env: 
     modules = read_environ_config(root_dir=source_dir, tmpl_dirs=TMPL_DIRS, build_env=build_env)
     process_config_files(
         dirs=modules,
-        yaml_data=read_yaml_files(yaml_dirs=YAML_DIRS),
+        yaml_data=read_yaml_files(yaml_dirs=source_dir),
         build_dir=build_dir,
         build_env=build_env,
         clean=clean,
