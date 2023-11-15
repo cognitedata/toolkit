@@ -22,5 +22,20 @@ capabilities:
         tableScope: {
           dbsToTables: ['src:file:{{location_name}}']
         }
-      
-        
+  - functionsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        datasetScope: {
+          ids: ['file:{{location_name}}']
+        }
+  - sessionsAcl:
+      actions:
+        - READ
+        - CREATE
+        - DELETE
+      scope:
+        datasetScope: {
+          ids: ['file:{{location_name}}']
+        }
