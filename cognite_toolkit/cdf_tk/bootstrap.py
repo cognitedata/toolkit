@@ -17,7 +17,6 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
     UserProfilesAcl,
@@ -124,7 +123,11 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
             if not token:
                 vars.token = Prompt.ask("OAuth2 token (CDF_TOKEN)? ", password=True)
         else:
-            new_token = Prompt.ask("You have set an OAuth2 token (CDF_TOKEN), change it ? ", password=True, default="")
+            new_token = Prompt.ask(
+                "You have set an OAuth2 token (CDF_TOKEN), change it (press ENTER to keep current) ? ",
+                password=True,
+                default="",
+            )
             if len(new_token) > 0:
                 vars.token = new_token
             else:
@@ -148,7 +151,9 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
             vars.client_id = Prompt.ask(f"{name_of_principal} client id (CDF_CLIENT_ID)? ", default=vars.client_id)
             if vars.client_secret is not None and len(vars.client_secret) > 0:
                 new_secret = Prompt.ask(
-                    "You have set a client secret (CDF_CLIENT_SECRET), change it ? ", password=True, default=""
+                    "You have set a client secret (CDF_CLIENT_SECRET), change it (press ENTER to keep current) ? ",
+                    password=True,
+                    default="",
                 )
                 if len(new_secret) > 0:
                     vars.client_secret = new_secret
@@ -316,10 +321,7 @@ def check_auth(
         ToolGlobals.failed = True
         return
     read_write = Group.load(
-        yaml.load(
-            Path(f"{Path(__file__).parent.parent.as_posix()}{group_file}").read_text(),
-            Loader=yaml.Loader,
-        )
+        Path(f"{Path(__file__).parent.parent.as_posix()}{group_file}").read_text(),
     )
     tbl = Table(title="CDF Group ids, Names, and Source Ids")
     tbl.add_column("Id", justify="left")
