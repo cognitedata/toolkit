@@ -27,6 +27,7 @@ local:
   project: <customer>-dev
   type: dev
   deploy:
+    - cdf_workmate_example
     - cdf_apm_base
     - cdf_apm_simple
     - cdf_infield_common

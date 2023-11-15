@@ -1,0 +1,29 @@
+externalId: sync_asset_parents_from_hierarchy_to_apm
+name: Sync asset parent relationships from Asset Hierarchy to APM Asset model
+destination:
+  view:
+    space:  cdf_core
+    externalId: Asset
+    version: 'v1'
+  instanceSpace: 'infield_{{location_name}}_location_source_data_space'
+  type: nodes
+ignoreNullFields: true
+shared: true
+action: upsert
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{clientId}}
+  clientSecret: {{clientSecret}}
+  tokenUri: {{tokenUri}}
+  # Optional: If idP requires providing the scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes:
+    - {{scopes}}
+  # Optional: If idP requires providing the audience
+  audience: {{audience}}
+schedule:
+  # every hour
+  interval: '0 * * * *'
+  is_paused: true
+
