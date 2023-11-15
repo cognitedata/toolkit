@@ -145,7 +145,7 @@ Group:
       scope:
         all: {}
   metadata:
-    cdf_template_version: 0.0.1
+    cdf_template_version: '{{cdf_template_version}}'
     origin: cdf-project-templates
   name: cicd:all:read-only
   sourceId: <change_me>
@@ -335,7 +335,7 @@ Group:
       scope:
         all: {}
   metadata:
-    cdf_template_version: 0.0.1
+    cdf_template_version: '{{cdf_template_version}}'
     origin: cdf-project-templates
   name: cicd:all:read-write
   sourceId: <change_me>

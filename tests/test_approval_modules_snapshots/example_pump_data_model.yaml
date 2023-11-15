@@ -41,29 +41,29 @@ Container:
       type:
         list: false
         type: float64
-  space: cdfTemplate
+  space: pumpModelSpace
   usedFor: node
 DataModel:
 - externalId: PumpLiftStations
   name: PumpLiftStations
-  space: cdfTemplate
+  space: pumpModelSpace
   version: '1'
   views:
   - externalId: Pump
-    space: cdfTemplate
+    space: pumpModelSpace
     type: view
     version: '1'
   - externalId: LiftStation
-    space: cdfTemplate
+    space: pumpModelSpace
     type: view
     version: '1'
 Space:
-- description: Imported space
-  name: cdfTemplate
-  space: cdfTemplate
 - description: Space for the instances.
-  name: cdfTemplateInstances
-  space: cdfTemplateInstances
+  name: pumpInstanceSpace
+  space: pumpInstanceSpace
+- description: Imported space
+  name: pumpModelSpace
+  space: pumpModelSpace
 Transformation:
 - dataSetId: 999
   destination:
@@ -71,9 +71,9 @@ Transformation:
       destinationRelationshipFromType: pumps
       destinationType: LiftStation
       externalId: PumpLiftStations
-      space: cdfTemplate
+      space: pumpModelSpace
       version: '1'
-    instanceSpace: cdfTemplateInstances
+    instanceSpace: pumpInstanceSpace
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -88,7 +88,7 @@ Transformation:
   name: pump_model-populate-lift_station_pumps_edges
   ownerIsCurrentUser: true
   query: "select\n  concat(cast(`parent`.externalId as STRING), ':', cast(`externalId`\
-    \ as STRING)) as externalId,\n  `parent` as startNode,\n  node_reference('cdfTemplateInstances',\
+    \ as STRING)) as externalId,\n  `parent` as startNode,\n  node_reference('pumpInstanceSpace',\
     \ cast(`externalId` as STRING)) as endNode\nfrom\n  cdf_data_models(\"ExtendedSourceDataModels\"\
     , \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
   schedule:
@@ -108,9 +108,9 @@ Transformation:
       destinationRelationshipFromType: null
       destinationType: Pump
       externalId: PumpLiftStations
-      space: cdfTemplate
+      space: pumpModelSpace
       version: '1'
-    instanceSpace: cdfTemplateInstances
+    instanceSpace: pumpInstanceSpace
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -174,13 +174,13 @@ View:
       name: pumps
       source:
         externalId: Pump
-        space: cdfTemplate
+        space: pumpModelSpace
         type: view
         version: '1'
       type:
         externalId: LiftStation.pumps
-        space: cdfTemplate
-  space: cdfTemplate
+        space: pumpModelSpace
+  space: pumpModelSpace
   version: '1'
 - externalId: Pump
   filter:
@@ -203,28 +203,28 @@ View:
     DesignPointFlowGPM:
       container:
         externalId: Pump
-        space: cdfTemplate
+        space: pumpModelSpace
         type: container
       containerPropertyIdentifier: DesignPointFlowGPM
       name: DesignPointFlowGPM
     DesignPointHeadFT:
       container:
         externalId: Pump
-        space: cdfTemplate
+        space: pumpModelSpace
         type: container
       containerPropertyIdentifier: DesignPointHeadFT
       name: DesignPointHeadFT
     LowHeadFT:
       container:
         externalId: Pump
-        space: cdfTemplate
+        space: pumpModelSpace
         type: container
       containerPropertyIdentifier: LowHeadFT
       name: LowHeadFT
     LowHeadFlowGPM:
       container:
         externalId: Pump
-        space: cdfTemplate
+        space: pumpModelSpace
         type: container
       containerPropertyIdentifier: LowHeadFlowGPM
       name: LowHeadFlowGPM
@@ -237,8 +237,8 @@ View:
       name: liftStation
       source:
         externalId: LiftStation
-        space: cdfTemplate
+        space: pumpModelSpace
         type: view
         version: '1'
-  space: cdfTemplate
+  space: pumpModelSpace
   version: '1'

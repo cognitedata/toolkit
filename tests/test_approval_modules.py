@@ -115,5 +115,5 @@ def test_module_approval(
             include=[],
         )
 
-        # dump = cognite_client_approval.dump()
-    # data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{module_path.name}.yaml")
+        dump = cognite_client_approval.dump()
+    data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{module_path.name}.yaml")
