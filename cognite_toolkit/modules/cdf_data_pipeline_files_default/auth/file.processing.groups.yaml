@@ -27,15 +27,18 @@ capabilities:
         - READ
         - WRITE
       scope:
-        datasetScope: {
-          ids: ['file:{{location_name}}']
-        }
+        scope:
+          all: {}
   - sessionsAcl:
       actions:
         - READ
         - CREATE
         - DELETE
       scope:
-        datasetScope: {
-          ids: ['file:{{location_name}}']
-        }
+        all: {}
+  - annotationsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
