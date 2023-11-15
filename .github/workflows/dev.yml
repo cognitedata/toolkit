@@ -33,7 +33,7 @@ jobs:
           poetry run python ./cognite_toolkit/cdf.py build --build-dir=./build --env=demo ./cognite_toolkit
       - name: "Verify and create access rights"
         run: |
-          poetry run python cdf.py auth verify
+          poetry run python ./cognite_toolkit/cdf.py auth verify
       # be careful, this works as promised
       - name: "Delete existing resources including data"
         run: |
