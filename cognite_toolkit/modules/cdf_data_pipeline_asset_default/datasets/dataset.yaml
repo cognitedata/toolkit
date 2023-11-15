@@ -1,1 +1,3 @@
-external_id: 'file:{{location_name}}'
+external_id: 'asset:{{location_name}}'
+name:  'asset:{{location_name}}'
+description: 'Asset data for {{location_name}}'
