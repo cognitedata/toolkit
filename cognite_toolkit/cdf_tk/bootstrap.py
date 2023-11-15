@@ -212,12 +212,13 @@ def check_auth(
     group_file: str | None = None,
     update_group: int = 0,
     create_group: str | None = None,
+    interactive: bool = False,
     dry_run: bool = False,
     verbose: bool = False,
 ) -> CogniteClient:
     print("[bold]Checking current service principal/application and environment configurations...[/]")
     if auth_vars is None:
-        auth_vars = get_auth_variables(verbose=verbose, interactive=False)
+        auth_vars = get_auth_variables(verbose=verbose, interactive=interactive)
     if auth_vars.error:
         print(auth_vars.info)
         ToolGlobals.failed = True
@@ -325,9 +326,11 @@ def check_auth(
     tbl.add_column("Name", justify="left")
     tbl.add_column("Source Id", justify="left")
     matched_group_source_id = None
+    matched_group_id = 0
     for g in groups:
         if len(groups) > 1 and g.name == read_write.name:
             matched_group_source_id = g.source_id
+            matched_group_id = g.id
             tbl.add_row(str(g.id), "[bold]" + g.name + "[/]", g.source_id)
         else:
             tbl.add_row(str(g.id), g.name, g.source_id)
@@ -414,8 +417,26 @@ def check_auth(
     else:
         print("  [bold green]OK[/] - All capabilities from the CDF project are also present in the group config file.")
     print("---------------------")
+    if interactive and matched_group_id != 0:
+        push_group = Confirm.ask(
+            f"Do you want to update the group with id {matched_group_id} and name {read_write.name} with the capabilities from {group_file} ?",
+            choices=["y", "n"],
+        )
+        if push_group:
+            update_group = matched_group_id
+    elif interactive:
+        push_group = Confirm.ask(
+            "Do you want to create a new group with the capabilities from the group config file ?",
+            choices=["y", "n"],
+        )
+        if push_group:
+            create_group = Prompt.ask(
+                "What is the source id for the new group (typically a group id in the identity provider)? "
+            )
     if len(groups) == 1 and update_group == 1:
         update_group = groups[0].id
+    elif not interactive and matched_group_id != 0 and update_group == 1:
+        update_group = matched_group_id
     if update_group > 1 or create_group is not None:
         if update_group > 0:
             print(f"Updating group {update_group}...")

@@ -538,13 +538,12 @@ def auth_verify(
             cluster=ctx.obj.cluster,
             project=ctx.obj.project,
         )
-    auth_vars = bootstrap.get_auth_variables(interactive=interactive, verbose=ctx.obj.verbose)
     bootstrap.check_auth(
         ToolGlobals,
-        auth_vars=auth_vars,
         group_file=group_file,
         update_group=update_group,
         create_group=create_group,
+        interactive=interactive,
         dry_run=dry_run,
         verbose=ctx.obj.verbose,
     )
