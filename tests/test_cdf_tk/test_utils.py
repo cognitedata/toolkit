@@ -6,15 +6,15 @@ from cognite.client._api.assets import AssetsAPI
 from cognite.client._api.iam import TokenAPI, TokenInspection
 from cognite.client.data_classes.capabilities import (
     DataSetsAcl,
-    ProjectCapabilitiesList,
     ProjectCapability,
+    ProjectCapabilityList,
     ProjectsScope,
 )
 from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 
-from cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 
 def mocked_init(self, client_name: str):
@@ -43,7 +43,7 @@ def test_dataset_create():
             spec=TokenAPI.inspect,
             return_value=TokenInspection(
                 subject="",
-                capabilities=ProjectCapabilitiesList(
+                capabilities=ProjectCapabilityList(
                     [
                         ProjectCapability(
                             capability=DataSetsAcl(

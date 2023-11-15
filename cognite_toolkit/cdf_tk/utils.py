@@ -85,7 +85,12 @@ class CDFToolConfig:
         ):
             # If CDF_URL and CDF_CLUSTER are not set, we may be in a Jupyter notebook in Fusion,
             # and credentials are preset to logged in user (no env vars are set!).
-            self._client = CogniteClient()
+            try:
+                self._client = CogniteClient()
+            except Exception:
+                print(
+                    "As a minimum, you need to set the CDF_CLUSTER and CDF_PROJECT environment variables or CDF_TOKEN to a valid OAuth2 token."
+                )
             return
 
         # CDF_CLUSTER and CDF_PROJECT are minimum requirements to know where to connect.
@@ -282,7 +287,7 @@ class CDFToolConfig:
             ] or None
         except Exception:
             raise ValueError(f"Failed to load capabilities from {capabilities}. Wrong syntax?")
-        comp = resp.capabilities.compare(caps)
+        comp = self.client.iam.compare_capabilities(resp.capabilities, caps)
         if len(comp) > 0:
             print(f"Capabilities mismatch: {comp}")
             raise CogniteAuthError("Don't have correct access rights.")

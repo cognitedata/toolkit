@@ -11,7 +11,7 @@ from rich import print
 
 # Directory paths for YAML files (relative to the root of the module)
 YAML_DIRS = ["./"]
-TMPL_DIRS = ["./common", "./modules", "./local_modules", "./examples", "./experimental"]
+TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md"]
 # Which suffixes to exclude when we create indexed files (i.e. they are bundled with their main config file)
@@ -21,7 +21,8 @@ EXCL_INDEX_SUFFIX = ["sql"]
 def read_environ_config(
     root_dir: str = "./",
     build_env: str = "dev",
-    tmpl_dirs: str = TMPL_DIRS,
+    tmpl_dirs: [str] | None = None,
+    set_env_only: bool = False,
 ) -> list[str]:
     """Read the global configuration files and return a list of modules in correct order.
 
@@ -30,13 +31,18 @@ def read_environ_config(
         List of modules in the order they should be processed.
         Exception(ValueError) if a module is not found in tmpl_dirs.
     """
+    tmpl_dirs = tmpl_dirs or TMPL_DIRS
+    if not root_dir.endswith("/"):
+        root_dir = root_dir + "/"
+    tmpl_dirs = [root_dir + t for t in tmpl_dirs]
     global_config = read_yaml_files(root_dir, "default.packages.yaml")
     packages = global_config.get("packages", {})
     packages.update(read_yaml_files(root_dir, "packages.yaml").get("packages", {}))
     local_config = read_yaml_files(root_dir, "local.yaml")
     print(f"  Environment is {build_env}, using that section in local.yaml.\n")
     modules = []
-
+    if len(local_config) == 0:
+        return []
     try:
         defs = local_config[build_env]
     except KeyError:
@@ -45,10 +51,10 @@ def read_environ_config(
     os.environ["CDF_ENVIRON"] = build_env
     for k, v in defs.items():
         if k == "project":
-            if os.environ["CDF_PROJECT"] != v:
+            if os.environ.get("CDF_PROJECT", "<not set>") != v:
                 if build_env == "dev" or build_env == "local":
                     print(
-                        f"  [bold red]WARNING:[/] Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
+                        f"  [bold red]WARNING:[/] Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ.get('CDF_PROJECT','<not_set>')})."
                     )
                     print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
                 else:
@@ -66,7 +72,8 @@ def read_environ_config(
                                 modules.append(m2)
                     elif m not in modules and packages.get(m) is None:
                         modules.append(m)
-
+    if set_env_only:
+        return []
     if len(modules) == 0:
         print(
             f"  [bold red]WARNING:[/] Found no defined modules in local.yaml, have you configured the environment ({build_env})?"
@@ -76,8 +83,11 @@ def read_environ_config(
     for d in tmpl_dirs:
         if not module_dirs.get(d):
             module_dirs[d] = []
-        for dirnames in os.listdir(d):
-            module_dirs[d].append(dirnames)
+        try:
+            for dirnames in Path(d).iterdir():
+                module_dirs[d].append(dirnames.name)
+        except Exception:
+            ...
     for m in modules:
         found = False
         for dir, mod in module_dirs.items():
@@ -91,7 +101,7 @@ def read_environ_config(
 
 
 def read_yaml_files(
-    yaml_dirs: list[str],
+    yaml_dirs: list[str] | str,
     name: str | None = None,
 ) -> dict[str, Any]:
     """Read all YAML files in the given directories and return a dictionary
@@ -102,6 +112,8 @@ def read_yaml_files(
     name: (optional) name of the file(s) to read, either filename or regex. Defaults to config.yaml and default.config.yaml
     """
 
+    if isinstance(yaml_dirs, str):
+        yaml_dirs = [yaml_dirs]
     files = []
     if name is None:
         # Order is important!
@@ -227,14 +239,20 @@ def process_config_files(
                         exit(1)
 
 
-def build_config(dir: str = "./build", build_env: str = "dev", clean: bool = False):
+def build_config(build_dir: str = "./build", source_dir: str = "./", build_env: str = "dev", clean: bool = False):
     if build_env is None:
         raise ValueError("build_env must be specified")
-    modules = read_environ_config(root_dir="./", tmpl_dirs=TMPL_DIRS, build_env=build_env)
+    if not source_dir.endswith("/"):
+        source_dir = source_dir + "/"
+    modules = read_environ_config(root_dir=source_dir, tmpl_dirs=TMPL_DIRS, build_env=build_env)
     process_config_files(
         dirs=modules,
         yaml_data=read_yaml_files(yaml_dirs=YAML_DIRS),
-        build_dir=dir,
+        build_dir=build_dir,
         build_env=build_env,
         clean=clean,
     )
+    # Copy the root deployment yaml files
+    shutil.copyfile(Path(source_dir) / "local.yaml", Path(build_dir) / "local.yaml")
+    shutil.copyfile(Path(source_dir) / "packages.yaml", Path(build_dir) / "packages.yaml")
+    shutil.copyfile(Path(source_dir) / "default.packages.yaml", Path(build_dir) / "default.packages.yaml")
