@@ -36,9 +36,10 @@ capabilities:
         - DELETE
       scope:
         all: {}
-  - annotationsAcl:
+  - extractionConfigAcl
       actions:
         - READ
-        - WRITE
       scope:
-        all: {}
+        extractionPipeline: 
+          'ctx:file:{{location_name}}:{{source_name}}
+
