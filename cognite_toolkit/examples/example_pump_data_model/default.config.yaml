@@ -1,6 +1,6 @@
 # Only valid for this module, loads template variables from environment
-model_space: cdfTemplate
-instance_space: cdfTemplateInstances
+model_space: pumpModelSpace
+instance_space: pumpInstanceSpace
 source_model_space: ExtendedSourceDataModels
 source_model: ExtendedSourceData
 view_Pump_version: "1"
