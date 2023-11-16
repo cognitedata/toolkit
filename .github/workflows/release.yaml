@@ -36,8 +36,7 @@ jobs:
           version: 1.6.1
           virtualenvs-create: false
       - name: Install core dependencies
-        run: |
-          poetry install
+        run: poetry install
       - name: Run pytest
         run: pytest tests
   build:
@@ -54,14 +53,13 @@ jobs:
           version: 1.6.1
           virtualenvs-create: false
       - name: Install dependencies and build the package
-        run: 
+        run: |
           poetry install
           poetry build
       - name: Install cdf-tk
         run: pip install .
       - name: "Test build the templates"
-        run: |
-          cdf-tk build --build-dir=./build --env=demo ./demo_project
+        run: cdf-tk build --build-dir=./build --env=demo ./demo_project
   deploy:
     runs-on: ubuntu-latest
     environment: CD
