@@ -597,6 +597,7 @@ def main_init(
 
     files_to_copy = [
         "default.config.yaml",
+        "default.packages.yaml",
     ]
     dirs_to_copy = []
     if not upgrade:
