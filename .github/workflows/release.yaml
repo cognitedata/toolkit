@@ -1,0 +1,86 @@
+name: Release pypi package
+on:
+  push:
+    branches:
+      - Gtw/improve_gh_actions
+env:
+  PYTHON_VERSION: '3.11'
+jobs:
+  lint:
+    name: Run linters
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: snok/install-poetry@v1
+        with:
+          version: 1.6.1
+          virtualenvs-create: false
+      - name: Install dependencies and run lints
+        run: |
+          # Necessary for running the mypy pre-commit hook
+          poetry install
+      - uses: pre-commit/action@v3.0.0
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: snok/install-poetry@v1
+        with:
+          version: 1.6.1
+          virtualenvs-create: false
+      - name: Install core dependencies
+        run: |
+          poetry install
+      - name: Run pytest
+        run: pytest tests
+  build:
+    runs-on: ubuntu-latest
+    environment: dev
+    name: Test build templates
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - uses: snok/install-poetry@v1
+        with:
+          version: 1.6.1
+          virtualenvs-create: false
+      - name: Install dependencies and build the package
+        run: 
+          poetry install
+          poetry build
+      - name: Install cdf-tk
+        run: pip install .
+      - name: "Test build the templates"
+        run: |
+          cdf-tk build --build-dir=./build --env=demo ./demo_project
+  deploy:
+    runs-on: ubuntu-latest
+    environment: CD
+    needs: [lint, test, build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: snok/install-poetry@v1
+        with:
+          version: 1.6.1
+          virtualenvs-create: false
+      - name: Install dependencies
+        run: poetry install
+      - name: Build package
+        run: poetry build
+      - name: Release to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload --repository testpypi --verbose dist/* || echo 'Version exists'
