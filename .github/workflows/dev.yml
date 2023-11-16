@@ -1,4 +1,4 @@
-name: Deploy modules to dev
+name: Deploy modules to demo project
 on:
   push:
     branches:

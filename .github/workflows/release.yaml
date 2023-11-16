@@ -2,7 +2,7 @@ name: Release pypi package
 on:
   push:
     branches:
-      - Gtw/improve_gh_actions
+      - gtw/improve_gh_actions
 env:
   PYTHON_VERSION: '3.11'
 jobs:
