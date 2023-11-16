@@ -58,9 +58,11 @@ jobs:
           poetry build
       - name: Install cdf-tk
         run: pip install .
-      - name: Initialise project
+      - name: Initialize project
         run: cdf-tk init demo_project
-      - name: "Test build the templates"
+      - name: "Pre-processing for demo environment"
+        run: ./demo/preproc.sh
+      - name: "Build the templates"
         run: cdf-tk build --build-dir=./build --env=demo ./demo_project
   deploy:
     runs-on: ubuntu-latest
