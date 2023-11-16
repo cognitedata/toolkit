@@ -7,12 +7,3 @@ view_Pump_version: "1"
 view_LiftStation_version: "1"
 data_model_version: "1"
 data_model: "PumpLiftStations"
-clientId: ${IDP_CLIENT_ID}
-clientSecret: ${IDP_CLIENT_SECRET}
-tokenUri: ${IDP_TOKEN_URL}
-# Optional: If idP requires providing the scopes
-cdfProjectName: ${CDF_PROJECT}
-scopes:
-  - ${IDP_SCOPES}
-# Optional: If idP requires providing the audience
-audience: ${IDP_AUDIENCE}

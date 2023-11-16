@@ -1,0 +1,9 @@
+cicd_clientId: ${IDP_CLIENT_ID}
+cicd_clientSecret: ${IDP_CLIENT_SECRET}
+cicd_tokenUri: ${IDP_TOKEN_URL}
+# Optional: If idP requires providing the scopes
+cdfProjectName: ${CDF_PROJECT}
+cicd_scopes:
+  - ${IDP_SCOPES}
+# Optional: If idP requires providing the audience
+cicd_audience: ${IDP_AUDIENCE}
