@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - main
+env:
+  PYTHON_VERSION: '3.11'
 jobs:
   build-modules:
     runs-on: ubuntu-latest
@@ -18,32 +20,38 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: ${{ env.PYTHON_VERSION }}
       - uses: snok/install-poetry@v1
         with:
           version: 1.6.1
           virtualenvs-create: false
-      - name: Install dependencies
-        run: poetry install
+      - name: Install dependencies and build the package
+        run: 
+          poetry install
+          poetry build
+      - name: Install cdf-tk
+        run: pip install .
+      - name: Initialize project
+        run: cdf-tk init demo_project
       - name: "Pre-processing for demo environment"
         run: |
           ./demo/preproc.sh
-      - name: "Build the package"
+      - name: "Build the templates"
         run: |
-          poetry run python ./cognite_toolkit/cdf.py build --build-dir=./build --env=demo ./cognite_toolkit
+          cdf-tk build --build-dir=./build --env=demo ./demo_project
       - name: "Verify and create access rights"
         run: |
-          poetry run python ./cognite_toolkit/cdf.py auth verify
+          cdf-tk auth verify
       # be careful, this works as promised
       - name: "Delete existing resources including data"
         run: |
-          poetry run python ./cognite_toolkit/cdf.py clean --env=demo ./build
+          cdf-tk clean --env=demo ./build
       - name: "Allow some time for data modeling to finish syncing of deletions"
         run: |
-          sleep 60
-      - name: "Deploy the package"
+          sleep 30
+      - name: "Deploy the templates"
         run: |
-          poetry run python ./cognite_toolkit/cdf.py deploy --env=demo ./build
+          cdf-tk deploy --env=demo ./build
       - name: "Run transformations and other post-processing"
         run: |
           poetry run python ./demo/postproc.py
