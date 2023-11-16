@@ -35,5 +35,4 @@ capabilities:
         datasetScope: {
             ids: ['asset:{{location_name}}']
         }
-
                

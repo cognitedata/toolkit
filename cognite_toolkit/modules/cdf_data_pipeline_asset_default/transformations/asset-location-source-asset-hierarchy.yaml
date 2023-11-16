@@ -1,5 +1,5 @@
-externalId: tr-asset-valhall-workmate-asset-hierarchy
-name: asset-valhall-workmate-asset-hierarchy
+externalId: 'tr-asset-{{location_name}}:{{source_name}}-asset-hierarchy'
+name: 'asset-{{location_name}}:{{source_name}}-asset-hierarchy'
 destination:
   type: "asset_hierarchy"
 ignoreNullFields: true
