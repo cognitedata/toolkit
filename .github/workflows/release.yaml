@@ -58,6 +58,8 @@ jobs:
           poetry build
       - name: Install cdf-tk
         run: pip install .
+      - name: Initialise project
+        run: cdf-tk init demo_project
       - name: "Test build the templates"
         run: cdf-tk build --build-dir=./build --env=demo ./demo_project
   deploy:
