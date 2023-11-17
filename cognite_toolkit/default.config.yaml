@@ -4,3 +4,12 @@
 # Globally available variables that can be used by using {{variable_name}} in your yaml files.
 cdf_cluster: ${CDF_CLUSTER}
 cdf_template_version: 0.0.1
+cicd_clientId: ${IDP_CLIENT_ID}
+cicd_clientSecret: ${IDP_CLIENT_SECRET}
+cicd_tokenUri: ${IDP_TOKEN_URL}
+# Optional: If idP requires providing the scopes
+cdfProjectName: ${CDF_PROJECT}
+cicd_scopes:
+  - ${IDP_SCOPES}
+# Optional: If idP requires providing the audience
+cicd_audience: ${IDP_AUDIENCE}
