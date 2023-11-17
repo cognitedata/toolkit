@@ -27,6 +27,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_sets import DataSet
 from cognite.client.data_classes.time_series import TimeSeries
 from cognite.client.exceptions import CogniteAuthError
+from rich import print
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,7 @@ class CDFToolConfig:
                 self._client = CogniteClient()
             except Exception:
                 print(
-                    "As a minimum, you need to set the CDF_CLUSTER and CDF_PROJECT environment variables or CDF_TOKEN to a valid OAuth2 token."
+                    "[bold yellow]WARNING[/] Not able to successfully configure a Cognite client. Requirements: CDF_CLUSTER and CDF_PROJECT environment variables or CDF_TOKEN to a valid OAuth2 token."
                 )
             return
 

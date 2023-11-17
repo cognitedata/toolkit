@@ -104,10 +104,14 @@ def common(
             print("            --cluster or --project are set and will override .env file values.")
     if not (Path.cwd() / ".env").is_file():
         if not (Path.cwd().parent / ".env").is_file():
-            print(" [bold yellow]WARNING:[/] No .env file found in current or parent directory.")
+            print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
         else:
+            if verbose:
+                print("Loading .env file found in parent directory.")
             load_dotenv("../.env", override=override_env)
     else:
+        if verbose:
+            print("Loading .env file found in current directory.")
         load_dotenv(".env", override=override_env)
     ctx.obj = Common(
         verbose=verbose,
@@ -479,6 +483,14 @@ def auth_verify(
             help="Whether to do a dry-run, do dry-run if present",
         ),
     ] = False,
+    interactive: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--interactive",
+            "-i",
+            help="Will run the verification in interactive mode, prompting for input",
+        ),
+    ] = False,
     group_file: Annotated[
         Optional[str],
         typer.Option(
@@ -504,8 +516,10 @@ def auth_verify(
         ),
     ] = None,
 ):
-    """Verify auth capabilities against a group config and
-    interactively bootstrap a CDF project with a service account and a user account.
+    """When you have a CDF_TOKEN or a pair of CDF_CLIENT_ID and CDF_CLIENT_SECRET for a CDF project,
+    you can use this command to verify that the token has the correct access rights to the project.
+    It can also create a group with the correct access rights, defaulting to write-all group
+    meant for an admin/CICD pipeline.
 
     Needed capabilites for bootstrapping:
     "projectsAcl": ["LIST", "READ"],
@@ -529,6 +543,7 @@ def auth_verify(
         group_file=group_file,
         update_group=update_group,
         create_group=create_group,
+        interactive=interactive,
         dry_run=dry_run,
         verbose=ctx.obj.verbose,
     )
@@ -582,6 +597,7 @@ def main_init(
 
     files_to_copy = [
         "default.config.yaml",
+        "default.packages.yaml",
     ]
     dirs_to_copy = []
     if not upgrade:

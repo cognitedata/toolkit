@@ -9,8 +9,6 @@ from typing import Any
 import yaml
 from rich import print
 
-# Directory paths for YAML files (relative to the root of the module)
-YAML_DIRS = ["./"]
 TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md"]
@@ -21,7 +19,7 @@ EXCL_INDEX_SUFFIX = ["sql"]
 def read_environ_config(
     root_dir: str = "./",
     build_env: str = "dev",
-    tmpl_dirs: [str] | None = None,
+    tmpl_dirs: [str] = TMPL_DIRS,
     set_env_only: bool = False,
 ) -> list[str]:
     """Read the global configuration files and return a list of modules in correct order.
@@ -31,7 +29,6 @@ def read_environ_config(
         List of modules in the order they should be processed.
         Exception(ValueError) if a module is not found in tmpl_dirs.
     """
-    tmpl_dirs = tmpl_dirs or TMPL_DIRS
     if not root_dir.endswith("/"):
         root_dir = root_dir + "/"
     tmpl_dirs = [root_dir + t for t in tmpl_dirs]
@@ -247,7 +244,7 @@ def build_config(build_dir: str = "./build", source_dir: str = "./", build_env: 
     modules = read_environ_config(root_dir=source_dir, tmpl_dirs=TMPL_DIRS, build_env=build_env)
     process_config_files(
         dirs=modules,
-        yaml_data=read_yaml_files(yaml_dirs=YAML_DIRS),
+        yaml_data=read_yaml_files(yaml_dirs=source_dir),
         build_dir=build_dir,
         build_env=build_env,
         clean=clean,

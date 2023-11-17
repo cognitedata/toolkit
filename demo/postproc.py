@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 import argparse
 import logging
-import pathlib
 import sys
 import time
+from pathlib import Path
 
-root_folder = rf"{pathlib.Path(pathlib.Path(__file__).parent.absolute().parent)}"
+root_folder = rf"{Path(Path(__file__).parent.absolute().parent)}"
 
 sys.path.append(root_folder)
 
@@ -51,5 +51,8 @@ if __name__ == "__main__":
     # naming scheme that is also aligned with recommendations externally.
     if args.override_env:
         print("WARNING!!! Overriding environment variables with values from .env file...")
-    load_dotenv("../.env", override=args.override_env)
+    if Path("../.env").is_file():
+        load_dotenv("../.env", override=args.override_env)
+    else:
+        load_dotenv(".env", override=args.override_env)
     run()
