@@ -521,6 +521,10 @@ def load_datamodel(
             cognite_resources_by_type[type_].append(
                 resource_cls.load(load_yaml_inject_variables(file, ToolGlobals.environment_variables()))
             )
+    # Remove duplicates
+    for type_ in list(cognite_resources_by_type):
+        unique = {r.as_id(): r for r in cognite_resources_by_type[type_]}
+        cognite_resources_by_type[type_] = list(unique.values())
 
     explicit_space_list = [s.space for s in cognite_resources_by_type["space"]]
     space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
@@ -550,7 +554,7 @@ def load_datamodel(
         "space": client.data_modeling.spaces,
     }
     for type_, resources in cognite_resources_by_type.items():
-        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve([r.as_id() for r in resources])
+        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve(list({r.as_id() for r in resources}))
 
     differences: dict[str, Difference] = {}
     for type_, resources in cognite_resources_by_type.items():

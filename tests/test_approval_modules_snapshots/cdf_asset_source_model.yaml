@@ -1,0 +1,111 @@
+Container:
+- externalId: Asset
+  name: Asset
+  properties:
+    metadata:
+      autoIncrement: false
+      description: Custom, application specific metadata. String key -> String value.
+      name: metadata
+      nullable: true
+      type:
+        list: false
+        type: json
+  space: ExtendedSourceDataModels
+  usedFor: node
+DataModel:
+- externalId: ExtendedSourceData
+  name: ExtendedSourceData
+  space: ExtendedSourceDataModels
+  version: '1'
+  views:
+  - externalId: Asset
+    space: ExtendedSourceDataModels
+    type: view
+    version: '1'
+Space:
+- description: Imported space
+  name: ExtendedSourceDataModels
+  space: ExtendedSourceDataModels
+- description: Space for the instances in the ExtendedSourceData data model
+  name: cdfTemplateInstances
+  space: cdfTemplateInstances
+Transformation:
+- dataSetId: 999
+  destination:
+    dataModel:
+      destinationRelationshipFromType: null
+      destinationType: Asset
+      externalId: ExtendedSourceData
+      space: ExtendedSourceDataModels
+      version: '1'
+    instanceSpace: cdfTemplateInstances
+    type: instances
+  destinationOidcCredentials:
+    audience: ${IDP_AUDIENCE}
+    cdfProjectName: ${CDF_PROJECT}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+    scopes: ${IDP_SCOPES}
+    tokenUri: ${IDP_TOKEN_URL}
+  externalId: sync-asset_hierarchy_cdf_asset_source_model
+  ignoreNullFields: false
+  isPublic: true
+  name: sync-asset_hierarchy_cdf_asset_source_model
+  ownerIsCurrentUser: true
+  query: "-- Root Asset\n-- The asset must be set up in hierarchical order as the\
+    \ container for the parent asset requires the\n-- parent asset to be created first.\n\
+    \nselect\n  cast(`externalId` as STRING) as externalId,\n  null as parent,\n \
+    \ node_reference('cdfTemplateInstances', 'lift_pump_stations:root') as root,\n\
+    \  cast(`name` as STRING) as title,\n  cast(`source` as STRING) as source,\n \
+    \ cast(`description` as STRING) as description,\n  cast(`labels` as ARRAY < STRING\
+    \ >) as labels,\n  to_json(`metadata`) as metadata\nfrom\n  cdf_assetSubtree(\"\
+    lift_pump_stations:root\")\nwhere\n-- The root asset is created with a null parentExternalId.\n\
+    \  isnull(`parentExternalId`)\n\nUNION ALL\n-- Pump Stations\nselect\n  cast(`externalId`\
+    \ as STRING) as externalId,\n  node_reference('cdfTemplateInstances', `parentExternalId`)\
+    \ as parent,\n  node_reference('cdfTemplateInstances', 'lift_pump_stations:root')\
+    \ as root,\n  cast(`name` as STRING) as title,\n  cast(`source` as STRING) as\
+    \ source,\n  cast(`description` as STRING) as description,\n  cast(`labels` as\
+    \ ARRAY < STRING >) as labels,\n  to_json(`metadata`) as metadata\nfrom\n  cdf_assetSubtree('lift_pump_stations:root')\n\
+    where\n-- This is used to select the Lift Stations.\n isnotnull(`externalId`)\
+    \ and isnotnull(`parentExternalId`) and not startswith(name, 'Pump')\n\nUNION\
+    \ ALL\n-- Pumps\nselect\n  concat('pump:', cast(`externalId` as STRING)) as externalId,\n\
+    \  node_reference('cdfTemplateInstances', `parentExternalId`) as parent,\n  node_reference('cdfTemplateInstances',\
+    \ 'lift_pump_stations:root') as root,\n  cast(`name` as STRING) as title,\n  cast(`source`\
+    \ as STRING) as source,\n  cast(`description` as STRING) as description,\n  cast(`labels`\
+    \ as ARRAY < STRING >) as labels,\n  to_json(`metadata`) as metadata\nfrom\n \
+    \ cdf_assetSubtree('lift_pump_stations:root')\nwhere\n-- This is used to select\
+    \ the Pumps.\n isnotnull(`externalId`) and isnotnull(`parentExternalId`) and startswith(name,\
+    \ 'Pump');\n"
+  schedule:
+    externalId: sync-asset_hierarchy_cdf_asset_source_model
+    interval: 0 * * * *
+    isPaused: true
+  sourceOidcCredentials:
+    audience: ${IDP_AUDIENCE}
+    cdfProjectName: ${CDF_PROJECT}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}
+    scopes: ${IDP_SCOPES}
+    tokenUri: ${IDP_TOKEN_URL}
+TransformationSchedule:
+- externalId: sync-asset_hierarchy_cdf_asset_source_model
+  interval: 0 * * * *
+  isPaused: true
+View:
+- externalId: Asset
+  implements:
+  - externalId: Asset
+    space: cdf_core
+    type: view
+    version: v1
+  name: Asset
+  properties:
+    metadata:
+      container:
+        externalId: Asset
+        space: ExtendedSourceDataModels
+        type: container
+      containerPropertyIdentifier: metadata
+      name: metadata
+  space: ExtendedSourceDataModels
+  version: '1'
