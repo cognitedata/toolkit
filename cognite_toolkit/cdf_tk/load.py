@@ -37,7 +37,7 @@ from cognite.client.data_classes._base import (
     T_CogniteResource,
     T_CogniteResourceList,
 )
-from cognite.client.data_classes.capabilities import Capability, TimeSeriesAcl, TransformationsAcl
+from cognite.client.data_classes.capabilities import Capability, GroupsAcl, RawAcl, TimeSeriesAcl, TransformationsAcl
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
@@ -77,13 +77,18 @@ T_ID = TypeVar("T_ID", bound=Union[str, int])
 class Loader(ABC, Generic[T_ID, T_CogniteResource, T_CogniteResourceList]):
     filetypes: ClassVar[frozenset[str]] = {"yaml", "yml"}
     name: ClassVar[str]
-    resource_cls: ClassVar[CogniteResource]
-    list_cls: ClassVar[CogniteResourceList]
+    parent_name: ClassVar[str] = ""
+    resource_cls: ClassVar[type[CogniteResource]]
+    list_cls: ClassVar[type[CogniteResourceList]]
     capability: ClassVar[Capability]
 
     def __init__(self, client: CogniteClient):
         self.client = client
-        self.api_class = getattr(client, self.name)
+        if self.parent_name:
+            parent = getattr(client, self.parent_name)
+        else:
+            parent = client
+        self.api_class = getattr(parent, self.name)
 
     @classmethod
     def create_loader(cls, ToolGlobals: CDFToolConfig):
@@ -99,7 +104,7 @@ class Loader(ABC, Generic[T_ID, T_CogniteResource, T_CogniteResourceList]):
     def create(
         self, items: T_CogniteResource | Sequence[T_CogniteResource]
     ) -> T_CogniteResource | T_CogniteResourceList | None:
-        self.api_class.create(items)
+        return self.api_class.create(items)
 
     def delete(self, ids: T_ID | Sequence[T_ID]) -> T_CogniteResourceList:
         return self.api_class.delete(ids)
@@ -123,7 +128,6 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 
 
 class TransformationLoader(Loader[str, Transformation, TransformationList]):
-    filetypes = frozenset({"yaml", "yml"})
     name = "transformations"
     resource_cls = Transformation
     list_cls = TransformationList
@@ -152,6 +156,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
                 f"Could not find sql file {sql_file.name}. Expected to find it next to the yaml config file."
             )
         transformation.query = sql_file.read_text()
+        transformation.data_set_id = ToolGlobals.data_set_id
         return self.list_cls([transformation])
 
     def create(self, items: Transformation | Sequence[Transformation]) -> Transformation | TransformationList | None:
@@ -163,7 +168,41 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
         return created
 
 
-class DataPointsLoader(Loader[str, pd.DataFrame, DatapointsList]):
+class GroupLoader(Loader[int, Group, GroupList]):
+    name = "groups"
+    parent_name = "iam"
+    resource_cls = Group
+    list_cls = GroupList
+    capability = GroupsAcl(
+        [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
+        GroupsAcl.Scope.All(),
+    )
+
+    @classmethod
+    def get_id(cls, item: Group) -> int:
+        return item.id
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> GroupList:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        for capability in raw.get("capabilities", []):
+            for _, values in capability.items():
+                if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
+                    values["scope"]["datasetScope"]["ids"] = [
+                        ToolGlobals.verify_dataset(ext_id)
+                        for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
+                    ]
+        return GroupList([Group.load(raw)])
+
+    def create(self, items: Group | Sequence[GroupLoader]) -> Group | GroupLoader | None:
+        created = self.client.iam.groups.create(items)
+        old_groups = self.client.iam.groups.list(all=True).data
+        created_names = {g.name for g in created}
+        to_delete = [g.id for g in old_groups if g.name in created_names]
+        self.client.iam.groups.delete(to_delete)
+        return created
+
+
+class DataPointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     filetypes = frozenset({".csv", ".parquet"})
     name = "datapoints"
     resource_cls = pd.DataFrame
@@ -178,6 +217,22 @@ class DataPointsLoader(Loader[str, pd.DataFrame, DatapointsList]):
         for item in items:
             self.client.time_series.data.insert_dataframe(item)
         return None
+
+    def get_id(self, item: pd.DataFrame) -> str:
+        raise NotImplementedError("Datapoints does not have an id")
+
+
+class RawLoader(Loader[str, pd.DataFrame, DatapointsList]):
+    filetypes = frozenset({".csv", ".parquet"})
+    name = "raw"
+    resource_cls = pd.DataFrame
+    list_cls = DatapointsList
+    capability = RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
+    default_db: str = "default"
+
+    @classmethod
+    def get_id(cls, item: pd.DataFrame) -> str:
+        raise NotImplementedError("Raw data does not have an id")
 
 
 def load_resources(
@@ -204,7 +259,8 @@ def load_resources(
     drop_items: list[T_ID] = []
     for item in items:
         # Set the context info for this CDF project
-        item.data_set_id = ToolGlobals.data_set_id
+        if hasattr(item, "data_set_id"):
+            item.data_set_id = ToolGlobals.data_set_id
         if drop:
             drop_items.append(loader.get_id(item))
     try:
@@ -214,8 +270,8 @@ def load_resources(
                 print(f"  Deleted {len(drop_items)} {loader.name}.")
             else:
                 print(f"  Would have deleted {len(items)} {loader.name}.")
-    except Exception:
-        print("[bold red]ERROR:[/] Failed to delete t.external_id. It may not exist.")
+    except CogniteAPIError:
+        print(f"[bold red]ERROR:[/] Failed to delete {drop_items}. They may not exist.")
     try:
         if not dry_run:
             loader.create(items)
@@ -404,82 +460,13 @@ def load_groups(
     dry_run: bool = False,
     verbose: bool = False,
 ) -> None:
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(capabilities={"groupsAcl": ["LIST", "READ", "CREATE", "DELETE"]})
-    try:
-        old_groups = client.iam.groups.list(all=True).data
-    except Exception:
-        print("[bold red]ERROR:[/] Failed to retrieve groups.")
-        ToolGlobals.failed = True
-        return
-    files = []
-    if file:
-        # Only load the supplied filename.
-        files.append(file)
-    else:
-        # Pick up all the .yaml files in the folder.
-        for _, _, filenames in os.walk(directory):
-            for f in filenames:
-                if ".yaml" in f:
-                    files.append(f)
-    groups: GroupList = GroupList([])
-    for f in files:
-        group = load_yaml_inject_variables(Path(f"{directory}/{f}"), ToolGlobals.environment_variables())
-        # Find and create data_sets
-        for capability in group.get("capabilities", []):
-            for _, values in capability.items():
-                if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    if dry_run:
-                        values["scope"]["datasetScope"]["ids"] = [999]
-                    else:
-                        values["scope"]["datasetScope"]["ids"] = [
-                            ToolGlobals.verify_dataset(ext_id)
-                            for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
-                        ]
-        groups.append(Group.load(group))
-    if dry_run:
-        print(f"[bold]Loading {len(groups)} groups from {directory}...[/]")
-    else:
-        print(f"[bold]Loading {len(groups)} groups from {directory} and created necessary data sets...[/]")
-    existing_groups = 0
-    for group in groups:
-        old_group_id = None
-        for g in old_groups:
-            if g.name == group.name:
-                old_group_id = g.id
-                break
-        try:
-            if not dry_run:
-                group = client.iam.groups.create(group)
-                if verbose:
-                    print(f"  Created group {group.name}.")
-            else:
-                if verbose:
-                    print(f"  Would have created group {group.name}.")
-        except Exception as e:
-            print(f"[bold red]ERROR:[/] Failed to create group {group.name}: \n{e}")
-            ToolGlobals.failed = True
-            return
-        if old_group_id:
-            existing_groups += 1
-            try:
-                if not dry_run:
-                    client.iam.groups.delete(id=old_group_id)
-                    if verbose:
-                        print(f"  Deleted old group {old_group_id}.")
-                else:
-                    if verbose:
-                        print(f"  Would have deleted group {old_group_id}.")
-            except Exception:
-                print(f"[bold red]ERROR:[/] Failed to delete group {old_group_id}.")
-                ToolGlobals.failed = True
-    if not dry_run:
-        print(f"  Created {len(groups)} groups.")
-        print(f"  Deleted {existing_groups} old groups.")
-    else:
-        print(f"  Would have created {len(groups)} groups.")
-        print(f"  Wuld have deleted {existing_groups} old groups.")
+    load_resources(
+        GroupLoader,
+        (file and Path(file)) or Path(directory),
+        ToolGlobals,
+        False,
+        dry_run,
+    )
 
 
 def load_datamodel_graphql(
