@@ -331,7 +331,7 @@ class CDFToolConfig:
             )
 
 
-def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any]:
+def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any] | list[dict[str, Any]]:
     content = filepath.read_text()
     for key, value in variables.items():
         if value is None:

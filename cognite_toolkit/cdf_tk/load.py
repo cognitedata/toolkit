@@ -36,7 +36,7 @@ from cognite.client.data_classes._base import (
     T_CogniteResource,
     T_CogniteResourceList,
 )
-from cognite.client.data_classes.capabilities import Capability, TimeSeriesAcl
+from cognite.client.data_classes.capabilities import Capability, TimeSeriesAcl, TransformationsAcl
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
@@ -49,7 +49,7 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.iam import Group, GroupList
 from cognite.client.data_classes.time_series import TimeSeries, TimeSeriesList
-from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
+from cognite.client.exceptions import CogniteAPIError
 from rich import print
 
 from .delete import delete_instances
@@ -94,6 +94,7 @@ class Loader(ABC, Generic[T_ID, T_CogniteResource, T_CogniteResourceList]):
     def get_id(cls, item: T_CogniteResource) -> T_ID:
         raise NotImplementedError
 
+    # Default implementations that can be overridden
     def create(
         self, items: T_CogniteResource | Sequence[T_CogniteResource]
     ) -> T_CogniteResource | T_CogniteResourceList | None:
@@ -105,6 +106,9 @@ class Loader(ABC, Generic[T_ID, T_CogniteResource, T_CogniteResourceList]):
     def retrieve(self, ids: T_ID) -> T_CogniteResource | T_CogniteResourceList | None:
         return self.api_class.retrieve(ids)
 
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_CogniteResourceList:
+        return self.list_cls.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
+
 
 class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
     filetypes = frozenset({"yaml", "yml"})
@@ -115,6 +119,47 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 
     def get_id(self, item: TimeSeries) -> str:
         return item.external_id
+
+
+class TransformationLoader(Loader[str, Transformation, TransformationList]):
+    filetypes = frozenset({"yaml", "yml"})
+    name = "transformations"
+    resource_cls = Transformation
+    list_cls = TransformationList
+    capability = TransformationsAcl(
+        [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write], TransformationsAcl.Scope.All()
+    )
+
+    def get_id(self, item: Transformation) -> str:
+        return item.external_id
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> TransformationList:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        # The `authentication` key is custom for this template:
+        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
+        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
+        transformation = Transformation.load(raw)
+        transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+            source_oidc_credentials
+        )
+        transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+            destination_oidc_credentials
+        )
+        sql_file = filepath.parent / f"{transformation.external_id}.sql"
+        if not sql_file.exists():
+            raise FileNotFoundError(
+                f"Could not find sql file {sql_file.name}. Expected to find it next to the yaml config file."
+            )
+        transformation.query = sql_file.read_text()
+        return self.list_cls([transformation])
+
+    def create(self, items: Transformation | Sequence[Transformation]) -> Transformation | TransformationList | None:
+        created = self.client.transformations.create(items)
+        for t in items if isinstance(items, Sequence) else [items]:
+            if t.schedule.interval != "":
+                t.schedule.external_id = t.external_id
+                self.client.transformations.schedules.create(t.schedule)
+        return created
 
 
 def load_resources(
@@ -134,9 +179,7 @@ def load_resources(
 
     items = loader.list_cls([])
     for f in files:
-        items.extend(
-            loader.list_cls.load(load_yaml_inject_variables(f, ToolGlobals.environment_variables())),
-        )
+        items.extend(loader.load_file(f, ToolGlobals))
     if len(items) == 0:
         return
     print(f"[bold]Uploading {len(items)} {loader.name} to CDF...[/]")
@@ -356,61 +399,13 @@ def load_transformations(
     This code only gives a partial support for transformations by loading the actual sql query and the
     necessary config. Schedules, authentication, etc is not supported.
     """
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client: CogniteClient = ToolGlobals.verify_client(
-        capabilities={
-            "transformationsAcl": ["READ", "WRITE"],
-            "sessionsAcl": ["CREATE"],
-        }
+    return load_resources(
+        TransformationLoader,
+        (file and Path(file)) or Path(directory),
+        ToolGlobals,
+        drop,
+        dry_run,
     )
-    if file:
-        # Only load the supplied filename.
-        files = [Path(file)]
-    else:
-        files = list(Path(directory).glob("*.yaml"))
-    transformations = TransformationList([])
-    for f in files:
-        raw = load_yaml_inject_variables(f, ToolGlobals.environment_variables())
-        # The `authentication` key is custom for this template:
-        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
-        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
-        transformation = Transformation.load(raw)
-        transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-            source_oidc_credentials
-        )
-        transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-            destination_oidc_credentials
-        )
-        transformations.append(transformation)
-    print(f"[bold]Loading {len(transformations)} transformations from {directory}...[/]")
-    ext_ids = [t.external_id for t in transformations]
-    try:
-        if drop:
-            if not dry_run:
-                client.transformations.delete(external_id=ext_ids, ignore_unknown_ids=True)
-                print(f"  Deleted {len(ext_ids)} transformations.")
-            else:
-                print(f"  Would have deleted {len(ext_ids)} transformations.")
-    except CogniteNotFoundError:
-        pass
-    for t in transformations:
-        with open(f"{directory}/{t.external_id}.sql") as file:
-            t.query = file.read()
-            t.data_set_id = ToolGlobals.data_set_id
-    try:
-        if not dry_run:
-            client.transformations.create(transformations)
-            for t in transformations:
-                if t.schedule.interval != "":
-                    t.schedule.external_id = t.external_id
-                    client.transformations.schedules.create(t.schedule)
-            print(f"  Created {len(transformations)} transformation.")
-        else:
-            print(f"  Would have created {len(transformations)} transformation.")
-    except Exception as e:
-        print(f"[bold red]ERROR:[/] Failed to create transformations.\n{e}")
-        ToolGlobals.failed = True
 
 
 def load_groups(
