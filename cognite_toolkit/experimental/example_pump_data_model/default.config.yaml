@@ -1,0 +1,9 @@
+# Only valid for this module, loads template variables from environment
+model_space: pumpModelSpace
+instance_space: pumpInstanceSpace
+source_model_space: ExtendedSourceDataModels
+source_model: ExtendedSourceData
+view_Pump_version: "1"
+view_LiftStation_version: "1"
+data_model_version: "1"
+data_model: "PumpLiftStations"
