@@ -16,9 +16,12 @@ from __future__ import annotations
 import io
 import os
 import re
+from abc import ABC, abstractmethod
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar, Protocol, TypeVar, Union
 
 import pandas as pd
 from cognite.client import CogniteClient
@@ -27,7 +30,13 @@ from cognite.client.data_classes import (
     Transformation,
     TransformationList,
 )
-from cognite.client.data_classes._base import CogniteResource
+from cognite.client.data_classes._base import (
+    CogniteResource,
+    CogniteResourceList,
+    T_CogniteResource,
+    T_CogniteResourceList,
+)
+from cognite.client.data_classes.capabilities import Capability, TimeSeriesAcl
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
@@ -39,7 +48,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 from cognite.client.data_classes.iam import Group, GroupList
-from cognite.client.data_classes.time_series import TimeSeriesList
+from cognite.client.data_classes.time_series import TimeSeries, TimeSeriesList
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from rich import print
 
@@ -59,6 +68,106 @@ class Difference:
 
     def __next__(self):
         return next([self.added, self.removed, self.changed, self.unchanged])
+
+
+T_ID = TypeVar("T_ID", bound=Union[str, int])
+
+
+class APIClass(Protocol[T_ID, T_CogniteResource, T_CogniteResourceList]):
+    def create(
+        self, items: T_CogniteResource | Sequence[T_CogniteResource]
+    ) -> T_CogniteResource | T_CogniteResourceList | None:
+        ...
+
+    def delete(self, ids: T_ID | Sequence[T_ID]) -> T_CogniteResourceList:
+        ...
+
+    def retrieve(self, ids: T_ID) -> T_CogniteResource | T_CogniteResourceList | None:
+        ...
+
+
+class Loader(ABC, APIClass[T_ID, T_CogniteResource, T_CogniteResourceList]):
+    filetypes: ClassVar[frozenset[str]] = {"yaml", "yml"}
+    name: ClassVar[str]
+    resource_cls: ClassVar[CogniteResource]
+    list_cls: ClassVar[CogniteResourceList]
+    capability: ClassVar[Capability]
+
+    def __init__(self, client: CogniteClient):
+        self.client = client
+        self.api_class = getattr(client, self.name)
+
+    @classmethod
+    def create(cls, ToolGlobals: CDFToolConfig):
+        client = ToolGlobals.verify_client(capabilities=[cls.capability.dump()])
+        return cls(client)
+
+    @classmethod
+    @abstractmethod
+    def get_id(cls, item: T_CogniteResource) -> T_ID:
+        raise NotImplementedError
+
+
+class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
+    filetypes = frozenset({"yaml", "yml"})
+    name = "time_series"
+    resource_cls = TimeSeries
+    list_cls = TimeSeriesList
+    capability = TimeSeriesAcl([TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write], TimeSeriesAcl.Scope.All())
+
+    def get_id(self, item: TimeSeries) -> str:
+        return item.external_id
+
+
+def load_resources(
+    LoaderCls: type[Loader],
+    path: Path,
+    ToolGlobals: CDFToolConfig,
+    drop: bool,
+    dry_run: bool = False,
+):
+    loader = LoaderCls.create(ToolGlobals)
+    if path.is_file():
+        if path.suffix not in loader.filetypes:
+            raise ValueError("Invalid file type")
+        files = [path]
+    else:
+        files = list(path.glob(f"*.{loader.filetypes}"))
+
+    items = loader.list_cls([])
+    for f in files:
+        items.extend(
+            loader.resource_cls.load(load_yaml_inject_variables(f, ToolGlobals.environment_variables())),
+        )
+    if len(items) == 0:
+        return
+    print(f"[bold]Uploading {len(items)} {loader.name} to CDF...[/]")
+    drop_items: list[T_ID] = []
+    for item in items:
+        # Set the context info for this CDF project
+        item.data_set_id = ToolGlobals.data_set_id
+        if drop:
+            drop_items.append(loader.get_id(item))
+    try:
+        if drop:
+            if not dry_run:
+                loader.delete(drop_items)
+                print(f"  Deleted {len(drop_items)} {loader.name}.")
+            else:
+                print(f"  Would have deleted {len(items)} {loader.name}.")
+    except Exception:
+        print("[bold red]ERROR:[/] Failed to delete t.external_id. It may not exist.")
+    try:
+        if not dry_run:
+            loader.create(items)
+        else:
+            print(f"  Would have created {len(items)} {loader.name}.")
+    except Exception as e:
+        print(f"[bold red]ERROR:[/] Failed to upload {loader.name}.")
+        print(e)
+        ToolGlobals.failed = True
+        return
+    print(f"  Created {len(items)} timeseries from {len(files)} files.")
 
 
 def load_raw(
