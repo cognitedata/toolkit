@@ -1,0 +1,1 @@
+db: 'src-asset-{{location_name}}-{source_name}'
