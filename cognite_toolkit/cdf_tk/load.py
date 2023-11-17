@@ -21,7 +21,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Protocol, TypeVar, Union
+from typing import ClassVar, Generic, TypeVar, Union
 
 import pandas as pd
 from cognite.client import CogniteClient
@@ -73,20 +73,7 @@ class Difference:
 T_ID = TypeVar("T_ID", bound=Union[str, int])
 
 
-class APIClass(Protocol[T_ID, T_CogniteResource, T_CogniteResourceList]):
-    def create(
-        self, items: T_CogniteResource | Sequence[T_CogniteResource]
-    ) -> T_CogniteResource | T_CogniteResourceList | None:
-        ...
-
-    def delete(self, ids: T_ID | Sequence[T_ID]) -> T_CogniteResourceList:
-        ...
-
-    def retrieve(self, ids: T_ID) -> T_CogniteResource | T_CogniteResourceList | None:
-        ...
-
-
-class Loader(ABC, APIClass[T_ID, T_CogniteResource, T_CogniteResourceList]):
+class Loader(ABC, Generic[T_ID, T_CogniteResource, T_CogniteResourceList]):
     filetypes: ClassVar[frozenset[str]] = {"yaml", "yml"}
     name: ClassVar[str]
     resource_cls: ClassVar[CogniteResource]
@@ -98,7 +85,7 @@ class Loader(ABC, APIClass[T_ID, T_CogniteResource, T_CogniteResourceList]):
         self.api_class = getattr(client, self.name)
 
     @classmethod
-    def create(cls, ToolGlobals: CDFToolConfig):
+    def create_loader(cls, ToolGlobals: CDFToolConfig):
         client = ToolGlobals.verify_client(capabilities=[cls.capability.dump()])
         return cls(client)
 
@@ -106,6 +93,17 @@ class Loader(ABC, APIClass[T_ID, T_CogniteResource, T_CogniteResourceList]):
     @abstractmethod
     def get_id(cls, item: T_CogniteResource) -> T_ID:
         raise NotImplementedError
+
+    def create(
+        self, items: T_CogniteResource | Sequence[T_CogniteResource]
+    ) -> T_CogniteResource | T_CogniteResourceList | None:
+        self.api_class.create(items)
+
+    def delete(self, ids: T_ID | Sequence[T_ID]) -> T_CogniteResourceList:
+        return self.api_class.delete(ids)
+
+    def retrieve(self, ids: T_ID) -> T_CogniteResource | T_CogniteResourceList | None:
+        return self.api_class.retrieve(ids)
 
 
 class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
@@ -126,18 +124,18 @@ def load_resources(
     drop: bool,
     dry_run: bool = False,
 ):
-    loader = LoaderCls.create(ToolGlobals)
+    loader = LoaderCls.create_loader(ToolGlobals)
     if path.is_file():
         if path.suffix not in loader.filetypes:
             raise ValueError("Invalid file type")
         files = [path]
     else:
-        files = list(path.glob(f"*.{loader.filetypes}"))
+        files = [file for type_ in loader.filetypes for file in path.glob(f"**/*.{type_}")]
 
     items = loader.list_cls([])
     for f in files:
         items.extend(
-            loader.resource_cls.load(load_yaml_inject_variables(f, ToolGlobals.environment_variables())),
+            loader.list_cls.load(load_yaml_inject_variables(f, ToolGlobals.environment_variables())),
         )
     if len(items) == 0:
         return
@@ -298,56 +296,13 @@ def load_timeseries_metadata(
     dry_run: bool = False,
     directory=None,
 ) -> None:
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(capabilities={"timeSeriesAcl": ["READ", "WRITE"]})
-    files = []
-    if file:
-        # Only load the supplied filename.
-        files.append(file)
-    else:
-        # Pick up all the .yaml files in the data folder.
-        for _, _, filenames in os.walk(directory):
-            for f in filenames:
-                if ".yaml" in f:
-                    files.append(f)
-    # Read timeseries metadata
-    timeseries = TimeSeriesList([])
-    for f in files:
-        timeseries.extend(
-            TimeSeriesList.load(
-                load_yaml_inject_variables(Path(f"{directory}/{f}"), ToolGlobals.environment_variables())
-            ),
-        )
-    if len(timeseries) == 0:
-        return
-    print(f"[bold]Uploading {len(timeseries)} timeseries to CDF...[/]")
-    drop_ts: list[str] = []
-    for t in timeseries:
-        # Set the context info for this CDF project
-        t.data_set_id = ToolGlobals.data_set_id
-        if drop:
-            drop_ts.append(t.external_id)
-    try:
-        if drop:
-            if not dry_run:
-                client.time_series.delete(external_id=drop_ts, ignore_unknown_ids=True)
-                print(f"  Deleted {len(drop_ts)} timeseries.")
-            else:
-                print(f"  Would have deleted {len(drop_ts)} timeseries.")
-    except Exception:
-        print(f"[bold red]ERROR:[/] Failed to delete {t.external_id}. It may not exist.")
-    try:
-        if not dry_run:
-            client.time_series.create(timeseries)
-        else:
-            print(f"  Would have created {len(timeseries)} timeseries.")
-    except Exception as e:
-        print("[bold red]ERROR:[/] Failed to upload timeseries.")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    print(f"  Created {len(timeseries)} timeseries from {len(files)} files.")
+    return load_resources(
+        TimeSeriesLoader,
+        (file and Path(file)) or Path(directory),
+        ToolGlobals,
+        drop,
+        dry_run,
+    )
 
 
 def load_timeseries_datapoints(
