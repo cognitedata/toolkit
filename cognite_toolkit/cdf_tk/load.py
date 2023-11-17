@@ -26,6 +26,7 @@ from typing import ClassVar, Generic, TypeVar, Union
 import pandas as pd
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
+    DatapointsList,
     OidcCredentials,
     Transformation,
     TransformationList,
@@ -160,6 +161,23 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
                 t.schedule.external_id = t.external_id
                 self.client.transformations.schedules.create(t.schedule)
         return created
+
+
+class DataPointsLoader(Loader[str, pd.DataFrame, DatapointsList]):
+    filetypes = frozenset({".csv", ".parquet"})
+    name = "datapoints"
+    resource_cls = pd.DataFrame
+    list_cls = DatapointsList
+    capability = TimeSeriesAcl([TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write], TimeSeriesAcl.Scope.All())
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> list[pd.DataFrame]:
+        if filepath.suffix == ".csv":
+            return [pd.read_csv(filepath, parse_dates=True, index_col=0)]
+
+    def create(self, items: pd.DataFrame | Sequence[pd.DataFrame]) -> pd.DataFrame | pd.DataFrame | None:
+        for item in items:
+            self.client.time_series.data.insert_dataframe(item)
+        return None
 
 
 def load_resources(
@@ -348,43 +366,14 @@ def load_timeseries_metadata(
     )
 
 
-def load_timeseries_datapoints(
-    ToolGlobals: CDFToolConfig, file: str | None = None, dry_run: bool = False, directory=None
-) -> None:
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(capabilities={"timeseriesAcl": ["READ", "WRITE"]})
-    files = []
-    if file:
-        # Only load the supplied filename.
-        files.append(file)
-    else:
-        # Pick up all the .csv files in the data folder.
-        for _, _, filenames in os.walk(directory):
-            for f in filenames:
-                if ".csv" in f:
-                    files.append(f)
-    if len(files) == 0:
-        return
-    print(f"[bold]Uploading {len(files)} .csv file(s) as datapoints to CDF timeseries...[/]")
-    try:
-        for f in files:
-            with open(f"{directory}/{f}") as file:
-                dataframe = pd.read_csv(file, parse_dates=True, index_col=0)
-            if not dry_run:
-                print(f"  Uploading {f} as datapoints to CDF timeseries...")
-                client.time_series.data.insert_dataframe(dataframe)
-            else:
-                print(f"  Would have uploaded {f} as datapoints to CDF timeseries...")
-        if not dry_run:
-            print(f"  Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
-        else:
-            print(f"  Would have uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
-    except Exception as e:
-        print("[bold red]ERROR:[/] Failed to upload datapoints.")
-        print(e)
-        ToolGlobals.failed = True
-        return
+def load_timeseries_datapoints(ToolGlobals: CDFToolConfig, file: str | None = None, dry_run: bool = False, directory=None) -> None:
+    return load_resources(
+        DataPointsLoader,
+        (file and Path(file)) or Path(directory),
+        ToolGlobals,
+        False,
+        dry_run,
+    )
 
 
 def load_transformations(
