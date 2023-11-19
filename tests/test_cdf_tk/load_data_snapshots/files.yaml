@@ -5,5 +5,5 @@ FileMetadata:
     external_id: example_my_file.txt
     name: my_file.txt
     overwrite: false
-    path: test_cdf_tk\load_data\files\my_file.txt
+    path: test_cdf_tk/load_data/files/my_file.txt
   name: my_file.txt

@@ -176,7 +176,7 @@ def create_mock_api(
         name = ""
         for k, v in kwargs.items():
             if isinstance(v, Path) or (isinstance(v, str) and Path(v).exists()):
-                kwargs[k] = str(Path(v).relative_to(TEST_FOLDER))
+                kwargs[k] = "/".join(Path(v).relative_to(TEST_FOLDER).parts)
                 name = Path(v).name
 
         state[resource_cls.__name__].append(
