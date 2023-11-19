@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import io
 import os
 import re
 from collections import defaultdict
@@ -103,8 +104,10 @@ def load_raw(
                 print(f"[bold red]ERROR:[/] Filename {f} does not match expected format.")
                 ToolGlobals.failed = True
                 return
-        with open(f"{directory}/{f}") as file:
-            dataframe = pd.read_csv(file, dtype=str, encoding="utf-8")
+        with open(f"{directory}/{f}", mode="rb") as file:
+            # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+            file_content = file.read().replace(b"\r\n", b"\n").decode("utf-8")
+            dataframe = pd.read_csv(io.StringIO(file_content), dtype=str)
             dataframe = dataframe.fillna("")
             try:
                 if not dry_run:
