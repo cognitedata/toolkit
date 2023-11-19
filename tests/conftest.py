@@ -13,6 +13,7 @@ from cognite.client import CogniteClient
 from cognite.client._api.data_modeling.containers import ContainersAPI
 from cognite.client._api.data_modeling.data_models import DataModelsAPI
 from cognite.client._api.data_modeling.graphql import DataModelingGraphQLAPI
+from cognite.client._api.data_modeling.instances import InstancesAPI
 from cognite.client._api.data_modeling.spaces import SpacesAPI
 from cognite.client._api.data_modeling.views import ViewsAPI
 from cognite.client._api.data_sets import DataSetsAPI
@@ -41,6 +42,8 @@ from cognite.client.data_classes.data_modeling import (
     ContainerList,
     DataModelApplyList,
     DataModelList,
+    NodeApplyList,
+    NodeList,
     SpaceApplyList,
     SpaceList,
     ViewApplyList,
@@ -77,7 +80,8 @@ def cognite_client_approval() -> CogniteClient:
         client.raw.rows = create_mock_api(RawRowsAPI, RowList, state)
         client.time_series.data = create_mock_api(DatapointsAPI, DatapointsList, state)
         client.files = create_mock_api(FilesAPI, FileMetadataList, state)
-        client.data_modeling.graphql = create_mock_api(DataModelingGraphQLAPI, DataModelList, state)
+        client.data_modeling.graphql = create_mock_api(DataModelingGraphQLAPI, DataModelList, state, DataModelApplyList)
+        client.data_modeling.instances = create_mock_api(InstancesAPI, NodeList, state, NodeApplyList)
 
         def dump() -> dict[str, Any]:
             dumped = {}
