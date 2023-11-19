@@ -16,7 +16,7 @@ from __future__ import annotations
 import io
 import re
 from abc import ABC, abstractmethod
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -82,8 +82,8 @@ T_ResourceList = TypeVar("T_ResourceList")
 class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     load_files_individually: bool = False
     filetypes = frozenset({"yaml", "yml"})
-    parent_name: str = ""
-    name: str
+    api_name: str
+    folder_name: str
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
     actions: frozenset[Capability.Action]
@@ -91,11 +91,19 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
 
     def __init__(self, client: CogniteClient):
         self.client = client
-        if self.parent_name:
-            parent = getattr(client, self.parent_name)
+        self.api_class = self._get_api_class(client, self.api_name)
+
+    @staticmethod
+    def _get_api_class(client, api_name: str):
+        parent = client
+        if (dot_count := Counter(api_name)["."]) == 1:
+            parent_name, api_name = api_name.split(".")
+            parent = getattr(client, parent_name)
+        elif dot_count == 0:
+            pass
         else:
-            parent = client
-        self.api_class = getattr(parent, self.name)
+            raise ValueError(f"Invalid api_name {api_name}.")
+        return getattr(parent, api_name)
 
     @classmethod
     def create_loader(cls, ToolGlobals: CDFToolConfig):
@@ -124,7 +132,8 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
 
 
 class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
-    name = "time_series"
+    api_name = "time_series"
+    folder_name = "timeseries"
     resource_cls = TimeSeries
     list_cls = TimeSeriesList
     actions = frozenset({TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write})
@@ -135,7 +144,8 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 
 
 class TransformationLoader(Loader[str, Transformation, TransformationList]):
-    name = "transformations"
+    api_name = "transformations"
+    folder_name = "transformations"
     resource_cls = Transformation
     list_cls = TransformationList
     actions = frozenset({TransformationsAcl.Action.Read, TransformationsAcl.Action.Write})
@@ -177,8 +187,8 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
 
 
 class GroupLoader(Loader[int, Group, GroupList]):
-    name = "groups"
-    parent_name = "iam"
+    api_name = "iam.groups"
+    folder_name = "auth"
     resource_cls = Group
     list_cls = GroupList
     actions = frozenset(
@@ -215,8 +225,8 @@ class GroupLoader(Loader[int, Group, GroupList]):
 class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     load_files_individually = True
     filetypes = frozenset({"csv", "parquet"})
-    parent_name = "time_series"
-    name = "data"
+    api_name = "time_series.data"
+    folder_name = "timeseries_datapoints"
     resource_cls = pd.DataFrame
     actions = frozenset({TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write})
     capability = TimeSeriesAcl
@@ -244,7 +254,8 @@ class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
 class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     load_files_individually = True
     filetypes = frozenset({"csv", "parquet"})
-    name = "raw"
+    api_name = "raw.rows"
+    folder_name = "raw"
     resource_cls = pd.DataFrame
     actions = frozenset({RawAcl.Action.Read, RawAcl.Action.Write})
     acl = RawAcl
@@ -303,7 +314,8 @@ class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
 class FileLoader(Loader[str, Path, list[Path]]):
     load_files_individually = True
     filetypes = frozenset()
-    name = "files"
+    api_name = "files"
+    folder_name = "files"
     resource_cls = Path
     actions = frozenset({FilesAcl.Action.Read, FilesAcl.Action.Write})
     acl = FilesAcl
@@ -356,7 +368,7 @@ def load_resources(
     for batch in items:
         if len(batch) == 0:
             return
-        print(f"[bold]Uploading {len(batch)} {loader.name} to CDF...[/]")
+        print(f"[bold]Uploading {len(batch)} {loader.api_name} to CDF...[/]")
 
         drop_items: list[T_ID] = []
         for item in batch:
@@ -369,22 +381,25 @@ def load_resources(
             if drop:
                 if not dry_run:
                     loader.delete(drop_items)
-                    print(f"  Deleted {len(drop_items)} {loader.name}.")
+                    print(f"  Deleted {len(drop_items)} {loader.api_name}.")
                 else:
-                    print(f"  Would have deleted {len(batch)} {loader.name}.")
+                    print(f"  Would have deleted {len(batch)} {loader.api_name}.")
         except CogniteAPIError:
             print(f"[bold red]ERROR:[/] Failed to delete {drop_items}. They may not exist.")
         try:
             if not dry_run:
                 loader.create(batch, ToolGlobals, drop)
             else:
-                print(f"  Would have created {len(batch)} {loader.name}.")
+                print(f"  Would have created {len(batch)} {loader.api_name}.")
         except Exception as e:
-            print(f"[bold red]ERROR:[/] Failed to upload {loader.name}.")
+            print(f"[bold red]ERROR:[/] Failed to upload {loader.api_name}.")
             print(e)
             ToolGlobals.failed = True
             return
         print(f"  Created {len(batch)} timeseries from {len(files)} files.")
+
+
+LOADER_BY_FOLDER_NAME = {loader.folder_name: loader for loader in Loader.__subclasses__()}
 
 
 def load_raw(

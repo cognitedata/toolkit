@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import difflib
+import itertools
 import shutil
 import tempfile
 import urllib
@@ -25,12 +26,10 @@ from cognite_toolkit.cdf_tk.delete import (
 
 # from scripts.delete import clean_out_datamodels
 from cognite_toolkit.cdf_tk.load import (
+    LOADER_BY_FOLDER_NAME,
     load_datamodel,
-    load_groups,
     load_nodes,
-    load_raw,
-    load_timeseries_metadata,
-    load_transformations,
+    load_resources,
 )
 from cognite_toolkit.cdf_tk.templates import build_config, read_environ_config
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -42,15 +41,10 @@ auth_app = typer.Typer(
 app.add_typer(auth_app, name="auth")
 
 
-# These are the supported data types for deploying to a CDF project.
-# The enum matches the directory names that are expected in each module directory.
+# There enums should be removed when the load_datamodel function is refactored to use the LoaderCls.
 class CDFDataTypes(str, Enum):
-    raw = "raw"
-    timeseries = "timeseries"
-    transformations = "transformations"
     data_models = "data_models"
     instances = "instances"
-    groups = "groups"
 
 
 # Common parameters handled in common callback
@@ -242,28 +236,11 @@ def deploy(
         )
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
+
+    include = list(itertools.chain((type_.value for type_ in CDFDataTypes), LOADER_BY_FOLDER_NAME.keys()))
     if interactive:
-        include: CDFDataTypes = []
-        mapping = {}
-        for i, datatype in enumerate(CDFDataTypes):
-            print(f"[bold]{i})[/] {datatype.name}")
-            mapping[i] = datatype
-        print("\na) All")
-        print("q) Quit")
-        answer = input("Select data types to deploy: ")
-        if answer.casefold() == "a":
-            ...
-        elif answer.casefold() == "q":
-            exit(0)
-        else:
-            try:
-                include = mapping[int(answer)]
-            except ValueError:
-                print(f"Invalid selection: {answer}")
-                exit(1)
-    else:
-        if len(include) == 0:
-            include = [datatype for datatype in CDFDataTypes]
+        include = _select_data_types(include)
+
     print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     # Configure a client and load credentials from environment
     if not Path(build_dir).is_dir():
@@ -278,43 +255,20 @@ def deploy(
         )
         exit(1)
     print(ToolGlobals.as_string())
-    if CDFDataTypes.raw in include and Path(f"{build_dir}/raw").is_dir():
-        # load_raw() will assume that the RAW database name is set like this in the filename:
-        # <index>.<raw_db>.<tablename>.csv
-        load_raw(
-            ToolGlobals,
-            raw_db="default",
-            drop=drop,
-            file=None,
-            dry_run=dry_run,
-            directory=f"{build_dir}/raw",
-        )
-        if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to load RAW as expected.")
-            exit(1)
-    if CDFDataTypes.timeseries in include and Path(f"{build_dir}/timeseries").is_dir():
-        load_timeseries_metadata(
-            ToolGlobals,
-            drop=drop,
-            file=None,
-            dry_run=dry_run,
-            directory=f"{build_dir}/timeseries",
-        )
-        if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to load timeseries as expected.")
-            exit(1)
-    if CDFDataTypes.transformations in include and Path(f"{build_dir}/transformations").is_dir():
-        load_transformations(
-            ToolGlobals,
-            file=None,
-            drop=drop,
-            dry_run=dry_run,
-            directory=f"{build_dir}/transformations",
-        )
-        if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to load transformations as expected.")
-            exit(1)
-    if CDFDataTypes.data_models in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+
+    for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
+        if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
+            load_resources(
+                LoaderCls,
+                directory,
+                ToolGlobals,
+                drop=drop,
+                dry_run=dry_run,
+            )
+            if ToolGlobals.failed:
+                print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
+                exit(1)
+    if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_datamodel(
             ToolGlobals,
             drop=drop,
@@ -326,7 +280,7 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to load data models as expected.")
             exit(1)
-    if CDFDataTypes.instances in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+    if CDFDataTypes.instances.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_nodes(
             ToolGlobals,
             directory=models_dir,
@@ -335,16 +289,29 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to load instances as expected.")
             exit(1)
-    if CDFDataTypes.groups in include and Path(f"{build_dir}/auth").is_dir():
-        load_groups(
-            ToolGlobals,
-            directory=f"{build_dir}/auth",
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
-        )
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to load as expected.")
         exit(1)
+
+
+def _select_data_types(include: list[str]) -> list[str]:
+    mapping: dict[int, str] = {}
+    for i, datatype in enumerate(include):
+        print(f"[bold]{i})[/] {datatype}")
+        mapping[i] = datatype
+    print("\na) All")
+    print("q) Quit")
+    answer = input("Select data types to deploy: ")
+    if answer.casefold() == "a":
+        return include
+    elif answer.casefold() == "q":
+        exit(0)
+    else:
+        try:
+            return [mapping[int(answer)]]
+        except ValueError:
+            print(f"Invalid selection: {answer}")
+            exit(1)
 
 
 @app.command("clean")
