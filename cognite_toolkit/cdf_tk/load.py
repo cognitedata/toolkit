@@ -20,7 +20,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, TypeVar, Union
+from typing import Generic, TypeVar, Union, final
 
 import pandas as pd
 from cognite.client import CogniteClient
@@ -131,6 +131,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         return self.list_cls.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
 
 
+@final
 class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
     api_name = "time_series"
     folder_name = "timeseries"
@@ -143,6 +144,7 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
         return item.external_id
 
 
+@final
 class TransformationLoader(Loader[str, Transformation, TransformationList]):
     api_name = "transformations"
     folder_name = "transformations"
@@ -186,6 +188,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
         return created
 
 
+@final
 class GroupLoader(Loader[int, Group, GroupList]):
     api_name = "iam.groups"
     folder_name = "auth"
@@ -222,6 +225,7 @@ class GroupLoader(Loader[int, Group, GroupList]):
         return created
 
 
+@final
 class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     load_files_individually = True
     filetypes = frozenset({"csv", "parquet"})
@@ -251,6 +255,7 @@ class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
             raise ValueError(f"Not supported file type {filepath.suffix}")
 
 
+@final
 class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     load_files_individually = True
     filetypes = frozenset({"csv", "parquet"})
@@ -311,6 +316,7 @@ class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
         return None
 
 
+@final
 class FileLoader(Loader[str, Path, list[Path]]):
     load_files_individually = True
     filetypes = frozenset()
