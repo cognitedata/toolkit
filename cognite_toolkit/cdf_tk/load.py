@@ -208,7 +208,9 @@ class GroupLoader(Loader[int, Group, GroupList]):
 
 class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     load_files_individually = True
-    name = "datapoints"
+    filetypes = frozenset({"csv", "parquet"})
+    parent_name = "time_series"
+    name = "data"
     resource_cls = pd.DataFrame
     actions = frozenset({TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write})
     capability = TimeSeriesAcl
@@ -473,7 +475,9 @@ def load_timeseries_metadata(
     )
 
 
-def load_timeseries_datapoints(ToolGlobals: CDFToolConfig, file: str | None = None, dry_run: bool = False, directory=None) -> None:
+def load_timeseries_datapoints(
+    ToolGlobals: CDFToolConfig, file: str | None = None, dry_run: bool = False, directory=None
+) -> None:
     return load_resources(
         DatapointsLoader,
         (file and Path(file)) or Path(directory),
