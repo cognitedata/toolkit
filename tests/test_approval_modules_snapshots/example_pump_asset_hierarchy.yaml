@@ -3,7 +3,7 @@ Database:
 Row:
 - args: []
   columns:
-  - ï»¿OBJECTID
+  - OBJECTID
   - FacilityID
   - InstallDate
   - LifeCycleStatus

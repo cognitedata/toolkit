@@ -104,7 +104,7 @@ def load_raw(
                 ToolGlobals.failed = True
                 return
         with open(f"{directory}/{f}") as file:
-            dataframe = pd.read_csv(file, dtype=str)
+            dataframe = pd.read_csv(file, dtype=str, encoding="utf-8")
             dataframe = dataframe.fillna("")
             try:
                 if not dry_run:
