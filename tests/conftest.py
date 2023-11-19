@@ -67,7 +67,7 @@ def cognite_client_approval() -> CogniteClient:
         state: dict[str, CogniteResourceList] = {}
         client.iam.groups = create_mock_api(GroupsAPI, GroupList, state)
         client.data_sets = create_mock_api(DataSetsAPI, DataSetList, state)
-        client.timeseries = create_mock_api(TimeSeriesAPI, TimeSeriesList, state)
+        client.time_series = create_mock_api(TimeSeriesAPI, TimeSeriesList, state)
         client.raw.databases = create_mock_api(RawDatabasesAPI, DatabaseList, state)
         client.transformations = create_mock_api(TransformationsAPI, TransformationList, state)
         client.transformations.schedules = create_mock_api(
