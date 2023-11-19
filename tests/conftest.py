@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import itertools
 from collections.abc import Sequence
-from hashlib import sha256
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -143,18 +143,16 @@ def create_mock_api(
         for arg in list(args):
             if isinstance(arg, pd.DataFrame):
                 args.remove(arg)
-                dataframe_hash = sha256(
-                    pd.util.hash_pandas_object(arg, index=True).values, usedforsecurity=False
-                ).hexdigest()
+                dataframe_hash = int(hashlib.sha256(pd.util.hash_pandas_object(arg, index=True).values).hexdigest(), 16)
                 dataframe_cols = list(arg.columns)
                 break
 
         for key in list(kwargs):
             if isinstance(kwargs[key], pd.DataFrame):
                 value = kwargs.pop(key)
-                dataframe_hash = sha256(
-                    pd.util.hash_pandas_object(value, index=True).values, usedforsecurity=False
-                ).hexdigest()
+                dataframe_hash = int(
+                    hashlib.sha256(pd.util.hash_pandas_object(value, index=True).values).hexdigest(), 16
+                )
                 dataframe_cols = list(value.columns)
                 break
         if not dataframe_hash:
