@@ -5,6 +5,7 @@ import inspect
 import itertools
 from collections import defaultdict
 from collections.abc import MutableSequence, Sequence
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
