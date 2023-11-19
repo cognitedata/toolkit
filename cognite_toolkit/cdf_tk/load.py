@@ -235,6 +235,7 @@ class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
 
 class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     load_files_individually = True
+    filetypes = frozenset({"csv", "parquet"})
     name = "raw"
     resource_cls = pd.DataFrame
     actions = frozenset({RawAcl.Action.Read, RawAcl.Action.Write})
@@ -253,23 +254,29 @@ class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> pd.DataFrame:
         for pattern in [r"(\d+)\.(\w+)\.(\w+)", r"(\d+)\.(\w+)"]:
             if match := re.match(pattern, filepath.name):
-                self.db = match.group(2)
-                self.table = match.group(3)
+                self.db = match.group(2) if len(match.groups()) == 3 else self.default_db
+                self.table = match.group(len(match.groups()))
                 break
         else:
             print(f"[bold red]ERROR:[/] Filename {filepath.name} does not match expected format.")
             ToolGlobals.failed = True
             return pd.DataFrame()
         if filepath.suffix == ".csv":
-            df = pd.read_csv(filepath, dtype=str)
+            # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+            file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+            df = pd.read_csv(io.StringIO(file_content), dtype=str)
             df.fillna("", inplace=True)
             return df
         elif filepath.suffix == ".parquet":
-            return pd.read_parquet(filepath, engine="pyarrow")
+            return pd.read_parquet(filepath)
         else:
             raise ValueError(f"Not supported file type {filepath.suffix}")
 
     def create(self, items: pd.DataFrame | Sequence[pd.DataFrame]) -> pd.DataFrame | list[pd.DataFrame] | None:
+        # This call in unnecessary, as we have the ensure_parent argument below.
+        # We keep it here just to ensure we are not doing any changes in the refactoring of the code to generalized loaders.
+        self.client.raw.databases.create(self.db)
+
         for item in items:
             self.client.raw.rows.insert_dataframe(
                 db_name=self.db,
@@ -352,68 +359,13 @@ def load_raw(
         file: name of file to load, if empty load all files
         drop: whether to drop existing data
     """
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client: CogniteClient = ToolGlobals.verify_client(capabilities={"rawAcl": ["READ", "WRITE"]})
-
-    files = []
-    if file:
-        # Only load the supplied filename.
-        files.append(file)
-    else:
-        # Pick up all the .csv files in the data folder.
-        for _, _, filenames in os.walk(directory):
-            for f in filenames:
-                if ".csv" in f:
-                    files.append(f)
-    files.sort()
-    if len(files) == 0:
-        return
-    print(f"[bold]Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename...[/]")
-    for f in files:
-        try:
-            (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
-        except AttributeError:
-            db = raw_db
-            try:
-                (_, table_name) = re.match(r"(\d+)\.(\w+)\.csv", f).groups()
-            except AttributeError:
-                print(f"[bold red]ERROR:[/] Filename {f} does not match expected format.")
-                ToolGlobals.failed = True
-                return
-        with open(f"{directory}/{f}", mode="rb") as file:
-            # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-            file_content = file.read().replace(b"\r\n", b"\n").decode("utf-8")
-            dataframe = pd.read_csv(io.StringIO(file_content), dtype=str)
-            dataframe = dataframe.fillna("")
-            try:
-                if not dry_run:
-                    if drop:
-                        try:
-                            client.raw.tables.delete(db, table_name)
-                        except Exception:
-                            ...
-                    try:
-                        client.raw.databases.create(db)
-                        print("  Created database: " + db)
-                    except Exception:
-                        ...
-                    client.raw.rows.insert_dataframe(
-                        db_name=db,
-                        table_name=table_name,
-                        dataframe=dataframe,
-                        ensure_parent=True,
-                    )
-                    print("  Deleted table: " + table_name)
-                    print(f"  Uploaded {f} to {db} RAW database.")
-                else:
-                    print("  Would have deleted table: " + table_name)
-                    print(f"  Would have uploaded {f} to {db} RAW database.")
-            except Exception as e:
-                print(f"[bold red]ERROR:[/] Failed to upload {f}")
-                print(e)
-                ToolGlobals.failed = True
-                return
+    return load_resources(
+        RawLoader,
+        (file and Path(file)) or Path(directory),
+        ToolGlobals,
+        drop,
+        dry_run,
+    )
 
 
 def load_files(
