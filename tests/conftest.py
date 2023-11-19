@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import itertools
 from collections.abc import Sequence
+from hashlib import sha256
 from typing import Any
 from unittest.mock import MagicMock
 
+import pandas as pd
 import pytest
 from cognite.client import CogniteClient
 from cognite.client._api.data_modeling.containers import ContainersAPI
@@ -13,7 +15,7 @@ from cognite.client._api.data_modeling.spaces import SpacesAPI
 from cognite.client._api.data_modeling.views import ViewsAPI
 from cognite.client._api.data_sets import DataSetsAPI
 from cognite.client._api.iam import GroupsAPI
-from cognite.client._api.raw import RawDatabasesAPI
+from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI
 from cognite.client._api.time_series import TimeSeriesAPI
 from cognite.client._api.transformations import TransformationsAPI, TransformationSchedulesAPI
 from cognite.client._api_client import APIClient
@@ -22,6 +24,7 @@ from cognite.client.data_classes import (
     DatabaseList,
     DataSetList,
     GroupList,
+    RowList,
     TimeSeriesList,
     TransformationList,
     TransformationScheduleList,
@@ -63,13 +66,17 @@ def cognite_client_approval() -> CogniteClient:
         client.data_modeling.views = create_mock_api(ViewsAPI, ViewList, state, ViewApplyList)
         client.data_modeling.data_models = create_mock_api(DataModelsAPI, DataModelList, state, DataModelApplyList)
         client.data_modeling.spaces = create_mock_api(SpacesAPI, SpaceList, state, SpaceApplyList)
+        client.raw.rows = create_mock_api(RawRowsAPI, RowList, state)
 
         def dump() -> dict[str, Any]:
             dumped = {}
             for key in sorted(state):
                 values = state[key]
                 if values:
-                    dumped[key] = sorted(values.dump(camel_case=True), key=lambda x: x.get("externalId", x.get("name")))
+                    dumped[key] = sorted(
+                        [value.dump(camel_case=True) if hasattr(value, "dump") else value for value in values],
+                        key=lambda x: x.get("externalId", x.get("name")),
+                    )
             return dumped
 
         client.dump = dump
@@ -112,6 +119,43 @@ def create_mock_api(
         state[resource_cls.__name__].extend(created)
         return write_list_cls(created)
 
+    def insert_dataframe(*args, **kwargs) -> None:
+        args = list(args)
+        kwargs = dict(kwargs)
+        dataframe_hash = ""
+        dataframe_cols = []
+        for arg in list(args):
+            if isinstance(arg, pd.DataFrame):
+                args.remove(arg)
+                dataframe_hash = sha256(
+                    pd.util.hash_pandas_object(arg, index=True).values, usedforsecurity=False
+                ).hexdigest()
+                dataframe_cols = list(arg.columns)
+                break
+
+        for key in list(kwargs):
+            if isinstance(kwargs[key], pd.DataFrame):
+                value = kwargs.pop(key)
+                dataframe_hash = sha256(
+                    pd.util.hash_pandas_object(value, index=True).values, usedforsecurity=False
+                ).hexdigest()
+                dataframe_cols = list(value.columns)
+                break
+        if not dataframe_hash:
+            raise ValueError("No dataframe found in arguments")
+        name = "_".join([str(arg) for arg in itertools.chain(args, kwargs.values())])
+        if not name:
+            name = "_".join(dataframe_cols)
+        state[resource_cls.__name__].append(
+            {
+                "name": name,
+                "args": args,
+                "kwargs": kwargs,
+                "dataframe": dataframe_hash,
+                "columns": dataframe_cols,
+            }
+        )
+
     if hasattr(api_client, "create"):
         mock.create = create
     elif hasattr(api_client, "apply"):
@@ -119,5 +163,8 @@ def create_mock_api(
 
     if hasattr(api_client, "upsert"):
         mock.upsert = create
+
+    if hasattr(api_client, "insert_dataframe"):
+        mock.insert_dataframe = insert_dataframe
 
     return mock
