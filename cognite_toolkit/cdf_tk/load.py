@@ -94,8 +94,6 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         folder_name: The name of the folder in the build directory where the files are located.
         resource_cls: The class of the resource that is loaded.
         list_cls: The list version of the resource class.
-        actions: The actions, i.e., the access (authorizatoin), that is required for this loader to work.
-        acl: The acl class that is used to check that the user has the required access.
     """
 
     load_files_individually: bool = False
@@ -104,8 +102,6 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     folder_name: str
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
-    actions: frozenset[Capability.Action]
-    acl: type[Capability]
 
     def __init__(self, client: CogniteClient):
         self.client = client
@@ -125,8 +121,13 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
 
     @classmethod
     def create_loader(cls, ToolGlobals: CDFToolConfig):
-        client = ToolGlobals.verify_client(capabilities=[cls.actions])
+        client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
         return cls(client)
+
+    @classmethod
+    @abstractmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
     @classmethod
     @abstractmethod
@@ -155,8 +156,13 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
     folder_name = "timeseries"
     resource_cls = TimeSeries
     list_cls = TimeSeriesList
-    actions = frozenset({TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write})
-    acl = TimeSeriesAcl
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return TimeSeriesAcl(
+            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
+            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id]),
+        )
 
     def get_id(self, item: TimeSeries) -> str:
         return item.external_id
@@ -168,8 +174,13 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
     folder_name = "transformations"
     resource_cls = Transformation
     list_cls = TransformationList
-    actions = frozenset({TransformationsAcl.Action.Read, TransformationsAcl.Action.Write})
-    acl = TransformationsAcl
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return TransformationsAcl(
+            [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
+            TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id]),
+        )
 
     def get_id(self, item: Transformation) -> str:
         return item.external_id
@@ -212,10 +223,13 @@ class GroupLoader(Loader[int, Group, GroupList]):
     folder_name = "auth"
     resource_cls = Group
     list_cls = GroupList
-    actions = frozenset(
-        {GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete}
-    )
-    capability = GroupsAcl
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return GroupsAcl(
+            [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
+            GroupsAcl.Scope.All(),
+        )
 
     @classmethod
     def get_id(cls, item: Group) -> int:
@@ -250,8 +264,13 @@ class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     api_name = "time_series.data"
     folder_name = "timeseries_datapoints"
     resource_cls = pd.DataFrame
-    actions = frozenset({TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write})
-    capability = TimeSeriesAcl
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return TimeSeriesAcl(
+            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
+            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id]),
+        )
 
     @classmethod
     def get_id(cls, item: T_Resource) -> T_ID:
@@ -280,7 +299,7 @@ class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     api_name = "raw.rows"
     folder_name = "raw"
     resource_cls = pd.DataFrame
-    actions = frozenset({RawAcl.Action.Read, RawAcl.Action.Write})
+    actions = frozenset({})
     acl = RawAcl
     default_db: str = "default"
 
@@ -288,6 +307,10 @@ class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
         super().__init__(client)
         self.db = self.default_db
         self.table = ""
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
 
     @classmethod
     def get_id(cls, item: T_Resource) -> T_ID:
@@ -341,9 +364,13 @@ class FileLoader(Loader[str, Path, list[Path]]):
     api_name = "files"
     folder_name = "files"
     resource_cls = Path
-    actions = frozenset({FilesAcl.Action.Read, FilesAcl.Action.Write})
-    acl = FilesAcl
     id_prefix: str = "example"
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return FilesAcl(
+            [FilesAcl.Action.Read, FilesAcl.Action.Write], FilesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+        )
 
     @classmethod
     def get_id(cls, item: Path) -> str:

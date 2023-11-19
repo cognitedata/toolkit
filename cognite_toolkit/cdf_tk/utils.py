@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -292,6 +293,12 @@ class CDFToolConfig:
         if len(comp) > 0:
             print(f"Capabilities mismatch: {comp}")
             raise CogniteAuthError("Don't have correct access rights.")
+        return self._client
+
+    def verify_capabilities(self, capability: Capability | Sequence[Capability]) -> CogniteClient:
+        missing_capabilities = self._client.iam.verify_capabilities(capability)
+        if len(missing_capabilities) > 0:
+            raise CogniteAuthError(f"Missing capabilities: {missing_capabilities}")
         return self._client
 
     def verify_dataset(self, data_set_name: str | None = None, create: bool = True) -> int | None:
