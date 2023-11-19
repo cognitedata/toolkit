@@ -80,6 +80,24 @@ T_ResourceList = TypeVar("T_ResourceList")
 
 
 class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
+    """
+    This is the base class for all loaders. It defines the interface that all loaders must implement.
+
+    A loader is a class that describes how a resource is loaded from a file and uploaded to CDF.
+
+    All resources supported by the cognite_toolkit should implement a loader.
+
+    Class attributes:
+        load_files_individually: Whether to load each file individually or all files in a folder at once.
+        filetypes: The filetypes that are supported by this loader. If empty, all files are supported.
+        api_name: The name of the api that is in the cognite_client that is used to interact with the CDF API.
+        folder_name: The name of the folder in the build directory where the files are located.
+        resource_cls: The class of the resource that is loaded.
+        list_cls: The list version of the resource class.
+        actions: The actions, i.e., the access (authorizatoin), that is required for this loader to work.
+        acl: The acl class that is used to check that the user has the required access.
+    """
+
     load_files_individually: bool = False
     filetypes = frozenset({"yaml", "yml"})
     api_name: str
