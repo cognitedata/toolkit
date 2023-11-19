@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 from collections.abc import Sequence
 from hashlib import sha256
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -11,9 +12,12 @@ import pytest
 from cognite.client import CogniteClient
 from cognite.client._api.data_modeling.containers import ContainersAPI
 from cognite.client._api.data_modeling.data_models import DataModelsAPI
+from cognite.client._api.data_modeling.graphql import DataModelingGraphQLAPI
 from cognite.client._api.data_modeling.spaces import SpacesAPI
 from cognite.client._api.data_modeling.views import ViewsAPI
 from cognite.client._api.data_sets import DataSetsAPI
+from cognite.client._api.datapoints import DatapointsAPI
+from cognite.client._api.files import FilesAPI
 from cognite.client._api.iam import GroupsAPI
 from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI
 from cognite.client._api.time_series import TimeSeriesAPI
@@ -22,7 +26,9 @@ from cognite.client._api_client import APIClient
 from cognite.client.data_classes import (
     Database,
     DatabaseList,
+    DatapointsList,
     DataSetList,
+    FileMetadataList,
     GroupList,
     RowList,
     TimeSeriesList,
@@ -41,6 +47,8 @@ from cognite.client.data_classes.data_modeling import (
     ViewList,
 )
 from cognite.client.testing import monkeypatch_cognite_client
+
+TEST_FOLDER = Path(__file__).resolve().parent
 
 
 @pytest.fixture
@@ -67,6 +75,9 @@ def cognite_client_approval() -> CogniteClient:
         client.data_modeling.data_models = create_mock_api(DataModelsAPI, DataModelList, state, DataModelApplyList)
         client.data_modeling.spaces = create_mock_api(SpacesAPI, SpaceList, state, SpaceApplyList)
         client.raw.rows = create_mock_api(RawRowsAPI, RowList, state)
+        client.time_series.data = create_mock_api(DatapointsAPI, DatapointsList, state)
+        client.files = create_mock_api(FilesAPI, FileMetadataList, state)
+        client.data_modeling.graphql = create_mock_api(DataModelingGraphQLAPI, DataModelList, state)
 
         def dump() -> dict[str, Any]:
             dumped = {}
@@ -95,7 +106,8 @@ def create_mock_api(
     write_list_cls: type[CogniteResourceList] | None = None,
 ) -> MagicMock:
     mock = MagicMock(spec=api_client)
-    mock.list.return_value = read_list_cls([])
+    if hasattr(api_client, "list"):
+        mock.list.return_value = read_list_cls([])
     if hasattr(api_client, "retrieve"):
         mock.retrieve.return_value = read_list_cls([])
     if hasattr(api_client, "retrieve_multiple"):
@@ -156,6 +168,26 @@ def create_mock_api(
             }
         )
 
+    def upload(*args, **kwargs) -> None:
+        name = ""
+        for k, v in kwargs.items():
+            if isinstance(v, Path) or (isinstance(v, str) and Path(v).exists()):
+                kwargs[k] = str(Path(v).relative_to(TEST_FOLDER))
+                name = Path(v).name
+
+        state[resource_cls.__name__].append(
+            {
+                "name": name,
+                "args": list(args),
+                "kwargs": dict(kwargs),
+            }
+        )
+
+    def apply_dml(*args, **kwargs):
+        data = dict(kwargs)
+        data["args"] = list(args)
+        state[resource_cls.__name__].append(data)
+
     if hasattr(api_client, "create"):
         mock.create = create
     elif hasattr(api_client, "apply"):
@@ -166,5 +198,11 @@ def create_mock_api(
 
     if hasattr(api_client, "insert_dataframe"):
         mock.insert_dataframe = insert_dataframe
+
+    if hasattr(api_client, "upload"):
+        mock.upload = upload
+
+    if hasattr(api_client, "apply_dml"):
+        mock.apply_dml = apply_dml
 
     return mock

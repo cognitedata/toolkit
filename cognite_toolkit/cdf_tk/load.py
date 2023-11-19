@@ -238,7 +238,9 @@ def load_timeseries_metadata(
     print(f"  Created {len(timeseries)} timeseries from {len(files)} files.")
 
 
-def load_timeseries_datapoints(ToolGlobals: CDFToolConfig, file: str, dry_run: bool = False, directory=None) -> None:
+def load_timeseries_datapoints(
+    ToolGlobals: CDFToolConfig, file: str | None = None, dry_run: bool = False, directory=None
+) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(capabilities={"timeseriesAcl": ["READ", "WRITE"]})
