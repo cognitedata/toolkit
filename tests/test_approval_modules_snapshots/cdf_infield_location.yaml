@@ -336,6 +336,29 @@ Group:
     origin: cdf-project-templates
   name: infield_default_viewers
   sourceId: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+Node:
+- externalId: default_infield_config_minimal
+  instanceType: node
+  sources:
+  - properties:
+      customerDataSpaceId: APM_SourceData
+      customerDataSpaceVersion: '1'
+      featureConfiguration:
+        rootLocationConfigurations:
+        - appDataInstanceSpace: infield_default_location_app_data_space
+          assetExternalId: WMT:VAL
+          checklistAdmins:
+          - infield_default_checklist_admins
+          sourceDataInstanceSpace: infield_default_location_source_data_space
+          templateAdmins:
+          - infield_default_template_admins
+      name: Default location
+    source:
+      externalId: APM_Config
+      space: APM_Config
+      type: view
+      version: '1'
+  space: APM_Config
 Space:
 - description: Space for Infield Location App Data
   name: infield_default_location_app_data_space

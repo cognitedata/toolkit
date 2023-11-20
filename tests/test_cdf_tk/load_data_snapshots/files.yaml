@@ -1,0 +1,9 @@
+FileMetadata:
+- args: []
+  kwargs:
+    data_set_id: 999
+    external_id: example_my_file.txt
+    name: my_file.txt
+    overwrite: false
+    path: test_cdf_tk/load_data/files/my_file.txt
+  name: my_file.txt
