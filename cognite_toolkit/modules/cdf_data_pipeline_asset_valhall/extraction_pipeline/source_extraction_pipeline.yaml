@@ -1,6 +1,6 @@
 external_id: 'ep-src:asset:{{location_name}}:{{source_name}}'
 name: 'src:asset:{{location_name}}:{{source_name}}'
-data_set_external_id: 'asset:{{location_name}}'
+data_set_external_id: 'ds-asset:{{location_name}}'
 description: 'Asset source extraction pipeline with configuration for DB extractor reading data from {{location_name}}:{{source_name}}'
 rawTables:  [
     dbName: 'src-asset-{{location_name}}:{{source_name}}',
