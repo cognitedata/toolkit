@@ -15,7 +15,7 @@ SELECT
   tag                             as name,
   sourceDb                        as source,
   description,
-  dataset_id("asset:valhall")     as dataSetId,
+  dataset_id("ds-asset:valhall")     as dataSetId,
   to_metadata_except(
     array("sourceDb", "parentTag", "description"), *) 
                                   as metadata
