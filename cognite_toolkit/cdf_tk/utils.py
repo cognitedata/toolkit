@@ -186,7 +186,7 @@ class CDFToolConfig:
         return self._project
 
     @property
-    def data_set_id(self) -> int:
+    def data_set_id(self) -> int | None:
         return self._data_set_id if self._data_set_id > 0 else None
 
     # Use this to ignore the data set when verifying the client's access capabilities

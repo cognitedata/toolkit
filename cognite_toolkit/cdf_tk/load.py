@@ -105,7 +105,10 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
 
     def __init__(self, client: CogniteClient):
         self.client = client
-        self.api_class = self._get_api_class(client, self.api_name)
+        try:
+            self.api_class = self._get_api_class(client, self.api_name)
+        except AttributeError:
+            raise AttributeError(f"Invalid api_name {self.api_name}.")
 
     @staticmethod
     def _get_api_class(client, api_name: str):
@@ -116,7 +119,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         elif dot_count == 0:
             pass
         else:
-            raise ValueError(f"Invalid api_name {api_name}.")
+            raise AttributeError(f"Invalid api_name {api_name}.")
         return getattr(parent, api_name)
 
     @classmethod
@@ -273,9 +276,15 @@ class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        scope = (
+            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TimeSeriesAcl.Scope.All()
+        )
+
         return TimeSeriesAcl(
             [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
-            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id]),
+            scope,
         )
 
     @classmethod
