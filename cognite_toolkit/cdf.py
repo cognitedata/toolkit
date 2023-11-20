@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import urllib
 import zipfile
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from importlib import resources
@@ -165,6 +166,11 @@ def build(
     build_config(build_dir=build_dir, source_dir=source_dir, build_env=build_env, clean=clean)
 
 
+_AVAILABLE_DATA_TYPES: tuple[str] = tuple(
+    itertools.chain((type_.value for type_ in CDFDataTypes), LOADER_BY_FOLDER_NAME.keys())
+)
+
+
 @app.command("deploy")
 def deploy(
     ctx: typer.Context,
@@ -216,11 +222,11 @@ def deploy(
         ),
     ] = False,
     include: Annotated[
-        Optional[list[CDFDataTypes]],
+        Optional[list[str]],
         typer.Option(
             "--include",
             "-i",
-            help="Specify which resources to deploy",
+            help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}",
         ),
     ] = None,
 ) -> None:
@@ -237,7 +243,13 @@ def deploy(
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
-    include = list(itertools.chain((type_.value for type_ in CDFDataTypes), LOADER_BY_FOLDER_NAME.keys()))
+    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
+        print(
+            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
+        )
+        exit(1)
+
+    include = include or list(_AVAILABLE_DATA_TYPES)
     if interactive:
         include = _select_data_types(include)
 
@@ -294,7 +306,7 @@ def deploy(
         exit(1)
 
 
-def _select_data_types(include: list[str]) -> list[str]:
+def _select_data_types(include: Sequence[str]) -> list[str]:
     mapping: dict[int, str] = {}
     for i, datatype in enumerate(include):
         print(f"[bold]{i})[/] {datatype}")
@@ -303,7 +315,7 @@ def _select_data_types(include: list[str]) -> list[str]:
     print("q) Quit")
     answer = input("Select data types to deploy: ")
     if answer.casefold() == "a":
-        return include
+        return list(include)
     elif answer.casefold() == "q":
         exit(0)
     else:

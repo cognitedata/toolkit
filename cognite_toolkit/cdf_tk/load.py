@@ -177,9 +177,15 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        scope = (
+            TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TransformationsAcl.Scope.All()
+        )
+
         return TransformationsAcl(
             [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
-            TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id]),
+            scope,
         )
 
     def get_id(self, item: Transformation) -> str:
