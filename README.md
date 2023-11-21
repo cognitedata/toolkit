@@ -83,7 +83,16 @@ modules
 ```
 
 
-[
+> [!WARNING]
+>
+> `default.config.yaml` files should not be edited as they might be overwritten by toolkit updates.
+> The correct way to configure a module is to make a copy of `default.config.yaml` as `config.yaml` and make changes there. These files should be added to version control.
+
+
+## 3. Verify the configuration
+
+The cdf-tk CLI tool  
+
 
 
 > Below is an overview of the scope of what can be governed through using these templates:
