@@ -1,0 +1,13 @@
+externalId: '{{data_model}}'
+name: '{{data_model}}'
+space: '{{model_space}}'
+version: '{{data_model_version}}'
+views:
+- externalId: Pump
+  space: '{{model_space}}'
+  type: view
+  version: '{{view_Pump_version}}'
+- externalId: LiftStation
+  space: '{{model_space}}'
+  type: view
+  version: '{{view_LiftStation_version}}'

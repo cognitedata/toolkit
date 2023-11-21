@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cognite_toolkit"
-version = "0.1.0"
+version = "0.1.0a1"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
@@ -11,7 +11,7 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "^7", extras = ["pandas"]}
+cognite-sdk = {version = "^7.2", extras = ["pandas"]}
 pandas = "^2.1.1"
 pyyaml = "^6.0.1"
 dacite = "^1.8.1"
@@ -27,6 +27,7 @@ pre-commit = "^3.5.0"
 pytest = "^7.4.2"
 pep8-naming = "^0.13.3"
 pytest-regressions = "^2.4.2"
+twine = "^4.0.2"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit.cdf:app"

@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import io
 import os
 import re
 from collections import defaultdict
@@ -103,8 +104,10 @@ def load_raw(
                 print(f"[bold red]ERROR:[/] Filename {f} does not match expected format.")
                 ToolGlobals.failed = True
                 return
-        with open(f"{directory}/{f}") as file:
-            dataframe = pd.read_csv(file, dtype=str)
+        with open(f"{directory}/{f}", mode="rb") as file:
+            # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+            file_content = file.read().replace(b"\r\n", b"\n").decode("utf-8")
+            dataframe = pd.read_csv(io.StringIO(file_content), dtype=str)
             dataframe = dataframe.fillna("")
             try:
                 if not dry_run:
@@ -238,7 +241,9 @@ def load_timeseries_metadata(
     print(f"  Created {len(timeseries)} timeseries from {len(files)} files.")
 
 
-def load_timeseries_datapoints(ToolGlobals: CDFToolConfig, file: str, dry_run: bool = False, directory=None) -> None:
+def load_timeseries_datapoints(
+    ToolGlobals: CDFToolConfig, file: str | None = None, dry_run: bool = False, directory=None
+) -> None:
     if directory is None:
         raise ValueError("directory must be specified")
     client = ToolGlobals.verify_client(capabilities={"timeseriesAcl": ["READ", "WRITE"]})
@@ -521,6 +526,10 @@ def load_datamodel(
             cognite_resources_by_type[type_].append(
                 resource_cls.load(load_yaml_inject_variables(file, ToolGlobals.environment_variables()))
             )
+    # Remove duplicates
+    for type_ in list(cognite_resources_by_type):
+        unique = {r.as_id(): r for r in cognite_resources_by_type[type_]}
+        cognite_resources_by_type[type_] = list(unique.values())
 
     explicit_space_list = [s.space for s in cognite_resources_by_type["space"]]
     space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
@@ -550,7 +559,7 @@ def load_datamodel(
         "space": client.data_modeling.spaces,
     }
     for type_, resources in cognite_resources_by_type.items():
-        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve([r.as_id() for r in resources])
+        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve(list({r.as_id() for r in resources}))
 
     differences: dict[str, Difference] = {}
     for type_, resources in cognite_resources_by_type.items():
