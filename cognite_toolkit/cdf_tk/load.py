@@ -166,7 +166,7 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         return TimeSeriesAcl(
             [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
-            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id]),
+            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id or 0]),
         )
 
     def get_id(self, item: TimeSeries) -> str:
