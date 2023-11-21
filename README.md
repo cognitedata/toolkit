@@ -1,32 +1,34 @@
 # Official Cognite Data Fusion project templates
 
+> Configure Cognite Data Fusion quickly, consistently, traceably, and repeatably
+ 
 > [!NOTE]
-> **ALPHA**
-> 
-> The templates and the `cdf-tk` tool are currently in ALPHA. The scope in alpha is on Asset
+> The templates and the `cdf-tk` tool are currently in **ALPHA**. The scope in alpha is on Asset
 Performance Management focused on Infield (Digital Operator Rounds). The templates and tooling
 will be continously improved throughout moving towards beta and general availability.
 
+
 ## Getting started
 
-> [!IMPORTANT]
->
-> To use this template, you will need to
-> 1. Make your own copy of this repository
-> 2. Change yaml-files that control the modules that are relevant to your Cognite Data Fusion projects(s)
-> 3. Install the `cdf-tk` cli tool that can verify and deploy the modules you have configured
-> 4. Optionally, set up GitHub Actions that deploy configuration changes as CI/CD
+1. [Install the Cognite Data Fusion Toolkit](#1-install-the-toolkit) in your repository. It consists the `cdf-tk` tool and modular resource packages to install in your Cognite Data Fusion projects
+1. Configure the included modules by editing the yaml configuration files to fit your needs
+1. Verify and Deploy the configuration using `cdf-tk`
+1. Optionally: add your own modules
+1. Optionally: set up automated deployment using GitHub Actions
 
-## Quickstart
+## 1. Install the toolkit CLI
 
-
+To install the `cdf-tk` tool, you need a working Python installation >=3.9 (recommended 3.11). Run these commands to install and see the command-line options:
 
 
-### Toolkit
+```
+$ pip install cognite-toolkit
+$ cdf-tk --help
+```
 
-The CDF Toolkit is a command-line interface (`cdf-tk`) used for configuring and administrating Cognite Data
-Fusion (CDF) projects.
-It supports three different modes of operation:
+The `cdf-tk` tool is available as a command line tool. Run `cdf-tk --help` to see the available commands.
+
+The Cognite Data Fusion Toolkit is a command-line interface that supports three different modes of operation:
 
 1. As an **interactive command-line tool** used alongside the Cognite Data Fusion web application to retrieve and
    push configuration of the different Cognite Data Fusion services like data sets, data models, transformations,
@@ -38,7 +40,12 @@ It supports three different modes of operation:
    bundled with templates useful for getting started with Cognite Data Fusion, as well as for specific use cases
    delivered by Cognite or its partners. You can also create your own templates and share them.
 
->
+More details about the tool can be found at
+[developer.cognite.com](http://developer.cognite.com/sdks/toolkit).
+
+
+## 
+
 > Below is an overview of the scope of what can be governed through using these templates:
 
 ![Overview of project templates](./static/overview.png "Overview")
@@ -46,14 +53,14 @@ It supports three different modes of operation:
 ## Quickstart
 
 To install the `cdf-tk` tool, you need a working Python installation >=3.9 (recommended 3.11).
-Run: `pip install cognite-toolkit`
+
+
 
 The `cdf-tk` tool is available as a command line tool. Run `cdf-tk --help` to see the available commands.
 
 ## For more information
 
-More details about the tool can be found at
-[developer.cognite.com](http://developer.cognite.com/sdks/toolkit).
+
 
 You can find an overview of the modules and packages in the
 [module and package documentation](http://developer.cognite.com/sdks/toolkit/modules).
