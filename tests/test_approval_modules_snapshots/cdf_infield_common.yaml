@@ -25,6 +25,5 @@ Space:
   name: cognite_app_data
   space: cognite_app_data
 deleted:
-  Group: []
   Space:
   - cognite_app_data

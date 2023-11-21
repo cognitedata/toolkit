@@ -491,7 +491,6 @@ TransformationSchedule:
   interval: 0 * * * *
   isPaused: false
 deleted:
-  Group: []
   Space:
   - infield_default_location_app_data_space
   - infield_default_location_source_data_space
