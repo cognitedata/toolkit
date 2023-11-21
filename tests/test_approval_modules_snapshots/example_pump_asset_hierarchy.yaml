@@ -91,4 +91,4 @@ TransformationSchedule:
   isPaused: true
 deleted:
   Transformation:
-  - pump_asset_hierarchy-load-collections_pump
+  - externalId: pump_asset_hierarchy-load-collections_pump

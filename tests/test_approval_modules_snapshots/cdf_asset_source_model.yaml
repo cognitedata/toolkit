@@ -110,6 +110,10 @@ View:
   space: ExtendedSourceDataModels
   version: '1'
 deleted:
+  Container:
+  - externalId: Asset
+    space: ExtendedSourceDataModels
+    type: container
   DataModel:
   - externalId: ExtendedSourceData
     space: ExtendedSourceDataModels
@@ -118,7 +122,7 @@ deleted:
   Space:
   - cdfTemplateInstances
   Transformation:
-  - sync-asset_hierarchy_cdf_asset_source_model
+  - externalId: sync-asset_hierarchy_cdf_asset_source_model
   View:
   - externalId: Asset
     space: ExtendedSourceDataModels

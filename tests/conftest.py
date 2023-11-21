@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import itertools
 from collections import defaultdict
 from collections.abc import MutableSequence, Sequence
@@ -215,25 +216,40 @@ def create_mock_api(
         data["args"] = list(args)
         written_resources[resource_cls.__name__].append(data)
 
-    def delete(*args, **kwargs) -> Any:
+    def delete_core(
+        id: int | Sequence[int] | None = None,
+        external_id: str | Sequence[str] | None = None,
+        **_,
+    ) -> list:
         deleted = []
-        for arg in itertools.chain(args, kwargs.values()):
-            # bool is a subclass of int in Python. Bool args are not arguments.
-            if not isinstance(arg, bool) and isinstance(arg, (int, str, VersionedDataModelingId)):
-                deleted.append(
-                    arg.dump(camel_case=True, include_type=True) if isinstance(arg, VersionedDataModelingId) else arg
-                )
-            elif isinstance(arg, Sequence) and all(
-                isinstance(v, (int, str, VersionedDataModelingId)) and not isinstance(v, bool) for v in arg
-            ):
-                deleted.extend(
-                    [
-                        v.dump(camel_case=True, include_type=True) if isinstance(v, VersionedDataModelingId) else v
-                        for v in arg
-                    ]
-                )
-        if deleted:
-            deleted_resources[resource_cls.__name__].extend(deleted)
+        if not isinstance(id, str) and isinstance(id, Sequence):
+            deleted.extend({"id": i} for i in id)
+        elif isinstance(id, int):
+            deleted.append({"id": id})
+        if isinstance(external_id, str):
+            deleted.append({"externalId": external_id})
+        elif isinstance(external_id, Sequence):
+            deleted.extend({"externalId": i} for i in external_id)
+
+        deleted_resources[resource_cls.__name__].extend(deleted)
+        return deleted
+
+    def delete_data_modeling(ids: VersionedDataModelingId | Sequence[VersionedDataModelingId]) -> list:
+        deleted = []
+        if isinstance(ids, VersionedDataModelingId):
+            deleted.append(ids.dump(camel_case=True))
+        elif isinstance(ids, Sequence):
+            deleted.extend([id.dump(camel_case=True) for id in ids])
+        deleted_resources[resource_cls.__name__].extend(deleted)
+        return deleted
+
+    def delete_space(spaces: str | Sequence[str]) -> list:
+        deleted = []
+        if isinstance(spaces, str):
+            deleted.append(spaces)
+        elif isinstance(spaces, Sequence):
+            deleted.extend(spaces)
+        deleted_resources[resource_cls.__name__].extend(deleted)
         return deleted
 
     if hasattr(api_client, "create"):
@@ -254,6 +270,12 @@ def create_mock_api(
         mock.apply_dml = apply_dml
 
     if hasattr(api_client, "delete"):
-        mock.delete = delete
+        signature = inspect.signature(api_client.delete)
+        if "ids" in signature.parameters:
+            mock.delete = delete_data_modeling
+        elif "spaces" in signature.parameters:
+            mock.delete = delete_space
+        else:
+            mock.delete = delete_core
 
     return mock

@@ -617,6 +617,19 @@ View:
   space: APM_SourceData
   version: 1
 deleted:
+  Container:
+  - externalId: APM_Activity
+    space: APM_SourceData
+    type: container
+  - externalId: APM_Config
+    space: APM_Config
+    type: container
+  - externalId: APM_Notification
+    space: APM_SourceData
+    type: container
+  - externalId: APM_Operation
+    space: APM_SourceData
+    type: container
   DataModel:
   - externalId: APM_Config
     space: APM_Config
