@@ -110,7 +110,10 @@ def cognite_client_approval() -> CogniteClient:
                         key=lambda x: x.get("externalId", x.get("name")),
                     )
             if deleted_resources:
-                dumped["deleted"] = dict(sorted(deleted_resources.items()))
+                dumped["deleted"] = {}
+                for key in sorted(deleted_resources):
+                    dumped["deleted"][key] = sorted(deleted_resources[key])
+
             return dumped
 
         client.dump = dump
