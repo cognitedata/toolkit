@@ -339,5 +339,3 @@ Group:
     origin: cdf-project-templates
   name: cicd:all:read-write
   sourceId: <change_me>
-deleted:
-  Group: []

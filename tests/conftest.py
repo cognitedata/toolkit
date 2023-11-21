@@ -230,8 +230,8 @@ def create_mock_api(
             deleted.append({"externalId": external_id})
         elif isinstance(external_id, Sequence):
             deleted.extend({"externalId": i} for i in external_id)
-
-        deleted_resources[resource_cls.__name__].extend(deleted)
+        if deleted:
+            deleted_resources[resource_cls.__name__].extend(deleted)
         return deleted
 
     def delete_data_modeling(ids: VersionedDataModelingId | Sequence[VersionedDataModelingId]) -> list:
@@ -240,7 +240,8 @@ def create_mock_api(
             deleted.append(ids.dump(camel_case=True))
         elif isinstance(ids, Sequence):
             deleted.extend([id.dump(camel_case=True) for id in ids])
-        deleted_resources[resource_cls.__name__].extend(deleted)
+        if deleted:
+            deleted_resources[resource_cls.__name__].extend(deleted)
         return deleted
 
     def delete_space(spaces: str | Sequence[str]) -> list:
@@ -249,7 +250,8 @@ def create_mock_api(
             deleted.append(spaces)
         elif isinstance(spaces, Sequence):
             deleted.extend(spaces)
-        deleted_resources[resource_cls.__name__].extend(deleted)
+        if deleted:
+            deleted_resources[resource_cls.__name__].extend(deleted)
         return deleted
 
     if hasattr(api_client, "create"):
