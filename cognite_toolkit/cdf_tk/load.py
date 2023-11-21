@@ -614,7 +614,7 @@ def load_datamodel(
                                     if len(ret) > 0:
                                         deleted += 1
                         else:
-                            ret = resource_api_by_type[type_].delete(i)
+                            ret = resource_api_by_type[type_].delete([i2.as_id() for i2 in i])
                             deleted += len(ret)
                 except CogniteAPIError as e:
                     # Typically spaces can not be deleted if there are other
