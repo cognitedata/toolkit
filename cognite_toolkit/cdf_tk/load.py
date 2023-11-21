@@ -145,7 +145,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     ) -> T_Resource | T_ResourceList | None:
         return self.api_class.create(items)
 
-    def delete(self, ids: T_ID | Sequence[T_ID]) -> T_ResourceList:
+    def delete(self, ids: T_ID | Sequence[T_ID]) -> T_ResourceList | None:
         return self.api_class.delete(ids)
 
     def retrieve(self, ids: T_ID) -> T_Resource | T_ResourceList | None:
@@ -171,6 +171,9 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 
     def get_id(self, item: TimeSeries) -> str:
         return item.external_id
+
+    def delete(self, ids: str | Sequence[str]) -> None:
+        return self.client.time_series.delete(external_id=ids)
 
 
 @final
@@ -227,9 +230,13 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
                 self.client.transformations.schedules.create(t.schedule)
         return created
 
+    def delete(self, ids: str | Sequence[str]) -> None:
+        return self.client.transformations.delete(external_id=ids)
+
 
 @final
 class GroupLoader(Loader[int, Group, GroupList]):
+    support_drop = False
     api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
