@@ -88,6 +88,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     All resources supported by the cognite_toolkit should implement a loader.
 
     Class attributes:
+        support_drop: Whether the resource supports the drop flag.
         load_files_individually: Whether to load each file individually or all files in a folder at once.
         filetypes: The filetypes that are supported by this loader. If empty, all files are supported.
         api_name: The name of the api that is in the cognite_client that is used to interact with the CDF API.
@@ -96,6 +97,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         list_cls: The list version of the resource class.
     """
 
+    support_drop: bool = True
     load_files_individually: bool = False
     filetypes = frozenset({"yaml", "yml"})
     api_name: str
@@ -268,6 +270,7 @@ class GroupLoader(Loader[int, Group, GroupList]):
 
 @final
 class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
+    support_drop = False
     load_files_individually = True
     filetypes = frozenset({"csv", "parquet"})
     api_name = "time_series.data"
@@ -309,6 +312,7 @@ class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
 
 @final
 class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
+    support_drop = False
     load_files_individually = True
     filetypes = frozenset({"csv", "parquet"})
     api_name = "raw.rows"
@@ -436,22 +440,23 @@ def load_resources(
             return
         print(f"[bold]Uploading {len(batch)} {loader.api_name} to CDF...[/]")
 
-        drop_items: list[T_ID] = []
-        for item in batch:
-            # Set the context info for this CDF project
-            if hasattr(item, "data_set_id"):
-                item.data_set_id = ToolGlobals.data_set_id
-            if drop:
-                drop_items.append(loader.get_id(item))
-        try:
-            if drop:
-                if not dry_run:
-                    loader.delete(drop_items)
-                    print(f"  Deleted {len(drop_items)} {loader.api_name}.")
-                else:
-                    print(f"  Would have deleted {len(batch)} {loader.api_name}.")
-        except CogniteAPIError:
-            print(f"[bold red]ERROR:[/] Failed to delete {drop_items}. They may not exist.")
+        if loader.support_drop:
+            drop_items: list[T_ID] = []
+            for item in batch:
+                # Set the context info for this CDF project
+                if hasattr(item, "data_set_id"):
+                    item.data_set_id = ToolGlobals.data_set_id
+                if drop:
+                    drop_items.append(loader.get_id(item))
+            try:
+                if drop:
+                    if not dry_run:
+                        loader.delete(drop_items)
+                        print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+                    else:
+                        print(f"  Would have deleted {len(batch)} {loader.api_name}.")
+            except CogniteAPIError:
+                print(f"[bold red]ERROR:[/] Failed to delete {drop_items}. They may not exist.")
         try:
             if not dry_run:
                 loader.create(batch, ToolGlobals, drop)
