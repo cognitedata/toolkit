@@ -1578,3 +1578,14 @@ View:
       name: workPackageNumber
   space: apm_simple
   version: '1'
+deleted:
+  Transformation:
+  - apm_simple-load-asset-hierarchy
+  - apm_simple-load-asset2children
+  - apm_simple-load-assets
+  - apm_simple-load-timeseries2assets
+  - apm_simple-load-workitems
+  - apm_simple-load-workitems2assets
+  - apm_simple-load-workitems2workorders
+  - apm_simple-load-workorders
+  - apm_simple-load-workorders2assets

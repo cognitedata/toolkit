@@ -89,3 +89,6 @@ TransformationSchedule:
 - externalId: pump_asset_hierarchy-load-collections_pump
   interval: 0 * * * *
   isPaused: true
+deleted:
+  Transformation:
+  - pump_asset_hierarchy-load-collections_pump

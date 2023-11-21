@@ -490,3 +490,8 @@ TransformationSchedule:
 - externalId: sync_workorders_to_apm_activities
   interval: 0 * * * *
   isPaused: false
+deleted:
+  Transformation:
+  - sync_asset_parents_from_hierarchy_to_apm
+  - sync_assets_from_hierarchy_to_apm
+  - sync_workorders_to_apm_activities

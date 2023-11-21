@@ -109,3 +109,6 @@ View:
       name: metadata
   space: ExtendedSourceDataModels
   version: '1'
+deleted:
+  Transformation:
+  - sync-asset_hierarchy_cdf_asset_source_model

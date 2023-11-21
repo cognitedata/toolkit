@@ -242,3 +242,7 @@ View:
         version: '1'
   space: pumpModelSpace
   version: '1'
+deleted:
+  Transformation:
+  - pump_model-populate-lift_station_pumps_edges
+  - pump_model-populate-pump_container
