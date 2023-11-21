@@ -1,5 +1,29 @@
 # Official Cognite Data Fusion project templates
 
+> [!NOTE]
+> **ALPHA**
+> 
+> The templates and the `cdf-tk` tool are currently in ALPHA. The scope in alpha is on Asset
+Performance Management focused on Infield (Digital Operator Rounds). The templates and tooling
+will be continously improved throughout moving towards beta and general availability.
+
+## Getting started
+
+> [!IMPORTANT]
+>
+> To use this template, you will need to
+> 1. Make your own copy of this repository
+> 2. Change yaml-files that control the modules that are relevant to your Cognite Data Fusion projects(s)
+> 3. Install the `cdf-tk` cli tool that can verify and deploy the modules you have configured
+> 4. Optionally, set up GitHub Actions that deploy configuration changes as CI/CD
+
+## Quickstart
+
+
+
+
+### Toolkit
+
 The CDF Toolkit is a command-line interface (`cdf-tk`) used for configuring and administrating Cognite Data
 Fusion (CDF) projects.
 It supports three different modes of operation:
@@ -14,13 +38,8 @@ It supports three different modes of operation:
    bundled with templates useful for getting started with Cognite Data Fusion, as well as for specific use cases
    delivered by Cognite or its partners. You can also create your own templates and share them.
 
-## ALPHA NOTE
-
-The templates and the `cdf-tk` tool are currently in ALPHA. The scope in alpha is on Asset
-Performance Management focused on Infield (Digital Operator Rounds). The templates and tooling
-will be continously improved throughout moving towards beta and general availability.
-
-Below is an overview of the scope of what can be governed through using these templates:
+>
+> Below is an overview of the scope of what can be governed through using these templates:
 
 ![Overview of project templates](./static/overview.png "Overview")
 
