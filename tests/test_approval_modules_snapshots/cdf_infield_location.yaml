@@ -490,3 +490,11 @@ TransformationSchedule:
 - externalId: sync_workorders_to_apm_activities
   interval: 0 * * * *
   isPaused: false
+deleted:
+  Space:
+  - infield_default_location_app_data_space
+  - infield_default_location_source_data_space
+  Transformation:
+  - externalId: sync_asset_parents_from_hierarchy_to_apm
+  - externalId: sync_assets_from_hierarchy_to_apm
+  - externalId: sync_workorders_to_apm_activities

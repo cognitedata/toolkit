@@ -109,8 +109,8 @@ def test_module_approval(
             build_dir=str(local_tmp_path),
             build_env="test",
             interactive=False,
-            drop=False,
-            drop_data=False,
+            drop=True,
+            drop_data=True,
             dry_run=False,
             include=[],
         )
