@@ -471,6 +471,9 @@ Space:
 TimeSeries:
 - dataSetId: 999
   description: PH 1st Stg Disch Gas Coolers
+  externalId: pi:160633
+  isStep: false
+  isString: false
   metadata:
     archiving: '1'
     compdev: '0'
@@ -526,6 +529,9 @@ TimeSeries:
   name: VAL_23-PDT-92602:X.Value
 - dataSetId: 999
   description: PH 1stStgSuctCool Gas Out
+  externalId: pi:160696
+  isStep: false
+  isString: false
   metadata:
     archiving: '1'
     compdev: '0'
@@ -581,6 +587,9 @@ TimeSeries:
   name: VAL_23-PT-92504:X.Value
 - dataSetId: 999
   description: PH 1stStgComp Discharge
+  externalId: pi:160702
+  isStep: false
+  isString: false
   metadata:
     archiving: '1'
     compdev: '0'
@@ -637,6 +646,9 @@ TimeSeries:
   unit: bar
 - dataSetId: 999
   description: PH 1stStgSuctCool Gas Out Measured Value
+  externalId: pi:160781
+  isStep: false
+  isString: false
   metadata:
     archiving: '1'
     compdev: '0'
@@ -692,63 +704,10 @@ TimeSeries:
   name: VAL_23-TIC-92504:Z.X.Value
   unit: degC
 - dataSetId: 999
-  description: PH 1stStgDiscCool Gas Out Output
-  metadata:
-    archiving: '1'
-    compdev: '0'
-    compdevpercent: '0'
-    compmax: '3600'
-    compmin: '0'
-    compressing: '0'
-    contextAgent: PI contextualization pipeline
-    contextAlgorithm: Exact match
-    contextClass: VAL
-    contextConfidenceScore: '1'
-    contextMatchString: 23-TT-92604A
-    convers: '1'
-    descriptor: PH 1stStgDiscCool Gas Out Output
-    digitalset: ''
-    displaydigits: '-5'
-    engunits: degC
-    excdev: '0'
-    excdevpercent: '0'
-    excmax: '0'
-    excmin: '0'
-    exdesc: ''
-    filtercode: '0'
-    future: '0'
-    instrumenttag: 23-TT-92604A:X.Value
-    location1: '1'
-    location2: '0'
-    location3: '7'
-    location4: '1'
-    location5: '2'
-    pointid: '191092'
-    pointsource: VLH_PCN1
-    pointtype: Float32
-    ptclassid: '2'
-    ptclassname: classic
-    ptclassrev: '1'
-    recno: '175484'
-    scan: '1'
-    shutdown: '0'
-    sourcetag: ''
-    span: '100'
-    squareroot: '0'
-    srcptid: '0'
-    step: '0'
-    tag: VAL_23-TT-92604A:X.Value
-    totalcode: '0'
-    typicalvalue: '50'
-    userint1: '0'
-    userint2: '0'
-    userreal1: '0'
-    userreal2: '0'
-    zero: '0'
-  name: VAL_23-TT-92604A:X.Value
-  unit: degC
-- dataSetId: 999
   description: PH 1stStgDiscCool CM Out
+  externalId: pi:163582
+  isStep: false
+  isString: false
   metadata:
     archiving: '1'
     compdev: '0'
@@ -804,6 +763,9 @@ TimeSeries:
   name: VAL_45-PT-92608:X.Value
 - dataSetId: 999
   description: PH 1stStgDiscClr CoolMed Sply
+  externalId: pi:163657
+  isStep: false
+  isString: false
   metadata:
     archiving: '1'
     compdev: '0'
@@ -857,6 +819,65 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_45-TT-92606:X.Value
+- dataSetId: 999
+  description: PH 1stStgDiscCool Gas Out Output
+  externalId: pi:191092
+  isStep: false
+  isString: false
+  metadata:
+    archiving: '1'
+    compdev: '0'
+    compdevpercent: '0'
+    compmax: '3600'
+    compmin: '0'
+    compressing: '0'
+    contextAgent: PI contextualization pipeline
+    contextAlgorithm: Exact match
+    contextClass: VAL
+    contextConfidenceScore: '1'
+    contextMatchString: 23-TT-92604A
+    convers: '1'
+    descriptor: PH 1stStgDiscCool Gas Out Output
+    digitalset: ''
+    displaydigits: '-5'
+    engunits: degC
+    excdev: '0'
+    excdevpercent: '0'
+    excmax: '0'
+    excmin: '0'
+    exdesc: ''
+    filtercode: '0'
+    future: '0'
+    instrumenttag: 23-TT-92604A:X.Value
+    location1: '1'
+    location2: '0'
+    location3: '7'
+    location4: '1'
+    location5: '2'
+    pointid: '191092'
+    pointsource: VLH_PCN1
+    pointtype: Float32
+    ptclassid: '2'
+    ptclassname: classic
+    ptclassrev: '1'
+    recno: '175484'
+    scan: '1'
+    shutdown: '0'
+    sourcetag: ''
+    span: '100'
+    squareroot: '0'
+    srcptid: '0'
+    step: '0'
+    tag: VAL_23-TT-92604A:X.Value
+    totalcode: '0'
+    typicalvalue: '50'
+    userint1: '0'
+    userint2: '0'
+    userreal1: '0'
+    userreal2: '0'
+    zero: '0'
+  name: VAL_23-TT-92604A:X.Value
+  unit: degC
 Transformation:
 - conflictMode: upsert
   dataSetId: 999
@@ -1579,21 +1600,39 @@ View:
   space: apm_simple
   version: '1'
 deleted:
+  Container:
+  - externalId: Asset
+    space: apm_simple
+    type: container
+  - externalId: WorkItem
+    space: apm_simple
+    type: container
+  - externalId: WorkOrder
+    space: apm_simple
+    type: container
   DataModel:
   - externalId: apm_simple
     space: apm_simple
     type: datamodel
     version: '1'
+  TimeSeries:
+  - externalId: pi:160633
+  - externalId: pi:160696
+  - externalId: pi:160702
+  - externalId: pi:160781
+  - externalId: pi:163582
+  - externalId: pi:163657
+  - externalId: pi:191092
   Transformation:
-  - apm_simple-load-asset-hierarchy
-  - apm_simple-load-asset2children
-  - apm_simple-load-assets
-  - apm_simple-load-timeseries2assets
-  - apm_simple-load-workitems
-  - apm_simple-load-workitems2assets
-  - apm_simple-load-workitems2workorders
-  - apm_simple-load-workorders
-  - apm_simple-load-workorders2assets
+  - externalId: apm_simple-load-asset-hierarchy
+  - externalId: apm_simple-load-asset2children
+  - externalId: apm_simple-load-assets
+  - externalId: apm_simple-load-timeseries2assets
+  - externalId: apm_simple-load-workitems
+  - externalId: apm_simple-load-workitems2assets
+  - externalId: apm_simple-load-workitems2workorders
+  - externalId: apm_simple-load-workorders
+  - externalId: apm_simple-load-workorders2assets
   View:
   - externalId: Asset
     space: apm_simple
