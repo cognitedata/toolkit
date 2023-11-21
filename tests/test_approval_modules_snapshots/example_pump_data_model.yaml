@@ -243,6 +243,22 @@ View:
   space: pumpModelSpace
   version: '1'
 deleted:
+  DataModel:
+  - externalId: PumpLiftStations
+    space: pumpModelSpace
+    type: datamodel
+    version: '1'
+  Space:
+  - pumpInstanceSpace
   Transformation:
   - pump_model-populate-lift_station_pumps_edges
   - pump_model-populate-pump_container
+  View:
+  - externalId: LiftStation
+    space: pumpModelSpace
+    type: view
+    version: '1'
+  - externalId: Pump
+    space: pumpModelSpace
+    type: view
+    version: '1'

@@ -1579,6 +1579,11 @@ View:
   space: apm_simple
   version: '1'
 deleted:
+  DataModel:
+  - externalId: apm_simple
+    space: apm_simple
+    type: datamodel
+    version: '1'
   Transformation:
   - apm_simple-load-asset-hierarchy
   - apm_simple-load-asset2children
@@ -1589,3 +1594,16 @@ deleted:
   - apm_simple-load-workitems2workorders
   - apm_simple-load-workorders
   - apm_simple-load-workorders2assets
+  View:
+  - externalId: Asset
+    space: apm_simple
+    type: view
+    version: '1'
+  - externalId: WorkItem
+    space: apm_simple
+    type: view
+    version: '1'
+  - externalId: WorkOrder
+    space: apm_simple
+    type: view
+    version: '1'

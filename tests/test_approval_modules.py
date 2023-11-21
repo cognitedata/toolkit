@@ -110,7 +110,7 @@ def test_module_approval(
             build_env="test",
             interactive=False,
             drop=True,
-            drop_data=False,
+            drop_data=True,
             dry_run=False,
             include=[],
         )

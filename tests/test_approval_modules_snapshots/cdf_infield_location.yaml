@@ -491,6 +491,9 @@ TransformationSchedule:
   interval: 0 * * * *
   isPaused: false
 deleted:
+  Space:
+  - infield_default_location_app_data_space
+  - infield_default_location_source_data_space
   Transformation:
   - sync_asset_parents_from_hierarchy_to_apm
   - sync_assets_from_hierarchy_to_apm
