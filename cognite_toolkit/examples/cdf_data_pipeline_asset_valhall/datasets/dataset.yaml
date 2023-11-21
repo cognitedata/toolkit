@@ -13,7 +13,7 @@ metadata: {
   ],
   transformations: [
     {
-      externalId: 'tr-asset-{{location_name}}:{{source_name}}-asset-hierarchy',
+      externalId: 'tr-asset-{{location_name}}-{{source_name}}-asset-hierarchy',
       type: "jetfire"
     }
   ]
