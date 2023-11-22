@@ -124,7 +124,9 @@ Once satisfied with the output, the configuration can be applied in the target C
 cdf-tk deploy --env <my_env> --build-dir <my_build_dir>
 ```
 
-Note that there are option flags to delete previously created resources (deterministic) and data. Check `cdf-tk deploy --help` for information
+Note that there are option flags to delete previously created resources (deterministic) and data. Check `cdf-tk deploy --help` for information.
+
+
 
 
 > [!NOTE]
