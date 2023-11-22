@@ -21,8 +21,8 @@ This are the steps to get started with Cognite Data Fusion configuration:
 ## Prerequisites
 
 - A working Python installation
-- A target Cognite Data Fusion project
-
+- A target Cognite Data Fusion project[^1]
+- Identity Provider groups and service principals, see [https://developer.cognite.com/sdks/toolkit/idp](https://developer.cognite.com/sdks/toolkit/idp)
 
 
 ### Step 1: Install the toolkit CLI 
@@ -34,37 +34,38 @@ pip install cognite-toolkit
 cdf-tk --help
 ```
 
-The Cognite Data Fusion Toolkit is a command-line interface that supports three different modes of operation:
-
-1. As an **interactive command-line tool** used alongside the Cognite Data Fusion web application to retrieve and
-   push configuration of the different Cognite Data Fusion services like data sets, data models, transformations,
-   and more. This mode also supports configuration of new Cognite Data Fusion projects to quickly get started.
-2. As tool to support the **project life-cyle by scripting and automating** configuration and management of Cognite Data
-   Fusion projects where CDF configurations are kept as yaml-files that can be checked into version
-   control. This mode also supports DevOps workflows with development, staging, and production projects.
-3. As a **tool to deploy official Cognite project templates** to your Cognite Data Fusion project. The tool comes
-   bundled with templates useful for getting started with Cognite Data Fusion, as well as for specific use cases
-   delivered by Cognite or its partners. You can also create your own templates and share them.
-
-More details about the tool can be found at
-[developer.cognite.com](http://developer.cognite.com/sdks/toolkit).
+> [!TIP]
+> The Cognite Data Fusion Toolkit supports three different modes of operation:
+>
+> 1. As an **interactive command-line tool** used alongside the Cognite Data Fusion web application to retrieve and
+>   push configuration of the different Cognite Data Fusion services like data sets, data models, transformations,
+>   and more. This mode also supports configuration of new Cognite Data Fusion projects to quickly get started.
+> 2. As tool to support the **project life-cyle by scripting and automating** configuration and management of Cognite Data
+>   Fusion projects where CDF configurations are kept as yaml-files that can be checked into version
+>   control. This mode also supports DevOps workflows with development, staging, and production projects.
+> 3. As a **tool to deploy official Cognite project templates** to your Cognite Data Fusion project. The tool comes
+>   bundled with templates useful for getting started with Cognite Data Fusion, as well as for specific use cases
+>   delivered by Cognite or its partners. You can also create your own templates and share them.
+>
+> More details about the tool can be found at
+> [developer.cognite.com](http://developer.cognite.com/sdks/toolkit).
 
 
 ### Step 2: Configure modules
 
-A **module** is a bundle of Cognite Data Fusion resources that are coupled together as logical units, for example data pipelines or the configuration of an application.
+A **module** is a bundle of Cognite Data Fusion resources that are coupled together as logical units, for example data pipelines or the configuration of an application. See https://developer.cognite.com/sdks/toolkit/templates for a more extensive description.
 
-To install the modules, run this command with <directory_name> of your own choosing:
+To install the modules, run this command with <my_project_dir> of your own choosing:
 
 ```sh
-cdf-tk init <directory_name> 
+cdf-tk init <my_project_dir> 
 ```
 
 There are three kinds of modules: 
 
-* `<directory_name>/modules/cdf_...`: Official Cognite modules. Do not make changes here, except adding your own config.yamls. These are potentially the only files that won't be overwritten in toolkit updates.
-* `<directory_name>/local_modules/`: Customer-specific modules can be added here as you see fit
-* `<directory_name>/examples/`: Sample configuration and data that can be useful for demonstrations or as boilerplate setup  
+* `<my_project_dir>/modules/cdf_...`: Official Cognite modules. Do not make changes here, except adding your own config.yamls. These are potentially the only files that won't be overwritten in toolkit updates.
+* `<my_project_dir>/local_modules/`: Customer-specific modules can be added here as you see fit
+* `<my_project_dir>/examples/`: Sample configuration and data that can be useful for demonstrations or as boilerplate setup  
 
 For convenience, modules are combined in _packages_. See [default.packages.yaml](/cognite_toolkit/default.packages.yaml) for examples.
 
@@ -113,7 +114,7 @@ Create a copy of default.config.yaml to config.yaml and edit it according to the
 
 #### 2.3 Create your own custom modules
 
-Following the same pattern as above, custom modules can be added to `<directory_name>/local_modules/`. If you add these modules to your local.yaml, they will get included in the build. 
+Following the same pattern as above, custom modules can be added to `<my_project_dir>/local_modules/`. If you add these modules to your local.yaml, they will get included in the build. 
 
 
 
@@ -127,19 +128,22 @@ cdf-tk build --env <my_env> --build-dir <my_build_dir>
 
 This processes all configuration files in the selected packages and modules, and writes the output to <my_build_dir>. It also provides helpful hints and warnings. The build directory can be reviewed manually idf desired. Sending the `--clean` flag ensures that the build folder is empty so that previous builds don't interfere with the last run (deterministic). Repeat step 2 and 3 until you are satisfied with the output. 
 
+Before deploying, you need to [set up and verify OIDC Connect Client Credentials][(https://developer.cognite.com/sdks/toolkit/quickstart](https://developer.cognite.com/sdks/toolkit/quickstart). You can either do this interactively or by using a .env file: 
 
-> [!TIP]
-> It is a good idea to add the `build_dir` to `.gitignore`to avoid checking it in to source control. `build_dir` defaults to `./build`.  
+- interactively: run `cdf-tk auth verify --interactive` 
+- manually: copy the `.env.tmpl` file found in the <my_project_dir> to `.env` and change it to match your IdP details
 
-
-### Verify access rights
-
-
-You can also do a dry-run of the deployment to detect any errors (see below). 
+Once build and authorisation has been verified, run deploy with the `--dry-run` flag set:
 
 ```
-cdf-tk build --env <my_env> --build-dir <my_build_dir>  
+cdf-tk deploy --env <my_env> --build-dir <my_build_dir> --dry-run true
+```
 
+
+
+> [!TIP]
+> Make sure .env files are added to .gitognore so secrets aren't accidantaly pushed to version control.
+> It is also a good idea to add the `build_dir` to `.gitignore`to avoid checking it in to source control. `build_dir` defaults to `./build`.  
 
 
 
@@ -158,3 +162,6 @@ You can find an overview of the modules and packages in the
 
 See [./CONTRIBUTING.md](./CONTRIBUTING.md) for information about how to contribute to the `cdf-tk` tool or
 templates.
+
+[^1]: A **Project** is the term for contained, stand-alone instance of Cognite Data Fusion that does not share configuration or data with other instances. It is identifyable by **project** in the API url by `https://{{cluster}}.cognitedata.com/api/v1/projects/{{project}}` and in the Fusion UI url `https://{{organisation}}.fusion.cognite.com/{{project}}`.
+
