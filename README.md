@@ -1,4 +1,4 @@
-# Official Cognite Data Fusion project configuration templates
+# Official Cognite Data Fusion Project configuration templates
 
 > Configure Cognite Data Fusion quickly, consistently, traceably, and repeatably
  
@@ -9,12 +9,23 @@ will be continously improved throughout moving towards beta and general availabi
 
 
 ## Getting started
-1. Install the Cognite Data Fusion Toolkit in your repository. It consists the `cdf-tk` tool and modular resource packages to install in your Cognite Data Fusion projects
-1. Configure the included or custom modules by editing the yaml configuration files to fit your needs
-1. Build, Verify and Deploy the configuration using `cdf-tk`
-1. Optional: set up automated deployment using GitHub Actions
 
-## 1. Install the toolkit CLI
+This are the steps to get started with Cognite Data Fusion configuration:
+
+- Install the Cognite Data Fusion Toolkit in your repository.
+- Use run the `init` command to get the modular resource packages to install in your Cognite Data Fusion projects
+- Configure the included (and add your own) by editing the yaml configuration files to fit your needs
+- Build, Verify and Deploy the configuration using the Toolkit
+- Optional: set up automated deployment using GitHub Actions
+
+## Prerequisites
+
+- A working Python installation
+- A target Cognite Data Fusion project
+
+
+
+### Step 1: Install the toolkit CLI 
 
 To install the `cdf-tk` tool, you need a working Python installation >=3.9 (recommended 3.11). It is available as a command-line tool, and `cdf-tk --help` will give you available options:
 
@@ -39,7 +50,7 @@ More details about the tool can be found at
 [developer.cognite.com](http://developer.cognite.com/sdks/toolkit).
 
 
-## 2. Configure modules
+### Step 2: Configure modules
 
 A **module** is a bundle of Cognite Data Fusion resources that are coupled together as logical units, for example data pipelines or the configuration of an application.
 
@@ -58,7 +69,7 @@ There are three kinds of modules:
 For convenience, modules are combined in _packages_. See [default.packages.yaml](/cognite_toolkit/default.packages.yaml) for examples.
 
 
-### 2.1. Select which modules to deploy
+#### 2.1. Select which modules to deploy
 
 Edit the `cognite_toolkit/local.yaml` file. You can add multiple environments (Cognite Data Fusion instances) like this:
 
@@ -76,20 +87,22 @@ The environment (dev in the example) is used by the cli tool to determine which 
 
 
 
-### 2.1. Configure each module as needed
+#### 2.2. Configure each module as needed
 
 Each module follow a similar pattern:
 
 ```
-modules/
-   <module_name>/
-      auth/
-      data_models/
-      transformations/
-      raw/
-      default.config.yaml 
-      config.yaml
+./modules|common|examples|local_modules/<moduleA>/
+                                                |- data_models/
+                                                |- auth/
+                                                |- transformations/
+                                                |- raw/
+                                                |- time_series/
+                                                |- files/
+                                                default.config.yaml 
+                                                config.yaml
 ```
+
 Create a copy of default.config.yaml to config.yaml and edit it according to the customer setup. In general, this is the only file that should be edited in the modules. The build command will replace placeholder values in the templates with these values.     
 
 > [!WARNING]
@@ -98,13 +111,13 @@ Create a copy of default.config.yaml to config.yaml and edit it according to the
 > The correct way to configure a module is to make a copy of `default.config.yaml` as `config.yaml` and make changes there. These files should be added to version control.
 
 
-### 2.3 Create your own custom modules
+#### 2.3 Create your own custom modules
 
-Following the same pattern as above, custom modules can be added to `<directory_name>/local_modules/`. 
+Following the same pattern as above, custom modules can be added to `<directory_name>/local_modules/`. If you add these modules to your local.yaml, they will get included in the build. 
 
 
 
-## 3. Build and verify the configuration
+## Step 3: Build, verify and deploy the configuration
 
 Run the `build` command with the `cdf-tk` CLI:
 
@@ -112,10 +125,21 @@ Run the `build` command with the `cdf-tk` CLI:
 cdf-tk build --env <my_env> --build-dir <my_build_dir> 
 ```
 
-This processes all configuration files in the selected packages and modules, and writes the output to <my_build_dir>. It also provides helpful hints and warnings. The build directory can be reviewed manually idf desired. Sending the `--clean` flag ensures that the build folder is empty so that previous builds don't interfere with the last run (deterministic).
+This processes all configuration files in the selected packages and modules, and writes the output to <my_build_dir>. It also provides helpful hints and warnings. The build directory can be reviewed manually idf desired. Sending the `--clean` flag ensures that the build folder is empty so that previous builds don't interfere with the last run (deterministic). Repeat step 2 and 3 until you are satisfied with the output. 
+
 
 > [!TIP]
 > It is a good idea to add the `build_dir` to `.gitignore`to avoid checking it in to source control. `build_dir` defaults to `./build`.  
+
+
+### Verify access rights
+
+
+You can also do a dry-run of the deployment to detect any errors (see below). 
+
+```
+cdf-tk build --env <my_env> --build-dir <my_build_dir>  
+
 
 
 
