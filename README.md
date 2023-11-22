@@ -1,6 +1,6 @@
 # Official Cognite Data Fusion Project configuration templates
 
-> Configure Cognite Data Fusion quickly, consistently, traceably, and repeatably
+> Configure Cognite Data Fusion quickly, consistently, traceably, and repeatably.
  
 > [!NOTE]
 > The templates and the `cdf-tk` tool are currently in **ALPHA**. The scope in alpha is on Asset
