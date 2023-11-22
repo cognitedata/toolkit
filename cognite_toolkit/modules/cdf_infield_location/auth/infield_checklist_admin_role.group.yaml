@@ -1,0 +1,94 @@
+# This role is identical to the normal users, but is used to group user with additional InField feature capabilities for checklist admins.
+# Typical Team captain / Supervisor users
+name: 'infield_{{location_name}}_checklist_admins'
+sourceId: '{{infield_location_checklist_admin_users_source_id}}'
+metadata:
+  origin: 'cdf-project-templates'
+  module_version: '{{module_version}}'
+capabilities:
+  - threedAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+          ids: ['infield_{{location_name}}_location_source_data_dataset']
+        }
+  - assetsAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+          ids: ['infield_{{location_name}}_location_source_data_dataset']
+        }
+  - filesAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+          ids: ['infield_{{location_name}}_location_source_data_dataset', 'infield_{{location_name}}_location_app_data_dataset']
+        }
+  - filesAcl:
+      actions:
+        - WRITE
+      scope:
+        datasetScope: {
+          ids: ['infield_{{location_name}}_location_app_data_dataset']
+        }
+  - relationshipsAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+          ids: ['infield_{{location_name}}_location_source_data_dataset']
+        }
+  - timeSeriesAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+          ids: ['infield_{{location_name}}_location_source_data_dataset', 'infield_{{location_name}}_location_app_data_dataset']
+        }
+  - timeSeriesAcl:
+      actions:
+        - WRITE
+      scope:
+        datasetScope: {
+          ids: ['infield_{{location_name}}_location_app_data_dataset']
+        }
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope: {
+            spaceIds: [
+              'APM_Config',
+              'cdf_apm',
+              'cdf_infield',
+              'cdf_core',
+              'cdf_apps_shared',
+              '{{apm_datamodel_space}}' # from modules/config.yaml (APM_SourceData)
+          ]
+        }
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope: {
+            spaceIds: [
+              'APM_Config',
+              'cdf_apm',
+              'cognite_app_data', # this space must be created to store user profile information
+              'infield_{{location_name}}_location_source_data_space', # from modules/config.yaml
+              'infield_{{location_name}}_location_app_data_space' # from modules/config.yaml
+            ]
+        }
+  - dataModelInstancesAcl:
+      actions:
+        - WRITE
+      scope:
+        spaceIdScope: {
+            spaceIds: [
+              'cognite_app_data', # this space must be created to store user profile information
+              'infield_{{location_name}}_location_app_data_space' # from modules/config.yaml
+            ]
+        }

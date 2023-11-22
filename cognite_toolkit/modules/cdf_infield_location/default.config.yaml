@@ -1,0 +1,29 @@
+---
+location_name: default
+module_version: '1'
+apm_datamodel_space: 'APM_SourceData'
+apm_app_config_external_id: 'default-infield-config-minimal'
+# RAW database to load workorders and other data from
+raw_db: 'apm_simple'
+# The table name in the raw_db database that has workorder data
+workorder_table_name: 'workorders'
+
+# the root asset for this location, needs to be updated for each location
+root_asset_external_id: 'WMT:VAL'
+
+# the following properties are required for 
+# infield and must be updated for each location
+infield_location_checklist_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+infield_location_normal_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+infield_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+infield_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+
+# Transformation credentials
+clientId: ${IDP_CLIENT_ID}
+clientSecret: ${IDP_CLIENT_SECRET}
+tokenUri: ${IDP_TOKEN_URL}
+# Optional: If idP requires providing the scopes
+cdfProjectName: ${CDF_PROJECT}
+scopes: ${IDP_SCOPES}
+# Optional: If idP requires providing the audience
+audience: ${IDP_AUDIENCE}

@@ -1,0 +1,23 @@
+autoCreateDirectRelations: True
+skipOnVersionConflict: False
+replace: True
+view:
+  space: APM_Config
+  externalId: APM_Config
+  version: '1'
+destination:
+  space: APM_Config
+nodes:
+  - customerDataSpaceId: APM_SourceData
+    customerDataSpaceVersion: '1'
+    name: Default location
+    externalId: default_infield_config_minimal
+    featureConfiguration: 
+      rootLocationConfigurations:
+        - assetExternalId: {{root_asset_external_id}}
+          appDataInstanceSpace: infield_{{location_name}}_location_app_data_space
+          sourceDataInstanceSpace: infield_{{location_name}}_location_source_data_space
+          templateAdmins:
+          - infield_{{location_name}}_template_admins
+          checklistAdmins:
+          - infield_{{location_name}}_checklist_admins
