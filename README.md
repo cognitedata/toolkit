@@ -69,7 +69,7 @@ The environment (dev in the example) is used by the cli tool as `--env <environm
 
 ### Configure each module as needed
 
-Each module follow a similar pattern:
+Each module follows a similar pattern:
 
 ```
 ./modules|common|examples|local_modules/<moduleA>/
