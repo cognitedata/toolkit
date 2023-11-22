@@ -16,7 +16,7 @@ These are the steps to get started with Cognite Data Fusion configuration:
 - Run the `cdf-tk init <new_dir>` command replacing <new_dir> with where you want the template configurations to install in your Cognite Data Fusion projects
 - Configure the included (and add your own) modules by editing the yaml configuration files to fit your needs
 - Build, Verify and Deploy the configuration using the `cdf-tk` tool. Use `cdf-tk --help` to learn more about the supported commands.
-- Optional: set up automated deployment using GitHub Actions
+- Optional: set up automated deployment using GitHub Actions or your CI/CD system of choice.
 
 
 ## Prerequisites
