@@ -80,10 +80,17 @@ T_ResourceList = TypeVar("T_ResourceList")
 
 
 class LoaderItem:
-    def __init__(self, item: T_Resource | Sequence[T_Resource], filepath: Path, id: T_ID | None = None):
+    def __init__(
+        self,
+        item: T_Resource | Sequence[T_Resource],
+        filepath: Path,
+        id: T_ID | None = None,
+        db: str | None = None,
+    ):
         self.data = item
         self.filepath = filepath
         self.id = id
+        self.db = db  # Used for RAW database name
 
     @classmethod
     def get_items(cls, items: LoaderItem | Sequence[LoaderItem]) -> T_Resource | Sequence[T_Resource]:
@@ -166,7 +173,8 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     ) -> T_Resource | T_ResourceList | None:
         return self.api_class.create(LoaderItem.get_items(items))
 
-    def delete(self, ids: T_ID | Sequence[T_ID]) -> T_ResourceList | None:
+    def delete(self, items: LoaderItem | Sequence[LoaderItem]) -> T_ResourceList | None:
+        ids = [self.get_id(item) for item in LoaderItem.get_items(items)]
         return self.api_class.delete(ids)
 
     def retrieve(self, ids: T_ID) -> T_Resource | T_ResourceList | None:
@@ -198,7 +206,8 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
     def get_id(self, item: TimeSeries) -> str:
         return item.external_id
 
-    def delete(self, ids: str | Sequence[str]) -> None:
+    def delete(self, items: LoaderItem | Sequence[LoaderItem]) -> T_ResourceList | None:
+        ids = [self.get_id(item) for item in LoaderItem.get_items(items)]
         return self.client.time_series.delete(external_id=ids)
 
 
@@ -252,6 +261,10 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
             )
         ]
 
+    def delete(self, items: LoaderItem | Sequence[LoaderItem]) -> T_ResourceList | None:
+        ids = [self.get_id(item) for item in LoaderItem.get_items(items)]
+        return self.client.transformations.delete(external_id=ids, ignore_unknown_ids=True)
+
     def create(
         self, items: LoaderItem | Sequence[LoaderItem], ToolGlobals: CDFToolConfig, drop: bool
     ) -> Transformation | TransformationList | None:
@@ -262,9 +275,6 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
                 t.schedule.external_id = t.external_id
                 self.client.transformations.schedules.create(t.schedule)
         return created
-
-    def delete(self, ids: str | Sequence[str]) -> None:
-        return self.client.transformations.delete(external_id=ids)
 
 
 @final
@@ -344,6 +354,8 @@ class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     def create(
         self, items: LoaderItem | Sequence[LoaderItem], ToolGlobals: CDFToolConfig, drop: bool
     ) -> pd.DataFrame | pd.DataFrame | None:
+        if isinstance(items, LoaderItem):
+            items = [items]
         for item in items:
             self.client.time_series.data.insert_dataframe(item.data)
         return None
@@ -351,7 +363,7 @@ class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> [LoaderItem]:
         if filepath.suffix == ".csv":
             return LoaderItem(
-                pd.read_csv(filepath, parse_dates=True, index_col=0),
+                pd.read_csv(filepath, parse_dates=True, dayfirst=True, index_col=0),
                 filepath=filepath,
                 id=None,
             )
@@ -380,11 +392,6 @@ class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     acl = RawAcl
     default_db: str = "default"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
-        self.db = self.default_db
-        self.table = ""
-
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
@@ -394,10 +401,12 @@ class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
         raise NotImplementedError("Raw data does not have an id")
 
     def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> [LoaderItem]:
+        db_name = self.default_db
+        table_name = ""
         for pattern in [r"(\d+)\.(\w+)\.(\w+)", r"(\d+)\.(\w+)"]:
             if match := re.match(pattern, filepath.name):
-                self.db = match.group(2) if len(match.groups()) == 3 else self.default_db
-                self.table = match.group(len(match.groups()))
+                db_name = match.group(2) if len(match.groups()) == 3 else self.default_db
+                table_name = match.group(len(match.groups()))
                 break
         else:
             print(f"[bold red]ERROR:[/] Filename {filepath.name} does not match expected format.")
@@ -412,30 +421,41 @@ class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
                 LoaderItem(
                     df,
                     filepath=filepath,
-                    id=self.table,
+                    id=table_name,
+                    db=db_name,
                 )
             ]
         elif filepath.suffix == ".parquet":
-            return [LoaderItem(pd.read_parquet(filepath), filepath=filepath, id=self.table)]
+            return [
+                LoaderItem(
+                    pd.read_parquet(filepath),
+                    filepath=filepath,
+                    id=table_name,
+                    db=db_name,
+                )
+            ]
         else:
             raise ValueError(f"Not supported file type {filepath.suffix}")
 
-    def delete(self, ids: T_ID | Sequence[T_ID]) -> T_ResourceList | None:
-        return self.client.raw.tables.delete(self.db, ids)
+    def delete(self, items: LoaderItem | Sequence[LoaderItem]) -> None:
+        if isinstance(items, LoaderItem):
+            items = [items]
+        for item in items:
+            self.client.raw.rows.delete(db_name=item.db, table_name=item.id)
+        return None
 
     def create(
         self, items: LoaderItem | Sequence[LoaderItem], ToolGlobals: CDFToolConfig, drop: bool
     ) -> pd.DataFrame | list[pd.DataFrame] | None:
+        if isinstance(items, LoaderItem):
+            items = [items]
         for item in items:
             self.client.raw.rows.insert_dataframe(
-                db_name=self.db,
-                table_name=self.table,
+                db_name=item.db,
+                table_name=item.id,
                 dataframe=item.data,
                 ensure_parent=True,
             )
-        # Set the default db back
-        self.db = self.default_db
-        self.table = ""
         return None
 
 
@@ -464,6 +484,8 @@ class FileLoader(Loader[str, Path, list[Path]]):
     def create(
         self, items: LoaderItem | Sequence[LoaderItem], ToolGlobals: CDFToolConfig, drop: bool
     ) -> T_Resource | T_ResourceList | None:
+        if isinstance(items, LoaderItem):
+            items = [items]
         for item in items:
             self.client.files.upload(
                 path=f"{item.data.parent}/{item.data.name}",
@@ -503,30 +525,27 @@ def load_resources(
     nr_of_batches = len(items)
     nr_of_items = sum([len(LoaderItem.get_items(batch)) for batch in items])
     print(f"[bold]Uploading {nr_of_items} {loader.api_name} in {nr_of_batches} batch(es) to CDF...[/]")
-    if drop:
+    if drop and loader.support_drop:
         print(f"  --drop is specified, will delete existing {loader.api_name} before uploading.")
     if drop and loader.support_drop and not loader.drop_individually:
-        drop_items: list[T_ID] = []
+        drop_items: list[LoaderItem] = []
         for batch in items:
             for item in batch:
                 # Set the context info for this CDF project
                 if hasattr(item, "data_set_id"):
-                    item.data_set_id = ToolGlobals.data_set_id
-                delete_id = item.id if item.id is not None else loader.get_id(item.data)
-                if delete_id not in drop_items:
-                    drop_items.append(delete_id)
-        if len(drop_items) > 0:
-            if not dry_run:
-                try:
-                    loader.delete(drop_items)
-                    print(f"  Deleted {len(drop_items)} {loader.api_name}.")
-                except Exception:
-                    print(f"  [bold yellow]WARNING:[/] Failed to delete {drop_items}. They may not exist.")
-            else:
-                print(f"  Would have deleted {len(batch)} {loader.api_name}.")
+                    item.data.data_set_id = ToolGlobals.data_set_id
+            drop_items.extend(batch)
+        if not dry_run:
+            try:
+                loader.delete(drop_items)
+                print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+            except Exception:
+                print(
+                    f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. It/they may not exist."
+                )
+        else:
+            print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
     for batch in items:
-        if len(batch) == 0:
-            return
         if loader.support_drop and loader.drop_individually:
             drop_items: list[T_ID] = []
             for item in batch:
@@ -545,9 +564,9 @@ def load_resources(
                         except Exception:
                             print(f"  [bold yellow]WARNING:[/] Failed to delete {drop_items}. They may not exist.")
                     else:
-                        print(f"  Would have deleted {len(batch)} {loader.api_name}.")
+                        print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
             except CogniteAPIError:
-                print(f"[bold red]ERROR:[/] Failed to delete {drop_items}. It/they may not exist.")
+                print(f"[bold red]ERROR:[/] Failed to delete {len(drop_items)} items. It/they may not exist.")
         try:
             if not dry_run:
                 loader.create(batch, ToolGlobals, drop)
