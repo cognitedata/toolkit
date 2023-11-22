@@ -13,7 +13,7 @@ will be continously improved throughout moving towards beta and general availabi
 These are the steps to get started with Cognite Data Fusion configuration:
 
 - Install the Cognite Data Fusion Toolkit on your machine using `pip install cognite-toolkit`.
-- Use run the `init` command to get the modular resource packages to install in your Cognite Data Fusion projects
+- Run the `cdf-tk init <new_dir>` command replacing <new_dir> with where you want the template configurations to install in your Cognite Data Fusion projects
 - Configure the included (and add your own) modules by editing the yaml configuration files to fit your needs
 - Build, Verify and Deploy the configuration using the Toolkit
 - Optional: set up automated deployment using GitHub Actions
