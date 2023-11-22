@@ -21,7 +21,7 @@ This are the steps to get started with Cognite Data Fusion configuration:
 
 ## Prerequisites
 
-- A working Python installation
+- A working Python installation version >= 3.9 (3.11 is recommended)
 - A target Cognite Data Fusion project[^1]
 - Identity Provider groups and service principals, see [Developer Toolkit Identity Provider Configuration](https://developer.cognite.com/sdks/toolkit/idp).
 
