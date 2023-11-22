@@ -109,3 +109,22 @@ View:
       name: metadata
   space: ExtendedSourceDataModels
   version: '1'
+deleted:
+  Container:
+  - externalId: Asset
+    space: ExtendedSourceDataModels
+    type: container
+  DataModel:
+  - externalId: ExtendedSourceData
+    space: ExtendedSourceDataModels
+    type: datamodel
+    version: '1'
+  Space:
+  - cdfTemplateInstances
+  Transformation:
+  - externalId: sync-asset_hierarchy_cdf_asset_source_model
+  View:
+  - externalId: Asset
+    space: ExtendedSourceDataModels
+    type: view
+    version: '1'

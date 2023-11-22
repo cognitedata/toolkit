@@ -2,7 +2,7 @@ name: Release pypi package
 on:
   push:
     branches:
-      - release
+      - release*
 env:
   PYTHON_VERSION: '3.11'
 jobs:
@@ -88,4 +88,4 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload --repository testpypi --verbose dist/* || echo 'Version exists'
+        run: twine upload --verbose dist/* || echo 'Version exists'

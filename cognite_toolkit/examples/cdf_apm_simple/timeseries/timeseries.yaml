@@ -1,6 +1,6 @@
-- external_id: 'pi:160696'
+- externalId: 'pi:160696'
   name: 'VAL_23-PT-92504:X.Value'
-  is_string: false
+  isString: false
   metadata:
     compdev: '0'
     location5: '2'
@@ -53,11 +53,11 @@
     step: '0'
     engunits: ''
     span: '100'
-  is_step: false
+  isStep: false
   description: PH 1stStgSuctCool Gas Out
-- external_id: 'pi:160702'
+- externalId: 'pi:160702'
   name: 'VAL_23-PT-92536:X.Value'
-  is_string: false
+  isString: false
   metadata:
     compdev: '0'
     location5: '2'
@@ -111,11 +111,11 @@
     engunits: bar
     span: '100'
   unit: bar
-  is_step: false
+  isStep: false
   description: PH 1stStgComp Discharge
-- external_id: 'pi:163657'
+- externalId: 'pi:163657'
   name: 'VAL_45-TT-92606:X.Value'
-  is_string: false
+  isString: false
   metadata:
     compdev: '0'
     location5: '2'
@@ -168,11 +168,11 @@
     step: '0'
     engunits: ''
     span: '100'
-  is_step: false
+  isStep: false
   description: PH 1stStgDiscClr CoolMed Sply
-- external_id: 'pi:160633'
+- externalId: 'pi:160633'
   name: 'VAL_23-PDT-92602:X.Value'
-  is_string: false
+  isString: false
   metadata:
     compdev: '0'
     location5: '2'
@@ -225,11 +225,11 @@
     step: '0'
     engunits: ''
     span: '100'
-  is_step: false
+  isStep: false
   description: PH 1st Stg Disch Gas Coolers
-- external_id: 'pi:163582'
+- externalId: 'pi:163582'
   name: 'VAL_45-PT-92608:X.Value'
-  is_string: false
+  isString: false
   metadata:
     compdev: '0'
     location5: '2'
@@ -282,11 +282,11 @@
     step: '0'
     engunits: ''
     span: '100'
-  is_step: false
+  isStep: false
   description: PH 1stStgDiscCool CM Out
-- external_id: 'pi:160781'
+- externalId: 'pi:160781'
   name: 'VAL_23-TIC-92504:Z.X.Value'
-  is_string: false
+  isString: false
   metadata:
     compdev: '0'
     location5: '2'
@@ -340,11 +340,11 @@
     engunits: degC
     span: '100'
   unit: degC
-  is_step: false
+  isStep: false
   description: PH 1stStgSuctCool Gas Out Measured Value
-- external_id: 'pi:191092'
+- externalId: 'pi:191092'
   name: 'VAL_23-TT-92604A:X.Value'
-  is_string: false
+  isString: false
   metadata:
     compdev: '0'
     location5: '2'
@@ -398,5 +398,5 @@
     engunits: degC
     span: '100'
   unit: degC
-  is_step: false
+  isStep: false
   description: PH 1stStgDiscCool Gas Out Output
