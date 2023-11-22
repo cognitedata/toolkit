@@ -2,7 +2,7 @@
 
 > Configure Cognite Data Fusion quickly, consistently, traceably, and repeatably.
  
-> [!NOTE]
+> [!WARNING]
 > The templates and the `cdf-tk` tool are currently in **ALPHA**. The scope in alpha is on Asset
 Performance Management focused on Infield (Digital Operator Rounds). The templates and tooling
 will be continously improved throughout moving towards beta and general availability.
