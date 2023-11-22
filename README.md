@@ -127,8 +127,8 @@ cdf-tk deploy --env <my_env> --build-dir <my_build_dir>
 Note that there are option flags to delete previously created resources (deterministic) and data. Check `cdf-tk deploy --help` for information
 
 
-> [!TIP]
-> Make sure .env files are added to .gitognore so secrets aren't accidantaly pushed to version control.
+> [!NOTE]
+> Make sure .env files are added to .gitognore so secrets aren't accidentally pushed to version control.
 > It is also a good idea to add the `build_dir` to `.gitignore`to avoid checking it in to source control. `build_dir` defaults to `./build`.  
 
 
