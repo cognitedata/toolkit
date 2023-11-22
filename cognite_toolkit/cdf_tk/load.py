@@ -79,6 +79,25 @@ T_Resource = TypeVar("T_Resource")
 T_ResourceList = TypeVar("T_ResourceList")
 
 
+class LoaderItem:
+    def __init__(self, item: T_Resource | Sequence[T_Resource], filepath: Path, id: T_ID | None = None):
+        self.data = item
+        self.filepath = filepath
+        self.id = id
+
+    @classmethod
+    def get_items(cls, items: LoaderItem | Sequence[LoaderItem]) -> T_Resource | Sequence[T_Resource]:
+        if isinstance(items, LoaderItem):
+            return [items.data]
+        data = []
+        for item in items:
+            if isinstance(item.data, Sequence):
+                data.extend(item.data)
+            else:
+                data.append(item.data)
+        return data
+
+
 class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     """
     This is the base class for all loaders. It defines the interface that all loaders must implement.
@@ -90,6 +109,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     Class attributes:
         support_drop: Whether the resource supports the drop flag.
         load_files_individually: Whether to load each file individually or all files in a folder at once.
+        drop_individually: If support_drop = True, should contents of each file be dropped per file.
         filetypes: The filetypes that are supported by this loader. If empty, all files are supported.
         api_name: The name of the api that is in the cognite_client that is used to interact with the CDF API.
         folder_name: The name of the folder in the build directory where the files are located.
@@ -99,6 +119,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
 
     support_drop: bool = True
     load_files_individually: bool = False
+    drop_individually: bool = False
     filetypes = frozenset({"yaml", "yml"})
     api_name: str
     folder_name: str
@@ -141,9 +162,9 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
 
     # Default implementations that can be overridden
     def create(
-        self, items: T_Resource | Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool
+        self, items: LoaderItem | Sequence[LoaderItem], ToolGlobals: CDFToolConfig, drop: bool
     ) -> T_Resource | T_ResourceList | None:
-        return self.api_class.create(items)
+        return self.api_class.create(LoaderItem.get_items(items))
 
     def delete(self, ids: T_ID | Sequence[T_ID]) -> T_ResourceList | None:
         return self.api_class.delete(ids)
@@ -151,8 +172,11 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def retrieve(self, ids: T_ID) -> T_Resource | T_ResourceList | None:
         return self.api_class.retrieve(ids)
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_ResourceList:
-        return self.list_cls.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> [LoaderItem]:
+        loaded = self.list_cls.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
+        if isinstance(loaded, Sequence):
+            loaded = [LoaderItem(item, filepath, id=None) for item in loaded]
+        return loaded
 
 
 @final
@@ -166,7 +190,9 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         return TimeSeriesAcl(
             [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
-            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id or 0]),
+            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TimeSeriesAcl.Scope.All(),
         )
 
     def get_id(self, item: TimeSeries) -> str:
@@ -199,7 +225,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
     def get_id(self, item: Transformation) -> str:
         return item.external_id
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> TransformationList:
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> [LoaderItem]:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
@@ -218,11 +244,18 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
             )
         transformation.query = sql_file.read_text()
         transformation.data_set_id = ToolGlobals.data_set_id
-        return self.list_cls([transformation])
+        return [
+            LoaderItem(
+                TransformationList([transformation]),
+                filepath=filepath,
+                id=transformation.external_id,
+            )
+        ]
 
     def create(
-        self, items: Transformation | Sequence[Transformation], ToolGlobals: CDFToolConfig, drop: bool
+        self, items: LoaderItem | Sequence[LoaderItem], ToolGlobals: CDFToolConfig, drop: bool
     ) -> Transformation | TransformationList | None:
+        items = LoaderItem.get_items(items)
         created = self.client.transformations.create(items)
         for t in items if isinstance(items, Sequence) else [items]:
             if t.schedule.interval != "":
@@ -262,12 +295,19 @@ class GroupLoader(Loader[int, Group, GroupList]):
                         ToolGlobals.verify_dataset(ext_id)
                         for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
                     ]
-        return GroupList([Group.load(raw)])
+        group = Group.load(raw)
+        return [
+            LoaderItem(
+                GroupList([group]),
+                filepath=filepath,
+                id=group.id,
+            )
+        ]
 
     def create(
-        self, items: Group | Sequence[GroupLoader], ToolGlobals: CDFToolConfig, drop: bool
+        self, items: LoaderItem | Sequence[LoaderItem], ToolGlobals: CDFToolConfig, drop: bool
     ) -> Group | GroupLoader | None:
-        created = self.client.iam.groups.create(items)
+        created = self.client.iam.groups.create(LoaderItem.get_items(items))
         old_groups = self.client.iam.groups.list(all=True).data
         created_names = {g.name for g in created}
         to_delete = [g.id for g in old_groups if g.name in created_names]
@@ -302,25 +342,36 @@ class DatapointsLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
         raise NotImplementedError("Datapoints do not have an id")
 
     def create(
-        self, items: pd.DataFrame | Sequence[pd.DataFrame], ToolGlobals: CDFToolConfig, drop: bool
+        self, items: LoaderItem | Sequence[LoaderItem], ToolGlobals: CDFToolConfig, drop: bool
     ) -> pd.DataFrame | pd.DataFrame | None:
         for item in items:
-            self.client.time_series.data.insert_dataframe(item)
+            self.client.time_series.data.insert_dataframe(item.data)
         return None
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_Resource:
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> [LoaderItem]:
         if filepath.suffix == ".csv":
-            return pd.read_csv(filepath, parse_dates=True, index_col=0)
+            return LoaderItem(
+                pd.read_csv(filepath, parse_dates=True, index_col=0),
+                filepath=filepath,
+                id=None,
+            )
         elif filepath.suffix == ".parquet":
-            return pd.read_parquet(filepath, engine="pyarrow")
+            return [
+                LoaderItem(
+                    pd.read_parquet(filepath, engine="pyarrow"),
+                    filepath=filepath,
+                    id=None,
+                )
+            ]
         else:
             raise ValueError(f"Not supported file type {filepath.suffix}")
 
 
 @final
 class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
-    support_drop = False
+    support_drop = True
     load_files_individually = True
+    drop_individually = False
     filetypes = frozenset({"csv", "parquet"})
     api_name = "raw.rows"
     folder_name = "raw"
@@ -342,7 +393,7 @@ class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
     def get_id(cls, item: T_Resource) -> T_ID:
         raise NotImplementedError("Raw data does not have an id")
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> pd.DataFrame:
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> [LoaderItem]:
         for pattern in [r"(\d+)\.(\w+)\.(\w+)", r"(\d+)\.(\w+)"]:
             if match := re.match(pattern, filepath.name):
                 self.db = match.group(2) if len(match.groups()) == 3 else self.default_db
@@ -357,24 +408,29 @@ class RawLoader(Loader[str, pd.DataFrame, list[pd.DataFrame]]):
             file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
             df = pd.read_csv(io.StringIO(file_content), dtype=str)
             df.fillna("", inplace=True)
-            return df
+            return [
+                LoaderItem(
+                    df,
+                    filepath=filepath,
+                    id=self.table,
+                )
+            ]
         elif filepath.suffix == ".parquet":
-            return pd.read_parquet(filepath)
+            return [LoaderItem(pd.read_parquet(filepath), filepath=filepath, id=self.table)]
         else:
             raise ValueError(f"Not supported file type {filepath.suffix}")
 
-    def create(
-        self, items: pd.DataFrame | Sequence[pd.DataFrame], ToolGlobals: CDFToolConfig, drop: bool
-    ) -> pd.DataFrame | list[pd.DataFrame] | None:
-        # This call in unnecessary, as we have the ensure_parent argument below.
-        # We keep it here just to ensure we are not doing any changes in the refactoring of the code to generalized loaders.
-        self.client.raw.databases.create(self.db)
+    def delete(self, ids: T_ID | Sequence[T_ID]) -> T_ResourceList | None:
+        return self.client.raw.tables.delete(self.db, ids)
 
+    def create(
+        self, items: LoaderItem | Sequence[LoaderItem], ToolGlobals: CDFToolConfig, drop: bool
+    ) -> pd.DataFrame | list[pd.DataFrame] | None:
         for item in items:
             self.client.raw.rows.insert_dataframe(
                 db_name=self.db,
                 table_name=self.table,
-                dataframe=item,
+                dataframe=item.data,
                 ensure_parent=True,
             )
         # Set the default db back
@@ -402,18 +458,18 @@ class FileLoader(Loader[str, Path, list[Path]]):
     def get_id(cls, item: Path) -> str:
         return f"{cls.id_prefix}_{item.name}"
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Path:
-        return filepath
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> [LoaderItem]:
+        return [LoaderItem(filepath, filepath=filepath, id=filepath.name)]
 
     def create(
-        self, items: Path | Sequence[Path], ToolGlobals: CDFToolConfig, drop: bool
+        self, items: LoaderItem | Sequence[LoaderItem], ToolGlobals: CDFToolConfig, drop: bool
     ) -> T_Resource | T_ResourceList | None:
         for item in items:
             self.client.files.upload(
-                path=f"{item.parent}/{item.name}",
+                path=f"{item.data.parent}/{item.data.name}",
                 data_set_id=ToolGlobals.data_set_id,
-                name=item.name,
-                external_id=self.get_id(item),
+                name=item.data.name,
+                external_id=self.get_id(item.data),
                 overwrite=drop,
             )
         return None
@@ -438,43 +494,69 @@ def load_resources(
 
     items: Iterable[Sequence[T_Resource]]
     if loader.load_files_individually:
-        items = ([loader.load_file(f, ToolGlobals)] for f in files)
+        items = [loader.load_file(f, ToolGlobals) for f in files]
     else:
-        items = [loader.list_cls([item for f in files for item in loader.load_file(f, ToolGlobals)])]
-
+        items = []
+        for f in files:
+            items.extend(loader.load_file(f, ToolGlobals))
+        items = [items]
+    nr_of_batches = len(items)
+    nr_of_items = sum([len(LoaderItem.get_items(batch)) for batch in items])
+    print(f"[bold]Uploading {nr_of_items} {loader.api_name} in {nr_of_batches} batch(es) to CDF...[/]")
+    if drop:
+        print(f"  --drop is specified, will delete existing {loader.api_name} before uploading.")
+    if drop and loader.support_drop and not loader.drop_individually:
+        drop_items: list[T_ID] = []
+        for batch in items:
+            for item in batch:
+                # Set the context info for this CDF project
+                if hasattr(item, "data_set_id"):
+                    item.data_set_id = ToolGlobals.data_set_id
+                delete_id = item.id if item.id is not None else loader.get_id(item.data)
+                if delete_id not in drop_items:
+                    drop_items.append(delete_id)
+        if len(drop_items) > 0:
+            if not dry_run:
+                try:
+                    loader.delete(drop_items)
+                    print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+                except Exception:
+                    print(f"  [bold yellow]WARNING:[/] Failed to delete {drop_items}. They may not exist.")
+            else:
+                print(f"  Would have deleted {len(batch)} {loader.api_name}.")
     for batch in items:
         if len(batch) == 0:
             return
-        print(f"[bold]Uploading {len(batch)} {loader.api_name} to CDF...[/]")
-
-        if loader.support_drop:
+        if loader.support_drop and loader.drop_individually:
             drop_items: list[T_ID] = []
             for item in batch:
                 # Set the context info for this CDF project
                 if hasattr(item, "data_set_id"):
                     item.data_set_id = ToolGlobals.data_set_id
                 if drop:
-                    drop_items.append(loader.get_id(item))
+                    delete_id = item.id if item.id is not None else loader.get_id(item.data)
+                    if delete_id not in drop_items:
+                        drop_items.append(delete_id)
             try:
                 if drop:
                     if not dry_run:
-                        loader.delete(drop_items)
-                        print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+                        try:
+                            loader.delete(drop_items)
+                        except Exception:
+                            print(f"  [bold yellow]WARNING:[/] Failed to delete {drop_items}. They may not exist.")
                     else:
                         print(f"  Would have deleted {len(batch)} {loader.api_name}.")
             except CogniteAPIError:
-                print(f"[bold red]ERROR:[/] Failed to delete {drop_items}. They may not exist.")
+                print(f"[bold red]ERROR:[/] Failed to delete {drop_items}. It/they may not exist.")
         try:
             if not dry_run:
                 loader.create(batch, ToolGlobals, drop)
-            else:
-                print(f"  Would have created {len(batch)} {loader.api_name}.")
         except Exception as e:
             print(f"[bold red]ERROR:[/] Failed to upload {loader.api_name}.")
             print(e)
             ToolGlobals.failed = True
             return
-        print(f"  Created {len(batch)} timeseries from {len(files)} files.")
+    print(f"  Created {nr_of_items} {loader.api_name} from {len(files)} files.")
 
 
 LOADER_BY_FOLDER_NAME = {loader.folder_name: loader for loader in Loader.__subclasses__()}
@@ -553,7 +635,7 @@ def load_datamodel(
         if not (match := models_pattern.match(file.name)):
             continue
         model_files_by_type[match.group(1)].append(file)
-    print("[bold]Loading...[/]")
+    print("[bold]Loading data model files...[/]")
     for type_, files in model_files_by_type.items():
         model_files_by_type[type_].sort()
         print(f"  {len(files)} of type {type_}s in {directory}")
