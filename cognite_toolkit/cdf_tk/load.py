@@ -431,7 +431,7 @@ def load_groups(
         print(f"  Deleted {existing_groups} old groups.")
     else:
         print(f"  Would have created {len(groups)} groups.")
-        print(f"  Wuld have deleted {existing_groups} old groups.")
+        print(f"  Would have deleted {existing_groups} old groups.")
 
 
 def load_datamodel_graphql(
