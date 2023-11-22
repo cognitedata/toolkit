@@ -14,7 +14,7 @@ This are the steps to get started with Cognite Data Fusion configuration:
 
 - Install the Cognite Data Fusion Toolkit in your repository.
 - Use run the `init` command to get the modular resource packages to install in your Cognite Data Fusion projects
-- Configure the included (and add your own) by editing the yaml configuration files to fit your needs
+- Configure the included (and add your own) modules by editing the yaml configuration files to fit your needs
 - Build, Verify and Deploy the configuration using the Toolkit
 - Optional: set up automated deployment using GitHub Actions
 
