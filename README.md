@@ -10,7 +10,7 @@ will be continously improved throughout moving towards beta and general availabi
 
 ## Getting started
 
-This are the steps to get started with Cognite Data Fusion configuration:
+These are the steps to get started with Cognite Data Fusion configuration:
 
 - Install the Cognite Data Fusion Toolkit in your repository.
 - Use run the `init` command to get the modular resource packages to install in your Cognite Data Fusion projects
