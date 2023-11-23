@@ -257,7 +257,7 @@ def create_mock_api(
         return deleted
 
     def delete_raw(db_name: str, name: str | Sequence[str]) -> list:
-        deleted = [{"db_name": db_name, "name": name}]
+        deleted = [{"db_name": db_name, "name": name if isinstance(name, str) else sorted(name)}]
         deleted_resources[resource_cls.__name__].extend(deleted)
         return deleted
 
