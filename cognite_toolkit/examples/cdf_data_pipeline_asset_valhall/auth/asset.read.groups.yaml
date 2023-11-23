@@ -11,6 +11,6 @@ capabilities:
         - READ
       scope: 
         datasetScope: {
-            ids: ['ds-asset:{{location_name}}']
+            ids: ['ds_asset_{{location_name}}']
         }
                

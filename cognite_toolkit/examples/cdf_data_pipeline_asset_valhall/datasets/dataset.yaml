@@ -1,4 +1,4 @@
-external_id: 'ds-asset:{{location_name}}'
+external_id: 'ds_asset_{{location_name}}'
 name:  'asset:{{location_name}}'
 description: 'Asset data for {{location_name}}'
 metadata: {
@@ -13,7 +13,7 @@ metadata: {
   ],
   transformations: [
     {
-      externalId: 'tr-asset-{{location_name}}-{{source_name}}-asset-hierarchy',
+      externalId: 'tr_asset_{{location_name}}_{{source_name}}_asset_hierarchy',
       type: "jetfire"
     }
   ]

@@ -33,7 +33,7 @@ capabilities:
         - WRITE
       scope: 
         datasetScope: {
-            ids: ['asset:{{location_name}}']
+            ids: ['ds_asset_{{location_name}}']
         }
 
                
