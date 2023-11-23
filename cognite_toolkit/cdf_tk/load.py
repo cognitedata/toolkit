@@ -14,20 +14,40 @@
 from __future__ import annotations
 
 import io
-import os
+import itertools
 import re
-from collections import defaultdict
+from abc import ABC, abstractmethod
+from collections import Counter, defaultdict
+from collections.abc import Sequence, Sized
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Generic, TypeVar, Union, final
 
 import pandas as pd
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
+    FileMetadata,
+    FileMetadataList,
     OidcCredentials,
+    TimeSeries,
+    TimeSeriesList,
     Transformation,
     TransformationList,
 )
-from cognite.client.data_classes._base import CogniteResource
+from cognite.client.data_classes._base import (
+    CogniteObject,
+    CogniteResource,
+    CogniteResourceList,
+)
+from cognite.client.data_classes.capabilities import (
+    Capability,
+    FilesAcl,
+    GroupsAcl,
+    RawAcl,
+    TimeSeriesAcl,
+    TransformationsAcl,
+)
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     DataModelApply,
@@ -39,12 +59,27 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 from cognite.client.data_classes.iam import Group, GroupList
-from cognite.client.data_classes.time_series import TimeSeriesList
-from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
+from cognite.client.exceptions import CogniteAPIError
 from rich import print
 
 from .delete import delete_instances
 from .utils import CDFToolConfig, load_yaml_inject_variables
+
+
+@dataclass
+class RawTable(CogniteObject):
+    db_name: str
+    table_name: str
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> RawTable:
+        return cls(db_name=resource["dbName"], table_name=resource["tableName"])
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        return {
+            "dbName" if camel_case else "db_name": self.db_name,
+            "tableName" if camel_case else "table_name": self.table_name,
+        }
 
 
 @dataclass
@@ -61,253 +96,135 @@ class Difference:
         return next([self.added, self.removed, self.changed, self.unchanged])
 
 
-def load_raw(
-    ToolGlobals: CDFToolConfig,
-    file: str,
-    raw_db: str = "default",
-    drop: bool = False,
-    dry_run: bool = False,
-    directory=None,
-) -> None:
-    """Load raw data from csv files into CDF Raw
+T_ID = TypeVar("T_ID", bound=Union[str, int])
+T_Resource = TypeVar("T_Resource")
+T_ResourceList = TypeVar("T_ResourceList")
 
-    Args:
-        file: name of file to load, if empty load all files
-        drop: whether to drop existing data
+
+class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     """
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client: CogniteClient = ToolGlobals.verify_client(capabilities={"rawAcl": ["READ", "WRITE"]})
+    This is the base class for all loaders. It defines the interface that all loaders must implement.
 
-    files = []
-    if file:
-        # Only load the supplied filename.
-        files.append(file)
-    else:
-        # Pick up all the .csv files in the data folder.
-        for _, _, filenames in os.walk(directory):
-            for f in filenames:
-                if ".csv" in f:
-                    files.append(f)
-    files.sort()
-    if len(files) == 0:
-        return
-    print(f"[bold]Uploading {len(files)} .csv files to RAW database using {raw_db} if not set in filename...[/]")
-    for f in files:
+    A loader is a class that describes how a resource is loaded from a file and uploaded to CDF.
+
+    All resources supported by the cognite_toolkit should implement a loader.
+
+    Class attributes:
+        support_drop: Whether the resource supports the drop flag.
+        filetypes: The filetypes that are supported by this loader. If empty, all files are supported.
+        api_name: The name of the api that is in the cognite_client that is used to interact with the CDF API.
+        folder_name: The name of the folder in the build directory where the files are located.
+        resource_cls: The class of the resource that is loaded.
+        list_cls: The list version of the resource class.
+    """
+
+    support_drop = True
+    filetypes = frozenset({"yaml", "yml"})
+    api_name: str
+    folder_name: str
+    resource_cls: type[CogniteResource]
+    list_cls: type[CogniteResourceList]
+
+    def __init__(self, client: CogniteClient):
+        self.client = client
         try:
-            (_, db, table_name) = re.match(r"(\d+)\.(\w+)\.(\w+)\.csv", f).groups()
+            self.api_class = self._get_api_class(client, self.api_name)
         except AttributeError:
-            db = raw_db
-            try:
-                (_, table_name) = re.match(r"(\d+)\.(\w+)\.csv", f).groups()
-            except AttributeError:
-                print(f"[bold red]ERROR:[/] Filename {f} does not match expected format.")
-                ToolGlobals.failed = True
-                return
-        with open(f"{directory}/{f}", mode="rb") as file:
-            # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-            file_content = file.read().replace(b"\r\n", b"\n").decode("utf-8")
-            dataframe = pd.read_csv(io.StringIO(file_content), dtype=str)
-            dataframe = dataframe.fillna("")
-            try:
-                if not dry_run:
-                    if drop:
-                        try:
-                            client.raw.tables.delete(db, table_name)
-                        except Exception:
-                            ...
-                    try:
-                        client.raw.databases.create(db)
-                        print("  Created database: " + db)
-                    except Exception:
-                        ...
-                    client.raw.rows.insert_dataframe(
-                        db_name=db,
-                        table_name=table_name,
-                        dataframe=dataframe,
-                        ensure_parent=True,
-                    )
-                    print("  Deleted table: " + table_name)
-                    print(f"  Uploaded {f} to {db} RAW database.")
-                else:
-                    print("  Would have deleted table: " + table_name)
-                    print(f"  Would have uploaded {f} to {db} RAW database.")
-            except Exception as e:
-                print(f"[bold red]ERROR:[/] Failed to upload {f}")
-                print(e)
-                ToolGlobals.failed = True
-                return
+            raise AttributeError(f"Invalid api_name {self.api_name}.")
 
-
-def load_files(
-    ToolGlobals: CDFToolConfig,
-    id_prefix: str = "example",
-    file: str | None = None,
-    drop: bool = False,
-    dry_run: bool = False,
-    directory=None,
-) -> None:
-    if directory is None:
-        raise ValueError("directory must be specified")
-    try:
-        client = ToolGlobals.verify_client(capabilities={"filesAcl": ["READ", "WRITE"]})
-        files = []
-        if file is not None and len(file) > 0:
-            files.append(file)
+    @staticmethod
+    def _get_api_class(client, api_name: str):
+        parent = client
+        if (dot_count := Counter(api_name)["."]) == 1:
+            parent_name, api_name = api_name.split(".")
+            parent = getattr(client, parent_name)
+        elif dot_count == 0:
+            pass
         else:
-            # Pick up all the files in the files folder.
-            for _, _, filenames in os.walk(directory):
-                for f in filenames:
-                    files.append(f)
-        if len(files) == 0:
-            return
-        print(f"[bold]Uploading {len(files)} files/documents to CDF...[/]")
-        for f in files:
-            if not dry_run:
-                client.files.upload(
-                    path=f"{directory}/{f}",
-                    data_set_id=ToolGlobals.data_set_id,
-                    name=f,
-                    external_id=id_prefix + "_" + f,
-                    overwrite=drop,
-                )
-        if not dry_run:
-            print(f"  Uploaded successfully {len(files)} files/documents.")
-        else:
-            print(f"  Would have uploaded {len(files)} files/documents.")
-    except Exception as e:
-        print("[bold red]ERROR:[/] Failed to upload files")
-        print(e)
-        ToolGlobals.failed = True
-        return
+            raise AttributeError(f"Invalid api_name {api_name}.")
+        return getattr(parent, api_name)
+
+    @classmethod
+    def create_loader(cls, ToolGlobals: CDFToolConfig):
+        client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
+        return cls(client)
+
+    @classmethod
+    @abstractmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
+
+    @classmethod
+    @abstractmethod
+    def get_id(cls, item: T_Resource) -> T_ID:
+        raise NotImplementedError
+
+    # Default implementations that can be overridden
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList:
+        return self.api_class.create(items)
+
+    def delete(self, items: Sequence[T_Resource]) -> None:
+        return self.api_class.delete(items)
+
+    def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
+        return self.api_class.retrieve(ids)
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_Resource | T_ResourceList:
+        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if isinstance(raw_yaml, list):
+            return self.list_cls.load(raw_yaml)
+        return self.resource_cls.load(raw_yaml)
 
 
-def load_timeseries_metadata(
-    ToolGlobals: CDFToolConfig,
-    file: str,
-    drop: bool,
-    dry_run: bool = False,
-    directory=None,
-) -> None:
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(capabilities={"timeSeriesAcl": ["READ", "WRITE"]})
-    files = []
-    if file:
-        # Only load the supplied filename.
-        files.append(file)
-    else:
-        # Pick up all the .yaml files in the data folder.
-        for _, _, filenames in os.walk(directory):
-            for f in filenames:
-                if ".yaml" in f:
-                    files.append(f)
-    # Read timeseries metadata
-    timeseries = TimeSeriesList([])
-    for f in files:
-        timeseries.extend(
-            TimeSeriesList.load(
-                load_yaml_inject_variables(Path(f"{directory}/{f}"), ToolGlobals.environment_variables())
-            ),
+@final
+class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
+    api_name = "time_series"
+    folder_name = "timeseries"
+    resource_cls = TimeSeriesList
+    list_cls = TimeSeriesList
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return TimeSeriesAcl(
+            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
+            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TimeSeriesAcl.Scope.All(),
         )
-    if len(timeseries) == 0:
-        return
-    print(f"[bold]Uploading {len(timeseries)} timeseries to CDF...[/]")
-    drop_ts: list[str] = []
-    for t in timeseries:
-        # Set the context info for this CDF project
-        t.data_set_id = ToolGlobals.data_set_id
-        if drop:
-            drop_ts.append(t.external_id)
-    try:
-        if drop:
-            if not dry_run:
-                client.time_series.delete(external_id=drop_ts, ignore_unknown_ids=True)
-                print(f"  Deleted {len(drop_ts)} timeseries.")
-            else:
-                print(f"  Would have deleted {len(drop_ts)} timeseries.")
-    except Exception:
-        print(f"[bold red]ERROR:[/] Failed to delete {t.external_id}. It may not exist.")
-    try:
-        if not dry_run:
-            client.time_series.create(timeseries)
-        else:
-            print(f"  Would have created {len(timeseries)} timeseries.")
-    except Exception as e:
-        print("[bold red]ERROR:[/] Failed to upload timeseries.")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    print(f"  Created {len(timeseries)} timeseries from {len(files)} files.")
+
+    def get_id(self, item: TimeSeries) -> str:
+        return item.external_id
+
+    def delete(self, ids: Sequence[str]) -> None:
+        self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
 
 
-def load_timeseries_datapoints(
-    ToolGlobals: CDFToolConfig, file: str | None = None, dry_run: bool = False, directory=None
-) -> None:
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(capabilities={"timeseriesAcl": ["READ", "WRITE"]})
-    files = []
-    if file:
-        # Only load the supplied filename.
-        files.append(file)
-    else:
-        # Pick up all the .csv files in the data folder.
-        for _, _, filenames in os.walk(directory):
-            for f in filenames:
-                if ".csv" in f:
-                    files.append(f)
-    if len(files) == 0:
-        return
-    print(f"[bold]Uploading {len(files)} .csv file(s) as datapoints to CDF timeseries...[/]")
-    try:
-        for f in files:
-            with open(f"{directory}/{f}") as file:
-                dataframe = pd.read_csv(file, parse_dates=True, index_col=0)
-            if not dry_run:
-                print(f"  Uploading {f} as datapoints to CDF timeseries...")
-                client.time_series.data.insert_dataframe(dataframe)
-            else:
-                print(f"  Would have uploaded {f} as datapoints to CDF timeseries...")
-        if not dry_run:
-            print(f"  Uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
-        else:
-            print(f"  Would have uploaded {len(files)} .csv file(s) as datapoints to CDF timeseries.")
-    except Exception as e:
-        print("[bold red]ERROR:[/] Failed to upload datapoints.")
-        print(e)
-        ToolGlobals.failed = True
-        return
+@final
+class TransformationLoader(Loader[str, Transformation, TransformationList]):
+    api_name = "transformations"
+    folder_name = "transformations"
+    resource_cls = Transformation
+    list_cls = TransformationList
 
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        scope = (
+            TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TransformationsAcl.Scope.All()
+        )
+        return TransformationsAcl(
+            [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
+            scope,
+        )
 
-def load_transformations(
-    ToolGlobals: CDFToolConfig,
-    file: str | None = None,
-    drop: bool = False,
-    dry_run: bool = False,
-    directory: str | None = None,
-) -> None:
-    """Load transformations from dump folder.
+    def get_id(self, item: Transformation) -> str:
+        return item.external_id
 
-    This code only gives a partial support for transformations by loading the actual sql query and the
-    necessary config. Schedules, authentication, etc is not supported.
-    """
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client: CogniteClient = ToolGlobals.verify_client(
-        capabilities={
-            "transformationsAcl": ["READ", "WRITE"],
-            "sessionsAcl": ["CREATE"],
-        }
-    )
-    if file:
-        # Only load the supplied filename.
-        files = [Path(file)]
-    else:
-        files = list(Path(directory).glob("*.yaml"))
-    transformations = TransformationList([])
-    for f in files:
-        raw = load_yaml_inject_variables(f, ToolGlobals.environment_variables())
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Transformation:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
@@ -318,120 +235,268 @@ def load_transformations(
         transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
             destination_oidc_credentials
         )
-        transformations.append(transformation)
-    print(f"[bold]Loading {len(transformations)} transformations from {directory}...[/]")
-    ext_ids = [t.external_id for t in transformations]
-    try:
-        if drop:
-            if not dry_run:
-                client.transformations.delete(external_id=ext_ids, ignore_unknown_ids=True)
-                print(f"  Deleted {len(ext_ids)} transformations.")
-            else:
-                print(f"  Would have deleted {len(ext_ids)} transformations.")
-    except CogniteNotFoundError:
-        pass
-    for t in transformations:
-        with open(f"{directory}/{t.external_id}.sql") as file:
-            t.query = file.read()
-            t.data_set_id = ToolGlobals.data_set_id
-    try:
-        if not dry_run:
-            client.transformations.create(transformations)
-            for t in transformations:
-                if t.schedule.interval != "":
-                    t.schedule.external_id = t.external_id
-                    client.transformations.schedules.create(t.schedule)
-            print(f"  Created {len(transformations)} transformation.")
-        else:
-            print(f"  Would have created {len(transformations)} transformation.")
-    except Exception as e:
-        print(f"[bold red]ERROR:[/] Failed to create transformations.\n{e}")
-        ToolGlobals.failed = True
+        sql_file = filepath.parent / f"{transformation.external_id}.sql"
+        if not sql_file.exists():
+            raise FileNotFoundError(
+                f"Could not find sql file {sql_file.name}. Expected to find it next to the yaml config file."
+            )
+        transformation.query = sql_file.read_text()
+        transformation.data_set_id = ToolGlobals.data_set_id
+        return transformation
+
+    def delete(self, ids: Sequence[str]) -> None:
+        self.client.transformations.delete(external_id=ids, ignore_unknown_ids=True)
+
+    def create(
+        self, items: Sequence[Transformation], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> TransformationList:
+        created = self.client.transformations.create(items)
+        for t in items if isinstance(items, Sequence) else [items]:
+            if t.schedule.interval != "":
+                t.schedule.external_id = t.external_id
+                self.client.transformations.schedules.create(t.schedule)
+        return created
 
 
-def load_groups(
-    ToolGlobals: CDFToolConfig,
-    file: str | None = None,
-    directory: str | None = None,
-    dry_run: bool = False,
-    verbose: bool = False,
-) -> None:
-    if directory is None:
-        raise ValueError("directory must be specified")
-    client = ToolGlobals.verify_client(capabilities={"groupsAcl": ["LIST", "READ", "CREATE", "DELETE"]})
-    try:
-        old_groups = client.iam.groups.list(all=True).data
-    except Exception:
-        print("[bold red]ERROR:[/] Failed to retrieve groups.")
-        ToolGlobals.failed = True
-        return
-    files = []
-    if file:
-        # Only load the supplied filename.
-        files.append(file)
-    else:
-        # Pick up all the .yaml files in the folder.
-        for _, _, filenames in os.walk(directory):
-            for f in filenames:
-                if ".yaml" in f:
-                    files.append(f)
-    groups: GroupList = GroupList([])
-    for f in files:
-        group = load_yaml_inject_variables(Path(f"{directory}/{f}"), ToolGlobals.environment_variables())
-        # Find and create data_sets
-        for capability in group.get("capabilities", []):
+@final
+class GroupLoader(Loader[int, Group, GroupList]):
+    support_drop = False
+    api_name = "iam.groups"
+    folder_name = "auth"
+    resource_cls = Group
+    list_cls = GroupList
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return GroupsAcl(
+            [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
+            GroupsAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: Group) -> int:
+        return item.id
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Group:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    if dry_run:
-                        values["scope"]["datasetScope"]["ids"] = [999]
-                    else:
-                        values["scope"]["datasetScope"]["ids"] = [
-                            ToolGlobals.verify_dataset(ext_id)
-                            for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
-                        ]
-        groups.append(Group.load(group))
-    if dry_run:
-        print(f"[bold]Loading {len(groups)} groups from {directory}...[/]")
+                    values["scope"]["datasetScope"]["ids"] = [
+                        ToolGlobals.verify_dataset(ext_id)
+                        for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
+                    ]
+        return Group.load(raw)
+
+    def create(self, items: Sequence[Group], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> GroupList:
+        created = self.client.iam.groups.create(items)
+        old_groups = self.client.iam.groups.list(all=True).data
+        created_names = {g.name for g in created}
+        to_delete = [g.id for g in old_groups if g.name in created_names]
+        self.client.iam.groups.delete(to_delete)
+        return created
+
+
+@final
+class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
+    # Not yet implemented
+    support_drop = False
+    filetypes = frozenset({"csv", "parquet"})
+    api_name = "time_series.data"
+    folder_name = "timeseries_datapoints"
+    resource_cls = pd.DataFrame
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        scope = (
+            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TimeSeriesAcl.Scope.All()
+        )
+
+        return TimeSeriesAcl(
+            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
+            scope,
+        )
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Path:
+        return filepath
+
+    @classmethod
+    def get_id(cls, item: Path) -> list[str]:
+        raise NotImplementedError
+
+    def delete(self, items: Sequence[str]) -> None:
+        # Drop all datapoints?
+        raise NotImplementedError()
+
+    def create(self, items: Sequence[Path], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> TimeSeriesList:
+        if len(items) != 1:
+            raise ValueError("Datapoints must be loaded one at a time.")
+        datafile = items[0]
+        if datafile.suffix == ".csv":
+            data = pd.read_csv(datafile, parse_dates=True, dayfirst=True, index_col=0)
+        elif datafile.suffix == ".parquet":
+            data = pd.read_parquet(datafile, engine="pyarrow")
+        else:
+            raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
+        self.client.time_series.data.insert_dataframe(data)
+        external_ids = [col for col in data.columns if not pd.api.types.is_datetime64_any_dtype(data[col])]
+        return TimeSeriesList([TimeSeries(external_id=external_id) for external_id in external_ids])
+
+
+@final
+class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
+    api_name = "raw.rows"
+    folder_name = "raw"
+    resource_cls = RawTable
+    list_cls = list[RawTable]
+    data_file_types = frozenset({"csv", "parquet"})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
+
+    @classmethod
+    def get_id(cls, item: RawTable) -> RawTable:
+        return item
+
+    def delete(self, items: Sequence[RawTable]) -> None:
+        for db_name, raw_tables in itertools.groupby(sorted(items, key=lambda x: x.db_name), key=lambda x: x.db_name):
+            # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
+            with suppress(CogniteAPIError):
+                self.client.raw.tables.delete(db_name=db_name, name=[table.table_name for table in raw_tables])
+
+    def create(
+        self, items: Sequence[RawTable], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> list[RawTable]:
+        if len(items) != 1:
+            raise ValueError("Raw tables must be loaded one at a time.")
+        table = items[0]
+        datafile = next(
+            (
+                file
+                for file_type in self.data_file_types
+                if (file := filepath.parent / f"{table.table_name}.{file_type}").exists()
+            ),
+            None,
+        )
+        if datafile is None:
+            raise ValueError(f"Failed to find data file for {table.table_name} in {filepath.parent}")
+        elif datafile.suffix == ".csv":
+            # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+            file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+            data = pd.read_csv(io.StringIO(file_content), dtype=str)
+            data.fillna("", inplace=True)
+        elif datafile.suffix == ".parquet":
+            data = pd.read_parquet(filepath)
+        else:
+            raise NotImplementedError(f"Unsupported file type {datafile.suffix} for {table.table_name}")
+
+        self.client.raw.rows.insert_dataframe(
+            db_name=table.db_name,
+            table_name=table.table_name,
+            dataframe=data,
+            ensure_parent=True,
+        )
+        return [table]
+
+
+@final
+class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
+    api_name = "files"
+    folder_name = "files"
+    resource_cls = FileMetadata
+    list_cls = FileMetadataList
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        if ToolGlobals.data_set_id is None:
+            scope = FilesAcl.Scope.All()
+        else:
+            scope = FilesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+
+        return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)
+
+    @classmethod
+    def get_id(cls, item: FileMetadata) -> str:
+        return item.external_id
+
+    def delete(self, items: Sequence[FileMetadata]) -> None:
+        self.client.files.delete(external_id=[item.external_id for item in items])
+
+    def create(
+        self, items: Sequence[FileMetadata], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> FileMetadataList:
+        if len(items) != 1:
+            raise ValueError("Files must be loaded one at a time.")
+        meta = items[0]
+        datafile = filepath.parent / meta.name
+        created = self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
+        return FileMetadataList(created)
+
+
+def drop_load_resources(
+    LoaderCls: type[Loader],
+    path: Path,
+    ToolGlobals: CDFToolConfig,
+    drop: bool,
+    load: bool = True,
+    dry_run: bool = False,
+):
+    loader = LoaderCls.create_loader(ToolGlobals)
+    if path.is_file():
+        if path.suffix not in loader.filetypes or not loader.filetypes:
+            raise ValueError("Invalid file type")
+        filepaths = [path]
+    elif loader.filetypes:
+        filepaths = [file for type_ in loader.filetypes for file in path.glob(f"**/*.{type_}")]
     else:
-        print(f"[bold]Loading {len(groups)} groups from {directory} and created necessary data sets...[/]")
-    existing_groups = 0
-    for group in groups:
-        old_group_id = None
-        for g in old_groups:
-            if g.name == group.name:
-                old_group_id = g.id
-                break
-        try:
-            if not dry_run:
-                group = client.iam.groups.create(group)
-                if verbose:
-                    print(f"  Created group {group.name}.")
-            else:
-                if verbose:
-                    print(f"  Would have created group {group.name}.")
-        except Exception as e:
-            print(f"[bold red]ERROR:[/] Failed to create group {group.name}: \n{e}")
-            ToolGlobals.failed = True
-            return
-        if old_group_id:
-            existing_groups += 1
+        filepaths = [file for file in path.glob("**/*")]
+
+    items = [loader.load_file(f, ToolGlobals) for f in filepaths]
+    nr_of_batches = len(items)
+    nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
+    if load:
+        print(f"[bold]Uploading {nr_of_items} {loader.api_name} in {nr_of_batches} batches to CDF...[/]")
+    else:
+        print(f"[bold]Cleaning {nr_of_items} {loader.api_name} in {nr_of_batches} batches to CDF...[/]")
+    batches = [item if isinstance(item, Sized) else [item] for item in items]
+    if drop and loader.support_drop and load:
+        print(f"  --drop is specified, will delete existing {loader.api_name} before uploading.")
+    if drop and loader.support_drop:
+        drop_items: list = []
+        for batch in batches:
+            for item in batch:
+                # Set the context info for this CDF project
+                if hasattr(item, "data_set_id") and ToolGlobals.data_set_id is not None:
+                    item.data_set_id = ToolGlobals.data_set_id
+                drop_items.append(loader.get_id(item))
+        if not dry_run:
             try:
-                if not dry_run:
-                    client.iam.groups.delete(id=old_group_id)
-                    if verbose:
-                        print(f"  Deleted old group {old_group_id}.")
-                else:
-                    if verbose:
-                        print(f"  Would have deleted group {old_group_id}.")
-            except Exception:
-                print(f"[bold red]ERROR:[/] Failed to delete group {old_group_id}.")
-                ToolGlobals.failed = True
-    if not dry_run:
-        print(f"  Created {len(groups)} groups.")
-        print(f"  Deleted {existing_groups} old groups.")
-    else:
-        print(f"  Would have created {len(groups)} groups.")
-        print(f"  Wuld have deleted {existing_groups} old groups.")
+                loader.delete(drop_items)
+                print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+            except Exception as e:
+                print(
+                    f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. It/they may not exist. Error {e}"
+                )
+        else:
+            print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
+    if not load:
+        return
+    try:
+        if not dry_run:
+            for batch, filepath in zip(batches, filepaths):
+                loader.create(batch, ToolGlobals, drop, filepath)
+    except Exception as e:
+        print(f"[bold red]ERROR:[/] Failed to upload {loader.api_name}.")
+        print(e)
+        ToolGlobals.failed = True
+        return
+    print(f"  Created {nr_of_items} {loader.api_name} from {len(filepaths)} files.")
+
+
+LOADER_BY_FOLDER_NAME = {loader.folder_name: loader for loader in Loader.__subclasses__()}
 
 
 def load_datamodel_graphql(
@@ -507,7 +572,7 @@ def load_datamodel(
         if not (match := models_pattern.match(file.name)):
             continue
         model_files_by_type[match.group(1)].append(file)
-    print("[bold]Loading...[/]")
+    print("[bold]Loading data model files...[/]")
     for type_, files in model_files_by_type.items():
         model_files_by_type[type_].sort()
         print(f"  {len(files)} of type {type_}s in {directory}")

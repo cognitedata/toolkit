@@ -326,15 +326,6 @@ DataModel:
     space: apm_simple
     type: view
     version: '1'
-Database:
-- name: apm_simple
-- name: apm_simple
-- name: apm_simple
-- name: apm_simple
-- name: apm_simple
-- name: apm_simple
-- name: apm_simple
-- name: apm_simple
 Row:
 - args: []
   columns:
@@ -1615,6 +1606,17 @@ deleted:
     space: apm_simple
     type: datamodel
     version: '1'
+  Table:
+  - db_name: apm_simple
+    name:
+    - asset2children
+    - assets
+    - timeseries2assets
+    - workitem2assets
+    - workitems
+    - workorder2assets
+    - workorder2items
+    - workorders
   TimeSeries:
   - externalId: pi:160633
   - externalId: pi:160696

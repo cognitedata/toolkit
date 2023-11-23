@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -175,7 +176,7 @@ class CDFToolConfig:
         return self._project
 
     @property
-    def data_set_id(self) -> int:
+    def data_set_id(self) -> int | None:
         return self._data_set_id if self._data_set_id > 0 else None
 
     # Use this to ignore the data set when verifying the client's access capabilities
@@ -284,6 +285,12 @@ class CDFToolConfig:
             raise CogniteAuthError("Don't have correct access rights.")
         return self._client
 
+    def verify_capabilities(self, capability: Capability | Sequence[Capability]) -> CogniteClient:
+        missing_capabilities = self._client.iam.verify_capabilities(capability)
+        if len(missing_capabilities) > 0:
+            raise CogniteAuthError(f"Missing capabilities: {missing_capabilities}")
+        return self._client
+
     def verify_dataset(self, data_set_name: str | None = None, create: bool = True) -> int | None:
         """Verify that the configured data set exists and is accessible
 
@@ -321,7 +328,7 @@ class CDFToolConfig:
             )
 
 
-def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any]:
+def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any] | list[dict[str, Any]]:
     content = filepath.read_text()
     for key, value in variables.items():
         if value is None:
