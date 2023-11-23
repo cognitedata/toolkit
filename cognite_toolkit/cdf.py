@@ -605,6 +605,7 @@ def main_init(
         "common",
         "modules",
         "examples",
+        "experimental",
     ]
     template_dir = resources.files("cognite_toolkit")
     target_dir = Path.cwd() / f"{init_dir}"

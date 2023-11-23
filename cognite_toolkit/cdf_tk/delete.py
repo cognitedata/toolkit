@@ -29,11 +29,11 @@ from cognite.client.data_classes.data_modeling import (
     ViewList,
 )
 from cognite.client.data_classes.iam import Group
-from cognite.client.data_classes.time_series import TimeSeries
+from cognite.client.data_classes.time_series import TimeSeries, TimeSeriesList
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
 
-from .utils import CDFToolConfig, TimeSeriesLoad
+from .utils import CDFToolConfig
 
 
 def delete_raw(
@@ -143,9 +143,7 @@ def delete_timeseries(ToolGlobals: CDFToolConfig, dry_run=False, directory=None)
     timeseries: list[TimeSeries] = []
     for f in files:
         with open(f"{f}") as file:
-            timeseries.extend(
-                TimeSeriesLoad.load(yaml.safe_load(file.read()), file=f"{directory}/{f}"),
-            )
+            timeseries.extend(TimeSeriesList.load(file.read()))
     if len(timeseries) == 0:
         return
     drop_ts: list[str] = []
