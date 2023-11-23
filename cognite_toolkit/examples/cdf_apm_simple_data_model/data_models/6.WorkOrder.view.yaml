@@ -1,0 +1,162 @@
+externalId: WorkOrder
+name: WorkOrder
+space: '{{space}}'
+version: '{{view_WorkOrder_version}}'
+properties:
+  actualHours:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: actualHours
+    name: actualHours
+  createdDate:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: createdDate
+    name: createdDate
+  description:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: description
+    name: description
+  dueDate:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: dueDate
+    name: dueDate
+  durationHours:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: durationHours
+    name: durationHours
+  endTime:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: endTime
+    name: endTime
+  isActive:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: isActive
+    name: isActive
+  isCancelled:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: isCancelled
+    name: isCancelled
+  isCompleted:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: isCompleted
+    name: isCompleted
+  isSafetyCritical:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: isSafetyCritical
+    name: isSafetyCritical
+  linkedAssets:
+    direction: outwards
+    connectionType: multiEdgeConnection
+    name: linkedAssets
+    source:
+      externalId: Asset
+      space: '{{space}}'
+      type: view
+      version: 8069f1498c7f9a
+    type:
+      externalId: WorkOrder.linkedAssets
+      space: '{{space}}'
+  percentageProgress:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: percentageProgress
+    name: percentageProgress
+  plannedStart:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: plannedStart
+    name: plannedStart
+  priorityDescription:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: priorityDescription
+    name: priorityDescription
+  programNumber:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: programNumber
+    name: programNumber
+  startTime:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: startTime
+    name: startTime
+  status:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: status
+    name: status
+  title:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: title
+    name: title
+  workItems:
+    connectionType: multiEdgeConnection
+    direction: outwards
+    name: workItems
+    source:
+      externalId: WorkItem
+      space: '{{space}}'
+      type: view
+      version: 94d2b7121128a2
+    type:
+      externalId: WorkOrder.workItems
+      space: '{{space}}'
+  workOrderNumber:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: workOrderNumber
+    name: workOrderNumber
+  workPackageNumber:
+    container:
+      externalId: WorkOrder
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: workPackageNumber
+    name: workPackageNumber

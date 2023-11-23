@@ -1,0 +1,2 @@
+# Only valid for this module, loads template variables from environment
+raw_db: apm_simple

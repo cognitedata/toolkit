@@ -1,0 +1,30 @@
+externalId: apm_simple-load-asset2children
+name: apm_simple-load-Asset2children
+destination:
+  dataModel:
+    space: {{space}}
+    externalId: {{datamodel}}
+    version: '1'
+    destinationType: Asset
+    destinationRelationshipFromType: children
+  instanceSpace: {{space}}
+  type: instances
+ignoreNullFields: true
+shared: true
+action: upsert
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  cicd_clientId: {{cicd_clientId}}
+  cicd_clientSecret: {{cicd_clientSecret}}
+  cicd_tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the cicd_scopes
+  cdfProjectName: {{cdfProjectName}}
+  cicd_scopes:
+    - {{cicd_scopes}}
+  # Optional: If idP requires providing the cicd_audience
+  cicd_audience: {{cicd_audience}}
+schedule:
+  # every hour
+  interval: '0 * * * *'
+  isPaused: true
