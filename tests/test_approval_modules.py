@@ -86,6 +86,7 @@ def test_module_approval(
         context = MagicMock(spec=typer.Context)
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval
         cdf_tool.failed = False
 
         cdf_tool.verify_dataset.return_value = 42
