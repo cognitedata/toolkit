@@ -13,5 +13,11 @@ Changes are grouped as follows
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0a2] - 2023-11-23
+
+### Changed
+Changed format of infield external_ids to be more readable, moving _dataset (ds) and _space to the beginning of the external_id.
+
 ## [0.1.0] - 2023-11-21
 Initial release
+
