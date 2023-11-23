@@ -5,7 +5,13 @@ from unittest.mock import MagicMock
 import pytest
 from cognite.client import CogniteClient
 
-from cognite_toolkit.cdf_tk.load import DatapointsLoader, FileLoader, Loader, load_datamodel_graphql, load_resources
+from cognite_toolkit.cdf_tk.load import (
+    DatapointsLoader,
+    FileLoader,
+    Loader,
+    drop_load_resources,
+    load_datamodel_graphql,
+)
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -52,7 +58,7 @@ def test_loader_class(
     cdf_tool.verify_capabilities.return_value = cognite_client_approval
     cdf_tool.data_set_id = 999
 
-    load_resources(loader_cls, directory, cdf_tool, drop=False, dry_run=False)
+    drop_load_resources(loader_cls, directory, cdf_tool, drop=False, load=True, dry_run=False)
 
     dump = cognite_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{directory.name}.yaml")

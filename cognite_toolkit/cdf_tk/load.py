@@ -433,11 +433,12 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         return FileMetadataList(created)
 
 
-def load_resources(
+def drop_load_resources(
     LoaderCls: type[Loader],
     path: Path,
     ToolGlobals: CDFToolConfig,
     drop: bool,
+    load: bool = True,
     dry_run: bool = False,
 ):
     loader = LoaderCls.create_loader(ToolGlobals)
@@ -453,9 +454,12 @@ def load_resources(
     items = [loader.load_file(f, ToolGlobals) for f in filepaths]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
-    print(f"[bold]Uploading {nr_of_items} in {nr_of_batches} of batches to CDF...[/]")
+    if load:
+        print(f"[bold]Uploading {nr_of_items} {loader.api_name} in {nr_of_batches} batches to CDF...[/]")
+    else:
+        print(f"[bold]Cleaning {nr_of_items} {loader.api_name} in {nr_of_batches} batches to CDF...[/]")
     batches = [item if isinstance(item, Sized) else [item] for item in items]
-    if drop and loader.support_drop:
+    if drop and loader.support_drop and load:
         print(f"  --drop is specified, will delete existing {loader.api_name} before uploading.")
     if drop and loader.support_drop:
         drop_items: list = []
@@ -475,6 +479,8 @@ def load_resources(
                 )
         else:
             print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
+    if not load:
+        return
     try:
         if not dry_run:
             for batch, filepath in zip(batches, filepaths):

@@ -18,19 +18,13 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit.cdf_tk import bootstrap
-from cognite_toolkit.cdf_tk.delete import (
-    delete_groups,
-    delete_raw,
-    delete_timeseries,
-    delete_transformations,
-)
 
 # from scripts.delete import clean_out_datamodels
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
+    drop_load_resources,
     load_datamodel,
     load_nodes,
-    load_resources,
 )
 from cognite_toolkit.cdf_tk.templates import build_config, read_environ_config
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -267,19 +261,6 @@ def deploy(
         )
         exit(1)
     print(ToolGlobals.as_string())
-
-    for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
-        if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
-            load_resources(
-                LoaderCls,
-                directory,
-                ToolGlobals,
-                drop=drop,
-                dry_run=dry_run,
-            )
-            if ToolGlobals.failed:
-                print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
-                exit(1)
     if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_datamodel(
             ToolGlobals,
@@ -301,6 +282,19 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to load instances as expected.")
             exit(1)
+    for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
+        if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
+            drop_load_resources(
+                LoaderCls,
+                directory,
+                ToolGlobals,
+                drop=drop,
+                load=True,
+                dry_run=dry_run,
+            )
+            if ToolGlobals.failed:
+                print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
+                exit(1)
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to load as expected.")
         exit(1)
@@ -313,7 +307,7 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
         mapping[i] = datatype
     print("\na) All")
     print("q) Quit")
-    answer = input("Select data types to deploy: ")
+    answer = input("Select data types to include: ")
     if answer.casefold() == "a":
         return list(include)
     elif answer.casefold() == "q":
@@ -344,6 +338,14 @@ def clean(
             help="Build environment to clean for",
         ),
     ] = "dev",
+    interactive: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--interactive",
+            "-i",
+            help="Whether to use interactive mode when deciding which modules to clean",
+        ),
+    ] = False,
     dry_run: Annotated[
         Optional[bool],
         typer.Option(
@@ -362,19 +364,7 @@ def clean(
     ] = None,
 ) -> None:
     """Clean up a CDF environment as set in local.yaml based on the configuration files in the build directory."""
-    if len(include) == 0:
-        include = [datatype for datatype in CDFDataTypes]
-    print(
-        Panel(
-            f"[bold]Cleaning configuration in project based on config files from {build_dir} to environment {build_env}...[/]"
-        )
-    )
-    # Set environment variables from local.yaml
-    read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
-    # Configure a client and load credentials from environment
-    if not Path(build_dir).is_dir():
-        print(f"{build_dir} does not exists.")
-        exit(1)
+    # Override cluster and project from the options/env variables
     if ctx.obj.mockToolGlobals is not None:
         ToolGlobals = ctx.obj.mockToolGlobals
     else:
@@ -383,38 +373,33 @@ def clean(
             cluster=ctx.obj.cluster,
             project=ctx.obj.project,
         )
-    print("Using following configurations: ")
-    print(ToolGlobals)
-    if CDFDataTypes.raw in include and Path(f"{build_dir}/raw").is_dir():
-        # load_raw() will assume that the RAW database name is set like this in the filename:
-        # <index>.<raw_db>.<tablename>.csv
-        delete_raw(
-            ToolGlobals,
-            raw_db="default",
-            dry_run=dry_run,
-            directory=f"{build_dir}/raw",
+    # Set environment variables from local.yaml
+    read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
+
+    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
+        print(
+            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
         )
-    if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to clean raw as expected.")
         exit(1)
-    if CDFDataTypes.timeseries in include and Path(f"{build_dir}/timeseries").is_dir():
-        delete_timeseries(
-            ToolGlobals,
-            dry_run=dry_run,
-            directory=f"{build_dir}/timeseries",
+
+    include = include or list(_AVAILABLE_DATA_TYPES)
+    if interactive:
+        include = _select_data_types(include)
+
+    print(Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]"))
+    # Configure a client and load credentials from environment
+    if not Path(build_dir).is_dir():
+        alternatives = {
+            folder.name: f"{folder.parent.name}/{folder.name}"
+            for folder in Path(build_dir).parent.iterdir()
+            if folder.is_dir()
+        }
+        matches = difflib.get_close_matches(Path(build_dir).name, list(alternatives.keys()), n=3, cutoff=0.3)
+        print(
+            f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you mean one of these? {[alternatives[m] for m in matches]}"
         )
-    if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to clean timeseries as expected.")
         exit(1)
-    if CDFDataTypes.transformations in include and Path(f"{build_dir}/transformations").is_dir():
-        delete_transformations(
-            ToolGlobals,
-            dry_run=dry_run,
-            directory=f"{build_dir}/transformations",
-        )
-    if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to clean transformations as expected.")
-        exit(1)
+    print(ToolGlobals.as_string())
     if CDFDataTypes.data_models in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         # We use the load_datamodel with only_drop=True to ensure that we get a clean
         # deletion of the data model entities and instances.
@@ -431,19 +416,33 @@ def clean(
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to delete data models as expected.")
         exit(1)
-    if CDFDataTypes.groups in include and Path(f"{build_dir}/auth").is_dir():
-        # NOTE! If you want to force deletion of groups that the current running user/service principal
-        # is a member of, set my_own=True. This may result in locking out the CI/CD service principal
-        # and is thus default not set to True.
-        delete_groups(
+    for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
+        if folder_name == "auth":
+            continue
+        if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
+            drop_load_resources(
+                LoaderCls,
+                directory,
+                ToolGlobals,
+                drop=True,
+                load=False,
+                dry_run=dry_run,
+            )
+            if ToolGlobals.failed:
+                print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
+                exit(1)
+    if "auth" in include:
+        drop_load_resources(
+            LOADER_BY_FOLDER_NAME.get("auth"),
+            directory,
             ToolGlobals,
-            directory=f"{build_dir}/auth",
-            my_own=False,
+            drop=True,
+            load=False,
             dry_run=dry_run,
         )
-    if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to clean groups as expected.")
-        exit(1)
+        if ToolGlobals.failed:
+            print("[bold red]ERROR: [/] Failure to clean auth as expected.")
+            exit(1)
 
 
 @auth_app.callback(invoke_without_command=True)
