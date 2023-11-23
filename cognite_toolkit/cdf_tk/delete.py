@@ -198,7 +198,7 @@ def delete_transformations(
         else:
             print(f"  Would have deleted {len(transformations)} transformations.")
     except Exception as e:
-        print(f"[bold red]ERROR: [/] Failed to delete transformations.\{e}")
+        print(f"[bold red]ERROR: [/] Failed to delete transformations.\n{e}")
         ToolGlobals.failed = True
 
 
