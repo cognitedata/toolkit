@@ -299,11 +299,13 @@ class GroupLoader(Loader[int, Group, GroupList]):
 
 
 @final
-class DatapointsLoader(Loader[list[str], list[TimeSeries], TimeSeriesList]):
+class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
+    # Not yet implemented
+    support_drop = False
+    filetypes = frozenset({"csv", "parquet"})
     api_name = "time_series.data"
     folder_name = "timeseries_datapoints"
     resource_cls = pd.DataFrame
-    data_file_types = frozenset({"csv", "parquet"})
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -318,35 +320,30 @@ class DatapointsLoader(Loader[list[str], list[TimeSeries], TimeSeriesList]):
             scope,
         )
 
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Path:
+        return filepath
+
     @classmethod
-    def get_id(cls, item: TimeSeries) -> str:
-        return item.external_id
+    def get_id(cls, item: Path) -> list[str]:
+        raise NotImplementedError
 
     def delete(self, items: Sequence[str]) -> None:
         # Drop all datapoints?
         raise NotImplementedError()
 
-    def create(
-        self, items: Sequence[TimeSeries], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> TimeSeriesList:
-        raise NotImplementedError
-        for item, filepath in zip(items, filepaths):
-            datafile = next(
-                (
-                    file
-                    for file_type in self.data_file_types
-                    if (file := filepath.parent / f"{item.external_id}.{file_type}").exist()
-                ),
-                None,
-            )
-            if datafile.suffix == ".csv":
-                data = pd.read_csv(datafile, parse_dates=True, dayfirst=True, index_col=0)
-            elif datafile.suffix == ".parquet":
-                data = pd.read_parquet(datafile, engine="pyarrow")
-            else:
-                raise ValueError(f"Failed to find data file for {item.external_id} in {filepath.parent}")
-            self.client.time_series.data.insert_dataframe(data)
-        return TimeSeriesList(items)
+    def create(self, items: Sequence[Path], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> TimeSeriesList:
+        if len(items) != 1:
+            raise ValueError("Datapoints must be loaded one at a time.")
+        datafile = items[0]
+        if datafile.suffix == ".csv":
+            data = pd.read_csv(datafile, parse_dates=True, dayfirst=True, index_col=0)
+        elif datafile.suffix == ".parquet":
+            data = pd.read_parquet(datafile, engine="pyarrow")
+        else:
+            raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
+        self.client.time_series.data.insert_dataframe(data)
+        external_ids = [col for col in data.columns if not pd.api.types.is_datetime64_any_dtype(data[col])]
+        return TimeSeriesList([TimeSeries(external_id=external_id) for external_id in external_ids])
 
 
 @final
@@ -408,8 +405,8 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
 class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
     api_name = "files"
     folder_name = "files"
-    resource_cls = Path
-    id_prefix: str = "example"
+    resource_cls = FileMetadata
+    list_cls = FileMetadataList
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -424,21 +421,17 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
     def get_id(cls, item: FileMetadata) -> str:
         return item.external_id
 
+    def delete(self, items: Sequence[FileMetadata]) -> None:
+        self.client.files.delete(external_id=[item.external_id for item in items])
+
     def create(
         self, items: Sequence[FileMetadata], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> FileMetadataList:
-        created = []
-        raise NotImplementedError()
-        created.append(
-            self.client.files.upload(
-                path=f"{item.data.parent}/{item.data.name}",
-                data_set_id=ToolGlobals.data_set_id,
-                name=item.name,
-                external_id=self.get_id(item.data),
-                overwrite=drop,
-            )
-        )
-
+        if len(items) != 1:
+            raise ValueError("Files must be loaded one at a time.")
+        meta = items[0]
+        datafile = filepath.parent / meta.name
+        created = self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
         return FileMetadataList(created)
 
 
