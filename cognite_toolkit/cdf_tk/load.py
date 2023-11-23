@@ -110,8 +110,6 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
 
     Class attributes:
         support_drop: Whether the resource supports the drop flag.
-        load_files_individually: Whether to load each file individually or all files in a folder at once.
-        drop_individually: If support_drop = True, should contents of each file be dropped per file.
         filetypes: The filetypes that are supported by this loader. If empty, all files are supported.
         api_name: The name of the api that is in the cognite_client that is used to interact with the CDF API.
         folder_name: The name of the folder in the build directory where the files are located.
