@@ -22,7 +22,7 @@ from collections.abc import Sequence, Sized
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, TypeVar, Union, final
+from typing import Any, Generic, Literal, TypeVar, Union, final
 
 import pandas as pd
 from cognite.client import CogniteClient
@@ -34,6 +34,7 @@ from cognite.client.data_classes import (
     TimeSeriesList,
     Transformation,
     TransformationList,
+    capabilities,
 )
 from cognite.client.data_classes._base import (
     CogniteObject,
@@ -259,12 +260,34 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
 
 
 @final
-class GroupLoader(Loader[int, Group, GroupList]):
+class AuthLoader(Loader[int, Group, GroupList]):
     support_drop = False
     api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
     list_cls = GroupList
+    resource_scopes = frozenset(
+        {
+            capabilities.IDScope,
+            capabilities.SpaceIDScope,
+            capabilities.DataSetScope,
+            capabilities.TableScope,
+            capabilities.AssetRootIDScope,
+            capabilities.ExtractionPipelineScope,
+            capabilities.IDScopeLowerCase,
+        }
+    )
+
+    def __init__(self, client: CogniteClient, load: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all"):
+        super().__init__(client)
+        self.load = load
+
+    @classmethod
+    def create_loader(
+        cls, ToolGlobals: CDFToolConfig, load: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all"
+    ):
+        client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
+        return cls(client, load)
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -289,7 +312,28 @@ class GroupLoader(Loader[int, Group, GroupList]):
         return Group.load(raw)
 
     def create(self, items: Sequence[Group], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> GroupList:
-        created = self.client.iam.groups.create(items)
+        if self.load == "all":
+            to_create = items
+        elif self.load == "resource_scoped_only":
+            to_create = []
+            for item in items:
+                item.capabilities = [
+                    capability for capability in item.capabilities if type(capability.scope) in self.resource_scopes
+                ]
+                if item.capabilities:
+                    to_create.append(item)
+        elif self.load == "all_scoped_only":
+            to_create = []
+            for item in items:
+                item.capabilities = [
+                    capability for capability in item.capabilities if type(capability.scope) not in self.resource_scopes
+                ]
+                if item.capabilities:
+                    to_create.append(item)
+        else:
+            raise ValueError(f"Invalid load value {self.load}")
+
+        created = self.client.iam.groups.create(to_create)
         old_groups = self.client.iam.groups.list(all=True).data
         created_names = {g.name for g in created}
         to_delete = [g.id for g in old_groups if g.name in created_names]
@@ -437,14 +481,13 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
 
 
 def drop_load_resources(
-    LoaderCls: type[Loader],
+    loader: Loader,
     path: Path,
     ToolGlobals: CDFToolConfig,
     drop: bool,
     load: bool = True,
     dry_run: bool = False,
 ):
-    loader = LoaderCls.create_loader(ToolGlobals)
     if path.is_file():
         if path.suffix not in loader.filetypes or not loader.filetypes:
             raise ValueError("Invalid file type")
