@@ -19,6 +19,7 @@ import re
 from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
 from collections.abc import Sequence, Sized
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic, TypeVar, Union, final
@@ -197,7 +198,7 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
         return item.external_id
 
     def delete(self, ids: Sequence[str]) -> None:
-        self.client.time_series.delete(external_id=ids)
+        self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
 
 
 @final
@@ -362,7 +363,9 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
 
     def delete(self, items: Sequence[RawTable]) -> None:
         for db_name, raw_tables in itertools.groupby(sorted(items, key=lambda x: x.db_name), key=lambda x: x.db_name):
-            self.client.raw.tables.delete(db_name=db_name, name=[table.table_name for table in raw_tables])
+            # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
+            with suppress(CogniteAPIError):
+                self.client.raw.tables.delete(db_name=db_name, name=[table.table_name for table in raw_tables])
 
     def create(
         self, items: Sequence[RawTable], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
