@@ -405,6 +405,7 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
 @final
 class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
     api_name = "files"
+    filetypes = frozenset({})
     folder_name = "files"
     resource_cls = FileMetadata
     list_cls = FileMetadataList
@@ -420,7 +421,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
 
     @classmethod
     def get_id(cls, item: FileMetadata) -> str:
-        return item.external_id
+        return item.name
 
     def delete(self, items: Sequence[FileMetadata]) -> None:
         self.client.files.delete(external_id=[item.external_id for item in items])
