@@ -72,8 +72,8 @@ Group:
           - APM_Config
           - cdf_apm
           - cognite_app_data
-          - infield_default_location_source_data_space
-          - infield_default_location_app_data_space
+          - space_infield_default_location_source
+          - space_infield_default_location_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -81,7 +81,7 @@ Group:
         spaceIdScope:
           spaceIds:
           - cognite_app_data
-          - infield_default_location_app_data_space
+          - space_infield_default_location_app_data
   metadata:
     module_version: '1'
     origin: cdf-project-templates
@@ -160,8 +160,8 @@ Group:
           - APM_Config
           - cdf_apm
           - cognite_app_data
-          - infield_default_location_source_data_space
-          - infield_default_location_app_data_space
+          - space_infield_default_location_source
+          - space_infield_default_location_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -169,7 +169,7 @@ Group:
         spaceIdScope:
           spaceIds:
           - cognite_app_data
-          - infield_default_location_app_data_space
+          - space_infield_default_location_app_data
   metadata:
     module_version: '1'
     origin: cdf-project-templates
@@ -248,8 +248,8 @@ Group:
           - APM_Config
           - cdf_apm
           - cognite_app_data
-          - infield_default_location_source_data_space
-          - infield_default_location_app_data_space
+          - space_infield_default_location_source
+          - space_infield_default_location_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -257,7 +257,7 @@ Group:
         spaceIdScope:
           spaceIds:
           - cognite_app_data
-          - infield_default_location_app_data_space
+          - space_infield_default_location_app_data
   metadata:
     module_version: '1'
     origin: cdf-project-templates
@@ -322,8 +322,8 @@ Group:
           - APM_Config
           - cdf_apm
           - cognite_app_data
-          - infield_default_location_source_data_space
-          - infield_default_location_app_data_space
+          - space_infield_default_location_source
+          - space_infield_default_location_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -345,11 +345,11 @@ Node:
       customerDataSpaceVersion: '1'
       featureConfiguration:
         rootLocationConfigurations:
-        - appDataInstanceSpace: infield_default_location_app_data_space
+        - appDataInstanceSpace: space_infield_default_location_app_data
           assetExternalId: WMT:VAL
           checklistAdmins:
           - infield_default_checklist_admins
-          sourceDataInstanceSpace: infield_default_location_source_data_space
+          sourceDataInstanceSpace: space_infield_default_location_source
           templateAdmins:
           - infield_default_template_admins
       name: Default location
@@ -361,15 +361,15 @@ Node:
   space: APM_Config
 Space:
 - description: Space for Infield Location App Data
-  name: infield_default_location_app_data_space
-  space: infield_default_location_app_data_space
+  name: space_infield_default_location_app_data
+  space: space_infield_default_location_app_data
 - description: Space for Infield Location Source Data
-  name: infield_default_location_source_data_space
-  space: infield_default_location_source_data_space
+  name: space_infield_default_location_source
+  space: space_infield_default_location_source
 Transformation:
 - dataSetId: 999
   destination:
-    instanceSpace: infield_default_location_source_data_space
+    instanceSpace: space_infield_default_location_source
     type: nodes
     view:
       externalId: Asset
@@ -388,7 +388,7 @@ Transformation:
   name: Sync asset parent relationships from Asset Hierarchy to APM Asset model
   ownerIsCurrentUser: true
   query: "select\n  cast(asset.externalId as STRING) as externalId,\n  (case\n   \
-    \ when isnull(asset.parentExternalId) then null\n    else node_reference('infield_default_location_source_data_space',\
+    \ when isnull(asset.parentExternalId) then null\n    else node_reference('space_infield_default_location_source',\
     \ asset.parentExternalId) \n  end) as parent\nfrom\n  cdf_assetSubtree('WMT:VAL')\
     \ as asset\n  inner join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId\
     \ = rootAsset.id"
@@ -405,7 +405,7 @@ Transformation:
     tokenUri: ${IDP_TOKEN_URL}
 - dataSetId: 999
   destination:
-    instanceSpace: infield_default_location_source_data_space
+    instanceSpace: space_infield_default_location_source
     type: nodes
     view:
       externalId: Asset
@@ -424,7 +424,7 @@ Transformation:
   name: Sync assets from Asset Hierarchy to APM Asset model
   ownerIsCurrentUser: true
   query: "select\n  cast(asset.externalId as STRING) as externalId, \n  cast(\"Asset\
-    \ Hierarachy\" as STRING) as source,\n  node_reference('infield_default_location_source_data_space',\
+    \ Hierarachy\" as STRING) as source,\n  node_reference('space_infield_default_location_source',\
     \ cast(rootAsset.externalId as STRING)) as root,\n  cast(asset.description as\
     \ STRING) as description,\n  cast(asset.name as STRING) as title,\n  cast(asset.externalId\
     \ as STRING) as sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as asset\n  inner\
@@ -448,7 +448,7 @@ Transformation:
       externalId: APM_SourceData
       space: APM_SourceData
       version: '1'
-    instanceSpace: infield_default_location_source_data_space
+    instanceSpace: space_infield_default_location_source
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -492,8 +492,8 @@ TransformationSchedule:
   isPaused: false
 deleted:
   Space:
-  - infield_default_location_app_data_space
-  - infield_default_location_source_data_space
+  - space_infield_default_location_app_data
+  - space_infield_default_location_source
   Transformation:
   - externalId: sync_asset_parents_from_hierarchy_to_apm
   - externalId: sync_assets_from_hierarchy_to_apm
