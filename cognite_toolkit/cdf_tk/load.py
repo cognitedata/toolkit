@@ -299,7 +299,6 @@ class GroupLoader(Loader[int, Group, GroupList]):
 
 @final
 class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
-    # Not yet implemented
     support_drop = False
     filetypes = frozenset({"csv", "parquet"})
     api_name = "time_series.data"
@@ -421,20 +420,31 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
 
     @classmethod
     def get_id(cls, item: FileMetadata) -> str:
-        return item.name
+        return item.external_id
 
-    def delete(self, items: Sequence[FileMetadata]) -> None:
-        self.client.files.delete(external_id=[item.external_id for item in items])
+    def delete(self, ids: Sequence[str]) -> None:
+        self.client.files.delete(external_id=ids)
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Group:
+        return FileMetadata(
+            external_id=filepath.name,
+            name=filepath.name,
+            source="cdf-project-templates",
+            metadata={
+                "size": filepath.stat().st_size,
+                "suffix": filepath.suffix[1:],
+            },
+        )
 
     def create(
         self, items: Sequence[FileMetadata], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> FileMetadataList:
+    ) -> FileMetadata:
         if len(items) != 1:
             raise ValueError("Files must be loaded one at a time.")
         meta = items[0]
         datafile = filepath.parent / meta.name
-        created = self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
-        return FileMetadataList(created)
+        created = self.client.files.upload(datafile, overwrite=drop, **meta.dump(camel_case=False))
+        return created
 
 
 def drop_load_resources(
