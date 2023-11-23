@@ -22,7 +22,7 @@ from cognite.client._api.data_sets import DataSetsAPI
 from cognite.client._api.datapoints import DatapointsAPI
 from cognite.client._api.files import FilesAPI
 from cognite.client._api.iam import GroupsAPI
-from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI
+from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
 from cognite.client._api.time_series import TimeSeriesAPI
 from cognite.client._api.transformations import TransformationsAPI, TransformationSchedulesAPI
 from cognite.client._api_client import APIClient
@@ -34,6 +34,7 @@ from cognite.client.data_classes import (
     FileMetadataList,
     GroupList,
     RowList,
+    TableList,
     TimeSeriesList,
     TransformationList,
     TransformationScheduleList,
@@ -73,6 +74,7 @@ def cognite_client_approval() -> CogniteClient:
         client.data_sets = create_mock_api(DataSetsAPI, DataSetList, written_resources, deleted_resources)
         client.time_series = create_mock_api(TimeSeriesAPI, TimeSeriesList, written_resources, deleted_resources)
         client.raw.databases = create_mock_api(RawDatabasesAPI, DatabaseList, written_resources, deleted_resources)
+        client.raw.tables = create_mock_api(RawTablesAPI, TableList, written_resources, deleted_resources)
         client.transformations = create_mock_api(
             TransformationsAPI, TransformationList, written_resources, deleted_resources
         )
@@ -108,7 +110,7 @@ def cognite_client_approval() -> CogniteClient:
                 if values:
                     dumped[key] = sorted(
                         [value.dump(camel_case=True) if hasattr(value, "dump") else value for value in values],
-                        key=lambda x: x.get("externalId", x.get("name")),
+                        key=lambda x: x.get("externalId", x.get("dbName", x.get("name"))),
                     )
             if deleted_resources:
                 dumped["deleted"] = {}
@@ -254,6 +256,11 @@ def create_mock_api(
             deleted_resources[resource_cls.__name__].extend(deleted)
         return deleted
 
+    def delete_raw(db_name: str, name: str | Sequence[str]) -> list:
+        deleted = [{"db_name": db_name, "name": name}]
+        deleted_resources[resource_cls.__name__].extend(deleted)
+        return deleted
+
     if hasattr(api_client, "create"):
         mock.create = create
     elif hasattr(api_client, "apply"):
@@ -277,6 +284,8 @@ def create_mock_api(
             mock.delete = delete_data_modeling
         elif "spaces" in signature.parameters:
             mock.delete = delete_space
+        elif "db_name" in signature.parameters:
+            mock.delete = delete_raw
         else:
             mock.delete = delete_core
 

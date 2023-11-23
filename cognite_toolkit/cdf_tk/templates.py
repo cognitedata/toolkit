@@ -13,7 +13,7 @@ TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md"]
 # Which suffixes to exclude when we create indexed files (i.e. they are bundled with their main config file)
-EXCL_INDEX_SUFFIX = ["sql"]
+EXCL_INDEX_SUFFIX = ["sql", "csv", "parquet"]
 
 
 def read_environ_config(
@@ -213,12 +213,7 @@ def process_config_files(
                     # Get rid of the local index
                     if re.match("^[0-9]+\\.", file_name):
                         file_name = file_name.split(".", 1)[1]
-                    # If we are processing raw tables, we want to pick up the raw_db config.yaml
-                    # variable to determine the database name.
-                    if Path(dirpath).name == "raw":
-                        file_name = f"{indices[cdf_path]}.{yaml_local.get('raw_db', 'default')}.{file_name}"
-                    else:
-                        file_name = f"{indices[cdf_path]}.{file_name}"
+                    file_name = f"{indices[cdf_path]}.{file_name}"
 
                 filepath = new_path / file_name
                 for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
