@@ -11,8 +11,23 @@ module_version: '1'
 # spesify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
 source_name: workmate  
 
+asset_dataset: ds_asset_valhall
+asset_raw_input_dp: src-asset-valhall-workmate
+asset_raw_input_table: assets
+
 # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
-asset_location_extractor_group_source_id: <update-me>
-asset_location_processing_group_source_id: <update-me>
-asset_location_read_group_source_id: <update-me>
+asset_location_extractor_group_source_id: c74797ce-c49b-4ada-9186-8fe21c54c3de
+asset_location_processing_group_source_id: c74797ce-c49b-4ada-9186-8fe21c54c3de
+asset_location_read_group_source_id: c74797ce-c49b-4ada-9186-8fe21c54c3de
+
+
+# Transformation credentials
+clientId: ${IDP_CLIENT_ID}
+clientSecret: ${IDP_CLIENT_SECRET}
+tokenUri: ${IDP_TOKEN_URL}
+# Optional: If idP requires providing the scopes
+cdfProjectName: ${CDF_PROJECT}
+scopes: ${IDP_SCOPES}
+# Optional: If idP requires providing the audience
+audience: ${IDP_AUDIENCE}
 
