@@ -507,14 +507,13 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
     def delete(self, ids: Sequence[str]) -> None:
         self.client.files.delete(external_id=ids)
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadataList:
-        files = FileMetadataList.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
-        for file in files.data:
-            if not Path(filepath.parent / file.name).exists():
-                raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
-            if file.data_set_id is not None:
-                file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id)
-        return files
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadata:
+        file = FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
+        if not Path(filepath.parent / file.name).exists():
+            raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
+        if file.data_set_id is not None:
+            file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id)
+        return file
 
     def create(
         self, items: Sequence[FileMetadata], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
