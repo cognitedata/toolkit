@@ -27,6 +27,8 @@ from typing import Any, Generic, Literal, TypeVar, Union, final
 import pandas as pd
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
+    DataSet,
+    DataSetList,
     FileMetadata,
     FileMetadataList,
     OidcCredentials,
@@ -43,6 +45,7 @@ from cognite.client.data_classes._base import (
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
+    DataSetsAcl,
     FilesAcl,
     GroupsAcl,
     RawAcl,
@@ -203,6 +206,28 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 
 
 @final
+class DataSetsLoader(Loader[str, DataSet, DataSetList]):
+    support_drop = False
+    api_name = "data_sets"
+    folder_name = "data_sets"
+    resource_cls = DataSet
+    list_cls = DataSetList
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return DataSetsAcl(
+            [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write],
+            DataSetsAcl.Scope.All(),
+        )
+
+    def get_id(self, item: DataSet) -> str:
+        return item.external_id
+
+    def delete(self, ids: Sequence[str]) -> None:
+        raise NotImplementedError("CDF does not support deleting data sets.")
+
+
+@final
 class TransformationLoader(Loader[str, Transformation, TransformationList]):
     api_name = "transformations"
     folder_name = "transformations"
@@ -332,7 +357,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
                     to_create.append(item)
         else:
             raise ValueError(f"Invalid load value {self.load}")
-
+        self.client.data_sets.create()
         created = self.client.iam.groups.create(to_create)
         old_groups = self.client.iam.groups.list(all=True).data
         created_names = {g.name for g in created}
