@@ -1,3 +1,7 @@
+DataSet:
+- description: This dataset contains the lift pump stations.
+  externalId: src:lift_pump_stations
+  name: Lift Pump Stations
 Row:
 - args: []
   columns:
