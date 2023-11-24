@@ -514,8 +514,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
             raise ValueError("Files must be loaded one at a time.")
         meta = items[0]
         datafile = filepath.parent / meta.name
-        created = self.client.files.upload(datafile, overwrite=drop, **meta.dump(camel_case=False))
-        return created
+        return self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
 
 
 def drop_load_resources(
