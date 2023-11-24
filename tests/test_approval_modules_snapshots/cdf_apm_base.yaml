@@ -247,31 +247,31 @@ DataModel:
   externalId: APM_Config
   name: APM config
   space: APM_Config
-  version: 1
+  version: '1'
   views:
   - externalId: APM_Config
     space: APM_Config
     type: view
-    version: 1
+    version: '1'
 - description: APM data models for customer source data to be consumed by the APM
     application.
   externalId: APM_SourceData
   name: APM Source data
   space: APM_SourceData
-  version: 1
+  version: '1'
   views:
   - externalId: APM_Activity
     space: APM_SourceData
     type: view
-    version: 1
+    version: '1'
   - externalId: APM_Operation
     space: APM_SourceData
     type: view
-    version: 1
+    version: '1'
   - externalId: APM_Notification
     space: APM_SourceData
     type: view
-    version: 1
+    version: '1'
 Space:
 - description: Imported space
   name: APM_Config
@@ -338,7 +338,7 @@ View:
         externalId: APM_Notification
         space: APM_SourceData
         type: view
-        version: 1
+        version: '1'
       type:
         externalId: APM_Activity.notifications
         space: APM_SourceData
@@ -397,7 +397,7 @@ View:
       description: Nature of the activity, such as corrective or preventive. Use descriptive
         terms over codes for better UI clarity.
   space: APM_SourceData
-  version: 1
+  version: '1'
 - description: Config data for APM applications
   externalId: APM_Config
   name: APM Config
@@ -447,7 +447,7 @@ View:
       containerPropertyIdentifier: name
       description: Name of the configuration, infield just use one config record
   space: APM_Config
-  version: 1
+  version: '1'
 - description: The Maintenance Notification API informs the maintenance team of anomalies
     in technical objects within the plant. It comprehensively logs tasks for long-term
     analysis and aids in task planning and execution.
@@ -530,7 +530,7 @@ View:
         Request, or Activity Report. Use descriptive types over codes for clarity
         in the UI.
   space: APM_SourceData
-  version: 1
+  version: '1'
 - description: An operation delineates a distinct maintenance task tailored for a
     specific asset, such as gasket replacement, scaffolding setup, or level measurement.
   externalId: APM_Operation
@@ -615,7 +615,7 @@ View:
       containerPropertyIdentifier: title
       description: Brief title or summary of the specified operation.
   space: APM_SourceData
-  version: 1
+  version: '1'
 deleted:
   Container:
   - externalId: APM_Activity
@@ -634,25 +634,25 @@ deleted:
   - externalId: APM_Config
     space: APM_Config
     type: datamodel
-    version: 1
+    version: '1'
   - externalId: APM_SourceData
     space: APM_SourceData
     type: datamodel
-    version: 1
+    version: '1'
   View:
   - externalId: APM_Activity
     space: APM_SourceData
     type: view
-    version: 1
+    version: '1'
   - externalId: APM_Config
     space: APM_Config
     type: view
-    version: 1
+    version: '1'
   - externalId: APM_Notification
     space: APM_SourceData
     type: view
-    version: 1
+    version: '1'
   - externalId: APM_Operation
     space: APM_SourceData
     type: view
-    version: 1
+    version: '1'
