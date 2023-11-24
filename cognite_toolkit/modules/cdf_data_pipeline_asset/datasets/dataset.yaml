@@ -1,20 +1,20 @@
-external_id: 'ds_asset_{{location_name}}'
-name:  'asset:{{location_name}}'
-description: 'Asset data for {{location_name}}'
-metadata: {
-  consoleSource: { 
-    names: [ '{{source_name}}']
-  },
-  rawTables: [
-    {
-      databaseName: 'src-asset-{{location_name}}-{{source_name}}', 
-      tableName: "assets"
-    }
-  ],
-  transformations: [
-    {
-      externalId: 'tr_asset_{{location_name}}_{{source_name}}_asset_hierarchy',
-      type: "jetfire"
-    }
-  ]
-}
+- external_id: 'ds_asset_{{location_name}}'
+  name:  'asset:{{location_name}}'
+  description: 'Asset data for {{location_name}}'
+  metadata: {
+    consoleSource: { 
+      names: [ '{{source_name}}']
+    },
+    rawTables: [
+      {
+        databaseName: 'src-asset-{{location_name}}-{{source_name}}', 
+        tableName: "assets"
+      }
+    ],
+    transformations: [
+      {
+        externalId: 'tr_asset_{{location_name}}_{{source_name}}_asset_hierarchy',
+        type: "jetfire"
+      }
+    ]
+  }
