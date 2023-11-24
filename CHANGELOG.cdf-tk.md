@@ -13,6 +13,12 @@ Changes are grouped as follows
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## []
+## Changed
+- Refactored load functionality. Loading raw tables and files now requires a `yaml` file with metadata.
+## Added
+- Support for loading `data_sets`
+
 ## [0.1.0a2] - 2023-11-22
 ### Fixed
 - The `experimental` module was not included when running command `cdf-tk init`. This is now fixed.
