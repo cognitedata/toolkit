@@ -278,16 +278,20 @@ class AuthLoader(Loader[int, Group, GroupList]):
         }
     )
 
-    def __init__(self, client: CogniteClient, load: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all"):
+    def __init__(
+        self, client: CogniteClient, target_scopes: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all"
+    ):
         super().__init__(client)
-        self.load = load
+        self.load = target_scopes
 
     @classmethod
     def create_loader(
-        cls, ToolGlobals: CDFToolConfig, load: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all"
+        cls,
+        ToolGlobals: CDFToolConfig,
+        target_scopes: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all",
     ):
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client, load)
+        return cls(client, target_scopes)
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
