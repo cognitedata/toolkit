@@ -340,15 +340,13 @@ class CDFToolConfig:
             Re-raises underlying SDK exception
         """
 
-        self.verify_client(
-            capabilities=[{"ExtractionPipelinesAcl": ["READ", "WRITE"]}, {"ExtractionConfigsAcl": ["READ", "WRITE"]}]
-        )
+        self.verify_client(capabilities={"extractionPipelinesAcl": ["READ", "WRITE"]})
         try:
             pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
             if pipeline is not None:
                 return pipeline.id
         except Exception:
-            raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on extractionPipelinesACL.")
+            raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on extractionPipelinesAcl.")
         if not create:
             return 0
         try:
