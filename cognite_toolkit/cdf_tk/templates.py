@@ -14,6 +14,8 @@ TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 EXCL_FILES = ["README.md"]
 # Which suffixes to exclude when we create indexed files (i.e. they are bundled with their main config file)
 EXCL_INDEX_SUFFIX = ["sql", "csv", "parquet"]
+# Which suffixes to process for template variable replacement
+PROC_TMPL_VARS_SUFFIX = ["yaml", "yml", "sql", "csv", "parquet", "json", "txt", "md", "html", "py"]
 
 
 def read_environ_config(
@@ -166,13 +168,21 @@ def process_config_files(
                 local_yaml_path == ""
                 yaml_local = {}
             for file_name in filenames:
-                if file_name in EXCL_FILES:
-                    continue
-                # Skip the config.yaml file
+                # Find the root folder and drop processing all files in this dolder
                 if file_name == "config.yaml" or file_name == "default.config.yaml":
                     # Pick up this local yaml files
                     local_yaml_path = dirpath
                     yaml_local = read_yaml_files([dirpath])
+                    filenames = []
+            for file_name in filenames:
+                if file_name in EXCL_FILES:
+                    continue
+                split_path = Path(dirpath).parts
+                cdf_path = split_path[len(split_path) - 1]
+                new_path = Path(f"{build_dir}/{cdf_path}")
+                new_path.mkdir(exist_ok=True, parents=True)
+                if (Path(dirpath) / file_name).suffix.lower()[1:] not in PROC_TMPL_VARS_SUFFIX:
+                    shutil.copyfile(Path(dirpath) / file_name, new_path / file_name)
                     continue
                 with open(dirpath + "/" + file_name) as f:
                     content = f.read()
@@ -197,12 +207,6 @@ def process_config_files(
                         k = k.split(".", 2)[1]
                     # assuming template variables are in the format {{key}}
                     content = content.replace(f"{{{{{k}}}}}", str(v))
-
-                split_path = Path(dirpath).parts
-                cdf_path = split_path[len(split_path) - 1]
-                new_path = Path(f"{build_dir}/{cdf_path}")
-                new_path.mkdir(exist_ok=True, parents=True)
-
                 # For .sql and other dependent files, we do not prefix as we expect them
                 # to be named with the external_id of the entitiy they are associated with.
                 if file_name.split(".")[-1] not in EXCL_INDEX_SUFFIX:

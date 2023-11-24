@@ -63,7 +63,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 from cognite.client.data_classes.iam import Group, GroupList
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from rich import print
 
 from .delete import delete_instances
@@ -226,6 +226,27 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     def delete(self, ids: Sequence[str]) -> None:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList | None:
+        try:
+            return DataSetList(self.client.data_sets.create(items))
+
+        except CogniteDuplicatedError as e:
+            if len(e.duplicated) < len(items.data):
+                for dup in e.duplicated:
+                    ext_id = dup.get("externalId", None)
+                    for item in items.data:
+                        if item.external_id == ext_id:
+                            items.data.remove(item)
+                try:
+                    return DataSetList(self.client.data_sets.create(items))
+                except Exception as e:
+                    print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
+                    ToolGlobals.failed = True
+                    return None
+            return None
+
 
 @final
 class TransformationLoader(Loader[str, Transformation, TransformationList]):
@@ -372,7 +393,6 @@ class AuthLoader(Loader[int, Group, GroupList]):
 
 @final
 class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
-    # Not yet implemented
     support_drop = False
     filetypes = frozenset({"csv", "parquet"})
     api_name = "time_series.data"
@@ -478,6 +498,7 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
 @final
 class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
     api_name = "files"
+    filetypes = frozenset({"yaml", "yml"})
     folder_name = "files"
     resource_cls = FileMetadata
     list_cls = FileMetadataList
@@ -495,18 +516,25 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
     def get_id(cls, item: FileMetadata) -> str:
         return item.external_id
 
-    def delete(self, items: Sequence[FileMetadata]) -> None:
-        self.client.files.delete(external_id=[item.external_id for item in items])
+    def delete(self, ids: Sequence[str]) -> None:
+        self.client.files.delete(external_id=ids)
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadata:
+        file = FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
+        if not Path(filepath.parent / file.name).exists():
+            raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
+        if file.data_set_id is not None:
+            file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id)
+        return file
 
     def create(
         self, items: Sequence[FileMetadata], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> FileMetadataList:
+    ) -> FileMetadata:
         if len(items) != 1:
             raise ValueError("Files must be loaded one at a time.")
         meta = items[0]
         datafile = filepath.parent / meta.name
-        created = self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
-        return FileMetadataList(created)
+        return self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
 
 
 def drop_load_resources(
