@@ -232,7 +232,19 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
         try:
             return DataSetList(self.client.data_sets.create(items))
 
-        except CogniteDuplicatedError:
+        except CogniteDuplicatedError as e:
+            if len(e.duplicated) < len(items.data):
+                for dup in e.duplicated:
+                    ext_id = dup.get("externalId", None)
+                    for item in items.data:
+                        if item.external_id == ext_id:
+                            items.data.remove(item)
+                try:
+                    return DataSetList(self.client.data_sets.create(items))
+                except Exception as e:
+                    print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
+                    ToolGlobals.failed = True
+                    return None
             return None
 
 
