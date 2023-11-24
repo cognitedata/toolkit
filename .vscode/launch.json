@@ -31,7 +31,7 @@
                 "--drop",
                 "--drop-data",
                 "--env=local",
-                "--include=transformations",
+                "--include=auth",
                 "./build"
             ],
             "console": "integratedTerminal",

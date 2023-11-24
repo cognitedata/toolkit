@@ -286,6 +286,14 @@ class GroupLoader(Loader[int, Group, GroupList]):
                         ToolGlobals.verify_dataset(ext_id)
                         for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
                     ]
+
+                if values.get("scope", {}).get("extractionPipeline", None):
+                    dataset_external_id = "ds_asset_valhall"
+                    ext_id = values["scope"]["extractionPipeline"]
+                    values["scope"]["extractionPipeline"] = ToolGlobals.verify_extraction_pipeline(
+                        ext_id, dataset_external_id
+                    )
+
         return Group.load(raw)
 
     def create(self, items: Sequence[Group], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> GroupList:

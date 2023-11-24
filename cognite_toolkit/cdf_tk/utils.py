@@ -24,8 +24,8 @@ import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import OAuthClientCredentials, Token
+from cognite.client.data_classes import DataSet, ExtractionPipeline
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.data_classes.data_sets import DataSet
 from cognite.client.exceptions import CogniteAuthError
 from rich import print
 
@@ -326,6 +326,41 @@ class CDFToolConfig:
                 "Don't have correct access rights. Need also WRITE on "
                 + "datasetsAcl or that the data set {get_dataset_name()} has been created."
             )
+
+    def verify_extraction_pipeline(self, external_id: str, dataset_external_id: str, create: bool = True) -> int | None:
+        """Verify that the configured extraction pipeline exists and is accessible
+
+        If the extraction pipeline does not exist, it will be created unless create=False.
+        If create=False and the extraction pipeline does not exist, verify_extraction_pipeline will return 0.
+
+        Args:
+            external_id (str, optional): External id of the extraction pipeline to verify
+        Yields:
+            extraction pipeline id (int)
+            Re-raises underlying SDK exception
+        """
+
+        self.verify_client(
+            capabilities=[{"ExtractionPipelinesAcl": ["READ", "WRITE"]}, {"ExtractionConfigsAcl": ["READ", "WRITE"]}]
+        )
+        try:
+            pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
+            if pipeline is not None:
+                return pipeline.id
+        except Exception:
+            raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on extractionPipelinesACL.")
+        if not create:
+            return 0
+        try:
+            dataset_id = self.verify_dataset(data_set_name=dataset_external_id)
+
+            # name can be empty, but is useful for UI purposes
+            extractionPipeline = self.client.extraction_pipelines.create(
+                ExtractionPipeline(external_id=external_id, name=external_id, data_set_id=dataset_id)
+            )
+            return extractionPipeline
+        except Exception as e:
+            raise e
 
 
 def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any] | list[dict[str, Any]]:
