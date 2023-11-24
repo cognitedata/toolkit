@@ -13,10 +13,10 @@ capabilities:
         tableScope: {
           dbsToTables: {'src-asset-{{location_name}}-{{source_name}}':{} }
         }
-  - extractionConfigAcl:
+  - extractionConfigsAcl:
       actions:
         - READ
       scope:
-        extractionPipeline: 
-          'ep_src_asset_{{location_name}}_{{source_name}}'
-
+        extractionPipelineScope: {
+          ids: ['ep_src_asset_{{location_name}}_{{source_name}}']
+        }

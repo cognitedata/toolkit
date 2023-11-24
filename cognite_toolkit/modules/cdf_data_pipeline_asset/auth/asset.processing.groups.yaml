@@ -11,18 +11,17 @@ capabilities:
         - WRITE
       scope:
         tableScope: {
-          dbsToTables: ['src-asset-{{location_name}}-{source_name}']
+          dbsToTables: {'src-asset-{{location_name}}-{{source_name}}':{} }
         }
   - transformationsAcl:
       actions:
         - READ
         - WRITE
       scope:
-        scope:
-          all: {}
+        all: {}
   - sessionsAcl:
       actions:
-        - READ
+        - LIST
         - CREATE
         - DELETE
       scope:
