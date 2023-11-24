@@ -63,7 +63,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 from cognite.client.data_classes.iam import Group, GroupList
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from rich import print
 
 from .delete import delete_instances
@@ -225,6 +225,15 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
 
     def delete(self, ids: Sequence[str]) -> None:
         raise NotImplementedError("CDF does not support deleting data sets.")
+
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList | None:
+        try:
+            return self.api_class.create(items)
+
+        except CogniteDuplicatedError:
+            return None
 
 
 @final
