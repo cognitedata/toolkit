@@ -357,7 +357,6 @@ class AuthLoader(Loader[int, Group, GroupList]):
                     to_create.append(item)
         else:
             raise ValueError(f"Invalid load value {self.load}")
-        self.client.data_sets.create()
         created = self.client.iam.groups.create(to_create)
         old_groups = self.client.iam.groups.list(all=True).data
         created_names = {g.name for g in created}
