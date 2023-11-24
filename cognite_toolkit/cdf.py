@@ -22,6 +22,7 @@ from cognite_toolkit.cdf_tk import bootstrap
 # from scripts.delete import clean_out_datamodels
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
+    AuthLoader,
     drop_load_resources,
     load_datamodel,
     load_nodes,
@@ -261,6 +262,20 @@ def deploy(
         )
         exit(1)
     print(ToolGlobals.as_string())
+    if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+        # First, we need to get all the generic access, so we can create the rest of the resources.
+        drop_load_resources(
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_only"),
+            directory,
+            ToolGlobals,
+            drop=drop,
+            load=True,
+            dry_run=dry_run,
+        )
+        if ToolGlobals.failed:
+            print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
+            exit(1)
+
     if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_datamodel(
             ToolGlobals,
@@ -284,8 +299,10 @@ def deploy(
             exit(1)
     for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
         if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
+            if folder_name == "auth":
+                continue
             drop_load_resources(
-                LoaderCls,
+                LoaderCls.create_loader(ToolGlobals),
                 directory,
                 ToolGlobals,
                 drop=drop,
@@ -295,8 +312,18 @@ def deploy(
             if ToolGlobals.failed:
                 print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
                 exit(1)
+    if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+        # Last, we need to get all the scoped access, as the resources should now have been created.
+        drop_load_resources(
+            AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only"),
+            directory,
+            ToolGlobals,
+            drop=drop,
+            load=True,
+            dry_run=dry_run,
+        )
     if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to load as expected.")
+        print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
         exit(1)
 
 
@@ -418,10 +445,11 @@ def clean(
         exit(1)
     for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
         if folder_name == "auth":
+            # We need to clean the auth resources last, to avoid losing access.
             continue
         if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
             drop_load_resources(
-                LoaderCls,
+                LoaderCls.create_loader(ToolGlobals),
                 directory,
                 ToolGlobals,
                 drop=True,
@@ -431,9 +459,9 @@ def clean(
             if ToolGlobals.failed:
                 print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
                 exit(1)
-    if "auth" in include:
+    if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         drop_load_resources(
-            LOADER_BY_FOLDER_NAME.get("auth"),
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
             directory,
             ToolGlobals,
             drop=True,
