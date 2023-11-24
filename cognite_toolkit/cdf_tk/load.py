@@ -230,7 +230,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
         try:
-            return self.api_class.create(items)
+            return DataSetList(self.client.data_sets.create(items))
 
         except CogniteDuplicatedError:
             return None
