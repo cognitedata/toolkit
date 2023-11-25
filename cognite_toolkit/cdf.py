@@ -116,6 +116,7 @@ def common(
 
 @app.command("build")
 def build(
+    ctx: typer.Context,
     source_dir: Annotated[
         Optional[str],
         typer.Argument(
@@ -158,7 +159,13 @@ def build(
         )
     )
 
-    build_config(build_dir=build_dir, source_dir=source_dir, build_env=build_env, clean=clean)
+    build_config(
+        build_dir=build_dir,
+        source_dir=source_dir,
+        build_env=build_env,
+        clean=clean,
+        verbose=ctx.obj.verbose,
+    )
 
 
 _AVAILABLE_DATA_TYPES: tuple[str] = tuple(
@@ -264,6 +271,7 @@ def deploy(
     print(ToolGlobals.as_string())
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
+        print("  [bold]EVALUATING auth resources with ALL scope...[/]")
         drop_load_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_only"),
             directory,
@@ -271,6 +279,7 @@ def deploy(
             drop=drop,
             load=True,
             dry_run=dry_run,
+            verbose=ctx.obj.verbose,
         )
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
@@ -308,12 +317,14 @@ def deploy(
                 drop=drop,
                 load=True,
                 dry_run=dry_run,
+                verbose=ctx.obj.verbose,
             )
             if ToolGlobals.failed:
                 print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
                 exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we need to get all the scoped access, as the resources should now have been created.
+        print("[bold]EVALUATING auth resources scoped to resources...[/]")
         drop_load_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only"),
             directory,
@@ -321,6 +332,7 @@ def deploy(
             drop=drop,
             load=True,
             dry_run=dry_run,
+            verbose=ctx.obj.verbose,
         )
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
@@ -455,6 +467,7 @@ def clean(
                 drop=True,
                 load=False,
                 dry_run=dry_run,
+                verbose=ctx.obj.verbose,
             )
             if ToolGlobals.failed:
                 print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
@@ -467,6 +480,7 @@ def clean(
             drop=True,
             load=False,
             dry_run=dry_run,
+            verbose=ctx.obj.verbose,
         )
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to clean auth as expected.")
