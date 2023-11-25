@@ -163,6 +163,30 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def get_id(cls, item: T_Resource) -> T_ID:
         raise NotImplementedError
 
+    def fixup_resource(cls, local: T_Resource, remote: T_Resource) -> T_Resource:
+        """Takes the local (to be pushed) and remote (from CDF) resource and returns the
+        local resource with properties from the remote resource copied over to make
+        them equal if we should consider them eqal (and skip writing to CDF)."""
+        return local
+
+    def compare(self, local: T_Resource | Sequence[T_Resource]) -> Difference:
+        if not isinstance(local, Sequence):
+            local = [local]
+        remote = self.retrieve([self.get_id(item) for item in local])
+        if len(local) == len(remote) == 0:
+            return Difference([], [], [], [])
+        for l_resource in local:
+            for r in remote:
+                if self.get_id(l_resource) == self.get_id(r):
+                    r_yaml = self.resource_cls.dump_yaml(r)
+                    # To avoid that we mess up the original local resource, we use the
+                    # "through yaml copy"-trick to create a copy of the local resource.
+                    copy_l = self.resource_cls.load(self.resource_cls.dump_yaml(l_resource))
+                    l_yaml = self.resource_cls.dump_yaml(self.fixup_resource(copy_l, r))
+                    if l_yaml == r_yaml:
+                        local.remove(l_resource)
+        return local
+
     # Default implementations that can be overridden
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
@@ -200,6 +224,9 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 
     def get_id(self, item: TimeSeries) -> str:
         return item.external_id
+
+    def retrieve(self, ids: Sequence[str]) -> TimeSeriesList:
+        return self.client.time_series.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def delete(self, ids: Sequence[str]) -> None:
         self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
@@ -330,6 +357,13 @@ class AuthLoader(Loader[int, Group, GroupList]):
         super().__init__(client)
         self.load = target_scopes
 
+    def fixup_resource(cls, local: T_Resource, remote: T_Resource) -> T_Resource:
+        local.id = remote.id
+        local.is_deleted = False  # If remote is_deleted, this will fail the check.
+        local.metadata = remote.metadata  # metadata has no order guarantee, so we exclude it from compare
+        local.deleted_time = remote.deleted_time
+        return local
+
     @classmethod
     def create_loader(
         cls,
@@ -347,8 +381,8 @@ class AuthLoader(Loader[int, Group, GroupList]):
         )
 
     @classmethod
-    def get_id(cls, item: Group) -> int:
-        return item.id
+    def get_id(cls, item: Group) -> str:
+        return item.name
 
     def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Group:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
@@ -360,6 +394,11 @@ class AuthLoader(Loader[int, Group, GroupList]):
                         for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
                     ]
         return Group.load(raw)
+
+    def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
+        remote = self.client.iam.groups.list(all=True).data
+        found = [g for g in remote if g.name in ids]
+        return found
 
     def create(self, items: Sequence[Group], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> GroupList:
         if self.load == "all":
@@ -383,8 +422,11 @@ class AuthLoader(Loader[int, Group, GroupList]):
         else:
             raise ValueError(f"Invalid load value {self.load}")
 
-        created = self.client.iam.groups.create(to_create)
+        if len(to_create) == 0:
+            return []
+        # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.iam.groups.list(all=True).data
+        created = self.client.iam.groups.create(to_create)
         created_names = {g.name for g in created}
         to_delete = [g.id for g in old_groups if g.name in created_names]
         self.client.iam.groups.delete(to_delete)
@@ -544,6 +586,7 @@ def drop_load_resources(
     drop: bool,
     load: bool = True,
     dry_run: bool = False,
+    verbose: bool = False,
 ):
     if path.is_file():
         if path.suffix not in loader.filetypes or not loader.filetypes:
@@ -557,6 +600,8 @@ def drop_load_resources(
     items = [loader.load_file(f, ToolGlobals) for f in filepaths]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
+    nr_of_deleted = 0
+    nr_of_created = 0
     if load:
         print(f"[bold]Uploading {nr_of_items} {loader.api_name} in {nr_of_batches} batches to CDF...[/]")
     else:
@@ -574,8 +619,10 @@ def drop_load_resources(
                 drop_items.append(loader.get_id(item))
         if not dry_run:
             try:
+                nr_of_deleted += len(drop_items)
                 loader.delete(drop_items)
-                print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+                if verbose:
+                    print(f"  Deleted {len(drop_items)} {loader.api_name}.")
             except Exception as e:
                 print(
                     f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. It/they may not exist. Error {e}"
@@ -587,13 +634,25 @@ def drop_load_resources(
     try:
         if not dry_run:
             for batch, filepath in zip(batches, filepaths):
-                loader.create(batch, ToolGlobals, drop, filepath)
+                # NOTE!!! For now ensure that we only compare groups
+                if not drop and isinstance(loader, AuthLoader):
+                    if verbose:
+                        print(f"  Comparing {len(batch)} {loader.api_name} from {filepath}...")
+                    batch = loader.compare(batch)
+                    if verbose:
+                        print(f"    {len(batch)} {loader.api_name} to be created...")
+                if len(batch) > 0:
+                    created = loader.create(batch, ToolGlobals, drop, filepath)
+                    nr_of_created += len(created) if created is not None else 0
+                    if isinstance(loader, AuthLoader):
+                        nr_of_deleted += len(created)
     except Exception as e:
         print(f"[bold red]ERROR:[/] Failed to upload {loader.api_name}.")
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"  Created {nr_of_items} {loader.api_name} from {len(filepaths)} files.")
+    print(f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.api_name} from {len(filepaths)} files.")
+    print(f"  Created {nr_of_created} out of {nr_of_items} {loader.api_name} from {len(filepaths)} files.")
 
 
 LOADER_BY_FOLDER_NAME = {loader.folder_name: loader for loader in Loader.__subclasses__()}
