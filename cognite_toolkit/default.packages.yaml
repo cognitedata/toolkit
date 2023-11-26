@@ -7,6 +7,10 @@ packages:
   # demo_infield package is used to deploy to the Cognite internal demo project used
   # as an internal reference when evolving the cdf_* modules. You can use this package
   # in your own project, but you need to change the defaults in config.yaml.
+  data_model_examples:
+    - cdf_auth_readwrite_all
+    - cdf_oid_example_data
+    - cdf_apm_simple_data_model
   cdf_demo_infield:
     - cdf_auth_readwrite_all
     - cdf_apm_base
