@@ -25,6 +25,7 @@ Changes are grouped as follows:
 - Support for loading `data_sets`
 - Support for loading auth without --drop, i.e. `deploy --include=auth` and only changed groups are deployed.
 - `cdf-tk --verbose build` now prints the resolution of modules and packages.
+- Added `cdf-tk --version` to print the version of the tool and the templates.
 
 ## [0.1.0a2] - 2023-11-22
 

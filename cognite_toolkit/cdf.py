@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk import bootstrap
 
 # from scripts.delete import clean_out_datamodels
@@ -53,6 +54,12 @@ class Common:
     mockToolGlobals: CDFToolConfig
 
 
+def _version_callback(value: bool):
+    if value:
+        typer.echo(f"CDF-Toolkit version: {_version.__version__}, Template version: {_version.__template_version__}")
+        raise typer.Exit()
+
+
 @app.callback(invoke_without_command=True)
 def common(
     ctx: typer.Context,
@@ -82,6 +89,7 @@ def common(
             help="Cognite Data Fusion project to use",
         ),
     ] = None,
+    version: bool = typer.Option(None, "--version", callback=_version_callback),
 ):
     if ctx.invoked_subcommand is None:
         print(
