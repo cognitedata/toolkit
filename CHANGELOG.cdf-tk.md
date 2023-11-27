@@ -28,6 +28,7 @@ Changes are grouped as follows:
 - Added `cdf-tk --version` to print the version of the tool and the templates.
 - Support for `upsert` for `data_sets`.
 - The cmd `cdf-tk deploy` creates the `data_set` before all other resources.
+- Data sets are no longer implicitly created when referenced by another resource, instead an error is raised.
 
 ## [0.1.0a2] - 2023-11-22
 

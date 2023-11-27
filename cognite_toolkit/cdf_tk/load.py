@@ -583,7 +583,8 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         file = FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
         if not Path(filepath.parent / file.name).exists():
             raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
-        if file.data_set_id is not None:
+        if isinstance(file.data_set_id, str):
+            # Replace external_id with internal id
             file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id)
         return file
 
