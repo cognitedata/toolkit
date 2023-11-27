@@ -39,14 +39,6 @@ capabilities:
         - WRITE
       scope:
         all: {}
-
-  - extractionPipelinesAcl:
-      actions:
-        - READ
-        - WRITE
-      scope:
-        all: {}
-
   - filesAcl:
       actions:
         - READ

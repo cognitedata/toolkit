@@ -64,12 +64,8 @@ def test_dataset_create():
 
         # the dataset does not exist, do not create
         instance._client.data_sets.retrieve = Mock(spec=AssetsAPI.retrieve, return_value=None)
-        instance.verify_dataset("test", False)
+        instance.verify_dataset("test")
         assert instance._client.data_sets.create.call_count == 0
-
-        # the dataset does not exist, create
-        instance.verify_dataset("test", True)
-        assert instance._client.data_sets.create.call_count == 1
 
 
 def test_load_yaml_inject_variables(tmp_path) -> None:
