@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 import difflib
+import itertools
 import shutil
 import tempfile
 import urllib
 import zipfile
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from importlib import resources
@@ -15,22 +17,16 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk import bootstrap
-from cognite_toolkit.cdf_tk.delete import (
-    delete_groups,
-    delete_raw,
-    delete_timeseries,
-    delete_transformations,
-)
 
 # from scripts.delete import clean_out_datamodels
 from cognite_toolkit.cdf_tk.load import (
+    LOADER_BY_FOLDER_NAME,
+    AuthLoader,
+    drop_load_resources,
     load_datamodel,
-    load_groups,
     load_nodes,
-    load_raw,
-    load_timeseries_metadata,
-    load_transformations,
 )
 from cognite_toolkit.cdf_tk.templates import build_config, read_environ_config
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -42,15 +38,10 @@ auth_app = typer.Typer(
 app.add_typer(auth_app, name="auth")
 
 
-# These are the supported data types for deploying to a CDF project.
-# The enum matches the directory names that are expected in each module directory.
+# There enums should be removed when the load_datamodel function is refactored to use the LoaderCls.
 class CDFDataTypes(str, Enum):
-    raw = "raw"
-    timeseries = "timeseries"
-    transformations = "transformations"
     data_models = "data_models"
     instances = "instances"
-    groups = "groups"
 
 
 # Common parameters handled in common callback
@@ -61,6 +52,12 @@ class Common:
     cluster: str
     project: str
     mockToolGlobals: CDFToolConfig
+
+
+def _version_callback(value: bool):
+    if value:
+        typer.echo(f"CDF-Toolkit version: {_version.__version__}, Template version: {_version.__template_version__}")
+        raise typer.Exit()
 
 
 @app.callback(invoke_without_command=True)
@@ -92,6 +89,7 @@ def common(
             help="Cognite Data Fusion project to use",
         ),
     ] = None,
+    version: bool = typer.Option(None, "--version", callback=_version_callback),
 ):
     if ctx.invoked_subcommand is None:
         print(
@@ -126,6 +124,7 @@ def common(
 
 @app.command("build")
 def build(
+    ctx: typer.Context,
     source_dir: Annotated[
         Optional[str],
         typer.Argument(
@@ -168,7 +167,18 @@ def build(
         )
     )
 
-    build_config(build_dir=build_dir, source_dir=source_dir, build_env=build_env, clean=clean)
+    build_config(
+        build_dir=build_dir,
+        source_dir=source_dir,
+        build_env=build_env,
+        clean=clean,
+        verbose=ctx.obj.verbose,
+    )
+
+
+_AVAILABLE_DATA_TYPES: tuple[str] = tuple(
+    itertools.chain((type_.value for type_ in CDFDataTypes), LOADER_BY_FOLDER_NAME.keys())
+)
 
 
 @app.command("deploy")
@@ -222,11 +232,11 @@ def deploy(
         ),
     ] = False,
     include: Annotated[
-        Optional[list[CDFDataTypes]],
+        Optional[list[str]],
         typer.Option(
             "--include",
             "-i",
-            help="Specify which resources to deploy",
+            help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}",
         ),
     ] = None,
 ) -> None:
@@ -242,28 +252,17 @@ def deploy(
         )
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
+
+    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
+        print(
+            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
+        )
+        exit(1)
+
+    include = include or list(_AVAILABLE_DATA_TYPES)
     if interactive:
-        include: CDFDataTypes = []
-        mapping = {}
-        for i, datatype in enumerate(CDFDataTypes):
-            print(f"[bold]{i})[/] {datatype.name}")
-            mapping[i] = datatype
-        print("\na) All")
-        print("q) Quit")
-        answer = input("Select data types to deploy: ")
-        if answer.casefold() == "a":
-            ...
-        elif answer.casefold() == "q":
-            exit(0)
-        else:
-            try:
-                include = mapping[int(answer)]
-            except ValueError:
-                print(f"Invalid selection: {answer}")
-                exit(1)
-    else:
-        if len(include) == 0:
-            include = [datatype for datatype in CDFDataTypes]
+        include = _select_data_types(include)
+
     print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     # Configure a client and load credentials from environment
     if not Path(build_dir).is_dir():
@@ -278,43 +277,23 @@ def deploy(
         )
         exit(1)
     print(ToolGlobals.as_string())
-    if CDFDataTypes.raw in include and Path(f"{build_dir}/raw").is_dir():
-        # load_raw() will assume that the RAW database name is set like this in the filename:
-        # <index>.<raw_db>.<tablename>.csv
-        load_raw(
-            ToolGlobals,
-            raw_db="default",
-            drop=drop,
-            file=None,
-            dry_run=dry_run,
-            directory=f"{build_dir}/raw",
-        )
-        if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to load RAW as expected.")
-            exit(1)
-    if CDFDataTypes.timeseries in include and Path(f"{build_dir}/timeseries").is_dir():
-        load_timeseries_metadata(
+    if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+        # First, we need to get all the generic access, so we can create the rest of the resources.
+        print("  [bold]EVALUATING auth resources with ALL scope...[/]")
+        drop_load_resources(
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_only"),
+            directory,
             ToolGlobals,
             drop=drop,
-            file=None,
+            load=True,
             dry_run=dry_run,
-            directory=f"{build_dir}/timeseries",
+            verbose=ctx.obj.verbose,
         )
         if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to load timeseries as expected.")
+            print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
             exit(1)
-    if CDFDataTypes.transformations in include and Path(f"{build_dir}/transformations").is_dir():
-        load_transformations(
-            ToolGlobals,
-            file=None,
-            drop=drop,
-            dry_run=dry_run,
-            directory=f"{build_dir}/transformations",
-        )
-        if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to load transformations as expected.")
-            exit(1)
-    if CDFDataTypes.data_models in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+
+    if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_datamodel(
             ToolGlobals,
             drop=drop,
@@ -326,7 +305,7 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to load data models as expected.")
             exit(1)
-    if CDFDataTypes.instances in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+    if CDFDataTypes.instances.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_nodes(
             ToolGlobals,
             directory=models_dir,
@@ -335,16 +314,57 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to load instances as expected.")
             exit(1)
-    if CDFDataTypes.groups in include and Path(f"{build_dir}/auth").is_dir():
-        load_groups(
+    for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
+        if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
+            if folder_name == "auth":
+                continue
+            drop_load_resources(
+                LoaderCls.create_loader(ToolGlobals),
+                directory,
+                ToolGlobals,
+                drop=drop,
+                load=True,
+                dry_run=dry_run,
+                verbose=ctx.obj.verbose,
+            )
+            if ToolGlobals.failed:
+                print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
+                exit(1)
+    if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+        # Last, we need to get all the scoped access, as the resources should now have been created.
+        print("[bold]EVALUATING auth resources scoped to resources...[/]")
+        drop_load_resources(
+            AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only"),
+            directory,
             ToolGlobals,
-            directory=f"{build_dir}/auth",
+            drop=drop,
+            load=True,
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
         )
     if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to load as expected.")
+        print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
         exit(1)
+
+
+def _select_data_types(include: Sequence[str]) -> list[str]:
+    mapping: dict[int, str] = {}
+    for i, datatype in enumerate(include):
+        print(f"[bold]{i})[/] {datatype}")
+        mapping[i] = datatype
+    print("\na) All")
+    print("q) Quit")
+    answer = input("Select data types to include: ")
+    if answer.casefold() == "a":
+        return list(include)
+    elif answer.casefold() == "q":
+        exit(0)
+    else:
+        try:
+            return [mapping[int(answer)]]
+        except ValueError:
+            print(f"Invalid selection: {answer}")
+            exit(1)
 
 
 @app.command("clean")
@@ -365,6 +385,14 @@ def clean(
             help="Build environment to clean for",
         ),
     ] = "dev",
+    interactive: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--interactive",
+            "-i",
+            help="Whether to use interactive mode when deciding which modules to clean",
+        ),
+    ] = False,
     dry_run: Annotated[
         Optional[bool],
         typer.Option(
@@ -383,19 +411,7 @@ def clean(
     ] = None,
 ) -> None:
     """Clean up a CDF environment as set in local.yaml based on the configuration files in the build directory."""
-    if len(include) == 0:
-        include = [datatype for datatype in CDFDataTypes]
-    print(
-        Panel(
-            f"[bold]Cleaning configuration in project based on config files from {build_dir} to environment {build_env}...[/]"
-        )
-    )
-    # Set environment variables from local.yaml
-    read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
-    # Configure a client and load credentials from environment
-    if not Path(build_dir).is_dir():
-        print(f"{build_dir} does not exists.")
-        exit(1)
+    # Override cluster and project from the options/env variables
     if ctx.obj.mockToolGlobals is not None:
         ToolGlobals = ctx.obj.mockToolGlobals
     else:
@@ -404,38 +420,33 @@ def clean(
             cluster=ctx.obj.cluster,
             project=ctx.obj.project,
         )
-    print("Using following configurations: ")
-    print(ToolGlobals)
-    if CDFDataTypes.raw in include and Path(f"{build_dir}/raw").is_dir():
-        # load_raw() will assume that the RAW database name is set like this in the filename:
-        # <index>.<raw_db>.<tablename>.csv
-        delete_raw(
-            ToolGlobals,
-            raw_db="default",
-            dry_run=dry_run,
-            directory=f"{build_dir}/raw",
+    # Set environment variables from local.yaml
+    read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
+
+    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
+        print(
+            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
         )
-    if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to clean raw as expected.")
         exit(1)
-    if CDFDataTypes.timeseries in include and Path(f"{build_dir}/timeseries").is_dir():
-        delete_timeseries(
-            ToolGlobals,
-            dry_run=dry_run,
-            directory=f"{build_dir}/timeseries",
+
+    include = include or list(_AVAILABLE_DATA_TYPES)
+    if interactive:
+        include = _select_data_types(include)
+
+    print(Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]"))
+    # Configure a client and load credentials from environment
+    if not Path(build_dir).is_dir():
+        alternatives = {
+            folder.name: f"{folder.parent.name}/{folder.name}"
+            for folder in Path(build_dir).parent.iterdir()
+            if folder.is_dir()
+        }
+        matches = difflib.get_close_matches(Path(build_dir).name, list(alternatives.keys()), n=3, cutoff=0.3)
+        print(
+            f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you mean one of these? {[alternatives[m] for m in matches]}"
         )
-    if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to clean timeseries as expected.")
         exit(1)
-    if CDFDataTypes.transformations in include and Path(f"{build_dir}/transformations").is_dir():
-        delete_transformations(
-            ToolGlobals,
-            dry_run=dry_run,
-            directory=f"{build_dir}/transformations",
-        )
-    if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to clean transformations as expected.")
-        exit(1)
+    print(ToolGlobals.as_string())
     if CDFDataTypes.data_models in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         # We use the load_datamodel with only_drop=True to ensure that we get a clean
         # deletion of the data model entities and instances.
@@ -452,19 +463,36 @@ def clean(
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to delete data models as expected.")
         exit(1)
-    if CDFDataTypes.groups in include and Path(f"{build_dir}/auth").is_dir():
-        # NOTE! If you want to force deletion of groups that the current running user/service principal
-        # is a member of, set my_own=True. This may result in locking out the CI/CD service principal
-        # and is thus default not set to True.
-        delete_groups(
+    for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
+        if folder_name == "auth":
+            # We need to clean the auth resources last, to avoid losing access.
+            continue
+        if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
+            drop_load_resources(
+                LoaderCls.create_loader(ToolGlobals),
+                directory,
+                ToolGlobals,
+                drop=True,
+                load=False,
+                dry_run=dry_run,
+                verbose=ctx.obj.verbose,
+            )
+            if ToolGlobals.failed:
+                print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
+                exit(1)
+    if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+        drop_load_resources(
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
+            directory,
             ToolGlobals,
-            directory=f"{build_dir}/auth",
-            my_own=False,
+            drop=True,
+            load=False,
             dry_run=dry_run,
+            verbose=ctx.obj.verbose,
         )
-    if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to clean groups as expected.")
-        exit(1)
+        if ToolGlobals.failed:
+            print("[bold red]ERROR: [/] Failure to clean auth as expected.")
+            exit(1)
 
 
 @auth_app.callback(invoke_without_command=True)

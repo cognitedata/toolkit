@@ -20,28 +20,4 @@ demo:
   # Order is important.
   deploy:
     - cdf_demo_infield
-    - cdf_apm_simple
-local:
-  project: <customer>-dev
-  type: dev
-  deploy:
-    - cdf_apm_base
-    - cdf_apm_simple
-    - cdf_infield_common
-    - cdf_infield_location
-dev:
-  project: <customer>-dev
-  type: dev
-  deploy:
-    - cdf_demo_infield
-    - cdf_apm_simple
-staging:
-  project: <customer>-staging
-  type: staging
-  deploy:
-    - infield
-prod:
-  project: <customer>-prod
-  type: prod
-  deploy:
-    - cdf_infield
+    - cdf_oid_example_data

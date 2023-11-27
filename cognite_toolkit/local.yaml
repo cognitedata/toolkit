@@ -22,13 +22,14 @@ demo:
   # Order is important.
   deploy:
     - cdf_demo_infield
-    - cdf_apm_simple
+    - cdf_oid_example_data
 local:
   project: <customer>-dev
   type: dev
   deploy:
+    - cdf_auth_readwrite_all
     - cdf_apm_base
-    - cdf_apm_simple
+    - cdf_oid_example_data
     - cdf_infield_common
     - cdf_infield_location
 dev:
@@ -36,7 +37,7 @@ dev:
   type: dev
   deploy:
     - cdf_demo_infield
-    - cdf_apm_simple
+    - cdf_oid_example_data
 staging:
   project: <customer>-staging
   type: staging

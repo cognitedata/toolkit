@@ -1,5 +1,7 @@
-Database:
-- name: pump_assets
+DataSet:
+- description: This dataset contains the lift pump stations.
+  externalId: src:lift_pump_stations
+  name: Lift Pump Stations
 Row:
 - args: []
   columns:
@@ -90,5 +92,9 @@ TransformationSchedule:
   interval: 0 * * * *
   isPaused: true
 deleted:
+  Table:
+  - db_name: pump_assets
+    name:
+    - collections_pump
   Transformation:
   - externalId: pump_asset_hierarchy-load-collections_pump

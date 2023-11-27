@@ -247,12 +247,12 @@ DataModel:
   externalId: APM_Config
   name: APM config
   space: APM_Config
-  version: 1
+  version: '1'
   views:
   - externalId: APM_Config
     space: APM_Config
     type: view
-    version: 1
+    version: '1'
 - description: APM data models for customer source data to be consumed by the APM
     application.
   externalId: APM_SourceData
@@ -447,7 +447,7 @@ View:
       containerPropertyIdentifier: name
       description: Name of the configuration, infield just use one config record
   space: APM_Config
-  version: 1
+  version: '1'
 - description: The Maintenance Notification API informs the maintenance team of anomalies
     in technical objects within the plant. It comprehensively logs tasks for long-term
     analysis and aids in task planning and execution.
@@ -634,7 +634,7 @@ deleted:
   - externalId: APM_Config
     space: APM_Config
     type: datamodel
-    version: 1
+    version: '1'
   - externalId: APM_SourceData
     space: APM_SourceData
     type: datamodel
@@ -647,7 +647,7 @@ deleted:
   - externalId: APM_Config
     space: APM_Config
     type: view
-    version: 1
+    version: '1'
   - externalId: APM_Notification
     space: APM_SourceData
     type: view
