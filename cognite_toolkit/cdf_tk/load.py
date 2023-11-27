@@ -163,7 +163,8 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def get_id(cls, item: T_Resource) -> T_ID:
         raise NotImplementedError
 
-    def fixup_resource(cls, local: T_Resource, remote: T_Resource) -> T_Resource:
+    @staticmethod
+    def fixup_resource(local: T_Resource, remote: T_Resource) -> T_Resource:
         """Takes the local (to be pushed) and remote (from CDF) resource and returns the
         local resource with properties from the remote resource copied over to make
         them equal if we should consider them equal (and skip writing to CDF)."""
@@ -359,7 +360,8 @@ class AuthLoader(Loader[int, Group, GroupList]):
         super().__init__(client)
         self.load = target_scopes
 
-    def fixup_resource(cls, local: T_Resource, remote: T_Resource) -> T_Resource:
+    @staticmethod
+    def fixup_resource(local: T_Resource, remote: T_Resource) -> T_Resource:
         local.id = remote.id
         local.is_deleted = False  # If remote is_deleted, this will fail the check.
         local.metadata = remote.metadata  # metadata has no order guarantee, so we exclude it from compare
