@@ -14,6 +14,8 @@ TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 EXCL_FILES = ["README.md"]
 # Which suffixes to exclude when we create indexed files (i.e. they are bundled with their main config file)
 EXCL_INDEX_SUFFIX = ["sql", "csv", "parquet"]
+# Which suffixes to process for template variable replacement
+PROC_TMPL_VARS_SUFFIX = ["yaml", "yml", "sql", "csv", "parquet", "json", "txt", "md", "html", "py"]
 
 
 def read_environ_config(
@@ -21,6 +23,7 @@ def read_environ_config(
     build_env: str = "dev",
     tmpl_dirs: [str] = TMPL_DIRS,
     set_env_only: bool = False,
+    verbose: bool = False,
 ) -> list[str]:
     """Read the global configuration files and return a list of modules in correct order.
 
@@ -37,6 +40,10 @@ def read_environ_config(
     packages.update(read_yaml_files(root_dir, "packages.yaml").get("packages", {}))
     local_config = read_yaml_files(root_dir, "local.yaml")
     print(f"  Environment is {build_env}, using that section in local.yaml.\n")
+    if verbose:
+        print("  [bold green]INFO:[/] Found defined packages:")
+        for name, content in packages.items():
+            print(f"    {name}: {content}")
     modules = []
     if len(local_config) == 0:
         return []
@@ -49,7 +56,7 @@ def read_environ_config(
     for k, v in defs.items():
         if k == "project":
             if os.environ.get("CDF_PROJECT", "<not set>") != v:
-                if build_env == "dev" or build_env == "local":
+                if build_env == "dev" or build_env == "local" or build_env == "demo":
                     print(
                         f"  [bold red]WARNING:[/] Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ.get('CDF_PROJECT','<not_set>')})."
                     )
@@ -61,13 +68,18 @@ def read_environ_config(
         elif k == "type":
             os.environ["CDF_BUILD_TYPE"] = v
         elif k == "deploy":
+            print(f"  [bold green]INFO:[/] Building module list for environment {build_env}...")
             for m in v:
                 for g2, g3 in packages.items():
                     if m == g2:
+                        if verbose:
+                            print(f"    Including modules from package {m}: {g3}")
                         for m2 in g3:
                             if m2 not in modules:
                                 modules.append(m2)
                     elif m not in modules and packages.get(m) is None:
+                        if verbose:
+                            print(f"    Including explicitly defined module {m}")
                         modules.append(m)
     if set_env_only:
         return []
@@ -141,6 +153,7 @@ def process_config_files(
     build_dir: str = "./build",
     build_env: str = "dev",
     clean: bool = False,
+    verbose: bool = False,
 ):
     path = Path(build_dir)
     if path.exists():
@@ -158,6 +171,8 @@ def process_config_files(
     yaml_local = {}
     indices = {}
     for directory in dirs:
+        if verbose:
+            print(f"  [bold green]INFO:[/] Processing module {directory}")
         for dirpath, _, filenames in os.walk(directory):
             # Sort to support 1., 2. etc prefixes
             filenames.sort()
@@ -166,13 +181,23 @@ def process_config_files(
                 local_yaml_path == ""
                 yaml_local = {}
             for file_name in filenames:
-                if file_name in EXCL_FILES:
-                    continue
-                # Skip the config.yaml file
+                # Find the root folder and drop processing all files in this dolder
                 if file_name == "config.yaml" or file_name == "default.config.yaml":
                     # Pick up this local yaml files
                     local_yaml_path = dirpath
                     yaml_local = read_yaml_files([dirpath])
+                    filenames = []
+            for file_name in filenames:
+                if file_name in EXCL_FILES:
+                    continue
+                if verbose:
+                    print(f"    [bold green]INFO:[/] Processing {file_name}")
+                split_path = Path(dirpath).parts
+                cdf_path = split_path[len(split_path) - 1]
+                new_path = Path(f"{build_dir}/{cdf_path}")
+                new_path.mkdir(exist_ok=True, parents=True)
+                if (Path(dirpath) / file_name).suffix.lower()[1:] not in PROC_TMPL_VARS_SUFFIX:
+                    shutil.copyfile(Path(dirpath) / file_name, new_path / file_name)
                     continue
                 with open(dirpath + "/" + file_name) as f:
                     content = f.read()
@@ -197,12 +222,6 @@ def process_config_files(
                         k = k.split(".", 2)[1]
                     # assuming template variables are in the format {{key}}
                     content = content.replace(f"{{{{{k}}}}}", str(v))
-
-                split_path = Path(dirpath).parts
-                cdf_path = split_path[len(split_path) - 1]
-                new_path = Path(f"{build_dir}/{cdf_path}")
-                new_path.mkdir(exist_ok=True, parents=True)
-
                 # For .sql and other dependent files, we do not prefix as we expect them
                 # to be named with the external_id of the entitiy they are associated with.
                 if file_name.split(".")[-1] not in EXCL_INDEX_SUFFIX:
@@ -231,18 +250,30 @@ def process_config_files(
                         exit(1)
 
 
-def build_config(build_dir: str = "./build", source_dir: str = "./", build_env: str = "dev", clean: bool = False):
+def build_config(
+    build_dir: str = "./build",
+    source_dir: str = "./",
+    build_env: str = "dev",
+    clean: bool = False,
+    verbose=False,
+):
     if build_env is None:
         raise ValueError("build_env must be specified")
     if not source_dir.endswith("/"):
         source_dir = source_dir + "/"
-    modules = read_environ_config(root_dir=source_dir, tmpl_dirs=TMPL_DIRS, build_env=build_env)
+    modules = read_environ_config(
+        root_dir=source_dir,
+        tmpl_dirs=TMPL_DIRS,
+        build_env=build_env,
+        verbose=verbose,
+    )
     process_config_files(
         dirs=modules,
         yaml_data=read_yaml_files(yaml_dirs=source_dir),
         build_dir=build_dir,
         build_env=build_env,
         clean=clean,
+        verbose=verbose,
     )
     # Copy the root deployment yaml files
     shutil.copyfile(Path(source_dir) / "local.yaml", Path(build_dir) / "local.yaml")
