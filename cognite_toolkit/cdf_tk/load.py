@@ -29,6 +29,8 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     DataSet,
     DataSetList,
+    ExtractionPipeline,
+    ExtractionPipelineList,
     FileMetadata,
     FileMetadataList,
     OidcCredentials,
@@ -46,6 +48,7 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataSetsAcl,
+    ExtractionPipelinesAcl,
     FilesAcl,
     GroupsAcl,
     RawAcl,
@@ -586,6 +589,49 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         meta = items[0]
         datafile = filepath.parent / meta.name
         return self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
+
+
+@final
+class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelineList]):
+    support_drop = True
+    api_name = "extraction_pipelines"
+    folder_name = "extraction_pipelines"
+    resource_cls = ExtractionPipeline
+    list_cls = ExtractionPipelineList
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return ExtractionPipelinesAcl(
+            [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
+            ExtractionPipelinesAcl.Scope.All(),
+        )
+
+    def get_id(self, item: ExtractionPipeline) -> str:
+        return item.external_id
+
+    def delete(self, ids: Sequence[str]) -> None:
+        self.client.files.delete(external_id=ids)
+
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList | None:
+        try:
+            return ExtractionPipelineList(self.client.data_sets.create(items))
+
+        except CogniteDuplicatedError as e:
+            if len(e.duplicated) < len(items.data):
+                for dup in e.duplicated:
+                    ext_id = dup.get("externalId", None)
+                    for item in items.data:
+                        if item.external_id == ext_id:
+                            items.data.remove(item)
+                try:
+                    return ExtractionPipelineList(self.client.data_sets.create(items))
+                except Exception as e:
+                    print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
+                    ToolGlobals.failed = True
+                    return None
+            return None
 
 
 def drop_load_resources(
