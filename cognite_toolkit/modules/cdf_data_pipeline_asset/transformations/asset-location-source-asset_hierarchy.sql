@@ -15,9 +15,9 @@ SELECT
   tag                             as name,
   sourceDb                        as source,
   description,
-  dataset_id("ds-asset:location")     as dataSetId,
+  dataset_id('{{asset_dataset}}')     as dataSetId,
   to_metadata_except(
     array("sourceDb", "parentTag", "description"), *) 
                                   as metadata
 FROM 
-  `src-asset-location-source`.`assets`
+  `{{asset_raw_input_dp}}`.`{{asset_raw_input_table}}`
