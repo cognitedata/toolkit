@@ -24,6 +24,7 @@ from cognite_toolkit.cdf_tk import bootstrap
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
+    DataSetsLoader,
     drop_load_resources,
     load_datamodel,
     load_nodes,
@@ -293,6 +294,19 @@ def deploy(
             print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
             exit(1)
 
+    if "data_sets" in include and (directory := (Path(build_dir) / "data_sets")).is_dir():
+        # Create data sets first, as they are needed for the rest of the resources.
+        print("  [bold]EVALUATING data sets...[/]")
+        drop_load_resources(
+            DataSetsLoader.create_loader(ToolGlobals),
+            directory,
+            ToolGlobals,
+            drop=drop,
+            load=True,
+            dry_run=dry_run,
+            verbose=ctx.obj.verbose,
+        )
+
     if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_datamodel(
             ToolGlobals,
@@ -316,7 +330,7 @@ def deploy(
             exit(1)
     for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
         if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
-            if folder_name == "auth":
+            if folder_name in {"auth", "data_sets"}:
                 continue
             drop_load_resources(
                 LoaderCls.create_loader(ToolGlobals),
