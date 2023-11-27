@@ -396,13 +396,11 @@ class AuthLoader(Loader[int, Group, GroupList]):
                         for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
                     ]
 
-                if values.get("scope", {}).get("extractionPipeline", None):
-                    dataset_external_id = "ds_asset_valhall"
-                    ext_id = values["scope"]["extractionPipeline"]
-                    values["scope"]["extractionPipeline"] = ToolGlobals.verify_extraction_pipeline(
-                        ext_id, dataset_external_id
-                    )
-
+                if len(values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
+                    values["scope"]["extractionPipelineScope"]["ids"] = [
+                        ToolGlobals.verify_extraction_pipeline(ext_id)
+                        for ext_id in values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])
+                    ]
         return Group.load(raw)
 
     def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:

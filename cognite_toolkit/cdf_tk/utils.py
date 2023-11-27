@@ -24,9 +24,8 @@ import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import OAuthClientCredentials, Token
-from cognite.client.data_classes import DataSet, ExtractionPipeline
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.exceptions import CogniteAuthError
+from cognite.client.exceptions import CogniteAuthError, CogniteNotFoundError
 from rich import print
 
 logger = logging.getLogger(__name__)
@@ -291,7 +290,7 @@ class CDFToolConfig:
             raise CogniteAuthError(f"Missing capabilities: {missing_capabilities}")
         return self._client
 
-    def verify_dataset(self, data_set_name: str | None = None, create: bool = True) -> int | None:
+    def verify_dataset(self, data_set_name: str) -> int:
         """Verify that the configured data set exists and is accessible
 
         If the data set does not exist, it will be created unless create=False.
@@ -309,25 +308,12 @@ class CDFToolConfig:
             data_set = self.client.data_sets.retrieve(external_id=data_set_name)
             if data_set is not None:
                 return data_set.id
-        except Exception:
+        except CogniteAuthError:
             raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on datasetsAcl.")
-        if not create:
-            return 0
-        try:
-            # name can be empty, but is useful for UI purposes
-            data_set = DataSet(
-                external_id=data_set_name,
-                name=data_set_name,
-            )
-            data_set = self.client.data_sets.create(data_set)
-            return data_set.id
-        except Exception:
-            raise CogniteAuthError(
-                "Don't have correct access rights. Need also WRITE on "
-                + "datasetsAcl or that the data set {get_dataset_name()} has been created."
-            )
+        except CogniteNotFoundError:
+            raise CogniteNotFoundError(f"Data set {data_set_name} does not exist.")
 
-    def verify_extraction_pipeline(self, external_id: str, dataset_external_id: str, create: bool = True) -> int | None:
+    def verify_extraction_pipeline(self, external_id: str) -> int:
         """Verify that the configured extraction pipeline exists and is accessible
 
         If the extraction pipeline does not exist, it will be created unless create=False.
@@ -345,20 +331,10 @@ class CDFToolConfig:
             pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
             if pipeline is not None:
                 return pipeline.id
-        except Exception:
+        except CogniteAuthError:
             raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on extractionPipelinesAcl.")
-        if not create:
-            return 0
-        try:
-            dataset_id = self.verify_dataset(data_set_name=dataset_external_id)
-
-            # name can be empty, but is useful for UI purposes
-            extractionPipeline = self.client.extraction_pipelines.create(
-                ExtractionPipeline(external_id=external_id, name=external_id, data_set_id=dataset_id)
-            )
-            return extractionPipeline
-        except Exception as e:
-            raise e
+        except CogniteNotFoundError:
+            raise CogniteNotFoundError(f"Extraction pipeline {external_id} does not exist.")
 
 
 def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any] | list[dict[str, Any]]:
