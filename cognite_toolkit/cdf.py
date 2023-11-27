@@ -30,6 +30,8 @@ from cognite_toolkit.cdf_tk.load import (
 from cognite_toolkit.cdf_tk.templates import build_config, read_environ_config
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
+from . import _version
+
 app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
 auth_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
@@ -51,6 +53,12 @@ class Common:
     cluster: str
     project: str
     mockToolGlobals: CDFToolConfig
+
+
+def _version_callback(value: bool):
+    if value:
+        typer.echo(f"CDF-Toolkit version: {_version.__version__}, Template version: {_version.__template_version__}")
+        raise typer.Exit()
 
 
 @app.callback(invoke_without_command=True)
@@ -82,6 +90,7 @@ def common(
             help="Cognite Data Fusion project to use",
         ),
     ] = None,
+    version: bool = typer.Option(None, "--version", callback=_version_callback),
 ):
     if ctx.invoked_subcommand is None:
         print(
