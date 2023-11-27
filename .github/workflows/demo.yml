@@ -37,12 +37,12 @@ jobs:
         run: ./demo/preproc.sh
       - name: "Build the templates"
         run: cdf-tk build --build-dir=./build --env=demo ./demo_project
-      - name: "Verify and create access rights"
-        run: cdf-tk auth verify --create-group=684237e9-c1fd-4d3c-8c50-de9ea30ac16f
       # be careful, this works as promised
       - name: "Delete existing resources including data"
         run: |
           cdf-tk clean --env=demo ./build
+      - name: "Verify and create access rights"
+        run: cdf-tk auth verify --create-group=684237e9-c1fd-4d3c-8c50-de9ea30ac16f
       - name: "Allow some time for data modeling to finish syncing of deletions"
         run: |
           sleep 30
