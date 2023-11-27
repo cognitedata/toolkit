@@ -187,6 +187,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
                     l_yaml = self.resource_cls.dump_yaml(self.fixup_resource(copy_l, r))
                     if l_yaml == r_yaml:
                         local.remove(l_resource)
+                        break
         return local
 
     # Default implementations that can be overridden
