@@ -100,6 +100,7 @@ def test_module_approval(
             mockToolGlobals=cdf_tool,
         )
         build(
+            context,
             source_dir="./cognite_toolkit",
             build_dir=str(local_tmp_path),
             build_env="test",

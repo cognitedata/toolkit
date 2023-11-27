@@ -38,7 +38,7 @@ jobs:
       - name: "Build the templates"
         run: cdf-tk build --build-dir=./build --env=demo ./demo_project
       - name: "Verify and create access rights"
-        run: cdf-tk auth verify
+        run: cdf-tk auth verify --create-group=684237e9-c1fd-4d3c-8c50-de9ea30ac16f
       # be careful, this works as promised
       - name: "Delete existing resources including data"
         run: |

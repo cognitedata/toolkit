@@ -4,7 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Changes are grouped as follows
+Changes are grouped as follows:
+
 - `Added` for new features.
 - `Changed` for changes in existing functionality.
 - `Deprecated` for soon-to-be removed features.
@@ -13,12 +14,20 @@ Changes are grouped as follows
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [] 
-## Changed 
-* `examples/cdf_apm_simple/raw` and `examples/example_dump_asst_hierarchy/raw` now explicitly 
+## [TBD]
+
+### Changed
+
+- `examples/cdf_apm_simple/raw` and `examples/example_dump_asst_hierarchy/raw` now explicitly
   defines database and table name in `.yaml` files for each table.
-* Added `data_set` to `examples/example_dump_asst_hierarchy/`, which was implicitly defined in 
+- Added `data_set` to `examples/example_dump_asst_hierarchy/`, which was implicitly defined in
   before.
 
+### Fixed
+
+- cdf_infield_common module and the auth applications-configuration.yaml did not load group source id
+   correctly due to source_id being used instead of sourceId. This is now fixed.
+
 ## [0.1.0] - 2023-11-21
+
 Initial release

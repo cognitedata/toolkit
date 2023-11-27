@@ -27,6 +27,7 @@ local:
   project: <customer>-dev
   type: dev
   deploy:
+    - cdf_auth_readwrite_all
     - cdf_apm_base
     - cdf_oid_example_data
     - cdf_infield_common
