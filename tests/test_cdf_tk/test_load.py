@@ -71,7 +71,6 @@ def test_upsert_data_set(cognite_client_approval: CogniteClient):
     cdf_tool.verify_client.return_value = cognite_client_approval
     cdf_tool.verify_capabilities.return_value = cognite_client_approval
 
-    drop_load_resources(FileLoader.create_loader(cdf_tool), DATA_FOLDER / "files", cdf_tool, drop=True, load=True)
     loader = DataSetsLoader.create_loader(cdf_tool)
     loaded = loader.load_file(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", cdf_tool)
     assert len(loaded) == 2
@@ -81,7 +80,9 @@ def test_upsert_data_set(cognite_client_approval: CogniteClient):
     first.id = 42
     first.created_time = 42
     first.last_updated_time = 42
+    # Simulate that the data set is already in CDF
     cognite_client_approval.data_sets.append(first)
+
     changed = loader.remove_unchanged(loaded)
 
     assert len(changed) == 1
