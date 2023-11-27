@@ -43,6 +43,11 @@ class CDFDataTypes(str, Enum):
     instances = "instances"
 
 
+_AVAILABLE_DATA_TYPES: tuple[str] = tuple(
+    itertools.chain((type_.value for type_ in CDFDataTypes), LOADER_BY_FOLDER_NAME.keys())
+)
+
+
 # Common parameters handled in common callback
 @dataclass
 class Common:
@@ -166,11 +171,6 @@ def build(
         clean=clean,
         verbose=ctx.obj.verbose,
     )
-
-
-_AVAILABLE_DATA_TYPES: tuple[str] = tuple(
-    itertools.chain((type_.value for type_ in CDFDataTypes), LOADER_BY_FOLDER_NAME.keys())
-)
 
 
 @app.command("deploy")
@@ -394,11 +394,11 @@ def clean(
         ),
     ] = False,
     include: Annotated[
-        Optional[list[CDFDataTypes]],
+        Optional[list[str]],
         typer.Option(
             "--include",
             "-i",
-            help="Specify which resources to deploy",
+            help=f"Specify which resources to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
         ),
     ] = None,
 ) -> None:
