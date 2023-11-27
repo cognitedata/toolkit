@@ -263,12 +263,12 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
             return DataSetList(self.client.data_sets.create(items))
 
         except CogniteDuplicatedError as e:
-            if len(e.duplicated) < len(items.data):
+            if len(e.duplicated) < len(items):
                 for dup in e.duplicated:
                     ext_id = dup.get("externalId", None)
-                    for item in items.data:
+                    for item in items:
                         if item.external_id == ext_id:
-                            items.data.remove(item)
+                            items.remove(item)
                 try:
                     return DataSetList(self.client.data_sets.create(items))
                 except Exception as e:
