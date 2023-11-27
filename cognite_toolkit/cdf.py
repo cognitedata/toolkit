@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk import bootstrap
 
 # from scripts.delete import clean_out_datamodels
@@ -29,8 +30,6 @@ from cognite_toolkit.cdf_tk.load import (
 )
 from cognite_toolkit.cdf_tk.templates import build_config, read_environ_config
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
-
-from . import _version
 
 app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
 auth_app = typer.Typer(
