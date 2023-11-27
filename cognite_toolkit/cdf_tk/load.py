@@ -123,6 +123,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     """
 
     support_drop = True
+    support_upsert = False
     filetypes = frozenset({"yaml", "yml"})
     api_name: str
     folder_name: str
@@ -238,6 +239,7 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 @final
 class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     support_drop = False
+    support_upsert = True
     api_name = "data_sets"
     folder_name = "data_sets"
     resource_cls = DataSet
@@ -349,6 +351,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
 @final
 class AuthLoader(Loader[int, Group, GroupList]):
     support_drop = False
+    support_upsert = True
     api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
@@ -649,8 +652,7 @@ def drop_load_resources(
     try:
         if not dry_run:
             for batch, filepath in zip(batches, filepaths):
-                # NOTE!!! For now ensure that we only compare groups
-                if not drop and isinstance(loader, AuthLoader):
+                if not drop and loader.support_upsert:
                     if verbose:
                         print(f"  Comparing {len(batch)} {loader.api_name} from {filepath}...")
                     batch = loader.remove_unchanged(batch)
