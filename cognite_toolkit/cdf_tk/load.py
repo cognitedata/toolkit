@@ -256,6 +256,17 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     def delete(self, ids: Sequence[str]) -> None:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
+    @staticmethod
+    def fixup_resource(local: DataSet, remote: DataSet) -> DataSet:
+        """Sets the read-only properties, id, created_time, and last_updated_time, that are set on the server side.
+        This is needed to make the comparison work.
+        """
+
+        local.id = remote.id
+        local.created_time = remote.created_time
+        local.last_updated_time = remote.last_updated_time
+        return local
+
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
