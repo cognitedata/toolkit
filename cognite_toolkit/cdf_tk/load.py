@@ -612,11 +612,18 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     def delete(self, ids: Sequence[str]) -> None:
         self.client.files.delete(external_id=ids)
 
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ExtractionPipeline:
+        resource = load_yaml_inject_variables(filepath, {})
+        if resource.get("dataSetExternalId") is not None:
+            resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
+        extractionPipeline = ExtractionPipeline.load(resource)
+        return extractionPipeline
+
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
         try:
-            return ExtractionPipelineList(self.client.data_sets.create(items))
+            return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
 
         except CogniteDuplicatedError as e:
             if len(e.duplicated) < len(items.data):
@@ -626,7 +633,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                         if item.external_id == ext_id:
                             items.data.remove(item)
                 try:
-                    return ExtractionPipelineList(self.client.data_sets.create(items))
+                    return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
                 except Exception as e:
                     print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
                     ToolGlobals.failed = True
