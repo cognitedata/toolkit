@@ -14,10 +14,10 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [TBD]
+## [0.1.1] - 2023-11-23
 
 ### Changed
-
+- Changed format of infield external_ids to be more readable, moving _dataset (ds) and _space to the beginning of the external_id.
 - `examples/cdf_apm_simple/raw` and `examples/example_dump_asst_hierarchy/raw` now explicitly
   defines database and table name in `.yaml` files for each table.
 - Added `data_set` to `examples/example_dump_asst_hierarchy/`, which was implicitly defined in
@@ -31,3 +31,4 @@ Changes are grouped as follows:
 ## [0.1.0] - 2023-11-21
 
 Initial release
+

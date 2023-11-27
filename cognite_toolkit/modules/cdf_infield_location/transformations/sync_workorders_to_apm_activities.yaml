@@ -6,7 +6,7 @@ destination:
     externalId: APM_SourceData
     version: "1"
     destinationType: APM_Activity
-  instanceSpace: 'infield_{{location_name}}_location_source_data_space'
+  instanceSpace: 'space_infield_{{location_name}}_location_source'
   type: instances
 ignoreNullFields: true
 shared: true

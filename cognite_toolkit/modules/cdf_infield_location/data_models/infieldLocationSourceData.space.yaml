@@ -1,4 +1,4 @@
 ---
-space: infield_{{location_name}}_location_source_data_space
-name: infield_{{location_name}}_location_source_data_space
+space: space_infield_{{location_name}}_location_source
+name: space_infield_{{location_name}}_location_source
 description: Space for Infield Location Source Data
