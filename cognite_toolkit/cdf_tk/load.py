@@ -166,15 +166,17 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def fixup_resource(cls, local: T_Resource, remote: T_Resource) -> T_Resource:
         """Takes the local (to be pushed) and remote (from CDF) resource and returns the
         local resource with properties from the remote resource copied over to make
-        them equal if we should consider them eqal (and skip writing to CDF)."""
+        them equal if we should consider them equal (and skip writing to CDF)."""
         return local
 
-    def compare(self, local: T_Resource | Sequence[T_Resource]) -> Difference:
+    def remove_unchanged(self, local: T_Resource | Sequence[T_Resource]) -> T_Resource | Sequence[T_Resource]:
         if not isinstance(local, Sequence):
             local = [local]
+        if len(local) == 0:
+            return local
         remote = self.retrieve([self.get_id(item) for item in local])
-        if len(local) == len(remote) == 0:
-            return Difference([], [], [], [])
+        if len(remote) == 0:
+            return local
         for l_resource in local:
             for r in remote:
                 if self.get_id(l_resource) == self.get_id(r):
@@ -638,7 +640,7 @@ def drop_load_resources(
                 if not drop and isinstance(loader, AuthLoader):
                     if verbose:
                         print(f"  Comparing {len(batch)} {loader.api_name} from {filepath}...")
-                    batch = loader.compare(batch)
+                    batch = loader.remove_unchanged(batch)
                     if verbose:
                         print(f"    {len(batch)} {loader.api_name} to be created...")
                 if len(batch) > 0:
