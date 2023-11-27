@@ -616,8 +616,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
         resource = load_yaml_inject_variables(filepath, {})
         if resource.get("dataSetExternalId") is not None:
             resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
-        extractionPipeline = ExtractionPipeline.load(resource)
-        return extractionPipeline
+        return ExtractionPipeline.load(resource)
 
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
