@@ -16,6 +16,10 @@ Changes are grouped as follows:
 
 ## [0.1.2] - 2023-11-28
 
+### Changed
+
+- Remove unused template_version variable from groups and use of group metadata.
+
 ### Fixed
 
 - Add space yaml files for existing data models when explicit space definition was introduced.
