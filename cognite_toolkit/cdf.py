@@ -282,7 +282,7 @@ def deploy(
         # First, we need to get all the generic access, so we can create the rest of the resources.
         print("  [bold]EVALUATING auth resources with ALL scope...[/]")
         drop_load_resources(
-            AuthLoader.create_loader(ToolGlobals, mode="all_only", target_scopes="all_scoped_only"),
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_ignore_dataset"),
             directory,
             ToolGlobals,
             drop=drop,
@@ -497,7 +497,7 @@ def clean(
             continue
         if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
             drop_load_resources(
-                LoaderCls.create_loader(ToolGlobals, mode="all_only"),
+                LoaderCls.create_loader(ToolGlobals),
                 directory,
                 ToolGlobals,
                 drop=True,
@@ -510,7 +510,7 @@ def clean(
                 exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         drop_load_resources(
-            AuthLoader.create_loader(ToolGlobals, mode="all_only", target_scopes="all"),
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_ignore_dataset"),
             directory,
             ToolGlobals,
             drop=True,

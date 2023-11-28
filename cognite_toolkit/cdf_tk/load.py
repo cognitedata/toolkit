@@ -125,15 +125,13 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
 
     support_drop = True
     support_upsert = False
-    mode: Literal["load", "all_only"] = "load"
     filetypes = frozenset({"yaml", "yml"})
     api_name: str
     folder_name: str
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
 
-    def __init__(self, client: CogniteClient, mode: Literal["load", "all_only"] = "load"):
-        self.mode = mode
+    def __init__(self, client: CogniteClient):
         self.client = client
         try:
             self.api_class = self._get_api_class(client, self.api_name)
@@ -153,9 +151,9 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         return getattr(parent, api_name)
 
     @classmethod
-    def create_loader(cls, ToolGlobals: CDFToolConfig, mode: Literal["load", "all_only"] = "load"):
+    def create_loader(cls, ToolGlobals: CDFToolConfig):
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client, mode)
+        return cls(client)
 
     @classmethod
     @abstractmethod
@@ -384,10 +382,11 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def __init__(
         self,
         client: CogniteClient,
-        mode: Literal["load", "all_only"] = "load",
-        target_scopes: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all",
+        target_scopes: Literal[
+            "all", "all_ignore_dataset", "all_scoped_ignore_dataset", "resource_scoped_only", "all_scoped_only"
+        ] = "all",
     ):
-        super().__init__(client, mode)
+        super().__init__(client)
         self.load = target_scopes
 
     @staticmethod
@@ -402,11 +401,12 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def create_loader(
         cls,
         ToolGlobals: CDFToolConfig,
-        mode: Literal["load", "all_only"] = "load",
-        target_scopes: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all",
+        target_scopes: Literal[
+            "all", "all_ignore_dataset", "all_scoped_ignore_dataset", "resource_scoped_only", "all_scoped_only"
+        ] = "all",
     ):
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client, mode, target_scopes)
+        return cls(client, target_scopes)
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -424,15 +424,13 @@ class AuthLoader(Loader[int, Group, GroupList]):
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    if self.mode != "all_only":
+                    if self.load not in ["all_ignore_dataset", "all_scoped_ignore_dataset"]:
                         values["scope"]["datasetScope"]["ids"] = [
                             ToolGlobals.verify_dataset(ext_id)
                             for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
                         ]
                     else:
-                        # If we are running a clean, this is a no-op, but it needs to be valid
-                        values["scope"]["all"] = {}
-                        values["scope"].pop("datasetScope")
+                        values["scope"]["datasetScope"]["ids"] = [-1]
         return Group.load(raw)
 
     def retrieve(self, ids: Sequence[int]) -> T_ResourceList:
@@ -471,6 +469,8 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def create(self, items: Sequence[Group], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> GroupList:
         if self.load == "all":
             to_create = items
+        elif self.load == "all_ignore_dataset":
+            raise ValueError("all_ignore_dataset is not supported for group creation as scopes would be wrong.")
         elif self.load == "resource_scoped_only":
             to_create = []
             for item in items:
@@ -479,7 +479,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
                 ]
                 if item.capabilities:
                     to_create.append(item)
-        elif self.load == "all_scoped_only":
+        elif self.load == "all_scoped_only" or self.load == "all_scoped_ignore_dataset":
             to_create = []
             for item in items:
                 item.capabilities = [
