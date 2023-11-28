@@ -30,6 +30,7 @@ pytest-regressions = "^2.4.2"
 twine = "^4.0.2"
 tomli = { version = "^2.0.1", python = "<3.11" }
 toml = { version = "^0.10.2", python = ">=3.11" }
+ipykernel = "^6.27.1"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit.cdf:app"
