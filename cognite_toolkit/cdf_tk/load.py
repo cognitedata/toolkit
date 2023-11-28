@@ -125,13 +125,15 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
 
     support_drop = True
     support_upsert = False
+    mode: Literal["load", "all_only"] = "load"
     filetypes = frozenset({"yaml", "yml"})
     api_name: str
     folder_name: str
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
 
-    def __init__(self, client: CogniteClient):
+    def __init__(self, client: CogniteClient, mode: Literal["load", "all_only"] = "load"):
+        self.mode = mode
         self.client = client
         try:
             self.api_class = self._get_api_class(client, self.api_name)
@@ -151,9 +153,9 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         return getattr(parent, api_name)
 
     @classmethod
-    def create_loader(cls, ToolGlobals: CDFToolConfig):
+    def create_loader(cls, ToolGlobals: CDFToolConfig, mode: Literal["load", "all_only"] = "load"):
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client)
+        return cls(client, mode)
 
     @classmethod
     @abstractmethod
@@ -177,7 +179,10 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
             local = [local]
         if len(local) == 0:
             return local
-        remote = self.retrieve([self.get_id(item) for item in local])
+        try:
+            remote = self.retrieve([self.get_id(item) for item in local])
+        except CogniteNotFoundError:
+            return local
         if len(remote) == 0:
             return local
         for l_resource in local:
@@ -199,9 +204,9 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     ) -> T_ResourceList:
         return self.api_class.create(items)
 
-    def delete(self, items: Sequence[T_Resource]) -> int:
-        self.api_class.delete(items)
-        return len(items)
+    def delete(self, ids: Sequence[T_ID]) -> int:
+        self.api_class.delete(ids)
+        return len(ids)
 
     def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
         return self.api_class.retrieve(ids)
@@ -261,6 +266,9 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
 
     def delete(self, ids: Sequence[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
+
+    def retrieve(self, ids: Sequence[str]) -> DataSetList:
+        return self.client.data_sets.retrieve_multiple(external_ids=ids)
 
     @staticmethod
     def fixup_resource(local: DataSet, remote: DataSet) -> DataSet:
@@ -374,9 +382,12 @@ class AuthLoader(Loader[int, Group, GroupList]):
     )
 
     def __init__(
-        self, client: CogniteClient, target_scopes: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all"
+        self,
+        client: CogniteClient,
+        mode: Literal["load", "all_only"] = "load",
+        target_scopes: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all",
     ):
-        super().__init__(client)
+        super().__init__(client, mode)
         self.load = target_scopes
 
     @staticmethod
@@ -391,10 +402,11 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def create_loader(
         cls,
         ToolGlobals: CDFToolConfig,
+        mode: Literal["load", "all_only"] = "load",
         target_scopes: Literal["all", "resource_scoped_only", "all_scoped_only"] = "all",
     ):
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client, target_scopes)
+        return cls(client, mode, target_scopes)
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -412,18 +424,23 @@ class AuthLoader(Loader[int, Group, GroupList]):
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    values["scope"]["datasetScope"]["ids"] = [
-                        ToolGlobals.verify_dataset(ext_id)
-                        for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
-                    ]
+                    if self.mode != "all_only":
+                        values["scope"]["datasetScope"]["ids"] = [
+                            ToolGlobals.verify_dataset(ext_id)
+                            for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
+                        ]
+                    else:
+                        # If we are running a clean, this is a no-op, but it needs to be valid
+                        values["scope"]["all"] = {}
+                        values["scope"].pop("datasetScope")
         return Group.load(raw)
 
-    def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
+    def retrieve(self, ids: Sequence[int]) -> T_ResourceList:
         remote = self.client.iam.groups.list(all=True).data
         found = [g for g in remote if g.name in ids]
         return found
 
-    def delete(self, ids: Sequence[T_Resource]) -> int:
+    def delete(self, ids: Sequence[int]) -> int:
         # Let's prevent that we delete groups we belong to
         try:
             groups = self.client.iam.groups.list().data
@@ -432,10 +449,10 @@ class AuthLoader(Loader[int, Group, GroupList]):
                 f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
             )
             return
-        my_source_ids = []
+        my_source_ids = set()
         for g in groups:
             if g.source_id not in my_source_ids:
-                my_source_ids.append(g.source_id)
+                my_source_ids.add(g.source_id)
         groups = self.retrieve(ids)
         for g in groups:
             if g.source_id in my_source_ids:
@@ -512,7 +529,7 @@ class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
     def get_id(cls, item: Path) -> list[str]:
         raise NotImplementedError
 
-    def delete(self, items: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str]) -> int:
         # Drop all datapoints?
         raise NotImplementedError()
 
@@ -547,9 +564,9 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
     def get_id(cls, item: RawTable) -> RawTable:
         return item
 
-    def delete(self, items: Sequence[RawTable]) -> int:
+    def delete(self, ids: Sequence[RawTable]) -> int:
         count = 0
-        for db_name, raw_tables in itertools.groupby(sorted(items, key=lambda x: x.db_name), key=lambda x: x.db_name):
+        for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
             with suppress(CogniteAPIError):
                 self.client.raw.tables.delete(db_name=db_name, name=[table.table_name for table in raw_tables])
