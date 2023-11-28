@@ -207,11 +207,11 @@ def create_mock_api(
         return read_list_cls(created_resources[resource_cls.__name__])
 
     if hasattr(api_client, "list"):
-        mock.list = return_values
+        mock.list.return_value = read_list_cls([], cognite_client=client)
     if hasattr(api_client, "retrieve"):
-        mock.retrieve = return_values
+        mock.retrieve.return_value = read_list_cls([], cognite_client=client)
     if hasattr(api_client, "retrieve_multiple"):
-        mock.retrieve_multiple = return_values
+        mock.retrieve_multiple.return_value = read_list_cls([], cognite_client=client)
 
     def create(*args, **kwargs) -> Any:
         created = []

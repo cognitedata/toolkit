@@ -14,7 +14,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [TBD]
+## [0.1.2] - 2023-11-28
+
+### Fixed
+
+- Add space yaml files for existing data models when explicit space definition was introduced.
+- Fix use of integer value in version for data models for .
+
+## [0.1.1] - 2023-11-23
 
 ### Changed
 
@@ -28,8 +35,6 @@ Changes are grouped as follows:
 
 - cdf_infield_common module and the auth applications-configuration.yaml did not load group source id
    correctly due to source_id being used instead of sourceId. This is now fixed.
-- Add space yaml files for existing data models when explicit space definition was introduced.
-- Fix use of integer value in version for data models for .
 
 ## [0.1.0] - 2023-11-21
 
