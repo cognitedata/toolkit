@@ -197,8 +197,9 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     ) -> T_ResourceList:
         return self.api_class.create(items)
 
-    def delete(self, items: Sequence[T_Resource]) -> None:
-        return self.api_class.delete(items)
+    def delete(self, items: Sequence[T_Resource]) -> int:
+        self.api_class.delete(items)
+        return len(items)
 
     def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
         return self.api_class.retrieve(ids)
@@ -232,8 +233,9 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
     def retrieve(self, ids: Sequence[str]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[str]) -> None:
+    def delete(self, ids: Sequence[str]) -> int:
         self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
+        return len(ids)
 
 
 @final
@@ -254,7 +256,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     def get_id(self, item: DataSet) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str]) -> None:
+    def delete(self, ids: Sequence[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
     def create(
@@ -322,8 +324,9 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
         transformation.data_set_id = ToolGlobals.data_set_id
         return transformation
 
-    def delete(self, ids: Sequence[str]) -> None:
+    def delete(self, ids: Sequence[str]) -> int:
         self.client.transformations.delete(external_id=ids, ignore_unknown_ids=True)
+        return len(ids)
 
     def create(
         self, items: Sequence[Transformation], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
@@ -404,6 +407,34 @@ class AuthLoader(Loader[int, Group, GroupList]):
         found = [g for g in remote if g.name in ids]
         return found
 
+    def delete(self, ids: Sequence[T_Resource]) -> int:
+        # Let's prevent that we delete groups we belong to
+        try:
+            groups = self.client.iam.groups.list().data
+        except Exception as e:
+            print(
+                f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
+            )
+            return
+        my_source_ids = []
+        for g in groups:
+            if g.source_id not in my_source_ids:
+                my_source_ids.append(g.source_id)
+        groups = self.retrieve(ids)
+        for g in groups:
+            if g.source_id in my_source_ids:
+                print(
+                    f"  [bold yellow]WARNING:[/] Not deleting group {g.name} with sourceId {g.source_id} as it is used by the current service principal."
+                )
+                print("     If you want to delete this group, you must do it manually.")
+                if g.name not in ids:
+                    print(f"    [bold red]ERROR[/] You seem to have duplicate groups of name {g.name}.")
+                else:
+                    ids.remove(g.name)
+        found = [g.id for g in groups if g.name in ids]
+        self.client.iam.groups.delete(found)
+        return len(found)
+
     def create(self, items: Sequence[Group], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> GroupList:
         if self.load == "all":
             to_create = items
@@ -465,7 +496,7 @@ class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
     def get_id(cls, item: Path) -> list[str]:
         raise NotImplementedError
 
-    def delete(self, items: Sequence[str]) -> None:
+    def delete(self, items: Sequence[str]) -> int:
         # Drop all datapoints?
         raise NotImplementedError()
 
@@ -500,11 +531,14 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
     def get_id(cls, item: RawTable) -> RawTable:
         return item
 
-    def delete(self, items: Sequence[RawTable]) -> None:
+    def delete(self, items: Sequence[RawTable]) -> int:
+        count = 0
         for db_name, raw_tables in itertools.groupby(sorted(items, key=lambda x: x.db_name), key=lambda x: x.db_name):
             # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
             with suppress(CogniteAPIError):
                 self.client.raw.tables.delete(db_name=db_name, name=[table.table_name for table in raw_tables])
+                count += 1
+        return count
 
     def create(
         self, items: Sequence[RawTable], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
@@ -562,8 +596,9 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
     def get_id(cls, item: FileMetadata) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str]) -> None:
+    def delete(self, ids: Sequence[str]) -> int:
         self.client.files.delete(external_id=ids)
+        return len(ids)
 
     def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadata:
         file = FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
@@ -599,7 +634,8 @@ def drop_load_resources(
     loader: Loader,
     path: Path,
     ToolGlobals: CDFToolConfig,
-    drop: bool,
+    drop: bool = False,
+    clean: bool = False,
     load: bool = True,
     dry_run: bool = False,
     verbose: bool = False,
@@ -625,7 +661,7 @@ def drop_load_resources(
     batches = [item if isinstance(item, Sized) else [item] for item in items]
     if drop and loader.support_drop and load:
         print(f"  --drop is specified, will delete existing {loader.api_name} before uploading.")
-    if drop and loader.support_drop:
+    if (drop and loader.support_drop) or clean:
         drop_items: list = []
         for batch in batches:
             for item in batch:
@@ -635,8 +671,7 @@ def drop_load_resources(
                 drop_items.append(loader.get_id(item))
         if not dry_run:
             try:
-                nr_of_deleted += len(drop_items)
-                loader.delete(drop_items)
+                nr_of_deleted += loader.delete(drop_items)
                 if verbose:
                     print(f"  Deleted {len(drop_items)} {loader.api_name}.")
             except CogniteAPIError as e:
@@ -756,7 +791,7 @@ def load_datamodel(
         if not (match := models_pattern.match(file.name)):
             continue
         model_files_by_type[match.group(1)].append(file)
-    print("[bold]Loading data model files...[/]")
+    print("[bold]Loading data model files from build directory...[/]")
     for type_, files in model_files_by_type.items():
         model_files_by_type[type_].sort()
         print(f"  {len(files)} of type {type_}s in {directory}")

@@ -500,6 +500,7 @@ def clean(
             directory,
             ToolGlobals,
             drop=True,
+            clean=True,
             load=False,
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
