@@ -1,4 +1,5 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -19,6 +20,8 @@ Changes are grouped as follows:
 ### Changed
 
 - Refactored load functionality. Loading raw tables and files now requires a `yaml` file with metadata.
+- Fix container comparison to detect identical containers when loading data models (without --drop flag).
+- Clean up error on resource does not exist when deleting (on `deploy --drop` or using clean command).
   
 ### Added
 
@@ -26,10 +29,14 @@ Changes are grouped as follows:
 - Support for loading auth without --drop, i.e. `deploy --include=auth` and only changed groups are deployed.
 - `cdf-tk --verbose build` now prints the resolution of modules and packages.
 - Added `cdf-tk --version` to print the version of the tool and the templates.
+- Require all spaces to be explicitly defined as separate .space.yaml file.
+- Add protection on group deletion and skip any groups that the current service principal belongs to.
 
 ### Fixed
 
 - `cdf-tk clean` not supporting `--include` properly.
+- `cdf-tk clean` not working properly for data models with data.
+- Fix group deletion on use of clean command to actually delete groups.
 
 ## [0.1.0a2] - 2023-11-22
 
