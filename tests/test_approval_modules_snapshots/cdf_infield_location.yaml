@@ -1,4 +1,53 @@
+DataSet:
+- description: This dataset is for writing data from Infield for the location default.
+  externalId: ds_infield_default_location_app_data
+  name: Infield default location app writable data set
+- description: This dataset is the data set used by Infield to read source data for
+    location default.
+  externalId: ds_infield_default_location_source
+  name: Infield default location source data set
 Group:
+- capabilities:
+  - threedAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+      - WRITE
+      scope:
+        all: {}
+  - relationshipsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+      - WRITE
+      scope:
+        all: {}
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: infield_default_checklist_admins
+  sourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
 - capabilities:
   - threedAcl:
       actions:
@@ -92,84 +141,37 @@ Group:
       actions:
       - READ
       scope:
-        datasetScope:
-          ids:
-          - 42
+        all: {}
   - assetsAcl:
       actions:
       - READ
       scope:
-        datasetScope:
-          ids:
-          - 42
+        all: {}
   - filesAcl:
       actions:
       - READ
       scope:
-        datasetScope:
-          ids:
-          - 42
-          - 42
+        all: {}
   - filesAcl:
       actions:
       - WRITE
       scope:
-        datasetScope:
-          ids:
-          - 42
+        all: {}
   - relationshipsAcl:
       actions:
       - READ
       scope:
-        datasetScope:
-          ids:
-          - 42
+        all: {}
   - timeSeriesAcl:
       actions:
       - READ
       scope:
-        datasetScope:
-          ids:
-          - 42
-          - 42
+        all: {}
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
-        datasetScope:
-          ids:
-          - 42
-  - dataModelsAcl:
-      actions:
-      - READ
-      scope:
-        spaceIdScope:
-          spaceIds:
-          - APM_Config
-          - cdf_apm
-          - cdf_infield
-          - cdf_core
-          - cdf_apps_shared
-          - APM_SourceData
-  - dataModelInstancesAcl:
-      actions:
-      - READ
-      scope:
-        spaceIdScope:
-          spaceIds:
-          - APM_Config
-          - cdf_apm
-          - cognite_app_data
-          - space_infield_default_location_source
-          - space_infield_default_location_app_data
-  - dataModelInstancesAcl:
-      actions:
-      - WRITE
-      scope:
-        spaceIdScope:
-          spaceIds:
-          - cognite_app_data
-          - space_infield_default_location_app_data
+        all: {}
   metadata:
     module_version: '1'
     origin: cdf-project-templates
@@ -261,8 +263,168 @@ Group:
   metadata:
     module_version: '1'
     origin: cdf-project-templates
+  name: infield_default_normal_users
+  sourceId: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+- capabilities:
+  - threedAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+      - WRITE
+      scope:
+        all: {}
+  - relationshipsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+      - WRITE
+      scope:
+        all: {}
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
   name: infield_default_template_admins
   sourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+- capabilities:
+  - threedAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - filesAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+          - 42
+  - filesAcl:
+      actions:
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - relationshipsAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - timeSeriesAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+          - 42
+  - timeSeriesAcl:
+      actions:
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - APM_Config
+          - cdf_apm
+          - cdf_infield
+          - cdf_core
+          - cdf_apps_shared
+          - APM_SourceData
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - APM_Config
+          - cdf_apm
+          - cognite_app_data
+          - space_infield_default_location_source
+          - space_infield_default_location_app_data
+  - dataModelInstancesAcl:
+      actions:
+      - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cognite_app_data
+          - space_infield_default_location_app_data
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: infield_default_template_admins
+  sourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+- capabilities:
+  - threedAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - relationshipsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: infield_default_viewers
+  sourceId: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 - capabilities:
   - threedAcl:
       actions:
