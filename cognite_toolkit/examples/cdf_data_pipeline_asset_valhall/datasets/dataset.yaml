@@ -7,7 +7,7 @@
     },
     rawTables: [
       {
-        databaseName: 'src-asset-{{location_name}}-{{source_name}}', 
+        databaseName: 'asset-{{location_name}}-{{source_name}}', 
         tableName: "assets"
       }
     ],

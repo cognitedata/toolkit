@@ -11,7 +11,7 @@ capabilities:
         - WRITE
       scope:
         tableScope: {
-          dbsToTables: {'src-asset-{{location_name}}-{{source_name}}':{} }
+          dbsToTables: {'asset-{{location_name}}-{{source_name}}':{} }
         }
   # - extractionConfigsAcl:
   #     actions:

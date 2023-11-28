@@ -5,14 +5,14 @@
 # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
 ---
 # spesify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all' 
-location_name: valhall_oid 
+location_name: oid 
 module_version: '1'
 
 # spesify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
 source_name: workmate  
 
-asset_dataset: ds_asset_valhall_oid
-asset_raw_input_dp: src-asset-valhall-workmate-oid
+asset_dataset: ds_asset_oid
+asset_raw_input_dp: asset-oid-workmate
 asset_raw_input_table: assets
 
 # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
