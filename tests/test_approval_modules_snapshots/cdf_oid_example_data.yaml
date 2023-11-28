@@ -1,108 +1,3 @@
-DataSet:
-- description: This dataset contains a subset of the Valhall Open Industrial Data
-    data set.
-  externalId: Valhall_System_23
-  name: Open Industrial Data example data set
-FileMetadata:
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-25578-P-4110006-001.pdf
-    name: PH-25578-P-4110006-001.pdf
-    overwrite: true
-    path: tmp/files/PH-25578-P-4110006-001.pdf
-    source: oid
-  name: PH-25578-P-4110006-001.pdf
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-25578-P-4110010-001.pdf
-    name: PH-25578-P-4110010-001.pdf
-    overwrite: true
-    path: tmp/files/PH-25578-P-4110010-001.pdf
-    source: oid
-  name: PH-25578-P-4110010-001.pdf
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-25578-P-4110119-001.pdf
-    name: PH-25578-P-4110119-001.pdf
-    overwrite: true
-    path: tmp/files/PH-25578-P-4110119-001.pdf
-    source: oid
-  name: PH-25578-P-4110119-001.pdf
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-ME-P-0003-001.pdf
-    name: PH-ME-P-0003-001.pdf
-    overwrite: true
-    path: tmp/files/PH-ME-P-0003-001.pdf
-    source: oid
-  name: PH-ME-P-0003-001.pdf
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-ME-P-0004-001.pdf
-    name: PH-ME-P-0004-001.pdf
-    overwrite: true
-    path: tmp/files/PH-ME-P-0004-001.pdf
-    source: oid
-  name: PH-ME-P-0004-001.pdf
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-ME-P-0151-001.pdf
-    name: PH-ME-P-0151-001.pdf
-    overwrite: true
-    path: tmp/files/PH-ME-P-0151-001.pdf
-    source: oid
-  name: PH-ME-P-0151-001.pdf
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-ME-P-0152-001.pdf
-    name: PH-ME-P-0152-001.pdf
-    overwrite: true
-    path: tmp/files/PH-ME-P-0152-001.pdf
-    source: oid
-  name: PH-ME-P-0152-001.pdf
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-ME-P-0153-001.pdf
-    name: PH-ME-P-0153-001.pdf
-    overwrite: true
-    path: tmp/files/PH-ME-P-0153-001.pdf
-    source: oid
-  name: PH-ME-P-0153-001.pdf
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-ME-P-0156-001.pdf
-    name: PH-ME-P-0156-001.pdf
-    overwrite: true
-    path: tmp/files/PH-ME-P-0156-001.pdf
-    source: oid
-  name: PH-ME-P-0156-001.pdf
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-ME-P-0156-002.pdf
-    name: PH-ME-P-0156-002.pdf
-    overwrite: true
-    path: tmp/files/PH-ME-P-0156-002.pdf
-    source: oid
-  name: PH-ME-P-0156-002.pdf
-- args: []
-  kwargs:
-    data_set_id: 999
-    external_id: Valhall_System_23_PH-ME-P-0160-001.pdf
-    name: PH-ME-P-0160-001.pdf
-    overwrite: true
-    path: tmp/files/PH-ME-P-0160-001.pdf
-    source: oid
-  name: PH-ME-P-0160-001.pdf
 Row:
 - args: []
   columns:
@@ -112,10 +7,10 @@ Row:
   - targetExternalId
   dataframe: 65045431972253372923239764963735693788120831221123132526172499668461365615556
   kwargs:
-    db_name: Valhall_System_23
+    db_name: asset-oid-workmate
     ensure_parent: true
     table_name: asset2children
-  name: Valhall_System_23_asset2children_True
+  name: asset-oid-workmate_asset2children_True
 - args: []
   columns:
   - key
@@ -132,20 +27,32 @@ Row:
   - isActive
   dataframe: 94430041190918800494911115394739451784112572138295829851999408806509502700252
   kwargs:
-    db_name: Valhall_System_23
+    db_name: asset-oid-workmate
     ensure_parent: true
     table_name: assets
-  name: Valhall_System_23_assets_True
+  name: asset-oid-workmate_assets_True
+- args: []
+  columns:
+  - name
+  - source
+  - mime_type
+  - doc_type
+  dataframe: 6686969238704195952365148739205534040138816227190083465589239980372046743086
+  kwargs:
+    db_name: files-oid-fileshare
+    ensure_parent: true
+    table_name: files_metadata
+  name: files-oid-fileshare_files_metadata_True
 - args: []
   columns:
   - timeseries
   - asset
   dataframe: 55950994081533176249747558585122252386224890969921942100864987065996004229529
   kwargs:
-    db_name: Valhall_System_23
+    db_name: timeseries-oid-pi
     ensure_parent: true
     table_name: timeseries2assets
-  name: Valhall_System_23_timeseries2assets_True
+  name: timeseries-oid-pi_timeseries2assets_True
 - args: []
   columns:
   - key
@@ -154,10 +61,10 @@ Row:
   - targetExternalId
   dataframe: 70999460826851891666355556169020792890288256089899308969084950738510319920668
   kwargs:
-    db_name: Valhall_System_23
+    db_name: workorder-oid-workmate
     ensure_parent: true
     table_name: workitem2assets
-  name: Valhall_System_23_workitem2assets_True
+  name: workorder-oid-workmate_workitem2assets_True
 - args: []
   columns:
   - key
@@ -175,10 +82,10 @@ Row:
   - isCompleted
   dataframe: 15402156880038161691649867030405339701750462867801433644546809449178377662691
   kwargs:
-    db_name: Valhall_System_23
+    db_name: workorder-oid-workmate
     ensure_parent: true
     table_name: workitems
-  name: Valhall_System_23_workitems_True
+  name: workorder-oid-workmate_workitems_True
 - args: []
   columns:
   - key
@@ -187,10 +94,10 @@ Row:
   - targetExternalId
   dataframe: 18638660796871288518235232457006931572805212660330594264228924851739487286440
   kwargs:
-    db_name: Valhall_System_23
+    db_name: workorder-oid-workmate
     ensure_parent: true
     table_name: workorder2assets
-  name: Valhall_System_23_workorder2assets_True
+  name: workorder-oid-workmate_workorder2assets_True
 - args: []
   columns:
   - key
@@ -199,10 +106,10 @@ Row:
   - targetExternalId
   dataframe: 87761117627110273022694517750470728190726449018707882989068562732740921122223
   kwargs:
-    db_name: Valhall_System_23
+    db_name: workorder-oid-workmate
     ensure_parent: true
     table_name: workorder2items
-  name: Valhall_System_23_workorder2items_True
+  name: workorder-oid-workmate_workorder2items_True
 - args: []
   columns:
   - key
@@ -228,10 +135,10 @@ Row:
   - programNumber
   dataframe: 39027066751652190754154965909250931653588743896956924953253757672617848762589
   kwargs:
-    db_name: Valhall_System_23
+    db_name: workorder-oid-workmate
     ensure_parent: true
     table_name: workorders
-  name: Valhall_System_23_workorders_True
+  name: workorder-oid-workmate_workorders_True
 TimeSeries:
 - dataSetId: 999
   description: PH 1st Stg Disch Gas Coolers
@@ -643,24 +550,19 @@ TimeSeries:
   name: VAL_23-TT-92604A:X.Value
   unit: degC
 deleted:
-  FileMetadata:
-  - externalId: Valhall_System_23_PH-25578-P-4110006-001.pdf
-  - externalId: Valhall_System_23_PH-25578-P-4110010-001.pdf
-  - externalId: Valhall_System_23_PH-25578-P-4110119-001.pdf
-  - externalId: Valhall_System_23_PH-ME-P-0003-001.pdf
-  - externalId: Valhall_System_23_PH-ME-P-0004-001.pdf
-  - externalId: Valhall_System_23_PH-ME-P-0151-001.pdf
-  - externalId: Valhall_System_23_PH-ME-P-0152-001.pdf
-  - externalId: Valhall_System_23_PH-ME-P-0153-001.pdf
-  - externalId: Valhall_System_23_PH-ME-P-0156-001.pdf
-  - externalId: Valhall_System_23_PH-ME-P-0156-002.pdf
-  - externalId: Valhall_System_23_PH-ME-P-0160-001.pdf
   Table:
-  - db_name: Valhall_System_23
+  - db_name: asset-oid-workmate
     name:
     - asset2children
     - assets
+  - db_name: files-oid-fileshare
+    name:
+    - files_metadata
+  - db_name: timeseries-oid-pi
+    name:
     - timeseries2assets
+  - db_name: workorder-oid-workmate
+    name:
     - workitem2assets
     - workitems
     - workorder2assets
