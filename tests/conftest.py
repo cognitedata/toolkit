@@ -70,43 +70,77 @@ def cognite_client_approval() -> CogniteClient:
     with monkeypatch_cognite_client() as client:
         written_resources: dict[str, Sequence[CogniteResource | dict[str, Any]]] = {}
         deleted_resources: dict[str, list[str | int | dict[str, Any]]] = defaultdict(list)
-        client.iam.groups = create_mock_api(client, GroupsAPI, GroupList, written_resources, deleted_resources)
-        client.data_sets = create_mock_api(client, DataSetsAPI, DataSetList, written_resources, deleted_resources)
+        created_resources: dict[str, list[CogniteResource]] = defaultdict(list)
+        client.iam.groups = create_mock_api(
+            client, GroupsAPI, GroupList, written_resources, deleted_resources, created_resources
+        )
+        client.data_sets = create_mock_api(
+            client, DataSetsAPI, DataSetList, written_resources, deleted_resources, created_resources
+        )
         client.time_series = create_mock_api(
-            client, TimeSeriesAPI, TimeSeriesList, written_resources, deleted_resources
+            client, TimeSeriesAPI, TimeSeriesList, written_resources, deleted_resources, created_resources
         )
         client.raw.databases = create_mock_api(
-            client, RawDatabasesAPI, DatabaseList, written_resources, deleted_resources
+            client, RawDatabasesAPI, DatabaseList, written_resources, deleted_resources, created_resources
         )
-        client.raw.tables = create_mock_api(client, RawTablesAPI, TableList, written_resources, deleted_resources)
+        client.raw.tables = create_mock_api(
+            client, RawTablesAPI, TableList, written_resources, deleted_resources, created_resources
+        )
         client.transformations = create_mock_api(
-            client, TransformationsAPI, TransformationList, written_resources, deleted_resources
+            client, TransformationsAPI, TransformationList, written_resources, deleted_resources, created_resources
         )
         client.transformations.schedules = create_mock_api(
-            client, TransformationSchedulesAPI, TransformationScheduleList, written_resources, deleted_resources
+            client,
+            TransformationSchedulesAPI,
+            TransformationScheduleList,
+            written_resources,
+            deleted_resources,
+            created_resources,
         )
         client.data_modeling.containers = create_mock_api(
-            client, ContainersAPI, ContainerList, written_resources, deleted_resources, ContainerApplyList
+            client,
+            ContainersAPI,
+            ContainerList,
+            written_resources,
+            deleted_resources,
+            created_resources,
+            ContainerApplyList,
         )
         client.data_modeling.views = create_mock_api(
-            client, ViewsAPI, ViewList, written_resources, deleted_resources, ViewApplyList
+            client, ViewsAPI, ViewList, written_resources, deleted_resources, created_resources, ViewApplyList
         )
         client.data_modeling.data_models = create_mock_api(
-            client, DataModelsAPI, DataModelList, written_resources, deleted_resources, DataModelApplyList
+            client,
+            DataModelsAPI,
+            DataModelList,
+            written_resources,
+            deleted_resources,
+            created_resources,
+            DataModelApplyList,
         )
         client.data_modeling.spaces = create_mock_api(
-            client, SpacesAPI, SpaceList, written_resources, deleted_resources, SpaceApplyList
+            client, SpacesAPI, SpaceList, written_resources, deleted_resources, created_resources, SpaceApplyList
         )
-        client.raw.rows = create_mock_api(client, RawRowsAPI, RowList, written_resources, deleted_resources)
+        client.raw.rows = create_mock_api(
+            client, RawRowsAPI, RowList, written_resources, deleted_resources, created_resources
+        )
         client.time_series.data = create_mock_api(
-            client, DatapointsAPI, DatapointsList, written_resources, deleted_resources
+            client, DatapointsAPI, DatapointsList, written_resources, deleted_resources, created_resources
         )
-        client.files = create_mock_api(client, FilesAPI, FileMetadataList, written_resources, deleted_resources)
+        client.files = create_mock_api(
+            client, FilesAPI, FileMetadataList, written_resources, deleted_resources, created_resources
+        )
         client.data_modeling.graphql = create_mock_api(
-            client, DataModelingGraphQLAPI, DataModelList, written_resources, deleted_resources, DataModelApplyList
+            client,
+            DataModelingGraphQLAPI,
+            DataModelList,
+            written_resources,
+            deleted_resources,
+            created_resources,
+            DataModelApplyList,
         )
         client.data_modeling.instances = create_mock_api(
-            client, InstancesAPI, NodeList, written_resources, deleted_resources, NodeApplyList
+            client, InstancesAPI, NodeList, written_resources, deleted_resources, created_resources, NodeApplyList
         )
 
         def dump() -> dict[str, Any]:
@@ -142,6 +176,7 @@ def create_mock_api(
     read_list_cls: type[CogniteResourceList],
     written_resources: dict[str, MutableSequence[CogniteResource | dict[str, Any]]],
     deleted_resources: dict[str, list[str | int | dict[str, Any]]],
+    created_resources: dict[str, list[CogniteResource]],
     write_list_cls: type[CogniteResourceList] | None = None,
 ) -> MagicMock:
     mock = MagicMock(spec=api_client)
@@ -157,6 +192,26 @@ def create_mock_api(
     write_resource_cls = write_list_cls._RESOURCE
 
     written_resources[resource_cls.__name__] = write_list_cls([])
+
+    mock = MagicMock(spec=api_client)
+
+    def append(value: CogniteResource | Sequence[CogniteResource]) -> None:
+        if isinstance(value, Sequence):
+            created_resources[resource_cls.__name__].extend(value)
+        else:
+            created_resources[resource_cls.__name__].append(value)
+
+    mock.append = append
+
+    def return_values(*args, **kwargs):
+        return read_list_cls(created_resources[resource_cls.__name__])
+
+    if hasattr(api_client, "list"):
+        mock.list = return_values
+    if hasattr(api_client, "retrieve"):
+        mock.retrieve = return_values
+    if hasattr(api_client, "retrieve_multiple"):
+        mock.retrieve_multiple = return_values
 
     def create(*args, **kwargs) -> Any:
         created = []
