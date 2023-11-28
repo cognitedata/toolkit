@@ -331,10 +331,10 @@ class CDFToolConfig:
             pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
             if pipeline is not None:
                 return pipeline.id
+            else:
+                raise CogniteNotFoundError(f"Extraction pipeline {external_id} does not exist.")
         except CogniteAuthError:
             raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on extractionPipelinesAcl.")
-        except CogniteNotFoundError:
-            raise CogniteNotFoundError(f"Extraction pipeline {external_id} does not exist.")
 
 
 def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any] | list[dict[str, Any]]:
