@@ -54,6 +54,7 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
+    ContainerProperty,
     DataModelApply,
     NodeApply,
     NodeApplyList,
@@ -574,12 +575,24 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
 
     def create(
         self, items: Sequence[FileMetadata], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> FileMetadata:
+    ) -> FileMetadataList:
         if len(items) != 1:
             raise ValueError("Files must be loaded one at a time.")
         meta = items[0]
         datafile = filepath.parent / meta.name
-        return self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
+        try:
+            created = self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
+        except CogniteAPIError as e:
+            if e.code == 409:
+                print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
+                return FileMetadataList([])
+        except Exception as e:
+            print(f"[bold red]ERROR:[/] Failed to upload file {datafile.name}.\n{e}")
+            ToolGlobals.failed = True
+            return FileMetadataList([])
+        if isinstance(created, FileMetadata):
+            return [created]
+        return created
 
 
 def drop_load_resources(
@@ -643,7 +656,7 @@ def drop_load_resources(
                         print(f"  Comparing {len(batch)} {loader.api_name} from {filepath}...")
                     batch = loader.remove_unchanged(batch)
                     if verbose:
-                        print(f"    {len(batch)} {loader.api_name} to be created...")
+                        print(f"    {len(batch)} {loader.api_name} to be deployed...")
                 if len(batch) > 0:
                     created = loader.create(batch, ToolGlobals, drop, filepath)
                     nr_of_created += len(created) if created is not None else 0
@@ -764,9 +777,13 @@ def load_datamodel(
     implicit_spaces = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
     for s in implicit_spaces:
         if s.name not in [s2.name for s2 in cognite_resources_by_type["space"]]:
+            print(
+                f"  [bold red]ERROR[/] Space {s.name} is implicitly defined and needs it's own {s.name}.space.yaml file."
+            )
             cognite_resources_by_type["space"].append(s)
-    nr_of_spaces = len(cognite_resources_by_type["space"])
-    print(f"  found {len(implicit_spaces)} space(s) referenced in config files giving a total of {nr_of_spaces}")
+    if len(explicit_space_list) != len(cognite_resources_by_type["space"]):
+        ToolGlobals.failed = True
+        return
     # Clear any delete errors
     ToolGlobals.failed = False
     client = ToolGlobals.verify_client(
@@ -786,7 +803,24 @@ def load_datamodel(
         "space": client.data_modeling.spaces,
     }
     for type_, resources in cognite_resources_by_type.items():
-        existing_resources_by_type[type_] = resource_api_by_type[type_].retrieve(list({r.as_id() for r in resources}))
+        attempts = 5
+        while attempts > 0:
+            try:
+                existing_resources_by_type[type_] = (
+                    resource_api_by_type[type_].retrieve(list({r.as_id() for r in resources})).as_apply()
+                )
+                attempts = 0
+            except CogniteAPIError as e:
+                attempts -= 1
+                if e.code == 500 and attempts > 0:
+                    continue
+                print(f"[bold]ERROR:[/] Failed to retrieve {type_}(s):\n{e}")
+                ToolGlobals.failed = True
+                return
+            except Exception as e:
+                print(f"[bold]ERROR:[/] Failed to retrieve {type_}(s):\n{e}")
+                ToolGlobals.failed = True
+                return
 
     differences: dict[str, Difference] = {}
     for type_, resources in cognite_resources_by_type.items():
@@ -798,7 +832,22 @@ def load_datamodel(
 
         changed = []
         unchanged = []
+        # Due to a bug in the SDK, we need to ensure that the new properties of the container
+        # has set the default values as these will be set for the existing container and
+        # the comparison will fail.
         for existing_id in set(new_by_id.keys()) & set(existing_by_id.keys()):
+            new = new_by_id[existing_id]
+            existing = existing_by_id[existing_id]
+            if isinstance(new, ContainerApply):
+                for p, _ in existing.properties.items():
+                    new.properties[p] = ContainerProperty(
+                        type=new.properties[p].type,
+                        nullable=new.properties[p].nullable or True,
+                        auto_increment=new.properties[p].auto_increment or False,
+                        default_value=new.properties[p].default_value or None,
+                        description=new.properties[p].description or None,
+                    )
+
             if new_by_id[existing_id] == existing_by_id[existing_id]:
                 unchanged.append(new_by_id[existing_id])
             else:
@@ -864,7 +913,7 @@ def load_datamodel(
                 continue
             items = differences[type_]
             if items.added:
-                print(f"  {len(items.added)} added {type_}(s) to be created...")
+                print(f"  {len(items.added)} added {type_}(s) to be deployed...")
                 if dry_run:
                     continue
                 attempts = 5
@@ -881,7 +930,7 @@ def load_datamodel(
                         return
                 print(f"  Created {len(items.added)} {type_}(s).")
             elif items.changed:
-                print(f"  {len(items.added)} changed {type_}(s) to be created...")
+                print(f"  {len(items.changed)} changed {type_}(s) to be deployed...")
                 if dry_run:
                     continue
                 attempts = 5
