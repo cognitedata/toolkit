@@ -126,6 +126,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     """
 
     support_drop = True
+    support_upsert = False
     filetypes = frozenset({"yaml", "yml"})
     api_name: str
     folder_name: str
@@ -166,7 +167,8 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def get_id(cls, item: T_Resource) -> T_ID:
         raise NotImplementedError
 
-    def fixup_resource(cls, local: T_Resource, remote: T_Resource) -> T_Resource:
+    @staticmethod
+    def fixup_resource(local: T_Resource, remote: T_Resource) -> T_Resource:
         """Takes the local (to be pushed) and remote (from CDF) resource and returns the
         local resource with properties from the remote resource copied over to make
         them equal if we should consider them equal (and skip writing to CDF)."""
@@ -241,6 +243,7 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 @final
 class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     support_drop = False
+    support_upsert = True
     api_name = "data_sets"
     folder_name = "data_sets"
     resource_cls = DataSet
@@ -259,6 +262,17 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     def delete(self, ids: Sequence[str]) -> None:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
+    @staticmethod
+    def fixup_resource(local: DataSet, remote: DataSet) -> DataSet:
+        """Sets the read-only properties, id, created_time, and last_updated_time, that are set on the server side.
+        This is needed to make the comparison work.
+        """
+
+        local.id = remote.id
+        local.created_time = remote.created_time
+        local.last_updated_time = remote.last_updated_time
+        return local
+
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
@@ -266,12 +280,12 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
             return DataSetList(self.client.data_sets.create(items))
 
         except CogniteDuplicatedError as e:
-            if len(e.duplicated) < len(items.data):
+            if len(e.duplicated) < len(items):
                 for dup in e.duplicated:
                     ext_id = dup.get("externalId", None)
-                    for item in items.data:
+                    for item in items:
                         if item.external_id == ext_id:
-                            items.data.remove(item)
+                            items.remove(item)
                 try:
                     return DataSetList(self.client.data_sets.create(items))
                 except Exception as e:
@@ -341,6 +355,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
 @final
 class AuthLoader(Loader[int, Group, GroupList]):
     support_drop = False
+    support_upsert = True
     api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
@@ -363,7 +378,8 @@ class AuthLoader(Loader[int, Group, GroupList]):
         super().__init__(client)
         self.load = target_scopes
 
-    def fixup_resource(cls, local: T_Resource, remote: T_Resource) -> T_Resource:
+    @staticmethod
+    def fixup_resource(local: T_Resource, remote: T_Resource) -> T_Resource:
         local.id = remote.id
         local.is_deleted = False  # If remote is_deleted, this will fail the check.
         local.metadata = remote.metadata  # metadata has no order guarantee, so we exclude it from compare
@@ -577,7 +593,8 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         file = FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
         if not Path(filepath.parent / file.name).exists():
             raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
-        if file.data_set_id is not None:
+        if isinstance(file.data_set_id, str):
+            # Replace external_id with internal id
             file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id)
         return file
 
@@ -695,8 +712,7 @@ def drop_load_resources(
     try:
         if not dry_run:
             for batch, filepath in zip(batches, filepaths):
-                # NOTE!!! For now ensure that we only compare groups
-                if not drop and isinstance(loader, AuthLoader):
+                if not drop and loader.support_upsert:
                     if verbose:
                         print(f"  Comparing {len(batch)} {loader.api_name} from {filepath}...")
                     batch = loader.remove_unchanged(batch)

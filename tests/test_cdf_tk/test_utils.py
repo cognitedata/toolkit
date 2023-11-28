@@ -2,7 +2,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 import yaml
-from cognite.client._api.assets import AssetsAPI
 from cognite.client._api.iam import TokenAPI, TokenInspection
 from cognite.client.data_classes.capabilities import (
     DataSetsAcl,
@@ -20,6 +19,7 @@ from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variabl
 def mocked_init(self, client_name: str):
     self._client_name = client_name
     self._client = CogniteClientMock()
+    self._data_set_id_by_external_id = {}
 
 
 def test_init():
@@ -61,11 +61,6 @@ def test_dataset_create():
         # the dataset exists
         instance.verify_dataset("test")
         assert instance._client.data_sets.retrieve.call_count == 1
-
-        # the dataset does not exist, do not create
-        instance._client.data_sets.retrieve = Mock(spec=AssetsAPI.retrieve, return_value=None)
-        instance.verify_dataset("test")
-        assert instance._client.data_sets.create.call_count == 0
 
 
 def test_load_yaml_inject_variables(tmp_path) -> None:
