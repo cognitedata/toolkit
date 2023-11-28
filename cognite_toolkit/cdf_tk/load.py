@@ -64,7 +64,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 from cognite.client.data_classes.iam import Group, GroupList
-from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
+from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from rich import print
 
 from .delete import delete_instances
@@ -639,10 +639,13 @@ def drop_load_resources(
                 loader.delete(drop_items)
                 if verbose:
                     print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+            except CogniteAPIError as e:
+                if e.code == 404:
+                    print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do not exist.")
+            except CogniteNotFoundError:
+                print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do not exist.")
             except Exception as e:
-                print(
-                    f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. It/they may not exist. Error {e}"
-                )
+                print(f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. Error {e}")
         else:
             print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
     if not load:
