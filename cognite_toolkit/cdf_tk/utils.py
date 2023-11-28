@@ -295,7 +295,7 @@ class CDFToolConfig:
         """Verify that the configured data set exists and is accessible
 
         Args:
-            data_set_external_id (str): Extrenal_id of the data set to verify
+            data_set_external_id (str): External_id of the data set to verify
         Returns:
             data_set_id (int)
             Re-raises underlying SDK exception
