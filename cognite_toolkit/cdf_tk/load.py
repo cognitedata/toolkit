@@ -29,6 +29,8 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     DataSet,
     DataSetList,
+    ExtractionPipeline,
+    ExtractionPipelineList,
     FileMetadata,
     FileMetadataList,
     OidcCredentials,
@@ -46,6 +48,7 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataSetsAcl,
+    ExtractionPipelinesAcl,
     FilesAcl,
     GroupsAcl,
     RawAcl,
@@ -204,7 +207,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
         return self.api_class.retrieve(ids)
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_Resource | T_ResourceList:
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_Resource | T_ResourceList | None:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_cls.load(raw_yaml)
@@ -403,16 +406,42 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def get_id(cls, item: Group) -> str:
         return item.name
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Group:
+    def replace_scope_ids(self, capability: dict, ToolGlobals: CDFToolConfig):
+        if len(capability.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
+            capability["scope"]["datasetScope"]["ids"] = [
+                ToolGlobals.verify_dataset(ext_id)
+                for ext_id in capability.get("scope", {}).get("datasetScope", {}).get("ids", [])
+            ]
+
+        if len(capability.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
+            capability["scope"]["extractionPipelineScope"]["ids"] = [
+                ToolGlobals.verify_extraction_pipeline(ext_id)
+                for ext_id in capability.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])
+            ]
+        return capability
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Group | None:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+
+        resource_scope_str = [cls.__name__.lower() for cls in self.resource_scopes]
+
+        to_create = []
+
         for capability in raw.get("capabilities", []):
-            for _, values in capability.items():
-                if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    values["scope"]["datasetScope"]["ids"] = [
-                        ToolGlobals.verify_dataset(ext_id)
-                        for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
-                    ]
-        return Group.load(raw)
+            for acl, values in capability.items():
+                scope: str = next(iter(values.get("scope", {})))
+                if self.load == "all":
+                    to_create.append({acl: self.replace_scope_ids(values, ToolGlobals)})
+                elif self.load == "resource_scoped_only" and scope.lower() in resource_scope_str:
+                    to_create.append({acl: self.replace_scope_ids(values, ToolGlobals)})
+                elif self.load == "all_scoped_only" and scope.lower() not in resource_scope_str:
+                    to_create.append({acl: values})
+
+        if len(to_create) > 0:
+            raw["capabilities"] = to_create
+            return Group.load(raw)
+
+        return None
 
     def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
         remote = self.client.iam.groups.list(all=True).data
@@ -599,6 +628,55 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         return self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
 
 
+@final
+class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelineList]):
+    support_drop = True
+    api_name = "extraction_pipelines"
+    folder_name = "extraction_pipelines"
+    resource_cls = ExtractionPipeline
+    list_cls = ExtractionPipelineList
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return ExtractionPipelinesAcl(
+            [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
+            ExtractionPipelinesAcl.Scope.All(),
+        )
+
+    def get_id(self, item: ExtractionPipeline) -> str:
+        return item.external_id
+
+    def delete(self, ids: Sequence[str]) -> None:
+        self.client.files.delete(external_id=ids)
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ExtractionPipeline:
+        resource = load_yaml_inject_variables(filepath, {})
+        if resource.get("dataSetExternalId") is not None:
+            resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
+        return ExtractionPipeline.load(resource)
+
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList | None:
+        try:
+            return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
+
+        except CogniteDuplicatedError as e:
+            if len(e.duplicated) < len(items.data):
+                for dup in e.duplicated:
+                    ext_id = dup.get("externalId", None)
+                    for item in items.data:
+                        if item.external_id == ext_id:
+                            items.data.remove(item)
+                try:
+                    return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
+                except Exception as e:
+                    print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
+                    ToolGlobals.failed = True
+                    return None
+            return None
+
+
 def drop_load_resources(
     loader: Loader,
     path: Path,
@@ -617,7 +695,12 @@ def drop_load_resources(
     else:
         filepaths = [file for file in path.glob("**/*")]
 
-    items = [loader.load_file(f, ToolGlobals) for f in filepaths]
+    items = []
+    for f in filepaths:
+        item = loader.load_file(f, ToolGlobals)
+        if item is not None:
+            items.append(item)
+
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
     nr_of_deleted = 0
