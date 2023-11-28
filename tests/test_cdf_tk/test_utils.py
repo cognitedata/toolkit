@@ -19,6 +19,7 @@ from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variabl
 def mocked_init(self, client_name: str):
     self._client_name = client_name
     self._client = CogniteClientMock()
+    self._data_set_id_by_external_id = {}
 
 
 def test_init():
