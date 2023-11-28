@@ -42,9 +42,9 @@ A common structure on naming different CDF resource types and configuration are 
 
 ### Example usage of naming standard
 
-In the example below we are setting up a project  based on the Open Industry Data (OID), that originates from the Valhall oil rig. Hnence the example location below is *valhall_oid*
+In the example below we are setting up a project  based on the Open Industry Data (OID), that originates from the Valhall oil rig. Hence the example location below is *oid*
 
-* the **location_name** = valhall_oid
+* the **location_name** = oid
 * The different data sources are:
   * workmate (asset & workorder data)
   * fileshare (files and 3D)
@@ -54,54 +54,54 @@ In the example below we are setting up a project  based on the Open Industry Dat
 CDF project
 │
 ├── Data Sets:
-│   ├── extId: ds_asset_valhall_oid ── name: asset:valhall_oid
+│   ├── extId: ds_asset_oid ── name: asset:oid
 │   │   ├── Extraction Pipelines:
-│   │   │   └── extId: ep_src_asset_valhall_oid ── name: src:asset:valhall_oid
+│   │   │   └── extId: ep_src_asset_oid_workmate ── name: src:asset:oid:workmate
 │   │   │
 │   │   ├── RAW DB/tables:
-│   │   │   └── DB: src_asset_valhall_oid_workmate ── table: assets
+│   │   │   └── DB: asset_oid_workmate ── table: assets
 │   │   │
 │   │   ├── Transformations:
-│   │   │   └── extId: tr_asset_valhall_oid_asset_hierarchy ── name: asset:valhall_oid:asset_hierarchy
+│   │   │   └── extId: tr_asset_oid_workmate_asset_hierarchy ── name: asset:oid:workmate:asset_hierarchy
 │   │   │
 │   │   └── Autorisation groups:
-│   │       ├── id: asset:valhall_oid:extractor
-│   │       ├── id: asset:valhall_oid:prosessing
-│   │       └── id: asset:valhall_oid:read
+│   │       ├── id: asset:oid:extractor
+│   │       ├── id: asset:oid:prosessing
+│   │       └── id: asset:oid:read
 │   │ 
-│   ├── extId: ds_files_valhall_oid ── name: files:valhall_oid
+│   ├── extId: ds_files_oid ── name: files:oid
 │   │   ├── Extraction Pipelines:
-│   │   │   ├── extId: ep_src_files_valhall_oid_fileshare ── name: src:files:valhall_oid:fileshare
-│   │   │   └── extId: ep_ctx_files_valhall_oid_fileshare:annotation ── name: ctx:files:valhall_oid:fileshare:annotation
+│   │   │   ├── extId: ep_src_files_oid_fileshare ── name: src:files:oid:fileshare
+│   │   │   └── extId: ep_ctx_files_oid_fileshare:annotation ── name: ctx:files:oid:fileshare:annotation
 │   │   │
 │   │   ├── RAW DB/tables:
-│   │   │   └── DB: src_files_valhall_oid_fileshare ── table: file_metadata
+│   │   │   └── DB: files_oid_fileshare ── table: file_metadata
 │   │   │
 │   │   ├── Transformations:
-│   │   │   └── extId: tr_file_valhall_oid_fileshare_file_metadata ── name: file:valhall_oid:metadata:fileshare:file_metadata
+│   │   │   └── extId: tr_file_oid_fileshare_file_metadata ── name: file:oid:metadata:fileshare:file_metadata
 │   │   │
 │   │   ├── Functions:
-│   │   │   └── extId: fu_files_valhall_oid_fileshare_annotation ── name: files:valhall_oid:fileshare:annotation
+│   │   │   └── extId: fu_files_oid_fileshare_annotation ── name: files:oid:fileshare:annotation
 │   │   │
 │   │   └── Autorisation groups:
-│   │       ├── id: files:valhall_oid:extractor
-│   │       ├── id: files:valhall_oid:prosessing
-│   │       └── id: files:valhall_oid:read
+│   │       ├── id: files:oid:extractor
+│   │       ├── id: files:oid:prosessing
+│   │       └── id: files:oid:read
 │   │ 
-│   ├── extId: ds_workorder_valhall_oid ── name: workorder:valhall_oid
+│   ├── extId: ds_workorder_oid ── name: workorder:oid
 │   │   ├── ...
 │   │   ...
 │   │
-│   ├── extId: ds_timeseries_valhall_oid ── name: timeseries:valhall_oid
+│   ├── extId: ds_timeseries_oid ── name: timeseries:oid
 │   │   ├── ...
 │   │   ... 
 │   │
-│   ├── extId: ds_3d_valhall_oid ── name: 3d:valhall_oid
+│   ├── extId: ds_3d_oid ── name: 3d:oid
 │   │   ├── ...
 │   │   ... 
 │ 
 └── Spaces:
-    └── extId: sp_apm_valhall_oid ── name: valhall_oid
+    └── extId: sp_apm_oid ── name: oid
 ```
 
 
@@ -116,37 +116,37 @@ CDF project
 
 #### Data sets:
 ```
-External ID: ds_<data type>_<source>
-Name: <data type>:<source>
-Ex: ds_asset_valhall_oid / asset:valhall_oid 
+External ID: ds_<data type>_<location>
+Name: <data type>:<location>
+Ex: ds_asset_oid / asset:oid 
 ```
 
 #### Extraction Pipelines:
 ```
-External ID: ep_<data type>_<source>_<location>
-Name: <data type>:<source>:<location>
-Ex: ds_asset_valhall_oid_workmate / asset:valhall_oid:workmate 
+External ID: ep_<pipeline type>_<data type>_<location>_<source>
+Name: <pipeline type>:<data type>:<location>:<source>:
+Ex: ep_src_asset_oid_workmate / src:asset:oid:workmate 
 ```
 
 #### RAW DB/tables:
 ```
-DB: <data type>_<source>_<location>
-Ex: asset_valhall_oid_workmate
+DB: <data type>_<location>_<source>
+Ex: asset_oid_workmate
 Table: use name from source, or other describing name 
 ```
 
 #### Transformations:
 ```
-External ID: tr_<data type>_<source>_<location>_<operation type>
-Name: <data type>:<source>:<location>:<operation type>
-Ex: tr_asset_valhall_oid_asset_hierarchy / asset:valhall_oid:asset_hierarchy 
+External ID: tr_<data type>_<location>_<source>_<operation type>
+Name: <data type>:<location>:<source>:<operation type>
+Ex: tr_asset_oid_workmate_asset_hierarchy / asset:oid:workmate:asset_hierarchy 
 ```
 
 #### Functions:
 ```
-External ID: fu_<data type>_<source>_<location>_<operation type>
-Name: <data type>:<source>:<location>:<operation type>
-Ex: fu_files_valhall_oid_fileshare_annotation / files:valhall_oid:fileshare:annotation
+External ID: fu_<data type>_<location>_<source>_<operation type>
+Name: <data type>:<location>:<source>:<operation type>
+Ex: fu_files_oid_fileshare_annotation / files:oid:fileshare:annotation
 ```
 
 #### Authorization groups:
@@ -159,7 +159,7 @@ Ex:  asset:valhall:extractor / asset:valhall:processing / asset:valhall:read
 ```
 External ID: dm_<data type>_<source>
 Name: <data type>:<source>
-Ex: dm_apm_valhall_oid / apm:valhall_oid 
+Ex: dm_apm_oid / apm:oid 
 ```
 
 
