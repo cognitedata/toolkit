@@ -1,3 +1,10 @@
 # Only valid for this module, loads template variables from environment
-raw_db: Valhall_System_23
-data_set: Valhall_System_23
+# RAW DB name structure: <data type>_<location>_<source>  ( see README for name standard)
+# 
+# In the example below we are setting up a project based on the Open Industry Data (OID), 
+# that originates from the Valhall oil rig. Hence the example location below is oid
+#
+raw_db_asset: asset-oid-workmate
+raw_db_workorder: workorder-oid-workmate
+raw_db_files: files-oid-fileshare
+raw_db_timeseries: timeseries-oid-pi

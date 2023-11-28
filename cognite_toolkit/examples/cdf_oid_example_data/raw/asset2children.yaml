@@ -1,2 +1,2 @@
-dbName: {{raw_db}}
+dbName: {{raw_db_asset}}
 tableName: asset2children
