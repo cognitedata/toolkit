@@ -297,6 +297,7 @@ def deploy(
         load_datamodel(
             ToolGlobals,
             drop=drop,
+            drop_data=drop_data,
             directory=models_dir,
             delete_containers=drop_data,  # Also delete properties that have been ingested (leaving empty instances)
             delete_spaces=drop_data,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
@@ -453,11 +454,24 @@ def clean(
         load_datamodel(
             ToolGlobals,
             drop=True,
+            drop_data=True,
             only_drop=True,
             directory=models_dir,
             delete_removed=True,
-            delete_spaces=True,  # Also delete properties that have been ingested (leaving empty instances)
-            delete_containers=True,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
+            delete_spaces=True,
+            delete_containers=True,
+            dry_run=dry_run,
+        )
+    elif CDFDataTypes.instances in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+        load_datamodel(
+            ToolGlobals,
+            drop=False,
+            drop_data=True,
+            only_drop=True,
+            directory=models_dir,
+            delete_removed=False,
+            delete_spaces=False,
+            delete_containers=False,
             dry_run=dry_run,
         )
     if ToolGlobals.failed:

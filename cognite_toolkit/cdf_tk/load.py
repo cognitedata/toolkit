@@ -713,6 +713,7 @@ def load_datamodel_graphql(
 def load_datamodel(
     ToolGlobals: CDFToolConfig,
     drop: bool = False,
+    drop_data: bool = False,
     delete_removed: bool = True,
     delete_containers: bool = False,
     delete_spaces: bool = False,
@@ -731,7 +732,8 @@ def load_datamodel(
         but if it fails, the loading will continue. If delete_containers is True, the loading
         will abort if deletion fails.
     Args:
-        drop: Whether to drop all existing resources before loading.
+        drop: Whether to drop all existing data model entities (default: apply just the diff).
+        drop_data: Whether to drop all instances (nodes and edges) in all spaces.
         delete_removed: Whether to delete (previous) resources that are not in the directory.
         delete_containers: Whether to delete containers including data in the instances.
         delete_spaces: Whether to delete spaces (requires containers and instances to be deleted).
@@ -741,6 +743,10 @@ def load_datamodel(
     """
     if directory is None:
         raise ValueError("directory must be supplied.")
+    if (delete_containers or delete_spaces) and not drop:
+        raise ValueError("drop must be True if delete_containers or delete_spaces is True.")
+    if (delete_spaces or delete_containers) and not drop_data:
+        raise ValueError("drop_data must be True if delete_spaces or delete_containers is True.")
     model_files_by_type: dict[str, list[Path]] = defaultdict(list)
     models_pattern = re.compile(r"^.*\.?(space|container|view|datamodel)\.yaml$")
     for file in directory.rglob("*.yaml"):
@@ -778,12 +784,9 @@ def load_datamodel(
     for s in implicit_spaces:
         if s.name not in [s2.name for s2 in cognite_resources_by_type["space"]]:
             print(
-                f"  [bold red]ERROR[/] Space {s.name} is implicitly defined and needs it's own {s.name}.space.yaml file."
+                f"  [bold red]ERROR[/] Space {s.name} is implicitly defined and may need it's own {s.name}.space.yaml file."
             )
             cognite_resources_by_type["space"].append(s)
-    if len(explicit_space_list) != len(cognite_resources_by_type["space"]):
-        ToolGlobals.failed = True
-        return
     # Clear any delete errors
     ToolGlobals.failed = False
     client = ToolGlobals.verify_client(
@@ -857,11 +860,27 @@ def load_datamodel(
 
     creation_order = ["space", "container", "view", "datamodel"]
 
+    if drop_data:
+        print("[bold]Deleting existing data...[/]")
+        deleted = 0
+        for i in explicit_space_list:
+            if not dry_run:
+                delete_instances(
+                    ToolGlobals,
+                    space_name=i,
+                    dry_run=dry_run,
+                )
+                if ToolGlobals.failed:
+                    print(f"  [bold]ERROR:[/] Failed to delete instances in space {i}.")
+                    return
+            else:
+                print(f"  Would have deleted instances in space {i}.")
+
     if drop:
         print("[bold]Deleting existing configurations...[/]")
         # Clean out all old resources
         for type_ in reversed(creation_order):
-            items = differences.get(type_)
+            items = cognite_resources_by_type.get(type_)
             if items is None:
                 continue
             if type_ == "container" and not delete_containers:
@@ -871,37 +890,28 @@ def load_datamodel(
                 print("  [bold]INFO:[/] Skipping deletion of spaces as delete_spaces flag is not set...")
                 continue
             deleted = 0
-            for i in items:
-                if len(i) == 0:
-                    continue
-                # for i2 in i:
-                try:
-                    if not dry_run:
-                        if type_ == "space":
-                            for i2 in i:
-                                # Only delete spaces that have been explicitly defined
-                                if i2.space in explicit_space_list:
-                                    delete_instances(
-                                        ToolGlobals,
-                                        space_name=i2.space,
-                                        dry_run=dry_run,
-                                    )
-                                    ret = resource_api_by_type["space"].delete(i2.space)
-                                    if len(ret) > 0:
-                                        deleted += 1
-                        else:
-                            ret = resource_api_by_type[type_].delete([i2.as_id() for i2 in i])
-                            deleted += len(ret)
-                except CogniteAPIError as e:
-                    # Typically spaces can not be deleted if there are other
-                    # resources in the space.
-                    print(f"  [bold]ERROR:[/] Failed to delete {type_}(s):\n{e}")
-                    if type_ == "space":
-                        ToolGlobals.failed = False
-                        print("  [bold]INFO:[/] Deletion of space was not successful, continuing.")
-                        continue
-                    return
             if not dry_run:
+                if type_ == "space":
+                    for i2 in items:
+                        # Only delete spaces that have been explicitly defined
+                        if i2.space in explicit_space_list:
+                            try:
+                                ret = resource_api_by_type["space"].delete(i2.space)
+                            except Exception:
+                                ToolGlobals.failed = False
+                                print(f"  [bold]INFO:[/] Deletion of space {i2.space} was not successful, continuing.")
+                                continue
+                            if len(ret) > 0:
+                                deleted += 1
+                else:
+                    try:
+                        ret = resource_api_by_type[type_].delete([i.as_id() for i in items])
+                    except CogniteAPIError as e:
+                        # Typically spaces can not be deleted if there are other
+                        # resources in the space.
+                        print(f"  [bold]ERROR:[/] Failed to delete {type_}(s):\n{e}")
+                        return
+                    deleted += len(ret)
                 print(f"  Deleted {deleted} {type_}(s).")
             else:
                 print(f"  Would have deleted {deleted} {type_}(s).")
