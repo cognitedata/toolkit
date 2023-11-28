@@ -179,20 +179,11 @@ def create_mock_api(
     created_resources: dict[str, list[CogniteResource]],
     write_list_cls: type[CogniteResourceList] | None = None,
 ) -> MagicMock:
-    mock = MagicMock(spec=api_client)
-    if hasattr(api_client, "list"):
-        mock.list.return_value = read_list_cls([], cognite_client=client)
-    if hasattr(api_client, "retrieve"):
-        mock.retrieve.return_value = read_list_cls([], cognite_client=client)
-    if hasattr(api_client, "retrieve_multiple"):
-        mock.retrieve_multiple.return_value = read_list_cls([], cognite_client=client)
-
     resource_cls = read_list_cls._RESOURCE
     write_list_cls = write_list_cls or read_list_cls
     write_resource_cls = write_list_cls._RESOURCE
 
     written_resources[resource_cls.__name__] = write_list_cls([])
-
     mock = MagicMock(spec=api_client)
 
     def append(value: CogniteResource | Sequence[CogniteResource]) -> None:
@@ -204,14 +195,14 @@ def create_mock_api(
     mock.append = append
 
     def return_values(*args, **kwargs):
-        return read_list_cls(created_resources[resource_cls.__name__])
+        return read_list_cls(created_resources[resource_cls.__name__], cognite_client=client)
 
     if hasattr(api_client, "list"):
-        mock.list.return_value = read_list_cls([], cognite_client=client)
+        mock.list = return_values
     if hasattr(api_client, "retrieve"):
-        mock.retrieve.return_value = read_list_cls([], cognite_client=client)
+        mock.retrieve = return_values
     if hasattr(api_client, "retrieve_multiple"):
-        mock.retrieve_multiple.return_value = read_list_cls([], cognite_client=client)
+        mock.retrieve_multiple = return_values
 
     def create(*args, **kwargs) -> Any:
         created = []
