@@ -4,7 +4,7 @@
 # In the example below we are setting up a project based on the Open Industry Data (OID), 
 # that originates from the Valhall oil rig. Hence the example location below is oid
 #
-raw_db_asset: asset-oid-workmate
-raw_db_workorder: workorder-oid-workmate
-raw_db_files: files-oid-fileshare
-raw_db_timeseries: timeseries-oid-pi
+raw_db_asset: asset_oid_workmate
+raw_db_workorder: workorder_oid_workmate
+raw_db_files: files_oid_fileshare
+raw_db_timeseries: timeseries_oid_pi
