@@ -313,23 +313,30 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
-        try:
-            return DataSetList(self.client.data_sets.create(items))
-
-        except CogniteDuplicatedError as e:
-            if len(e.duplicated) < len(items):
-                for dup in e.duplicated:
-                    ext_id = dup.get("externalId", None)
-                    for item in items:
-                        if item.external_id == ext_id:
-                            items.remove(item)
-                try:
-                    return DataSetList(self.client.data_sets.create(items))
-                except Exception as e:
-                    print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
-                    ToolGlobals.failed = True
-                    return None
+        created = DataSetList([])
+        # There is a big in the data set API, so only one duplicated data set is returned at the time,
+        # so we need to iterate.
+        while len(items.data) > 0:
+            try:
+                created.extend(DataSetList(self.client.data_sets.create(items)))
+                return created
+            except CogniteDuplicatedError as e:
+                if len(e.duplicated) < len(items):
+                    for dup in e.duplicated:
+                        ext_id = dup.get("externalId", None)
+                        for item in items:
+                            if item.external_id == ext_id:
+                                items.remove(item)
+                else:
+                    items.data = []
+            except Exception as e:
+                print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
+                ToolGlobals.failed = True
+                return None
+        if len(created) == 0:
             return None
+        else:
+            return created
 
 
 @final
@@ -621,8 +628,12 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
             with suppress(CogniteAPIError):
-                self.client.raw.tables.delete(db_name=db_name, name=[table.table_name for table in raw_tables])
-                count += 1
+                tables = [table.table_name for table in raw_tables]
+                self.client.raw.tables.delete(db_name=db_name, name=tables)
+                count += len(tables)
+            if len(self.client.raw.tables.list(db_name=db_name, limit=-1).data) == 0:
+                with suppress(CogniteAPIError):
+                    self.client.raw.databases.delete(name=db_name)
         return count
 
     def create(
