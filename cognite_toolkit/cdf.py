@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-from __future__ import annotations
-
 import itertools
 import shutil
 import tempfile
@@ -727,7 +725,7 @@ def main_init(
             print("  Your config.yaml files may need to be updated to override new default variales.")
 
 
-def _process_include(include: list[str] | bool, interactive: bool) -> list[str]:
+def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
     if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
         print(
             f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
