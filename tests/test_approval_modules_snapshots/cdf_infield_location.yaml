@@ -1,3 +1,11 @@
+DataSet:
+- description: This dataset is for writing data from Infield for the location default.
+  externalId: ds_infield_default_location_app_data
+  name: Infield default location app writable data set
+- description: This dataset is the data set used by Infield to read source data for
+    location default.
+  externalId: ds_infield_default_location_source
+  name: Infield default location source data set
 Group:
 - capabilities:
   - threedAcl:

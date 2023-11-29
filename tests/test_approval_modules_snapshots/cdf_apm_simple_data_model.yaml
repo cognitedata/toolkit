@@ -327,7 +327,7 @@ DataModel:
     type: view
     version: '1'
 Space:
-- description: Imported space
+- description: Space for APM simple data model
   name: apm_simple
   space: apm_simple
 Transformation:
@@ -1067,6 +1067,8 @@ deleted:
     space: apm_simple
     type: datamodel
     version: '1'
+  Space:
+  - apm_simple
   Transformation:
   - externalId: apm_simple-load-asset-hierarchy
   - externalId: apm_simple-load-asset2children

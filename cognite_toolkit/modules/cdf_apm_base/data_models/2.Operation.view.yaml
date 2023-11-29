@@ -1,7 +1,7 @@
 externalId: APM_Operation
 name: "APM_Operation"
 description: "An operation delineates a distinct maintenance task tailored for a specific asset, such as gasket replacement, scaffolding setup, or level measurement."
-version: {{apm_datamodel_version}}
+version: '{{apm_datamodel_version}}'
 space: {{apm_datamodel_space}}
 properties:
   id:
