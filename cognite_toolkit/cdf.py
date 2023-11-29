@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
-import difflib
 import itertools
 import shutil
 import tempfile
@@ -265,7 +264,7 @@ def deploy(
     include = _process_include(include, interactive)
     print(ToolGlobals.as_string())
 
-    # The 'auth' loader is excluted, as it is run twice,
+    # The 'auth' loader is excluded, as it is run twice,
     # once with all_scoped_skipped_validation and once with resource_scoped_only
     selected_loaders = {
         LoaderCls: LoaderCls.dependencies
@@ -337,38 +336,6 @@ def deploy(
         exit(1)
 
 
-def _process_include(include: list[str] | bool, interactive: bool) -> list[str]:
-    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
-        print(
-            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
-        )
-        exit(1)
-    include = include or list(_AVAILABLE_DATA_TYPES)
-    if interactive:
-        include = _select_data_types(include)
-    return include
-
-
-def _select_data_types(include: Sequence[str]) -> list[str]:
-    mapping: dict[int, str] = {}
-    for i, datatype in enumerate(include):
-        print(f"[bold]{i})[/] {datatype}")
-        mapping[i] = datatype
-    print("\na) All")
-    print("q) Quit")
-    answer = input("Select data types to include: ")
-    if answer.casefold() == "a":
-        return list(include)
-    elif answer.casefold() == "q":
-        exit(0)
-    else:
-        try:
-            return [mapping[int(answer)]]
-        except ValueError:
-            print(f"Invalid selection: {answer}")
-            exit(1)
-
-
 @app.command("clean")
 def clean(
     ctx: typer.Context,
@@ -426,29 +393,21 @@ def clean(
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
-    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
-        print(
-            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
-        )
-        exit(1)
-
-    include = include or list(_AVAILABLE_DATA_TYPES)
-    if interactive:
-        include = _select_data_types(include)
-
     print(Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]"))
-    # Configure a client and load credentials from environment
-    if not Path(build_dir).is_dir():
-        alternatives = {
-            folder.name: f"{folder.parent.name}/{folder.name}"
-            for folder in Path(build_dir).parent.iterdir()
-            if folder.is_dir()
-        }
-        matches = difflib.get_close_matches(Path(build_dir).name, list(alternatives.keys()), n=3, cutoff=0.3)
-        print(
-            f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you mean one of these? {[alternatives[m] for m in matches]}"
-        )
+    build_path = Path(build_dir)
+    if not build_path.is_dir():
+        typer.echo(f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?")
         exit(1)
+
+    include = _process_include(include, interactive)
+    print(ToolGlobals.as_string())
+
+    # The 'auth' loader is excluded, as it is run at the end.
+    selected_loaders = {
+        LoaderCls: LoaderCls.dependencies
+        for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items()
+        if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+    }
 
     print(ToolGlobals.as_string())
     if CDFDataTypes.data_models in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
@@ -481,23 +440,19 @@ def clean(
         print("[bold red]ERROR: [/] Failure to delete data models as expected.")
         exit(1)
 
-    for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
-        if folder_name == "auth":
-            # We need to clean the auth resources last, to avoid losing access.
-            continue
-        if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
-            drop_load_resources(
-                LoaderCls.create_loader(ToolGlobals),
-                directory,
-                ToolGlobals,
-                drop=True,
-                load=False,
-                dry_run=dry_run,
-                verbose=ctx.obj.verbose,
-            )
-            if ToolGlobals.failed:
-                print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
-                exit(1)
+    for LoaderCls in reversed(list(TopologicalSorter(selected_loaders).static_order())):
+        drop_load_resources(
+            LoaderCls.create_loader(ToolGlobals),
+            build_path / LoaderCls.folder_name,
+            ToolGlobals,
+            drop=True,
+            load=False,
+            dry_run=dry_run,
+            verbose=ctx.obj.verbose,
+        )
+        if ToolGlobals.failed:
+            print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
+            exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         drop_load_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
@@ -770,6 +725,38 @@ def main_init(
         if upgrade:
             print("  All default.config.yaml files in the modules have been upgraded.")
             print("  Your config.yaml files may need to be updated to override new default variales.")
+
+
+def _process_include(include: list[str] | bool, interactive: bool) -> list[str]:
+    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
+        print(
+            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
+        )
+        exit(1)
+    include = include or list(_AVAILABLE_DATA_TYPES)
+    if interactive:
+        include = _select_data_types(include)
+    return include
+
+
+def _select_data_types(include: Sequence[str]) -> list[str]:
+    mapping: dict[int, str] = {}
+    for i, datatype in enumerate(include):
+        print(f"[bold]{i})[/] {datatype}")
+        mapping[i] = datatype
+    print("\na) All")
+    print("q) Quit")
+    answer = input("Select data types to include: ")
+    if answer.casefold() == "a":
+        return list(include)
+    elif answer.casefold() == "q":
+        exit(0)
+    else:
+        try:
+            return [mapping[int(answer)]]
+        except ValueError:
+            print(f"Invalid selection: {answer}")
+            exit(1)
 
 
 if __name__ == "__main__":
