@@ -752,6 +752,30 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
             )
         except Exception:
             files = FileMetadataList.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
+        if len(files.data) == 1:
+            # If we have a file with exact one file config, check to see if this is a pattern to expand
+            if "$FILENAME" in files.data[0].external_id or "":
+                # It is, so replace this file with all files in this folder using the same data
+                file_data = files.data[0]
+                ext_id_pattern = file_data.external_id
+                files = FileMetadataList([])
+                for file in Path(filepath.parent).glob("*"):
+                    if file.suffix[1:] in ["yaml", "yml"]:
+                        continue
+                    files.append(
+                        FileMetadata(
+                            name=file.name,
+                            external_id=re.sub(r"\$FILENAME", file.name, ext_id_pattern),
+                            data_set_id=file_data.data_set_id,
+                            source=file_data.source,
+                            metadata=file_data.metadata,
+                            directory=file_data.directory,
+                            asset_ids=file_data.asset_ids,
+                            labels=file_data.labels,
+                            geo_location=file_data.geo_location,
+                            security_categories=file_data.security_categories,
+                        )
+                    )
         for file in files.data:
             if not Path(filepath.parent / file.name).exists():
                 raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
