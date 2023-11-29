@@ -200,7 +200,22 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList:
-        return self.api_class.create(items)
+        try:
+            created = self.api_class.create(items)
+            return created
+        except CogniteAPIError as e:
+            if e.code == 409:
+                print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
+                return []
+        except CogniteDuplicatedError as e:
+            print(
+                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} out of {len(items)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
+            )
+            return []
+        except Exception as e:
+            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+            ToolGlobals.failed = True
+            return []
 
     def delete(self, ids: Sequence[T_ID]) -> int:
         self.api_class.delete(ids)
@@ -351,7 +366,19 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
     def create(
         self, items: Sequence[Transformation], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> TransformationList:
-        created = self.client.transformations.create(items)
+        try:
+            created = self.client.transformations.create(items)
+        except CogniteDuplicatedError as e:
+            print(
+                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation(s) out of {len(items)} transformation(s) already exist(s):"
+            )
+            for dup in e.duplicated:
+                print(f"           {dup.get('externalId', 'N/A')}")
+            return []
+        except Exception as e:
+            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+            ToolGlobals.failed = True
+            return TransformationList([])
         for t in items if isinstance(items, Sequence) else [items]:
             if t.schedule.interval != "":
                 t.schedule.external_id = t.external_id
@@ -383,7 +410,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
         self,
         client: CogniteClient,
         target_scopes: Literal[
-            "all", "all_ignore_dataset", "all_scoped_ignore_dataset", "resource_scoped_only", "all_scoped_only"
+            "all", "all_skipped_validation", "all_scoped_skipped_validation", "resource_scoped_only", "all_scoped_only"
         ] = "all",
     ):
         super().__init__(client)
@@ -402,7 +429,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
         cls,
         ToolGlobals: CDFToolConfig,
         target_scopes: Literal[
-            "all", "all_ignore_dataset", "all_scoped_ignore_dataset", "resource_scoped_only", "all_scoped_only"
+            "all", "all_skipped_validation", "all_scoped_skipped_validation", "resource_scoped_only", "all_scoped_only"
         ] = "all",
     ):
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
@@ -424,7 +451,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    if self.load not in ["all_ignore_dataset", "all_scoped_ignore_dataset"]:
+                    if self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
                         values["scope"]["datasetScope"]["ids"] = [
                             ToolGlobals.verify_dataset(ext_id)
                             for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
@@ -469,8 +496,8 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def create(self, items: Sequence[Group], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> GroupList:
         if self.load == "all":
             to_create = items
-        elif self.load == "all_ignore_dataset":
-            raise ValueError("all_ignore_dataset is not supported for group creation as scopes would be wrong.")
+        elif self.load == "all_skipped_validation":
+            raise ValueError("all_skipped_validation is not supported for group creation as scopes would be wrong.")
         elif self.load == "resource_scoped_only":
             to_create = []
             for item in items:
@@ -479,7 +506,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
                 ]
                 if item.capabilities:
                     to_create.append(item)
-        elif self.load == "all_scoped_only" or self.load == "all_scoped_ignore_dataset":
+        elif self.load == "all_scoped_only" or self.load == "all_scoped_skipped_validation":
             to_create = []
             for item in items:
                 item.capabilities = [
@@ -1122,7 +1149,7 @@ def load_nodes(
                 )
         except Exception as e:
             raise KeyError(f"Failed to parse node {n} in {file}:\n{e}")
-        print(f"[bold]Loading {len(node_list)} nodes from {directory}...[/]")
+        print(f"[bold]Loading {len(node_list)} node(s) from {directory}...[/]")
         if not dry_run:
             try:
                 client.data_modeling.instances.apply(
@@ -1131,7 +1158,7 @@ def load_nodes(
                     skip_on_version_conflict=nodes.get("skipOnVersionConflict", False),
                     replace=nodes.get("replace", False),
                 )
-                print(f"  Created {len(node_list)} nodes in {node_space}.")
+                print(f"  Created {len(node_list)} node(s) in {node_space}.")
             except CogniteAPIError as e:
                 print(f"[bold]ERROR:[/] Failed to create {len(node_list)} node(s) in {node_space}:\n{e}")
                 ToolGlobals.failed = True

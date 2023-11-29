@@ -280,9 +280,9 @@ def deploy(
     print(ToolGlobals.as_string())
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
-        print("  [bold]EVALUATING auth resources with ALL scope...[/]")
+        print("[bold]EVALUATING auth resources with ALL scope...[/]")
         drop_load_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_ignore_dataset"),
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
             directory,
             ToolGlobals,
             drop=drop,
@@ -296,7 +296,7 @@ def deploy(
 
     if "data_sets" in include and (directory := (Path(build_dir) / "data_sets")).is_dir():
         # Create data sets first, as they are needed for the rest of the resources.
-        print("  [bold]EVALUATING data sets...[/]")
+        print("[bold]EVALUATING data sets...[/]")
         drop_load_resources(
             DataSetsLoader.create_loader(ToolGlobals),
             directory,
@@ -510,7 +510,7 @@ def clean(
                 exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         drop_load_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_ignore_dataset"),
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
             directory,
             ToolGlobals,
             drop=True,
