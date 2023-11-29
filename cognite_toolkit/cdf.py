@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import difflib
 import itertools
 import shutil
 import tempfile
@@ -8,6 +7,7 @@ import zipfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
+from graphlib import TopologicalSorter
 from importlib import resources
 from pathlib import Path
 from typing import Annotated, Optional
@@ -24,9 +24,6 @@ from cognite_toolkit.cdf_tk import bootstrap
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
-    DataSetsLoader,
-    ExtractionPipelineLoader,
-    RawLoader,
     drop_load_resources,
     load_datamodel,
     load_nodes,
@@ -256,85 +253,42 @@ def deploy(
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
-    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
-        print(
-            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
-        )
+    typer.echo(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
+    build_path = Path(build_dir)
+    if not build_path.is_dir():
+        typer.echo(f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?")
         exit(1)
 
-    include = include or list(_AVAILABLE_DATA_TYPES)
-    if interactive:
-        include = _select_data_types(include)
-
-    print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
-    # Configure a client and load credentials from environment
-    if not Path(build_dir).is_dir():
-        alternatives = {
-            folder.name: f"{folder.parent.name}/{folder.name}"
-            for folder in Path(build_dir).parent.iterdir()
-            if folder.is_dir()
-        }
-        matches = difflib.get_close_matches(Path(build_dir).name, list(alternatives.keys()), n=3, cutoff=0.3)
-        print(
-            f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you mean one of these? {[alternatives[m] for m in matches]}"
-        )
-        exit(1)
+    include = _process_include(include, interactive)
     print(ToolGlobals.as_string())
+
+    # The 'auth' loader is excluded, as it is run twice,
+    # once with all_scoped_skipped_validation and once with resource_scoped_only
+    selected_loaders = {
+        LoaderCls: LoaderCls.dependencies
+        for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items()
+        if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+    }
+
+    arguments = dict(
+        ToolGlobals=ToolGlobals,
+        drop=drop,
+        load=True,
+        dry_run=dry_run,
+        verbose=ctx.obj.verbose,
+    )
+
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
         print("[bold]EVALUATING auth resources with ALL scope...[/]")
         drop_load_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
             directory,
-            ToolGlobals,
-            drop=drop,
-            load=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
+            **arguments,
         )
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
             exit(1)
-
-    if "data_sets" in include and (directory := (Path(build_dir) / "data_sets")).is_dir():
-        # Create data sets first, as they are needed for the rest of the resources.
-        print("[bold]EVALUATING data sets...[/]")
-        drop_load_resources(
-            DataSetsLoader.create_loader(ToolGlobals),
-            directory,
-            ToolGlobals,
-            drop=drop,
-            load=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
-        )
-
-    if "raw" in include and (directory := (Path(build_dir) / "raw")).is_dir():
-        # Create raw resources second, as they are needed for extractioon_pipelines.
-        print("[bold]EVALUATING raw resources...[/]")
-        drop_load_resources(
-            RawLoader.create_loader(ToolGlobals),
-            directory,
-            ToolGlobals,
-            drop=drop,
-            load=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
-        )
-
-    if "extraction_pipelines" in include and (directory := (Path(build_dir) / "extraction_pipelines")).is_dir():
-        # Create raw resources second, as they are needed for extractioon_pipelines.
-        print("[bold]EVALUATING extraction_pipelines resources...[/]")
-        drop_load_resources(
-            ExtractionPipelineLoader.create_loader(ToolGlobals),
-            directory,
-            ToolGlobals,
-            drop=drop,
-            load=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
-        )
-
     if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_datamodel(
             ToolGlobals,
@@ -357,22 +311,15 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to load instances as expected.")
             exit(1)
-    for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
-        if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
-            if folder_name in {"auth", "data_sets"}:
-                continue
-            drop_load_resources(
-                LoaderCls.create_loader(ToolGlobals),
-                directory,
-                ToolGlobals,
-                drop=drop,
-                load=True,
-                dry_run=dry_run,
-                verbose=ctx.obj.verbose,
-            )
-            if ToolGlobals.failed:
-                print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
-                exit(1)
+    for LoaderCls in TopologicalSorter(selected_loaders).static_order():
+        drop_load_resources(
+            LoaderCls.create_loader(ToolGlobals),
+            build_path / LoaderCls.folder_name,
+            **arguments,
+        )
+        if ToolGlobals.failed:
+            print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
+            exit(1)
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we need to get all the scoped access, as the resources should now have been created.
@@ -380,35 +327,11 @@ def deploy(
         drop_load_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only"),
             directory,
-            ToolGlobals,
-            drop=drop,
-            load=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
+            **arguments,
         )
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
         exit(1)
-
-
-def _select_data_types(include: Sequence[str]) -> list[str]:
-    mapping: dict[int, str] = {}
-    for i, datatype in enumerate(include):
-        print(f"[bold]{i})[/] {datatype}")
-        mapping[i] = datatype
-    print("\na) All")
-    print("q) Quit")
-    answer = input("Select data types to include: ")
-    if answer.casefold() == "a":
-        return list(include)
-    elif answer.casefold() == "q":
-        exit(0)
-    else:
-        try:
-            return [mapping[int(answer)]]
-        except ValueError:
-            print(f"Invalid selection: {answer}")
-            exit(1)
 
 
 @app.command("clean")
@@ -464,32 +387,26 @@ def clean(
             cluster=ctx.obj.cluster,
             project=ctx.obj.project,
         )
+
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
-    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
-        print(
-            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
-        )
-        exit(1)
-
-    include = include or list(_AVAILABLE_DATA_TYPES)
-    if interactive:
-        include = _select_data_types(include)
-
     print(Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]"))
-    # Configure a client and load credentials from environment
-    if not Path(build_dir).is_dir():
-        alternatives = {
-            folder.name: f"{folder.parent.name}/{folder.name}"
-            for folder in Path(build_dir).parent.iterdir()
-            if folder.is_dir()
-        }
-        matches = difflib.get_close_matches(Path(build_dir).name, list(alternatives.keys()), n=3, cutoff=0.3)
-        print(
-            f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you mean one of these? {[alternatives[m] for m in matches]}"
-        )
+    build_path = Path(build_dir)
+    if not build_path.is_dir():
+        typer.echo(f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?")
         exit(1)
+
+    include = _process_include(include, interactive)
+    print(ToolGlobals.as_string())
+
+    # The 'auth' loader is excluded, as it is run at the end.
+    selected_loaders = {
+        LoaderCls: LoaderCls.dependencies
+        for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items()
+        if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+    }
+
     print(ToolGlobals.as_string())
     if CDFDataTypes.data_models in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         # We use the load_datamodel with only_drop=True to ensure that we get a clean
@@ -520,23 +437,20 @@ def clean(
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to delete data models as expected.")
         exit(1)
-    for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
-        if folder_name == "auth":
-            # We need to clean the auth resources last, to avoid losing access.
-            continue
-        if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
-            drop_load_resources(
-                LoaderCls.create_loader(ToolGlobals),
-                directory,
-                ToolGlobals,
-                drop=True,
-                load=False,
-                dry_run=dry_run,
-                verbose=ctx.obj.verbose,
-            )
-            if ToolGlobals.failed:
-                print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
-                exit(1)
+
+    for LoaderCls in reversed(list(TopologicalSorter(selected_loaders).static_order())):
+        drop_load_resources(
+            LoaderCls.create_loader(ToolGlobals),
+            build_path / LoaderCls.folder_name,
+            ToolGlobals,
+            drop=True,
+            load=False,
+            dry_run=dry_run,
+            verbose=ctx.obj.verbose,
+        )
+        if ToolGlobals.failed:
+            print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
+            exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         drop_load_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
@@ -809,6 +723,38 @@ def main_init(
         if upgrade:
             print("  All default.config.yaml files in the modules have been upgraded.")
             print("  Your config.yaml files may need to be updated to override new default variales.")
+
+
+def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
+    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
+        print(
+            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
+        )
+        exit(1)
+    include = include or list(_AVAILABLE_DATA_TYPES)
+    if interactive:
+        include = _select_data_types(include)
+    return include
+
+
+def _select_data_types(include: Sequence[str]) -> list[str]:
+    mapping: dict[int, str] = {}
+    for i, datatype in enumerate(include):
+        print(f"[bold]{i})[/] {datatype}")
+        mapping[i] = datatype
+    print("\na) All")
+    print("q) Quit")
+    answer = input("Select data types to include: ")
+    if answer.casefold() == "a":
+        return list(include)
+    elif answer.casefold() == "q":
+        exit(0)
+    else:
+        try:
+            return [mapping[int(answer)]]
+        except ValueError:
+            print(f"Invalid selection: {answer}")
+            exit(1)
 
 
 if __name__ == "__main__":

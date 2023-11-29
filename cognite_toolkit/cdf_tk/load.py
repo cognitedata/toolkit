@@ -133,6 +133,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     folder_name: str
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
+    dependencies: frozenset[Loader] = frozenset()
 
     def __init__(self, client: CogniteClient):
         self.client = client
@@ -227,166 +228,11 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
         return self.api_class.retrieve(ids)
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_Resource | T_ResourceList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_Resource | T_ResourceList:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_cls.load(raw_yaml)
         return self.resource_cls.load(raw_yaml)
-
-
-@final
-class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
-    api_name = "time_series"
-    folder_name = "timeseries"
-    resource_cls = TimeSeriesList
-    list_cls = TimeSeriesList
-
-    @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        return TimeSeriesAcl(
-            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
-            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
-            if ToolGlobals.data_set_id
-            else TimeSeriesAcl.Scope.All(),
-        )
-
-    def get_id(self, item: TimeSeries) -> str:
-        return item.external_id
-
-    def retrieve(self, ids: Sequence[str]) -> TimeSeriesList:
-        return self.client.time_series.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
-
-    def delete(self, ids: Sequence[str]) -> int:
-        self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
-        return len(ids)
-
-
-@final
-class DataSetsLoader(Loader[str, DataSet, DataSetList]):
-    support_drop = False
-    support_upsert = True
-    api_name = "data_sets"
-    folder_name = "data_sets"
-    resource_cls = DataSet
-    list_cls = DataSetList
-
-    @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        return DataSetsAcl(
-            [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write],
-            DataSetsAcl.Scope.All(),
-        )
-
-    def get_id(self, item: DataSet) -> str:
-        return item.external_id
-
-    def delete(self, ids: Sequence[str]) -> int:
-        raise NotImplementedError("CDF does not support deleting data sets.")
-
-    def retrieve(self, ids: Sequence[str]) -> DataSetList:
-        return self.client.data_sets.retrieve_multiple(external_ids=ids)
-
-    @staticmethod
-    def fixup_resource(local: DataSet, remote: DataSet) -> DataSet:
-        """Sets the read-only properties, id, created_time, and last_updated_time, that are set on the server side.
-        This is needed to make the comparison work.
-        """
-
-        local.id = remote.id
-        local.created_time = remote.created_time
-        local.last_updated_time = remote.last_updated_time
-        return local
-
-    def create(
-        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> T_ResourceList | None:
-        try:
-            return DataSetList(self.client.data_sets.create(items))
-
-        except CogniteDuplicatedError as e:
-            if len(e.duplicated) < len(items):
-                for dup in e.duplicated:
-                    ext_id = dup.get("externalId", None)
-                    for item in items:
-                        if item.external_id == ext_id:
-                            items.remove(item)
-                try:
-                    return DataSetList(self.client.data_sets.create(items))
-                except Exception as e:
-                    print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
-                    ToolGlobals.failed = True
-                    return None
-            return None
-
-
-@final
-class TransformationLoader(Loader[str, Transformation, TransformationList]):
-    api_name = "transformations"
-    folder_name = "transformations"
-    resource_cls = Transformation
-    list_cls = TransformationList
-
-    @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope = (
-            TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id])
-            if ToolGlobals.data_set_id
-            else TransformationsAcl.Scope.All()
-        )
-        return TransformationsAcl(
-            [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
-            scope,
-        )
-
-    def get_id(self, item: Transformation) -> str:
-        return item.external_id
-
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Transformation:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        # The `authentication` key is custom for this template:
-        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
-        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
-        transformation = Transformation.load(raw)
-        transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-            source_oidc_credentials
-        )
-        transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-            destination_oidc_credentials
-        )
-        sql_file = filepath.parent / f"{transformation.external_id}.sql"
-        if not sql_file.exists():
-            raise FileNotFoundError(
-                f"Could not find sql file {sql_file.name}. Expected to find it next to the yaml config file."
-            )
-        transformation.query = sql_file.read_text()
-        transformation.data_set_id = ToolGlobals.data_set_id
-        return transformation
-
-    def delete(self, ids: Sequence[str]) -> int:
-        self.client.transformations.delete(external_id=ids, ignore_unknown_ids=True)
-        return len(ids)
-
-    def create(
-        self, items: Sequence[Transformation], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> TransformationList:
-        try:
-            created = self.client.transformations.create(items)
-        except CogniteDuplicatedError as e:
-            print(
-                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation(s) out of {len(items)} transformation(s) already exist(s):"
-            )
-            for dup in e.duplicated:
-                print(f"           {dup.get('externalId', 'N/A')}")
-            return []
-        except Exception as e:
-            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-            ToolGlobals.failed = True
-            return TransformationList([])
-        for t in items if isinstance(items, Sequence) else [items]:
-            if t.schedule.interval != "":
-                t.schedule.external_id = t.external_id
-                self.client.transformations.schedules.create(t.schedule)
-        return created
 
 
 @final
@@ -449,7 +295,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def get_id(cls, item: Group) -> str:
         return item.name
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Group:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Group:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
@@ -541,50 +387,61 @@ class AuthLoader(Loader[int, Group, GroupList]):
 
 
 @final
-class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
+class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     support_drop = False
-    filetypes = frozenset({"csv", "parquet"})
-    api_name = "time_series.data"
-    folder_name = "timeseries_datapoints"
-    resource_cls = pd.DataFrame
+    support_upsert = True
+    api_name = "data_sets"
+    folder_name = "data_sets"
+    resource_cls = DataSet
+    list_cls = DataSetList
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope = (
-            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
-            if ToolGlobals.data_set_id
-            else TimeSeriesAcl.Scope.All()
+        return DataSetsAcl(
+            [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write],
+            DataSetsAcl.Scope.All(),
         )
 
-        return TimeSeriesAcl(
-            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
-            scope,
-        )
-
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Path:
-        return filepath
-
-    @classmethod
-    def get_id(cls, item: Path) -> list[str]:
-        raise NotImplementedError
+    def get_id(self, item: DataSet) -> str:
+        return item.external_id
 
     def delete(self, ids: Sequence[str]) -> int:
-        # Drop all datapoints?
-        raise NotImplementedError()
+        raise NotImplementedError("CDF does not support deleting data sets.")
 
-    def create(self, items: Sequence[Path], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> TimeSeriesList:
-        if len(items) != 1:
-            raise ValueError("Datapoints must be loaded one at a time.")
-        datafile = items[0]
-        if datafile.suffix == ".csv":
-            data = pd.read_csv(datafile, parse_dates=True, dayfirst=True, index_col=0)
-        elif datafile.suffix == ".parquet":
-            data = pd.read_parquet(datafile, engine="pyarrow")
-        else:
-            raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
-        self.client.time_series.data.insert_dataframe(data)
-        external_ids = [col for col in data.columns if not pd.api.types.is_datetime64_any_dtype(data[col])]
-        return TimeSeriesList([TimeSeries(external_id=external_id) for external_id in external_ids])
+    def retrieve(self, ids: Sequence[str]) -> DataSetList:
+        return self.client.data_sets.retrieve_multiple(external_ids=ids)
+
+    @staticmethod
+    def fixup_resource(local: DataSet, remote: DataSet) -> DataSet:
+        """Sets the read-only properties, id, created_time, and last_updated_time, that are set on the server side.
+        This is needed to make the comparison work.
+        """
+
+        local.id = remote.id
+        local.created_time = remote.created_time
+        local.last_updated_time = remote.last_updated_time
+        return local
+
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList | None:
+        try:
+            return DataSetList(self.client.data_sets.create(items))
+
+        except CogniteDuplicatedError as e:
+            if len(e.duplicated) < len(items):
+                for dup in e.duplicated:
+                    ext_id = dup.get("externalId", None)
+                    for item in items:
+                        if item.external_id == ext_id:
+                            items.remove(item)
+                try:
+                    return DataSetList(self.client.data_sets.create(items))
+                except Exception as e:
+                    print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
+                    ToolGlobals.failed = True
+                    return None
+            return None
 
 
 @final
@@ -648,12 +505,160 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
 
 
 @final
+class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
+    api_name = "time_series"
+    folder_name = "timeseries"
+    resource_cls = TimeSeriesList
+    list_cls = TimeSeriesList
+    dependencies = frozenset({DataSetsLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return TimeSeriesAcl(
+            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
+            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TimeSeriesAcl.Scope.All(),
+        )
+
+    def get_id(self, item: TimeSeries) -> str:
+        return item.external_id
+
+    def retrieve(self, ids: Sequence[str]) -> TimeSeriesList:
+        return self.client.time_series.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def delete(self, ids: Sequence[str]) -> int:
+        self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
+        return len(ids)
+
+
+@final
+class TransformationLoader(Loader[str, Transformation, TransformationList]):
+    api_name = "transformations"
+    folder_name = "transformations"
+    resource_cls = Transformation
+    list_cls = TransformationList
+    dependencies = frozenset({DataSetsLoader, RawLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        scope = (
+            TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TransformationsAcl.Scope.All()
+        )
+        return TransformationsAcl(
+            [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
+            scope,
+        )
+
+    def get_id(self, item: Transformation) -> str:
+        return item.external_id
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Transformation:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        # The `authentication` key is custom for this template:
+        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
+        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
+        transformation = Transformation.load(raw)
+        transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+            source_oidc_credentials
+        )
+        transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+            destination_oidc_credentials
+        )
+        sql_file = filepath.parent / f"{transformation.external_id}.sql"
+        if not sql_file.exists():
+            raise FileNotFoundError(
+                f"Could not find sql file {sql_file.name}. Expected to find it next to the yaml config file."
+            )
+        transformation.query = sql_file.read_text()
+        transformation.data_set_id = ToolGlobals.data_set_id
+        return transformation
+
+    def delete(self, ids: Sequence[str]) -> int:
+        self.client.transformations.delete(external_id=ids, ignore_unknown_ids=True)
+        return len(ids)
+
+    def create(
+        self, items: Sequence[Transformation], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> TransformationList:
+        try:
+            created = self.client.transformations.create(items)
+        except CogniteDuplicatedError as e:
+            print(
+                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation(s) out of {len(items)} transformation(s) already exist(s):"
+            )
+            for dup in e.duplicated:
+                print(f"           {dup.get('externalId', 'N/A')}")
+            return []
+        except Exception as e:
+            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+            ToolGlobals.failed = True
+            return TransformationList([])
+        for t in items if isinstance(items, Sequence) else [items]:
+            if t.schedule.interval != "":
+                t.schedule.external_id = t.external_id
+                self.client.transformations.schedules.create(t.schedule)
+        return created
+
+
+@final
+class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
+    support_drop = False
+    filetypes = frozenset({"csv", "parquet"})
+    api_name = "time_series.data"
+    folder_name = "timeseries_datapoints"
+    resource_cls = pd.DataFrame
+    dependencies = frozenset({TimeSeriesLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        scope = (
+            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TimeSeriesAcl.Scope.All()
+        )
+
+        return TimeSeriesAcl(
+            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
+            scope,
+        )
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Path:
+        return filepath
+
+    @classmethod
+    def get_id(cls, item: Path) -> list[str]:
+        raise NotImplementedError
+
+    def delete(self, ids: Sequence[str]) -> int:
+        # Drop all datapoints?
+        raise NotImplementedError()
+
+    def create(self, items: Sequence[Path], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> TimeSeriesList:
+        if len(items) != 1:
+            raise ValueError("Datapoints must be loaded one at a time.")
+        datafile = items[0]
+        if datafile.suffix == ".csv":
+            data = pd.read_csv(datafile, parse_dates=True, dayfirst=True, index_col=0)
+        elif datafile.suffix == ".parquet":
+            data = pd.read_parquet(datafile, engine="pyarrow")
+        else:
+            raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
+        self.client.time_series.data.insert_dataframe(data)
+        external_ids = [col for col in data.columns if not pd.api.types.is_datetime64_any_dtype(data[col])]
+        return TimeSeriesList([TimeSeries(external_id=external_id) for external_id in external_ids])
+
+
+@final
 class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelineList]):
     support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
     resource_cls = ExtractionPipeline
     list_cls = ExtractionPipelineList
+    dependencies = frozenset({DataSetsLoader, RawLoader})
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -668,7 +673,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     def delete(self, ids: Sequence[str]) -> None:
         self.client.files.delete(external_id=ids)
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ExtractionPipeline:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
         if resource.get("dataSetExternalId") is not None:
             resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
@@ -703,6 +708,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
     folder_name = "files"
     resource_cls = FileMetadata
     list_cls = FileMetadataList
+    dependencies = frozenset({DataSetsLoader})
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -721,7 +727,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         self.client.files.delete(external_id=ids)
         return len(ids)
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadata | FileMetadataList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadata | FileMetadataList:
         try:
             files = FileMetadataList(
                 [FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))]
@@ -773,7 +779,7 @@ def drop_load_resources(
     else:
         filepaths = [file for file in path.glob("**/*")]
 
-    items = [loader.load_file(f, ToolGlobals) for f in filepaths]
+    items = [loader.load_resource(f, ToolGlobals) for f in filepaths]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
     nr_of_deleted = 0
