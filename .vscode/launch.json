@@ -10,6 +10,7 @@
             "request": "launch",
             "program": "./cognite_toolkit/cdf.py",
             "args": [
+                "--verbose",
                 "--override-env",
                 "build",
                 "--build-dir=build",
@@ -28,8 +29,8 @@
             "args": [
                 "deploy",
                 //"--dry-run",
-                "--drop",
-                "--drop-data",
+                //"--drop",
+                //"--drop-data",
                 "--env=local",
                 "--include=transformations",
                 "./build"
