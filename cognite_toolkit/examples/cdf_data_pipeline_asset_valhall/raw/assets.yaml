@@ -1,0 +1,2 @@
+dbName: 'asset-{{location_name}}-{{source_name}}'
+tableName: assets

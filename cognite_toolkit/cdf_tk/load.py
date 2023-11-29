@@ -739,18 +739,9 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
             return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
 
         except CogniteDuplicatedError as e:
-            if len(e.duplicated) < len(items.data):
-                for dup in e.duplicated:
-                    ext_id = dup.get("externalId", None)
-                    for item in items.data:
-                        if item.external_id == ext_id:
-                            items.data.remove(item)
-                try:
-                    return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
-                except Exception as e:
-                    print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
-                    ToolGlobals.failed = True
-                    return None
+            # todo: upsert
+            print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
+            ToolGlobals.failed = True
             return None
 
 
