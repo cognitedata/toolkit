@@ -210,6 +210,10 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
             if e.code == 409:
                 print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
                 return []
+            else:
+                print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+                ToolGlobals.failed = True
+                return []
         except CogniteDuplicatedError as e:
             print(
                 f"  [bold yellow]WARNING:[/] {len(e.duplicated)} out of {len(items)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
@@ -259,6 +263,15 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
     def delete(self, ids: Sequence[str]) -> int:
         self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
         return len(ids)
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> TimeSeries | TimeSeriesList:
+        resources = load_yaml_inject_variables(filepath, {})
+        if not isinstance(resources, list):
+            resource = [resources]
+        for resource in resources:
+            if resource.get("dataSetExternalId") is not None:
+                resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
+        return TimeSeriesList.load(resources)
 
 
 @final
