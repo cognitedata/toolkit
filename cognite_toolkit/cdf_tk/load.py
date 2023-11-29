@@ -458,6 +458,15 @@ class AuthLoader(Loader[int, Group, GroupList]):
                         ]
                     else:
                         values["scope"]["datasetScope"]["ids"] = [-1]
+
+                if len(values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
+                    if self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
+                        values["scope"]["extractionPipelineScope"]["ids"] = [
+                            ToolGlobals.verify_extraction_pipeline(ext_id)
+                            for ext_id in values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])
+                        ]
+                    else:
+                        values["scope"]["extractionPipelineScope"]["ids"] = [-1]
         return Group.load(raw)
 
     def retrieve(self, ids: Sequence[int]) -> T_ResourceList:

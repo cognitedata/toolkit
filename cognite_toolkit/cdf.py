@@ -25,6 +25,7 @@ from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
     DataSetsLoader,
+    RawLoader,
     drop_load_resources,
     load_datamodel,
     load_nodes,
@@ -299,6 +300,19 @@ def deploy(
         print("[bold]EVALUATING data sets...[/]")
         drop_load_resources(
             DataSetsLoader.create_loader(ToolGlobals),
+            directory,
+            ToolGlobals,
+            drop=drop,
+            load=True,
+            dry_run=dry_run,
+            verbose=ctx.obj.verbose,
+        )
+
+    if "raw" in include and (directory := (Path(build_dir) / "raw")).is_dir():
+        # Create raw resources second, as they are needed for extractioon_pipelines.
+        print("[bold]EVALUATING raw resources...[/]")
+        drop_load_resources(
+            RawLoader.create_loader(ToolGlobals),
             directory,
             ToolGlobals,
             drop=drop,
