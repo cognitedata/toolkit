@@ -464,6 +464,7 @@ def clean(
             cluster=ctx.obj.cluster,
             project=ctx.obj.project,
         )
+
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
@@ -490,6 +491,7 @@ def clean(
             f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you mean one of these? {[alternatives[m] for m in matches]}"
         )
         exit(1)
+
     print(ToolGlobals.as_string())
     if CDFDataTypes.data_models in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         # We use the load_datamodel with only_drop=True to ensure that we get a clean

@@ -227,7 +227,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
         return self.api_class.retrieve(ids)
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_Resource | T_ResourceList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_Resource | T_ResourceList:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_cls.load(raw_yaml)
@@ -341,7 +341,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
     def get_id(self, item: Transformation) -> str:
         return item.external_id
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Transformation:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Transformation:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
@@ -449,7 +449,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def get_id(cls, item: Group) -> str:
         return item.name
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Group:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Group:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
@@ -561,7 +561,7 @@ class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
             scope,
         )
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Path:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Path:
         return filepath
 
     @classmethod
@@ -668,7 +668,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     def delete(self, ids: Sequence[str]) -> None:
         self.client.files.delete(external_id=ids)
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ExtractionPipeline:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
         if resource.get("dataSetExternalId") is not None:
             resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
@@ -721,7 +721,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         self.client.files.delete(external_id=ids)
         return len(ids)
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadata | FileMetadataList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadata | FileMetadataList:
         try:
             files = FileMetadataList(
                 [FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))]
@@ -773,7 +773,7 @@ def drop_load_resources(
     else:
         filepaths = [file for file in path.glob("**/*")]
 
-    items = [loader.load_file(f, ToolGlobals) for f in filepaths]
+    items = [loader.load_resource(f, ToolGlobals) for f in filepaths]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
     nr_of_deleted = 0
