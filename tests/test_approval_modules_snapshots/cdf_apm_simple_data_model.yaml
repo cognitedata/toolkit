@@ -350,7 +350,7 @@ Transformation:
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`externalId`\
     \ as STRING) as name,\n  cast(`description` as STRING) as description,\n  cast(`sourceDb`\
     \ as STRING) as source,\n  cast(`parentExternalId` as STRING) as parentExternalId\n\
-    from\n  `apm_simple`.`assets`;\n"
+    from\n  `Valhall_System_23`.`assets`;\n"
   schedule:
     externalId: apm_simple-load-asset-hierarchy
     interval: 0 * * * *
@@ -386,7 +386,7 @@ Transformation:
   ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference('apm_simple',\
     \ `sourceExternalId`) as startNode,\n  node_reference('apm_simple', `targetExternalId`)\
-    \ as endNode\nfrom\n  `apm_simple`.`asset2children`;\n"
+    \ as endNode\nfrom\n  `Valhall_System_23`.`asset2children`;\n"
   schedule:
     externalId: apm_simple-load-asset2children
     interval: 0 * * * *
@@ -427,7 +427,7 @@ Transformation:
     \ as updatedDate,\n  cast(`createdDate` as TIMESTAMP) as createdDate,\n  node_reference('apm_simple',\
     \ `parentExternalId`) as parent,\n  cast(`description` as STRING) as description,\n\
     \  cast(`tag` as STRING) as tag,\n  cast(`areaId` as INT) as areaId,\n  cast(`isActive`\
-    \ as BOOLEAN) as isActive\nfrom\n  `apm_simple`.`assets`;\n"
+    \ as BOOLEAN) as isActive\nfrom\n  `Valhall_System_23`.`assets`;\n"
   schedule:
     externalId: apm_simple-load-assets
     interval: 0 * * * *
@@ -462,7 +462,7 @@ Transformation:
   name: apm_simple-load-timeseries2assets
   ownerIsCurrentUser: true
   query: "select\n  cast(`asset` as STRING) as externalId,\n  array(timeseries) as\
-    \ metrics\nfrom\n  `apm_simple`.`timeseries2assets`;\n"
+    \ metrics\nfrom\n  `Valhall_System_23`.`timeseries2assets`;\n"
   schedule:
     externalId: apm_simple-load-timeseries2assets
     interval: 0 * * * *
@@ -501,7 +501,7 @@ Transformation:
     \  cast(`toBeDone` as BOOLEAN) as toBeDone,\n  cast(`itemInfo` as STRING) as itemInfo,\n\
     \  cast(`itemName` as STRING) as itemName,\n  cast(`title` as STRING) as title,\n\
     \  cast(`criticality` as STRING) as criticality,\n  cast(`method` as STRING) as\
-    \ method,\n  cast(`isCompleted` as BOOLEAN) as isCompleted\nfrom\n  `apm_simple`.`workitems`;\n"
+    \ method,\n  cast(`isCompleted` as BOOLEAN) as isCompleted\nfrom\n  `Valhall_System_23`.`workitems`;\n"
   schedule:
     externalId: apm_simple-load-workitems
     interval: 0 * * * *
@@ -543,7 +543,7 @@ Transformation:
     tutorial_apm\",\"sourceLevel2\":\"workitem2assets\"} */ select\n  cast(`externalId`\
     \ as STRING) as externalId,\n  node_reference('apm_simple', `sourceExternalId`)\
     \ as startNode,\n  node_reference('apm_simple', `targetExternalId`) as endNode\n\
-    from\n  `apm_simple`.`workitem2assets`;\n"
+    from\n  `Valhall_System_23`.`workitem2assets`;\n"
   schedule:
     externalId: apm_simple-load-workitems2assets
     interval: 0 * * * *
@@ -585,7 +585,7 @@ Transformation:
     tutorial_apm\",\"sourceLevel2\":\"workorder2items\"} */ select\n  cast(`externalId`\
     \ as STRING) as externalId,\n  node_reference('apm_simple', `sourceExternalId`)\
     \ as startNode,\n  node_reference('apm_simple', `targetExternalId`) as endNode\n\
-    from\n  `apm_simple`.`workorder2items`;\n"
+    from\n  `Valhall_System_23`.`workorder2items`;\n"
   schedule:
     externalId: apm_simple-load-workitems2workorders
     interval: 0 * * * *
@@ -631,7 +631,7 @@ Transformation:
     \ as isCancelled, \ncast(`isActive` as BOOLEAN) as isActive, \ncast(`priorityDescription`\
     \ as STRING) as priorityDescription, \ncast(`dueDate` as TIMESTAMP) as dueDate,\
     \ \ncast(`createdDate` as TIMESTAMP) as createdDate, \ncast(`programNumber` as\
-    \ STRING) as programNumber \nfrom `apm_simple`.`workorders`;\n"
+    \ STRING) as programNumber \nfrom `Valhall_System_23`.`workorders`;\n"
   schedule:
     externalId: apm_simple-load-workorders
     interval: 0 * * * *
@@ -667,7 +667,7 @@ Transformation:
   ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference('apm_simple',\
     \ `sourceExternalId`) as startNode,\n  node_reference('apm_simple', `targetExternalId`)\
-    \ as endNode\nfrom\n  `apm_simple`.`workorder2assets`;\n"
+    \ as endNode\nfrom\n  `Valhall_System_23`.`workorder2assets`;\n"
   schedule:
     externalId: apm_simple-load-workorders2assets
     interval: 0 * * * *
