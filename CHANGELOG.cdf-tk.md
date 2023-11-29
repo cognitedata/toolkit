@@ -34,6 +34,7 @@ Changes are grouped as follows:
 - Data sets are no longer implicitly created when referenced by another resource, instead an error is raised.
 - Require all spaces to be explicitly defined as separate .space.yaml file.
 - Add protection on group deletion and skip any groups that the current service principal belongs to.
+- Support for multiple file resources per yaml config file for files resources.
 
 ### Fixed
 
