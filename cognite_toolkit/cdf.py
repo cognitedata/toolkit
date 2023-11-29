@@ -13,7 +13,7 @@ from enum import Enum
 from graphlib import TopologicalSorter
 from importlib import resources
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 from dotenv import load_dotenv
@@ -84,14 +84,14 @@ def common(
         ),
     ] = False,
     cluster: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             envvar="CDF_CLUSTER",
             help="Cognite Data Fusion cluster to use",
         ),
     ] = None,
     project: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             envvar="CDF_PROJECT",
             help="Cognite Data Fusion project to use",
@@ -134,14 +134,14 @@ def common(
 def build(
     ctx: typer.Context,
     source_dir: Annotated[
-        str | None,
+        Optional[str],
         typer.Argument(
             help="Where to find the module templates to build from",
             allow_dash=True,
         ),
     ] = "./",
     build_dir: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             "--build-dir",
             "-b",
@@ -149,7 +149,7 @@ def build(
         ),
     ] = "./build",
     build_env: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             "--env",
             "-e",
@@ -157,7 +157,7 @@ def build(
         ),
     ] = "dev",
     clean: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--clean",
             "-c",
@@ -188,14 +188,14 @@ def build(
 def deploy(
     ctx: typer.Context,
     build_dir: Annotated[
-        str | None,
+        Optional[str],
         typer.Argument(
             help="Where to find the module templates to deploy from",
             allow_dash=True,
         ),
     ] = "./build",
     build_env: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             "--env",
             "-e",
@@ -203,7 +203,7 @@ def deploy(
         ),
     ] = "dev",
     interactive: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--interactive",
             "-i",
@@ -211,7 +211,7 @@ def deploy(
         ),
     ] = False,
     drop: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--drop",
             "-d",
@@ -219,7 +219,7 @@ def deploy(
         ),
     ] = False,
     drop_data: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--drop-data",
             "-D",
@@ -227,7 +227,7 @@ def deploy(
         ),
     ] = False,
     dry_run: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--dry-run",
             "-r",
@@ -235,7 +235,7 @@ def deploy(
         ),
     ] = False,
     include: Annotated[
-        list[str] | None,
+        Optional[list[str]],
         typer.Option(
             "--include",
             "-i",
@@ -373,14 +373,14 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
 def clean(
     ctx: typer.Context,
     build_dir: Annotated[
-        str | None,
+        Optional[str],
         typer.Argument(
             help="Where to find the module templates to clean from",
             allow_dash=True,
         ),
     ] = "./build",
     build_env: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             "--env",
             "-e",
@@ -388,7 +388,7 @@ def clean(
         ),
     ] = "dev",
     interactive: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--interactive",
             "-i",
@@ -396,7 +396,7 @@ def clean(
         ),
     ] = False,
     dry_run: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--dry-run",
             "-r",
@@ -404,7 +404,7 @@ def clean(
         ),
     ] = False,
     include: Annotated[
-        list[str] | None,
+        Optional[list[str]],
         typer.Option(
             "--include",
             "-i",
@@ -525,7 +525,7 @@ def auth_main(ctx: typer.Context):
 def auth_verify(
     ctx: typer.Context,
     dry_run: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--dry-run",
             "-r",
@@ -533,7 +533,7 @@ def auth_verify(
         ),
     ] = False,
     interactive: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--interactive",
             "-i",
@@ -541,7 +541,7 @@ def auth_verify(
         ),
     ] = False,
     group_file: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             "--group-file",
             "-f",
@@ -549,7 +549,7 @@ def auth_verify(
         ),
     ] = "/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
     update_group: Annotated[
-        int | None,
+        Optional[int],
         typer.Option(
             "--update-group",
             "-u",
@@ -557,7 +557,7 @@ def auth_verify(
         ),
     ] = 0,
     create_group: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             "--create-group",
             "-c",
@@ -605,7 +605,7 @@ def auth_verify(
 def main_init(
     ctx: typer.Context,
     dry_run: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--dry-run",
             "-r",
@@ -613,7 +613,7 @@ def main_init(
         ),
     ] = False,
     upgrade: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--upgrade",
             "-u",
@@ -621,7 +621,7 @@ def main_init(
         ),
     ] = False,
     git: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             "--git",
             "-g",
@@ -629,14 +629,14 @@ def main_init(
         ),
     ] = None,
     no_backup: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--no-backup",
             help="Will skip making a backup before upgrading",
         ),
     ] = False,
     clean: Annotated[
-        bool | None,
+        Optional[bool],
         typer.Option(
             "--clean",
             hidden=True,
@@ -644,7 +644,7 @@ def main_init(
         ),
     ] = False,
     init_dir: Annotated[
-        str | None,
+        Optional[str],
         typer.Argument(
             help="Directory to initialize with templates",
         ),
