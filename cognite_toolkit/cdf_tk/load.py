@@ -29,6 +29,8 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     DataSet,
     DataSetList,
+    ExtractionPipeline,
+    ExtractionPipelineList,
     FileMetadata,
     FileMetadataList,
     OidcCredentials,
@@ -46,6 +48,7 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataSetsAcl,
+    ExtractionPipelinesAcl,
     FilesAcl,
     GroupsAcl,
     RawAcl,
@@ -642,6 +645,55 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
             ensure_parent=True,
         )
         return [table]
+
+
+@final
+class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelineList]):
+    support_drop = True
+    api_name = "extraction_pipelines"
+    folder_name = "extraction_pipelines"
+    resource_cls = ExtractionPipeline
+    list_cls = ExtractionPipelineList
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return ExtractionPipelinesAcl(
+            [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
+            ExtractionPipelinesAcl.Scope.All(),
+        )
+
+    def get_id(self, item: ExtractionPipeline) -> str:
+        return item.external_id
+
+    def delete(self, ids: Sequence[str]) -> None:
+        self.client.files.delete(external_id=ids)
+
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ExtractionPipeline:
+        resource = load_yaml_inject_variables(filepath, {})
+        if resource.get("dataSetExternalId") is not None:
+            resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
+        return ExtractionPipeline.load(resource)
+
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList | None:
+        try:
+            return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
+
+        except CogniteDuplicatedError as e:
+            if len(e.duplicated) < len(items.data):
+                for dup in e.duplicated:
+                    ext_id = dup.get("externalId", None)
+                    for item in items.data:
+                        if item.external_id == ext_id:
+                            items.data.remove(item)
+                try:
+                    return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
+                except Exception as e:
+                    print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
+                    ToolGlobals.failed = True
+                    return None
+            return None
 
 
 @final
