@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import annotations
+
 import difflib
 import itertools
 import shutil
@@ -8,9 +10,10 @@ import zipfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
+from graphlib import TopologicalSorter
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from dotenv import load_dotenv
@@ -24,9 +27,6 @@ from cognite_toolkit.cdf_tk import bootstrap
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
-    DataSetsLoader,
-    ExtractionPipelineLoader,
-    RawLoader,
     drop_load_resources,
     load_datamodel,
     load_nodes,
@@ -84,14 +84,14 @@ def common(
         ),
     ] = False,
     cluster: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             envvar="CDF_CLUSTER",
             help="Cognite Data Fusion cluster to use",
         ),
     ] = None,
     project: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             envvar="CDF_PROJECT",
             help="Cognite Data Fusion project to use",
@@ -134,14 +134,14 @@ def common(
 def build(
     ctx: typer.Context,
     source_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Where to find the module templates to build from",
             allow_dash=True,
         ),
     ] = "./",
     build_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--build-dir",
             "-b",
@@ -149,7 +149,7 @@ def build(
         ),
     ] = "./build",
     build_env: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--env",
             "-e",
@@ -157,7 +157,7 @@ def build(
         ),
     ] = "dev",
     clean: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--clean",
             "-c",
@@ -188,14 +188,14 @@ def build(
 def deploy(
     ctx: typer.Context,
     build_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Where to find the module templates to deploy from",
             allow_dash=True,
         ),
     ] = "./build",
     build_env: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--env",
             "-e",
@@ -203,7 +203,7 @@ def deploy(
         ),
     ] = "dev",
     interactive: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--interactive",
             "-i",
@@ -211,7 +211,7 @@ def deploy(
         ),
     ] = False,
     drop: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--drop",
             "-d",
@@ -219,7 +219,7 @@ def deploy(
         ),
     ] = False,
     drop_data: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--drop-data",
             "-D",
@@ -227,7 +227,7 @@ def deploy(
         ),
     ] = False,
     dry_run: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--dry-run",
             "-r",
@@ -235,7 +235,7 @@ def deploy(
         ),
     ] = False,
     include: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "--include",
             "-i",
@@ -256,85 +256,42 @@ def deploy(
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
-    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
-        print(
-            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
-        )
+    typer.echo(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
+    build_path = Path(build_dir)
+    if not build_path.is_dir():
+        typer.echo(f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?")
         exit(1)
 
-    include = include or list(_AVAILABLE_DATA_TYPES)
-    if interactive:
-        include = _select_data_types(include)
-
-    print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
-    # Configure a client and load credentials from environment
-    if not Path(build_dir).is_dir():
-        alternatives = {
-            folder.name: f"{folder.parent.name}/{folder.name}"
-            for folder in Path(build_dir).parent.iterdir()
-            if folder.is_dir()
-        }
-        matches = difflib.get_close_matches(Path(build_dir).name, list(alternatives.keys()), n=3, cutoff=0.3)
-        print(
-            f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you mean one of these? {[alternatives[m] for m in matches]}"
-        )
-        exit(1)
+    include = _process_include(include, interactive)
     print(ToolGlobals.as_string())
+
+    # The 'auth' loader is excluted, as it is run twice,
+    # once with all_scoped_skipped_validation and once with resource_scoped_only
+    selected_loaders = {
+        LoaderCls: LoaderCls.dependencies
+        for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items()
+        if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+    }
+
+    arguments = dict(
+        ToolGlobals=ToolGlobals,
+        drop=drop,
+        load=True,
+        dry_run=dry_run,
+        verbose=ctx.obj.verbose,
+    )
+
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
         print("[bold]EVALUATING auth resources with ALL scope...[/]")
         drop_load_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
             directory,
-            ToolGlobals,
-            drop=drop,
-            load=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
+            **arguments,
         )
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
             exit(1)
-
-    if "data_sets" in include and (directory := (Path(build_dir) / "data_sets")).is_dir():
-        # Create data sets first, as they are needed for the rest of the resources.
-        print("[bold]EVALUATING data sets...[/]")
-        drop_load_resources(
-            DataSetsLoader.create_loader(ToolGlobals),
-            directory,
-            ToolGlobals,
-            drop=drop,
-            load=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
-        )
-
-    if "raw" in include and (directory := (Path(build_dir) / "raw")).is_dir():
-        # Create raw resources second, as they are needed for extractioon_pipelines.
-        print("[bold]EVALUATING raw resources...[/]")
-        drop_load_resources(
-            RawLoader.create_loader(ToolGlobals),
-            directory,
-            ToolGlobals,
-            drop=drop,
-            load=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
-        )
-
-    if "extraction_pipelines" in include and (directory := (Path(build_dir) / "extraction_pipelines")).is_dir():
-        # Create raw resources second, as they are needed for extractioon_pipelines.
-        print("[bold]EVALUATING extraction_pipelines resources...[/]")
-        drop_load_resources(
-            ExtractionPipelineLoader.create_loader(ToolGlobals),
-            directory,
-            ToolGlobals,
-            drop=drop,
-            load=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
-        )
-
     if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_datamodel(
             ToolGlobals,
@@ -357,22 +314,15 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to load instances as expected.")
             exit(1)
-    for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
-        if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
-            if folder_name in {"auth", "data_sets"}:
-                continue
-            drop_load_resources(
-                LoaderCls.create_loader(ToolGlobals),
-                directory,
-                ToolGlobals,
-                drop=drop,
-                load=True,
-                dry_run=dry_run,
-                verbose=ctx.obj.verbose,
-            )
-            if ToolGlobals.failed:
-                print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
-                exit(1)
+    for LoaderCls in TopologicalSorter(selected_loaders).static_order():
+        drop_load_resources(
+            LoaderCls.create_loader(ToolGlobals),
+            build_path / LoaderCls.folder_name,
+            **arguments,
+        )
+        if ToolGlobals.failed:
+            print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
+            exit(1)
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we need to get all the scoped access, as the resources should now have been created.
@@ -380,15 +330,23 @@ def deploy(
         drop_load_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only"),
             directory,
-            ToolGlobals,
-            drop=drop,
-            load=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
+            **arguments,
         )
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
         exit(1)
+
+
+def _process_include(include: list[str] | bool, interactive: bool) -> list[str]:
+    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
+        print(
+            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
+        )
+        exit(1)
+    include = include or list(_AVAILABLE_DATA_TYPES)
+    if interactive:
+        include = _select_data_types(include)
+    return include
 
 
 def _select_data_types(include: Sequence[str]) -> list[str]:
@@ -415,14 +373,14 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
 def clean(
     ctx: typer.Context,
     build_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Where to find the module templates to clean from",
             allow_dash=True,
         ),
     ] = "./build",
     build_env: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--env",
             "-e",
@@ -430,7 +388,7 @@ def clean(
         ),
     ] = "dev",
     interactive: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--interactive",
             "-i",
@@ -438,7 +396,7 @@ def clean(
         ),
     ] = False,
     dry_run: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--dry-run",
             "-r",
@@ -446,7 +404,7 @@ def clean(
         ),
     ] = False,
     include: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "--include",
             "-i",
@@ -522,6 +480,7 @@ def clean(
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to delete data models as expected.")
         exit(1)
+
     for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
         if folder_name == "auth":
             # We need to clean the auth resources last, to avoid losing access.
@@ -566,7 +525,7 @@ def auth_main(ctx: typer.Context):
 def auth_verify(
     ctx: typer.Context,
     dry_run: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--dry-run",
             "-r",
@@ -574,7 +533,7 @@ def auth_verify(
         ),
     ] = False,
     interactive: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--interactive",
             "-i",
@@ -582,7 +541,7 @@ def auth_verify(
         ),
     ] = False,
     group_file: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--group-file",
             "-f",
@@ -590,7 +549,7 @@ def auth_verify(
         ),
     ] = "/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
     update_group: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--update-group",
             "-u",
@@ -598,7 +557,7 @@ def auth_verify(
         ),
     ] = 0,
     create_group: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--create-group",
             "-c",
@@ -646,7 +605,7 @@ def auth_verify(
 def main_init(
     ctx: typer.Context,
     dry_run: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--dry-run",
             "-r",
@@ -654,7 +613,7 @@ def main_init(
         ),
     ] = False,
     upgrade: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--upgrade",
             "-u",
@@ -662,7 +621,7 @@ def main_init(
         ),
     ] = False,
     git: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--git",
             "-g",
@@ -670,14 +629,14 @@ def main_init(
         ),
     ] = None,
     no_backup: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--no-backup",
             help="Will skip making a backup before upgrading",
         ),
     ] = False,
     clean: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--clean",
             hidden=True,
@@ -685,7 +644,7 @@ def main_init(
         ),
     ] = False,
     init_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Directory to initialize with templates",
         ),
