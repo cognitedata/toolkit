@@ -1,2 +1,2 @@
-dbName: {{raw_db_timeseries}}
+dbName: {{source_files}}_files
 tableName: timeseries2assets

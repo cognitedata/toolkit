@@ -1,2 +1,2 @@
-dbName: {{raw_db_workorder}}
+dbName: {{source_workorders}}_workorders
 tableName: workorders

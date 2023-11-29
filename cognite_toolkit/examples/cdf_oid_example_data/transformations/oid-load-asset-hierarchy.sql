@@ -5,4 +5,4 @@ select
   cast(`sourceDb` as STRING) as source,
   cast(`parentExternalId` as STRING) as parentExternalId
 from
-  `{{raw_db}}`.`assets`;
+  `{{source_assets}}_assets`.`assets`;

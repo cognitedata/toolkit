@@ -1,5 +1,9 @@
 # Only valid for this module, loads template variables from environment
-source_raw_db: Valhall_System_23
+# The raw database values here point to the RAW data loaded in the cdf_oid_example_data
+# module. 
+assets_raw_db: workmate_assets
+workorders_raw_db: workmate_workorders
+files_raw_db: fileshare_files
 datamodel: apm_simple
 space: apm_simple
 datamodel_version: '1'

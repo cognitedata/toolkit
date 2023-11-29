@@ -1,8 +1,3 @@
-- externalId: {{data_set}}_PH-ME-P-0003-001.pdf
-  dataSetId: {{data_set}}
-  name: PH-ME-P-0003-001.pdf
-  source: oid
-- externalId: {{data_set}}_PH-25578-P-4110119-001.pdf
-  dataSetId: {{data_set}}
-  name: PH-25578-P-4110119-001.pdf
-  source: oid
+- externalId: {{source_files}}_$FILENAME
+  dataSetId: ds_{{source_files}}_files
+  source: {{source_files}}

@@ -1,2 +1,2 @@
-dbName: {{raw_db_files}}
+dbName: {{source_files}}_files
 tableName: files_metadata
