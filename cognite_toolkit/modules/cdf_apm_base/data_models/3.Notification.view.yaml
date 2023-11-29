@@ -1,7 +1,7 @@
 externalId: APM_Notification
 name: "APM_Notification"
 description: "The Maintenance Notification API informs the maintenance team of anomalies in technical objects within the plant. It comprehensively logs tasks for long-term analysis and aids in task planning and execution."
-version: {{apm_datamodel_version}}
+version: '{{apm_datamodel_version}}'
 space: {{apm_datamodel_space}}
 properties:
   sourceId:

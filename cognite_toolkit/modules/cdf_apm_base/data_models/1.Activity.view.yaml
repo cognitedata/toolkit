@@ -1,7 +1,7 @@
 externalId: APM_Activity
 name: APM_Activity
 description: "An activity represents a set of maintenance tasks, comprised of multiple operations for individual assets. It provides an overarching description and is considered incomplete until all its operations are finished."
-version: {{apm_datamodel_version}}
+version: '{{apm_datamodel_version}}'
 space: {{apm_datamodel_space}}
 properties:
   id:
@@ -69,7 +69,7 @@ properties:
       type: view
       space: {{apm_datamodel_space}}
       externalId: APM_Notification
-      version: {{apm_datamodel_version}}
+      version: '{{apm_datamodel_version}}'
     direction: outwards
     connectionType: multiEdgeConnection
   rootLocation:
