@@ -721,34 +721,36 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         self.client.files.delete(external_id=ids)
         return len(ids)
 
-    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadata:
-        file = FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
-        if not Path(filepath.parent / file.name).exists():
-            raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
-        if isinstance(file.data_set_id, str):
-            # Replace external_id with internal id
-            file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id)
-        return file
+    def load_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadata | FileMetadataList:
+        try:
+            files = FileMetadataList(
+                [FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))]
+            )
+        except Exception:
+            files = FileMetadataList.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
+        for file in files.data:
+            if not Path(filepath.parent / file.name).exists():
+                raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
+            if isinstance(file.data_set_id, str):
+                # Replace external_id with internal id
+                file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id)
+        return files
 
     def create(
         self, items: Sequence[FileMetadata], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> FileMetadataList:
-        if len(items) != 1:
-            raise ValueError("Files must be loaded one at a time.")
-        meta = items[0]
-        datafile = filepath.parent / meta.name
-        try:
-            created = self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False))
-        except CogniteAPIError as e:
-            if e.code == 409:
-                print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
-                return FileMetadataList([])
-        except Exception as e:
-            print(f"[bold red]ERROR:[/] Failed to upload file {datafile.name}.\n{e}")
-            ToolGlobals.failed = True
-            return FileMetadataList([])
-        if isinstance(created, FileMetadata):
-            return [created]
+        created = FileMetadataList([])
+        for meta in items:
+            datafile = filepath.parent / meta.name
+            try:
+                created.append(self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False)))
+            except CogniteAPIError as e:
+                if e.code == 409:
+                    print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
+            except Exception as e:
+                print(f"[bold red]ERROR:[/] Failed to upload file {datafile.name}.\n{e}")
+                ToolGlobals.failed = True
+                return created
         return created
 
 
@@ -826,8 +828,8 @@ def drop_load_resources(
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.api_name} from {len(filepaths)} files.")
-    print(f"  Created {nr_of_created} out of {nr_of_items} {loader.api_name} from {len(filepaths)} files.")
+    print(f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.api_name} from {len(filepaths)} config files.")
+    print(f"  Created {nr_of_created} out of {nr_of_items} {loader.api_name} from {len(filepaths)} config files.")
 
 
 LOADER_BY_FOLDER_NAME = {loader.folder_name: loader for loader in Loader.__subclasses__()}
