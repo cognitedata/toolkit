@@ -19,6 +19,7 @@ Changes are grouped as follows:
 ### Changed
 
 - Remove unused template_version variable from groups and use of group metadata.
+- Split up cdf_oid_example_data into data sets and RAW databases per source system.
 
 ### Fixed
 

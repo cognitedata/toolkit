@@ -35,6 +35,7 @@ Changes are grouped as follows:
 - Require all spaces to be explicitly defined as separate .space.yaml file.
 - Add protection on group deletion and skip any groups that the current service principal belongs to.
 - Support for multiple file resources per yaml config file for files resources.
+- Support templated loading of * files in a folder when a single yaml has `externalId: something_$FILENAME`.
 
 ### Fixed
 
