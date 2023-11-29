@@ -1,3 +1,11 @@
+DataSet:
+- description: This dataset is for writing data from Infield for the location default.
+  externalId: ds_infield_default_location_app_data
+  name: Infield default location app writable data set
+- description: This dataset is the data set used by Infield to read source data for
+    location default.
+  externalId: ds_infield_default_location_source
+  name: Infield default location source data set
 Group:
 - capabilities:
   - threedAcl:
@@ -468,7 +476,7 @@ Transformation:
     \    cast(`endTime` as TIMESTAMP) as endTime,*/\n    cast('2023-11-06T09:00:00'\
     \ as TIMESTAMP) as startTime,\n    cast('2023-11-10T09:00:00' as TIMESTAMP) as\
     \ endTime,\n    cast(`title` as STRING) as title,\n    'WMT:VAL' as rootLocation,\n\
-    \    'workmate' as source\n  from\n    `apm_simple`.`workorders`;\n"
+    \    'workmate' as source\n  from\n    `Valhall_System_23`.`workorders`;\n"
   schedule:
     externalId: sync_workorders_to_apm_activities
     interval: 0 * * * *

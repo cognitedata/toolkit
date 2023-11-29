@@ -17,7 +17,6 @@ Group:
       scope:
         all: {}
   metadata:
-    cdf_template_version: 0.0.1
     origin: cdf-project-templates
   name: applications-configuration
   sourceId: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e

@@ -325,7 +325,7 @@ class CDFToolConfig:
             Re-raises underlying SDK exception
         """
 
-        self.verify_client(capabilities={"extractionPipelinesAcl": ["READ", "WRITE"]})
+        self.verify_client(capabilities={"extractionPipelinesAcl": ["READ"]})
         try:
             pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
         except CogniteAPIError as e:

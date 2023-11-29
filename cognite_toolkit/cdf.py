@@ -26,6 +26,7 @@ from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
     DataSetsLoader,
     ExtractionPipelineLoader,
+    RawLoader,
     drop_load_resources,
     load_datamodel,
     load_nodes,
@@ -281,9 +282,9 @@ def deploy(
     print(ToolGlobals.as_string())
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
-        print("  [bold]EVALUATING auth resources with ALL scope...[/]")
+        print("[bold]EVALUATING auth resources with ALL scope...[/]")
         drop_load_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_only"),
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
             directory,
             ToolGlobals,
             drop=drop,
@@ -297,7 +298,7 @@ def deploy(
 
     if "data_sets" in include and (directory := (Path(build_dir) / "data_sets")).is_dir():
         # Create data sets first, as they are needed for the rest of the resources.
-        print("  [bold]EVALUATING data sets...[/]")
+        print("[bold]EVALUATING data sets...[/]")
         drop_load_resources(
             DataSetsLoader.create_loader(ToolGlobals),
             directory,
@@ -308,9 +309,22 @@ def deploy(
             verbose=ctx.obj.verbose,
         )
 
+    if "raw" in include and (directory := (Path(build_dir) / "raw")).is_dir():
+        # Create raw resources second, as they are needed for extractioon_pipelines.
+        print("[bold]EVALUATING raw resources...[/]")
+        drop_load_resources(
+            RawLoader.create_loader(ToolGlobals),
+            directory,
+            ToolGlobals,
+            drop=drop,
+            load=True,
+            dry_run=dry_run,
+            verbose=ctx.obj.verbose,
+        )
+
     if "extraction_pipelines" in include and (directory := (Path(build_dir) / "extraction_pipelines")).is_dir():
-        # Create data sets first, as they are needed for the rest of the resources.
-        print("  [bold]EVALUATING extraction pipelines...[/]")
+        # Create raw resources second, as they are needed for extractioon_pipelines.
+        print("[bold]EVALUATING extraction_pipelines resources...[/]")
         drop_load_resources(
             ExtractionPipelineLoader.create_loader(ToolGlobals),
             directory,
@@ -325,6 +339,7 @@ def deploy(
         load_datamodel(
             ToolGlobals,
             drop=drop,
+            drop_data=drop_data,
             directory=models_dir,
             delete_containers=drop_data,  # Also delete properties that have been ingested (leaving empty instances)
             delete_spaces=drop_data,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
@@ -358,6 +373,7 @@ def deploy(
             if ToolGlobals.failed:
                 print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
                 exit(1)
+
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we need to get all the scoped access, as the resources should now have been created.
         print("[bold]EVALUATING auth resources scoped to resources...[/]")
@@ -481,11 +497,24 @@ def clean(
         load_datamodel(
             ToolGlobals,
             drop=True,
+            drop_data=True,
             only_drop=True,
             directory=models_dir,
             delete_removed=True,
-            delete_spaces=True,  # Also delete properties that have been ingested (leaving empty instances)
-            delete_containers=True,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
+            delete_spaces=True,
+            delete_containers=True,
+            dry_run=dry_run,
+        )
+    elif CDFDataTypes.instances in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+        load_datamodel(
+            ToolGlobals,
+            drop=False,
+            drop_data=True,
+            only_drop=True,
+            directory=models_dir,
+            delete_removed=False,
+            delete_spaces=False,
+            delete_containers=False,
             dry_run=dry_run,
         )
     if ToolGlobals.failed:
@@ -510,10 +539,11 @@ def clean(
                 exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         drop_load_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
             directory,
             ToolGlobals,
             drop=True,
+            clean=True,
             load=False,
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
