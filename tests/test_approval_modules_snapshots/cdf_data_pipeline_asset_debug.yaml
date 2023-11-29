@@ -1,0 +1,75 @@
+Group:
+- capabilities:
+  - rawAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        tableScope:
+          dbsToTables:
+            src-asset-valhall-workmate:
+              tables: []
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: asset:valhall:extractor
+  sourceId: c74797ce-c49b-4ada-9186-8fe21c54c3de
+- capabilities:
+  - transformationsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - LIST
+      - CREATE
+      - DELETE
+      scope:
+        all: {}
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: asset:valhall:processing
+  sourceId: c74797ce-c49b-4ada-9186-8fe21c54c3de
+- capabilities:
+  - rawAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        tableScope:
+          dbsToTables:
+            src-asset-valhall-workmate:
+              tables: []
+  - assetsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: asset:valhall:processing
+  sourceId: c74797ce-c49b-4ada-9186-8fe21c54c3de
+- capabilities:
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: asset:valhall:read
+  sourceId: c74797ce-c49b-4ada-9186-8fe21c54c3de
+deleted:
+  FileMetadata:
+  - externalId: ep_src_asset_valhall_workmate
+  - externalId: ep_src_asset_valhall_workmate

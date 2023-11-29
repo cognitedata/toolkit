@@ -25,6 +25,8 @@ from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
     DataSetsLoader,
+    ExtractionPipelineLoader,
+    RawLoader,
     drop_load_resources,
     load_datamodel,
     load_nodes,
@@ -307,6 +309,32 @@ def deploy(
             verbose=ctx.obj.verbose,
         )
 
+    if "raw" in include and (directory := (Path(build_dir) / "raw")).is_dir():
+        # Create raw resources second, as they are needed for extractioon_pipelines.
+        print("[bold]EVALUATING raw resources...[/]")
+        drop_load_resources(
+            RawLoader.create_loader(ToolGlobals),
+            directory,
+            ToolGlobals,
+            drop=drop,
+            load=True,
+            dry_run=dry_run,
+            verbose=ctx.obj.verbose,
+        )
+
+    if "extraction_pipelines" in include and (directory := (Path(build_dir) / "extraction_pipelines")).is_dir():
+        # Create raw resources second, as they are needed for extractioon_pipelines.
+        print("[bold]EVALUATING extraction_pipelines resources...[/]")
+        drop_load_resources(
+            ExtractionPipelineLoader.create_loader(ToolGlobals),
+            directory,
+            ToolGlobals,
+            drop=drop,
+            load=True,
+            dry_run=dry_run,
+            verbose=ctx.obj.verbose,
+        )
+
     if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_datamodel(
             ToolGlobals,
@@ -345,6 +373,7 @@ def deploy(
             if ToolGlobals.failed:
                 print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
                 exit(1)
+
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we need to get all the scoped access, as the resources should now have been created.
         print("[bold]EVALUATING auth resources scoped to resources...[/]")

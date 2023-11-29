@@ -315,6 +315,28 @@ class CDFToolConfig:
             f"Data set {data_set_external_id} does not exist, you need to create it first. Do this by adding a config file to the data_sets folder."
         )
 
+    def verify_extraction_pipeline(self, external_id: str) -> int:
+        """Verify that the configured extraction pipeline exists and is accessible
+
+        Args:
+            external_id (str): External id of the extraction pipeline to verify
+        Yields:
+            extraction pipeline id (int)
+            Re-raises underlying SDK exception
+        """
+
+        self.verify_client(capabilities={"extractionPipelinesAcl": ["READ"]})
+        try:
+            pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
+        except CogniteAPIError as e:
+            raise CogniteAuthError("Don't have correct access rights. Need READ on datasetsAcl.") from e
+
+        if pipeline is not None:
+            return pipeline.id
+        raise ValueError(
+            f"Extraction pipeline {external_id} does not exist, you need to create it first. Do this by adding a config file to the extraction_pipelines folder."
+        )
+
 
 def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any] | list[dict[str, Any]]:
     content = filepath.read_text()
