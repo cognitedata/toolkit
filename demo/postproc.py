@@ -20,8 +20,8 @@ def run() -> None:
     print("Doing post-processing activities for demo project...")
     ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
     try:
-        print("Running apm_simple-load-asset-hierarchy...")
-        ToolGlobals.client.transformations.run(transformation_external_id="apm_simple-load-asset-hierarchy")
+        print("Running oid-load-asset-hierarchy...")
+        ToolGlobals.client.transformations.run(transformation_external_id="oid-load-asset-hierarchy")
         print("Running sync_workorders_to_apm_activities...")
         ToolGlobals.client.transformations.run(transformation_external_id="sync_workorders_to_apm_activities")
         # Wait until assets are in the hierarchy

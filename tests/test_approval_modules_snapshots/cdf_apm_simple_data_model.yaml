@@ -331,37 +331,6 @@ Space:
   name: apm_simple
   space: apm_simple
 Transformation:
-- conflictMode: upsert
-  dataSetId: 999
-  destination:
-    type: asset_hierarchy
-  destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
-  externalId: apm_simple-load-asset-hierarchy
-  ignoreNullFields: true
-  isPublic: true
-  name: apm_simple-load-Asset-hierarchy
-  ownerIsCurrentUser: true
-  query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`externalId`\
-    \ as STRING) as name,\n  cast(`description` as STRING) as description,\n  cast(`sourceDb`\
-    \ as STRING) as source,\n  cast(`parentExternalId` as STRING) as parentExternalId\n\
-    from\n  `Valhall_System_23`.`assets`;\n"
-  schedule:
-    externalId: apm_simple-load-asset-hierarchy
-    interval: 0 * * * *
-    isPaused: true
-  sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
 - dataSetId: 999
   destination:
     dataModel:
@@ -680,9 +649,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: apm_simple-load-asset-hierarchy
-  interval: 0 * * * *
-  isPaused: true
 - externalId: apm_simple-load-asset2children
   interval: 0 * * * *
   isPaused: true
@@ -1070,7 +1036,6 @@ deleted:
   Space:
   - apm_simple
   Transformation:
-  - externalId: apm_simple-load-asset-hierarchy
   - externalId: apm_simple-load-asset2children
   - externalId: apm_simple-load-assets
   - externalId: apm_simple-load-timeseries2assets
