@@ -25,7 +25,8 @@ Changes are grouped as follows:
 - Add space yaml files for existing data models when explicit space definition was introduced.
 - Fix use of integer value in version for data models.
 - Fix wrong reference to `apm_simple` in `examples/cdf_apm_simple_data_model` and `modules/cdf_infield_location`.
-- Examplify use of a single config yaml file for multiple file resources in `examples/cdf_oid_example_data/files/files.yaml`.
+- Exemplify use of a single config yaml file for multiple file resources in `examples/cdf_oid_example_data/files/files.yaml`.
+- Explicitly define model `space` in `experimental/cdf_asset_source_model/` and `experimental/example_pump_model/`.
 
 ## [0.1.1] - 2023-11-23
 
