@@ -845,7 +845,7 @@ class ViewLoader(Loader[ViewId, ViewApply, ViewApplyList]):
 
 @final
 class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
-    api_name = "data_modeling.models"
+    api_name = "data_modeling.data_models"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(datamodel)$"
     resource_cls = DataModelApply
@@ -867,7 +867,7 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList:
-        return self.client.data_modeling.models.apply(items)
+        return self.client.data_modeling.data_models.apply(items)
 
 
 def drop_load_resources(
@@ -891,7 +891,7 @@ def drop_load_resources(
 
     if loader.filename_pattern:
         pattern = re.compile(loader.filename_pattern)
-        filepaths = [file for file in filepaths if pattern.match(file.name)]
+        filepaths = [file for file in filepaths if pattern.match(file.stem)]
 
     items = [loader.load_resource(f, ToolGlobals) for f in filepaths]
     nr_of_batches = len(items)
