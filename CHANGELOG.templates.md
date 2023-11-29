@@ -14,7 +14,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [0.1.2] - 2023-11-28
+## [0.1.2] - 2023-11-29
 
 ### Changed
 
@@ -23,7 +23,9 @@ Changes are grouped as follows:
 ### Fixed
 
 - Add space yaml files for existing data models when explicit space definition was introduced.
-- Fix use of integer value in version for data models for .
+- Fix use of integer value in version for data models.
+- Fix wrong reference to `apm_simple` in `examples/cdf_apm_simple_data_model` and `modules/cdf_infield_location`.
+- Examplify use of a single config yaml file for multiple file resources in `examples/cdf_oid_example_data/files/files.yaml`.
 
 ## [0.1.1] - 2023-11-23
 
