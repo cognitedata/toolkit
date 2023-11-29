@@ -359,7 +359,7 @@ def deploy(
             exit(1)
     for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items():
         if folder_name in include and (directory := (Path(build_dir) / folder_name)).is_dir():
-            if folder_name in {"auth", "data_sets"}:
+            if folder_name in {"auth", "data_sets", "raw", "extraction_pipelines"}:
                 continue
             drop_load_resources(
                 LoaderCls.create_loader(ToolGlobals),
