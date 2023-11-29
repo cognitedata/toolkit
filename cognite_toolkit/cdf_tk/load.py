@@ -799,27 +799,29 @@ def drop_load_resources(
     if drop and loader.support_drop and load:
         print(f"  --drop is specified, will delete existing {loader.api_name} before uploading.")
     if (drop and loader.support_drop) or clean:
-        drop_items: list = []
         for batch in batches:
+            drop_items: list = []
             for item in batch:
                 # Set the context info for this CDF project
                 if hasattr(item, "data_set_id") and ToolGlobals.data_set_id is not None:
                     item.data_set_id = ToolGlobals.data_set_id
                 drop_items.append(loader.get_id(item))
-        if not dry_run:
-            try:
-                nr_of_deleted += loader.delete(drop_items)
-                if verbose:
-                    print(f"  Deleted {len(drop_items)} {loader.api_name}.")
-            except CogniteAPIError as e:
-                if e.code == 404:
-                    print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do not exist.")
-            except CogniteNotFoundError:
-                print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do not exist.")
-            except Exception as e:
-                print(f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. Error {e}")
-        else:
-            print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
+            if not dry_run:
+                try:
+                    nr_of_deleted += loader.delete(drop_items)
+                    if verbose:
+                        print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+                except CogniteAPIError as e:
+                    if e.code == 404:
+                        print(
+                            f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do not exist in project."
+                        )
+                except CogniteNotFoundError:
+                    print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do not exist in project.")
+                except Exception as e:
+                    print(f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. Error {e}")
+            else:
+                print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
     if not load:
         return
     try:
