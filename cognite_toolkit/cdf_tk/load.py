@@ -47,6 +47,7 @@ from cognite.client.data_classes._base import (
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
+    DataModelsAcl,
     DataSetsAcl,
     ExtractionPipelinesAcl,
     FilesAcl,
@@ -57,15 +58,19 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
+    ContainerApplyList,
     ContainerProperty,
     DataModelApply,
+    DataModelApplyList,
     NodeApply,
     NodeApplyList,
     NodeOrEdgeData,
     SpaceApply,
+    SpaceApplyList,
     ViewApply,
-    ViewId,
+    ViewApplyList,
 )
+from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, ViewId
 from cognite.client.data_classes.iam import Group, GroupList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from rich import print
@@ -129,6 +134,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     support_drop = True
     support_upsert = False
     filetypes = frozenset({"yaml", "yml"})
+    filename_pattern = ""
     api_name: str
     folder_name: str
     resource_cls: type[CogniteResource]
@@ -760,6 +766,110 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         return created
 
 
+@final
+class SpaceLoader(Loader[str, SpaceApply, SpaceApplyList]):
+    api_name = "data_modeling.spaces"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(space)$"
+    resource_cls = SpaceApply
+    list_cls = SpaceApplyList
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return DataModelsAcl(
+            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+            DataModelsAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: SpaceApply) -> str:
+        return item.space
+
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList:
+        return self.client.data_modeling.spaces.apply(items)
+
+
+class ContainerLoader(Loader[ContainerId, ContainerApply, ContainerApplyList]):
+    api_name = "data_modeling.containers"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(container)$"
+    resource_cls = ContainerApply
+    list_cls = ContainerApplyList
+    dependencies = frozenset({SpaceLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        # Todo Scoped to spaces
+        return DataModelsAcl(
+            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+            DataModelsAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: ContainerApply) -> ContainerId:
+        return item.as_id()
+
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList:
+        return self.client.data_modeling.containers.apply(items)
+
+
+class ViewLoader(Loader[ViewId, ViewApply, ViewApplyList]):
+    api_name = "data_modeling.views"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(view)$"
+    resource_cls = ViewApply
+    list_cls = ViewApplyList
+    dependencies = frozenset({SpaceLoader, ContainerLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        # Todo Scoped to spaces
+        return DataModelsAcl(
+            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+            DataModelsAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: ViewApply) -> ViewId:
+        return item.as_id()
+
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList:
+        return self.client.data_modeling.views.apply(items)
+
+
+@final
+class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
+    api_name = "data_modeling.models"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(datamodel)$"
+    resource_cls = DataModelApply
+    list_cls = DataModelApplyList
+    dependencies = frozenset({SpaceLoader, ViewLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        # Todo Scoped to spaces
+        return DataModelsAcl(
+            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+            DataModelsAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: DataModelApply) -> DataModelId:
+        return item.as_id()
+
+    def create(
+        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> T_ResourceList:
+        return self.client.data_modeling.models.apply(items)
+
+
 def drop_load_resources(
     loader: Loader,
     path: Path,
@@ -778,6 +888,10 @@ def drop_load_resources(
         filepaths = [file for type_ in loader.filetypes for file in path.glob(f"**/*.{type_}")]
     else:
         filepaths = [file for file in path.glob("**/*")]
+
+    if loader.filename_pattern:
+        pattern = re.compile(loader.filename_pattern)
+        filepaths = [file for file in filepaths if pattern.match(file.name)]
 
     items = [loader.load_resource(f, ToolGlobals) for f in filepaths]
     nr_of_batches = len(items)
@@ -838,7 +952,12 @@ def drop_load_resources(
     print(f"  Created {nr_of_created} out of {nr_of_items} {loader.api_name} from {len(filepaths)} config files.")
 
 
-LOADER_BY_FOLDER_NAME = {loader.folder_name: loader for loader in Loader.__subclasses__()}
+LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
+for loader in Loader.__subclasses__():
+    if loader.folder_name not in LOADER_BY_FOLDER_NAME:
+        LOADER_BY_FOLDER_NAME[loader.folder_name] = []
+    LOADER_BY_FOLDER_NAME[loader.folder_name].append(loader)
+del loader  # cleanup loop variable
 
 
 def load_datamodel_graphql(

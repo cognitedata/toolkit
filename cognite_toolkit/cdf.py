@@ -266,8 +266,9 @@ def deploy(
     # once with all_scoped_skipped_validation and once with resource_scoped_only
     selected_loaders = {
         LoaderCls: LoaderCls.dependencies
-        for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items()
+        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
         if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+        for LoaderCls in loader_classes
     }
 
     arguments = dict(
@@ -289,19 +290,19 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
             exit(1)
-    if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
-        load_datamodel(
-            ToolGlobals,
-            drop=drop,
-            drop_data=drop_data,
-            directory=models_dir,
-            delete_containers=drop_data,  # Also delete properties that have been ingested (leaving empty instances)
-            delete_spaces=drop_data,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
-            dry_run=dry_run,
-        )
-        if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to load data models as expected.")
-            exit(1)
+    # if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
+    #     load_datamodel(
+    #         ToolGlobals,
+    #         drop=drop,
+    #         drop_data=drop_data,
+    #         directory=models_dir,
+    #         delete_containers=drop_data,  # Also delete properties that have been ingested (leaving empty instances)
+    #         delete_spaces=drop_data,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
+    #         dry_run=dry_run,
+    #     )
+    #     if ToolGlobals.failed:
+    #         print("[bold red]ERROR: [/] Failure to load data models as expected.")
+    #         exit(1)
     if CDFDataTypes.instances.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
         load_nodes(
             ToolGlobals,
@@ -403,8 +404,9 @@ def clean(
     # The 'auth' loader is excluded, as it is run at the end.
     selected_loaders = {
         LoaderCls: LoaderCls.dependencies
-        for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items()
+        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
         if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+        for LoaderCls in loader_classes
     }
 
     print(ToolGlobals.as_string())
