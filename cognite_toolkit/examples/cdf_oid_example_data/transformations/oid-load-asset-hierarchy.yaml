@@ -19,4 +19,4 @@ authentication:
 schedule:
   # every hour
   interval: '0 * * * *'
-  isPaused: true
+  isPaused: false
