@@ -119,38 +119,6 @@ Row:
 - args: []
   columns:
   - key
-  - externalId
-  - sourceExternalId
-  - targetExternalId
-  dataframe: 65045431972253372923239764963735693788120831221123132526172499668461365615556
-  kwargs:
-    db_name: Valhall_System_23
-    ensure_parent: true
-    table_name: asset2children
-  name: Valhall_System_23_asset2children_True
-- args: []
-  columns:
-  - key
-  - categoryId
-  - sourceDb
-  - parentExternalId
-  - updatedDate
-  - createdDate
-  - externalId
-  - isCriticalLine
-  - description
-  - tag
-  - areaId
-  - isActive
-  dataframe: 94430041190918800494911115394739451784112572138295829851999408806509502700252
-  kwargs:
-    db_name: Valhall_System_23
-    ensure_parent: true
-    table_name: assets
-  name: Valhall_System_23_assets_True
-- args: []
-  columns:
-  - key
   - categoryId
   - sourceDb
   - parentExternalId
@@ -180,16 +148,6 @@ Row:
   name: Valhall_System_23_timeseries2assets_True
 - args: []
   columns:
-  - timeseries
-  - asset
-  dataframe: 55950994081533176249747558585122252386224890969921942100864987065996004229529
-  kwargs:
-    db_name: Valhall_System_23
-    ensure_parent: true
-    table_name: timeseries2assets
-  name: Valhall_System_23_timeseries2assets_True
-- args: []
-  columns:
   - key
   - externalId
   - sourceExternalId
@@ -200,39 +158,6 @@ Row:
     ensure_parent: true
     table_name: workitem2assets
   name: Valhall_System_23_workitem2assets_True
-- args: []
-  columns:
-  - key
-  - externalId
-  - sourceExternalId
-  - targetExternalId
-  dataframe: 70999460826851891666355556169020792890288256089899308969084950738510319920668
-  kwargs:
-    db_name: Valhall_System_23
-    ensure_parent: true
-    table_name: workitem2assets
-  name: Valhall_System_23_workitem2assets_True
-- args: []
-  columns:
-  - key
-  - startTime
-  - externalId
-  - description
-  - workOrder
-  - toBeDone
-  - endTime
-  - itemInfo
-  - itemName
-  - title
-  - criticality
-  - method
-  - isCompleted
-  dataframe: 15402156880038161691649867030405339701750462867801433644546809449178377662691
-  kwargs:
-    db_name: Valhall_System_23
-    ensure_parent: true
-    table_name: workitems
-  name: Valhall_System_23_workitems_True
 - args: []
   columns:
   - key
@@ -272,65 +197,12 @@ Row:
   - externalId
   - sourceExternalId
   - targetExternalId
-  dataframe: 18638660796871288518235232457006931572805212660330594264228924851739487286440
-  kwargs:
-    db_name: Valhall_System_23
-    ensure_parent: true
-    table_name: workorder2assets
-  name: Valhall_System_23_workorder2assets_True
-- args: []
-  columns:
-  - key
-  - externalId
-  - sourceExternalId
-  - targetExternalId
   dataframe: 87761117627110273022694517750470728190726449018707882989068562732740921122223
   kwargs:
     db_name: Valhall_System_23
     ensure_parent: true
     table_name: workorder2items
   name: Valhall_System_23_workorder2items_True
-- args: []
-  columns:
-  - key
-  - externalId
-  - sourceExternalId
-  - targetExternalId
-  dataframe: 87761117627110273022694517750470728190726449018707882989068562732740921122223
-  kwargs:
-    db_name: Valhall_System_23
-    ensure_parent: true
-    table_name: workorder2items
-  name: Valhall_System_23_workorder2items_True
-- args: []
-  columns:
-  - key
-  - isCompleted
-  - plannedStart
-  - externalId
-  - isSafetyCritical
-  - workPackageNumber
-  - endTime
-  - status
-  - durationHours
-  - workOrderNumber
-  - title
-  - percentageProgress
-  - startTime
-  - actualHours
-  - description
-  - isCancelled
-  - isActive
-  - priorityDescription
-  - dueDate
-  - createdDate
-  - programNumber
-  dataframe: 39027066751652190754154965909250931653588743896956924953253757672617848762589
-  kwargs:
-    db_name: Valhall_System_23
-    ensure_parent: true
-    table_name: workorders
-  name: Valhall_System_23_workorders_True
 - args: []
   columns:
   - key
@@ -784,16 +656,6 @@ deleted:
   - externalId: Valhall_System_23_PH-ME-P-0156-002.pdf
   - externalId: Valhall_System_23_PH-ME-P-0160-001.pdf
   Table:
-  - db_name: Valhall_System_23
-    name:
-    - asset2children
-    - assets
-    - timeseries2assets
-    - workitem2assets
-    - workitems
-    - workorder2assets
-    - workorder2items
-    - workorders
   - db_name: Valhall_System_23
     name:
     - asset2children
