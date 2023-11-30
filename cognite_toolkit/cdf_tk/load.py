@@ -1176,40 +1176,4 @@ for loader in Loader.__subclasses__():
     if loader.folder_name not in LOADER_BY_FOLDER_NAME:
         LOADER_BY_FOLDER_NAME[loader.folder_name] = []
     LOADER_BY_FOLDER_NAME[loader.folder_name].append(loader)
-del loader  # cleanup loop variable
-
-
-def load_datamodel_graphql(
-    ToolGlobals: CDFToolConfig,
-    space_name: str | None = None,
-    model_name: str | None = None,
-    directory=None,
-) -> None:
-    """Load a graphql datamodel from file."""
-    if space_name is None or model_name is None or directory is None:
-        raise ValueError("space_name, model_name, and directory must be supplied.")
-    with open(f"{directory}/datamodel.graphql") as file:
-        # Read directly into a string.
-        datamodel = file.read()
-    # Clear any delete errors
-    ToolGlobals.failed = False
-    client = ToolGlobals.verify_client(
-        capabilities={
-            "dataModelsAcl": ["READ", "WRITE"],
-            "dataModelInstancesAcl": ["READ", "WRITE"],
-        }
-    )
-    print(f"[bold]Loading data model {model_name} into space {space_name} from {directory}...[/]")
-    try:
-        client.data_modeling.graphql.apply_dml(
-            (space_name, model_name, "1"),
-            dml=datamodel,
-            name=model_name,
-            description=f"Data model for {model_name}",
-        )
-    except Exception as e:
-        print(f"[bold red]ERROR:[/] Failed to write data model {model_name} to space {space_name}.")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    print(f"  Created data model {model_name}.")
+del loader  # cleanup module namespace

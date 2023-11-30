@@ -1,4 +1,0 @@
-type MyType {
-    myField: String
-    myOtherField: Int
-}
