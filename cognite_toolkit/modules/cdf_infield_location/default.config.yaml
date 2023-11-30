@@ -3,6 +3,7 @@ location_name: default
 module_version: '1'
 apm_datamodel_space: 'APM_SourceData'
 apm_app_config_external_id: 'default-infield-config-minimal'
+apm_instance_space: 'APM_Config'
 # RAW database to load workorders and other data from
 raw_db: 'Valhall_System_23'
 # The table name in the raw_db database that has workorder data

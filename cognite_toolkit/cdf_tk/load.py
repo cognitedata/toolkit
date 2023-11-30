@@ -47,6 +47,7 @@ from cognite.client.data_classes._base import (
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
+    DataModelInstancesAcl,
     DataModelsAcl,
     DataSetsAcl,
     ExtractionPipelinesAcl,
@@ -62,6 +63,8 @@ from cognite.client.data_classes.data_modeling import (
     ContainerProperty,
     DataModelApply,
     DataModelApplyList,
+    EdgeApply,
+    EdgeApplyList,
     NodeApply,
     NodeApplyList,
     NodeOrEdgeData,
@@ -70,10 +73,11 @@ from cognite.client.data_classes.data_modeling import (
     ViewApply,
     ViewApplyList,
 )
-from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, ViewId
+from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, EdgeId, NodeId, ViewId
 from cognite.client.data_classes.iam import Group, GroupList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from rich import print
+from typing_extensions import Self
 
 from .delete import delete_instances
 from .utils import CDFToolConfig, load_yaml_inject_variables
@@ -92,6 +96,83 @@ class RawTable(CogniteObject):
         return {
             "dbName" if camel_case else "db_name": self.db_name,
             "tableName" if camel_case else "table_name": self.table_name,
+        }
+
+
+@dataclass
+class LoadableNodes(CogniteObject):
+    """
+    This is a helper class for nodes that contains arguments that are required for writing the
+    nodes to CDF.
+    """
+
+    auto_create_direct_relations: bool
+    skip_on_version_conflict: bool
+    replace: bool
+    nodes: NodeApplyList
+
+    def __len__(self):
+        return len(self.nodes)
+
+    def __iter__(self):
+        return iter(self.nodes)
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            auto_create_direct_relations=resource["autoCreateDirectRelations"],
+            skip_on_version_conflict=resource["skipOnVersionConflict"],
+            replace=resource["replace"],
+            nodes=NodeApplyList.load(resource["nodes"]),
+        )
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        return {
+            "autoCreateDirectRelations"
+            if camel_case
+            else "auto_create_direct_relations": self.auto_create_direct_relations,
+            "skipOnVersionConflict" if camel_case else "skip_on_version_conflict": self.skip_on_version_conflict,
+            "replace": self.replace,
+            "nodes": self.nodes.dump(camel_case),
+        }
+
+
+@dataclass
+class LoadableEdges(CogniteObject):
+    """
+    This is a helper class for edges that contains arguments that are required for writing the
+    edges to CDF.
+    """
+
+    auto_create_start_nodes: bool
+    auto_create_end_nodes: bool
+    skip_on_version_conflict: bool
+    replace: bool
+    edges: EdgeApplyList
+
+    def __len__(self):
+        return len(self.edges)
+
+    def __iter__(self):
+        return iter(self.edges)
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            auto_create_start_nodes=resource["autoCreateStartNodes"],
+            auto_create_end_nodes=resource["autoCreateEndNodes"],
+            skip_on_version_conflict=resource["skipOnVersionConflict"],
+            replace=resource["replace"],
+            edges=EdgeApplyList.load(resource["edges"]),
+        )
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        return {
+            "autoCreateStartNodes" if camel_case else "auto_create_start_nodes": self.auto_create_start_nodes,
+            "autoCreateEndNodes" if camel_case else "auto_create_end_nodes": self.auto_create_end_nodes,
+            "skipOnVersionConflict" if camel_case else "skip_on_version_conflict": self.skip_on_version_conflict,
+            "replace": self.replace,
+            "edges": self.edges.dump(camel_case),
         }
 
 
@@ -868,6 +949,92 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList:
         return self.client.data_modeling.data_models.apply(items)
+
+
+@final
+class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
+    api_name = "data_modeling.instances"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(node)$"
+    resource_cls = NodeApply
+    list_cls = LoadableNodes
+    dependencies = frozenset({SpaceLoader, ViewLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        # Todo Scoped to spaces
+        return DataModelInstancesAcl(
+            [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+            DataModelInstancesAcl.Scope.All(),
+        )
+
+    def get_id(self, item: NodeApply) -> NodeId:
+        return item.as_id()
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> LoadableNodes:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if isinstance(raw, list):
+            raise ValueError(f"Unexpected node yaml file format {filepath.name}")
+        return LoadableNodes.load(raw, cognite_client=self.client)
+
+    def create(
+        self, items: Sequence[LoadableNodes], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> LoadableNodes:
+        if not isinstance(items, LoadableNodes):
+            raise ValueError("Unexpected node format file format")
+        item = items
+        _ = self.client.data_modeling.instances.apply(
+            nodes=item.nodes,
+            auto_create_direct_relations=item.auto_create_direct_relations,
+            skip_on_version_conflict=item.skip_on_version_conflict,
+            replace=item.replace,
+        )
+        return items
+
+
+@final
+class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
+    api_name = "data_modeling.instances"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(edge)$"
+    resource_cls = EdgeApply
+    list_cls = LoadableEdges
+
+    # Note edges do not need nodes to be created first, as they are created as part of the edge creation.
+    # However, for deletion (reversed order) we need to delete edges before nodes.
+    dependencies = frozenset({SpaceLoader, ViewLoader, NodeLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        # Todo Scoped to spaces
+        return DataModelInstancesAcl(
+            [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+            DataModelInstancesAcl.Scope.All(),
+        )
+
+    def get_id(self, item: EdgeApply) -> EdgeId:
+        return item.as_id()
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> LoadableEdges:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if isinstance(raw, list):
+            raise ValueError(f"Unexpected edge yaml file format {filepath.name}")
+        return LoadableEdges.load(raw, cognite_client=self.client)
+
+    def create(
+        self, items: Sequence[LoadableEdges], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+    ) -> LoadableEdges:
+        if not isinstance(items, LoadableEdges):
+            raise ValueError("Unexpected edge format file format")
+        item = items
+        _ = self.client.data_modeling.instances.apply(
+            edges=item.edges,
+            auto_create_start_nodes=item.auto_create_start_nodes,
+            auto_create_end_nodes=item.auto_create_end_nodes,
+            skip_on_version_conflict=item.skip_on_version_conflict,
+            replace=item.replace,
+        )
+        return items
 
 
 def drop_load_resources(
