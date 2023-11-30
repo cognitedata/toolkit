@@ -671,12 +671,23 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
         return item.external_id
 
     def delete(self, ids: Sequence[str]) -> int:
-        count = 0
-        for id in ids:
-            with suppress(CogniteAPIError):
-                self.client.extraction_pipelines.delete(external_id=id)
-                count += 1
-        return count
+        ids.append("foo")
+        try:
+            self.client.extraction_pipelines.delete(external_id=ids)
+            return len(ids)
+        except CogniteNotFoundError as e:
+            print(
+                f"  [bold yellow]WARNING:[/] {len(e.not_found)} out of {len(ids)} extraction pipelines do(es) not exist."
+            )
+
+            for dup in e.not_found:
+                ext_id = dup.get("externalId", None)
+                ids.remove(ext_id)
+
+            if len(ids) > 0:
+                self.client.extraction_pipelines.delete(external_id=ids)
+                return len(ids)
+            return 0
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
@@ -688,8 +699,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
         try:
-            res = self.client.extraction_pipelines.create(items)
-            return ExtractionPipelineList(res)
+            return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
 
         except CogniteDuplicatedError as e:
             if len(e.duplicated) < len(items):
