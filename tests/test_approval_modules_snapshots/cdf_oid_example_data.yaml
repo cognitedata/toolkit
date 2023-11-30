@@ -712,33 +712,33 @@ deleted:
   - externalId: fileshare_PH-ME-P-0156-002.pdf
   - externalId: fileshare_PH-ME-P-0160-001.pdf
   Table:
-  - db_name: workmate_workorders
-    name:
-    - workitems
-  - db_name: workmate_assets
-    name:
-    - assets
-  - db_name: workmate_workorders
-    name:
-    - workorders
-  - db_name: workmate_workorders
-    name:
-    - workitem2assets
   - db_name: workmate_assets
     name:
     - asset2children
-  - db_name: workmate_workorders
+  - db_name: workmate_assets
     name:
-    - workorder2items
-  - db_name: fileshare_files
-    name:
-    - timeseries2assets
+    - assets
   - db_name: fileshare_files
     name:
     - files_metadata
+  - db_name: fileshare_files
+    name:
+    - timeseries2assets
+  - db_name: workmate_workorders
+    name:
+    - workitem2assets
+  - db_name: workmate_workorders
+    name:
+    - workitems
   - db_name: workmate_workorders
     name:
     - workorder2assets
+  - db_name: workmate_workorders
+    name:
+    - workorder2items
+  - db_name: workmate_workorders
+    name:
+    - workorders
   TimeSeries:
   - externalId: pi:160633
   - externalId: pi:160696
