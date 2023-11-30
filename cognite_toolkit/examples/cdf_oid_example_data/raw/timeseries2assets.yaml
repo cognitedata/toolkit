@@ -1,2 +1,2 @@
-dbName: files_{{default_location}}_{{source_files}}
+dbName: timeseries_{{default_location}}_{{source_files}}
 tableName: timeseries2assets
