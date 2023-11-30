@@ -429,23 +429,30 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
-        try:
-            return DataSetList(self.client.data_sets.create(items))
-
-        except CogniteDuplicatedError as e:
-            if len(e.duplicated) < len(items):
-                for dup in e.duplicated:
-                    ext_id = dup.get("externalId", None)
-                    for item in items:
-                        if item.external_id == ext_id:
-                            items.remove(item)
-                try:
-                    return DataSetList(self.client.data_sets.create(items))
-                except Exception as e:
-                    print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
-                    ToolGlobals.failed = True
-                    return None
+        created = DataSetList([], cognite_client=self.client)
+        # There is a big in the data set API, so only one duplicated data set is returned at the time,
+        # so we need to iterate.
+        while len(items.data) > 0:
+            try:
+                created.extend(DataSetList(self.client.data_sets.create(items)))
+                return created
+            except CogniteDuplicatedError as e:
+                if len(e.duplicated) < len(items):
+                    for dup in e.duplicated:
+                        ext_id = dup.get("externalId", None)
+                        for item in items:
+                            if item.external_id == ext_id:
+                                items.remove(item)
+                else:
+                    items.data = []
+            except Exception as e:
+                print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
+                ToolGlobals.failed = True
+                return None
+        if len(created) == 0:
             return None
+        else:
+            return created
 
 
 @final
