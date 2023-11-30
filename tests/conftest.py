@@ -155,10 +155,13 @@ def cognite_client_approval() -> CogniteClient:
             if deleted_resources:
                 dumped["deleted"] = {}
                 for key in sorted(deleted_resources):
-                    dumped["deleted"][key] = sorted(
-                        deleted_resources[key],
-                        key=lambda x: (x.get("externalId") if isinstance(x, dict) else x) or "missing",
-                    )
+                    values = deleted_resources[key]
+                    if values:
+                        dumped["deleted"][key] = sorted(
+                            values,
+                            key=lambda x: (x.get("externalId", x.get("db_name")) if isinstance(x, dict) else x)
+                            or "missing",
+                        )
 
             return dumped
 
