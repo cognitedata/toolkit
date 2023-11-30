@@ -386,10 +386,10 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-  externalId: sync_asset_parents_from_hierarchy_to_apm
+  externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
   ignoreNullFields: true
   isPublic: true
-  name: Sync asset parent relationships from Asset Hierarchy to APM Asset model
+  name: asset:oid:workmate:infield:sync_asset_parents_from_hierarchy_to_apm
   ownerIsCurrentUser: true
   query: "select\n  cast(asset.externalId as STRING) as externalId,\n  (case\n   \
     \ when isnull(asset.parentExternalId) then null\n    else node_reference('space_infield_oid_source',\
@@ -397,84 +397,7 @@ Transformation:
     \ as asset\n  inner join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId\
     \ = rootAsset.id"
   schedule:
-    externalId: sync_asset_parents_from_hierarchy_to_apm
-    interval: 0 * * * *
-    isPaused: false
-  sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
-    instanceSpace: space_infield_oid_source
-    type: nodes
-    view:
-      externalId: Asset
-      space: cdf_core
-      version: v1
-  destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
-  externalId: sync_assets_from_hierarchy_to_apm
-  ignoreNullFields: true
-  isPublic: true
-  name: Sync assets from Asset Hierarchy to APM Asset model
-  ownerIsCurrentUser: true
-  query: "select\n  cast(asset.externalId as STRING) as externalId, \n  cast(\"Asset\
-    \ Hierarachy\" as STRING) as source,\n  node_reference('space_infield_oid_source',\
-    \ cast(rootAsset.externalId as STRING)) as root,\n  cast(asset.description as\
-    \ STRING) as description,\n  cast(asset.name as STRING) as title,\n  cast(asset.externalId\
-    \ as STRING) as sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as asset\n  inner\
-    \ join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId = rootAsset.id"
-  schedule:
-    externalId: sync_assets_from_hierarchy_to_apm
-    interval: 0 * * * *
-    isPaused: false
-  sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
-    dataModel:
-      destinationRelationshipFromType: null
-      destinationType: APM_Activity
-      externalId: APM_SourceData
-      space: APM_SourceData
-      version: '1'
-    instanceSpace: space_infield_oid_source
-    type: instances
-  destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
-  externalId: sync_workorders_to_apm_activities
-  ignoreNullFields: true
-  isPublic: true
-  name: Sync workorders to APM Activities
-  ownerIsCurrentUser: true
-  query: "  select\n    cast(`externalId` as STRING) as externalId,\n    cast(`description`\
-    \ as STRING) as description,\n    cast(`key` as STRING) as id,\n    cast(`status`\
-    \ as STRING) as status,\n    /* cast(`startTime` as TIMESTAMP) as startTime,\n\
-    \    cast(`endTime` as TIMESTAMP) as endTime,*/\n    cast('2023-11-06T09:00:00'\
-    \ as TIMESTAMP) as startTime,\n    cast('2023-11-10T09:00:00' as TIMESTAMP) as\
-    \ endTime,\n    cast(`title` as STRING) as title,\n    'WMT:VAL' as rootLocation,\n\
-    \    'workmate' as source\n  from\n    `workorder_oid_workmate`.`workorders`;\n"
-  schedule:
-    externalId: sync_workorders_to_apm_activities
+    externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
     interval: 0 * * * *
     isPaused: false
   sourceOidcCredentials:
@@ -485,13 +408,7 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: sync_asset_parents_from_hierarchy_to_apm
-  interval: 0 * * * *
-  isPaused: false
-- externalId: sync_assets_from_hierarchy_to_apm
-  interval: 0 * * * *
-  isPaused: false
-- externalId: sync_workorders_to_apm_activities
+- externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
   interval: 0 * * * *
   isPaused: false
 deleted:
@@ -499,6 +416,4 @@ deleted:
   - space_infield_oid_app_data
   - space_infield_oid_source
   Transformation:
-  - externalId: sync_asset_parents_from_hierarchy_to_apm
-  - externalId: sync_assets_from_hierarchy_to_apm
-  - externalId: sync_workorders_to_apm_activities
+  - externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
