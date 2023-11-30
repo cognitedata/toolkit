@@ -671,7 +671,6 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
         return item.external_id
 
     def delete(self, ids: Sequence[str]) -> int:
-        ids.append("foo")
         try:
             self.client.extraction_pipelines.delete(external_id=ids)
             return len(ids)
