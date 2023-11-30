@@ -11,7 +11,7 @@ capabilities:
         - READ
       scope:
         datasetScope: {
-          ids: ['ds_asset_{{default_location}}']
+          ids: ['ds_3d_{{default_location}}']
         }
   - assetsAcl:
       actions:
@@ -25,21 +25,21 @@ capabilities:
         - READ
       scope:
         datasetScope: {
-          ids: ['ds_asset_{{default_location}}', 'ds_infield_{{default_location}}_app_data']
+          ids: ['ds_files_{{default_location}}', 'ds_infield_{{default_location}}_app_data']
         }
   - relationshipsAcl:
       actions:
         - READ
       scope:
         datasetScope: {
-          ids: ['ds_asset_{{default_location}}']
+          ids: ['ds_relationships_{{default_location}}']
         }
   - timeSeriesAcl:
       actions:
         - READ
       scope:
         datasetScope: {
-          ids: ['ds_asset_{{default_location}}', 'ds_infield_{{default_location}}_app_data']
+          ids: ['ds_timeseries_{{default_location}}', 'ds_infield_{{default_location}}_app_data']
         }
   - dataModelsAcl:
       actions:

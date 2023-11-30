@@ -10,4 +10,4 @@ select
   cast(`method` as STRING) as method,
   cast(`isCompleted` as BOOLEAN) as isCompleted
 from
-  `{{workorder_raw_db}}}}`.`workitems`;
+  `workorder_{{default_location}}_{{source_workorder}}`.`workitems`;

@@ -11,4 +11,4 @@ select
   cast(`areaId` as INT) as areaId,
   cast(`isActive` as BOOLEAN) as isActive
 from
-  `{{asset_raw_db}}}}`.`assets`;
+  `asset_{{default_location}}_{{source_asset}}`.`assets`;

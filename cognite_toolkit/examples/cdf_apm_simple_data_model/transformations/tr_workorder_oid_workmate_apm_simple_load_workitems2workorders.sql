@@ -3,4 +3,4 @@
   node_reference('{{datamodel}}', `sourceExternalId`) as startNode,
   node_reference('{{datamodel}}', `targetExternalId`) as endNode
 from
-  `{{workorder_raw_db}}}}`.`workorder2items`;
+  `workorder_{{default_location}}_{{source_workorder}}`.`workorder2items`;

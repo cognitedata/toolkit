@@ -15,7 +15,7 @@
                 "build",
                 "--build-dir=build",
                 "--clean",
-                "--env=local",
+                "--env=demo",
                 "./cognite_toolkit/"
             ],
             "console": "integratedTerminal",
@@ -29,10 +29,10 @@
             "args": [
                 "deploy",
                 //"--dry-run",
-                "--drop",
+                //"--drop",
                 //"--drop-data",
                 "--env=local",
-                //"--include=transformations",
+                "--include=transformations",
                 "./build"
             ],
             "console": "integratedTerminal",
