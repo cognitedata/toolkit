@@ -33,12 +33,7 @@ capabilities:
       actions:
         - WRITE
       scope:
-        spaceIdScope: {
-            spaceIds: [
-              'cognite_app_data',
-              'APM_Config'
-            ]
-        }
+        spaceIdScope: {spaceIds: ['cognite_app_data', 'APM_Config']}
   - datasetsAcl:
       actions:
         - READ
