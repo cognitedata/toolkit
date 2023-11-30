@@ -150,7 +150,7 @@ def cognite_client_approval() -> CogniteClient:
                 if values:
                     dumped[key] = sorted(
                         [value.dump(camel_case=True) if hasattr(value, "dump") else value for value in values],
-                        key=lambda x: x.get("externalId", x.get("dbName", x.get("name"))),
+                        key=lambda x: x.get("externalId", x.get("dbName", x.get("db_name", x.get("name")))),
                     )
             if deleted_resources:
                 dumped["deleted"] = {}
