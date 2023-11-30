@@ -1,0 +1,40 @@
+deleted:
+  Container:
+  - externalId: Asset
+    space: apm_simple
+    type: container
+  - externalId: WorkItem
+    space: apm_simple
+    type: container
+  - externalId: WorkOrder
+    space: apm_simple
+    type: container
+  DataModel:
+  - externalId: apm_simple
+    space: apm_simple
+    type: datamodel
+    version: '1'
+  Space:
+  - apm_simple
+  Transformation:
+  - externalId: apm_simple-load-asset2children
+  - externalId: apm_simple-load-assets
+  - externalId: apm_simple-load-timeseries2assets
+  - externalId: apm_simple-load-workitems
+  - externalId: apm_simple-load-workitems2assets
+  - externalId: apm_simple-load-workitems2workorders
+  - externalId: apm_simple-load-workorders
+  - externalId: apm_simple-load-workorders2assets
+  View:
+  - externalId: Asset
+    space: apm_simple
+    type: view
+    version: '1'
+  - externalId: WorkItem
+    space: apm_simple
+    type: view
+    version: '1'
+  - externalId: WorkOrder
+    space: apm_simple
+    type: view
+    version: '1'

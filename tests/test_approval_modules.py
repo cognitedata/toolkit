@@ -18,7 +18,7 @@ import typer
 from cognite.client import CogniteClient
 from pytest import MonkeyPatch
 
-from cognite_toolkit.cdf import Common, build, deploy
+from cognite_toolkit.cdf import Common, build, clean, deploy
 from cognite_toolkit.cdf_tk.templates import TMPL_DIRS, read_yaml_files
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
@@ -26,6 +26,8 @@ REPO_ROOT = Path(__file__).parent.parent
 
 SNAPSHOTS_DIR = REPO_ROOT / "tests" / "test_approval_modules_snapshots"
 SNAPSHOTS_DIR.mkdir(exist_ok=True)
+SNAPSHOTS_DIR_CLEAN = REPO_ROOT / "tests" / "test_approval_modules_snapshots_clean"
+SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
 @contextlib.contextmanager
@@ -91,16 +93,7 @@ def typer_context(cdf_tool_config: CDFToolConfig) -> typer.Context:
     return context
 
 
-@pytest.mark.parametrize("module_path", list(find_all_modules()))
-def test_module_approval(
-    module_path: Path,
-    local_tmp_path: Path,
-    monkeypatch: MonkeyPatch,
-    cognite_client_approval: CogniteClient,
-    cdf_tool_config: CDFToolConfig,
-    typer_context: typer.Context,
-    data_regression,
-) -> None:
+def mock_read_yaml_files(module_path: Path, monkeypatch: MonkeyPatch) -> None:
     def fake_read_yaml_files(
         yaml_dirs: list[str],
         name: str | None = None,
@@ -110,6 +103,19 @@ def test_module_approval(
         return read_yaml_files(yaml_dirs, name)
 
     monkeypatch.setattr("cognite_toolkit.cdf_tk.templates.read_yaml_files", fake_read_yaml_files)
+
+
+@pytest.mark.parametrize("module_path", list(find_all_modules()))
+def test_deploy_module_approval(
+    module_path: Path,
+    local_tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    cognite_client_approval: CogniteClient,
+    cdf_tool_config: CDFToolConfig,
+    typer_context: typer.Context,
+    data_regression,
+) -> None:
+    mock_read_yaml_files(module_path, monkeypatch)
     build(
         typer_context,
         source_dir="./cognite_toolkit",
@@ -130,3 +136,34 @@ def test_module_approval(
 
     dump = cognite_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{module_path.name}.yaml")
+
+
+@pytest.mark.parametrize("module_path", list(find_all_modules()))
+def test_clean_module_approval(
+    module_path: Path,
+    local_tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    cognite_client_approval: CogniteClient,
+    cdf_tool_config: CDFToolConfig,
+    typer_context: typer.Context,
+    data_regression,
+) -> None:
+    mock_read_yaml_files(module_path, monkeypatch)
+    build(
+        typer_context,
+        source_dir="./cognite_toolkit",
+        build_dir=str(local_tmp_path),
+        build_env="test",
+        clean=True,
+    )
+    clean(
+        typer_context,
+        build_dir=str(local_tmp_path),
+        build_env="test",
+        interactive=False,
+        dry_run=False,
+        include=[],
+    )
+
+    dump = cognite_client_approval.dump()
+    data_regression.check(dump, fullpath=SNAPSHOTS_DIR_CLEAN / f"{module_path.name}.yaml")

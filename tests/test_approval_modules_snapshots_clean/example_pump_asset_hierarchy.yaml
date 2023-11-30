@@ -1,0 +1,7 @@
+deleted:
+  Table:
+  - db_name: pump_assets
+    name:
+    - collections_pump
+  Transformation:
+  - externalId: pump_asset_hierarchy-load-collections_pump
