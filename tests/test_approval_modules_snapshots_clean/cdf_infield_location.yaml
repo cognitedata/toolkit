@@ -1,0 +1,8 @@
+deleted:
+  Space:
+  - space_infield_default_location_app_data
+  - space_infield_default_location_source
+  Transformation:
+  - externalId: sync_asset_parents_from_hierarchy_to_apm
+  - externalId: sync_assets_from_hierarchy_to_apm
+  - externalId: sync_workorders_to_apm_activities
