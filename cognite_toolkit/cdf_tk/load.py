@@ -308,7 +308,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
             ToolGlobals.failed = True
             return []
 
-    def delete(self, ids: Sequence[T_ID]) -> int:
+    def delete(self, ids: Sequence[T_ID], drop_data: bool) -> int:
         self.api_class.delete(ids)
         return len(ids)
 
@@ -492,7 +492,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     def get_id(self, item: DataSet) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
     def retrieve(self, ids: Sequence[str]) -> DataSetList:
@@ -547,7 +547,7 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
     def get_id(cls, item: RawTable) -> RawTable:
         return item
 
-    def delete(self, ids: Sequence[RawTable]) -> int:
+    def delete(self, ids: Sequence[RawTable], drop_data: bool) -> int:
         count = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
@@ -614,7 +614,7 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
     def retrieve(self, ids: Sequence[str]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
         return len(ids)
 
@@ -663,7 +663,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
         transformation.data_set_id = ToolGlobals.data_set_id
         return transformation
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         self.client.transformations.delete(external_id=ids, ignore_unknown_ids=True)
         return len(ids)
 
@@ -719,7 +719,7 @@ class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
     def get_id(cls, item: Path) -> list[str]:
         raise NotImplementedError
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         # Drop all datapoints?
         raise NotImplementedError()
 
@@ -757,7 +757,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     def get_id(self, item: ExtractionPipeline) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         try:
             self.client.extraction_pipelines.delete(external_id=ids)
             return len(ids)
@@ -825,7 +825,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
     def get_id(cls, item: FileMetadata) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         self.client.files.delete(external_id=ids)
         return len(ids)
 
@@ -876,13 +876,30 @@ class SpaceLoader(Loader[str, SpaceApply, SpaceApplyList]):
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
             DataModelsAcl.Scope.All(),
         )
+        # + DataModelInstancesAcl(
+        #     [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+        #     DataModelInstancesAcl.Scope.All(),
+        # ))
 
     @classmethod
     def get_id(cls, item: SpaceApply) -> str:
         return item.space
 
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+        if not drop_data:
+            print("  [bold]INFO:[/] Skipping deletion of spaces as drop_data flag is not set...")
+            return 0
+        print("[bold]Deleting existing data...[/]")
+        for space in ids:
+            delete_instances(
+                client=self.client,
+                space_name=space,
+            )
+        deleted = self.client.data_modeling.spaces.delete(ids)
+        return len(deleted)
+
     def create(
-        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+        self, items: Sequence[SpaceApply], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList:
         return self.client.data_modeling.spaces.apply(items)
 
@@ -906,6 +923,13 @@ class ContainerLoader(Loader[ContainerId, ContainerApply, ContainerApplyList]):
     @classmethod
     def get_id(cls, item: ContainerApply) -> ContainerId:
         return item.as_id()
+
+    def delete(self, ids: Sequence[ContainerId], drop_data: bool) -> int:
+        if not drop_data:
+            print("  [bold]INFO:[/] Skipping deletion of containers as drop_data flag is not set...")
+            return 0
+        deleted = self.client.data_modeling.containers.delete(ids)
+        return len(deleted)
 
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
@@ -992,6 +1016,13 @@ class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
             raise ValueError(f"Unexpected node yaml file format {filepath.name}")
         return LoadableNodes.load(raw, cognite_client=self.client)
 
+    def delete(self, ids: Sequence[NodeId], drop_data: bool) -> int:
+        if not drop_data:
+            print("  [bold]INFO:[/] Skipping deletion of nodes as drop_data flag is not set...")
+            return 0
+        deleted = self.client.data_modeling.instances.delete(nodes=ids)
+        return len(deleted)
+
     def create(
         self, items: Sequence[LoadableNodes], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> LoadableNodes:
@@ -1036,6 +1067,13 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
             raise ValueError(f"Unexpected edge yaml file format {filepath.name}")
         return LoadableEdges.load(raw, cognite_client=self.client)
 
+    def delete(self, ids: Sequence[EdgeId], drop_data: bool) -> int:
+        if not drop_data:
+            print("  [bold]INFO:[/] Skipping deletion of edges as drop_data flag is not set...")
+            return 0
+        deleted = self.client.data_modeling.instances.delete(edges=ids)
+        return len(deleted)
+
     def create(
         self, items: Sequence[LoadableEdges], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> LoadableEdges:
@@ -1060,6 +1098,7 @@ def drop_load_resources(
     clean: bool = False,
     load: bool = True,
     dry_run: bool = False,
+    drop_data: bool = False,
     verbose: bool = False,
 ):
     if path.is_file():
@@ -1097,7 +1136,7 @@ def drop_load_resources(
                 drop_items.append(loader.get_id(item))
         if not dry_run:
             try:
-                nr_of_deleted += loader.delete(drop_items)
+                nr_of_deleted += loader.delete(drop_items, drop_data)
                 if verbose:
                     print(f"  Deleted {len(drop_items)} {loader.api_name}.")
             except CogniteAPIError as e:

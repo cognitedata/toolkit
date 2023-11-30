@@ -264,6 +264,7 @@ def deploy(
         drop=drop,
         load=True,
         dry_run=dry_run,
+        drop_data=drop_data,
         verbose=ctx.obj.verbose,
     )
 
@@ -387,6 +388,7 @@ def clean(
             ToolGlobals,
             drop=True,
             load=False,
+            drop_data=True,
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
         )

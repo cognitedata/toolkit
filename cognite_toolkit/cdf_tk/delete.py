@@ -27,7 +27,7 @@ from .utils import CDFToolConfig
 
 
 def delete_instances(
-    ToolGlobals: CDFToolConfig,
+    client: CogniteClient,
     space_name: str,
     dry_run=False,
     delete_edges=True,
@@ -43,12 +43,6 @@ def delete_instances(
     """
     if space_name is None or len(space_name) == 0:
         return
-    # TODO: Here we should really check on whether we have the Acl on the space, not yet implemented
-    client: CogniteClient = ToolGlobals.verify_client(
-        capabilities={
-            "dataModelInstancesAcl": ["READ", "WRITE"],
-        }
-    )
     print(f"[bold]Deleting instances in space {space_name}...[/]")
     if delete_edges:
         print("  Deleting edges...")
@@ -73,7 +67,6 @@ def delete_instances(
                 edge_count += len(instance_list)
         except Exception as e:
             print(f"[bold red]ERROR: [/] Failed to delete edges in {space_name}.\n{e}")
-            ToolGlobals.failed = True
             return
         print(f"    Found {edge_count} edges and deleted {edge_delete} edges from space {space_name}.")
     if delete_nodes:
@@ -95,7 +88,6 @@ def delete_instances(
                 node_count += len(instance_list)
         except Exception as e:
             print(f"[bold red]ERROR: [/] Failed to delete nodes in {space_name}.\n{e}")
-            ToolGlobals.failed = True
             return
         print(f"    Found {node_count} nodes and deleted {node_delete} nodes from {space_name}.")
 
