@@ -370,7 +370,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
         return cls(client, target_scopes)
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
         return GroupsAcl(
             [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
             GroupsAcl.Scope.All(),
@@ -869,15 +869,18 @@ class SpaceLoader(Loader[str, SpaceApply, SpaceApplyList]):
     list_cls = SpaceApplyList
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        return DataModelsAcl(
-            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.All(),
-        )
-        # + DataModelInstancesAcl(
-        #     [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
-        #     DataModelInstancesAcl.Scope.All(),
-        # ))
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+        return [
+            DataModelsAcl(
+                [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+                DataModelsAcl.Scope.All(),
+            ),
+            # Needed to delete instances
+            DataModelInstancesAcl(
+                [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+                DataModelInstancesAcl.Scope.All(),
+            ),
+        ]
 
     @classmethod
     def get_id(cls, item: SpaceApply) -> str:
