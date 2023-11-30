@@ -1,16 +1,13 @@
 DataSet:
-- description: This dataset contains files from the fileshare source system.
-  externalId: ds_fileshare_files
-  name: Files from fileshare
-- description: This dataset contains timeseries from the fileshare source system.
-  externalId: ds_pi_timeseries
-  name: Timeseries from pi
-- description: This dataset contains assets from the workmate source system.
-  externalId: ds_workmate_assets
-  name: Assets from workmate
-- description: This dataset contains workorders from the workmate source system.
-  externalId: ds_workmate_workorders
-  name: Workorders from workmate
+- description: This dataset contains asset data for the oid location.
+  externalId: ds_asset_oid
+  name: asset:oid
+- description: This dataset contains files for the oid location.
+  externalId: ds_files_oid
+  name: files:oid
+- description: This dataset contains timeseries for the oid location.
+  externalId: ds_timeseries_oid
+  name: timeseries:oid
 FileMetadata:
 - args: []
   kwargs:
@@ -114,38 +111,16 @@ FileMetadata:
 Row:
 - args: []
   columns:
-  - name
-  - source
-  - mime_type
-  - doc_type
-  dataframe: 6686969238704195952365148739205534040138816227190083465589239980372046743086
-  kwargs:
-    db_name: fileshare_files
-    ensure_parent: true
-    table_name: files_metadata
-  name: fileshare_files_files_metadata_True
-- args: []
-  columns:
-  - timeseries
-  - asset
-  dataframe: 55950994081533176249747558585122252386224890969921942100864987065996004229529
-  kwargs:
-    db_name: fileshare_files
-    ensure_parent: true
-    table_name: timeseries2assets
-  name: fileshare_files_timeseries2assets_True
-- args: []
-  columns:
   - key
   - externalId
   - sourceExternalId
   - targetExternalId
   dataframe: 65045431972253372923239764963735693788120831221123132526172499668461365615556
   kwargs:
-    db_name: workmate_assets
+    db_name: asset_oid_workmate
     ensure_parent: true
     table_name: asset2children
-  name: workmate_assets_asset2children_True
+  name: asset_oid_workmate_asset2children_True
 - args: []
   columns:
   - key
@@ -162,10 +137,32 @@ Row:
   - isActive
   dataframe: 94430041190918800494911115394739451784112572138295829851999408806509502700252
   kwargs:
-    db_name: workmate_assets
+    db_name: asset_oid_workmate
     ensure_parent: true
     table_name: assets
-  name: workmate_assets_assets_True
+  name: asset_oid_workmate_assets_True
+- args: []
+  columns:
+  - name
+  - source
+  - mime_type
+  - doc_type
+  dataframe: 6686969238704195952365148739205534040138816227190083465589239980372046743086
+  kwargs:
+    db_name: files_oid_fileshare
+    ensure_parent: true
+    table_name: files_metadata
+  name: files_oid_fileshare_files_metadata_True
+- args: []
+  columns:
+  - timeseries
+  - asset
+  dataframe: 55950994081533176249747558585122252386224890969921942100864987065996004229529
+  kwargs:
+    db_name: files_oid_fileshare
+    ensure_parent: true
+    table_name: timeseries2assets
+  name: files_oid_fileshare_timeseries2assets_True
 - args: []
   columns:
   - key
@@ -174,10 +171,10 @@ Row:
   - targetExternalId
   dataframe: 70999460826851891666355556169020792890288256089899308969084950738510319920668
   kwargs:
-    db_name: workmate_workorders
+    db_name: workorder_oid_workmate
     ensure_parent: true
     table_name: workitem2assets
-  name: workmate_workorders_workitem2assets_True
+  name: workorder_oid_workmate_workitem2assets_True
 - args: []
   columns:
   - key
@@ -195,10 +192,10 @@ Row:
   - isCompleted
   dataframe: 15402156880038161691649867030405339701750462867801433644546809449178377662691
   kwargs:
-    db_name: workmate_workorders
+    db_name: workorder_oid_workmate
     ensure_parent: true
     table_name: workitems
-  name: workmate_workorders_workitems_True
+  name: workorder_oid_workmate_workitems_True
 - args: []
   columns:
   - key
@@ -207,10 +204,10 @@ Row:
   - targetExternalId
   dataframe: 18638660796871288518235232457006931572805212660330594264228924851739487286440
   kwargs:
-    db_name: workmate_workorders
+    db_name: workorder_oid_workmate
     ensure_parent: true
     table_name: workorder2assets
-  name: workmate_workorders_workorder2assets_True
+  name: workorder_oid_workmate_workorder2assets_True
 - args: []
   columns:
   - key
@@ -219,10 +216,10 @@ Row:
   - targetExternalId
   dataframe: 87761117627110273022694517750470728190726449018707882989068562732740921122223
   kwargs:
-    db_name: workmate_workorders
+    db_name: workorder_oid_workmate
     ensure_parent: true
     table_name: workorder2items
-  name: workmate_workorders_workorder2items_True
+  name: workorder_oid_workmate_workorder2items_True
 - args: []
   columns:
   - key
@@ -248,10 +245,10 @@ Row:
   - programNumber
   dataframe: 39027066751652190754154965909250931653588743896956924953253757672617848762589
   kwargs:
-    db_name: workmate_workorders
+    db_name: workorder_oid_workmate
     ensure_parent: true
     table_name: workorders
-  name: workmate_workorders_workorders_True
+  name: workorder_oid_workmate_workorders_True
 TimeSeries:
 - dataSetId: 999
   description: PH 1st Stg Disch Gas Coolers
@@ -682,7 +679,7 @@ Transformation:
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`externalId`\
     \ as STRING) as name,\n  cast(`description` as STRING) as description,\n  cast(`sourceDb`\
     \ as STRING) as source,\n  cast(`parentExternalId` as STRING) as parentExternalId\n\
-    from\n  `workmate_assets`.`assets`;\n"
+    from\n  `asset_oid_workmate`.`assets`;\n"
   schedule:
     externalId: oid-load-asset-hierarchy
     interval: 0 * * * *
@@ -712,31 +709,31 @@ deleted:
   - externalId: fileshare_PH-ME-P-0156-002.pdf
   - externalId: fileshare_PH-ME-P-0160-001.pdf
   Table:
-  - db_name: fileshare_files
-    name:
-    - files_metadata
-  - db_name: fileshare_files
-    name:
-    - timeseries2assets
-  - db_name: workmate_assets
+  - db_name: asset_oid_workmate
     name:
     - asset2children
-  - db_name: workmate_assets
+  - db_name: asset_oid_workmate
     name:
     - assets
-  - db_name: workmate_workorders
+  - db_name: files_oid_fileshare
+    name:
+    - files_metadata
+  - db_name: files_oid_fileshare
+    name:
+    - timeseries2assets
+  - db_name: workorder_oid_workmate
     name:
     - workitem2assets
-  - db_name: workmate_workorders
+  - db_name: workorder_oid_workmate
     name:
     - workitems
-  - db_name: workmate_workorders
+  - db_name: workorder_oid_workmate
     name:
     - workorder2assets
-  - db_name: workmate_workorders
+  - db_name: workorder_oid_workmate
     name:
     - workorder2items
-  - db_name: workmate_workorders
+  - db_name: workorder_oid_workmate
     name:
     - workorders
   TimeSeries:
