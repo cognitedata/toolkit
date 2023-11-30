@@ -664,7 +664,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     folder_name = "extraction_pipelines"
     resource_cls = ExtractionPipeline
     list_cls = ExtractionPipelineList
-    dependencies = frozenset({RawLoader, DatapointsLoader})
+    dependencies = frozenset({DataSetsLoader, RawLoader})
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
