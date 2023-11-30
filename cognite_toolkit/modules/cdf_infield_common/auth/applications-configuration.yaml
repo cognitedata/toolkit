@@ -3,7 +3,6 @@ sourceId: '{{applicationsconfiguration_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
 capabilities:
-
   - groupsAcl:
       actions:
         - LIST
@@ -16,6 +15,31 @@ capabilities:
       scope:
         all: {}
   - assetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - dataModelInstancesAcl:
+      actions:
+        - WRITE
+      scope:
+        spaceIdScope: {
+            spaceIds: [
+              'cognite_app_data',
+              'APM_Config'
+            ]
+        }
+  - datasetsAcl:
       actions:
         - READ
       scope:
