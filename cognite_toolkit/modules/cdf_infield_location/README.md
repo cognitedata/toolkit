@@ -6,14 +6,15 @@ rename the module name to e.g. `infield_location_<location_name>`.
 
 ## Defaults
 
-The module has been set up to use data from the `examples/apm_simple` module. That module
-loads data into RAW, an apm_simple data model, and a set of transformations to move data
-into the apm_simple data model. This module only uses the data from the RAW tables
-to create the classic asset hierarchy, populate assets in data models, and to
-make activities from the `workorders` table in RAW.
+The module has been set up to use data from the `examples/cdf_oid_example_data` module. That module
+loads data into RAW, and a transformation to move data
+into the classic asset hierarchy in CDF.
+
+This module only uses the data from the classic asset hierarchy to populate assets in data models, and
+from the RAW tables to make activities from the `workorders` table in RAW.
 
 In [./default.config.yaml](default.config.yaml), you will find default values that are adapted to the
-`apm_simple` data set.
+`cdf_oid_example_data` data set.
 
 ## app_config
 
