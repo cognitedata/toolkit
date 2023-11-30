@@ -1,2 +1,2 @@
-dbName: {{source_assets}}_assets
+dbName: asset_{{default_location}}_{{source_asset}}
 tableName: assets

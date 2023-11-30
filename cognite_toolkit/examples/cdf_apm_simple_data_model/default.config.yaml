@@ -1,9 +1,9 @@
-# Only valid for this module, loads template variables from environment
+# Values here are only valid for this module.
 # The raw database values here point to the RAW data loaded in the cdf_oid_example_data
-# module. 
-assets_raw_db: workmate_assets
-workorders_raw_db: workmate_workorders
-files_raw_db: fileshare_files
+# module. If you have changed the default values in that module, you need to change them here as well.
+asset_raw_db: asset_oid_workmate
+workorder_raw_db: workorder_oid_workmate
+files_raw_db: files_oid_fileshare
 datamodel: apm_simple
 space: apm_simple
 datamodel_version: '1'

@@ -11,4 +11,4 @@
     '{{root_asset_external_id}}' as rootLocation,
     'workmate' as source
   from
-    `{{workorders_raw_db}}`.`{{workorder_table_name}}`;
+    `{{workorder_raw_db}}`.`{{workorder_table_name}}`;

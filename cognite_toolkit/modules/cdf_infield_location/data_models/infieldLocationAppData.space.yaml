@@ -1,4 +1,4 @@
 ---
-space: space_infield_{{location_name}}_location_app_data
-name: space_infield_{{location_name}}_location_app_data
+space: space_infield_{{default_location}}_app_data
+name: space_infield_{{default_location}}_app_data
 description: Space for Infield Location App Data

@@ -15,9 +15,9 @@ nodes:
     featureConfiguration: 
       rootLocationConfigurations:
         - assetExternalId: {{root_asset_external_id}}
-          appDataInstanceSpace: space_infield_{{location_name}}_location_app_data
-          sourceDataInstanceSpace: space_infield_{{location_name}}_location_source
+          appDataInstanceSpace: space_infield_{{default_location}}_app_data
+          sourceDataInstanceSpace: space_infield_{{default_location}}_source
           templateAdmins:
-          - infield_{{location_name}}_template_admins
+          - infield_{{default_location}}_template_admins
           checklistAdmins:
-          - infield_{{location_name}}_checklist_admins
+          - infield_{{default_location}}_checklist_admins

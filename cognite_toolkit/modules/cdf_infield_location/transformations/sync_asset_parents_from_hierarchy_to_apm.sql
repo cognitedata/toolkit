@@ -2,7 +2,7 @@ select
   cast(asset.externalId as STRING) as externalId,
   (case
     when isnull(asset.parentExternalId) then null
-    else node_reference('space_infield_{{location_name}}_location_source', asset.parentExternalId) 
+    else node_reference('space_infield_{{default_location}}_source', asset.parentExternalId) 
   end) as parent
 from
   cdf_assetSubtree('{{root_asset_external_id}}') as asset

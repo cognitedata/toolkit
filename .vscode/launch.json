@@ -29,10 +29,10 @@
             "args": [
                 "deploy",
                 //"--dry-run",
-                //"--drop",
+                "--drop",
                 //"--drop-data",
                 "--env=local",
-                "--include=transformations",
+                //"--include=transformations",
                 "./build"
             ],
             "console": "integratedTerminal",
@@ -45,9 +45,9 @@
             "program": "./cognite_toolkit/cdf.py",
             "args": [
                 "clean",
-                "--dry-run",
+                //"--dry-run",
                 "--env=local",
-                "--include=transformations"
+                //"--include=transformations"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

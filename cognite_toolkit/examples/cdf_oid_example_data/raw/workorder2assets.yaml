@@ -1,2 +1,2 @@
-dbName: {{source_workorders}}_workorders
+dbName: workorder_{{default_location}}_{{source_workorders}}
 tableName: workorder2assets
