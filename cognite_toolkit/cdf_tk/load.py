@@ -670,8 +670,23 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     def get_id(self, item: ExtractionPipeline) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str]) -> None:
-        self.client.files.delete(external_id=ids)
+    def delete(self, ids: Sequence[str]) -> int:
+        try:
+            self.client.extraction_pipelines.delete(external_id=ids)
+            return len(ids)
+        except CogniteNotFoundError as e:
+            print(
+                f"  [bold yellow]WARNING:[/] {len(e.not_found)} out of {len(ids)} extraction pipelines do(es) not exist."
+            )
+
+            for dup in e.not_found:
+                ext_id = dup.get("externalId", None)
+                ids.remove(ext_id)
+
+            if len(ids) > 0:
+                self.client.extraction_pipelines.delete(external_id=ids)
+                return len(ids)
+            return 0
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
@@ -686,12 +701,12 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
             return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
 
         except CogniteDuplicatedError as e:
-            if len(e.duplicated) < len(items.data):
+            if len(e.duplicated) < len(items):
                 for dup in e.duplicated:
                     ext_id = dup.get("externalId", None)
-                    for item in items.data:
+                    for item in items:
                         if item.external_id == ext_id:
-                            items.data.remove(item)
+                            items.remove(item)
                 try:
                     return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
                 except Exception as e:
@@ -806,9 +821,9 @@ def drop_load_resources(
                     print(f"  Deleted {len(drop_items)} {loader.api_name}.")
             except CogniteAPIError as e:
                 if e.code == 404:
-                    print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do not exist.")
+                    print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do(es) not exist.")
             except CogniteNotFoundError:
-                print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do not exist.")
+                print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do(es) not exist.")
             except Exception as e:
                 print(f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. Error {e}")
         else:
