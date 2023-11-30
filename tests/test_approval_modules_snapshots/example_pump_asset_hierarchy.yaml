@@ -42,45 +42,6 @@ Row:
     ensure_parent: true
     table_name: collections_pump
   name: pump_assets_collections_pump_True
-- args: []
-  columns:
-  - OBJECTID
-  - FacilityID
-  - InstallDate
-  - LifeCycleStatus
-  - LocationDescription
-  - Comments
-  - PumpOn
-  - PumpOff
-  - PumpOutDia
-  - VFD
-  - VFDSetting
-  - Position
-  - LiftStationID
-  - PumpNumber
-  - PumpHP
-  - HighHeadShutOff
-  - DesignPointHeadFT
-  - DesignPointFlowGPM
-  - LowHeadFT
-  - LowHeadFlowGPM
-  - PumpControl
-  - PumpModel
-  - LastUpdate
-  - LastEditor
-  - Enabled
-  - GlobalID
-  - created_user
-  - created_date
-  - last_edited_user
-  - last_edited_date
-  - Shape__Length
-  dataframe: 51381405308506810800203083644429693369666914970992597363396926518830320871555
-  kwargs:
-    db_name: pump_assets
-    ensure_parent: true
-    table_name: collections_pump
-  name: pump_assets_collections_pump_True
 Transformation:
 - dataSetId: 999
   destination:
@@ -132,9 +93,6 @@ TransformationSchedule:
   isPaused: true
 deleted:
   Table:
-  - db_name: pump_assets
-    name:
-    - collections_pump
   - db_name: pump_assets
     name:
     - collections_pump

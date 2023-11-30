@@ -1,5 +1,5 @@
-externalId: apm_simple-load-asset-hierarchy
-name: apm_simple-load-Asset-hierarchy
+externalId: oid-load-asset-hierarchy
+name: oid-load-Asset-hierarchy
 destination:
   type: "asset_hierarchy"
 ignoreNullFields: true
