@@ -712,18 +712,18 @@ deleted:
   - externalId: fileshare_PH-ME-P-0156-002.pdf
   - externalId: fileshare_PH-ME-P-0160-001.pdf
   Table:
-  - db_name: workmate_assets
-    name:
-    - asset2children
-  - db_name: workmate_assets
-    name:
-    - assets
   - db_name: fileshare_files
     name:
     - files_metadata
   - db_name: fileshare_files
     name:
     - timeseries2assets
+  - db_name: workmate_assets
+    name:
+    - asset2children
+  - db_name: workmate_assets
+    name:
+    - assets
   - db_name: workmate_workorders
     name:
     - workitem2assets
