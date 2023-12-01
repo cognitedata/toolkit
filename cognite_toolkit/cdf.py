@@ -598,7 +598,6 @@ def main_init(
         Optional[bool],
         typer.Option(
             "--clean",
-            hidden=True,
             help="Will delete the new_project directory before starting",
         ),
     ] = False,
