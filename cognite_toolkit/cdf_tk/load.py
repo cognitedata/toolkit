@@ -1210,7 +1210,7 @@ def load_datamodel(
                             ToolGlobals.failed = True
                             return
                     print(
-                        f"  Created {len(items.changed)} unchanged {type_}(s) that could have been skipped (--drop specified)."
+                        f"  Created {len(items.unchanged)} unchanged {type_}(s) that could have been skipped (--drop specified)."
                     )
 
     if delete_removed and not drop:
