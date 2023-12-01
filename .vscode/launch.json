@@ -15,7 +15,7 @@
                 "build",
                 "--build-dir=build",
                 "--clean",
-                "--env=demo",
+                "--env=local",
                 "./cognite_toolkit/"
             ],
             "console": "integratedTerminal",
@@ -28,11 +28,11 @@
             "program": "./cognite_toolkit/cdf.py",
             "args": [
                 "deploy",
-                //"--dry-run",
+                "--dry-run",
                 //"--drop",
                 //"--drop-data",
                 "--env=local",
-                "--include=transformations",
+                //"--include=transformations",
                 "./build"
             ],
             "console": "integratedTerminal",
