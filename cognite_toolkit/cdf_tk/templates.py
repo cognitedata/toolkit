@@ -58,7 +58,7 @@ def read_environ_config(
             if os.environ.get("CDF_PROJECT", "<not set>") != v:
                 if build_env == "dev" or build_env == "local" or build_env == "demo":
                     print(
-                        f"  [bold red]WARNING:[/] Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ.get('CDF_PROJECT','<not_set>')})."
+                        f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ.get('CDF_PROJECT','<not_set>')})."
                     )
                     print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
                 else:
@@ -85,7 +85,7 @@ def read_environ_config(
         return []
     if len(modules) == 0:
         print(
-            f"  [bold red]WARNING:[/] Found no defined modules in local.yaml, have you configured the environment ({build_env})?"
+            f"  [bold yellow]WARNING:[/] Found no defined modules in local.yaml, have you configured the environment ({build_env})?"
         )
     load_list = []
     module_dirs = {}
@@ -185,14 +185,14 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path) 
         )
         return False
     if resource_type == "auth":
-        parts = parsed.get("name").split(":")
+        parts = ext_id.split(":")
         if len(parts) < 2:
             print(
-                f"      [bold yellow]WARNING:[/] the group {filepath_build} has a name [bold]{parsed.get('name')}[/] without the recommended ':' based namespacing."
+                f"      [bold yellow]WARNING:[/] the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended ':' based namespacing."
             )
         if parts[0] != "cicd" and parts[0] != "gp_":
             print(
-                f"      [bold yellow]WARNING:[/] the group {filepath_build} has a name [bold]{parsed.get('name')}[/] without the recommended 'cicd' or `gp_` based prefix."
+                f"      [bold yellow]WARNING:[/] the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended 'cicd' or `gp_` based prefix."
             )
     elif resource_type == "transformations":
         # First try to find the sql file next to the yaml file with the same name
@@ -232,7 +232,7 @@ def process_config_files(
                 path.mkdir()
                 print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir}.")
             else:
-                print("  [bold red]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
+                print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
         path.mkdir()
 
@@ -306,7 +306,7 @@ def process_config_files(
 
                 filepath = new_path / file_name
                 for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-                    print(f"  [bold red]WARNING:[/] Unresolved template variable {unmatched} in {new_path}/{file_name}")
+                    print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {new_path}/{file_name}")
 
                 filepath.write_text(content)
 

@@ -115,7 +115,7 @@ def delete_containers(ToolGlobals: CDFToolConfig, dry_run=False, containers: Con
         else:
             print(f"    Would have deleted {len(containers)} container(s).")
     except Exception as e:
-        print(f"    [bold red]WARNING: [/] Was not able to delete containers. May not exist.\n{e}")
+        print(f"    [bold yellow]WARNING: [/] Was not able to delete containers. May not exist.\n{e}")
         ToolGlobals.failed = True
 
 
@@ -289,7 +289,7 @@ def clean_out_datamodels(ToolGlobals: CDFToolConfig, dry_run=False, instances=Fa
             delete_instances(ToolGlobals, space_name=s.space, dry_run=dry_run)
         else:
             print(
-                "[bold red]INFO[/]Did not find --instances flag and will try to delete empty spaces without deleting remaining nodes and edges."
+                "[bold yellow]WARNING[/]Did not find --instances flag and will try to delete empty spaces without deleting remaining nodes and edges."
             )
     delete_spaces(ToolGlobals, dry_run=dry_run, spaces=spaces)
     ToolGlobals.failed = False
