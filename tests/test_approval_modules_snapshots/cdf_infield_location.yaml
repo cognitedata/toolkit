@@ -409,7 +409,7 @@ Transformation:
     tokenUri: ${IDP_TOKEN_URL}
 - dataSetId: 999
   destination:
-    instanceSpace: space_infield_oid_source
+    instanceSpace: space_asset_oid_source
     type: nodes
     view:
       externalId: Asset
@@ -452,7 +452,7 @@ Transformation:
       externalId: APM_SourceData
       space: APM_SourceData
       version: '1'
-    instanceSpace: space_infield_oid_source
+    instanceSpace: space_asset_oid_source
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
