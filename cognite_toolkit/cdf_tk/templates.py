@@ -162,7 +162,15 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
         ext_id = parsed.get("space")
         ext_id_type = "space"
     elif resource_type == "data_models" and ".node." in filepath_src.name:
-        ext_id = parsed.get("view", {}).get("externalId") or parsed.get("view", {}).get("external_id")
+        try:
+            ext_ids = {source["source"]["externalId"] for node in parsed["nodes"] for source in node["sources"]}
+        except KeyError:
+            print(f"      [bold red]:[/] Node file {filepath_src} has invalid dataformat.")
+            exit(1)
+        if len(ext_ids) != 1:
+            print(f"      [bold red]:[/] All nodes in {filepath_src} must have the same view.")
+            exit(1)
+        ext_id = ext_ids.pop()
         ext_id_type = "view.externalId"
     elif resource_type == "auth":
         ext_id = parsed.get("name")
@@ -369,12 +377,16 @@ def process_config_files(
                             f"  [bold red]ERROR:[/] YAML validation error for {file_name} after substituting config variables: \n{e}"
                         )
                         exit(1)
-                    if not check_yaml_semantics(
-                        parsed=parsed,
-                        filepath_src=orig_file,
-                        filepath_build=filepath,
-                    ):
-                        exit(1)
+
+                    if isinstance(parsed, dict):
+                        parsed = [parsed]
+                    for item in parsed:
+                        if not check_yaml_semantics(
+                            parsed=item,
+                            filepath_src=orig_file,
+                            filepath_build=filepath,
+                        ):
+                            exit(1)
 
 
 def build_config(

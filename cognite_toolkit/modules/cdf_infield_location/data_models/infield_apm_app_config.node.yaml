@@ -13,7 +13,7 @@ nodes:
         properties:
           featureConfiguration:
             rootLocationConfigurations:
-              - assetExternalId: {{{root_asset_external_id}}
+              - assetExternalId: {{root_asset_external_id}}
                 appDataInstanceSpace: sp_infield_{{default_location}}_app_data
                 sourceDataInstanceSpace: sp_asset_{{default_location}}_source
                 templateAdmins:

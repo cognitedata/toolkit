@@ -984,8 +984,10 @@ class ContainerLoader(Loader[ContainerId, ContainerApply, ContainerApplyList]):
         return len(deleted)
 
     def create(
-        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
+        self, items: Sequence[ContainerApply], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList:
+        ToolGlobals.verify_spaces(list({item.space for item in items}))
+
         return self.client.data_modeling.containers.apply(items)
 
 
@@ -1012,6 +1014,7 @@ class ViewLoader(Loader[ViewId, ViewApply, ViewApplyList]):
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList:
+        ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.views.apply(items)
 
 
@@ -1039,6 +1042,7 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList:
+        ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.data_models.apply(items)
 
 
@@ -1080,6 +1084,7 @@ class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
     ) -> LoadableNodes:
         if not isinstance(items, LoadableNodes):
             raise ValueError("Unexpected node format file format")
+        ToolGlobals.verify_spaces(list({item.space for item in items}))
         item = items
         _ = self.client.data_modeling.instances.apply(
             nodes=item.nodes,
@@ -1131,6 +1136,7 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
     ) -> LoadableEdges:
         if not isinstance(items, LoadableEdges):
             raise ValueError("Unexpected edge format file format")
+        ToolGlobals.verify_spaces(list({item.space for item in items}))
         item = items
         _ = self.client.data_modeling.instances.apply(
             edges=item.edges,

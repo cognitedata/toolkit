@@ -43,12 +43,16 @@ Changes are grouped as follows:
 - Missing .sql files for transformations will now raise an error in the build step.
 - The build step will now raise a number of warnings for missing externalIds in the yaml files,
   as well as if the naming conventions are not followed.
+- Added support for validation of `space` for data models.
 
 ### Fixed
 
 - `cdf-tk clean` not supporting `--include` properly.
 - `cdf-tk clean` not working properly for data models with data.
 - Fix group deletion on use of clean command to actually delete groups.
+
+### Removed
+- Support for `.graphql` deployment.
 
 ## [0.1.0a2] - 2023-11-22
 
