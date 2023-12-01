@@ -1,12 +1,12 @@
-externalId: apm_simple-load-workitems2assets
-name: apm_simple-load-workitems2assets
+externalId: tr_asset_{{default_location}}_{{source_asset}}_apm_simple_load_asset2children
+name: asset:{{default_location}}:{{source_asset}}:apm_simple:load_asset2children
 destination:
   dataModel:
     space: {{space}}
     externalId: {{datamodel}}
     version: '1'
-    destinationType: WorkItem
-    destinationRelationshipFromType: linkedAssets
+    destinationType: Asset
+    destinationRelationshipFromType: children
   instanceSpace: {{space}}
   type: instances
 ignoreNullFields: true

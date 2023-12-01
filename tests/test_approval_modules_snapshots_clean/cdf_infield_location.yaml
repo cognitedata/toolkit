@@ -4,9 +4,9 @@ deleted:
     instanceType: node
     space: APM_Config
   Space:
-  - space_infield_default_location_app_data
-  - space_infield_default_location_source
+  - sp_asset_oid_source
+  - sp_infield_oid_app_data
   Transformation:
-  - externalId: sync_asset_parents_from_hierarchy_to_apm
-  - externalId: sync_assets_from_hierarchy_to_apm
-  - externalId: sync_workorders_to_apm_activities
+  - externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
+  - externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
+  - externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities

@@ -19,4 +19,4 @@ cast(`priorityDescription` as STRING) as priorityDescription,
 cast(`dueDate` as TIMESTAMP) as dueDate, 
 cast(`createdDate` as TIMESTAMP) as createdDate, 
 cast(`programNumber` as STRING) as programNumber 
-from `{{source_raw_db}}`.`workorders`;
+from `workorder_{{default_location}}_{{source_workorder}}`.`workorders`;

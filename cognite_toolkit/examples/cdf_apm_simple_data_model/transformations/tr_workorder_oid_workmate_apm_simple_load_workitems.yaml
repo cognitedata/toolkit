@@ -1,11 +1,11 @@
-externalId: apm_simple-load-timeseries2assets
-name: apm_simple-load-timeseries2assets
+externalId: tr_workorder_{{default_location}}_{{source_workorder}}_apm_simple_load_workitems
+name: workorder:{{default_location}}:{{source_workorder}}:apm_simple:load_workitems
 destination:
   dataModel:
     space: {{space}}
     externalId: {{datamodel}}
     version: '1'
-    destinationType: Asset
+    destinationType: WorkItem
   instanceSpace: {{space}}
   type: instances
 ignoreNullFields: true

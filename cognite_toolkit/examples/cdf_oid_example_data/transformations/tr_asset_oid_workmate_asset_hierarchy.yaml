@@ -1,5 +1,5 @@
-externalId: oid-load-asset-hierarchy
-name: oid-load-Asset-hierarchy
+externalId: tr_asset_{{default_location}}_{{source_asset}}_asset_hierarchy
+name: asset:{{default_location}}:{{source_asset}}:asset_hierarchy
 destination:
   type: "asset_hierarchy"
 ignoreNullFields: true
@@ -19,4 +19,4 @@ authentication:
 schedule:
   # every hour
   interval: '0 * * * *'
-  isPaused: true
+  isPaused: false

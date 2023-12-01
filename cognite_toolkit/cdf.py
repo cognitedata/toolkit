@@ -92,7 +92,7 @@ def common(
         print("       Use --help for more information.")
         return
     if override_env:
-        print("  [bold red]WARNING:[/] Overriding environment variables with values from .env file...")
+        print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
         if cluster is not None or project is not None:
             print("            --cluster or --project are set and will override .env file values.")
     if not (Path.cwd() / ".env").is_file():
@@ -244,7 +244,9 @@ def deploy(
     typer.echo(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     build_path = Path(build_dir)
     if not build_path.is_dir():
-        typer.echo(f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?")
+        typer.echo(
+            f"  [bold yellow]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?"
+        )
         exit(1)
 
     include = _process_include(include, interactive)
@@ -362,7 +364,9 @@ def clean(
     print(Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]"))
     build_path = Path(build_dir)
     if not build_path.is_dir():
-        typer.echo(f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?")
+        typer.echo(
+            f"  [bold yellow]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?"
+        )
         exit(1)
 
     include = _process_include(include, interactive)
@@ -536,7 +540,6 @@ def main_init(
         Optional[bool],
         typer.Option(
             "--clean",
-            hidden=True,
             help="Will delete the new_project directory before starting",
         ),
     ] = False,

@@ -12,4 +12,3 @@ You can do `cdf-tk init --upgrade` in this directory to upgrade all the `cdf_*` 
 latest version. Your `config.yaml` files will not be touched.
 
 Use this file to document your configuration files!
-

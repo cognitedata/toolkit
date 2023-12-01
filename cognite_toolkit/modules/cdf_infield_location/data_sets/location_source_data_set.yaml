@@ -1,3 +1,0 @@
-- externalId: 'ds_infield_{{location_name}}_location_source'
-  name: Infield {{location_name}} location source data set
-  description: This dataset is the data set used by Infield to read source data for location {{location_name}}.
