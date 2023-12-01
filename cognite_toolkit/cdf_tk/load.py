@@ -1015,7 +1015,7 @@ def load_datamodel(
 
     implicit_spaces = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
     for s in implicit_spaces:
-        if s.name not in [s2.name for s2 in cognite_resources_by_type["space"]]:
+        if s.space not in [s2.space for s2 in cognite_resources_by_type["space"]]:
             print(
                 f"  [bold red]ERROR[/] Space {s.name} is implicitly defined and may need it's own {s.name}.space.yaml file."
             )
