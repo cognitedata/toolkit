@@ -64,7 +64,7 @@ capabilities:
               'APM_Config',
               'cdf_apm',
               'cognite_app_data', # this space must be created to store user profile information
-              'sp_infield_{{default_location}}_source', # from modules/config.yaml
+              'sp_asset_{{default_location}}_source', # from modules/config.yaml
               'sp_infield_{{default_location}}_app_data' # from modules/config.yaml
             ]
         }

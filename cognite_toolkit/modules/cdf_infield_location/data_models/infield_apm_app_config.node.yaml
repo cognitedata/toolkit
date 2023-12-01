@@ -16,7 +16,7 @@ nodes:
       rootLocationConfigurations:
         - assetExternalId: {{root_asset_external_id}}
           appDataInstanceSpace: sp_infield_{{default_location}}_app_data
-          sourceDataInstanceSpace: sp_infield_{{default_location}}_source
+          sourceDataInstanceSpace: sp_asset_{{default_location}}_source
           templateAdmins:
           - gp_infield_{{default_location}}_template_admins
           checklistAdmins:
