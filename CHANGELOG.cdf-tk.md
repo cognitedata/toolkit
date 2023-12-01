@@ -22,7 +22,8 @@ Changes are grouped as follows:
 - Refactored load functionality. Loading raw tables and files now requires a `yaml` file with metadata.
 - Fix container comparison to detect identical containers when loading data models (without --drop flag).
 - Clean up error on resource does not exist when deleting (on `deploy --drop` or using clean command).
-  
+- Require all spaces to be explicitly defined as separate .space.yaml file.
+
 ### Added
 
 - Support for loading `data_sets`.
@@ -44,6 +45,7 @@ Changes are grouped as follows:
 - The build step will now raise a number of warnings for missing externalIds in the yaml files,
   as well as if the naming conventions are not followed.
 - Added support for validation of `space` for data models.
+
 
 ### Fixed
 
