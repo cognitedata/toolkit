@@ -1,0 +1,6 @@
+deleted:
+  Space:
+  - space_infield_oid_app_data
+  - space_infield_oid_source
+  Transformation:
+  - externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm

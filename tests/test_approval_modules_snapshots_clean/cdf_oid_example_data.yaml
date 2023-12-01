@@ -1,0 +1,51 @@
+deleted:
+  FileMetadata:
+  - externalId: fileshare_PH-25578-P-4110006-001.pdf
+  - externalId: fileshare_PH-25578-P-4110010-001.pdf
+  - externalId: fileshare_PH-25578-P-4110119-001.pdf
+  - externalId: fileshare_PH-ME-P-0003-001.pdf
+  - externalId: fileshare_PH-ME-P-0004-001.pdf
+  - externalId: fileshare_PH-ME-P-0151-001.pdf
+  - externalId: fileshare_PH-ME-P-0152-001.pdf
+  - externalId: fileshare_PH-ME-P-0153-001.pdf
+  - externalId: fileshare_PH-ME-P-0156-001.pdf
+  - externalId: fileshare_PH-ME-P-0156-002.pdf
+  - externalId: fileshare_PH-ME-P-0160-001.pdf
+  Table:
+  - db_name: asset_oid_workmate
+    name:
+    - asset2children
+  - db_name: asset_oid_workmate
+    name:
+    - assets
+  - db_name: files_oid_fileshare
+    name:
+    - files_metadata
+  - db_name: timeseries_oid_fileshare
+    name:
+    - timeseries2assets
+  - db_name: workorder_oid_workmate
+    name:
+    - workitem2assets
+  - db_name: workorder_oid_workmate
+    name:
+    - workitems
+  - db_name: workorder_oid_workmate
+    name:
+    - workorder2assets
+  - db_name: workorder_oid_workmate
+    name:
+    - workorder2items
+  - db_name: workorder_oid_workmate
+    name:
+    - workorders
+  TimeSeries:
+  - externalId: pi:160633
+  - externalId: pi:160696
+  - externalId: pi:160702
+  - externalId: pi:160781
+  - externalId: pi:163582
+  - externalId: pi:163657
+  - externalId: pi:191092
+  Transformation:
+  - externalId: tr_asset_oid_workmate_asset_hierarchy
