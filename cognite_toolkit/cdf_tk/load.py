@@ -591,11 +591,15 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
         transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
             destination_oidc_credentials
         )
-        sql_file = filepath.parent / f"{transformation.external_id}.sql"
+        # Find the non-integer prefixed filename
+        file_name = filepath.stem.split(".", 2)[1]
+        sql_file = filepath.parent / f"{file_name}.sql"
         if not sql_file.exists():
-            raise FileNotFoundError(
-                f"Could not find sql file {sql_file.name}. Expected to find it next to the yaml config file."
-            )
+            sql_file = filepath.parent / f"{transformation.external_id}.sql"
+            if not sql_file.exists():
+                raise FileNotFoundError(
+                    f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
+                )
         transformation.query = sql_file.read_text()
         transformation.data_set_id = ToolGlobals.data_set_id
         return transformation
@@ -774,28 +778,28 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         except Exception:
             files = FileMetadataList.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
         # If we have a file with exact one file config, check to see if this is a pattern to expand
-        if len(files.data) == 1 and ("$FILENAME" in files.data[0].external_id or ""):  
-                # It is, so replace this file with all files in this folder using the same data
-                file_data = files.data[0]
-                ext_id_pattern = file_data.external_id
-                files = FileMetadataList([], cognite_client=self.client)
-                for file in filepath.parent.glob("*"):
-                    if file.suffix[1:] in ["yaml", "yml"]:
-                        continue
-                    files.append(
-                        FileMetadata(
-                            name=file.name,
-                            external_id=re.sub(r"\$FILENAME", file.name, ext_id_pattern),
-                            data_set_id=file_data.data_set_id,
-                            source=file_data.source,
-                            metadata=file_data.metadata,
-                            directory=file_data.directory,
-                            asset_ids=file_data.asset_ids,
-                            labels=file_data.labels,
-                            geo_location=file_data.geo_location,
-                            security_categories=file_data.security_categories,
-                        )
+        if len(files.data) == 1 and ("$FILENAME" in files.data[0].external_id or ""):
+            # It is, so replace this file with all files in this folder using the same data
+            file_data = files.data[0]
+            ext_id_pattern = file_data.external_id
+            files = FileMetadataList([], cognite_client=self.client)
+            for file in filepath.parent.glob("*"):
+                if file.suffix[1:] in ["yaml", "yml"]:
+                    continue
+                files.append(
+                    FileMetadata(
+                        name=file.name,
+                        external_id=re.sub(r"\$FILENAME", file.name, ext_id_pattern),
+                        data_set_id=file_data.data_set_id,
+                        source=file_data.source,
+                        metadata=file_data.metadata,
+                        directory=file_data.directory,
+                        asset_ids=file_data.asset_ids,
+                        labels=file_data.labels,
+                        geo_location=file_data.geo_location,
+                        security_categories=file_data.security_categories,
                     )
+                )
         for file in files.data:
             if not Path(filepath.parent / file.name).exists():
                 raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
