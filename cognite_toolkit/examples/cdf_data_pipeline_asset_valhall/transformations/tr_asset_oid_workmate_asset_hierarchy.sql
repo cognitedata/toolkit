@@ -20,4 +20,4 @@ SELECT
     array("sourceDb", "parentTag", "description"), *) 
                                   as metadata
 FROM 
-  `{{asset_raw_input_dp}}`.`{{asset_raw_input_table}}`
+  `{{asset_raw_input_db}}`.`{{asset_raw_input_table}}`
