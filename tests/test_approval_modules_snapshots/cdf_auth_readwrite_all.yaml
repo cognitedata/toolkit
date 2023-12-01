@@ -146,7 +146,7 @@ Group:
         all: {}
   metadata:
     origin: cdf-project-templates
-  name: cicd:all:read-only
+  name: gp_cicd_all_read_only
   sourceId: <change_me>
 - capabilities:
   - projectsAcl:
@@ -335,5 +335,5 @@ Group:
         all: {}
   metadata:
     origin: cdf-project-templates
-  name: cicd:all:read-write
+  name: gp_cicd_all_read_write
   sourceId: <change_me>

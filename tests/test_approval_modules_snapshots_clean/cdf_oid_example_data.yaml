@@ -40,12 +40,12 @@ deleted:
     name:
     - workorders
   TimeSeries:
-  - externalId: pi:160633
-  - externalId: pi:160696
-  - externalId: pi:160702
-  - externalId: pi:160781
-  - externalId: pi:163582
-  - externalId: pi:163657
-  - externalId: pi:191092
+  - externalId: pi_160633
+  - externalId: pi_160696
+  - externalId: pi_160702
+  - externalId: pi_160781
+  - externalId: pi_163582
+  - externalId: pi_163657
+  - externalId: pi_191092
   Transformation:
   - externalId: tr_asset_oid_workmate_asset_hierarchy

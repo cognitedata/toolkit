@@ -163,7 +163,7 @@ Row:
   columns:
   - timeseries
   - asset
-  dataframe: 55950994081533176249747558585122252386224890969921942100864987065996004229529
+  dataframe: 21394968518374344754569755042084430262552807540220432723225091219717002989788
   kwargs:
     db_name: timeseries_oid_fileshare
     ensure_parent: true
@@ -258,7 +258,7 @@ Row:
 TimeSeries:
 - dataSetId: 999
   description: PH 1st Stg Disch Gas Coolers
-  externalId: pi:160633
+  externalId: pi_160633
   isStep: false
   isString: false
   metadata:
@@ -316,7 +316,7 @@ TimeSeries:
   name: VAL_23-PDT-92602:X.Value
 - dataSetId: 999
   description: PH 1stStgSuctCool Gas Out
-  externalId: pi:160696
+  externalId: pi_160696
   isStep: false
   isString: false
   metadata:
@@ -374,7 +374,7 @@ TimeSeries:
   name: VAL_23-PT-92504:X.Value
 - dataSetId: 999
   description: PH 1stStgComp Discharge
-  externalId: pi:160702
+  externalId: pi_160702
   isStep: false
   isString: false
   metadata:
@@ -433,7 +433,7 @@ TimeSeries:
   unit: bar
 - dataSetId: 999
   description: PH 1stStgSuctCool Gas Out Measured Value
-  externalId: pi:160781
+  externalId: pi_160781
   isStep: false
   isString: false
   metadata:
@@ -492,7 +492,7 @@ TimeSeries:
   unit: degC
 - dataSetId: 999
   description: PH 1stStgDiscCool CM Out
-  externalId: pi:163582
+  externalId: pi_163582
   isStep: false
   isString: false
   metadata:
@@ -550,7 +550,7 @@ TimeSeries:
   name: VAL_45-PT-92608:X.Value
 - dataSetId: 999
   description: PH 1stStgDiscClr CoolMed Sply
-  externalId: pi:163657
+  externalId: pi_163657
   isStep: false
   isString: false
   metadata:
@@ -608,7 +608,7 @@ TimeSeries:
   name: VAL_45-TT-92606:X.Value
 - dataSetId: 999
   description: PH 1stStgDiscCool Gas Out Output
-  externalId: pi:191092
+  externalId: pi_191092
   isStep: false
   isString: false
   metadata:
@@ -743,12 +743,12 @@ deleted:
     name:
     - workorders
   TimeSeries:
-  - externalId: pi:160633
-  - externalId: pi:160696
-  - externalId: pi:160702
-  - externalId: pi:160781
-  - externalId: pi:163582
-  - externalId: pi:163657
-  - externalId: pi:191092
+  - externalId: pi_160633
+  - externalId: pi_160696
+  - externalId: pi_160702
+  - externalId: pi_160781
+  - externalId: pi_163582
+  - externalId: pi_163657
+  - externalId: pi_191092
   Transformation:
   - externalId: tr_asset_oid_workmate_asset_hierarchy

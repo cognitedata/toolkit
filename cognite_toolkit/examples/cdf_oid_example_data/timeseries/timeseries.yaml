@@ -1,4 +1,4 @@
-- externalId: 'pi:160696'
+- externalId: 'pi_160696'
   name: 'VAL_23-PT-92504:X.Value'
   dataSetExternalId: ds_timeseries_{{default_location}}
   isString: false
@@ -56,7 +56,7 @@
     span: '100'
   isStep: false
   description: PH 1stStgSuctCool Gas Out
-- externalId: 'pi:160702'
+- externalId: 'pi_160702'
   name: 'VAL_23-PT-92536:X.Value'
   dataSetExternalId: ds_timeseries_{{default_location}}
   isString: false
@@ -115,7 +115,7 @@
   unit: bar
   isStep: false
   description: PH 1stStgComp Discharge
-- externalId: 'pi:163657'
+- externalId: 'pi_163657'
   name: 'VAL_45-TT-92606:X.Value'
   dataSetExternalId: ds_timeseries_{{default_location}}
   isString: false
@@ -173,7 +173,7 @@
     span: '100'
   isStep: false
   description: PH 1stStgDiscClr CoolMed Sply
-- externalId: 'pi:160633'
+- externalId: 'pi_160633'
   name: 'VAL_23-PDT-92602:X.Value'
   dataSetExternalId: ds_timeseries_{{default_location}}
   isString: false
@@ -231,7 +231,7 @@
     span: '100'
   isStep: false
   description: PH 1st Stg Disch Gas Coolers
-- externalId: 'pi:163582'
+- externalId: 'pi_163582'
   name: 'VAL_45-PT-92608:X.Value'
   dataSetExternalId: ds_timeseries_{{default_location}}
   isString: false
@@ -289,7 +289,7 @@
     span: '100'
   isStep: false
   description: PH 1stStgDiscCool CM Out
-- externalId: 'pi:160781'
+- externalId: 'pi_160781'
   name: 'VAL_23-TIC-92504:Z.X.Value'
   dataSetExternalId: ds_timeseries_{{default_location}}
   isString: false
@@ -348,7 +348,7 @@
   unit: degC
   isStep: false
   description: PH 1stStgSuctCool Gas Out Measured Value
-- externalId: 'pi:191092'
+- externalId: 'pi_191092'
   name: 'VAL_23-TT-92604A:X.Value'
   dataSetExternalId: ds_timeseries_{{default_location}}
   isString: false
