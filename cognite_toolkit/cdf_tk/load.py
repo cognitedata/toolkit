@@ -430,7 +430,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
         created = DataSetList([], cognite_client=self.client)
-        # There is a big in the data set API, so only one duplicated data set is returned at the time,
+        # There is a bug in the data set API, so only one duplicated data set is returned at the time,
         # so we need to iterate.
         while len(items.data) > 0:
             try:
@@ -758,14 +758,13 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
             )
         except Exception:
             files = FileMetadataList.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
-        if len(files.data) == 1:
-            # If we have a file with exact one file config, check to see if this is a pattern to expand
-            if "$FILENAME" in files.data[0].external_id or "":
+        # If we have a file with exact one file config, check to see if this is a pattern to expand
+        if len(files.data) == 1 and ("$FILENAME" in files.data[0].external_id or ""):  
                 # It is, so replace this file with all files in this folder using the same data
                 file_data = files.data[0]
                 ext_id_pattern = file_data.external_id
-                files = FileMetadataList([])
-                for file in Path(filepath.parent).glob("*"):
+                files = FileMetadataList([], cognite_client=self.client)
+                for file in filepath.parent.glob("*"):
                     if file.suffix[1:] in ["yaml", "yml"]:
                         continue
                     files.append(
