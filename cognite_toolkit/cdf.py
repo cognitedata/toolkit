@@ -256,7 +256,9 @@ def deploy(
     typer.echo(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     build_path = Path(build_dir)
     if not build_path.is_dir():
-        typer.echo(f"  [bold yellow]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?")
+        typer.echo(
+            f"  [bold yellow]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?"
+        )
         exit(1)
 
     include = _process_include(include, interactive)
@@ -395,7 +397,9 @@ def clean(
     print(Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]"))
     build_path = Path(build_dir)
     if not build_path.is_dir():
-        typer.echo(f"  [bold yellow]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?")
+        typer.echo(
+            f"  [bold yellow]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?"
+        )
         exit(1)
 
     include = _process_include(include, interactive)

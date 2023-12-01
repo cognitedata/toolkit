@@ -306,7 +306,9 @@ def process_config_files(
 
                 filepath = new_path / file_name
                 for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-                    print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {new_path}/{file_name}")
+                    print(
+                        f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {new_path}/{file_name}"
+                    )
 
                 filepath.write_text(content)
 
