@@ -251,10 +251,14 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path) 
         for ds in parsed:
             ext_id = ds.get("externalId") or ds.get("external_id")
             if ext_id is None:
-                print(f"      [bold yellow]WARNING:[/] the data set {filepath_src} is missing the {ext_id_type} field.")
+                print(
+                    f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} is missing the {ext_id_type} field."
+                )
                 return False
             parts = ext_id.split("_")
-            if len(parts) < 2:
+            # We don't want to throw a warning on entities that should not be governed by the tool
+            # in production (i.e. fileseries, files, and other "real" data)
+            if resource_type == "data_sets" and len(parts) < 2:
                 print(
                     f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
                 )
