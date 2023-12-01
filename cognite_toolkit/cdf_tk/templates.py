@@ -147,7 +147,7 @@ def read_yaml_files(
     return data
 
 
-def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path) -> bool:
+def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
     """Check the yaml file for semantic errors
 
     parsed: the parsed yaml file
@@ -187,7 +187,7 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path) 
     if resource_type == "auth":
         parts = ext_id.split("_")
         if len(parts) < 2:
-            if ext_id == "applications-configuration":
+            if verbose and ext_id == "applications-configuration":
                 print(
                     "      [bold green]INFO:[/] the group applications-configuration does not follow the recommended '_' based namespacing because Infield expects this specific name."
                 )
@@ -227,7 +227,7 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path) 
                 f"      [bold yellow]WARNING:[/] the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
             )
         elif parts[0] != "sp":
-            if ext_id == "cognite_app_data" or ext_id == "APM_SourceData" or ext_id == "APM_Config":
+            if verbose and (ext_id == "cognite_app_data" or ext_id == "APM_SourceData" or ext_id == "APM_Config"):
                 print(
                     f"      [bold green]INFO:[/] the space {ext_id} does not follow the recommended '_' based namespacing because Infield expects this specific name."
                 )
