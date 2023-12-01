@@ -3,4 +3,4 @@ select
   node_reference('{{datamodel}}', `sourceExternalId`) as startNode,
   node_reference('{{datamodel}}', `targetExternalId`) as endNode
 from
-  `{{source_raw_db}}`.`workorder2assets`;
+  `asset_{{default_location}}_{{source_asset}}`.`asset2children`;

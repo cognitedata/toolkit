@@ -104,7 +104,7 @@ def common(
         print("       Use --help for more information.")
         return
     if override_env:
-        print("  [bold red]WARNING:[/] Overriding environment variables with values from .env file...")
+        print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
         if cluster is not None or project is not None:
             print("            --cluster or --project are set and will override .env file values.")
     if not (Path.cwd() / ".env").is_file():
@@ -256,7 +256,9 @@ def deploy(
     typer.echo(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     build_path = Path(build_dir)
     if not build_path.is_dir():
-        typer.echo(f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?")
+        typer.echo(
+            f"  [bold yellow]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?"
+        )
         exit(1)
 
     include = _process_include(include, interactive)
@@ -312,14 +314,15 @@ def deploy(
             print("[bold red]ERROR: [/] Failure to load instances as expected.")
             exit(1)
     for LoaderCls in TopologicalSorter(selected_loaders).static_order():
-        drop_load_resources(
-            LoaderCls.create_loader(ToolGlobals),
-            build_path / LoaderCls.folder_name,
-            **arguments,
-        )
-        if ToolGlobals.failed:
-            print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
-            exit(1)
+        if LoaderCls.folder_name in include and (build_path / LoaderCls.folder_name).is_dir():
+            drop_load_resources(
+                LoaderCls.create_loader(ToolGlobals),
+                build_path / LoaderCls.folder_name,
+                **arguments,
+            )
+            if ToolGlobals.failed:
+                print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
+                exit(1)
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we need to get all the scoped access, as the resources should now have been created.
@@ -394,7 +397,9 @@ def clean(
     print(Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]"))
     build_path = Path(build_dir)
     if not build_path.is_dir():
-        typer.echo(f"  [bold red]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?")
+        typer.echo(
+            f"  [bold yellow]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?"
+        )
         exit(1)
 
     include = _process_include(include, interactive)
@@ -439,18 +444,19 @@ def clean(
         exit(1)
 
     for LoaderCls in reversed(list(TopologicalSorter(selected_loaders).static_order())):
-        drop_load_resources(
-            LoaderCls.create_loader(ToolGlobals),
-            build_path / LoaderCls.folder_name,
-            ToolGlobals,
-            drop=True,
-            load=False,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
-        )
-        if ToolGlobals.failed:
-            print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
-            exit(1)
+        if LoaderCls.folder_name in include and (Path(build_dir) / LoaderCls.folder_name).is_dir():
+            drop_load_resources(
+                LoaderCls.create_loader(ToolGlobals),
+                build_path / LoaderCls.folder_name,
+                ToolGlobals,
+                drop=True,
+                load=False,
+                dry_run=dry_run,
+                verbose=ctx.obj.verbose,
+            )
+            if ToolGlobals.failed:
+                print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
+                exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         drop_load_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
@@ -592,7 +598,6 @@ def main_init(
         Optional[bool],
         typer.Option(
             "--clean",
-            hidden=True,
             help="Will delete the new_project directory before starting",
         ),
     ] = False,

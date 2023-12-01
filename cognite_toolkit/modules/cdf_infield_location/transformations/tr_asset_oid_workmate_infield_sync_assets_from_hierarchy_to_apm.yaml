@@ -1,13 +1,12 @@
-externalId: sync_workorders_to_apm_activities
-name: Sync workorders to APM Activities
+externalId: tr_asset_{{default_location}}_{{source_asset}}_infield_sync_assets_from_hierarchy_to_apm
+name: asset:{{default_location}}:{{source_asset}}:infield:sync_assets_from_hierarchy_to_apm
 destination:
-  dataModel:
-    space: APM_SourceData
-    externalId: APM_SourceData
-    version: "1"
-    destinationType: APM_Activity
-  instanceSpace: 'space_infield_{{location_name}}_location_source'
-  type: instances
+  view:
+    space:  cdf_core
+    externalId: Asset
+    version: 'v1'
+  instanceSpace: 'space_infield_{{default_location}}_source'
+  type: nodes
 ignoreNullFields: true
 shared: true
 action: upsert
@@ -26,5 +25,4 @@ authentication:
 schedule:
   # every hour
   interval: '0 * * * *'
-  is_paused: true
-
+  isPaused: false

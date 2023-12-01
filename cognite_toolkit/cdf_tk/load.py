@@ -211,6 +211,10 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
             if e.code == 409:
                 print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
                 return []
+            else:
+                print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+                ToolGlobals.failed = True
+                return []
         except CogniteDuplicatedError as e:
             print(
                 f"  [bold yellow]WARNING:[/] {len(e.duplicated)} out of {len(items)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
@@ -425,23 +429,30 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
-        try:
-            return DataSetList(self.client.data_sets.create(items))
-
-        except CogniteDuplicatedError as e:
-            if len(e.duplicated) < len(items):
-                for dup in e.duplicated:
-                    ext_id = dup.get("externalId", None)
-                    for item in items:
-                        if item.external_id == ext_id:
-                            items.remove(item)
-                try:
-                    return DataSetList(self.client.data_sets.create(items))
-                except Exception as e:
-                    print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
-                    ToolGlobals.failed = True
-                    return None
+        created = DataSetList([], cognite_client=self.client)
+        # There is a bug in the data set API, so only one duplicated data set is returned at the time,
+        # so we need to iterate.
+        while len(items.data) > 0:
+            try:
+                created.extend(DataSetList(self.client.data_sets.create(items)))
+                return created
+            except CogniteDuplicatedError as e:
+                if len(e.duplicated) < len(items):
+                    for dup in e.duplicated:
+                        ext_id = dup.get("externalId", None)
+                        for item in items:
+                            if item.external_id == ext_id:
+                                items.remove(item)
+                else:
+                    items.data = []
+            except Exception as e:
+                print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
+                ToolGlobals.failed = True
+                return None
+        if len(created) == 0:
             return None
+        else:
+            return created
 
 
 @final
@@ -465,8 +476,12 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
             with suppress(CogniteAPIError):
-                self.client.raw.tables.delete(db_name=db_name, name=[table.table_name for table in raw_tables])
-                count += 1
+                tables = [table.table_name for table in raw_tables]
+                self.client.raw.tables.delete(db_name=db_name, name=tables)
+                count += len(tables)
+            if len(self.client.raw.tables.list(db_name=db_name, limit=-1).data) == 0:
+                with suppress(CogniteAPIError):
+                    self.client.raw.databases.delete(name=db_name)
         return count
 
     def create(
@@ -531,6 +546,15 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
         self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
         return len(ids)
 
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> TimeSeries | TimeSeriesList:
+        resources = load_yaml_inject_variables(filepath, {})
+        if not isinstance(resources, list):
+            resources = [resources]
+        for resource in resources:
+            if resource.get("dataSetExternalId") is not None:
+                resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
+        return TimeSeriesList.load(resources)
+
 
 @final
 class TransformationLoader(Loader[str, Transformation, TransformationList]):
@@ -567,11 +591,15 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
         transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
             destination_oidc_credentials
         )
-        sql_file = filepath.parent / f"{transformation.external_id}.sql"
+        # Find the non-integer prefixed filename
+        file_name = filepath.stem.split(".", 2)[1]
+        sql_file = filepath.parent / f"{file_name}.sql"
         if not sql_file.exists():
-            raise FileNotFoundError(
-                f"Could not find sql file {sql_file.name}. Expected to find it next to the yaml config file."
-            )
+            sql_file = filepath.parent / f"{transformation.external_id}.sql"
+            if not sql_file.exists():
+                raise FileNotFoundError(
+                    f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
+                )
         transformation.query = sql_file.read_text()
         transformation.data_set_id = ToolGlobals.data_set_id
         return transformation
@@ -749,6 +777,29 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
             )
         except Exception:
             files = FileMetadataList.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
+        # If we have a file with exact one file config, check to see if this is a pattern to expand
+        if len(files.data) == 1 and ("$FILENAME" in files.data[0].external_id or ""):
+            # It is, so replace this file with all files in this folder using the same data
+            file_data = files.data[0]
+            ext_id_pattern = file_data.external_id
+            files = FileMetadataList([], cognite_client=self.client)
+            for file in filepath.parent.glob("*"):
+                if file.suffix[1:] in ["yaml", "yml"]:
+                    continue
+                files.append(
+                    FileMetadata(
+                        name=file.name,
+                        external_id=re.sub(r"\$FILENAME", file.name, ext_id_pattern),
+                        data_set_id=file_data.data_set_id,
+                        source=file_data.source,
+                        metadata=file_data.metadata,
+                        directory=file_data.directory,
+                        asset_ids=file_data.asset_ids,
+                        labels=file_data.labels,
+                        geo_location=file_data.geo_location,
+                        security_categories=file_data.security_categories,
+                    )
+                )
         for file in files.data:
             if not Path(filepath.parent / file.name).exists():
                 raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
@@ -807,27 +858,27 @@ def drop_load_resources(
     if drop and loader.support_drop and load:
         print(f"  --drop is specified, will delete existing {loader.api_name} before uploading.")
     if (drop and loader.support_drop) or clean:
-        drop_items: list = []
         for batch in batches:
+            drop_items: list = []
             for item in batch:
                 # Set the context info for this CDF project
                 if hasattr(item, "data_set_id") and ToolGlobals.data_set_id is not None:
                     item.data_set_id = ToolGlobals.data_set_id
                 drop_items.append(loader.get_id(item))
-        if not dry_run:
-            try:
-                nr_of_deleted += loader.delete(drop_items)
-                if verbose:
-                    print(f"  Deleted {len(drop_items)} {loader.api_name}.")
-            except CogniteAPIError as e:
-                if e.code == 404:
+            if not dry_run:
+                try:
+                    nr_of_deleted += loader.delete(drop_items)
+                    if verbose:
+                        print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+                except CogniteAPIError as e:
+                    if e.code == 404:
+                        print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do(es) not exist.")
+                except CogniteNotFoundError:
                     print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do(es) not exist.")
-            except CogniteNotFoundError:
-                print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do(es) not exist.")
-            except Exception as e:
-                print(f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. Error {e}")
-        else:
-            print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
+                except Exception as e:
+                    print(f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. Error {e}")
+            else:
+                print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
     if not load:
         return
     try:
@@ -964,7 +1015,7 @@ def load_datamodel(
 
     implicit_spaces = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
     for s in implicit_spaces:
-        if s.name not in [s2.name for s2 in cognite_resources_by_type["space"]]:
+        if s.space not in [s2.space for s2 in cognite_resources_by_type["space"]]:
             print(
                 f"  [bold red]ERROR[/] Space {s.name} is implicitly defined and may need it's own {s.name}.space.yaml file."
             )

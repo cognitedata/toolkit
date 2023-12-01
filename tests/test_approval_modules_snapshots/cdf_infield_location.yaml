@@ -1,11 +1,7 @@
 DataSet:
-- description: This dataset is for writing data from Infield for the location default.
-  externalId: ds_infield_default_location_app_data
-  name: Infield default location app writable data set
-- description: This dataset is the data set used by Infield to read source data for
-    location default.
-  externalId: ds_infield_default_location_source
-  name: Infield default location source data set
+- description: This dataset is for writing data from Infield for the location oid.
+  externalId: ds_infield_oid_app_data
+  name: infield:oid:app_data
 Group:
 - capabilities:
   - threedAcl:
@@ -80,8 +76,8 @@ Group:
           - APM_Config
           - cdf_apm
           - cognite_app_data
-          - space_infield_default_location_source
-          - space_infield_default_location_app_data
+          - sp_asset_oid_source
+          - sp_infield_oid_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -89,11 +85,11 @@ Group:
         spaceIdScope:
           spaceIds:
           - cognite_app_data
-          - space_infield_default_location_app_data
+          - sp_infield_oid_app_data
   metadata:
     module_version: '1'
     origin: cdf-project-templates
-  name: infield_default_checklist_admins
+  name: gp_infield_oid_checklist_admins
   sourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
 - capabilities:
   - threedAcl:
@@ -168,8 +164,8 @@ Group:
           - APM_Config
           - cdf_apm
           - cognite_app_data
-          - space_infield_default_location_source
-          - space_infield_default_location_app_data
+          - sp_asset_oid_source
+          - sp_infield_oid_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -177,11 +173,11 @@ Group:
         spaceIdScope:
           spaceIds:
           - cognite_app_data
-          - space_infield_default_location_app_data
+          - sp_infield_oid_app_data
   metadata:
     module_version: '1'
     origin: cdf-project-templates
-  name: infield_default_normal_users
+  name: gp_infield_oid_normal_users
   sourceId: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 - capabilities:
   - threedAcl:
@@ -256,8 +252,8 @@ Group:
           - APM_Config
           - cdf_apm
           - cognite_app_data
-          - space_infield_default_location_source
-          - space_infield_default_location_app_data
+          - sp_asset_oid_source
+          - sp_infield_oid_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -265,11 +261,11 @@ Group:
         spaceIdScope:
           spaceIds:
           - cognite_app_data
-          - space_infield_default_location_app_data
+          - sp_infield_oid_app_data
   metadata:
     module_version: '1'
     origin: cdf-project-templates
-  name: infield_default_template_admins
+  name: gp_infield_oid_template_admins
   sourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
 - capabilities:
   - threedAcl:
@@ -330,8 +326,8 @@ Group:
           - APM_Config
           - cdf_apm
           - cognite_app_data
-          - space_infield_default_location_source
-          - space_infield_default_location_app_data
+          - sp_asset_oid_source
+          - sp_infield_oid_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -342,7 +338,7 @@ Group:
   metadata:
     module_version: '1'
     origin: cdf-project-templates
-  name: infield_default_viewers
+  name: gp_infield_oid_viewers
   sourceId: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 Node:
 - externalId: default_infield_config_minimal
@@ -353,13 +349,13 @@ Node:
       customerDataSpaceVersion: '1'
       featureConfiguration:
         rootLocationConfigurations:
-        - appDataInstanceSpace: space_infield_default_location_app_data
+        - appDataInstanceSpace: sp_infield_oid_app_data
           assetExternalId: WMT:VAL
           checklistAdmins:
-          - infield_default_checklist_admins
-          sourceDataInstanceSpace: space_infield_default_location_source
+          - gp_infield_oid_checklist_admins
+          sourceDataInstanceSpace: sp_asset_oid_source
           templateAdmins:
-          - infield_default_template_admins
+          - gp_infield_oid_template_admins
       name: Default location
     source:
       externalId: APM_Config
@@ -369,15 +365,15 @@ Node:
   space: APM_Config
 Space:
 - description: Space for Infield Location App Data
-  name: space_infield_default_location_app_data
-  space: space_infield_default_location_app_data
+  name: sp:infield:oid:app_data
+  space: sp_infield_oid_app_data
 - description: Space for Infield Location Source Data
-  name: space_infield_default_location_source
-  space: space_infield_default_location_source
+  name: sp:infield:oid:source
+  space: sp_asset_oid_source
 Transformation:
 - dataSetId: 999
   destination:
-    instanceSpace: space_infield_default_location_source
+    instanceSpace: sp_asset_oid_source
     type: nodes
     view:
       externalId: Asset
@@ -390,18 +386,18 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-  externalId: sync_asset_parents_from_hierarchy_to_apm
+  externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
   ignoreNullFields: true
   isPublic: true
-  name: Sync asset parent relationships from Asset Hierarchy to APM Asset model
+  name: asset:oid:workmate:infield:sync_asset_parents_from_hierarchy_to_apm
   ownerIsCurrentUser: true
   query: "select\n  cast(asset.externalId as STRING) as externalId,\n  (case\n   \
-    \ when isnull(asset.parentExternalId) then null\n    else node_reference('space_infield_default_location_source',\
+    \ when isnull(asset.parentExternalId) then null\n    else node_reference('sp_asset_oid_source',\
     \ asset.parentExternalId) \n  end) as parent\nfrom\n  cdf_assetSubtree('WMT:VAL')\
     \ as asset\n  inner join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId\
     \ = rootAsset.id"
   schedule:
-    externalId: sync_asset_parents_from_hierarchy_to_apm
+    externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
     interval: 0 * * * *
     isPaused: false
   sourceOidcCredentials:
@@ -413,7 +409,7 @@ Transformation:
     tokenUri: ${IDP_TOKEN_URL}
 - dataSetId: 999
   destination:
-    instanceSpace: space_infield_default_location_source
+    instanceSpace: space_infield_oid_source
     type: nodes
     view:
       externalId: Asset
@@ -426,19 +422,19 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-  externalId: sync_assets_from_hierarchy_to_apm
+  externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
   ignoreNullFields: true
   isPublic: true
-  name: Sync assets from Asset Hierarchy to APM Asset model
+  name: asset:oid:workmate:infield:sync_assets_from_hierarchy_to_apm
   ownerIsCurrentUser: true
   query: "select\n  cast(asset.externalId as STRING) as externalId, \n  cast(\"Asset\
-    \ Hierarachy\" as STRING) as source,\n  node_reference('space_infield_default_location_source',\
+    \ Hierarachy\" as STRING) as source,\n  node_reference('sp_asset_oid_source',\
     \ cast(rootAsset.externalId as STRING)) as root,\n  cast(asset.description as\
     \ STRING) as description,\n  cast(asset.name as STRING) as title,\n  cast(asset.externalId\
     \ as STRING) as sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as asset\n  inner\
     \ join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId = rootAsset.id"
   schedule:
-    externalId: sync_assets_from_hierarchy_to_apm
+    externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
     interval: 0 * * * *
     isPaused: false
   sourceOidcCredentials:
@@ -456,7 +452,7 @@ Transformation:
       externalId: APM_SourceData
       space: APM_SourceData
       version: '1'
-    instanceSpace: space_infield_default_location_source
+    instanceSpace: space_infield_oid_source
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -465,20 +461,20 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-  externalId: sync_workorders_to_apm_activities
+  externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
   ignoreNullFields: true
   isPublic: true
-  name: Sync workorders to APM Activities
+  name: workorder:oid:workmate:infield:sync_workorders_to_apm_activities
   ownerIsCurrentUser: true
   query: "  select\n    cast(`externalId` as STRING) as externalId,\n    cast(`description`\
     \ as STRING) as description,\n    cast(`key` as STRING) as id,\n    cast(`status`\
     \ as STRING) as status,\n    /* cast(`startTime` as TIMESTAMP) as startTime,\n\
-    \    cast(`endTime` as TIMESTAMP) as endTime,*/\n    cast('2023-11-06T09:00:00'\
-    \ as TIMESTAMP) as startTime,\n    cast('2023-11-10T09:00:00' as TIMESTAMP) as\
+    \    cast(`endTime` as TIMESTAMP) as endTime,*/\n    cast('2023-12-01T09:00:00'\
+    \ as TIMESTAMP) as startTime,\n    cast('2023-12-06T09:00:00' as TIMESTAMP) as\
     \ endTime,\n    cast(`title` as STRING) as title,\n    'WMT:VAL' as rootLocation,\n\
-    \    'workmate' as source\n  from\n    `Valhall_System_23`.`workorders`;\n"
+    \    'workmate' as source\n  from\n    `workorder_oid_workmate`.`workorders`;\n"
   schedule:
-    externalId: sync_workorders_to_apm_activities
+    externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
     interval: 0 * * * *
     isPaused: false
   sourceOidcCredentials:
@@ -489,20 +485,20 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: sync_asset_parents_from_hierarchy_to_apm
+- externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
   interval: 0 * * * *
   isPaused: false
-- externalId: sync_assets_from_hierarchy_to_apm
+- externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
   interval: 0 * * * *
   isPaused: false
-- externalId: sync_workorders_to_apm_activities
+- externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
   interval: 0 * * * *
   isPaused: false
 deleted:
   Space:
-  - space_infield_default_location_app_data
-  - space_infield_default_location_source
+  - sp_asset_oid_source
+  - sp_infield_oid_app_data
   Transformation:
-  - externalId: sync_asset_parents_from_hierarchy_to_apm
-  - externalId: sync_assets_from_hierarchy_to_apm
-  - externalId: sync_workorders_to_apm_activities
+  - externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
+  - externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
+  - externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities

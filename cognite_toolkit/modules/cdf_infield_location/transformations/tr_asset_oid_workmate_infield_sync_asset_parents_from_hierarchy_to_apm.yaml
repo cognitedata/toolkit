@@ -1,11 +1,11 @@
-externalId: sync_asset_parents_from_hierarchy_to_apm
-name: Sync asset parent relationships from Asset Hierarchy to APM Asset model
+externalId: tr_asset_{{default_location}}_{{source_asset}}_infield_sync_asset_parents_from_hierarchy_to_apm
+name: asset:{{default_location}}:{{source_asset}}:infield:sync_asset_parents_from_hierarchy_to_apm
 destination:
   view:
     space:  cdf_core
     externalId: Asset
     version: 'v1'
-  instanceSpace: 'space_infield_{{location_name}}_location_source'
+  instanceSpace: 'sp_asset_{{default_location}}_source'
   type: nodes
 ignoreNullFields: true
 shared: true
@@ -25,5 +25,4 @@ authentication:
 schedule:
   # every hour
   interval: '0 * * * *'
-  is_paused: true
-
+isPaused: false

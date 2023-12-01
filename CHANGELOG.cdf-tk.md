@@ -35,6 +35,14 @@ Changes are grouped as follows:
 - Require all spaces to be explicitly defined as separate .space.yaml file.
 - Add protection on group deletion and skip any groups that the current service principal belongs to.
 - Support for multiple file resources per yaml config file for files resources.
+- Support templated loading of * files in a folder when a single yaml has `externalId: something_$FILENAME`.
+- You can now name the transformation .sql either with the externalId (as defined in the
+  corresponding yaml file) or with the name of the file of the corresponding yaml file.
+  I.e. if a transformation is defined in my_transformation.yaml with externalId:
+  `tr_something`, the SQL file should be named either `tr_something.sql` or `my_transformation.sql`.
+- Missing .sql files for transformations will now raise an error in the build step.
+- The build step will now raise a number of warnings for missing externalIds in the yaml files,
+  as well as if the naming conventions are not followed.
 
 ### Fixed
 

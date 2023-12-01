@@ -14,11 +14,20 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0] - 2023-12-01
+
+### Changed
+
+- **BREAKING** All externalIds and names have been changed to follow the naming conventions for resources
+  in `examples/cdf_oid_example_data`, `examples/cdf_apm_simple_data_model`, `modules/cdf_apm_base`,
+  `modules/cdf_infield_common`, and `modules/cdf_infield_location`.
+
 ## [0.1.2] - 2023-11-29
 
 ### Changed
 
 - Remove unused template_version variable from groups and use of group metadata.
+- Split up cdf_oid_example_data into data sets and RAW databases per source system.
 
 ### Fixed
 
