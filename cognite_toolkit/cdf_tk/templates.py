@@ -147,6 +147,75 @@ def read_yaml_files(
     return data
 
 
+def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path) -> bool:
+    """Check the yaml file for semantic errors
+
+    parsed: the parsed yaml file
+    filepath: the path to the yaml file
+    yields: True if the yaml file is semantically acceptable, False if build should fail.
+    """
+    if parsed is None or filepath_src is None or filepath_build is None:
+        return False
+    resource_type = filepath_src.parts[-2]
+    ext_id = None
+    if resource_type == "data_models" and ".space." in filepath_src.name:
+        ext_id = parsed.get("space")
+        ext_id_type = "space"
+    elif resource_type == "data_models" and ".node." in filepath_src.name:
+        ext_id = parsed.get("view", {}).get("externalId") or parsed.get("view", {}).get("external_id")
+        ext_id_type = "view.externalId"
+    elif resource_type == "auth":
+        ext_id = parsed.get("name")
+        ext_id_type = "name"
+    elif resource_type in ["data_sets", "timeseries", "files"] and isinstance(parsed, list):
+        ext_id = ""
+        ext_id_type = "multiple"
+    elif resource_type == "raw":
+        ext_id = f"{parsed.get('dbName')}.{parsed.get('tableName')}"
+        if "None" in ext_id:
+            ext_id = None
+        ext_id_type = "dbName and/or tableName"
+    else:
+        ext_id = parsed.get("externalId") or parsed.get("external_id")
+        ext_id_type = "externalId"
+
+    if ext_id is None:
+        print(
+            f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} is missing the {ext_id_type} field(s)."
+        )
+        return False
+    if resource_type == "auth":
+        parts = parsed.get("name").split(":")
+        if len(parts) < 2:
+            print(
+                f"      [bold yellow]WARNING:[/] the group {filepath_build} has a name [bold]{parsed.get('name')}[/] without the recommended ':' based namespacing."
+            )
+        if parts[0] != "cicd" and parts[0] != "gp_":
+            print(
+                f"      [bold yellow]WARNING:[/] the group {filepath_build} has a name [bold]{parsed.get('name')}[/] without the recommended 'cicd' or `gp_` based prefix."
+            )
+    elif resource_type == "transformations":
+        # First try to find the sql file next to the yaml file with the same name
+        sql_file1 = filepath_src.parent / f"{filepath_src.stem}.sql"
+        if not sql_file1.exists():
+            # Next try to find the sql file next to the yaml file with the external_id as filename
+            sql_file2 = filepath_src.parent / f"{ext_id}.sql"
+            if not sql_file2.exists():
+                print("      [bold yellow]WARNING:[/] could not find sql file:")
+                print(f"                 [bold]{sql_file1.name}[/] or ")
+                print(f"                 [bold]{sql_file2.name}[/]")
+                print(f"               Expected to find it next to the yaml file at {sql_file1.parent}.")
+                return False
+    elif resource_type == "data_sets" or resource_type == "timeseries" or resource_type == "files":
+        if not isinstance(parsed, list):
+            parsed = [parsed]
+        for ds in parsed:
+            if ds.get("externalId") is None and ds.get("external_id") is None:
+                print(f"      [bold yellow]WARNING:[/] the data set {filepath_src} is missing the {ext_id_type} field.")
+                return False
+    return True
+
+
 def process_config_files(
     dirs: list[str],
     yaml_data: str,
@@ -222,6 +291,7 @@ def process_config_files(
                         k = k.split(".", 2)[1]
                     # assuming template variables are in the format {{key}}
                     content = content.replace(f"{{{{{k}}}}}", str(v))
+                orig_file = Path(dirpath) / file_name
                 # For .sql and other dependent files, we do not prefix as we expect them
                 # to be named with the external_id of the entitiy they are associated with.
                 if file_name.split(".")[-1] not in EXCL_INDEX_SUFFIX:
@@ -242,11 +312,17 @@ def process_config_files(
 
                 if filepath.suffix in {".yaml", ".yml"}:
                     try:
-                        yaml.safe_load(content)
+                        parsed = yaml.safe_load(content)
                     except yaml.YAMLError as e:
                         print(
                             f"  [bold red]ERROR:[/] YAML validation error for {file_name} after substituting config variables: \n{e}"
                         )
+                        exit(1)
+                    if not check_yaml_semantics(
+                        parsed=parsed,
+                        filepath_src=orig_file,
+                        filepath_build=filepath,
+                    ):
                         exit(1)
 
 
