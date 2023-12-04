@@ -5,7 +5,7 @@ destination:
     space:  cdf_core
     externalId: Asset
     version: 'v1'
-  instanceSpace: 'space_asset_{{default_location}}_source'
+  instanceSpace: 'sp_asset_{{default_location}}_source'
   type: nodes
 ignoreNullFields: true
 shared: true
