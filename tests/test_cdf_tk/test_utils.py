@@ -1,8 +1,10 @@
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 import yaml
 from cognite.client._api.iam import TokenAPI, TokenInspection
+from cognite.client.data_classes import TimeSeries
 from cognite.client.data_classes.capabilities import (
     DataSetsAcl,
     ProjectCapability,
@@ -13,7 +15,11 @@ from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit.cdf_tk.utils import CaseWarning, CDFToolConfig, load_yaml_inject_variables, validate_raw
+
+THIS_FOLDER = Path(__file__).resolve().parent
+
+DATA_FOLDER = THIS_FOLDER / "load_data"
 
 
 def mocked_init(self, client_name: str):
@@ -70,3 +76,17 @@ def test_load_yaml_inject_variables(tmp_path) -> None:
     loaded = load_yaml_inject_variables(my_file, {"TEST": "my_injected_value"})
 
     assert loaded["test"] == "my_injected_value"
+
+
+def test_validate_raw() -> None:
+    raw_file = DATA_FOLDER / "timeseries" / "wrong_case.yaml"
+
+    warnings = validate_raw(yaml.safe_load(raw_file.read_text()), TimeSeries, raw_file)
+
+    assert len(warnings) == 2
+    assert sorted(warnings) == sorted(
+        [
+            CaseWarning(raw_file, "is_string", "isSting"),
+            CaseWarning(raw_file, "is_step", "isStep"),
+        ]
+    )

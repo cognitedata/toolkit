@@ -17,6 +17,8 @@ import json
 import logging
 import os
 from collections.abc import Sequence
+from dataclasses import dataclass
+from functools import total_ordering
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +26,7 @@ import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import OAuthClientCredentials, Token
+from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
 from rich import print
@@ -345,3 +348,38 @@ def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dic
             continue
         content = content.replace("${%s}" % key, value)
     return yaml.safe_load(content)
+
+
+@dataclass(frozen=True)
+class Warning:
+    filepath: Path
+
+
+@total_ordering
+@dataclass(frozen=True)
+class CaseWarning(Warning):
+    actual: str
+    expected: str
+
+    def __lt__(self, other: CaseWarning) -> bool:
+        if not isinstance(other, CaseWarning):
+            return NotImplemented
+        return (self.filepath, self.expected, self.actual) < (other.filepath, other.expected, other.actual)
+
+    def __eq__(self, other: CaseWarning) -> bool:
+        if not isinstance(other, CaseWarning):
+            return NotImplemented
+        return (self.filepath, self.expected, self.actual) == (other.filepath, other.expected, other.actual)
+
+
+def validate_raw(
+    raw: dict[str, Any] | list[dict[str, Any]], resource_cls: CogniteObject, filepath: Path
+) -> list[CaseWarning]:
+    warnings = []
+    to_check: list[tuple[dict[str, Any], CogniteObject]] = (
+        [(r, resource_cls) for r in raw] if isinstance(raw, list) else [(raw, resource_cls)]
+    )
+    while len(to_check) > 0:
+        item, item_cls = to_check.pop()
+
+    return warnings
