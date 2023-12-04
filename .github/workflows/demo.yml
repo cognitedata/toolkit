@@ -38,17 +38,17 @@ jobs:
       - name: "Build the templates"
         run: cdf-tk build --build-dir=./build --env=demo ./demo_project
       # be careful, this works as promised
-      - name: "Delete existing resources including data"
-        run: |
-          cdf-tk clean --env=demo ./build
+      #- name: "Delete existing resources including data"
+      #  run: |
+      #    cdf-tk clean --env=demo ./build
       - name: "Verify and create access rights"
-        run: cdf-tk auth verify --create-group=684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        run: cdf-tk auth verify
       - name: "Allow some time for data modeling to finish syncing of deletions"
         run: |
           sleep 30
       - name: "Deploy the templates"
         run: |
-          cdf-tk deploy --env=demo ./build
+          cdf-tk deploy --drop --drop-data --env=demo ./build
       - name: "Run transformations and other post-processing"
         run: |
           poetry run python ./demo/postproc.py

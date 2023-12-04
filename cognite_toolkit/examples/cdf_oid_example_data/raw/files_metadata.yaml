@@ -1,0 +1,2 @@
+dbName: files_{{default_location}}_{{source_files}}
+tableName: files_metadata

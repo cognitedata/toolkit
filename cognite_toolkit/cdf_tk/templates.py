@@ -58,7 +58,7 @@ def read_environ_config(
             if os.environ.get("CDF_PROJECT", "<not set>") != v:
                 if build_env == "dev" or build_env == "local" or build_env == "demo":
                     print(
-                        f"  [bold red]WARNING:[/] Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ.get('CDF_PROJECT','<not_set>')})."
+                        f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ.get('CDF_PROJECT','<not_set>')})."
                     )
                     print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
                 else:
@@ -85,7 +85,7 @@ def read_environ_config(
         return []
     if len(modules) == 0:
         print(
-            f"  [bold red]WARNING:[/] Found no defined modules in local.yaml, have you configured the environment ({build_env})?"
+            f"  [bold yellow]WARNING:[/] Found no defined modules in local.yaml, have you configured the environment ({build_env})?"
         )
     load_list = []
     module_dirs = {}
@@ -147,6 +147,126 @@ def read_yaml_files(
     return data
 
 
+def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
+    """Check the yaml file for semantic errors
+
+    parsed: the parsed yaml file
+    filepath: the path to the yaml file
+    yields: True if the yaml file is semantically acceptable, False if build should fail.
+    """
+    if parsed is None or filepath_src is None or filepath_build is None:
+        return False
+    resource_type = filepath_src.parts[-2]
+    ext_id = None
+    if resource_type == "data_models" and ".space." in filepath_src.name:
+        ext_id = parsed.get("space")
+        ext_id_type = "space"
+    elif resource_type == "data_models" and ".node." in filepath_src.name:
+        ext_id = parsed.get("view", {}).get("externalId") or parsed.get("view", {}).get("external_id")
+        ext_id_type = "view.externalId"
+    elif resource_type == "auth":
+        ext_id = parsed.get("name")
+        ext_id_type = "name"
+    elif resource_type in ["data_sets", "timeseries", "files"] and isinstance(parsed, list):
+        ext_id = ""
+        ext_id_type = "multiple"
+    elif resource_type == "raw":
+        ext_id = f"{parsed.get('dbName')}.{parsed.get('tableName')}"
+        if "None" in ext_id:
+            ext_id = None
+        ext_id_type = "dbName and/or tableName"
+    else:
+        ext_id = parsed.get("externalId") or parsed.get("external_id")
+        ext_id_type = "externalId"
+
+    if ext_id is None:
+        print(
+            f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} is missing the {ext_id_type} field(s)."
+        )
+        return False
+    if resource_type == "auth":
+        parts = ext_id.split("_")
+        if len(parts) < 2:
+            if ext_id == "applications-configuration":
+                if verbose:
+                    print(
+                        "      [bold green]INFO:[/] the group applications-configuration does not follow the recommended '_' based namespacing because Infield expects this specific name."
+                    )
+            else:
+                print(
+                    f"      [bold yellow]WARNING:[/] the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended '_' based namespacing."
+                )
+        elif parts[0] != "gp":
+            print(
+                f"      [bold yellow]WARNING:[/] the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended `gp_` based prefix."
+            )
+    elif resource_type == "transformations":
+        # First try to find the sql file next to the yaml file with the same name
+        sql_file1 = filepath_src.parent / f"{filepath_src.stem}.sql"
+        if not sql_file1.exists():
+            # Next try to find the sql file next to the yaml file with the external_id as filename
+            sql_file2 = filepath_src.parent / f"{ext_id}.sql"
+            if not sql_file2.exists():
+                print("      [bold yellow]WARNING:[/] could not find sql file:")
+                print(f"                 [bold]{sql_file1.name}[/] or ")
+                print(f"                 [bold]{sql_file2.name}[/]")
+                print(f"               Expected to find it next to the yaml file at {sql_file1.parent}.")
+                return False
+        parts = ext_id.split("_")
+        if len(parts) < 2:
+            print(
+                f"      [bold yellow]WARNING:[/] the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
+            )
+        elif parts[0] != "tr":
+            print(
+                f"      [bold yellow]WARNING:[/] the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'tr_' based prefix."
+            )
+    elif resource_type == "data_models" and ext_id_type == "space":
+        parts = ext_id.split("_")
+        if len(parts) < 2:
+            print(
+                f"      [bold yellow]WARNING:[/] the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
+            )
+        elif parts[0] != "sp":
+            if ext_id == "cognite_app_data" or ext_id == "APM_SourceData" or ext_id == "APM_Config":
+                if verbose:
+                    print(
+                        f"      [bold green]INFO:[/] the space {ext_id} does not follow the recommended '_' based namespacing because Infield expects this specific name."
+                    )
+            else:
+                print(
+                    f"      [bold yellow]WARNING:[/] the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'sp_' based prefix."
+                )
+    elif resource_type == "extraction_pipelines":
+        parts = ext_id.split("_")
+        if len(parts) < 2:
+            print(
+                f"      [bold yellow]WARNING:[/] the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
+            )
+        elif parts[0] != "ep":
+            print(
+                f"      [bold yellow]WARNING:[/] the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'ep_' based prefix."
+            )
+    elif resource_type == "data_sets" or resource_type == "timeseries" or resource_type == "files":
+        if not isinstance(parsed, list):
+            parsed = [parsed]
+        for ds in parsed:
+            ext_id = ds.get("externalId") or ds.get("external_id")
+            if ext_id is None:
+                print(
+                    f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} is missing the {ext_id_type} field."
+                )
+                return False
+            parts = ext_id.split("_")
+            # We don't want to throw a warning on entities that should not be governed by the tool
+            # in production (i.e. fileseries, files, and other "real" data)
+            if resource_type == "data_sets" and len(parts) < 2:
+                print(
+                    f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
+                )
+    return True
+
+
 def process_config_files(
     dirs: list[str],
     yaml_data: str,
@@ -163,7 +283,7 @@ def process_config_files(
                 path.mkdir()
                 print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir}.")
             else:
-                print("  [bold red]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
+                print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
         path.mkdir()
 
@@ -222,6 +342,7 @@ def process_config_files(
                         k = k.split(".", 2)[1]
                     # assuming template variables are in the format {{key}}
                     content = content.replace(f"{{{{{k}}}}}", str(v))
+                orig_file = Path(dirpath) / file_name
                 # For .sql and other dependent files, we do not prefix as we expect them
                 # to be named with the external_id of the entitiy they are associated with.
                 if file_name.split(".")[-1] not in EXCL_INDEX_SUFFIX:
@@ -236,17 +357,25 @@ def process_config_files(
 
                 filepath = new_path / file_name
                 for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-                    print(f"  [bold red]WARNING:[/] Unresolved template variable {unmatched} in {new_path}/{file_name}")
+                    print(
+                        f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {new_path}/{file_name}"
+                    )
 
                 filepath.write_text(content)
 
                 if filepath.suffix in {".yaml", ".yml"}:
                     try:
-                        yaml.safe_load(content)
+                        parsed = yaml.safe_load(content)
                     except yaml.YAMLError as e:
                         print(
                             f"  [bold red]ERROR:[/] YAML validation error for {file_name} after substituting config variables: \n{e}"
                         )
+                        exit(1)
+                    if not check_yaml_semantics(
+                        parsed=parsed,
+                        filepath_src=orig_file,
+                        filepath_build=filepath,
+                    ):
                         exit(1)
 
 

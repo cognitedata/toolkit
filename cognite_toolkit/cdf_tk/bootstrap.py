@@ -182,7 +182,7 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
         # Write .env file
         if Path(".env").exists():
             print(
-                "[bold red]WARNING[/]: .env file already exists and values have been retrieved from it. It will be overwritten."
+                "[bold yellow]WARNING[/]: .env file already exists and values have been retrieved from it. It will be overwritten."
             )
         write = Confirm.ask(
             "Do you want to save these to .env file for next time ? ",

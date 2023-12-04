@@ -1,11 +1,11 @@
-externalId: apm_simple-load-workitems
-name: apm_simple-load-Workitems
+externalId: tr_workorder_{{default_location}}_{{source_workorder}}_apm_simple_load_workorders
+name: workorder:{{default_location}}:{{source_workorder}}:apm_simple:load_workorders
 destination:
   dataModel:
     space: {{space}}
     externalId: {{datamodel}}
     version: '1'
-    destinationType: WorkItem
+    destinationType: WorkOrder
   instanceSpace: {{space}}
   type: instances
 ignoreNullFields: true

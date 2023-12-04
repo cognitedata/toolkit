@@ -35,7 +35,7 @@ The `cdf-tk` tool is available as a command line tool. Run `cdf-tk --help` to se
 
 A common structure on naming different CDF resource types and configuration are important from day one. Easy to use and understandable naming standard makes it easy to navigate and search on all components in a project as is grows in data sources, code, configuration, supported solutions and human resources working with and using the CDF solutions.
 
-#### Separation tokens
+**Separation tokens**
 
 * For external IDs the separation token is **’_’**  (underscore)  - this token works for all OS, when external ID matches usage of files
 * For names the separation token is **’:’ or '_'**  (colon or underscore)  - these tokens matches usage in other CLI tools ang gives good readability
@@ -50,7 +50,7 @@ In the example below we are setting up a project  based on the Open Industry Dat
   * fileshare (files and 3D)
   * PI (time series / data points)
 
-```
+```txt
 CDF project
 │
 ├── Data Sets:
@@ -104,65 +104,69 @@ CDF project
     └── extId: sp_apm_oid ── name: oid
 ```
 
-
 ### Naming elements
 
 * **Data Type:**  asset, timeseries, workorder, files, 3d,... (use what is relevant for project)
 * **Source:**  Source system where data originates from (ex, SAP, Workmate, Aveva, PI, Fileshare, SharePoint,..)
-* **Location:** Location for Asset / System / Plant / installation 
+* **Location:** Location for Asset / System / Plant / installation
 * **Pipeline Type:**  src = source data, ctx = contextualization, uc = use case, ...
 * **Operation Type:** Type of operation/action/functionality in transformation or CDF function
 * **Access Type:** Type of access used in authorization groups (ex: extractor, processing, read, ...)
 
-#### Data sets:
-```
+**Data sets:**
+
+```txt
 External ID: ds_<data type>_<location>
 Name: <data type>:<location>
 Ex: ds_asset_oid / asset:oid 
 ```
 
-#### Extraction Pipelines:
-```
+**Extraction Pipelines:**
+
+```txt
 External ID: ep_<pipeline type>_<data type>_<location>_<source>
 Name: <pipeline type>:<data type>:<location>:<source>:
 Ex: ep_src_asset_oid_workmate / src:asset:oid:workmate 
 ```
 
-#### RAW DB/tables:
-```
+**RAW DB/tables:**
+
+```txt
 DB: <data type>_<location>_<source>
 Ex: asset_oid_workmate
 Table: use name from source, or other describing name 
 ```
 
-#### Transformations:
-```
+**Transformations:**
+
+```txt
 External ID: tr_<data type>_<location>_<source>_<operation type>
 Name: <data type>:<location>:<source>:<operation type>
 Ex: tr_asset_oid_workmate_asset_hierarchy / asset:oid:workmate:asset_hierarchy 
 ```
 
-#### Functions:
-```
+**Functions:**
+
+```txt
 External ID: fu_<data type>_<location>_<source>_<operation type>
 Name: <data type>:<location>:<source>:<operation type>
 Ex: fu_files_oid_fileshare_annotation / files:oid:fileshare:annotation
 ```
 
-#### Authorization groups:
-```
+**Authorization groups:**
+
+```txt
 Name: <data type>:<source>:<access type>
 Ex:  asset:valhall:extractor / asset:valhall:processing / asset:valhall:read  
 ```
 
-#### Data Model Spaces:
-```
+**Data Model Spaces:**
+
+```txt
 External ID: dm_<data type>_<source>
 Name: <data type>:<source>
 Ex: dm_apm_oid / apm:oid 
 ```
-
-
 
 ## For more information
 
