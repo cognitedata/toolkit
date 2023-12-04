@@ -11,6 +11,7 @@ from cognite.client.data_classes.capabilities import (
     ProjectCapabilityList,
     ProjectsScope,
 )
+from cognite.client.data_classes.data_modeling import ViewApply
 from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock
@@ -86,7 +87,17 @@ def test_validate_raw() -> None:
     assert len(warnings) == 2
     assert sorted(warnings) == sorted(
         [
-            CaseWarning(raw_file, "is_string", "isString"),
-            CaseWarning(raw_file, "is_step", "isStep"),
+            CaseWarning(raw_file, "wrong_case", "externalId", "is_string", "isString"),
+            CaseWarning(raw_file, "wrong_case", "externalId", "is_step", "isStep"),
         ]
     )
+
+
+def test_validate_raw_nested() -> None:
+    raw_file = DATA_FOLDER / "datamodels" / "snake_cased_view_property.yaml"
+    warnings = validate_raw(yaml.safe_load(raw_file.read_text()), ViewApply, raw_file)
+
+    assert len(warnings) == 1
+    assert warnings == [
+        CaseWarning(raw_file, "WorkItem", "externalId", "container_property_identifier", "containerPropertyIdentifier"),
+    ]

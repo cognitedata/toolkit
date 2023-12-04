@@ -13,16 +13,20 @@
 # limitations under the License.
 from __future__ import annotations
 
+import collections
+import importlib
 import inspect
 import json
 import logging
 import os
 import re
+import typing
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import total_ordering
 from pathlib import Path
-from typing import Any
+from typing import Any, get_origin, get_type_hints
 
 import yaml
 from cognite.client import ClientConfig, CogniteClient
@@ -355,6 +359,8 @@ def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dic
 @dataclass(frozen=True)
 class Warning:
     filepath: Path
+    id_value: str
+    id_name: str
 
 
 @total_ordering
@@ -366,32 +372,108 @@ class CaseWarning(Warning):
     def __lt__(self, other: CaseWarning) -> bool:
         if not isinstance(other, CaseWarning):
             return NotImplemented
-        return (self.filepath, self.expected, self.actual) < (other.filepath, other.expected, other.actual)
+        return (self.filepath, self.id_value, self.expected, self.actual) < (
+            other.filepath,
+            other.id_value,
+            other.expected,
+            other.actual,
+        )
 
     def __eq__(self, other: CaseWarning) -> bool:
         if not isinstance(other, CaseWarning):
             return NotImplemented
-        return (self.filepath, self.expected, self.actual) == (other.filepath, other.expected, other.actual)
+        return (self.filepath, self.id_value, self.expected, self.actual) == (
+            other.filepath,
+            other.id_value,
+            other.expected,
+            other.actual,
+        )
 
 
 def validate_raw(
-    raw: dict[str, Any] | list[dict[str, Any]], resource_cls: CogniteObject, filepath: Path
+    raw: dict[str, Any] | list[dict[str, Any]],
+    resource_cls: CogniteObject,
+    filepath: Path,
+    identifier_key: str = "externalId",
+) -> list[CaseWarning]:
+    """Checks whether camel casing the raw data would match a parameter in the resource class.
+
+    Args:
+        raw: The raw data to check.
+        resource_cls: The resource class to check against init method
+        filepath: The filepath of the raw data. This is used to pass to the warnings for easy
+            grouping of warnings.
+        identifier_key: The key to use as identifier. Defaults to "externalId". This is used to pass to the warnings
+            for easy grouping of warnings.
+
+    Returns:
+        A list of CaseWarning objects.
+
+    """
+    return _validate_raw(raw, resource_cls, filepath, identifier_key)
+
+
+def _validate_raw(
+    raw: dict[str, Any] | list[dict[str, Any]],
+    resource_cls: CogniteObject,
+    filepath: Path,
+    identifier_key: str = "externalId",
+    identifier_value: str = "",
 ) -> list[CaseWarning]:
     warnings = []
-    to_check: list[tuple[dict[str, Any], CogniteObject]] = (
-        [(r, resource_cls) for r in raw] if isinstance(raw, list) else [(raw, resource_cls)]
-    )
-    while len(to_check) > 0:
-        item, item_cls = to_check.pop()
-        init = inspect.signature(item_cls.__init__)
-        expected = set(map(to_camel, init.parameters.keys())) - {"self"}
-        actual = set(item.keys())
-        actual_camel_case = set(map(to_camel, actual))
-        snake_cased = actual - actual_camel_case
-        if snake_cased:
-            for key in snake_cased:
-                if (camel_key := to_camel(key)) in expected:
-                    warnings.append(CaseWarning(filepath, str(key), str(camel_key)))
+    if isinstance(raw, list):
+        for item in raw:
+            warnings.extend(_validate_raw(item, resource_cls, filepath, identifier_key))
+        return warnings
+    elif not isinstance(raw, dict):
+        return warnings
+
+    signature = inspect.signature(resource_cls.__init__)
+
+    expected = set(map(to_camel, signature.parameters.keys())) - {"self"}
+
+    actual = set(raw.keys())
+    actual_camel_case = set(map(to_camel, actual))
+    snake_cased = actual - actual_camel_case
+
+    if not identifier_value:
+        identifier_value = raw.get(identifier_key, raw.get(to_snake(identifier_key), f"No identifier {identifier_key}"))
+
+    for key in snake_cased:
+        if (camel_key := to_camel(key)) in expected:
+            warnings.append(CaseWarning(filepath, identifier_value, identifier_key, str(key), str(camel_key)))
+        else:
+            warnings.append(CaseWarning(filepath, identifier_value, identifier_key, str(key), str(camel_key)))
+
+    try:
+        type_hint_by_name = _TypeHints()(signature, resource_cls)
+    except Exception:
+        # If we cannot get type hints, we cannot check if the type is correct.
+        return warnings
+
+    for key, value in raw.items():
+        if not isinstance(value, dict):
+            continue
+        if (parameter := signature.parameters.get(to_snake(key))) and (
+            type_hint := type_hint_by_name.get(parameter.name)
+        ):
+            if issubclass(type_hint, CogniteObject):
+                warnings.extend(_validate_raw(value, type_hint, filepath, identifier_key, identifier_value))
+                continue
+
+            container_type = get_origin(type_hint)
+            if container_type not in [dict, dict, collections.abc.MutableMapping, collections.abc.Mapping]:
+                continue
+            args = typing.get_args(type_hint)
+            if not args:
+                continue
+            container_key, container_value = args
+            if issubclass(container_value, CogniteObject):
+                for sub_key, sub_value in value.items():
+                    warnings.extend(
+                        _validate_raw(sub_value, container_value, filepath, identifier_key, identifier_value)
+                    )
+
     return warnings
 
 
@@ -453,3 +535,160 @@ def to_pascal(string: str) -> str:
     """
     camel = to_camel(string)
     return f"{camel[0].upper()}{camel[1:]}" if camel else ""
+
+
+def to_snake(string: str) -> str:
+    """
+    Convert input string to snake_case
+
+    Args:
+        string: The string to convert.
+    Returns:
+        snake_case of the input string.
+
+    Examples:
+        >>> to_snake("aB")
+        'a_b'
+        >>> to_snake('CamelCase')
+        'camel_case'
+        >>> to_snake('camelCamelCase')
+        'camel_camel_case'
+        >>> to_snake('Camel2Camel2Case')
+        'camel_2_camel_2_case'
+        >>> to_snake('getHTTPResponseCode')
+        'get_http_response_code'
+        >>> to_snake('get200HTTPResponseCode')
+        'get_200_http_response_code'
+        >>> to_snake('getHTTP200ResponseCode')
+        'get_http_200_response_code'
+        >>> to_snake('HTTPResponseCode')
+        'http_response_code'
+        >>> to_snake('ResponseHTTP')
+        'response_http'
+        >>> to_snake('ResponseHTTP2')
+        'response_http_2'
+        >>> to_snake('Fun?!awesome')
+        'fun_awesome'
+        >>> to_snake('Fun?!Awesome')
+        'fun_awesome'
+        >>> to_snake('10CoolDudes')
+        '10_cool_dudes'
+        >>> to_snake('20coolDudes')
+        '20_cool_dudes'
+    """
+    pattern = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)|\d+")
+    if "_" in string:
+        words = [word for section in string.split("_") for word in pattern.findall(section)]
+    else:
+        words = pattern.findall(string)
+    return "_".join(map(str.lower, words))
+
+
+class _TypeHints:
+    def __call__(self, signature, resource_cls: CogniteObject):
+        try:
+            type_hint_by_name = get_type_hints(resource_cls.__init__, localns=self._type_checking)
+        except TypeError:
+            # Python 3.10 Type hints cannot be evaluated with get_type_hints,
+            # ref https://stackoverflow.com/questions/66006087/how-to-use-typing-get-type-hints-with-pep585-in-python3-8
+            resource_module_vars = vars(importlib.import_module(resource_cls.__module__))
+            resource_module_vars.update(self._type_checking())
+            type_hint_by_name = self._get_type_hints_3_10(resource_module_vars, signature, vars(resource_cls))
+        return type_hint_by_name
+
+    @classmethod
+    def _type_checking(cls) -> dict[str, Any]:
+        """
+        When calling the get_type_hints function, it imports the module with the function TYPE_CHECKING is set to False.
+
+        This function takes all the special types used in data classes and returns them as a dictionary so it
+        can be used in the local namespaces.
+        """
+        import numpy as np
+        import numpy.typing as npt
+        from cognite.client import CogniteClient
+
+        NumpyDatetime64NSArray = npt.NDArray[np.datetime64]
+        NumpyInt64Array = npt.NDArray[np.int64]
+        NumpyFloat64Array = npt.NDArray[np.float64]
+        NumpyObjArray = npt.NDArray[np.object_]
+        return {
+            "CogniteClient": CogniteClient,
+            "NumpyDatetime64NSArray": NumpyDatetime64NSArray,
+            "NumpyInt64Array": NumpyInt64Array,
+            "NumpyFloat64Array": NumpyFloat64Array,
+            "NumpyObjArray": NumpyObjArray,
+        }
+
+    @classmethod
+    def _get_type_hints_3_10(
+        cls, resource_module_vars: dict[str, Any], signature310: inspect.Signature, local_vars: dict[str, Any]
+    ) -> dict[str, Any]:
+        return {
+            name: cls._create_type_hint_3_10(parameter.annotation, resource_module_vars, local_vars)
+            for name, parameter in signature310.parameters.items()
+            if name != "self"
+        }
+
+    @classmethod
+    def _create_type_hint_3_10(
+        cls, annotation: str, resource_module_vars: dict[str, Any], local_vars: dict[str, Any]
+    ) -> Any:
+        if annotation.endswith(" | None"):
+            annotation = annotation[:-7]
+        try:
+            return eval(annotation, resource_module_vars, local_vars)
+        except TypeError:
+            # Python 3.10 Type Hint
+            return cls._type_hint_3_10_to_8(annotation, resource_module_vars, local_vars)
+
+    @classmethod
+    def _type_hint_3_10_to_8(
+        cls, annotation: str, resource_module_vars: dict[str, Any], local_vars: dict[str, Any]
+    ) -> Any:
+        if cls._is_vertical_union(annotation):
+            alternatives = [
+                cls._create_type_hint_3_10(a.strip(), resource_module_vars, local_vars) for a in annotation.split("|")
+            ]
+            return typing.Union[tuple(alternatives)]
+        elif annotation.startswith("dict[") and annotation.endswith("]"):
+            if Counter(annotation)[","] > 1:
+                key, rest = annotation[5:-1].split(",", 1)
+                return dict[key.strip(), cls._create_type_hint_3_10(rest.strip(), resource_module_vars, local_vars)]
+            key, value = annotation[5:-1].split(",")
+            return dict[
+                cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars),
+                cls._create_type_hint_3_10(value.strip(), resource_module_vars, local_vars),
+            ]
+        elif annotation.startswith("Mapping[") and annotation.endswith("]"):
+            if Counter(annotation)[","] > 1:
+                key, rest = annotation[8:-1].split(",", 1)
+                return typing.Mapping[
+                    key.strip(), cls._create_type_hint_3_10(rest.strip(), resource_module_vars, local_vars)
+                ]
+            key, value = annotation[8:-1].split(",")
+            return typing.Mapping[
+                cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars),
+                cls._create_type_hint_3_10(value.strip(), resource_module_vars, local_vars),
+            ]
+        elif annotation.startswith("Optional[") and annotation.endswith("]"):
+            return typing.Optional[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]
+        elif annotation.startswith("list[") and annotation.endswith("]"):
+            return list[cls._create_type_hint_3_10(annotation[5:-1], resource_module_vars, local_vars)]
+        elif annotation.startswith("tuple[") and annotation.endswith("]"):
+            return tuple[cls._create_type_hint_3_10(annotation[6:-1], resource_module_vars, local_vars)]
+        elif annotation.startswith("typing.Sequence[") and annotation.endswith("]"):
+            # This is used in the Sequence data class file to avoid name collision
+            return typing.Sequence[cls._create_type_hint_3_10(annotation[16:-1], resource_module_vars, local_vars)]
+        raise NotImplementedError(f"Unsupported conversion of type hint {annotation!r}. {cls._error_msg}")
+
+    @classmethod
+    def _is_vertical_union(cls, annotation: str) -> bool:
+        if "|" not in annotation:
+            return False
+        parts = [p.strip() for p in annotation.split("|")]
+        for part in parts:
+            counts = Counter(part)
+            if counts["["] != counts["]"]:
+                return False
+        return True
