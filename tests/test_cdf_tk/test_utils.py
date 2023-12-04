@@ -86,7 +86,7 @@ def test_validate_raw() -> None:
     assert len(warnings) == 2
     assert sorted(warnings) == sorted(
         [
-            CaseWarning(raw_file, "is_string", "isSting"),
+            CaseWarning(raw_file, "is_string", "isString"),
             CaseWarning(raw_file, "is_step", "isStep"),
         ]
     )

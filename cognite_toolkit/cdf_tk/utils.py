@@ -13,9 +13,11 @@
 # limitations under the License.
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import total_ordering
@@ -381,5 +383,73 @@ def validate_raw(
     )
     while len(to_check) > 0:
         item, item_cls = to_check.pop()
-
+        init = inspect.signature(item_cls.__init__)
+        expected = set(map(to_camel, init.parameters.keys())) - {"self"}
+        actual = set(item.keys())
+        actual_camel_case = set(map(to_camel, actual))
+        snake_cased = actual - actual_camel_case
+        if snake_cased:
+            for key in snake_cased:
+                if (camel_key := to_camel(key)) in expected:
+                    warnings.append(CaseWarning(filepath, str(key), str(camel_key)))
     return warnings
+
+
+def to_camel(string: str) -> str:
+    """Convert snake_case_name to camelCaseName.
+
+    Args:
+        string: The string to convert.
+    Returns:
+        camelCase of the input string.
+
+    Examples:
+        >>> to_camel("a_b")
+        'aB'
+        >>> to_camel('camel_case')
+        'camelCase'
+        >>> to_camel('best_director')
+        'bestDirector'
+        >>> to_camel("ScenarioInstance_priceForecast")
+        'scenarioInstancePriceForecast'
+    """
+    if "_" in string:
+        # Could be a combination of snake and pascal/camel case
+        parts = string.split("_")
+        pascal_splits = [to_pascal(part) for part in parts]
+    else:
+        # Assume is pascal/camel case
+        # Ensure pascal
+        string = string[0].upper() + string[1:]
+        pascal_splits = [string]
+    string_split = []
+    for part in pascal_splits:
+        string_split.extend(re.findall(r"[A-Z][a-z]*", part))
+    if not string_split:
+        string_split = [string]
+    try:
+        return string_split[0].casefold() + "".join(word.capitalize() for word in string_split[1:])
+    except IndexError:
+        return ""
+
+
+def to_pascal(string: str) -> str:
+    """Convert string to PascalCaseName.
+
+    Args:
+        string: The string to convert.
+    Returns:
+        PascalCase of the input string.
+
+    Examples:
+        >>> to_pascal("a_b")
+        'AB'
+        >>> to_pascal('camel_case')
+        'CamelCase'
+        >>> to_pascal('best_director')
+        'BestDirector'
+        >>> to_pascal("ScenarioInstance_priceForecast")
+        'ScenarioInstancePriceForecast'
+    """
+    camel = to_camel(string)
+    return f"{camel[0].upper()}{camel[1:]}" if camel else ""
