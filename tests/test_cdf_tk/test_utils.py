@@ -99,5 +99,5 @@ def test_validate_raw_nested() -> None:
 
     assert len(warnings) == 1
     assert warnings == [
-        CaseWarning(raw_file, "WorkItem", "externalId", "container_property_identifier", "containerPropertyIdentifier"),
+        CaseWarning(raw_file, "WorkItem", "externalId", "container_property_identifier", None),
     ]

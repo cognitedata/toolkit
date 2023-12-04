@@ -367,7 +367,7 @@ class Warning:
 @dataclass(frozen=True)
 class CaseWarning(Warning):
     actual: str
-    expected: str
+    expected: str | None
 
     def __lt__(self, other: CaseWarning) -> bool:
         if not isinstance(other, CaseWarning):
@@ -443,7 +443,7 @@ def _validate_raw(
         if (camel_key := to_camel(key)) in expected:
             warnings.append(CaseWarning(filepath, identifier_value, identifier_key, str(key), str(camel_key)))
         else:
-            warnings.append(CaseWarning(filepath, identifier_value, identifier_key, str(key), str(camel_key)))
+            warnings.append(CaseWarning(filepath, identifier_value, identifier_key, str(key), None))
 
     try:
         type_hint_by_name = _TypeHints()(signature, resource_cls)

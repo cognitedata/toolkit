@@ -11,7 +11,6 @@ from cognite_toolkit.cdf_tk.load import (
     DataSetsLoader,
     FileLoader,
     Loader,
-    TimeSeriesLoader,
     drop_load_resources,
     load_datamodel_graphql,
 )
@@ -87,16 +86,3 @@ def test_upsert_data_set(cognite_client_approval: CogniteClient):
     changed = loader.remove_unchanged(loaded)
 
     assert len(changed) == 1
-
-
-def test_load_raise_warning_camel_case():
-    raw_file = DATA_FOLDER / "timeseries" / "wrong_case.yaml"
-    cdf_config = MagicMock(spec=CDFToolConfig)
-    loader = TimeSeriesLoader.create_loader(cdf_config)
-
-    with pytest.warns(UserWarning) as warning:
-        loaded = loader.load_resource(raw_file, cdf_config)
-
-    assert len(loaded) == 1
-    assert len(warning) == 1
-    assert "camelCase" in str(warning[0].message)
