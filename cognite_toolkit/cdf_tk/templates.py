@@ -384,7 +384,7 @@ def process_config_files(
                     loader = LOADER_BY_FOLDER_NAME.get(filepath.parent.name)
                     if loader:
                         load_warnings = validate_case_raw(
-                            parsed, loader.resource_cls, filepath, identifier_key="externalId"
+                            parsed, loader.resource_cls, filepath, identifier_key=loader.identifier_key
                         )
                         if load_warnings:
                             print(f"  [bold yellow]WARNING:[/]{generate_warnings_report(load_warnings, indent=1)}")
