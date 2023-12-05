@@ -241,7 +241,7 @@ def deploy(
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
-    typer.echo(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
+    print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     build_path = Path(build_dir)
     if not build_path.is_dir():
         typer.echo(
@@ -361,7 +361,7 @@ def clean(
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
-    print(Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]"))
+    Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]")
     build_path = Path(build_dir)
     if not build_path.is_dir():
         typer.echo(
