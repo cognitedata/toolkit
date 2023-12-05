@@ -344,8 +344,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
                     else:
                         values["scope"]["extractionPipelineScope"]["ids"] = [-1]
         if validate:
-            warnings = validate_case_raw(raw, self.resource_cls, filepath)
-            return Group.load(raw), warnings
+            return Group.load(raw), validate_case_raw(raw, self.resource_cls, filepath, identifier_key="name")
         else:
             return Group.load(raw)
 
@@ -1353,11 +1352,12 @@ def load_nodes(
 
 
 def generate_warnings_report(load_warnings: list[LoadWarning], indent: int = 0) -> str:
-    report = []
-    for (file, identifier), file_warnings in itertools.groupby(
-        sorted(load_warnings), key=lambda w: (w.filepath, w.id_value)
+    report = [""]
+    for (file, identifier, id_name), file_warnings in itertools.groupby(
+        sorted(load_warnings), key=lambda w: (w.filepath, w.id_value, w.id_name)
     ):
-        report.append(f"{'    '*indent}{file}:{identifier}")
+        report.append(f"{'    '*indent}In File {str(file)!r}")
+        report.append(f"{'    '*indent}In entry {id_name}={identifier!r}")
         for warning in file_warnings:
             report.append(f"{'    '*(indent+1)}{warning!s}")
 
