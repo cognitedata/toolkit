@@ -13,6 +13,10 @@ Changes are grouped as follows:
 - `Removed` for now removed features.
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
+- 
+## TBD - 2023-12-TBD
+### Added
+- Explicitly define model `space` in `experimental/cdf_asset_source_model/` and `experimental/example_pump_model/`.
 
 ## [0.2.0] - 2023-12-01
 
@@ -35,7 +39,6 @@ Changes are grouped as follows:
 - Fix use of integer value in version for data models.
 - Fix wrong reference to `apm_simple` in `examples/cdf_apm_simple_data_model` and `modules/cdf_infield_location`.
 - Exemplify use of a single config yaml file for multiple file resources in `examples/cdf_oid_example_data/files/files.yaml`.
-- Explicitly define model `space` in `experimental/cdf_asset_source_model/` and `experimental/example_pump_model/`.
 
 ## [0.1.1] - 2023-11-23
 
