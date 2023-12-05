@@ -209,6 +209,9 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         folder_name: The name of the folder in the build directory where the files are located.
         resource_cls: The class of the resource that is loaded.
         list_cls: The list version of the resource class.
+        dependencies: A set of loaders that must be loaded before this loader.
+        _display_name: The name of the resource that is used when printing messages. If this is not set the
+            api_name is used.
     """
 
     support_drop = True
@@ -220,6 +223,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
     dependencies: frozenset[Loader] = frozenset()
+    _display_name: str = ""
 
     def __init__(self, client: CogniteClient, ToolGlobals: CDFToolConfig):
         self.client = client
@@ -228,6 +232,12 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
             self.api_class = self._get_api_class(client, self.api_name)
         except AttributeError:
             raise AttributeError(f"Invalid api_name {self.api_name}.")
+
+    @property
+    def display_name(self):
+        if self._display_name:
+            return self._display_name
+        return self.api_name
 
     @staticmethod
     def _get_api_class(client, api_name: str):
@@ -1051,6 +1061,7 @@ class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
     resource_cls = NodeApply
     list_cls = LoadableNodes
     dependencies = frozenset({SpaceLoader, ViewLoader})
+    _display_name = "nodes"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -1097,6 +1108,7 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
     filename_pattern = r"^.*\.?(edge)$"
     resource_cls = EdgeApply
     list_cls = LoadableEdges
+    _display_name = "edges"
 
     # Note edges do not need nodes to be created first, as they are created as part of the edge creation.
     # However, for deletion (reversed order) we need to delete edges before nodes.
@@ -1173,12 +1185,12 @@ def drop_load_resources(
     nr_of_deleted = 0
     nr_of_created = 0
     if load:
-        print(f"[bold]Uploading {nr_of_items} {loader.api_name} in {nr_of_batches} batches to CDF...[/]")
+        print(f"[bold]Uploading {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     else:
-        print(f"[bold]Cleaning {nr_of_items} {loader.api_name} in {nr_of_batches} batches to CDF...[/]")
+        print(f"[bold]Cleaning {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     batches = [item if isinstance(item, Sized) else [item] for item in items]
     if drop and loader.support_drop and load:
-        print(f"  --drop is specified, will delete existing {loader.api_name} before uploading.")
+        print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
     if (drop and loader.support_drop) or clean:
         for batch in batches:
             drop_items: list = []
@@ -1191,16 +1203,18 @@ def drop_load_resources(
                 try:
                     nr_of_deleted += loader.delete(drop_items, drop_data)
                     if verbose:
-                        print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+                        print(f"  Deleted {len(drop_items)} {loader.display_name}.")
                 except CogniteAPIError as e:
                     if e.code == 404:
-                        print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do(es) not exist.")
+                        print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.display_name} do(es) not exist.")
                 except CogniteNotFoundError:
-                    print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do(es) not exist.")
+                    print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.display_name} do(es) not exist.")
                 except Exception as e:
-                    print(f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. Error {e}")
+                    print(
+                        f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.display_name}. Error {e}"
+                    )
             else:
-                print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
+                print(f"  Would have deleted {len(drop_items)} {loader.display_name}.")
     if not load:
         return
     try:
@@ -1208,22 +1222,22 @@ def drop_load_resources(
             for batch, filepath in zip(batches, filepaths):
                 if not drop and loader.support_upsert:
                     if verbose:
-                        print(f"  Comparing {len(batch)} {loader.api_name} from {filepath}...")
+                        print(f"  Comparing {len(batch)} {loader.display_name} from {filepath}...")
                     batch = loader.remove_unchanged(batch)
                     if verbose:
-                        print(f"    {len(batch)} {loader.api_name} to be deployed...")
+                        print(f"    {len(batch)} {loader.display_name} to be deployed...")
                 if len(batch) > 0:
                     created = loader.create(batch, drop, filepath)
                     nr_of_created += len(created) if created is not None else 0
                     if isinstance(loader, AuthLoader):
                         nr_of_deleted += len(created)
     except Exception as e:
-        print(f"[bold red]ERROR:[/] Failed to upload {loader.api_name}.")
+        print(f"[bold red]ERROR:[/] Failed to upload {loader.display_name}.")
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.api_name} from {len(filepaths)} config files.")
-    print(f"  Created {nr_of_created} out of {nr_of_items} {loader.api_name} from {len(filepaths)} config files.")
+    print(f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files.")
+    print(f"  Created {nr_of_created} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files.")
 
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
