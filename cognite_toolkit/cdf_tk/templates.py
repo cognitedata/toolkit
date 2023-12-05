@@ -394,6 +394,12 @@ def process_config_files(
                         ):
                             exit(1)
                     loader = LOADER_BY_FOLDER_NAME.get(filepath.parent.name)
+                    if len(loader) == 1:
+                        loader = loader[0]
+                    else:
+                        loader = next(
+                            (loader for loader in loader if re.match(loader.filename_pattern, filepath.stem)), None
+                        )
                     if loader:
                         load_warnings = validate_case_raw(
                             parsed, loader.resource_cls, filepath, identifier_key=loader.identifier_key
