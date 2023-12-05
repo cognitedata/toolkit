@@ -1070,7 +1070,7 @@ class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
     def get_id(self, item: NodeApply) -> NodeId:
         return item.as_id()
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> LoadableNodes:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> LoadableNodes:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw, list):
             raise ValueError(f"Unexpected node yaml file format {filepath.name}")
@@ -1122,7 +1122,7 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
     def get_id(self, item: EdgeApply) -> EdgeId:
         return item.as_id()
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> LoadableEdges:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> LoadableEdges:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw, list):
             raise ValueError(f"Unexpected edge yaml file format {filepath.name}")

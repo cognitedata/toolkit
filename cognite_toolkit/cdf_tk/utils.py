@@ -359,7 +359,7 @@ class CDFToolConfig:
         except CogniteAPIError as e:
             raise CogniteAuthError("Don't have correct access rights. Need READ on dataModelsAcl.") from e
 
-        if missing := (({space} if isinstance(space, str) else set(space)) - set(existing.as_id())):
+        if missing := (({space} if isinstance(space, str) else set(space)) - set(existing.as_ids())):
             raise ValueError(
                 f"Spaces {missing} does not exist, you need to create it first. Do this by adding a config file to the data model folder."
             )
