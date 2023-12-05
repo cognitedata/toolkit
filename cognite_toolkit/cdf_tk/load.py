@@ -134,6 +134,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     folder_name: str
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
+    identifier_key: str = "externalId"
     dependencies: frozenset[Loader] = frozenset()
 
     def __init__(self, client: CogniteClient):
@@ -248,6 +249,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
     folder_name = "auth"
     resource_cls = Group
     list_cls = GroupList
+    identifier_key = "name"
     resource_scopes = frozenset(
         {
             capabilities.IDScope,
@@ -471,6 +473,7 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
     folder_name = "raw"
     resource_cls = RawTable
     list_cls = list[RawTable]
+    identifier_key = "table_name"
     data_file_types = frozenset({"csv", "parquet"})
 
     @classmethod
@@ -730,8 +733,8 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
         if resource.get("dataSetExternalId") is not None:
-            ds_exterla_id = resource.pop("dataSetExternalId")
-            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_exterla_id) if not dry_run else -1
+            ds_external_id = resource.pop("dataSetExternalId")
+            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
         return ExtractionPipeline.load(resource)
 
     def create(

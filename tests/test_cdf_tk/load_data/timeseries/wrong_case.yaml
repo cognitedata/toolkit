@@ -1,0 +1,8 @@
+- externalId: 'wrong_case'
+  name: 'Wrong cased data set'
+  is_string: true
+  metadata:
+    time_zone: 'Europe/Oslo'
+    unit: 'm'
+  is_step: false
+  description: This file has snake case for isStep and isString
