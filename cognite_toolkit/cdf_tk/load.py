@@ -133,6 +133,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     folder_name: str
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
+    identifier_key: str = "externalId"
     dependencies: frozenset[Loader] = frozenset()
 
     def __init__(self, client: CogniteClient):

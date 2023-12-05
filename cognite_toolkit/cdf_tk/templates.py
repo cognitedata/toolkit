@@ -9,6 +9,9 @@ from typing import Any
 import yaml
 from rich import print
 
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, generate_warnings_report
+from cognite_toolkit.cdf_tk.utils import validate_case_raw
+
 TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md"]
@@ -377,6 +380,13 @@ def process_config_files(
                         filepath_build=filepath,
                     ):
                         exit(1)
+                    loader = LOADER_BY_FOLDER_NAME.get(filepath.parent.name)
+                    if loader:
+                        load_warnings = validate_case_raw(
+                            parsed, loader.resource_cls, filepath, identifier_key="externalId"
+                        )
+                        if load_warnings:
+                            print(f"  [bold yellow]WARNING:[/]{generate_warnings_report(load_warnings, indent=1)}")
 
 
 def build_config(
