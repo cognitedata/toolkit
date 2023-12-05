@@ -361,7 +361,7 @@ class CDFToolConfig:
 
         if missing := (({space} if isinstance(space, str) else set(space)) - set(existing.as_ids())):
             raise ValueError(
-                f"Spaces {missing} does not exist, you need to create it first. Do this by adding a config file to the data model folder."
+                f"Space {missing} does not exist, you need to create it first. Do this by adding a config file to the data model folder."
             )
         self._existing_spaces.update([space.space for space in existing])
         return [space.space for space in existing]

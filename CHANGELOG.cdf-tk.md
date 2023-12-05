@@ -16,6 +16,9 @@ Changes are grouped as follows:
 - `Security` in case of vulnerabilities.
 
 ## [TBD] - 2023-12-TBD
+### Added
+- Added support for validation of `space` for data models.
+
 ### Fixed
 - When running `cdf-tk deploy` with `--dry-run` a `ValueError` was raised if not all datasets were pre-existing.
   This is now fixed by skipping dataset validation when running with `--dry-run`.
@@ -49,7 +52,7 @@ Changes are grouped as follows:
 - Missing .sql files for transformations will now raise an error in the build step.
 - The build step will now raise a number of warnings for missing externalIds in the yaml files,
   as well as if the naming conventions are not followed.
-- Added support for validation of `space` for data models.
+
 
 
 ### Fixed
@@ -58,8 +61,6 @@ Changes are grouped as follows:
 - `cdf-tk clean` not working properly for data models with data.
 - Fix group deletion on use of clean command to actually delete groups.
 
-### Removed
-- Support for `.graphql` deployment.
 
 ## [0.1.0a2] - 2023-11-22
 

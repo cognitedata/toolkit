@@ -1173,6 +1173,8 @@ def drop_load_resources(
         filepaths = [file for file in path.glob("**/*")]
 
     if loader.filename_pattern:
+        # This is used by data modelings resources to filter out files that are not of the correct type
+        # as these resources share the same folder.
         pattern = re.compile(loader.filename_pattern)
         filepaths = [file for file in filepaths if pattern.match(file.stem)]
 
