@@ -396,7 +396,7 @@ class CaseWarning(Warning):
 
 def validate_case_raw(
     raw: dict[str, Any] | list[dict[str, Any]],
-    resource_cls: CogniteObject,
+    resource_cls: type[CogniteObject],
     filepath: Path,
     identifier_key: str = "externalId",
 ) -> list[CaseWarning]:
@@ -419,7 +419,7 @@ def validate_case_raw(
 
 def _validate_case_raw(
     raw: dict[str, Any] | list[dict[str, Any]],
-    resource_cls: CogniteObject,
+    resource_cls: type[CogniteObject],
     filepath: Path,
     identifier_key: str = "externalId",
     identifier_value: str = "",
@@ -437,28 +437,30 @@ def _validate_case_raw(
     is_base_class = inspect.isclass(resource_cls) and any(base is abc.ABC for base in resource_cls.__bases__)
     if is_base_class:
         # If it is a base class, it cannot be instantiated, so it can be any of the
-        # subclasses parameters.
+        # subclasses' parameters.
         expected = {
-            to_camel(parameter)
+            to_camel_case(parameter)
             for sub in resource_cls.__subclasses__()
             for parameter in inspect.signature(sub.__init__).parameters.keys()
         } - {"self"}
     else:
-        expected = set(map(to_camel, signature.parameters.keys())) - {"self"}
+        expected = set(map(to_camel_case, signature.parameters.keys())) - {"self"}
 
     actual = set(raw.keys())
-    actual_camel_case = set(map(to_camel, actual))
+    actual_camel_case = set(map(to_camel_case, actual))
     snake_cased = actual - actual_camel_case
 
     if not identifier_value:
-        identifier_value = raw.get(identifier_key, raw.get(to_snake(identifier_key), f"No identifier {identifier_key}"))
+        identifier_value = raw.get(
+            identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}")
+        )
 
     for key in snake_cased:
-        if (camel_key := to_camel(key)) in expected:
+        if (camel_key := to_camel_case(key)) in expected:
             warnings.append(CaseWarning(filepath, identifier_value, identifier_key, str(key), str(camel_key)))
 
     try:
-        type_hint_by_name = _TypeHints()(signature, resource_cls)
+        type_hints_by_name = _TypeHints.get_type_hints_by_name(signature, resource_cls)
     except Exception:
         # If we cannot get type hints, we cannot check if the type is correct.
         return warnings
@@ -466,8 +468,8 @@ def _validate_case_raw(
     for key, value in raw.items():
         if not isinstance(value, dict):
             continue
-        if (parameter := signature.parameters.get(to_snake(key))) and (
-            type_hint := type_hint_by_name.get(parameter.name)
+        if (parameter := signature.parameters.get(to_snake_case(key))) and (
+            type_hint := type_hints_by_name.get(parameter.name)
         ):
             if issubclass(type_hint, CogniteObject):
                 warnings.extend(_validate_case_raw(value, type_hint, filepath, identifier_key, identifier_value))
@@ -489,7 +491,7 @@ def _validate_case_raw(
     return warnings
 
 
-def to_camel(string: str) -> str:
+def to_camel_case(string: str) -> str:
     """Convert snake_case_name to camelCaseName.
 
     Args:
@@ -498,19 +500,19 @@ def to_camel(string: str) -> str:
         camelCase of the input string.
 
     Examples:
-        >>> to_camel("a_b")
+        >>> to_camel_case("a_b")
         'aB'
-        >>> to_camel('camel_case')
+        >>> to_camel_case('camel_case')
         'camelCase'
-        >>> to_camel('best_director')
+        >>> to_camel_case('best_director')
         'bestDirector'
-        >>> to_camel("ScenarioInstance_priceForecast")
+        >>> to_camel_case("ScenarioInstance_priceForecast")
         'scenarioInstancePriceForecast'
     """
     if "_" in string:
         # Could be a combination of snake and pascal/camel case
         parts = string.split("_")
-        pascal_splits = [to_pascal(part) for part in parts]
+        pascal_splits = [to_pascal_case(part) for part in parts]
     else:
         # Assume is pascal/camel case
         # Ensure pascal
@@ -527,7 +529,7 @@ def to_camel(string: str) -> str:
         return ""
 
 
-def to_pascal(string: str) -> str:
+def to_pascal_case(string: str) -> str:
     """Convert string to PascalCaseName.
 
     Args:
@@ -536,20 +538,20 @@ def to_pascal(string: str) -> str:
         PascalCase of the input string.
 
     Examples:
-        >>> to_pascal("a_b")
+        >>> to_pascal_case("a_b")
         'AB'
-        >>> to_pascal('camel_case')
+        >>> to_pascal_case('camel_case')
         'CamelCase'
-        >>> to_pascal('best_director')
+        >>> to_pascal_case('best_director')
         'BestDirector'
-        >>> to_pascal("ScenarioInstance_priceForecast")
+        >>> to_pascal_case("ScenarioInstance_priceForecast")
         'ScenarioInstancePriceForecast'
     """
-    camel = to_camel(string)
+    camel = to_camel_case(string)
     return f"{camel[0].upper()}{camel[1:]}" if camel else ""
 
 
-def to_snake(string: str) -> str:
+def to_snake_case(string: str) -> str:
     """
     Convert input string to snake_case
 
@@ -559,33 +561,33 @@ def to_snake(string: str) -> str:
         snake_case of the input string.
 
     Examples:
-        >>> to_snake("aB")
+        >>> to_snake_case("aB")
         'a_b'
-        >>> to_snake('CamelCase')
+        >>> to_snake_case('CamelCase')
         'camel_case'
-        >>> to_snake('camelCamelCase')
+        >>> to_snake_case('camelCamelCase')
         'camel_camel_case'
-        >>> to_snake('Camel2Camel2Case')
+        >>> to_snake_case('Camel2Camel2Case')
         'camel_2_camel_2_case'
-        >>> to_snake('getHTTPResponseCode')
+        >>> to_snake_case('getHTTPResponseCode')
         'get_http_response_code'
-        >>> to_snake('get200HTTPResponseCode')
+        >>> to_snake_case('get200HTTPResponseCode')
         'get_200_http_response_code'
-        >>> to_snake('getHTTP200ResponseCode')
+        >>> to_snake_case('getHTTP200ResponseCode')
         'get_http_200_response_code'
-        >>> to_snake('HTTPResponseCode')
+        >>> to_snake_case('HTTPResponseCode')
         'http_response_code'
-        >>> to_snake('ResponseHTTP')
+        >>> to_snake_case('ResponseHTTP')
         'response_http'
-        >>> to_snake('ResponseHTTP2')
+        >>> to_snake_case('ResponseHTTP2')
         'response_http_2'
-        >>> to_snake('Fun?!awesome')
+        >>> to_snake_case('Fun?!awesome')
         'fun_awesome'
-        >>> to_snake('Fun?!Awesome')
+        >>> to_snake_case('Fun?!Awesome')
         'fun_awesome'
-        >>> to_snake('10CoolDudes')
+        >>> to_snake_case('10CoolDudes')
         '10_cool_dudes'
-        >>> to_snake('20coolDudes')
+        >>> to_snake_case('20coolDudes')
         '20_cool_dudes'
     """
     pattern = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)|\d+")
@@ -597,15 +599,16 @@ def to_snake(string: str) -> str:
 
 
 class _TypeHints:
-    def __call__(self, signature, resource_cls: CogniteObject):
+    @classmethod
+    def get_type_hints_by_name(cls, signature, resource_cls: type[CogniteObject]) -> dict[str, Any]:
         try:
-            type_hint_by_name = get_type_hints(resource_cls.__init__, localns=self._type_checking)
+            type_hint_by_name = get_type_hints(resource_cls.__init__, localns=cls._type_checking)
         except TypeError:
             # Python 3.10 Type hints cannot be evaluated with get_type_hints,
             # ref https://stackoverflow.com/questions/66006087/how-to-use-typing-get-type-hints-with-pep585-in-python3-8
             resource_module_vars = vars(importlib.import_module(resource_cls.__module__))
-            resource_module_vars.update(self._type_checking())
-            type_hint_by_name = self._get_type_hints_3_10(resource_module_vars, signature, vars(resource_cls))
+            resource_module_vars.update(cls._type_checking())
+            type_hint_by_name = cls._get_type_hints_3_10(resource_module_vars, signature, vars(resource_cls))
         return type_hint_by_name
 
     @classmethod
