@@ -433,7 +433,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
         for data_set in data_sets:
             if data_set.get("metadata"):
                 for key, value in data_set["metadata"].items():
-                    data_set["metadata"][key] = json.dumps(value)
+                    data_set["metadata"][key] = json.dumps(value) if isinstance(value, dict) else value
         return DataSetList.load(data_sets)
 
     def create(
