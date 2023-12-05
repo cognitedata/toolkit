@@ -599,8 +599,21 @@ def to_snake_case(string: str) -> str:
 
 
 class _TypeHints:
+    """
+    This class is used to get type hints from the init function of a CogniteObject.
+
+    After Python 3.10, type hints are treated as strings, so we need to evaluate them to get the actual type.
+    """
+
     @classmethod
     def get_type_hints_by_name(cls, signature, resource_cls: type[CogniteObject]) -> dict[str, Any]:
+        """
+        Get type hints from the init function of a CogniteObject.
+
+        Args:
+            signature: The signature of the init function.
+            resource_cls: The resource class to get type hints from.
+        """
         try:
             type_hint_by_name = get_type_hints(resource_cls.__init__, localns=cls._type_checking)
         except TypeError:
