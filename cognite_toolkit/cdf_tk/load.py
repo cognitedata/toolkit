@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import itertools
+import json
 import re
 from abc import ABC, abstractmethod
 from collections import Counter
@@ -510,6 +511,15 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
         local.created_time = remote.created_time
         local.last_updated_time = remote.last_updated_time
         return local
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> DataSetList:
+        resource = load_yaml_inject_variables(filepath, {})
+        data_sets = list(resource) if isinstance(resource, dict) else resource
+        for data_set in data_sets:
+            if data_set.get("metadata"):
+                for key, value in data_set["metadata"].items():
+                    data_set["metadata"][key] = json.dumps(value) if isinstance(value, dict) else value
+        return DataSetList.load(data_sets)
 
     def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList | None:
         created = DataSetList([], cognite_client=self.client)
