@@ -16,7 +16,7 @@ from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 
-from cognite_toolkit.cdf_tk.utils import CaseWarning, CDFToolConfig, load_yaml_inject_variables, validate_raw
+from cognite_toolkit.cdf_tk.utils import CaseWarning, CDFToolConfig, load_yaml_inject_variables, validate_case_raw
 
 THIS_FOLDER = Path(__file__).resolve().parent
 
@@ -82,7 +82,7 @@ def test_load_yaml_inject_variables(tmp_path) -> None:
 def test_validate_raw() -> None:
     raw_file = DATA_FOLDER / "timeseries" / "wrong_case.yaml"
 
-    warnings = validate_raw(yaml.safe_load(raw_file.read_text()), TimeSeries, raw_file)
+    warnings = validate_case_raw(yaml.safe_load(raw_file.read_text()), TimeSeries, raw_file)
 
     assert len(warnings) == 2
     assert sorted(warnings) == sorted(
@@ -95,9 +95,9 @@ def test_validate_raw() -> None:
 
 def test_validate_raw_nested() -> None:
     raw_file = DATA_FOLDER / "datamodels" / "snake_cased_view_property.yaml"
-    warnings = validate_raw(yaml.safe_load(raw_file.read_text()), ViewApply, raw_file)
+    warnings = validate_case_raw(yaml.safe_load(raw_file.read_text()), ViewApply, raw_file)
 
     assert len(warnings) == 1
     assert warnings == [
-        CaseWarning(raw_file, "WorkItem", "externalId", "container_property_identifier", None),
+        CaseWarning(raw_file, "WorkItem", "externalId", "container_property_identifier", "containerPropertyIdentifier")
     ]

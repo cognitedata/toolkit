@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import abc
 import collections
 import importlib
 import inspect
@@ -367,7 +368,7 @@ class Warning:
 @dataclass(frozen=True)
 class CaseWarning(Warning):
     actual: str
-    expected: str | None
+    expected: str
 
     def __lt__(self, other: CaseWarning) -> bool:
         if not isinstance(other, CaseWarning):
@@ -389,8 +390,11 @@ class CaseWarning(Warning):
             other.actual,
         )
 
+    def __str__(self):
+        return f"CaseWarning: Got {self.actual!r}. Did you mean {self.expected!r}?"
 
-def validate_raw(
+
+def validate_case_raw(
     raw: dict[str, Any] | list[dict[str, Any]],
     resource_cls: CogniteObject,
     filepath: Path,
@@ -410,10 +414,10 @@ def validate_raw(
         A list of CaseWarning objects.
 
     """
-    return _validate_raw(raw, resource_cls, filepath, identifier_key)
+    return _validate_case_raw(raw, resource_cls, filepath, identifier_key)
 
 
-def _validate_raw(
+def _validate_case_raw(
     raw: dict[str, Any] | list[dict[str, Any]],
     resource_cls: CogniteObject,
     filepath: Path,
@@ -423,14 +427,24 @@ def _validate_raw(
     warnings = []
     if isinstance(raw, list):
         for item in raw:
-            warnings.extend(_validate_raw(item, resource_cls, filepath, identifier_key))
+            warnings.extend(_validate_case_raw(item, resource_cls, filepath, identifier_key))
         return warnings
     elif not isinstance(raw, dict):
         return warnings
 
     signature = inspect.signature(resource_cls.__init__)
 
-    expected = set(map(to_camel, signature.parameters.keys())) - {"self"}
+    is_base_class = inspect.isclass(resource_cls) and any(base is abc.ABC for base in resource_cls.__bases__)
+    if is_base_class:
+        # If it is a base class, it cannot be instantiated, so it can be any of the
+        # subclasses parameters.
+        expected = {
+            to_camel(parameter)
+            for sub in resource_cls.__subclasses__()
+            for parameter in inspect.signature(sub.__init__).parameters.keys()
+        } - {"self"}
+    else:
+        expected = set(map(to_camel, signature.parameters.keys())) - {"self"}
 
     actual = set(raw.keys())
     actual_camel_case = set(map(to_camel, actual))
@@ -442,8 +456,6 @@ def _validate_raw(
     for key in snake_cased:
         if (camel_key := to_camel(key)) in expected:
             warnings.append(CaseWarning(filepath, identifier_value, identifier_key, str(key), str(camel_key)))
-        else:
-            warnings.append(CaseWarning(filepath, identifier_value, identifier_key, str(key), None))
 
     try:
         type_hint_by_name = _TypeHints()(signature, resource_cls)
@@ -458,7 +470,7 @@ def _validate_raw(
             type_hint := type_hint_by_name.get(parameter.name)
         ):
             if issubclass(type_hint, CogniteObject):
-                warnings.extend(_validate_raw(value, type_hint, filepath, identifier_key, identifier_value))
+                warnings.extend(_validate_case_raw(value, type_hint, filepath, identifier_key, identifier_value))
                 continue
 
             container_type = get_origin(type_hint)
@@ -471,7 +483,7 @@ def _validate_raw(
             if issubclass(container_value, CogniteObject):
                 for sub_key, sub_value in value.items():
                     warnings.extend(
-                        _validate_raw(sub_value, container_value, filepath, identifier_key, identifier_value)
+                        _validate_case_raw(sub_value, container_value, filepath, identifier_key, identifier_value)
                     )
 
     return warnings
