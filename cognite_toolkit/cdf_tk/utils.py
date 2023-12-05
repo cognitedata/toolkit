@@ -358,7 +358,7 @@ def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dic
 
 
 @dataclass(frozen=True)
-class Warning:
+class LoadWarning:
     filepath: Path
     id_value: str
     id_name: str
@@ -366,7 +366,7 @@ class Warning:
 
 @total_ordering
 @dataclass(frozen=True)
-class CaseWarning(Warning):
+class CaseWarning(LoadWarning):
     actual: str
     expected: str
 
@@ -482,7 +482,7 @@ def _validate_case_raw(
             if not args:
                 continue
             container_key, container_value = args
-            if issubclass(container_value, CogniteObject):
+            if inspect.isclass(container_value) and issubclass(container_value, CogniteObject):
                 for sub_key, sub_value in value.items():
                     warnings.extend(
                         _validate_case_raw(sub_value, container_value, filepath, identifier_key, identifier_value)
