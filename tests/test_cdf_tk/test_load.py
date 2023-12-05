@@ -47,7 +47,7 @@ def test_upsert_data_set(cognite_client_approval: CogniteClient):
     cdf_tool.verify_capabilities.return_value = cognite_client_approval
 
     loader = DataSetsLoader.create_loader(cdf_tool)
-    loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", cdf_tool, dry_run=False)
+    loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", dry_run=False)
     assert len(loaded) == 2
 
     first = DataSet.load(loaded[0].dump())
