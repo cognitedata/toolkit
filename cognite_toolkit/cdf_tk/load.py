@@ -222,6 +222,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     folder_name: str
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
+    identifier_key: str = "externalId"
     dependencies: frozenset[Loader] = frozenset()
     _display_name: str = ""
 
@@ -342,6 +343,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
     folder_name = "auth"
     resource_cls = Group
     list_cls = GroupList
+    identifier_key = "name"
     resource_scopes = frozenset(
         {
             capabilities.IDScope,
@@ -564,6 +566,7 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
     folder_name = "raw"
     resource_cls = RawTable
     list_cls = list[RawTable]
+    identifier_key = "table_name"
     data_file_types = frozenset({"csv", "parquet"})
 
     @classmethod

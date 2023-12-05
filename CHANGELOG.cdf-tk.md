@@ -17,6 +17,7 @@ Changes are grouped as follows:
 
 ## [TBD] - 2023-12-TBD
 ### Added
+- Warnings if a configuration file is using `snake_case` when then resource type is expecting `camelCase`.
 - Added support for validation of `space` for data models.
 ### Changed
 - Require all spaces to be explicitly defined as separate .space.yaml file.
@@ -59,7 +60,6 @@ Changes are grouped as follows:
 - `cdf-tk clean` not supporting `--include` properly.
 - `cdf-tk clean` not working properly for data models with data.
 - Fix group deletion on use of clean command to actually delete groups.
-
 
 ## [0.1.0a2] - 2023-11-22
 
