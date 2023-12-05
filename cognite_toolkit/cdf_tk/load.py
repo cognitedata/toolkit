@@ -799,8 +799,8 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
         if resource.get("dataSetExternalId") is not None:
-            ds_exterla_id = resource.pop("dataSetExternalId")
-            resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_exterla_id) if not dry_run else -1
+            ds_external_id = resource.pop("dataSetExternalId")
+            resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
         return ExtractionPipeline.load(resource)
 
     def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList | None:
