@@ -413,7 +413,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
         found = [g for g in remote if g.name in ids]
         return found
 
-    def delete(self, ids: Sequence[int]) -> int:
+    def delete(self, ids: Sequence[int], drop_data: bool) -> int:
         # Let's prevent that we delete groups we belong to
         try:
             groups = self.client.iam.groups.list().data
@@ -1074,7 +1074,7 @@ class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
             print("  [bold]INFO:[/] Skipping deletion of nodes as drop_data flag is not set...")
             return 0
         deleted = self.client.data_modeling.instances.delete(nodes=ids)
-        return len(deleted)
+        return len(deleted.nodes)
 
     def create(self, items: Sequence[LoadableNodes], drop: bool, filepath: Path) -> LoadableNodes:
         if not isinstance(items, LoadableNodes):
@@ -1124,7 +1124,7 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
             print("  [bold]INFO:[/] Skipping deletion of edges as drop_data flag is not set...")
             return 0
         deleted = self.client.data_modeling.instances.delete(edges=ids)
-        return len(deleted)
+        return len(deleted.edges)
 
     def create(self, items: Sequence[LoadableEdges], drop: bool, filepath: Path) -> LoadableEdges:
         if not isinstance(items, LoadableEdges):
