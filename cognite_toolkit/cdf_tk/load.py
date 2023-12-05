@@ -1182,6 +1182,8 @@ def drop_load_resources(
     items = [loader.load_resource(f, dry_run) for f in filepaths]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
+    if nr_of_items == 0:
+        return
     nr_of_deleted = 0
     nr_of_created = 0
     if load:
@@ -1236,7 +1238,11 @@ def drop_load_resources(
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files.")
+    if nr_of_deleted != 0:
+        print(
+            f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files."
+        )
+
     print(f"  Created {nr_of_created} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files.")
 
 
