@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import itertools
+import json
 import re
 from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
@@ -22,7 +23,7 @@ from collections.abc import Sequence, Sized
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeVar, Union, final, overload
+from typing import Any, Generic, Literal, TypeVar, Union, final
 
 import pandas as pd
 from cognite.client import CogniteClient
@@ -71,7 +72,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from rich import print
 
 from .delete import delete_instances
-from .utils import CDFToolConfig, LoadWarning, load_yaml_inject_variables, validate_case_raw
+from .utils import CDFToolConfig, load_yaml_inject_variables
 
 
 @dataclass
@@ -233,32 +234,11 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
         return self.api_class.retrieve(ids)
 
-    @overload
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, validate: Literal["False"] = False
-    ) -> T_Resource | T_ResourceList:
-        ...
-
-    @overload
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, validate: Literal["True"]
-    ) -> tuple[T_Resource | T_ResourceList, list[LoadWarning]]:
-        ...
-
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, validate: bool = False
-    ) -> T_Resource | T_ResourceList | tuple[T_Resource | T_ResourceList, list[LoadWarning]]:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> T_Resource | T_ResourceList:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
-            loaded = self.list_cls.load(raw_yaml)
-        else:
-            loaded = self.resource_cls.load(raw_yaml)
-
-        if validate:
-            warnings = validate_case_raw(raw_yaml, self.resource_cls, filepath)
-            return loaded, warnings
-        else:
-            return loaded
+            return self.list_cls.load(raw_yaml)
+        return self.resource_cls.load(raw_yaml)
 
 
 @final
@@ -321,14 +301,12 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def get_id(cls, item: Group) -> str:
         return item.name
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, validate: bool = False
-    ) -> Group | tuple[Group, list[LoadWarning]]:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> Group:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    if self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
+                    if not dry_run and self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
                         values["scope"]["datasetScope"]["ids"] = [
                             ToolGlobals.verify_dataset(ext_id)
                             for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
@@ -337,17 +315,14 @@ class AuthLoader(Loader[int, Group, GroupList]):
                         values["scope"]["datasetScope"]["ids"] = [-1]
 
                 if len(values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
-                    if self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
+                    if not dry_run and self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
                         values["scope"]["extractionPipelineScope"]["ids"] = [
                             ToolGlobals.verify_extraction_pipeline(ext_id)
                             for ext_id in values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])
                         ]
                     else:
                         values["scope"]["extractionPipelineScope"]["ids"] = [-1]
-        if validate:
-            return Group.load(raw), validate_case_raw(raw, self.resource_cls, filepath, identifier_key="name")
-        else:
-            return Group.load(raw)
+        return Group.load(raw)
 
     def retrieve(self, ids: Sequence[int]) -> T_ResourceList:
         remote = self.client.iam.groups.list(all=True).data
@@ -452,6 +427,15 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
         local.created_time = remote.created_time
         local.last_updated_time = remote.last_updated_time
         return local
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> DataSetList:
+        resource = load_yaml_inject_variables(filepath, {})
+        data_sets = list(resource) if isinstance(resource, dict) else resource
+        for data_set in data_sets:
+            if data_set.get("metadata"):
+                for key, value in data_set["metadata"].items():
+                    data_set["metadata"][key] = json.dumps(value) if isinstance(value, dict) else value
+        return DataSetList.load(data_sets)
 
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
@@ -573,17 +557,14 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
         self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, validate: bool = False
-    ) -> TimeSeries | TimeSeriesList | tuple[TimeSeries | TimeSeriesList, list[LoadWarning]]:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> TimeSeries | TimeSeriesList:
         resources = load_yaml_inject_variables(filepath, {})
         if not isinstance(resources, list):
             resources = [resources]
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
-                resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
-        if validate:
-            return TimeSeriesList.load(resources), validate_case_raw(resources, self.resource_cls, filepath)
+                ds_external_id = resource.pop("dataSetExternalId")
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
         return TimeSeriesList.load(resources)
 
 
@@ -610,9 +591,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
     def get_id(self, item: Transformation) -> str:
         return item.external_id
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, validate: bool = False
-    ) -> Transformation | tuple[Transformation, list[LoadWarning]]:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> Transformation:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
@@ -635,8 +614,6 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
                 )
         transformation.query = sql_file.read_text()
         transformation.data_set_id = ToolGlobals.data_set_id
-        if validate:
-            return transformation, validate_case_raw(raw, self.resource_cls, filepath)
         return transformation
 
     def delete(self, ids: Sequence[str]) -> int:
@@ -688,11 +665,7 @@ class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
             scope,
         )
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, validate: bool = False
-    ) -> Path | tuple[Path, list[LoadWarning]]:
-        if validate:
-            return filepath, []
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> Path:
         return filepath
 
     @classmethod
@@ -755,14 +728,11 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                 return len(ids)
             return 0
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, validate: bool = False
-    ) -> ExtractionPipeline | tuple[ExtractionPipeline, list[LoadWarning]]:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
         if resource.get("dataSetExternalId") is not None:
-            resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
-        if validate:
-            return ExtractionPipeline.load(resource), validate_case_raw(resource, self.resource_cls, filepath)
+            ds_external_id = resource.pop("dataSetExternalId")
+            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
         return ExtractionPipeline.load(resource)
 
     def create(
@@ -814,13 +784,14 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         return len(ids)
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, validate: bool = False
-    ) -> FileMetadataList | tuple[FileMetadataList, list[LoadWarning]]:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool
+    ) -> FileMetadata | FileMetadataList:
         try:
-            files = FileMetadataList([FileMetadata.load(raw)])
+            files = FileMetadataList(
+                [FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))]
+            )
         except Exception:
-            files = FileMetadataList.load(raw)
+            files = FileMetadataList.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
         # If we have a file with exact one file config, check to see if this is a pattern to expand
         if len(files.data) == 1 and ("$FILENAME" in files.data[0].external_id or ""):
             # It is, so replace this file with all files in this folder using the same data
@@ -849,9 +820,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
                 raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
             if isinstance(file.data_set_id, str):
                 # Replace external_id with internal id
-                file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id)
-        if validate:
-            return files, validate_case_raw(raw, self.resource_cls, filepath)
+                file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id) if not dry_run else -1
         return files
 
     def create(
@@ -891,13 +860,7 @@ def drop_load_resources(
     else:
         filepaths = [file for file in path.glob("**/*")]
 
-    items = []
-    for filepath in filepaths:
-        resources, warnings = loader.load_resource(filepath, ToolGlobals, validate=True)
-        items.append(resources)
-        if warnings:
-            print(f"  [bold yellow]WARNING:[/]{generate_warnings_report(warnings, indent=1)}")
-    items = [loader.load_resource(f, ToolGlobals) for f in filepaths]
+    items = [loader.load_resource(f, ToolGlobals, dry_run) for f in filepaths]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
     nr_of_deleted = 0
@@ -1350,16 +1313,3 @@ def load_nodes(
                 print(f"[bold]ERROR:[/] Failed to create {len(node_list)} node(s) in {node_space}:\n{e}")
                 ToolGlobals.failed = True
                 return
-
-
-def generate_warnings_report(load_warnings: list[LoadWarning], indent: int = 0) -> str:
-    report = [""]
-    for (file, identifier, id_name), file_warnings in itertools.groupby(
-        sorted(load_warnings), key=lambda w: (w.filepath, w.id_value, w.id_name)
-    ):
-        report.append(f"{'    '*indent}In File {str(file)!r}")
-        report.append(f"{'    '*indent}In entry {id_name}={identifier!r}")
-        for warning in file_warnings:
-            report.append(f"{'    '*(indent+1)}{warning!s}")
-
-    return "\n".join(report)

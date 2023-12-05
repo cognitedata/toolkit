@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import os
 import re
 import shutil
@@ -9,8 +10,8 @@ from typing import Any
 import yaml
 from rich import print
 
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, generate_warnings_report
-from cognite_toolkit.cdf_tk.utils import validate_case_raw
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
+from cognite_toolkit.cdf_tk.utils import LoadWarning, validate_case_raw
 
 TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 # Add any other files below that should be included in a build
@@ -418,3 +419,16 @@ def build_config(
     shutil.copyfile(Path(source_dir) / "local.yaml", Path(build_dir) / "local.yaml")
     shutil.copyfile(Path(source_dir) / "packages.yaml", Path(build_dir) / "packages.yaml")
     shutil.copyfile(Path(source_dir) / "default.packages.yaml", Path(build_dir) / "default.packages.yaml")
+
+
+def generate_warnings_report(load_warnings: list[LoadWarning], indent: int = 0) -> str:
+    report = [""]
+    for (file, identifier, id_name), file_warnings in itertools.groupby(
+        sorted(load_warnings), key=lambda w: (w.filepath, w.id_value, w.id_name)
+    ):
+        report.append(f"{'    '*indent}In File {str(file)!r}")
+        report.append(f"{'    '*indent}In entry {id_name}={identifier!r}")
+        for warning in file_warnings:
+            report.append(f"{'    '*(indent+1)}{warning!s}")
+
+    return "\n".join(report)

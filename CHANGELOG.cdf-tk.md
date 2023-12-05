@@ -19,6 +19,9 @@ Changes are grouped as follows:
 ### Added
 - Warnings if a configuration file is using `snake_case` when then resource type is expecting `camelCase`.
 
+### Fixed
+- When running `cdf-tk deploy` with `--dry-run` a `ValueError` was raised if not all datasets were pre-existing.
+  This is now fixed by skipping dataset validation when running with `--dry-run`.
 
 ## [0.1.0a3] - 2023-12-01
 
