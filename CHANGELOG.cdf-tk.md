@@ -15,6 +15,11 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [TBD] - 2023-12-TBD
+### Added
+- Warnings if a configuration file is using `snake_case` when then resource type is expecting `camelCase`.
+
+
 ## [0.1.0a3] - 2023-12-01
 
 ### Changed
