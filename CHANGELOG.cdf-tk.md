@@ -15,6 +15,11 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [TBD] - 2023-12-TBD
+### Fixed
+- When running `cdf-tk deploy` with `--dry-run` a `ValueError` was raised if not all datasets were pre-existing.
+  This is now fixed by skipping dataset validation when running with `--dry-run`.
+
 ## [0.1.0a3] - 2023-12-01
 
 ### Changed

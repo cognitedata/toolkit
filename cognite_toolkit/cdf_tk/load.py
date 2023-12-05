@@ -317,7 +317,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
         return self.api_class.retrieve(ids)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> T_Resource | T_ResourceList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> T_Resource | T_ResourceList:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_cls.load(raw_yaml)
@@ -384,12 +384,12 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def get_id(cls, item: Group) -> str:
         return item.name
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Group:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> Group:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    if self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
+                    if not dry_run and self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
                         values["scope"]["datasetScope"]["ids"] = [
                             ToolGlobals.verify_dataset(ext_id)
                             for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
@@ -398,7 +398,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
                         values["scope"]["datasetScope"]["ids"] = [-1]
 
                 if len(values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
-                    if self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
+                    if not dry_run and self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
                         values["scope"]["extractionPipelineScope"]["ids"] = [
                             ToolGlobals.verify_extraction_pipeline(ext_id)
                             for ext_id in values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])
@@ -631,13 +631,14 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
         self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> TimeSeries | TimeSeriesList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> TimeSeries | TimeSeriesList:
         resources = load_yaml_inject_variables(filepath, {})
         if not isinstance(resources, list):
             resources = [resources]
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
-                resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
+                ds_external_id = resource.pop("dataSetExternalId")
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
         return TimeSeriesList.load(resources)
 
 
@@ -664,7 +665,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
     def get_id(self, item: Transformation) -> str:
         return item.external_id
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Transformation:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> Transformation:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
@@ -738,7 +739,7 @@ class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
             scope,
         )
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> Path:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> Path:
         return filepath
 
     @classmethod
@@ -801,10 +802,11 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                 return len(ids)
             return 0
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ExtractionPipeline:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
         if resource.get("dataSetExternalId") is not None:
-            resource["dataSetId"] = ToolGlobals.verify_dataset(resource.pop("dataSetExternalId"))
+            ds_exterla_id = resource.pop("dataSetExternalId")
+            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_exterla_id) if not dry_run else -1
         return ExtractionPipeline.load(resource)
 
     def create(
@@ -855,7 +857,9 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
         self.client.files.delete(external_id=ids)
         return len(ids)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FileMetadata | FileMetadataList:
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool
+    ) -> FileMetadata | FileMetadataList:
         try:
             files = FileMetadataList(
                 [FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))]
@@ -890,7 +894,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
                 raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
             if isinstance(file.data_set_id, str):
                 # Replace external_id with internal id
-                file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id)
+                file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id) if not dry_run else -1
         return files
 
     def create(
@@ -1172,7 +1176,7 @@ def drop_load_resources(
         pattern = re.compile(loader.filename_pattern)
         filepaths = [file for file in filepaths if pattern.match(file.stem)]
 
-    items = [loader.load_resource(f, ToolGlobals) for f in filepaths]
+    items = [loader.load_resource(f, ToolGlobals, dry_run) for f in filepaths]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
     nr_of_deleted = 0
