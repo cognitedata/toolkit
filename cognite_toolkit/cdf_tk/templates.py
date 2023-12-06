@@ -20,6 +20,8 @@ EXCL_FILES = ["README.md"]
 EXCL_INDEX_SUFFIX = ["sql", "csv", "parquet"]
 # Which suffixes to process for template variable replacement
 PROC_TMPL_VARS_SUFFIX = ["yaml", "yml", "sql", "csv", "parquet", "json", "txt", "md", "html", "py"]
+# This is the default config that is located locally in each module.
+DEFAULT_CONFIG_FILE = "default.config.yaml"
 
 
 def read_environ_config(
@@ -450,3 +452,31 @@ def generate_warnings_report(load_warnings: list[LoadWarning], indent: int = 0) 
             report.append(f"{'    '*(indent+1)}{warning!s}")
 
     return "\n".join(report)
+
+
+def generate_config(directory: Path, include_modules: set[str] | None = None) -> dict[str, Any]:
+    """Generate a config dictionary from the default.config.yaml files in the given directories.
+
+    You can specify a set of modules to include in the config. If you do not specify any modules, all modules will be included.
+
+    Args:
+        directory: A root directory to search for default.config.yaml files.
+        include_modules: A set of modules to include in the config. If None, all modules will be included.
+
+    Returns:
+        A config dictionary.
+    """
+    config: dict[str, Any] = {}
+    if not directory.exists():
+        raise ValueError(f"Directory {directory} does not exist")
+    defaults = sorted(directory.glob("**/default.config.yaml"), key=lambda f: f.relative_to(directory))
+    for default_config in defaults:
+        if include_modules is not None and default_config.parent.name not in include_modules:
+            continue
+        local_config = config
+        parts = default_config.relative_to(directory).parent.parts
+        for key in parts[:-1]:
+            local_config = local_config.setdefault(key, {})
+        local_config[parts[-1]] = yaml.safe_load(default_config.read_text())
+
+    return config
