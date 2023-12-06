@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import itertools
+import json
 import re
 from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
@@ -133,6 +134,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     folder_name: str
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
+    identifier_key: str = "externalId"
     dependencies: frozenset[Loader] = frozenset()
 
     def __init__(self, client: CogniteClient):
@@ -247,6 +249,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
     folder_name = "auth"
     resource_cls = Group
     list_cls = GroupList
+    identifier_key = "name"
     resource_scopes = frozenset(
         {
             capabilities.IDScope,
@@ -426,6 +429,15 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
         local.last_updated_time = remote.last_updated_time
         return local
 
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> DataSetList:
+        resource = load_yaml_inject_variables(filepath, {})
+        data_sets = list(resource) if isinstance(resource, dict) else resource
+        for data_set in data_sets:
+            if data_set.get("metadata"):
+                for key, value in data_set["metadata"].items():
+                    data_set["metadata"][key] = json.dumps(value) if isinstance(value, dict) else value
+        return DataSetList.load(data_sets)
+
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
@@ -461,6 +473,7 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
     folder_name = "raw"
     resource_cls = RawTable
     list_cls = list[RawTable]
+    identifier_key = "table_name"
     data_file_types = frozenset({"csv", "parquet"})
 
     @classmethod
@@ -720,8 +733,8 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
         if resource.get("dataSetExternalId") is not None:
-            ds_exterla_id = resource.pop("dataSetExternalId")
-            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_exterla_id) if not dry_run else -1
+            ds_external_id = resource.pop("dataSetExternalId")
+            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
         return ExtractionPipeline.load(resource)
 
     def create(
