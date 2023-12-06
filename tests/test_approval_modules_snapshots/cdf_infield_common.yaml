@@ -24,6 +24,3 @@ Space:
 - description: Space for Infield App Data
   name: cognite_app_data
   space: cognite_app_data
-deleted:
-  Space:
-  - cognite_app_data

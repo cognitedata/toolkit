@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Callable
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,7 +11,6 @@ from cognite_toolkit.cdf_tk.load import (
     FileLoader,
     Loader,
     drop_load_resources,
-    load_datamodel_graphql,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
@@ -20,29 +18,6 @@ THIS_FOLDER = Path(__file__).resolve().parent
 
 DATA_FOLDER = THIS_FOLDER / "load_data"
 SNAPSHOTS_DIR = THIS_FOLDER / "load_data_snapshots"
-
-
-@pytest.mark.parametrize(
-    "load_function, directory, extra_args",
-    [
-        (
-            load_datamodel_graphql,
-            DATA_FOLDER / "datamodel_graphql",
-            dict(space_name="test_space", model_name="test_model"),
-        ),
-    ],
-)
-def test_loader_function(
-    load_function: Callable, directory: Path, extra_args: dict, cognite_client_approval: CogniteClient, data_regression
-):
-    cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.verify_client.return_value = cognite_client_approval
-    cdf_tool.data_set_id = 999
-
-    load_function(ToolGlobals=cdf_tool, directory=directory, **extra_args)
-
-    dump = cognite_client_approval.dump()
-    data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{directory.name}.yaml")
 
 
 @pytest.mark.parametrize(
@@ -72,7 +47,7 @@ def test_upsert_data_set(cognite_client_approval: CogniteClient):
     cdf_tool.verify_capabilities.return_value = cognite_client_approval
 
     loader = DataSetsLoader.create_loader(cdf_tool)
-    loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", cdf_tool, dry_run=False)
+    loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", dry_run=False)
     assert len(loaded) == 2
 
     first = DataSet.load(loaded[0].dump())

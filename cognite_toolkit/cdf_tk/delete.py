@@ -32,18 +32,17 @@ def delete_instances(
     dry_run=False,
     delete_edges=True,
     delete_nodes=True,
-) -> None:
+) -> bool:
     """Delete instances in a space from CDF based on the space name
 
     Args:
-    space_name (str): The name of the space to delete instances from
-    dry_run (bool): Do not delete anything, just print what would have been deleted
-    delete_edges (bool): Delete all edges in the space
-    delete_nodes (bool): Delete all nodes in the space
+        space_name (str): The name of the space to delete instances from
+        dry_run (bool): Do not delete anything, just print what would have been deleted
+        delete_edges (bool): Delete all edges in the space
+        delete_nodes (bool): Delete all nodes in the space
     """
     if space_name is None or len(space_name) == 0:
-        return
-    # TODO: Here we should really check on whether we have the Acl on the space, not yet implemented
+        return True
     client: CogniteClient = ToolGlobals.verify_client(
         capabilities={
             "dataModelInstancesAcl": ["READ", "WRITE"],
@@ -74,7 +73,7 @@ def delete_instances(
         except Exception as e:
             print(f"[bold red]ERROR: [/] Failed to delete edges in {space_name}.\n{e}")
             ToolGlobals.failed = True
-            return
+            return False
         print(f"    Found {edge_count} edges and deleted {edge_delete} edges from space {space_name}.")
     if delete_nodes:
         print("  Deleting nodes...")
@@ -96,8 +95,9 @@ def delete_instances(
         except Exception as e:
             print(f"[bold red]ERROR: [/] Failed to delete nodes in {space_name}.\n{e}")
             ToolGlobals.failed = True
-            return
+            return False
         print(f"    Found {node_count} nodes and deleted {node_delete} nodes from {space_name}.")
+    return True
 
 
 def delete_containers(ToolGlobals: CDFToolConfig, dry_run=False, containers: ContainerList = None) -> None:
@@ -235,7 +235,7 @@ def delete_datamodel_all(
     print(f"  Deleting {len(containers.as_ids())} containers in the space {space_name}")
     if delete_nodes or delete_edges:
         delete_instances(
-            ToolGlobals,
+            ToolGlobals.client,
             space_name=space_name,
             dry_run=dry_run,
             delete_edges=delete_edges,

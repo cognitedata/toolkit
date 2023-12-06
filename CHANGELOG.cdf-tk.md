@@ -18,6 +18,13 @@ Changes are grouped as follows:
 ## [TBD] - 2023-12-TBD
 ### Added
 - Warnings if a configuration file is using `snake_case` when then resource type is expecting `camelCase`.
+- Added support for validation of `space` for data models.
+### Removed
+- In the `deploy` command `drop_data` option has been removed. To drop data, use the `clean` command instead.
+### Changed
+- Require all spaces to be explicitly defined as separate .space.yaml file.
+- The `data_set_id` for `Transformations` must now be set explicitly in the yaml config file for the `Transformation`
+  under the `data_set_id` key. Note that you also need to explicitly define the `data_set` in its own yaml config file.
 
 ### Fixed
 - When running `cdf-tk deploy` with `--dry-run` a `ValueError` was raised if not all datasets were pre-existing.
@@ -30,7 +37,7 @@ Changes are grouped as follows:
 - Refactored load functionality. Loading raw tables and files now requires a `yaml` file with metadata.
 - Fix container comparison to detect identical containers when loading data models (without --drop flag).
 - Clean up error on resource does not exist when deleting (on `deploy --drop` or using clean command).
-  
+
 ### Added
 
 - Support for loading `data_sets`.

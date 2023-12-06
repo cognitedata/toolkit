@@ -64,6 +64,7 @@ class CDFToolConfig:
         self._failed = False
         self._environ = {}
         self._data_set_id_by_external_id: dict[str, id] = {}
+        self._existing_spaces: set[str] = set()
         self.oauth_credentials = OAuthClientCredentials(
             token_url="",
             client_id="",
@@ -339,13 +340,41 @@ class CDFToolConfig:
         try:
             pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
         except CogniteAPIError as e:
-            raise CogniteAuthError("Don't have correct access rights. Need READ on datasetsAcl.") from e
+            raise CogniteAuthError("Don't have correct access rights. Need READ on extractionPipelinesAcl.") from e
 
         if pipeline is not None:
             return pipeline.id
         raise ValueError(
             f"Extraction pipeline {external_id} does not exist, you need to create it first. Do this by adding a config file to the extraction_pipelines folder."
         )
+
+    def verify_spaces(self, space: str | list[str]) -> list[str]:
+        """Verify that the configured space exists and is accessible
+
+        Args:
+            space (str): External id of the space to verify
+
+        Yields:
+            spaces (str)
+            Re-raises underlying SDK exception
+        """
+        if isinstance(space, str):
+            space = [space]
+        if all([s in self._existing_spaces for s in space]):
+            return space
+
+        self.verify_client(capabilities={"dataModelsAcl": ["READ"]})
+        try:
+            existing = self.client.data_modeling.spaces.retrieve(space)
+        except CogniteAPIError as e:
+            raise CogniteAuthError("Don't have correct access rights. Need READ on dataModelsAcl.") from e
+
+        if missing := (({space} if isinstance(space, str) else set(space)) - set(existing.as_ids())):
+            raise ValueError(
+                f"Space {missing} does not exist, you need to create it first. Do this by adding a config file to the data model folder."
+            )
+        self._existing_spaces.update([space.space for space in existing])
+        return [space.space for space in existing]
 
 
 def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any] | list[dict[str, Any]]:

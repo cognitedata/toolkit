@@ -1018,23 +1018,11 @@ View:
   space: apm_simple
   version: '1'
 deleted:
-  Container:
-  - externalId: Asset
-    space: apm_simple
-    type: container
-  - externalId: WorkItem
-    space: apm_simple
-    type: container
-  - externalId: WorkOrder
-    space: apm_simple
-    type: container
   DataModel:
   - externalId: apm_simple
     space: apm_simple
     type: datamodel
     version: '1'
-  Space:
-  - apm_simple
   Transformation:
   - externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
   - externalId: tr_asset_oid_workmate_apm_simple_load_assets

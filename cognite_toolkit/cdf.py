@@ -1,12 +1,10 @@
 #!/usr/bin/env python
-import itertools
 import shutil
 import tempfile
 import urllib
 import zipfile
 from collections.abc import Sequence
 from dataclasses import dataclass
-from enum import Enum
 from graphlib import TopologicalSorter
 from importlib import resources
 from pathlib import Path
@@ -25,8 +23,6 @@ from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
     drop_load_resources,
-    load_datamodel,
-    load_nodes,
 )
 from cognite_toolkit.cdf_tk.templates import build_config, read_environ_config
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -38,15 +34,7 @@ auth_app = typer.Typer(
 app.add_typer(auth_app, name="auth")
 
 
-# There enums should be removed when the load_datamodel function is refactored to use the LoaderCls.
-class CDFDataTypes(str, Enum):
-    data_models = "data_models"
-    instances = "instances"
-
-
-_AVAILABLE_DATA_TYPES: tuple[str] = tuple(
-    itertools.chain((type_.value for type_ in CDFDataTypes), LOADER_BY_FOLDER_NAME.keys())
-)
+_AVAILABLE_DATA_TYPES: tuple[str] = tuple(LOADER_BY_FOLDER_NAME)
 
 
 # Common parameters handled in common callback
@@ -215,14 +203,6 @@ def deploy(
             help="Whether to drop existing configurations, drop per resource if present",
         ),
     ] = False,
-    drop_data: Annotated[
-        Optional[bool],
-        typer.Option(
-            "--drop-data",
-            "-D",
-            help="Whether to drop existing data, drop data if present (WARNING!! includes data from pipelines)",
-        ),
-    ] = False,
     dry_run: Annotated[
         Optional[bool],
         typer.Option(
@@ -253,7 +233,7 @@ def deploy(
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
-    typer.echo(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
+    print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     build_path = Path(build_dir)
     if not build_path.is_dir():
         typer.echo(
@@ -268,8 +248,9 @@ def deploy(
     # once with all_scoped_skipped_validation and once with resource_scoped_only
     selected_loaders = {
         LoaderCls: LoaderCls.dependencies
-        for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items()
+        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
         if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+        for LoaderCls in loader_classes
     }
 
     arguments = dict(
@@ -277,6 +258,7 @@ def deploy(
         drop=drop,
         load=True,
         dry_run=dry_run,
+        drop_data=False,
         verbose=ctx.obj.verbose,
     )
 
@@ -291,38 +273,15 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
             exit(1)
-    if CDFDataTypes.data_models.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
-        load_datamodel(
-            ToolGlobals,
-            drop=drop,
-            drop_data=drop_data,
-            directory=models_dir,
-            delete_containers=drop_data,  # Also delete properties that have been ingested (leaving empty instances)
-            delete_spaces=drop_data,  # Also delete spaces if there are no empty instances (needs to be deleted separately)
-            dry_run=dry_run,
-        )
-        if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to load data models as expected.")
-            exit(1)
-    if CDFDataTypes.instances.value in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
-        load_nodes(
-            ToolGlobals,
-            directory=models_dir,
-            dry_run=dry_run,
-        )
-        if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to load instances as expected.")
-            exit(1)
     for LoaderCls in TopologicalSorter(selected_loaders).static_order():
-        if LoaderCls.folder_name in include and (build_path / LoaderCls.folder_name).is_dir():
-            drop_load_resources(
-                LoaderCls.create_loader(ToolGlobals),
-                build_path / LoaderCls.folder_name,
-                **arguments,
-            )
-            if ToolGlobals.failed:
-                print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
-                exit(1)
+        drop_load_resources(
+            LoaderCls.create_loader(ToolGlobals),
+            build_path / LoaderCls.folder_name,
+            **arguments,
+        )
+        if ToolGlobals.failed:
+            print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
+            exit(1)
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we need to get all the scoped access, as the resources should now have been created.
@@ -394,7 +353,7 @@ def clean(
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
-    print(Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]"))
+    Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]")
     build_path = Path(build_dir)
     if not build_path.is_dir():
         typer.echo(
@@ -408,55 +367,30 @@ def clean(
     # The 'auth' loader is excluded, as it is run at the end.
     selected_loaders = {
         LoaderCls: LoaderCls.dependencies
-        for folder_name, LoaderCls in LOADER_BY_FOLDER_NAME.items()
+        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
         if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+        for LoaderCls in loader_classes
     }
 
     print(ToolGlobals.as_string())
-    if CDFDataTypes.data_models in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
-        # We use the load_datamodel with only_drop=True to ensure that we get a clean
-        # deletion of the data model entities and instances.
-        load_datamodel(
-            ToolGlobals,
-            drop=True,
-            drop_data=True,
-            only_drop=True,
-            directory=models_dir,
-            delete_removed=True,
-            delete_spaces=True,
-            delete_containers=True,
-            dry_run=dry_run,
-        )
-    elif CDFDataTypes.instances in include and (models_dir := Path(f"{build_dir}/data_models")).is_dir():
-        load_datamodel(
-            ToolGlobals,
-            drop=False,
-            drop_data=True,
-            only_drop=True,
-            directory=models_dir,
-            delete_removed=False,
-            delete_spaces=False,
-            delete_containers=False,
-            dry_run=dry_run,
-        )
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to delete data models as expected.")
         exit(1)
 
     for LoaderCls in reversed(list(TopologicalSorter(selected_loaders).static_order())):
-        if LoaderCls.folder_name in include and (Path(build_dir) / LoaderCls.folder_name).is_dir():
-            drop_load_resources(
-                LoaderCls.create_loader(ToolGlobals),
-                build_path / LoaderCls.folder_name,
-                ToolGlobals,
-                drop=True,
-                load=False,
-                dry_run=dry_run,
-                verbose=ctx.obj.verbose,
-            )
-            if ToolGlobals.failed:
-                print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
-                exit(1)
+        drop_load_resources(
+            LoaderCls.create_loader(ToolGlobals),
+            build_path / LoaderCls.folder_name,
+            ToolGlobals,
+            drop=True,
+            load=False,
+            drop_data=True,
+            dry_run=dry_run,
+            verbose=ctx.obj.verbose,
+        )
+        if ToolGlobals.failed:
+            print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
+            exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         drop_load_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
