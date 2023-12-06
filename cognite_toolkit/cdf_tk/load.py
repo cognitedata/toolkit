@@ -1063,7 +1063,7 @@ class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
     filename_pattern = r"^.*\.?(node)$"
     resource_cls = NodeApply
     list_cls = LoadableNodes
-    dependencies = frozenset({SpaceLoader, ViewLoader})
+    dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _display_name = "nodes"
 
     @classmethod
