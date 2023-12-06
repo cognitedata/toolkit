@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
+import yaml
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
@@ -24,7 +25,7 @@ from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
     drop_load_resources,
 )
-from cognite_toolkit.cdf_tk.templates import build_config, read_environ_config
+from cognite_toolkit.cdf_tk.templates import build_config, generate_config, read_environ_config
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
 app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
@@ -654,6 +655,15 @@ def main_init(
         if upgrade:
             print("  All default.config.yaml files in the modules have been upgraded.")
             print("  Your config.yaml files may need to be updated to override new default variables.")
+
+    config_filepath = target_dir / "config.yaml"
+    if not dry_run:
+        if clean or not config_filepath.exists():
+            config = generate_config(target_dir)
+            config_filepath.write_text(yaml.safe_dump(config, sort_keys=False))
+            print(f"Created config.yaml file in {target_dir}.")
+        else:
+            print("  config.yaml file already exists, skipping. --clean to overwrite.")
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
