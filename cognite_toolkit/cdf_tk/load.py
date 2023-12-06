@@ -706,7 +706,8 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
                     f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
                 )
         transformation.query = sql_file.read_text()
-        transformation.data_set_id = self.ToolGlobals.data_set_id
+        if isinstance(transformation.data_set_id, str):
+            transformation.data_set_id = self.ToolGlobals.verify_dataset(transformation.data_set_id)
         return transformation
 
     def delete(self, ids: Sequence[str], drop_data: bool) -> int:
