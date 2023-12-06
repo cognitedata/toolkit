@@ -544,17 +544,12 @@ def main_init(
 ):
     """Initialize a new CDF project with templates."""
 
-    files_to_copy = [
-        "default.config.yaml",
-        "default.packages.yaml",
-    ]
+    files_to_copy = []
     dirs_to_copy = []
     if not upgrade:
         files_to_copy.extend(
             [
-                "config.yaml",
-                "local.yaml",
-                "packages.yaml",
+                "environments.yaml",
                 "README.md",
                 ".gitignore",
                 ".env.tmpl",
@@ -562,10 +557,7 @@ def main_init(
         )
         dirs_to_copy.append("local_modules")
     module_dirs_to_copy = [
-        "common",
         "modules",
-        "examples",
-        "experimental",
     ]
     template_dir = resources.files("cognite_toolkit")
     target_dir = Path.cwd() / f"{init_dir}"
@@ -597,7 +589,7 @@ def main_init(
     print(dirs_to_copy)
     extract_dir = None
     if upgrade and git is not None:
-        zip = f"https://github.com/cognitedata/cdf-project-templates/archive/refs/heads/{git}.zip"
+        toolkit_github_url = f"https://github.com/cognitedata/cdf-project-templates/archive/refs/heads/{git}.zip"
         extract_dir = tempfile.mkdtemp(prefix="git.", suffix=".tmp", dir=Path.cwd())
         print(f"Upgrading templates from https://github.com/cognitedata/cdf-project-templates, branch {git}...")
         print(
@@ -605,7 +597,7 @@ def main_init(
         )
         if not dry_run:
             try:
-                zip_path, _ = urllib.request.urlretrieve(zip)
+                zip_path, _ = urllib.request.urlretrieve(toolkit_github_url)
                 with zipfile.ZipFile(zip_path, "r") as f:
                     f.extractall(extract_dir)
             except Exception as e:
@@ -661,7 +653,7 @@ def main_init(
             print(f"New project created in {target_dir}.")
         if upgrade:
             print("  All default.config.yaml files in the modules have been upgraded.")
-            print("  Your config.yaml files may need to be updated to override new default variales.")
+            print("  Your config.yaml files may need to be updated to override new default variables.")
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:

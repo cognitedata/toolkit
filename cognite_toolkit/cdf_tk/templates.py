@@ -413,7 +413,7 @@ def build_config(
     source_dir: str = "./",
     build_env: str = "dev",
     clean: bool = False,
-    verbose=False,
+    verbose: bool = False,
 ):
     if build_env is None:
         raise ValueError("build_env must be specified")
