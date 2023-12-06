@@ -129,7 +129,6 @@ def test_deploy_module_approval(
         build_env="test",
         interactive=False,
         drop=True,
-        drop_data=True,
         dry_run=False,
         include=[],
     )
