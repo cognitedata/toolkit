@@ -431,7 +431,9 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> DataSetList:
         resource = load_yaml_inject_variables(filepath, {})
-        data_sets = list(resource) if isinstance(resource, dict) else resource
+
+        data_sets = [resource] if isinstance(resource, dict) else resource
+
         for data_set in data_sets:
             if data_set.get("metadata"):
                 for key, value in data_set["metadata"].items():
