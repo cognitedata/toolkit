@@ -21,6 +21,7 @@ Changes are grouped as follows:
 - Added support for validation of `space` for data models.
 ### Changed
 - Require all spaces to be explicitly defined as separate .space.yaml file.
+- The `data_set_id` for `Transformations` must now be set explicitly in the yaml config file for the `Transformation`.
 
 ### Fixed
 - When running `cdf-tk deploy` with `--dry-run` a `ValueError` was raised if not all datasets were pre-existing.
