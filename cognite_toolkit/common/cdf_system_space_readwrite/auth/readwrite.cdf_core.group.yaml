@@ -8,5 +8,8 @@ capabilities:
         - READ
         - WRITE
       scope:
-        spaceIds:
-          - 'cdf_core'
+        spaceIdScope: {
+            spaceIds: [
+              'cdf_core',
+            ]
+        }

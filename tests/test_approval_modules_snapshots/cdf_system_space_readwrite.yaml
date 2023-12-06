@@ -1,0 +1,26 @@
+Group:
+- capabilities:
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_core
+  metadata:
+    origin: cdf-project-templates
+  name: gp_cdf_core_read_only
+  sourceId: <change_me>
+- capabilities:
+  - dataModelsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_core
+  metadata:
+    origin: cdf-project-templates
+  name: gp_cdf_core_read_only
+  sourceId: <change_me>
