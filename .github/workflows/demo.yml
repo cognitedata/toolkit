@@ -46,9 +46,12 @@ jobs:
       - name: "Allow some time for data modeling to finish syncing of deletions"
         run: |
           sleep 30
+      - name: "Clean the templates"
+        run: |
+          cdf-tk clean --env=demo ./build
       - name: "Deploy the templates"
         run: |
-          cdf-tk deploy --drop --drop-data --env=demo ./build
+          cdf-tk deploy --drop --env=demo ./build
       - name: "Run transformations and other post-processing"
         run: |
           poetry run python ./demo/postproc.py
