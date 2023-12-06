@@ -19,6 +19,8 @@ Changes are grouped as follows:
 ### Added
 - Warnings if a configuration file is using `snake_case` when then resource type is expecting `camelCase`.
 - Added support for validation of `space` for data models.
+### Removed
+- In the `deploy` command `drop_data` option has been removed. To drop data, use the `clean` command instead.
 ### Changed
 - Require all spaces to be explicitly defined as separate .space.yaml file.
 - The `data_set_id` for `Transformations` must now be set explicitly in the yaml config file for the `Transformation`.

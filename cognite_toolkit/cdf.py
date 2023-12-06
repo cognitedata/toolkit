@@ -203,14 +203,6 @@ def deploy(
             help="Whether to drop existing configurations, drop per resource if present",
         ),
     ] = False,
-    drop_data: Annotated[
-        Optional[bool],
-        typer.Option(
-            "--drop-data",
-            "-D",
-            help="Whether to drop existing data, drop data if present (WARNING!! includes data from pipelines)",
-        ),
-    ] = False,
     dry_run: Annotated[
         Optional[bool],
         typer.Option(
@@ -266,7 +258,7 @@ def deploy(
         drop=drop,
         load=True,
         dry_run=dry_run,
-        drop_data=drop_data,
+        drop_data=False,
         verbose=ctx.obj.verbose,
     )
 
