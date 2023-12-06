@@ -17,6 +17,8 @@ Changes are grouped as follows:
 ## TBD - 2023-12-TBD
 ### Added
 - Explicitly define model `space` in `experimental/cdf_asset_source_model/` and `experimental/example_pump_model/`.
+- Module `cdf_system_space_readwrite` to create a read-only and a read-write group for the cdf system spaces,
+  currently that is only the `cdf_core` space.
 
 ## [0.2.0] - 2023-12-01
 
