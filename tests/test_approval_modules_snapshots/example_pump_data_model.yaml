@@ -61,7 +61,7 @@ Space:
 - description: Space for the instances.
   name: pumpInstanceSpace
   space: pumpInstanceSpace
-- description: Imported space
+- description: Space for the Pump Model.
   name: pumpModelSpace
   space: pumpModelSpace
 Transformation:
@@ -243,17 +243,11 @@ View:
   space: pumpModelSpace
   version: '1'
 deleted:
-  Container:
-  - externalId: Pump
-    space: pumpModelSpace
-    type: container
   DataModel:
   - externalId: PumpLiftStations
     space: pumpModelSpace
     type: datamodel
     version: '1'
-  Space:
-  - pumpInstanceSpace
   Transformation:
   - externalId: pump_model-populate-lift_station_pumps_edges
   - externalId: pump_model-populate-pump_container

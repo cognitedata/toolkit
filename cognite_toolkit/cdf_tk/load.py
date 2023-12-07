@@ -18,7 +18,7 @@ import itertools
 import json
 import re
 from abc import ABC, abstractmethod
-from collections import Counter, defaultdict
+from collections import Counter
 from collections.abc import Sequence, Sized
 from contextlib import suppress
 from dataclasses import dataclass
@@ -48,6 +48,8 @@ from cognite.client.data_classes._base import (
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
+    DataModelInstancesAcl,
+    DataModelsAcl,
     DataSetsAcl,
     ExtractionPipelinesAcl,
     FilesAcl,
@@ -58,18 +60,23 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
-    ContainerProperty,
+    ContainerApplyList,
     DataModelApply,
+    DataModelApplyList,
+    EdgeApply,
+    EdgeApplyList,
     NodeApply,
     NodeApplyList,
-    NodeOrEdgeData,
     SpaceApply,
+    SpaceApplyList,
     ViewApply,
-    ViewId,
+    ViewApplyList,
 )
+from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, EdgeId, NodeId, ViewId
 from cognite.client.data_classes.iam import Group, GroupList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from rich import print
+from typing_extensions import Self
 
 from .delete import delete_instances
 from .utils import CDFToolConfig, load_yaml_inject_variables
@@ -88,6 +95,83 @@ class RawTable(CogniteObject):
         return {
             "dbName" if camel_case else "db_name": self.db_name,
             "tableName" if camel_case else "table_name": self.table_name,
+        }
+
+
+@dataclass
+class LoadableNodes(CogniteObject):
+    """
+    This is a helper class for nodes that contains arguments that are required for writing the
+    nodes to CDF.
+    """
+
+    auto_create_direct_relations: bool
+    skip_on_version_conflict: bool
+    replace: bool
+    nodes: NodeApplyList
+
+    def __len__(self):
+        return len(self.nodes)
+
+    def __iter__(self):
+        return iter(self.nodes)
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            auto_create_direct_relations=resource["autoCreateDirectRelations"],
+            skip_on_version_conflict=resource["skipOnVersionConflict"],
+            replace=resource["replace"],
+            nodes=NodeApplyList.load(resource["nodes"]),
+        )
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        return {
+            "autoCreateDirectRelations"
+            if camel_case
+            else "auto_create_direct_relations": self.auto_create_direct_relations,
+            "skipOnVersionConflict" if camel_case else "skip_on_version_conflict": self.skip_on_version_conflict,
+            "replace": self.replace,
+            "nodes": self.nodes.dump(camel_case),
+        }
+
+
+@dataclass
+class LoadableEdges(CogniteObject):
+    """
+    This is a helper class for edges that contains arguments that are required for writing the
+    edges to CDF.
+    """
+
+    auto_create_start_nodes: bool
+    auto_create_end_nodes: bool
+    skip_on_version_conflict: bool
+    replace: bool
+    edges: EdgeApplyList
+
+    def __len__(self):
+        return len(self.edges)
+
+    def __iter__(self):
+        return iter(self.edges)
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            auto_create_start_nodes=resource["autoCreateStartNodes"],
+            auto_create_end_nodes=resource["autoCreateEndNodes"],
+            skip_on_version_conflict=resource["skipOnVersionConflict"],
+            replace=resource["replace"],
+            edges=EdgeApplyList.load(resource["edges"]),
+        )
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        return {
+            "autoCreateStartNodes" if camel_case else "auto_create_start_nodes": self.auto_create_start_nodes,
+            "autoCreateEndNodes" if camel_case else "auto_create_end_nodes": self.auto_create_end_nodes,
+            "skipOnVersionConflict" if camel_case else "skip_on_version_conflict": self.skip_on_version_conflict,
+            "replace": self.replace,
+            "edges": self.edges.dump(camel_case),
         }
 
 
@@ -125,24 +209,36 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         folder_name: The name of the folder in the build directory where the files are located.
         resource_cls: The class of the resource that is loaded.
         list_cls: The list version of the resource class.
+        dependencies: A set of loaders that must be loaded before this loader.
+        _display_name: The name of the resource that is used when printing messages. If this is not set the
+            api_name is used.
     """
 
     support_drop = True
     support_upsert = False
     filetypes = frozenset({"yaml", "yml"})
+    filename_pattern = ""
     api_name: str
     folder_name: str
     resource_cls: type[CogniteResource]
     list_cls: type[CogniteResourceList]
     identifier_key: str = "externalId"
     dependencies: frozenset[Loader] = frozenset()
+    _display_name: str = ""
 
-    def __init__(self, client: CogniteClient):
+    def __init__(self, client: CogniteClient, ToolGlobals: CDFToolConfig):
         self.client = client
+        self.ToolGlobals = ToolGlobals
         try:
             self.api_class = self._get_api_class(client, self.api_name)
         except AttributeError:
             raise AttributeError(f"Invalid api_name {self.api_name}.")
+
+    @property
+    def display_name(self):
+        if self._display_name:
+            return self._display_name
+        return self.api_name
 
     @staticmethod
     def _get_api_class(client, api_name: str):
@@ -159,7 +255,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     @classmethod
     def create_loader(cls, ToolGlobals: CDFToolConfig):
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client)
+        return cls(client, ToolGlobals)
 
     @classmethod
     @abstractmethod
@@ -203,9 +299,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         return local
 
     # Default implementations that can be overridden
-    def create(
-        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> T_ResourceList:
+    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList:
         try:
             created = self.api_class.create(items)
             return created
@@ -215,7 +309,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
                 return []
             else:
                 print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-                ToolGlobals.failed = True
+                self.ToolGlobals.failed = True
                 return []
         except CogniteDuplicatedError as e:
             print(
@@ -224,18 +318,18 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
             return []
         except Exception as e:
             print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-            ToolGlobals.failed = True
+            self.ToolGlobals.failed = True
             return []
 
-    def delete(self, ids: Sequence[T_ID]) -> int:
+    def delete(self, ids: Sequence[T_ID], drop_data: bool) -> int:
         self.api_class.delete(ids)
         return len(ids)
 
     def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
         return self.api_class.retrieve(ids)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> T_Resource | T_ResourceList:
-        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+    def load_resource(self, filepath: Path, dry_run: bool) -> T_Resource | T_ResourceList:
+        raw_yaml = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_cls.load(raw_yaml)
         return self.resource_cls.load(raw_yaml)
@@ -265,11 +359,12 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def __init__(
         self,
         client: CogniteClient,
+        ToolGlobals: CDFToolConfig,
         target_scopes: Literal[
             "all", "all_skipped_validation", "all_scoped_skipped_validation", "resource_scoped_only", "all_scoped_only"
         ] = "all",
     ):
-        super().__init__(client)
+        super().__init__(client, ToolGlobals)
         self.load = target_scopes
 
     @staticmethod
@@ -289,10 +384,10 @@ class AuthLoader(Loader[int, Group, GroupList]):
         ] = "all",
     ):
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client, target_scopes)
+        return cls(client, ToolGlobals, target_scopes)
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
         return GroupsAcl(
             [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
             GroupsAcl.Scope.All(),
@@ -302,14 +397,14 @@ class AuthLoader(Loader[int, Group, GroupList]):
     def get_id(cls, item: Group) -> str:
         return item.name
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> Group:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+    def load_resource(self, filepath: Path, dry_run: bool) -> Group:
+        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
                     if not dry_run and self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
                         values["scope"]["datasetScope"]["ids"] = [
-                            ToolGlobals.verify_dataset(ext_id)
+                            self.ToolGlobals.verify_dataset(ext_id)
                             for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
                         ]
                     else:
@@ -318,7 +413,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
                 if len(values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
                     if not dry_run and self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
                         values["scope"]["extractionPipelineScope"]["ids"] = [
-                            ToolGlobals.verify_extraction_pipeline(ext_id)
+                            self.ToolGlobals.verify_extraction_pipeline(ext_id)
                             for ext_id in values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])
                         ]
                     else:
@@ -330,7 +425,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
         found = [g for g in remote if g.name in ids]
         return found
 
-    def delete(self, ids: Sequence[int]) -> int:
+    def delete(self, ids: Sequence[int], drop_data: bool) -> int:
         # Let's prevent that we delete groups we belong to
         try:
             groups = self.client.iam.groups.list().data
@@ -358,7 +453,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
         self.client.iam.groups.delete(found)
         return len(found)
 
-    def create(self, items: Sequence[Group], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> GroupList:
+    def create(self, items: Sequence[Group], drop: bool, filepath: Path) -> GroupList:
         if self.load == "all":
             to_create = items
         elif self.load == "all_skipped_validation":
@@ -412,7 +507,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
     def get_id(self, item: DataSet) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
     def retrieve(self, ids: Sequence[str]) -> DataSetList:
@@ -429,7 +524,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
         local.last_updated_time = remote.last_updated_time
         return local
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> DataSetList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> DataSetList:
         resource = load_yaml_inject_variables(filepath, {})
 
         data_sets = [resource] if isinstance(resource, dict) else resource
@@ -440,9 +535,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
                     data_set["metadata"][key] = json.dumps(value) if isinstance(value, dict) else value
         return DataSetList.load(data_sets)
 
-    def create(
-        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> T_ResourceList | None:
+    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList | None:
         created = DataSetList([], cognite_client=self.client)
         # There is a bug in the data set API, so only one duplicated data set is returned at the time,
         # so we need to iterate.
@@ -461,7 +554,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
                     items.data = []
             except Exception as e:
                 print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
-                ToolGlobals.failed = True
+                self.ToolGlobals.failed = True
                 return None
         if len(created) == 0:
             return None
@@ -486,7 +579,7 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
     def get_id(cls, item: RawTable) -> RawTable:
         return item
 
-    def delete(self, ids: Sequence[RawTable]) -> int:
+    def delete(self, ids: Sequence[RawTable], drop_data: bool) -> int:
         count = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
@@ -499,9 +592,7 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
                     self.client.raw.databases.delete(name=db_name)
         return count
 
-    def create(
-        self, items: Sequence[RawTable], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> list[RawTable]:
+    def create(self, items: Sequence[RawTable], drop: bool, filepath: Path) -> list[RawTable]:
         if len(items) != 1:
             raise ValueError("Raw tables must be loaded one at a time.")
         table = items[0]
@@ -557,18 +648,18 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
     def retrieve(self, ids: Sequence[str]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> TimeSeries | TimeSeriesList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> TimeSeries | TimeSeriesList:
         resources = load_yaml_inject_variables(filepath, {})
         if not isinstance(resources, list):
             resources = [resources]
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
+                resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
         return TimeSeriesList.load(resources)
 
 
@@ -595,8 +686,8 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
     def get_id(self, item: Transformation) -> str:
         return item.external_id
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> Transformation:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+    def load_resource(self, filepath: Path, dry_run: bool) -> Transformation:
+        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
@@ -617,16 +708,15 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
                     f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
                 )
         transformation.query = sql_file.read_text()
-        transformation.data_set_id = ToolGlobals.data_set_id
+        if isinstance(transformation.data_set_id, str):
+            transformation.data_set_id = self.ToolGlobals.verify_dataset(transformation.data_set_id)
         return transformation
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         self.client.transformations.delete(external_id=ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def create(
-        self, items: Sequence[Transformation], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> TransformationList:
+    def create(self, items: Sequence[Transformation], drop: bool, filepath: Path) -> TransformationList:
         try:
             created = self.client.transformations.create(items)
         except CogniteDuplicatedError as e:
@@ -638,7 +728,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
             return []
         except Exception as e:
             print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-            ToolGlobals.failed = True
+            self.ToolGlobals.failed = True
             return TransformationList([])
         for t in items if isinstance(items, Sequence) else [items]:
             if t.schedule.interval != "":
@@ -669,18 +759,18 @@ class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
             scope,
         )
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> Path:
+    def load_resource(self, filepath: Path, dry_run: bool) -> Path:
         return filepath
 
     @classmethod
     def get_id(cls, item: Path) -> list[str]:
         raise NotImplementedError
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         # Drop all datapoints?
         raise NotImplementedError()
 
-    def create(self, items: Sequence[Path], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path) -> TimeSeriesList:
+    def create(self, items: Sequence[Path], drop: bool, filepath: Path) -> TimeSeriesList:
         if len(items) != 1:
             raise ValueError("Datapoints must be loaded one at a time.")
         datafile = items[0]
@@ -714,7 +804,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     def get_id(self, item: ExtractionPipeline) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         try:
             self.client.extraction_pipelines.delete(external_id=ids)
             return len(ids)
@@ -732,16 +822,14 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                 return len(ids)
             return 0
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> ExtractionPipeline:
+    def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
-            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
+            resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
         return ExtractionPipeline.load(resource)
 
-    def create(
-        self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> T_ResourceList | None:
+    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList | None:
         try:
             return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
 
@@ -756,7 +844,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                     return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
                 except Exception as e:
                     print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
-                    ToolGlobals.failed = True
+                    self.ToolGlobals.failed = True
                     return None
             return None
 
@@ -783,19 +871,19 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
     def get_id(cls, item: FileMetadata) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str]) -> int:
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
         self.client.files.delete(external_id=ids)
         return len(ids)
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool
-    ) -> FileMetadata | FileMetadataList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> FileMetadata | FileMetadataList:
         try:
             files = FileMetadataList(
-                [FileMetadata.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))]
+                [FileMetadata.load(load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables()))]
             )
         except Exception:
-            files = FileMetadataList.load(load_yaml_inject_variables(filepath, ToolGlobals.environment_variables()))
+            files = FileMetadataList.load(
+                load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+            )
         # If we have a file with exact one file config, check to see if this is a pattern to expand
         if len(files.data) == 1 and ("$FILENAME" in files.data[0].external_id or ""):
             # It is, so replace this file with all files in this folder using the same data
@@ -824,12 +912,10 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
                 raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
             if isinstance(file.data_set_id, str):
                 # Replace external_id with internal id
-                file.data_set_id = ToolGlobals.verify_dataset(file.data_set_id) if not dry_run else -1
+                file.data_set_id = self.ToolGlobals.verify_dataset(file.data_set_id) if not dry_run else -1
         return files
 
-    def create(
-        self, items: Sequence[FileMetadata], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
-    ) -> FileMetadataList:
+    def create(self, items: Sequence[FileMetadata], drop: bool, filepath: Path) -> FileMetadataList:
         created = FileMetadataList([])
         for meta in items:
             datafile = filepath.parent / meta.name
@@ -840,9 +926,237 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
                     print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
             except Exception as e:
                 print(f"[bold red]ERROR:[/] Failed to upload file {datafile.name}.\n{e}")
-                ToolGlobals.failed = True
+                self.ToolGlobals.failed = True
                 return created
         return created
+
+
+@final
+class SpaceLoader(Loader[str, SpaceApply, SpaceApplyList]):
+    api_name = "data_modeling.spaces"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(space)$"
+    resource_cls = SpaceApply
+    list_cls = SpaceApplyList
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+        return [
+            DataModelsAcl(
+                [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+                DataModelsAcl.Scope.All(),
+            ),
+            # Needed to delete instances
+            DataModelInstancesAcl(
+                [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+                DataModelInstancesAcl.Scope.All(),
+            ),
+        ]
+
+    @classmethod
+    def get_id(cls, item: SpaceApply) -> str:
+        return item.space
+
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+        if not drop_data:
+            print("  [bold]INFO:[/] Skipping deletion of spaces as drop_data flag is not set...")
+            return 0
+        print("[bold]Deleting existing data...[/]")
+        for space in ids:
+            delete_instances(
+                ToolGlobals=self.ToolGlobals,
+                space_name=space,
+            )
+
+        deleted = self.client.data_modeling.spaces.delete(ids)
+        return len(deleted)
+
+    def create(self, items: Sequence[SpaceApply], drop: bool, filepath: Path) -> T_ResourceList:
+        return self.client.data_modeling.spaces.apply(items)
+
+
+class ContainerLoader(Loader[ContainerId, ContainerApply, ContainerApplyList]):
+    api_name = "data_modeling.containers"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(container)$"
+    resource_cls = ContainerApply
+    list_cls = ContainerApplyList
+    dependencies = frozenset({SpaceLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        # Todo Scoped to spaces
+        return DataModelsAcl(
+            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+            DataModelsAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: ContainerApply) -> ContainerId:
+        return item.as_id()
+
+    def delete(self, ids: Sequence[ContainerId], drop_data: bool) -> int:
+        if not drop_data:
+            print("  [bold]INFO:[/] Skipping deletion of containers as drop_data flag is not set...")
+            return 0
+        deleted = self.client.data_modeling.containers.delete(ids)
+        return len(deleted)
+
+    def create(self, items: Sequence[ContainerApply], drop: bool, filepath: Path) -> T_ResourceList:
+        self.ToolGlobals.verify_spaces(list({item.space for item in items}))
+
+        return self.client.data_modeling.containers.apply(items)
+
+
+class ViewLoader(Loader[ViewId, ViewApply, ViewApplyList]):
+    api_name = "data_modeling.views"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(view)$"
+    resource_cls = ViewApply
+    list_cls = ViewApplyList
+    dependencies = frozenset({SpaceLoader, ContainerLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        # Todo Scoped to spaces
+        return DataModelsAcl(
+            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+            DataModelsAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: ViewApply) -> ViewId:
+        return item.as_id()
+
+    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList:
+        self.ToolGlobals.verify_spaces(list({item.space for item in items}))
+        return self.client.data_modeling.views.apply(items)
+
+
+@final
+class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
+    api_name = "data_modeling.data_models"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(datamodel)$"
+    resource_cls = DataModelApply
+    list_cls = DataModelApplyList
+    dependencies = frozenset({SpaceLoader, ViewLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        # Todo Scoped to spaces
+        return DataModelsAcl(
+            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+            DataModelsAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: DataModelApply) -> DataModelId:
+        return item.as_id()
+
+    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList:
+        self.ToolGlobals.verify_spaces(list({item.space for item in items}))
+        return self.client.data_modeling.data_models.apply(items)
+
+
+@final
+class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
+    api_name = "data_modeling.instances"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(node)$"
+    resource_cls = NodeApply
+    list_cls = LoadableNodes
+    dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
+    _display_name = "nodes"
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        # Todo Scoped to spaces
+        return DataModelInstancesAcl(
+            [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+            DataModelInstancesAcl.Scope.All(),
+        )
+
+    def get_id(self, item: NodeApply) -> NodeId:
+        return item.as_id()
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> LoadableNodes:
+        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+        if isinstance(raw, list):
+            raise ValueError(f"Unexpected node yaml file format {filepath.name}")
+        return LoadableNodes.load(raw, cognite_client=self.client)
+
+    def delete(self, ids: Sequence[NodeId], drop_data: bool) -> int:
+        if not drop_data:
+            print("  [bold]INFO:[/] Skipping deletion of nodes as drop_data flag is not set...")
+            return 0
+        deleted = self.client.data_modeling.instances.delete(nodes=ids)
+        return len(deleted.nodes)
+
+    def create(self, items: Sequence[LoadableNodes], drop: bool, filepath: Path) -> LoadableNodes:
+        if not isinstance(items, LoadableNodes):
+            raise ValueError("Unexpected node format file format")
+        self.ToolGlobals.verify_spaces(list({item.space for item in items}))
+        item = items
+        _ = self.client.data_modeling.instances.apply(
+            nodes=item.nodes,
+            auto_create_direct_relations=item.auto_create_direct_relations,
+            skip_on_version_conflict=item.skip_on_version_conflict,
+            replace=item.replace,
+        )
+        return items
+
+
+@final
+class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
+    api_name = "data_modeling.instances"
+    folder_name = "data_models"
+    filename_pattern = r"^.*\.?(edge)$"
+    resource_cls = EdgeApply
+    list_cls = LoadableEdges
+    _display_name = "edges"
+
+    # Note edges do not need nodes to be created first, as they are created as part of the edge creation.
+    # However, for deletion (reversed order) we need to delete edges before nodes.
+    dependencies = frozenset({SpaceLoader, ViewLoader, NodeLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        # Todo Scoped to spaces
+        return DataModelInstancesAcl(
+            [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+            DataModelInstancesAcl.Scope.All(),
+        )
+
+    def get_id(self, item: EdgeApply) -> EdgeId:
+        return item.as_id()
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> LoadableEdges:
+        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+        if isinstance(raw, list):
+            raise ValueError(f"Unexpected edge yaml file format {filepath.name}")
+        return LoadableEdges.load(raw, cognite_client=self.client)
+
+    def delete(self, ids: Sequence[EdgeId], drop_data: bool) -> int:
+        if not drop_data:
+            print("  [bold]INFO:[/] Skipping deletion of edges as drop_data flag is not set...")
+            return 0
+        deleted = self.client.data_modeling.instances.delete(edges=ids)
+        return len(deleted.edges)
+
+    def create(self, items: Sequence[LoadableEdges], drop: bool, filepath: Path) -> LoadableEdges:
+        if not isinstance(items, LoadableEdges):
+            raise ValueError("Unexpected edge format file format")
+        self.ToolGlobals.verify_spaces(list({item.space for item in items}))
+        item = items
+        _ = self.client.data_modeling.instances.apply(
+            edges=item.edges,
+            auto_create_start_nodes=item.auto_create_start_nodes,
+            auto_create_end_nodes=item.auto_create_end_nodes,
+            skip_on_version_conflict=item.skip_on_version_conflict,
+            replace=item.replace,
+        )
+        return items
 
 
 def drop_load_resources(
@@ -853,6 +1167,7 @@ def drop_load_resources(
     clean: bool = False,
     load: bool = True,
     dry_run: bool = False,
+    drop_data: bool = False,
     verbose: bool = False,
 ):
     if path.is_file():
@@ -864,18 +1179,26 @@ def drop_load_resources(
     else:
         filepaths = [file for file in path.glob("**/*")]
 
-    items = [loader.load_resource(f, ToolGlobals, dry_run) for f in filepaths]
+    if loader.filename_pattern:
+        # This is used by data modelings resources to filter out files that are not of the correct type
+        # as these resources share the same folder.
+        pattern = re.compile(loader.filename_pattern)
+        filepaths = [file for file in filepaths if pattern.match(file.stem)]
+
+    items = [loader.load_resource(f, dry_run) for f in filepaths]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
+    if nr_of_items == 0:
+        return
     nr_of_deleted = 0
     nr_of_created = 0
     if load:
-        print(f"[bold]Uploading {nr_of_items} {loader.api_name} in {nr_of_batches} batches to CDF...[/]")
+        print(f"[bold]Uploading {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     else:
-        print(f"[bold]Cleaning {nr_of_items} {loader.api_name} in {nr_of_batches} batches to CDF...[/]")
+        print(f"[bold]Cleaning {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     batches = [item if isinstance(item, Sized) else [item] for item in items]
     if drop and loader.support_drop and load:
-        print(f"  --drop is specified, will delete existing {loader.api_name} before uploading.")
+        print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
     if (drop and loader.support_drop) or clean:
         for batch in batches:
             drop_items: list = []
@@ -886,18 +1209,20 @@ def drop_load_resources(
                 drop_items.append(loader.get_id(item))
             if not dry_run:
                 try:
-                    nr_of_deleted += loader.delete(drop_items)
+                    nr_of_deleted += loader.delete(drop_items, drop_data)
                     if verbose:
-                        print(f"  Deleted {len(drop_items)} {loader.api_name}.")
+                        print(f"  Deleted {len(drop_items)} {loader.display_name}.")
                 except CogniteAPIError as e:
                     if e.code == 404:
-                        print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do(es) not exist.")
+                        print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.display_name} do(es) not exist.")
                 except CogniteNotFoundError:
-                    print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.api_name} do(es) not exist.")
+                    print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.display_name} do(es) not exist.")
                 except Exception as e:
-                    print(f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.api_name}. Error {e}")
+                    print(
+                        f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.display_name}. Error {e}"
+                    )
             else:
-                print(f"  Would have deleted {len(drop_items)} {loader.api_name}.")
+                print(f"  Would have deleted {len(drop_items)} {loader.display_name}.")
     if not load:
         return
     try:
@@ -905,415 +1230,31 @@ def drop_load_resources(
             for batch, filepath in zip(batches, filepaths):
                 if not drop and loader.support_upsert:
                     if verbose:
-                        print(f"  Comparing {len(batch)} {loader.api_name} from {filepath}...")
+                        print(f"  Comparing {len(batch)} {loader.display_name} from {filepath}...")
                     batch = loader.remove_unchanged(batch)
                     if verbose:
-                        print(f"    {len(batch)} {loader.api_name} to be deployed...")
+                        print(f"    {len(batch)} {loader.display_name} to be deployed...")
                 if len(batch) > 0:
-                    created = loader.create(batch, ToolGlobals, drop, filepath)
+                    created = loader.create(batch, drop, filepath)
                     nr_of_created += len(created) if created is not None else 0
                     if isinstance(loader, AuthLoader):
                         nr_of_deleted += len(created)
     except Exception as e:
-        print(f"[bold red]ERROR:[/] Failed to upload {loader.api_name}.")
+        print(f"[bold red]ERROR:[/] Failed to upload {loader.display_name}.")
         print(e)
         ToolGlobals.failed = True
         return
-    print(f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.api_name} from {len(filepaths)} config files.")
-    print(f"  Created {nr_of_created} out of {nr_of_items} {loader.api_name} from {len(filepaths)} config files.")
-
-
-LOADER_BY_FOLDER_NAME = {loader.folder_name: loader for loader in Loader.__subclasses__()}
-
-
-def load_datamodel_graphql(
-    ToolGlobals: CDFToolConfig,
-    space_name: str | None = None,
-    model_name: str | None = None,
-    directory=None,
-) -> None:
-    """Load a graphql datamodel from file."""
-    if space_name is None or model_name is None or directory is None:
-        raise ValueError("space_name, model_name, and directory must be supplied.")
-    with open(f"{directory}/datamodel.graphql") as file:
-        # Read directly into a string.
-        datamodel = file.read()
-    # Clear any delete errors
-    ToolGlobals.failed = False
-    client = ToolGlobals.verify_client(
-        capabilities={
-            "dataModelsAcl": ["READ", "WRITE"],
-            "dataModelInstancesAcl": ["READ", "WRITE"],
-        }
-    )
-    print(f"[bold]Loading data model {model_name} into space {space_name} from {directory}...[/]")
-    try:
-        client.data_modeling.graphql.apply_dml(
-            (space_name, model_name, "1"),
-            dml=datamodel,
-            name=model_name,
-            description=f"Data model for {model_name}",
-        )
-    except Exception as e:
-        print(f"[bold red]ERROR:[/] Failed to write data model {model_name} to space {space_name}.")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    print(f"  Created data model {model_name}.")
-
-
-def load_datamodel(
-    ToolGlobals: CDFToolConfig,
-    drop: bool = False,
-    drop_data: bool = False,
-    delete_removed: bool = True,
-    delete_containers: bool = False,
-    delete_spaces: bool = False,
-    directory: Path | None = None,
-    dry_run: bool = False,
-    only_drop: bool = False,
-) -> None:
-    """Load containers, views, spaces, and data models from a directory
-
-        Note that this function will never delete instances, but will delete all
-        the properties found in containers if delete_containers is specified.
-        delete_spaces will fail unless also the edges and nodes have been deleted,
-        e.g. using the clean_out_datamodel() function.
-
-        Note that if delete_spaces flag is True, an attempt will be made to delete the space,
-        but if it fails, the loading will continue. If delete_containers is True, the loading
-        will abort if deletion fails.
-    Args:
-        drop: Whether to drop all existing data model entities (default: apply just the diff).
-        drop_data: Whether to drop all instances (nodes and edges) in all spaces.
-        delete_removed: Whether to delete (previous) resources that are not in the directory.
-        delete_containers: Whether to delete containers including data in the instances.
-        delete_spaces: Whether to delete spaces (requires containers and instances to be deleted).
-        directory: Directory to load from.
-        dry_run: Whether to perform a dry run and only print out what will happen.
-        only_drop: Whether to only drop existing resources and not load new ones.
-    """
-    if directory is None:
-        raise ValueError("directory must be supplied.")
-    if (delete_containers or delete_spaces) and not drop:
-        raise ValueError("drop must be True if delete_containers or delete_spaces is True.")
-    if (delete_spaces or delete_containers) and not drop_data:
-        raise ValueError("drop_data must be True if delete_spaces or delete_containers is True.")
-    model_files_by_type: dict[str, list[Path]] = defaultdict(list)
-    models_pattern = re.compile(r"^.*\.?(space|container|view|datamodel)\.yaml$")
-    for file in directory.rglob("*.yaml"):
-        if not (match := models_pattern.match(file.name)):
-            continue
-        model_files_by_type[match.group(1)].append(file)
-    print("[bold]Loading data model files from build directory...[/]")
-    for type_, files in model_files_by_type.items():
-        model_files_by_type[type_].sort()
-        print(f"  {len(files)} of type {type_}s in {directory}")
-
-    cognite_resources_by_type: dict[str, list[ContainerApply | ViewApply | DataModelApply | SpaceApply]] = defaultdict(
-        list
-    )
-    for type_, files in model_files_by_type.items():
-        resource_cls = {
-            "space": SpaceApply,
-            "container": ContainerApply,
-            "view": ViewApply,
-            "datamodel": DataModelApply,
-        }[type_]
-        for file in files:
-            cognite_resources_by_type[type_].append(
-                resource_cls.load(load_yaml_inject_variables(file, ToolGlobals.environment_variables()))
-            )
-    # Remove duplicates
-    for type_ in list(cognite_resources_by_type):
-        unique = {r.as_id(): r for r in cognite_resources_by_type[type_]}
-        cognite_resources_by_type[type_] = list(unique.values())
-
-    explicit_space_list = [s.space for s in cognite_resources_by_type["space"]]
-    space_list = list({r.space for _, resources in cognite_resources_by_type.items() for r in resources})
-
-    implicit_spaces = [SpaceApply(space=s, name=s, description="Imported space") for s in space_list]
-    for s in implicit_spaces:
-        if s.space not in [s2.space for s2 in cognite_resources_by_type["space"]]:
-            print(
-                f"  [bold red]ERROR[/] Space {s.name} is implicitly defined and may need it's own {s.name}.space.yaml file."
-            )
-            cognite_resources_by_type["space"].append(s)
-    # Clear any delete errors
-    ToolGlobals.failed = False
-    client = ToolGlobals.verify_client(
-        capabilities={
-            "dataModelsAcl": ["READ", "WRITE"],
-            "dataModelInstancesAcl": ["READ", "WRITE"],
-        }
-    )
-
-    existing_resources_by_type: dict[str, list[ContainerApply | ViewApply | DataModelApply | SpaceApply]] = defaultdict(
-        list
-    )
-    resource_api_by_type = {
-        "container": client.data_modeling.containers,
-        "view": client.data_modeling.views,
-        "datamodel": client.data_modeling.data_models,
-        "space": client.data_modeling.spaces,
-    }
-    for type_, resources in cognite_resources_by_type.items():
-        attempts = 5
-        while attempts > 0:
-            try:
-                existing_resources_by_type[type_] = (
-                    resource_api_by_type[type_].retrieve(list({r.as_id() for r in resources})).as_apply()
-                )
-                attempts = 0
-            except CogniteAPIError as e:
-                attempts -= 1
-                if e.code == 500 and attempts > 0:
-                    continue
-                print(f"[bold]ERROR:[/] Failed to retrieve {type_}(s):\n{e}")
-                ToolGlobals.failed = True
-                return
-            except Exception as e:
-                print(f"[bold]ERROR:[/] Failed to retrieve {type_}(s):\n{e}")
-                ToolGlobals.failed = True
-                return
-
-    differences: dict[str, Difference] = {}
-    for type_, resources in cognite_resources_by_type.items():
-        new_by_id = {r.as_id(): r for r in resources}
-        existing_by_id = {r.as_id(): r for r in existing_resources_by_type[type_]}
-
-        added = [r for r in resources if r.as_id() not in existing_by_id]
-        removed = [r for r in existing_resources_by_type[type_] if r.as_id() not in new_by_id]
-
-        changed = []
-        unchanged = []
-        # Due to a bug in the SDK, we need to ensure that the new properties of the container
-        # has set the default values as these will be set for the existing container and
-        # the comparison will fail.
-        for existing_id in set(new_by_id.keys()) & set(existing_by_id.keys()):
-            new = new_by_id[existing_id]
-            existing = existing_by_id[existing_id]
-            if isinstance(new, ContainerApply):
-                for p, _ in existing.properties.items():
-                    new.properties[p] = ContainerProperty(
-                        type=new.properties[p].type,
-                        nullable=new.properties[p].nullable or True,
-                        auto_increment=new.properties[p].auto_increment or False,
-                        default_value=new.properties[p].default_value or None,
-                        description=new.properties[p].description or None,
-                    )
-
-            if new_by_id[existing_id] == existing_by_id[existing_id]:
-                unchanged.append(new_by_id[existing_id])
-            else:
-                changed.append(new_by_id[existing_id])
-
-        differences[type_] = Difference(added, removed, changed, unchanged)
-
-    creation_order = ["space", "container", "view", "datamodel"]
-
-    if drop_data:
-        print("[bold]Deleting existing data...[/]")
-        deleted = 0
-        for i in explicit_space_list:
-            if not dry_run:
-                delete_instances(
-                    ToolGlobals,
-                    space_name=i,
-                    dry_run=dry_run,
-                )
-                if ToolGlobals.failed:
-                    print(f"  [bold]ERROR:[/] Failed to delete instances in space {i}.")
-                    return
-            else:
-                print(f"  Would have deleted instances in space {i}.")
-
-    if drop:
-        print("[bold]Deleting existing configurations...[/]")
-        # Clean out all old resources
-        for type_ in reversed(creation_order):
-            items = cognite_resources_by_type.get(type_)
-            if items is None:
-                continue
-            if type_ == "container" and not delete_containers:
-                print("  [bold]INFO:[/] Skipping deletion of containers as delete_containers flag is not set...")
-                continue
-            if type_ == "space" and not delete_spaces:
-                print("  [bold]INFO:[/] Skipping deletion of spaces as delete_spaces flag is not set...")
-                continue
-            deleted = 0
-            if not dry_run:
-                if type_ == "space":
-                    for i2 in items:
-                        # Only delete spaces that have been explicitly defined
-                        if i2.space in explicit_space_list:
-                            try:
-                                ret = resource_api_by_type["space"].delete(i2.space)
-                            except Exception:
-                                ToolGlobals.failed = False
-                                print(f"  [bold]INFO:[/] Deletion of space {i2.space} was not successful, continuing.")
-                                continue
-                            if len(ret) > 0:
-                                deleted += 1
-                else:
-                    try:
-                        ret = resource_api_by_type[type_].delete([i.as_id() for i in items])
-                    except CogniteAPIError as e:
-                        # Typically spaces can not be deleted if there are other
-                        # resources in the space.
-                        print(f"  [bold]ERROR:[/] Failed to delete {type_}(s):\n{e}")
-                        return
-                    deleted += len(ret)
-                print(f"  Deleted {deleted} {type_}(s).")
-            else:
-                print(f"  Would have deleted {deleted} {type_}(s).")
-
-    if not only_drop:
-        print("[bold]Creating new configurations...[/]")
-        for type_ in creation_order:
-            if type_ not in differences:
-                continue
-            items = differences[type_]
-            if items.added:
-                print(f"  {len(items.added)} added {type_}(s) to be deployed...")
-                if dry_run:
-                    continue
-                attempts = 5
-                while attempts > 0:
-                    try:
-                        resource_api_by_type[type_].apply(items.added)
-                        attempts = 0
-                    except Exception as e:
-                        attempts -= 1
-                        if attempts > 0:
-                            continue
-                        print(f"[bold]ERROR:[/] Failed to create {type_}(s):\n{e}")
-                        ToolGlobals.failed = True
-                        return
-                print(f"  Created {len(items.added)} {type_}(s).")
-            elif items.changed:
-                print(f"  {len(items.changed)} changed {type_}(s) to be deployed...")
-                if dry_run:
-                    continue
-                attempts = 5
-                while attempts > 0:
-                    try:
-                        resource_api_by_type[type_].apply(items.changed)
-                        attempts = 0
-                    except Exception as e:
-                        attempts -= 1
-                        if attempts > 0:
-                            continue
-                        print(f"[bold]ERROR:[/] Failed to create {type_}(s):\n{e}")
-                        ToolGlobals.failed = True
-                        return
-                if drop:
-                    print(
-                        f"  Created {len(items.changed)} {type_}s that could have been updated instead (--drop specified)."
-                    )
-                else:
-                    print(f"  Updated {len(items.changed)} {type_}(s).")
-            elif items.unchanged:
-                print(f"  {len(items.unchanged)} unchanged {type_}(s).")
-                if drop:
-                    attempts = 5
-                    while attempts > 0:
-                        try:
-                            resource_api_by_type[type_].apply(items.unchanged)
-                            attempts = 0
-                        except Exception as e:
-                            attempts -= 1
-                            if attempts > 0:
-                                continue
-                            print(f"[bold]ERROR:[/] Failed to create {type_}(s):\n{e}")
-                            ToolGlobals.failed = True
-                            return
-                    print(
-                        f"  Created {len(items.unchanged)} unchanged {type_}(s) that could have been skipped (--drop specified)."
-                    )
-
-    if delete_removed and not drop:
-        for type_ in reversed(creation_order):
-            if type_ not in differences:
-                continue
-            items = differences[type_]
-            if items.removed:
-                if dry_run:
-                    print(f"  Would have deleted {len(items.removed)} {type_}(s).")
-                    continue
-                try:
-                    resource_api_by_type[type_].delete(items.removed)
-                except CogniteAPIError as e:
-                    # Typically spaces can not be deleted if there are other
-                    # resources in the space.
-                    print(f"[bold]ERROR:[/] Failed to delete {len(items.removed)} {type_}(s).")
-                    print(e)
-                    ToolGlobals.failed = True
-                    continue
-                print(f"  Deleted {len(items.removed)} {type_}(s) that were removed.")
-
-
-def load_nodes(
-    ToolGlobals: CDFToolConfig,
-    directory: Path | None = None,
-    dry_run: bool = False,
-) -> None:
-    """Insert nodes"""
-
-    for file in directory.rglob("*.node.yaml"):
-        if file.name == "config.yaml":
-            continue
-
-        client: CogniteClient = ToolGlobals.verify_client(
-            capabilities={
-                "dataModelsAcl": ["READ"],
-                "dataModelInstancesAcl": ["READ", "WRITE"],
-            }
+    if nr_of_deleted != 0:
+        print(
+            f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files."
         )
 
-        nodes: dict = load_yaml_inject_variables(file, ToolGlobals.environment_variables())
+    print(f"  Created {nr_of_created} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files.")
 
-        try:
-            view = ViewId(
-                space=nodes["view"]["space"],
-                external_id=nodes["view"]["externalId"],
-                version=nodes["view"]["version"],
-            )
-        except KeyError:
-            raise KeyError(
-                f"Expected view configuration not found in {file}:\nview:\n  space: <space>\n  externalId: <view_external_id>\n  version: <view_version>"
-            )
 
-        try:
-            node_space: str = nodes["destination"]["space"]
-        except KeyError:
-            raise KeyError(
-                f"Expected destination space configuration in {file}:\ndestination:\n  space: <destination_space_external_id>"
-            )
-        node_list: NodeApplyList = []
-        try:
-            for n in nodes.get("nodes", []):
-                node_list.append(
-                    NodeApply(
-                        space=node_space,
-                        external_id=n.pop("externalId"),
-                        existing_version=n.pop("existingVersion", None),
-                        sources=[NodeOrEdgeData(source=view, properties=n)],
-                    )
-                )
-        except Exception as e:
-            raise KeyError(f"Failed to parse node {n} in {file}:\n{e}")
-        print(f"[bold]Loading {len(node_list)} node(s) from {directory}...[/]")
-        if not dry_run:
-            try:
-                client.data_modeling.instances.apply(
-                    nodes=node_list,
-                    auto_create_direct_relations=nodes.get("autoCreateDirectRelations", True),
-                    skip_on_version_conflict=nodes.get("skipOnVersionConflict", False),
-                    replace=nodes.get("replace", False),
-                )
-                print(f"  Created {len(node_list)} node(s) in {node_space}.")
-            except CogniteAPIError as e:
-                print(f"[bold]ERROR:[/] Failed to create {len(node_list)} node(s) in {node_space}:\n{e}")
-                ToolGlobals.failed = True
-                return
+LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
+for loader in Loader.__subclasses__():
+    if loader.folder_name not in LOADER_BY_FOLDER_NAME:
+        LOADER_BY_FOLDER_NAME[loader.folder_name] = []
+    LOADER_BY_FOLDER_NAME[loader.folder_name].append(loader)
+del loader  # cleanup module namespace
