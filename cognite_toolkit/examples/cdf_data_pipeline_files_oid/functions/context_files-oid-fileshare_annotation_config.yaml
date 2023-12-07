@@ -1,0 +1,6 @@
+logger:
+  # Logging to console/terminal. Remove or comment out to disable terminal
+  # logging
+  console:
+    level: INFO
+

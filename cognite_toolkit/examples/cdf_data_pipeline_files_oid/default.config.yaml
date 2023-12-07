@@ -1,0 +1,14 @@
+# This is the configuration file used for the data realted to asset data modeling 
+---
+# spesify the site/asset location where data comes from, ex 'valhall' or if they are generic for all assets use 'all' 
+location_name: valhall 
+module_version: '1'
+
+# spesify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
+source_name: fileshare
+
+# source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+asset_location_extractor_group_source_id: <update-me>
+asset_location_processing_group_source_id: <update-me>
+asset_location_read_group_source_id: <update-me>
+
