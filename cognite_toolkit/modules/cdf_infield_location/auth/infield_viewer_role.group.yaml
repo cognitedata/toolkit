@@ -6,6 +6,12 @@ metadata:
   origin: 'cdf-project-templates'
   module_version: '{{module_version}}'
 capabilities:
+  - groupsAcl:
+      actions:
+        - LIST
+        - READ
+      scope:
+        currentuserscope: {}
   - threedAcl:
       actions:
         - READ
