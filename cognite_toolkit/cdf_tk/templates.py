@@ -7,7 +7,7 @@ import shutil
 from collections import ChainMap, defaultdict
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, overload
 
 import yaml
 from rich import print
@@ -21,6 +21,10 @@ DEFAULT_CONFIG_FILE = "default.config.yaml"
 ENVIRONMENTS_FILE = "environments.yaml"
 # The local config file:
 CONFIG_FILE = "config.yaml"
+# The default package files
+DEFAULT_PACKAGES_FILE = "default.packages.yaml"
+# The package files:
+PACKAGES_FILE = "packages.yaml"
 TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
@@ -51,6 +55,7 @@ def read_environ_config(
     packages = global_config.get("packages", {})
     packages.update(read_yaml_files(root_dir, "packages.yaml").get("packages", {}))
     environment_config = read_yaml_files(root_dir, "local.yaml")
+
     print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE}.\n")
     if verbose:
         print("  [bold green]INFO:[/] Found defined packages:")
@@ -121,6 +126,94 @@ def read_environ_config(
     return load_list
 
 
+def get_selected_modules(
+    source_module: Path,
+    environment_file: Path,
+    build_env: str = "dev",
+    verbose: bool = False,
+) -> list[str]:
+    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
+
+    modules_by_package = _read_packages(source_module, verbose)
+
+    module_and_packages = _get_modules_and_packages(environment_file, build_env)
+
+    selected_packages = [package for package in module_and_packages if package in modules_by_package]
+    if verbose:
+        print("  [bold green]INFO:[/] Selected packages:")
+        for package in selected_packages:
+            print(f"    {package}")
+
+    selected_modules = [module for module in module_and_packages if module not in modules_by_package]
+    selected_modules.extend(itertools.chain.from_iterable(modules_by_package[package] for package in selected_packages))
+
+    if verbose:
+        print("  [bold green]INFO:[/] Selected modules:")
+        for module in selected_modules:
+            print(f"    {module}")
+    if not selected_modules:
+        print(
+            f"  [bold yellow]WARNING:[/] Found no defined modules in {ENVIRONMENTS_FILE!s}, have you configured the environment ({build_env})?"
+        )
+        exit(1)
+
+    available_modules = {module.parent.name for module, _ in iterate_modules(source_module)}
+    if not (missing_modules := set(selected_modules) - available_modules):
+        return selected_modules
+
+    raise ValueError(f"Modules {missing_modules} not found in {source_module}.")
+
+
+def _get_modules_and_packages(environment_file: Path, build_env: str) -> list[str]:
+    environment_config = read_yaml_file(environment_file)
+    environment = environment_config.get(build_env)
+    if environment is None:
+        raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
+    try:
+        project_config = environment["project"]
+        environment_type = environment["type"]
+        deploy = environment["deploy"]
+    except KeyError:
+        raise ValueError(
+            f"Environment {build_env} is missing required fields 'project', 'type', or 'deploy' in {ENVIRONMENTS_FILE!s}"
+        ) from None
+
+    os.environ["CDF_ENVIRON"] = build_env
+    os.environ["CDF_BUILD_TYPE"] = environment_type
+    if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != project_config:
+        if build_env == "dev" or build_env == "local" or build_env == "demo":
+            print(
+                f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({project_config}) and what is defined in environment ({project_env})."
+            )
+            print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
+        else:
+            raise ValueError(
+                f"Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({project_config}) and what is defined in environment ({project_env=} != {project_config=})."
+            )
+    return deploy
+
+
+def _read_packages(source_module, verbose):
+    cdf_modules_by_packages = read_yaml_file(source_module / DEFAULT_PACKAGES_FILE).get("packages", {})
+    if (package_path := source_module / PACKAGES_FILE).exists():
+        local_modules_by_packages = read_yaml_file(package_path).get("packages", {})
+        if overwrites := set(cdf_modules_by_packages.keys()) & set(local_modules_by_packages.keys()):
+            print(
+                f"  [bold yellow]WARNING:[/] Found modules in {PACKAGES_FILE} that are also defined in {DEFAULT_PACKAGES_FILE}:"
+            )
+            for module in overwrites:
+                print(f"    {module}")
+            print(f"  Using the modules defined in {PACKAGES_FILE}.")
+        modules_by_package = {**cdf_modules_by_packages, **local_modules_by_packages}
+    else:
+        modules_by_package = cdf_modules_by_packages
+    if verbose:
+        print("  [bold green]INFO:[/] Found defined packages:")
+        for name, content in modules_by_package.items():
+            print(f"    {name}: {content}")
+    return modules_by_package
+
+
 def read_yaml_files(
     yaml_dirs: list[str] | str,
     name: str | None = None,
@@ -157,6 +250,37 @@ def read_yaml_files(
             continue
         data.update(config_data)
     return data
+
+
+@overload
+def read_yaml_file(filepath: Path, expected_output: Literal["dict"] = "dict") -> dict[str, Any]:
+    ...
+
+
+@overload
+def read_yaml_file(filepath: Path, expected_output: Literal["list"]) -> list[dict[str, Any]]:
+    ...
+
+
+def read_yaml_file(
+    filepath: Path, expected_output: Literal["list", "dict"] = "dict"
+) -> dict[str, Any] | list[dict[str, Any]]:
+    """Read a YAML file and return a dictionary
+
+    filepath: path to the YAML file
+    """
+    try:
+        config_data = yaml.safe_load(filepath.read_text())
+    except yaml.YAMLError as e:
+        print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
+        return {}
+    if expected_output == "list" and isinstance(config_data, dict):
+        print(f"  [bold red]ERROR:[/] {filepath} is not a list")
+        exit(1)
+    elif expected_output == "dict" and isinstance(config_data, list):
+        print(f"  [bold red]ERROR:[/] {filepath} is not a dict")
+        exit(1)
+    return config_data
 
 
 def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
@@ -287,8 +411,9 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
     return True
 
 
-def process_config_files2(
-    source_module: Path,
+def process_config_files(
+    source_module_dir: Path,
+    selected_modules: list[str],
     build_dir: Path,
     config: dict[str, Any],
     build_env: str = "dev",
@@ -297,7 +422,9 @@ def process_config_files2(
     configs = split_config(config)
     number_by_resource_type = defaultdict(int)
 
-    for module_dir, filepaths in iterate_modules(source_module):
+    for module_dir, filepaths in iterate_modules(source_module_dir):
+        if module_dir.parent.name not in selected_modules:
+            continue
         if verbose:
             print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
         local_config = create_local_config(configs, module_dir)
@@ -308,7 +435,7 @@ def process_config_files2(
                 print(f"    [bold green]INFO:[/] Processing {filepath.name}")
             if filepath.suffix.lower()[1:] not in PROC_TMPL_VARS_SUFFIX:
                 # Copy the file as is, not variable replacement
-                shutil.copyfile(filepath, build_dir / filepath.relative_to(source_module))
+                shutil.copyfile(filepath, build_dir / filepath.relative_to(source_module_dir))
                 continue
             content = filepath.read_text()
             content = replace_variables(content, local_config, build_env)
@@ -316,6 +443,7 @@ def process_config_files2(
             filename = create_file_name(filepath, number_by_resource_type)
             new_filepath = build_dir / filepath.parent.name / filename
 
+            new_filepath.parent.mkdir(parents=True, exist_ok=True)
             new_filepath.write_text(content)
 
             validate(content, new_filepath, filepath)
@@ -342,9 +470,12 @@ def build_config(
                 print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
         build_dir.mkdir()
+    source_module_dir = source_dir / "cdf_modules"
 
-    config = yaml.safe_load(config_file.read_text())
-    process_config_files2(source_dir / "modules", build_dir, config, build_env, verbose)
+    selected_modules = get_selected_modules(source_module_dir, environment_file, build_env, verbose)
+
+    config = read_yaml_file(config_file)
+    process_config_files(source_module_dir, selected_modules, build_dir, config, build_env, verbose)
 
 
 def generate_warnings_report(load_warnings: list[LoadWarning], indent: int = 0) -> str:
@@ -394,20 +525,15 @@ def generate_config(directory: Path, include_modules: set[str] | None = None) ->
 
 def iterate_modules(root_dir: Path) -> tuple[Path, list[Path]]:
     for module_dir in root_dir.rglob("*"):
-        if not module_dir.is_dir():
-            continue
-        filepaths = [path for path in module_dir.iterdir() if path.is_file() and path.name not in EXCL_FILES]
-        if not filepaths:
-            # This is a parent module, skip
-            continue
-        yield module_dir, filepaths
+        if module_dir.is_dir() and module_dir.name in LOADER_BY_FOLDER_NAME:
+            yield module_dir, [path for path in module_dir.iterdir() if path.is_file() and path.name not in EXCL_FILES]
 
 
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
     maps = []
     parts = module_dir.parts
-    if parts[0] != "modules":
-        parts = parts[parts.index("modules") :]
+    if parts[0] != "cdf_modules":
+        parts = parts[parts.index("cdf_modules") :]
     for no in range(len(parts), -1, -1):
         if c := config.get(".".join(parts[:no])):
             maps.append(c)
