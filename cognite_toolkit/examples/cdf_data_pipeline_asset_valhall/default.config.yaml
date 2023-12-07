@@ -12,13 +12,13 @@ module_version: '1'
 source_name: workmate  
 
 asset_dataset: ds_asset_oid
-asset_raw_input_db: asset-oid-workmate
+asset_raw_input_db: asset_oid_workmate
 asset_raw_input_table: assets
 
 # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
-asset_location_extractor_group_source_id: c74797ce-c49b-4ada-9186-8fe21c54c3de
-asset_location_processing_group_source_id: c74797ce-c49b-4ada-9186-8fe21c54c3de
-asset_location_read_group_source_id: c74797ce-c49b-4ada-9186-8fe21c54c3de
+asset_location_extractor_group_source_id: <update me>
+asset_location_processing_group_source_id: <update me>
+asset_location_read_group_source_id: <update me>
 
 
 # Transformation credentials
