@@ -619,3 +619,9 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
             )
             if load_warnings:
                 print(f"  [bold yellow]WARNING:[/]{generate_warnings_report(load_warnings, indent=1)}")
+
+
+if __name__ == "__main__":
+    target_dir = Path(__file__).resolve().parent.parent
+    config = generate_config(target_dir)
+    (target_dir / CONFIG_FILE).write_text(yaml.safe_dump(config, sort_keys=False))
