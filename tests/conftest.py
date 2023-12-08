@@ -53,6 +53,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewApplyList,
     ViewList,
 )
+from cognite.client.data_classes.data_modeling.ids import EdgeId, InstanceId, NodeId
 from cognite.client.testing import monkeypatch_cognite_client
 
 TEST_FOLDER = Path(__file__).resolve().parent
@@ -304,10 +305,42 @@ def create_mock_api(
 
     def delete_data_modeling(ids: VersionedDataModelingId | Sequence[VersionedDataModelingId]) -> list:
         deleted = []
-        if isinstance(ids, VersionedDataModelingId):
+        if isinstance(ids, (VersionedDataModelingId, InstanceId)):
             deleted.append(ids.dump(camel_case=True))
         elif isinstance(ids, Sequence):
             deleted.extend([id.dump(camel_case=True) for id in ids])
+        if deleted:
+            deleted_resources[resource_cls.__name__].extend(deleted)
+        return deleted
+
+    def delete_instances(
+        nodes: NodeId | Sequence[NodeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
+        edges: EdgeId | Sequence[EdgeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
+    ) -> list:
+        deleted = []
+        if isinstance(nodes, NodeId):
+            deleted.append(nodes.dump(camel_case=True, include_instance_type=True))
+        elif isinstance(nodes, tuple):
+            deleted.append(NodeId(*nodes).dump(camel_case=True, include_instance_type=True))
+        elif isinstance(edges, EdgeId):
+            deleted.append(edges.dump(camel_case=True, include_instance_type=True))
+        elif isinstance(edges, tuple):
+            deleted.append(EdgeId(*edges).dump(camel_case=True, include_instance_type=True))
+        elif isinstance(nodes, Sequence):
+            deleted.extend(
+                [
+                    node.dump(camel_case=True, include_instance_type=True) if isinstance(node, NodeId) else node
+                    for node in nodes
+                ]
+            )
+        elif isinstance(edges, Sequence):
+            deleted.extend(
+                [
+                    edge.dump(camel_case=True, include_instance_type=True) if isinstance(edge, EdgeId) else edge
+                    for edge in edges
+                ]
+            )
+
         if deleted:
             deleted_resources[resource_cls.__name__].extend(deleted)
         return deleted
@@ -348,6 +381,8 @@ def create_mock_api(
         signature = inspect.signature(api_client.delete)
         if "ids" in signature.parameters:
             mock.delete = delete_data_modeling
+        elif "nodes" in signature.parameters:
+            mock.delete = delete_instances
         elif "spaces" in signature.parameters:
             mock.delete = delete_space
         elif "db_name" in signature.parameters:

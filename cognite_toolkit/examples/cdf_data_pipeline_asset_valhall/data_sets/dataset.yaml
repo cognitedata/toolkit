@@ -1,4 +1,4 @@
-externalId: 'ds_asset_{{location_name}}'
+externalId: 'ds_asset_{{location_name}}' 
 name:  'asset:{{location_name}}'
 description: 'Asset data for {{location_name}}'
 metadata:

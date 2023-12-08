@@ -10,6 +10,7 @@ deleted:
     version: '1'
   Space:
   - pumpInstanceSpace
+  - pumpModelSpace
   Transformation:
   - externalId: pump_model-populate-lift_station_pumps_edges
   - externalId: pump_model-populate-pump_container
