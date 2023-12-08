@@ -75,7 +75,7 @@ def test_changelog_entry_date(changelog_name: str) -> None:
 
 def test_config_yaml_updated() -> None:
     config_yaml = yaml.safe_load((REPO_ROOT / "cognite_toolkit" / "config.yaml").read_text(encoding="utf-8"))
-    expected_config = generate_config(REPO_ROOT / "cognite_toolkit")
+    expected_config = yaml.safe_load(generate_config(REPO_ROOT / "cognite_toolkit"))
     assert config_yaml == expected_config, (
         "The 'config.yaml' file is not up to date with the latest changes. "
         "Please run 'python -m cognite_toolkit.cdf_tk.templates' to update it."
