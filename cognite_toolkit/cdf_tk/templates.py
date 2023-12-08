@@ -29,7 +29,7 @@ TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # Which suffixes to exclude when we create indexed files (i.e., they are bundled with their main config file)
-EXCL_INDEX_SUFFIX = frozenset(["sql", "csv", "parquet"])
+EXCL_INDEX_SUFFIX = frozenset([".sql", ".csv", ".parquet"])
 # Which suffixes to process for template variable replacement
 PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"])
 
@@ -54,7 +54,7 @@ def read_environ_config(
     global_config = read_yaml_files(root_dir, "default.packages.yaml")
     packages = global_config.get("packages", {})
     packages.update(read_yaml_files(root_dir, "packages.yaml").get("packages", {}))
-    environment_config = read_yaml_files(root_dir, "local.yaml")
+    environment_config = read_yaml_files(root_dir, ENVIRONMENTS_FILE)
 
     print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE}.\n")
     if verbose:
@@ -67,7 +67,7 @@ def read_environ_config(
     try:
         defs = environment_config[build_env]
     except KeyError:
-        raise ValueError(f"Environment {build_env} not found in local.yaml")
+        raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE}")
 
     os.environ["CDF_ENVIRON"] = build_env
     for k, v in defs.items():
@@ -539,7 +539,7 @@ def iterate_modules(root_dir: Path) -> tuple[Path, list[Path]]:
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
     maps = []
     parts = module_dir.parts
-    if parts[0] != "cdf_modules":
+    if parts[0] != "cdf_modules" and "cdf_modules" in parts:
         parts = parts[parts.index("cdf_modules") :]
     for no in range(len(parts), -1, -1):
         if c := config.get(".".join(parts[:no])):

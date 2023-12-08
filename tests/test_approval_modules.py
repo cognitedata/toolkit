@@ -170,6 +170,7 @@ def test_deploy_module_approval(
 def test_clean_module_approval(
     module_path: Path,
     local_tmp_path: Path,
+    local_tmp_project_path: Path,
     monkeypatch: MonkeyPatch,
     cognite_client_approval: CogniteClient,
     cdf_tool_config: CDFToolConfig,
@@ -177,11 +178,23 @@ def test_clean_module_approval(
     data_regression,
 ) -> None:
     mock_read_yaml_files(module_path, monkeypatch)
+    mock_read_yaml_file(module_path, monkeypatch)
+
+    main_init(
+        typer_context,
+        dry_run=False,
+        upgrade=False,
+        git=None,
+        init_dir=str(local_tmp_project_path),
+        no_backup=True,
+        clean=True,
+    )
+
     build(
         typer_context,
-        source_dir="./cognite_toolkit",
+        source_dir=str(local_tmp_project_path),
         build_dir=str(local_tmp_path),
-        build_env="test",
+        build_env="dev",
         clean=True,
     )
     clean(
