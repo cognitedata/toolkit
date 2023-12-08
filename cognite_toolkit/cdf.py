@@ -685,11 +685,11 @@ def main_init(
             config_filepath.write_text(config_str)
             total_variables = len(difference)
             if removed := difference.removed:
-                print(f"Removed {len(removed)} variables from config.yaml: {removed}")
+                print(f"Removed {len(removed)} variables from config.yaml: {[str(r) for r in removed]}")
             if added := difference.added:
-                print(f"Added {len(added)} variables to config.yaml: {added}")
+                print(f"Added {len(added)} variables to config.yaml: {[str(a) for a in added]}")
             if changed := difference.changed:
-                print(f"Changed {len(changed)} variables in config.yaml: {changed}")
+                print(f"Changed {len(changed)} variables in config.yaml: {[str(c) for c in changed]}")
             if total_variables == len(difference.unchanged):
                 print("No variables in config.yaml was changed.")
 
