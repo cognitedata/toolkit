@@ -691,7 +691,7 @@ def main_init(
             if changed := difference.changed:
                 print(f"Changed {len(changed)} variables in config.yaml: {changed}")
             if total_variables == len(difference.unchanged):
-                print("No variables in config.yaml was not changed.")
+                print("No variables in config.yaml was changed.")
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
