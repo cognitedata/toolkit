@@ -458,7 +458,7 @@ def auth_verify(
             "-f",
             help="Group yaml configuration file to use for group verification",
         ),
-    ] = "/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
+    ] = "cdf_modules/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
     update_group: Annotated[
         Optional[int],
         typer.Option(
