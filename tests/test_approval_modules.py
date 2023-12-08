@@ -10,7 +10,7 @@ import contextlib
 import os
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import MagicMock
 
 import pytest
@@ -19,7 +19,7 @@ from cognite.client import CogniteClient
 from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf import Common, build, clean, deploy
-from cognite_toolkit.cdf_tk.templates import TMPL_DIRS, read_yaml_files
+from cognite_toolkit.cdf_tk.templates import iterate_modules, read_yaml_file, read_yaml_files
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -50,10 +50,8 @@ def chdir(new_dir: Path) -> Iterator[None]:
 
 
 def find_all_modules() -> Iterator[Path]:
-    for tmpl_dir in TMPL_DIRS:
-        for module in (REPO_ROOT / f"./cognite_toolkit/{tmpl_dir}").iterdir():
-            if module.is_dir():
-                yield pytest.param(module, id=f"{module.parent.name}/{module.name}")
+    for module, _ in iterate_modules(REPO_ROOT / "cognite_toolkit" / "cdf_modules"):
+        yield pytest.param(module, id=f"{module.parent.name}/{module.name}")
 
 
 @pytest.fixture
@@ -105,6 +103,17 @@ def mock_read_yaml_files(module_path: Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr("cognite_toolkit.cdf_tk.templates.read_yaml_files", fake_read_yaml_files)
 
 
+def mock_read_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> None:
+    def fake_read_yaml_file(
+        filepath: Path, expected_output: Literal["list", "dict"] = "dict"
+    ) -> dict[str, Any] | list[dict[str, Any]]:
+        if filepath.name == "environments.yaml":
+            return {"test": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]}}
+        return read_yaml_file(filepath, expected_output)
+
+    monkeypatch.setattr("cognite_toolkit.cdf_tk.templates.read_yaml_file", fake_read_yaml_file)
+
+
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_deploy_module_approval(
     module_path: Path,
@@ -116,6 +125,7 @@ def test_deploy_module_approval(
     data_regression,
 ) -> None:
     mock_read_yaml_files(module_path, monkeypatch)
+
     build(
         typer_context,
         source_dir="./cognite_toolkit",

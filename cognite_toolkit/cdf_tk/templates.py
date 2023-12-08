@@ -31,7 +31,7 @@ EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # Which suffixes to exclude when we create indexed files (i.e., they are bundled with their main config file)
 EXCL_INDEX_SUFFIX = frozenset(["sql", "csv", "parquet"])
 # Which suffixes to process for template variable replacement
-PROC_TMPL_VARS_SUFFIX = frozenset(["yaml", "yml", "sql", "csv", "parquet", "json", "txt", "md", "html", "py"])
+PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"])
 
 
 def read_environ_config(
@@ -433,20 +433,23 @@ def process_config_files(
         for filepath in filepaths:
             if verbose:
                 print(f"    [bold green]INFO:[/] Processing {filepath.name}")
-            if filepath.suffix.lower()[1:] not in PROC_TMPL_VARS_SUFFIX:
+
+            if filepath.suffix.lower() not in PROC_TMPL_VARS_SUFFIX:
                 # Copy the file as is, not variable replacement
-                shutil.copyfile(filepath, build_dir / filepath.relative_to(source_module_dir))
+                destination = build_dir / filepath.parent.name / filepath.name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(filepath, destination)
                 continue
+
             content = filepath.read_text()
             content = replace_variables(content, local_config, build_env)
-
             filename = create_file_name(filepath, number_by_resource_type)
-            new_filepath = build_dir / filepath.parent.name / filename
 
-            new_filepath.parent.mkdir(parents=True, exist_ok=True)
-            new_filepath.write_text(content)
+            destination = build_dir / filepath.parent.name / filename
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(content)
 
-            validate(content, new_filepath, filepath)
+            validate(content, destination, filepath)
 
 
 def build_config(
@@ -579,16 +582,16 @@ def replace_variables(content: str, local_config: Mapping[str, str], build_env: 
     return content
 
 
-def validate(content: str, new_filepath: Path, source_path: Path) -> None:
+def validate(content: str, destination: Path, source_path: Path) -> None:
     for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-        print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {new_filepath!s}")
+        print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {destination!s}")
 
-    if new_filepath.suffix in {".yaml", ".yml"}:
+    if destination.suffix in {".yaml", ".yml"}:
         try:
             parsed = yaml.safe_load(content)
         except yaml.YAMLError as e:
             print(
-                f"  [bold red]ERROR:[/] YAML validation error for {new_filepath.name} after substituting config variables: \n{e}"
+                f"  [bold red]ERROR:[/] YAML validation error for {destination.name} after substituting config variables: \n{e}"
             )
             exit(1)
 
@@ -598,17 +601,17 @@ def validate(content: str, new_filepath: Path, source_path: Path) -> None:
             if not check_yaml_semantics(
                 parsed=item,
                 filepath_src=source_path,
-                filepath_build=new_filepath,
+                filepath_build=destination,
             ):
                 exit(1)
-        loader = LOADER_BY_FOLDER_NAME.get(new_filepath.parent.name)
+        loader = LOADER_BY_FOLDER_NAME.get(destination.parent.name)
         if len(loader) == 1:
             loader = loader[0]
         else:
-            loader = next((loader for loader in loader if re.match(loader.filename_pattern, new_filepath.stem)), None)
+            loader = next((loader for loader in loader if re.match(loader.filename_pattern, destination.stem)), None)
         if loader:
             load_warnings = validate_case_raw(
-                parsed, loader.resource_cls, new_filepath, identifier_key=loader.identifier_key
+                parsed, loader.resource_cls, destination, identifier_key=loader.identifier_key
             )
             if load_warnings:
                 print(f"  [bold yellow]WARNING:[/]{generate_warnings_report(load_warnings, indent=1)}")
