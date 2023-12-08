@@ -48,7 +48,7 @@ def generate_config_test_cases():
     list(generate_config_test_cases()),
 )
 def test_generate_config(expected: str, include: set[str] | None) -> None:
-    actual = generate_config(BUILD_CONFIG, include_modules=include)
+    actual, _ = generate_config(BUILD_CONFIG, include_modules=include)
 
     assert actual == expected
 
