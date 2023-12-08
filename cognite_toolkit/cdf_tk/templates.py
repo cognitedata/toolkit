@@ -136,15 +136,15 @@ def get_selected_modules(
 
     modules_by_package = _read_packages(source_module, verbose)
 
-    module_and_packages = _get_modules_and_packages(environment_file, build_env)
+    selected_module_and_packages = _get_modules_and_packages(environment_file, build_env)
 
-    selected_packages = [package for package in module_and_packages if package in modules_by_package]
+    selected_packages = [package for package in selected_module_and_packages if package in modules_by_package]
     if verbose:
         print("  [bold green]INFO:[/] Selected packages:")
         for package in selected_packages:
             print(f"    {package}")
 
-    selected_modules = [module for module in module_and_packages if module not in modules_by_package]
+    selected_modules = [module for module in selected_module_and_packages if module not in modules_by_package]
     selected_modules.extend(itertools.chain.from_iterable(modules_by_package[package] for package in selected_packages))
 
     if verbose:
@@ -157,7 +157,7 @@ def get_selected_modules(
         )
         exit(1)
 
-    available_modules = {module.parent.name for module, _ in iterate_modules(source_module)}
+    available_modules = {module.name for module, _ in iterate_modules(source_module)}
     if not (missing_modules := set(selected_modules) - available_modules):
         return selected_modules
 
@@ -423,7 +423,7 @@ def process_config_files(
     number_by_resource_type = defaultdict(int)
 
     for module_dir, filepaths in iterate_modules(source_module_dir):
-        if module_dir.parent.name not in selected_modules:
+        if module_dir.name not in selected_modules:
             continue
         if verbose:
             print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
@@ -528,8 +528,12 @@ def generate_config(directory: Path, include_modules: set[str] | None = None) ->
 
 def iterate_modules(root_dir: Path) -> tuple[Path, list[Path]]:
     for module_dir in root_dir.rglob("*"):
-        if module_dir.is_dir() and module_dir.name in LOADER_BY_FOLDER_NAME:
-            yield module_dir, [path for path in module_dir.iterdir() if path.is_file() and path.name not in EXCL_FILES]
+        if not module_dir.is_dir():
+            continue
+        module_directories = [path for path in module_dir.iterdir() if path.is_dir()]
+        is_all_resource_directories = all(dir.name in LOADER_BY_FOLDER_NAME for dir in module_directories)
+        if module_directories and is_all_resource_directories:
+            yield module_dir, [path for path in module_dir.rglob("*") if path.is_file() and path.name not in EXCL_FILES]
 
 
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:

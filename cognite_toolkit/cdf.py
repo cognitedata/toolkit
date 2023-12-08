@@ -576,7 +576,7 @@ def main_init(
         )
         dirs_to_copy.append("local_modules")
     module_dirs_to_copy = [
-        "modules",
+        "cdf_modules",
     ]
     template_dir = resources.files("cognite_toolkit")
     target_dir = Path.cwd() / f"{init_dir}"
