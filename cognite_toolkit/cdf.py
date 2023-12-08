@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-import yaml
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
@@ -677,8 +676,8 @@ def main_init(
     config_filepath = target_dir / "config.yaml"
     if not dry_run:
         if clean or not config_filepath.exists():
-            config = generate_config(target_dir)
-            config_filepath.write_text(yaml.safe_dump(config, sort_keys=False))
+            config_str = generate_config(target_dir)
+            config_filepath.write_text(config_str)
             print(f"Created config.yaml file in {target_dir}.")
         else:
             print("  config.yaml file already exists, skipping. --clean to overwrite.")

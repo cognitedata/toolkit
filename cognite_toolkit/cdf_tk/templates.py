@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import itertools
 import os
 import re
@@ -11,6 +12,7 @@ from typing import Any, Literal, overload
 
 import yaml
 from rich import print
+from ruamel.yaml import YAML, CommentedMap
 
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit.cdf_tk.utils import LoadWarning, validate_case_raw
@@ -494,7 +496,7 @@ def generate_warnings_report(load_warnings: list[LoadWarning], indent: int = 0) 
     return "\n".join(report)
 
 
-def generate_config(directory: Path, include_modules: set[str] | None = None) -> dict[str, Any]:
+def generate_config(directory: Path, include_modules: set[str] | None = None) -> str:
     """Generate a config dictionary from the default.config.yaml files in the given directories.
 
     You can specify a set of modules to include in the config. If you do not specify any modules, all modules will be included.
@@ -506,24 +508,30 @@ def generate_config(directory: Path, include_modules: set[str] | None = None) ->
     Returns:
         A config dictionary.
     """
-    config: dict[str, Any] = {}
+    config = CommentedMap()
     if not directory.exists():
         raise ValueError(f"Directory {directory} does not exist")
     defaults = sorted(directory.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(directory))
+    yaml_loader = YAML()
     for default_config in defaults:
         if include_modules is not None and default_config.parent.name not in include_modules:
             continue
+        file_data = yaml_loader.load(default_config.read_text())
         parts = default_config.relative_to(directory).parent.parts
+
         if len(parts) == 1:
             # This is a root config file
-            config.update(yaml.safe_load(default_config.read_text()))
+            config.update(file_data)
             continue
         local_config = config
         for key in parts[:-1]:
-            local_config = local_config.setdefault(key, {})
-        local_config[parts[-1]] = yaml.safe_load(default_config.read_text())
-
-    return config
+            if key not in local_config:
+                local_config[key] = CommentedMap()
+            local_config = local_config[key]
+        local_config[parts[-1]] = file_data
+    output = io.StringIO()
+    yaml_loader.dump(config, output)
+    return output.getvalue()
 
 
 def iterate_modules(root_dir: Path) -> tuple[Path, list[Path]]:
@@ -623,5 +631,5 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
 
 if __name__ == "__main__":
     target_dir = Path(__file__).resolve().parent.parent
-    config = generate_config(target_dir)
-    (target_dir / CONFIG_FILE).write_text(yaml.safe_dump(config, sort_keys=False))
+    config_str = generate_config(target_dir)
+    (target_dir / CONFIG_FILE).write_text(config_str)

@@ -5,6 +5,9 @@ cdf_modules:
       readonly_source_id: <change_me>
   examples:
     cdf_apm_simple_data_model:
+# Values here are only valid for this module.
+# The raw database values here point to the RAW data loaded in the cdf_oid_example_data
+# module. If you have changed the default values in that module, you need to change them here as well.
       default_location: oid
       source_asset: workmate
       source_workorder: workmate
@@ -15,30 +18,54 @@ cdf_modules:
       view_Asset_version: '1'
       view_WorkOrder_version: '1'
       view_WorkItem_version: '1'
+# In addition, the transformations are using the following variables from the global scope (your root default.config.yaml):
+#cicd_clientId
+#cicd_clientSecret
+#cicd_tokenUri
+#cdfProjectName
+#cicd_scopes
+#cicd_audience
     cdf_oid_example_data:
+# Only valid for this module, loads template variables from environment
+#
+# In the example below we are setting up a project based on the Open Industry Data (OID), 
+# that originates from the Valhall oil rig. Note that the location/site is NOT used
+# to structure the data when on-boarding. The expectation is that a single source system
+# and it's data pipeline may supply data for multiple locations/sites.
+# The structuring of the data based on site/location should happen as part of processing
+# the data in CDF, i.e. contextualisation.
+#
+# Each of data resource types have assigned the source system where the data originates from.
+# This information will be used to construct RAW database names, and to create data sets in CDF,
+# and can be used to control access.
       default_location: oid
       source_asset: workmate
       source_workorder: workmate
       source_files: fileshare
       source_timeseries: pi
     example_pump_asset_hierarchy:
+# Only valid for this module, loads template variables from environment
       raw_db: pump_assets
       data_set: src:lift_pump_stations
       clientId: ${IDP_CLIENT_ID}
       clientSecret: ${IDP_CLIENT_SECRET}
       tokenUri: ${IDP_TOKEN_URL}
+# Optional: If idP requires providing the scopes
       cdfProjectName: ${CDF_PROJECT}
       scopes:
       - ${IDP_SCOPES}
+# Optional: If idP requires providing the audience
       audience: ${IDP_AUDIENCE}
   experimental:
     cdf_asset_source_model:
+# Only valid for this module, loads template variables from environment
       model_space: ExtendedSourceDataModels
       instance_space: cdfTemplateInstances
       view_asset_version: '1'
       data_model_version: '1'
       root_asset_external_id: lift_pump_stations:root
     example_pump_data_model:
+# Only valid for this module, loads template variables from environment
       model_space: pumpModelSpace
       instance_space: pumpInstanceSpace
       source_model_space: ExtendedSourceDataModels
@@ -54,25 +81,42 @@ cdf_modules:
     cdf_infield_common:
       applicationsconfiguration_source_id: <change_me>
     cdf_infield_location:
+# This default_location points to the location created by the cdf_oid_example_data module.
+# When you create your own location by copying the cdf_oid_example_data module to
+# set up data sets and groups, the below needs to refer to the location to define.
+#
       default_location: oid
       module_version: '1'
       apm_datamodel_space: APM_SourceData
       apm_app_config_external_id: default-infield-config-minimal
       apm_config_instance_space: APM_Config
+# RAW databases to load workorders and other workorder data from
+# The below values point to the RAW database in the cdf_oid_example_data and should be
+# changed if you want to load workorders from another RAW database.
       source_asset: workmate
       source_workorder: workmate
       workorder_raw_db: workorder_oid_workmate
+# The table name in the raw_db database that has workorder data
       workorder_table_name: workorders
+
+# the root asset for this location, needs to be updated for each location
       root_asset_external_id: WMT:VAL
+
+# the following properties are required for 
+# infield and must be updated for each location
       infield_default_location_checklist_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
       infield_default_location_normal_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
       infield_default_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
       infield_default_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+
+# Transformation credentials
       clientId: ${IDP_CLIENT_ID}
       clientSecret: ${IDP_CLIENT_SECRET}
       tokenUri: ${IDP_TOKEN_URL}
+# Optional: If idP requires providing the scopes
       cdfProjectName: ${CDF_PROJECT}
       scopes: ${IDP_SCOPES}
+# Optional: If idP requires providing the audience
       audience: ${IDP_AUDIENCE}
 cdf_cluster: ${CDF_CLUSTER}
 cicd_clientId: ${IDP_CLIENT_ID}
@@ -81,4 +125,5 @@ cicd_tokenUri: ${IDP_TOKEN_URL}
 cdfProjectName: ${CDF_PROJECT}
 cicd_scopes:
 - ${IDP_SCOPES}
+# Optional: If idP requires providing the audience
 cicd_audience: ${IDP_AUDIENCE}

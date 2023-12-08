@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from cognite_toolkit.cdf_tk.templates import create_local_config, generate_config, split_config
 
@@ -29,7 +30,7 @@ def generate_config_test_cases():
         "top_variable": "<top_variable>",
     }
 
-    yield pytest.param(expected, None, id="Include all")
+    yield pytest.param(yaml.safe_dump(expected, sort_keys=False), None, id="Include all")
 
     only_a_module = {
         "cdf_modules": {
@@ -39,14 +40,14 @@ def generate_config_test_cases():
             }
         }
     }
-    yield pytest.param(only_a_module, {"a_module"}, id="Include one module")
+    yield pytest.param(yaml.safe_dump(only_a_module, sort_keys=False), {"a_module"}, id="Include one module")
 
 
 @pytest.mark.parametrize(
     "expected, include",
     list(generate_config_test_cases()),
 )
-def test_generate_config(expected, include: set[str] | None) -> None:
+def test_generate_config(expected: str, include: set[str] | None) -> None:
     actual = generate_config(BUILD_CONFIG, include_modules=include)
 
     assert actual == expected
