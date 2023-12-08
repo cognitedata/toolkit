@@ -1,0 +1,84 @@
+cdf_modules:
+  common:
+    cdf_auth_readwrite_all:
+      readwrite_source_id: <change_me>
+      readonly_source_id: <change_me>
+  examples:
+    cdf_apm_simple_data_model:
+      default_location: oid
+      source_asset: workmate
+      source_workorder: workmate
+      source_timeseries: pi
+      datamodel: apm_simple
+      space: apm_simple
+      datamodel_version: '1'
+      view_Asset_version: '1'
+      view_WorkOrder_version: '1'
+      view_WorkItem_version: '1'
+    cdf_oid_example_data:
+      default_location: oid
+      source_asset: workmate
+      source_workorder: workmate
+      source_files: fileshare
+      source_timeseries: pi
+    example_pump_asset_hierarchy:
+      raw_db: pump_assets
+      data_set: src:lift_pump_stations
+      clientId: ${IDP_CLIENT_ID}
+      clientSecret: ${IDP_CLIENT_SECRET}
+      tokenUri: ${IDP_TOKEN_URL}
+      cdfProjectName: ${CDF_PROJECT}
+      scopes:
+      - ${IDP_SCOPES}
+      audience: ${IDP_AUDIENCE}
+  experimental:
+    cdf_asset_source_model:
+      model_space: ExtendedSourceDataModels
+      instance_space: cdfTemplateInstances
+      view_asset_version: '1'
+      data_model_version: '1'
+      root_asset_external_id: lift_pump_stations:root
+    example_pump_data_model:
+      model_space: pumpModelSpace
+      instance_space: pumpInstanceSpace
+      source_model_space: ExtendedSourceDataModels
+      source_model: ExtendedSourceData
+      view_Pump_version: '1'
+      view_LiftStation_version: '1'
+      data_model_version: '1'
+      data_model: PumpLiftStations
+  infield:
+    cdf_apm_base:
+      apm_datamodel_space: APM_SourceData
+      apm_datamodel_version: '1'
+    cdf_infield_common:
+      applicationsconfiguration_source_id: <change_me>
+    cdf_infield_location:
+      default_location: oid
+      module_version: '1'
+      apm_datamodel_space: APM_SourceData
+      apm_app_config_external_id: default-infield-config-minimal
+      apm_config_instance_space: APM_Config
+      source_asset: workmate
+      source_workorder: workmate
+      workorder_raw_db: workorder_oid_workmate
+      workorder_table_name: workorders
+      root_asset_external_id: WMT:VAL
+      infield_default_location_checklist_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+      infield_default_location_normal_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+      infield_default_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+      infield_default_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+      clientId: ${IDP_CLIENT_ID}
+      clientSecret: ${IDP_CLIENT_SECRET}
+      tokenUri: ${IDP_TOKEN_URL}
+      cdfProjectName: ${CDF_PROJECT}
+      scopes: ${IDP_SCOPES}
+      audience: ${IDP_AUDIENCE}
+cdf_cluster: ${CDF_CLUSTER}
+cicd_clientId: ${IDP_CLIENT_ID}
+cicd_clientSecret: ${IDP_CLIENT_SECRET}
+cicd_tokenUri: ${IDP_TOKEN_URL}
+cdfProjectName: ${CDF_PROJECT}
+cicd_scopes:
+- ${IDP_SCOPES}
+cicd_audience: ${IDP_AUDIENCE}
