@@ -676,11 +676,22 @@ def main_init(
     config_filepath = target_dir / "config.yaml"
     if not dry_run:
         if clean or not config_filepath.exists():
-            config_str = generate_config(target_dir)
+            config_str, _ = generate_config(target_dir)
             config_filepath.write_text(config_str)
             print(f"Created config.yaml file in {target_dir}.")
         else:
-            print("  config.yaml file already exists, skipping. --clean to overwrite.")
+            current = config_filepath.read_text()
+            config_str, difference = generate_config(target_dir, existing_config=current)
+            config_filepath.write_text(config_str)
+            total_variables = len(difference)
+            if removed := difference.removed:
+                print(f"Removed {len(removed)} variables from config.yaml: {removed}")
+            if added := difference.added:
+                print(f"Added {len(added)} variables to config.yaml: {added}")
+            if changed := difference.changed:
+                print(f"Changed {len(changed)} variables in config.yaml: {changed}")
+            if total_variables == len(difference.unchanged):
+                print("No variables in config.yaml was not changed.")
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:

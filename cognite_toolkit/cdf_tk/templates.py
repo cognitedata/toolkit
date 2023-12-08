@@ -5,8 +5,9 @@ import itertools
 import os
 import re
 import shutil
-from collections import ChainMap, defaultdict
-from collections.abc import Mapping
+from collections import ChainMap, UserList, defaultdict
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, overload
 
@@ -496,7 +497,9 @@ def generate_warnings_report(load_warnings: list[LoadWarning], indent: int = 0) 
     return "\n".join(report)
 
 
-def generate_config(directory: Path, include_modules: set[str] | None = None) -> str:
+def generate_config(
+    directory: Path | Sequence[Path], include_modules: set[str] | None = None, existing_config: str | None = None
+) -> tuple[str, ConfigEntries]:
     """Generate a config dictionary from the default.config.yaml files in the given directories.
 
     You can specify a set of modules to include in the config. If you do not specify any modules, all modules will be included.
@@ -504,34 +507,175 @@ def generate_config(directory: Path, include_modules: set[str] | None = None) ->
     Args:
         directory: A root directory to search for default.config.yaml files.
         include_modules: A set of modules to include in the config. If None, all modules will be included.
+        existing_config: An existing config dictionary to
 
     Returns:
         A config dictionary.
     """
-    config = CommentedMap()
+    yaml_loader = YAML()
+    config = (existing_config and yaml_loader.load(existing_config)) or CommentedMap()
     if not directory.exists():
         raise ValueError(f"Directory {directory} does not exist")
-    defaults = sorted(directory.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(directory))
-    yaml_loader = YAML()
-    for default_config in defaults:
-        if include_modules is not None and default_config.parent.name not in include_modules:
-            continue
-        file_data = yaml_loader.load(default_config.read_text())
-        parts = default_config.relative_to(directory).parent.parts
+    entries = ConfigEntries(yaml.safe_load(existing_config))
+    if isinstance(directory, Path):
+        directories = [directory]
+    else:
+        directories = directory
 
-        if len(parts) == 1:
-            # This is a root config file
-            config.update(file_data)
-            continue
-        local_config = config
-        for key in parts[:-1]:
-            if key not in local_config:
-                local_config[key] = CommentedMap()
-            local_config = local_config[key]
-        local_config[parts[-1]] = file_data
+    for dir_ in directories:
+        defaults = sorted(directory.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(dir_))
+
+        for default_config in defaults:
+            if include_modules is not None and default_config.parent.name not in include_modules:
+                continue
+            file_data = yaml_loader.load(default_config.read_text())
+            parts = default_config.relative_to(directory).parent.parts
+
+            if len(parts) == 1:
+                # This is a root config file
+                for key, value in file_data.items():
+                    config[key] = value
+                    entries.append(
+                        ConfigEntry(
+                            key=key,
+                            module="",
+                            path="",
+                            last_value=None,
+                            current_value=value,
+                        )
+                    )
+                continue
+            local_config = config
+            for key in parts:
+                if key not in local_config:
+                    local_config[key] = CommentedMap()
+                local_config = local_config[key]
+
+            for key, value in file_data.items():
+                local_config[key] = value
+                entries.append(
+                    ConfigEntry(
+                        key=key,
+                        module=default_config.parent.name,
+                        path=".".join(parts[:-1]),
+                        last_value=None,
+                        current_value=value,
+                    )
+                )
+
     output = io.StringIO()
     yaml_loader.dump(config, output)
-    return output.getvalue()
+    return output.getvalue(), entries
+
+
+@dataclass
+class ConfigEntries(UserList):
+    def __init__(self, entries: list[ConfigEntry] | dict | None = None):
+        if isinstance(entries, dict):
+            entries = self._initialize(entries)
+        super().__init__(entries or [])
+        self._lookup = {}
+        for entry in self:
+            self._lookup.setdefault(entry.module, {})[entry.key] = entry
+
+    @staticmethod
+    def _initialize(entries: dict, path: str = "") -> list[ConfigEntry]:
+        results = []
+        if "." in path:
+            path_to, module = path.rsplit(".", maxsplit=1)
+        else:
+            module = path
+            path_to = ""
+        for key, value in entries.items():
+            if isinstance(value, dict):
+                results.extend(ConfigEntries._initialize(value, f"{path}.{key}" if path else key))
+            else:
+                results.append(
+                    ConfigEntry(
+                        key=key,
+                        module=module,
+                        path=path_to,
+                        last_value=value,
+                        current_value=None,
+                    )
+                )
+        return results
+
+    def append(self, item: ConfigEntry) -> None:
+        if item.module not in self._lookup:
+            self._lookup[item.module] = {}
+        if item.key not in self._lookup[item.module]:
+            self._lookup[item.module][item.key] = item
+            super().append(item)
+        else:
+            self._lookup[item.module][item.key].current_value = item.current_value
+
+    @property
+    def changed(self) -> list[ConfigEntry]:
+        return [entry for entry in self if entry.changed]
+
+    @property
+    def removed(self) -> list[ConfigEntry]:
+        return [entry for entry in self if entry.removed]
+
+    @property
+    def added(self) -> list[ConfigEntry]:
+        return [entry for entry in self if entry.added]
+
+    @property
+    def unchanged(self) -> list[ConfigEntry]:
+        return [entry for entry in self if entry.unchanged]
+
+
+@dataclass
+class ConfigEntry:
+    key: str
+    module: str
+    path: str
+    last_value: Any | None
+    current_value: Any | None
+
+    @property
+    def changed(self) -> bool:
+        return self.last_value is not None and self.current_value is not None and self.last_value != self.current_value
+
+    @property
+    def removed(self) -> bool:
+        return self.last_value is not None and self.current_value is None
+
+    @property
+    def added(self) -> bool:
+        return self.last_value is None and self.current_value is not None
+
+    @property
+    def unchanged(self) -> bool:
+        return self.last_value is not None and self.current_value is not None and self.last_value == self.current_value
+
+    def __str__(self):
+        prefix = self._prefix()
+        if self.removed:
+            return f"{prefix}{self.key} was removed"
+        elif self.added:
+            return f"{prefix}{self.key} was added"
+        elif self.changed:
+            return f"{prefix}{self.key} changed from {self.last_value!r} to {self.current_value!r}"
+        else:
+            return f"{prefix}{self.key} is unchanged"
+
+    def __repr__(self):
+        prefix = self._prefix()
+        return f"{prefix}{self.key}={self.current_value!r}"
+
+    def _prefix(self):
+        parts = []
+        if self.path:
+            parts.append(self.path)
+        if self.module:
+            parts.append(self.module)
+        prefix = ""
+        if parts:
+            prefix = ".".join(parts) + "."
+        return prefix
 
 
 def iterate_modules(root_dir: Path) -> tuple[Path, list[Path]]:
@@ -631,5 +775,5 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
 
 if __name__ == "__main__":
     target_dir = Path(__file__).resolve().parent.parent
-    config_str = generate_config(target_dir)
+    config_str, _ = generate_config(target_dir, existing_config=(target_dir / CONFIG_FILE).read_text())
     (target_dir / CONFIG_FILE).write_text(config_str)
