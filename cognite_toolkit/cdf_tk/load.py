@@ -31,6 +31,7 @@ from cognite.client.data_classes import (
     DataSet,
     DataSetList,
     ExtractionPipeline,
+    ExtractionPipelineConfig,
     ExtractionPipelineList,
     FileMetadata,
     FileMetadataList,
@@ -437,7 +438,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
         for data_set in data_sets:
             if data_set.get("metadata"):
                 for key, value in data_set["metadata"].items():
-                    data_set["metadata"][key] = json.dumps(value) if isinstance(value, dict) else value
+                    data_set["metadata"][key] = json.dumps(value)
         return DataSetList.load(data_sets)
 
     def create(
@@ -733,18 +734,23 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
             return 0
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> ExtractionPipeline:
+        if filepath.name.endswith(".config.yaml"):
+            return None
+
         resource = load_yaml_inject_variables(filepath, {})
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
             resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
+
         return ExtractionPipeline.load(resource)
 
     def create(
         self, items: Sequence[T_Resource], ToolGlobals: CDFToolConfig, drop: bool, filepath: Path
     ) -> T_ResourceList | None:
-        try:
-            return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
+        extractionPipelineList: ExtractionPipelineList = None
 
+        try:
+            extractionPipelineList = ExtractionPipelineList(self.client.extraction_pipelines.create(items))
         except CogniteDuplicatedError as e:
             if len(e.duplicated) < len(items):
                 for dup in e.duplicated:
@@ -753,12 +759,47 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                         if item.external_id == ext_id:
                             items.remove(item)
                 try:
-                    return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
+                    extractionPipelineList = ExtractionPipelineList(self.client.extraction_pipelines.create(items))
                 except Exception as e:
                     print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
                     ToolGlobals.failed = True
                     return None
-            return None
+
+            file_name = filepath.stem.split(".", 2)[1]
+            config_file_name = f"{file_name}.config.yaml"
+            config_file = next(
+                (
+                    file
+                    for file in Path(filepath.parent).iterdir()
+                    if file.is_file() and file.name.endswith(config_file_name)
+                ),
+                None,
+            )
+
+            if not config_file.exists():
+                print(
+                    f"  [bold yellow]WARNING:[/] no config file for extraction pipeline found. Expected to find {config_file_name} in same folder as {file_name}"
+                )
+                return extractionPipelineList
+
+            resources = load_yaml_inject_variables(config_file, {})
+            resources = [resources] if isinstance(resources, dict) else resources
+
+            for resource in resources:
+                extractionPipelineConfig = ExtractionPipelineConfig.load(
+                    {
+                        "externalId": resource.get("externalId"),
+                        "description": resource.get("description"),
+                        "config": json.dumps(resource.get("config", ""), indent=4),
+                    }
+                )
+                try:
+                    self.client.extraction_pipelines.config.create(extractionPipelineConfig)
+                except Exception as e:
+                    print(f"[bold red]ERROR:[/] Failed to create extraction pipeline config.\n{e}")
+                    ToolGlobals.failed = True
+
+        return extractionPipelineList
 
 
 @final
@@ -865,6 +906,7 @@ def drop_load_resources(
         filepaths = [file for file in path.glob("**/*")]
 
     items = [loader.load_resource(f, ToolGlobals, dry_run) for f in filepaths]
+    items = [item for item in items if item is not None]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
     nr_of_deleted = 0
