@@ -516,7 +516,7 @@ def generate_config(
     config = (existing_config and yaml_loader.load(existing_config)) or CommentedMap()
     if not directory.exists():
         raise ValueError(f"Directory {directory} does not exist")
-    entries = ConfigEntries(yaml.safe_load(existing_config))
+    entries = ConfigEntries((existing_config and yaml.safe_load(existing_config)) or None)
     if isinstance(directory, Path):
         directories = [directory]
     else:
