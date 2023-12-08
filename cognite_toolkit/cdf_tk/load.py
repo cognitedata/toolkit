@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar, Union, final
 
 import pandas as pd
+import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     DataSet,
@@ -834,7 +835,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
 
         return ExtractionPipeline.load(resource)
 
-    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList | None:
+    def create(self, items: Sequence[ExtractionPipeline], drop: bool, filepath: Path) -> ExtractionPipelineList:
         extractionPipelineList = None
 
         try:
@@ -878,7 +879,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                     {
                         "externalId": resource.get("externalId"),
                         "description": resource.get("description"),
-                        "config": json.dumps(resource.get("config", ""), indent=4),
+                        "config": yaml.dump(resource.get("config", ""), indent=4),
                     }
                 )
                 try:
