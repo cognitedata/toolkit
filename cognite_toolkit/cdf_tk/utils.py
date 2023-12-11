@@ -449,6 +449,8 @@ class TemplateVariableWarning(LoadWarning):
 @total_ordering
 @dataclass(frozen=True)
 class DataSetMissingWarning(LoadWarning):
+    resource_name: str
+
     def __lt__(self, other: DataSetMissingWarning) -> bool:
         if not isinstance(other, DataSetMissingWarning):
             return NotImplemented
@@ -460,7 +462,7 @@ class DataSetMissingWarning(LoadWarning):
         return (self.id_name, self.id_value, self.filepath) == (other.id_name, other.id_value, other.filepath)
 
     def __str__(self):
-        return f"{type(self).__name__}: {self.resource_name} has a data set id and it is recommended that you have it. This is missing in {self.filepath.name}. Did you forget to add it?"
+        return f"{type(self).__name__}: It is recommended that you set dataSetExternalId for {self.resource_name}. This is missing in {self.filepath.name}. Did you forget to add it?"
 
 
 T_Warning = TypeVar("T_Warning", bound=LoadWarning)
@@ -648,5 +650,5 @@ def validate_data_set_is_set(
         return warnings
 
     value = raw.get(identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}"))
-    warnings.append(DataSetMissingWarning(filepath, value, identifier_key))
+    warnings.append(DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__))
     return warnings
