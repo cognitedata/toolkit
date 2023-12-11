@@ -75,9 +75,6 @@ cognite_modules:
       data_model_version: '1'
       data_model: PumpLiftStations
   infield:
-    cdf_apm_base:
-      apm_datamodel_space: APM_SourceData
-      apm_datamodel_version: '1'
     cdf_infield_common:
       applicationsconfiguration_source_id: <change_me>
     cdf_infield_location:

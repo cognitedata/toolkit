@@ -569,10 +569,31 @@ def generate_config(
                         current_value=value,
                     )
                 )
+    for removed in entries.removed:
+        parts = removed.path.split(".")
+        parts.append(removed.module)
+        local_config = config
+        last_config = None
+        for key in parts:
+            last_config = local_config
+            local_config = local_config[key]
+        del local_config[removed.key]
+        if not local_config:
+            del last_config[removed.module]
 
     output = io.StringIO()
     yaml_loader.dump(config, output)
-    return output.getvalue(), entries
+    output_yaml = output.getvalue()
+    # Indent comments
+    output_lines = []
+    leading_spaces = 0
+    for line in output_yaml.splitlines():
+        if line.lstrip().startswith("#"):
+            line = f"{' '*leading_spaces}{line}"
+        else:
+            leading_spaces = len(line) - len(line.lstrip())
+        output_lines.append(line)
+    return output_yaml, entries
 
 
 @dataclass
@@ -632,6 +653,19 @@ class ConfigEntries(UserList):
     @property
     def unchanged(self) -> list[ConfigEntry]:
         return [entry for entry in self if entry.unchanged]
+
+    def __str__(self) -> str:
+        total_variables = len(self)
+        lines = []
+        if removed := self.removed:
+            lines.append(f"Removed {len(removed)} variables from config.yaml: {[str(r) for r in removed]}")
+        if added := self.added:
+            lines.append(f"Added {len(added)} variables to config.yaml: {[str(a) for a in added]}")
+        if changed := self.changed:
+            lines.append(f"Changed {len(changed)} variables in config.yaml: {[str(c) for c in changed]}")
+        if total_variables == len(self.unchanged):
+            lines.append("No variables in config.yaml was changed.")
+        return "\n".join(lines)
 
 
 @dataclass
@@ -784,5 +818,6 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
 
 if __name__ == "__main__":
     target_dir = Path(__file__).resolve().parent.parent
-    config_str, _ = generate_config(target_dir, existing_config=(target_dir / CONFIG_FILE).read_text())
+    config_str, differences = generate_config(target_dir, existing_config=(target_dir / CONFIG_FILE).read_text())
     (target_dir / CONFIG_FILE).write_text(config_str)
+    print(str(differences))
