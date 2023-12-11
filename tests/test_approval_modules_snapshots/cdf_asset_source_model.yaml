@@ -30,8 +30,7 @@ Space:
   name: cdfTemplateInstances
   space: cdfTemplateInstances
 Transformation:
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: Asset

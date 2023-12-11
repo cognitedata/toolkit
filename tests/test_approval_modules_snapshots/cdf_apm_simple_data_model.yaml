@@ -331,8 +331,7 @@ Space:
   name: apm_simple
   space: apm_simple
 Transformation:
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: children
       destinationType: Asset
@@ -368,7 +367,6 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 - conflictMode: upsert
-  dataSetId: 999
   destination:
     dataModel:
       destinationRelationshipFromType: null
@@ -408,8 +406,7 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: Asset
@@ -443,8 +440,7 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: WorkItem
@@ -482,8 +478,7 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: linkedAssets
       destinationType: WorkItem
@@ -524,8 +519,7 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: workItems
       destinationType: WorkOrder
@@ -566,8 +560,7 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: WorkOrder
@@ -612,8 +605,7 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: linkedAssets
       destinationType: WorkOrder

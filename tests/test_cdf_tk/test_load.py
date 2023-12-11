@@ -10,7 +10,7 @@ from cognite_toolkit.cdf_tk.load import (
     DataSetsLoader,
     FileLoader,
     Loader,
-    drop_load_resources,
+    deploy_or_clean_resources,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
@@ -35,7 +35,9 @@ def test_loader_class(
     cdf_tool.verify_capabilities.return_value = cognite_client_approval
     cdf_tool.data_set_id = 999
 
-    drop_load_resources(loader_cls.create_loader(cdf_tool), directory, cdf_tool, drop=False, load=True, dry_run=False)
+    deploy_or_clean_resources(
+        loader_cls.create_loader(cdf_tool), directory, cdf_tool, drop=False, action="deploy", dry_run=False
+    )
 
     dump = cognite_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{directory.name}.yaml")

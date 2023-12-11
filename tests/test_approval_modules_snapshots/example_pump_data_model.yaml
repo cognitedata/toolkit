@@ -65,8 +65,7 @@ Space:
   name: pumpModelSpace
   space: pumpModelSpace
 Transformation:
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: pumps
       destinationType: LiftStation
@@ -102,8 +101,7 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: Pump
