@@ -1,3 +1,7 @@
 readwrite_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
 readonly_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 applicationsconfiguration_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+infield_default_location_checklist_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+infield_default_location_normal_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+infield_default_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+infield_default_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
