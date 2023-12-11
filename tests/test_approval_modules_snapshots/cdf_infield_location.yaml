@@ -90,7 +90,7 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_infield_oid_checklist_admins
-  sourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+  sourceId: <change_me>
 - capabilities:
   - threedAcl:
       actions:
@@ -178,7 +178,7 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_infield_oid_normal_users
-  sourceId: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+  sourceId: <change_me>
 - capabilities:
   - threedAcl:
       actions:
@@ -266,7 +266,7 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_infield_oid_template_admins
-  sourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+  sourceId: <change_me>
 - capabilities:
   - threedAcl:
       actions:
@@ -339,7 +339,7 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_infield_oid_viewers
-  sourceId: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+  sourceId: <change_me>
 Node:
 - externalId: default_infield_config_minimal
   instanceType: node
