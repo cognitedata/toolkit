@@ -575,10 +575,9 @@ def main_init(
                 ".env.tmpl",
             ]
         )
-        dirs_to_copy.append("local_modules")
+        dirs_to_copy.append(CUSTOM_MODULES)
     module_dirs_to_copy = [
         COGNITE_MODULES,
-        CUSTOM_MODULES,
     ]
     template_dir = resources.files("cognite_toolkit")
     target_dir = Path.cwd() / f"{init_dir}"
