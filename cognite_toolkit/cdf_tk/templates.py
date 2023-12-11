@@ -16,7 +16,7 @@ from rich import print
 from ruamel.yaml import YAML, CommentedMap
 
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
-from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml
+from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
 
 # This is the default config located locally in each module.
 DEFAULT_CONFIG_FILE = "default.config.yaml"
@@ -800,12 +800,17 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
             loader = loader[0]
         else:
             loader = next((loader for loader in loader if re.match(loader.filename_pattern, destination.stem)), None)
+
         if loader:
             load_warnings = validate_case_raw(
                 parsed, loader.resource_cls, destination, identifier_key=loader.identifier_key
             )
             if load_warnings:
                 print(f"  [bold yellow]WARNING:[/] Found potential snake_case issues: {load_warnings!s}")
+
+            data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, destination)
+            if data_set_warnings:
+                print(f"  [bold yellow]WARNING:[/] Found missing data_sets: {data_set_warnings!s}")
 
 
 if __name__ == "__main__":

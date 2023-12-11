@@ -19,11 +19,13 @@ from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit.cdf_tk.utils import (
     CDFToolConfig,
+    DataSetMissingWarning,
     SnakeCaseWarning,
     TemplateVariableWarning,
     load_yaml_inject_variables,
     validate_case_raw,
     validate_config_yaml,
+    validate_data_set_is_set,
 )
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -138,3 +140,11 @@ def test_validate_config_yaml(config_yaml: dict[str, Any], expected_warnings: li
     warnings = validate_config_yaml(config_yaml, Path("config.yaml"))
 
     assert sorted(warnings) == sorted(expected_warnings)
+
+
+def test_validate_data_set_is_set():
+    warnings = validate_data_set_is_set(
+        {"externalId": "myTimeSeries", "name": "My Time Series"}, TimeSeries, Path("timeseries.yaml")
+    )
+
+    assert sorted(warnings) == sorted([DataSetMissingWarning(Path("timeseries.yaml"), "myTimeSeries", "externalId")])

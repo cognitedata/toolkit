@@ -446,6 +446,23 @@ class TemplateVariableWarning(LoadWarning):
         return f"{type(self).__name__}: Variable {self.id_name!r} has value {self.id_value!r} in file: {self.filepath.name}. Did you forget to change it?"
 
 
+@total_ordering
+@dataclass(frozen=True)
+class DataSetMissingWarning(LoadWarning):
+    def __lt__(self, other: DataSetMissingWarning) -> bool:
+        if not isinstance(other, DataSetMissingWarning):
+            return NotImplemented
+        return (self.id_name, self.id_value, self.filepath) < (other.id_name, other.id_value, other.filepath)
+
+    def __eq__(self, other: DataSetMissingWarning) -> bool:
+        if not isinstance(other, DataSetMissingWarning):
+            return NotImplemented
+        return (self.id_name, self.id_value, self.filepath) == (other.id_name, other.id_value, other.filepath)
+
+    def __str__(self):
+        return f"{type(self).__name__}: {self.resource_name} has a data set id and it is recommended that you have it. This is missing in {self.filepath.name}. Did you forget to add it?"
+
+
 T_Warning = TypeVar("T_Warning", bound=LoadWarning)
 
 
@@ -475,6 +492,17 @@ class TemplateVariableWarningList(Warnings[TemplateVariableWarning]):
             if path:
                 output.append(f"    In Section {str(path)!r}")
             for warning in module_warnings:
+                output.append(f"{'    ' * 2}{warning!s}")
+
+        return "\n".join(output)
+
+
+class DataSetMissingWarningList(Warnings[DataSetMissingWarning]):
+    def __str__(self):
+        output = [""]
+        for filepath, warnings in itertools.groupby(sorted(self), key=lambda w: w.filepath):
+            output.append(f"    In file {str(filepath)!r}")
+            for warning in warnings:
                 output.append(f"{'    ' * 2}{warning!s}")
 
         return "\n".join(output)
@@ -597,4 +625,28 @@ def validate_config_yaml(config: dict[str, Any], filepath: Path, path: str = "")
             if path:
                 path += "."
             warnings.extend(validate_config_yaml(value, filepath, f"{path}{key}"))
+    return warnings
+
+
+def validate_data_set_is_set(
+    raw: dict[str, Any] | list[dict[str, Any]],
+    resource_cls: type[CogniteObject],
+    filepath: Path,
+    identifier_key: str = "externalId",
+) -> DataSetMissingWarningList:
+    warnings = DataSetMissingWarningList()
+    signature = inspect.signature(resource_cls.__init__)
+    if "data_set_id" not in set(signature.parameters.keys()):
+        return warnings
+
+    if isinstance(raw, list):
+        for item in raw:
+            warnings.extend(validate_data_set_is_set(item, resource_cls, filepath, identifier_key))
+        return warnings
+
+    if "dataSetExternalId" in raw or "dataSetId" in raw:
+        return warnings
+
+    value = raw.get(identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}"))
+    warnings.append(DataSetMissingWarning(filepath, value, identifier_key))
     return warnings
