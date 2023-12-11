@@ -279,3 +279,4 @@ new_project/
 local.yaml
 config.yaml
 demo_project/
+tests/pytest-project/
