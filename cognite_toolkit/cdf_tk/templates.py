@@ -70,7 +70,8 @@ def read_environ_config(
     try:
         defs = environment_config[build_env]
     except KeyError:
-        raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE}")
+        print(f"  [bold red]ERROR:[/] Environment {build_env} not found in {ENVIRONMENTS_FILE}")
+        exit(1)
 
     os.environ["CDF_ENVIRON"] = build_env
     for k, v in defs.items():
@@ -82,9 +83,10 @@ def read_environ_config(
                     )
                     print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
                 else:
-                    raise ValueError(
-                        f"Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
+                    print(
+                        f"  [bold red]ERROR:[/]Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
                     )
+                    exit(1)
         elif k == "type":
             os.environ["CDF_BUILD_TYPE"] = v
         elif k == "deploy":
@@ -164,7 +166,8 @@ def get_selected_modules(
     if not (missing_modules := set(selected_modules) - available_modules):
         return selected_modules
 
-    raise ValueError(f"Modules {missing_modules} not found in {source_module}.")
+    print(f"  [bold red]ERROR:[/] Modules {missing_modules} not found in {source_module}.")
+    exit(1)
 
 
 def _get_modules_and_packages(environment_file: Path, build_env: str) -> list[str]:
@@ -177,9 +180,10 @@ def _get_modules_and_packages(environment_file: Path, build_env: str) -> list[st
         environment_type = environment["type"]
         deploy = environment["deploy"]
     except KeyError:
-        raise ValueError(
-            f"Environment {build_env} is missing required fields 'project', 'type', or 'deploy' in {ENVIRONMENTS_FILE!s}"
-        ) from None
+        print(
+            f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', or 'deploy' in {ENVIRONMENTS_FILE!s}"
+        )
+        exit(1)
 
     os.environ["CDF_ENVIRON"] = build_env
     os.environ["CDF_BUILD_TYPE"] = environment_type
@@ -190,9 +194,10 @@ def _get_modules_and_packages(environment_file: Path, build_env: str) -> list[st
             )
             print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
         else:
-            raise ValueError(
-                f"Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({project_config}) and what is defined in environment ({project_env=} != {project_config=})."
+            print(
+                f"  [bold red]ERROR:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({project_config}) and what is defined in environment ({project_env=} != {project_config=})."
             )
+            exit(1)
     return deploy
 
 
