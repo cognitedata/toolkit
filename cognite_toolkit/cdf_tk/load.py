@@ -1253,12 +1253,12 @@ def deploy_or_clean_resources(
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
     if nr_of_items == 0:
         return DeployResult(name=loader.display_name, created=0, deleted=0, skipped=0, total=0)
-    if action:
+    if action == "deploy":
         print(f"[bold]Uploading {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     else:
         print(f"[bold]Cleaning {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     batches = [item if isinstance(item, Sized) else [item] for item in items]
-    if drop and loader.support_drop and action:
+    if drop and loader.support_drop and action == "deploy":
         print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
 
     # Deleting resources.
@@ -1285,11 +1285,11 @@ def deploy_or_clean_resources(
                 else:  # Delete succeeded
                     if verbose:
                         print(f"  Deleted {len(drop_items)} {loader.display_name}.")
-        if dry_run and not action:
+        if dry_run and action == "clean" and verbose:
             # Only clean command prints this, if not we print it at the end
             print(f"  Would have deleted {nr_of_deleted} {loader.display_name} in total.")
 
-    if not action:
+    if action == "clean":
         # Clean Command, only delete.
         return DeployResult(name=loader.display_name, created=0, deleted=nr_of_deleted, skipped=0, total=nr_of_items)
 
