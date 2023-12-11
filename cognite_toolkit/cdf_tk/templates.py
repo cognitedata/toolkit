@@ -538,7 +538,6 @@ def generate_config(
                 continue
             file_data = yaml_loader.load(default_config.read_text())
             parts = default_config.relative_to(directory).parent.parts
-
             if len(parts) == 0:
                 # This is a root config file
                 for key, value in file_data.items():
