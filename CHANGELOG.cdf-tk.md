@@ -25,6 +25,9 @@ Changes are grouped as follows:
 - Require all spaces to be explicitly defined as separate .space.yaml file.
 - The `data_set_id` for `Transformations` must now be set explicitly in the yaml config file for the `Transformation`
   under the `data_set_id` key. Note that you also need to explicitly define the `data_set` in its own yaml config file.
+- All config files have been merged to a single config file, `config.yaml`. Upon calling `cdf-tk init` the `config.yaml`
+  is created in the root folder of the project based on the `default.config.yaml` file of each module.
+
 
 ### Fixed
 - When running `cdf-tk deploy` with `--dry-run` a `ValueError` was raised if not all datasets were pre-existing.
