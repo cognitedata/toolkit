@@ -539,7 +539,7 @@ def generate_config(
             file_data = yaml_loader.load(default_config.read_text())
             parts = default_config.relative_to(directory).parent.parts
 
-            if len(parts) == 1:
+            if len(parts) == 0:
                 # This is a root config file
                 for key, value in file_data.items():
                     config[key] = value
@@ -701,6 +701,8 @@ def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str
     parts = module_dir.parts
     if parts[0] != COGNITE_MODULES and COGNITE_MODULES in parts:
         parts = parts[parts.index(COGNITE_MODULES) :]
+    if parts[0] != CUSTOM_MODULES and CUSTOM_MODULES in parts:
+        parts = parts[parts.index(CUSTOM_MODULES) :]
     for no in range(len(parts), -1, -1):
         if c := config.get(".".join(parts[:no])):
             maps.append(c)
@@ -720,7 +722,7 @@ def _split_config(config: dict[str, Any], configs: dict[str, dict[str, str]], pr
                 prefix = f"{prefix}."
             _split_config(value, configs, prefix=f"{prefix}{key}")
         else:
-            configs.setdefault(prefix, {})[key] = value
+            configs.setdefault(prefix.removesuffix("."), {})[key] = value
 
 
 def create_file_name(filepath: Path, number_by_resource_type: dict[str, int]) -> str:

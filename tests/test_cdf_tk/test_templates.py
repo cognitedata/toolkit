@@ -25,9 +25,9 @@ def generate_config_test_cases():
                 "source_files": "fileshare",
                 "source_timeseries": "pi",
             },
+            "top_variable": "<top_variable>",
             "parent_module": {"child_module": {"child_variable": "<change_me>"}},
         },
-        "top_variable": "<top_variable>",
     }
 
     yield pytest.param(yaml.safe_dump(expected, sort_keys=False), None, id="Include all")
@@ -37,7 +37,7 @@ def generate_config_test_cases():
             "a_module": {
                 "readwrite_source_id": "<change_me>",
                 "readonly_source_id": "<change_me>",
-            }
+            },
         }
     }
     yield pytest.param(yaml.safe_dump(only_a_module, sort_keys=False), {"a_module"}, id="Include one module")
