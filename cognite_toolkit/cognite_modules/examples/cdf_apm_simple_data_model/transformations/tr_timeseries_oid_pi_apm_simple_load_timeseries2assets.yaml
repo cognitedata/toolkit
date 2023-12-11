@@ -23,6 +23,5 @@ authentication:
   # Optional: If idP requires providing the cicd_audience
   audience: {{cicd_audience}}
 schedule:
-  # every hour
-  interval: '0 * * * *'
+  interval: '{{scheduleHourly}}'
   isPaused: true

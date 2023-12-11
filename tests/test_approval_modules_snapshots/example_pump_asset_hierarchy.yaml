@@ -78,7 +78,7 @@ Transformation:
     \  LifeCycleStatus,\n  LocationDescription\n  ) as metadata\nfrom pump_assets.`collections_pump`\n"
   schedule:
     externalId: pump_asset_hierarchy-load-collections_pump
-    interval: 0 * * * *
+    interval: '{{scheduleHourly}}'
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -89,7 +89,7 @@ Transformation:
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
 - externalId: pump_asset_hierarchy-load-collections_pump
-  interval: 0 * * * *
+  interval: '{{scheduleHourly}}'
   isPaused: true
 deleted:
   Table:

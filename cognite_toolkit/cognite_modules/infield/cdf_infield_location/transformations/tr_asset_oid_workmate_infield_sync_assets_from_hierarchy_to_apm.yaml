@@ -23,6 +23,5 @@ authentication:
   # Optional: If idP requires providing the audience
   audience: {{audience}}
 schedule:
-  # every hour
-  interval: '0 * * * *'
+  interval: '{{scheduleHourly}}'
   isPaused: false
