@@ -938,6 +938,7 @@ class SpaceLoader(Loader[str, SpaceApply, SpaceApplyList]):
     filename_pattern = r"^.*\.?(space)$"
     resource_cls = SpaceApply
     list_cls = SpaceApplyList
+    _display_name = "spaces"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
@@ -983,6 +984,8 @@ class ContainerLoader(Loader[ContainerId, ContainerApply, ContainerApplyList]):
     list_cls = ContainerApplyList
     dependencies = frozenset({SpaceLoader})
 
+    _display_name = "containers"
+
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         # Todo Scoped to spaces
@@ -1016,6 +1019,8 @@ class ViewLoader(Loader[ViewId, ViewApply, ViewApplyList]):
     list_cls = ViewApplyList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
 
+    _display_name = "views"
+
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         # Todo Scoped to spaces
@@ -1041,6 +1046,7 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
     resource_cls = DataModelApply
     list_cls = DataModelApplyList
     dependencies = frozenset({SpaceLoader, ViewLoader})
+    _display_name = "data models"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -1248,8 +1254,12 @@ def drop_load_resources(
         print(
             f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files."
         )
-
-    print(f"  Created {nr_of_created} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files.")
+    if dry_run:
+        print(f"  Would have created {nr_of_items} {loader.display_name} from {len(filepaths)} config files.")
+    else:
+        print(
+            f"  Created {nr_of_created} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files."
+        )
 
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
