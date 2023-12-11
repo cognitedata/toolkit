@@ -5,9 +5,11 @@ from datetime import datetime
 from re import Match
 
 import pytest
+import yaml
 from packaging.version import Version
 
 from cognite_toolkit._version import __template_version__, __version__
+from cognite_toolkit.cdf_tk.templates import generate_config
 from tests.constants import REPO_ROOT
 
 if sys.version_info >= (3, 11):
@@ -69,6 +71,15 @@ def test_changelog_entry_date(changelog_name: str) -> None:
         assert False, f"Date given in the newest entry in 'CHANGELOG.md', {date!r}, is not valid/parsable (YYYY-MM-DD)"
     else:
         assert True
+
+
+def test_config_yaml_updated() -> None:
+    config_yaml = yaml.safe_load((REPO_ROOT / "cognite_toolkit" / "config.yaml").read_text(encoding="utf-8"))
+    expected_config = yaml.safe_load(generate_config(REPO_ROOT / "cognite_toolkit")[0])
+    assert config_yaml == expected_config, (
+        "The 'config.yaml' file is not up to date with the latest changes. "
+        "Please run 'python -m cognite_toolkit.cdf_tk.templates' to update it."
+    )
 
 
 def _parse_changelog(changelog: str) -> Iterator[Match[str]]:

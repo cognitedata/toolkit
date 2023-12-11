@@ -24,7 +24,15 @@ from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
     drop_load_resources,
 )
-from cognite_toolkit.cdf_tk.templates import build_config, read_environ_config
+from cognite_toolkit.cdf_tk.templates import (
+    COGNITE_MODULES,
+    CONFIG_FILE,
+    CUSTOM_MODULES,
+    ENVIRONMENTS_FILE,
+    build_config,
+    generate_config,
+    read_environ_config,
+)
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
 app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
@@ -150,19 +158,31 @@ def build(
         ),
     ] = False,
 ) -> None:
+    source_dir = Path(source_dir)
     """Build configuration files from the module templates to a local build directory."""
-    if not Path(source_dir).is_dir() or not (Path(source_dir) / "local.yaml").is_file():
-        print(f"  [bold red]ERROR:[/] {source_dir} does not exist or no local.yaml file found.")
+    if not source_dir.is_dir():
+        print(f"  [bold red]ERROR:[/] {source_dir} does not exist")
+        exit(1)
+    environment_file = Path.cwd() / ENVIRONMENTS_FILE
+    if not environment_file.is_file() and not (environment_file := source_dir / ENVIRONMENTS_FILE).is_file():
+        print(f"  [bold red]ERROR:[/] {environment_file} does not exist")
+        exit(1)
+    config_file = Path.cwd() / CONFIG_FILE
+    if not config_file.is_file() and not (config_file := source_dir / CONFIG_FILE).is_file():
+        print(f"  [bold red]ERROR:[/] {config_file} does not exist")
         exit(1)
     print(
         Panel(
-            f"[bold]Building config files from templates into {build_dir} for environment {build_env} using {source_dir} as sources...[/bold]"
+            f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_dir!s} as sources...[/bold]"
+            f"\n[bold]Environment file:[/] {environment_file.absolute().relative_to(Path.cwd())!s} and [bold]config file:[/] {config_file.absolute().relative_to(Path.cwd())!s}"
         )
     )
 
     build_config(
-        build_dir=build_dir,
+        build_dir=Path(build_dir),
         source_dir=source_dir,
+        config_file=config_file,
+        environment_file=environment_file,
         build_env=build_env,
         clean=clean,
         verbose=ctx.obj.verbose,
@@ -440,7 +460,7 @@ def auth_verify(
             "-f",
             help="Group yaml configuration file to use for group verification",
         ),
-    ] = "/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
+    ] = f"/{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
     update_group: Annotated[
         Optional[int],
         typer.Option(
@@ -544,28 +564,20 @@ def main_init(
 ):
     """Initialize a new CDF project with templates."""
 
-    files_to_copy = [
-        "default.config.yaml",
-        "default.packages.yaml",
-    ]
+    files_to_copy = []
     dirs_to_copy = []
     if not upgrade:
         files_to_copy.extend(
             [
-                "config.yaml",
-                "local.yaml",
-                "packages.yaml",
+                "environments.yaml",
                 "README.md",
                 ".gitignore",
                 ".env.tmpl",
             ]
         )
-        dirs_to_copy.append("local_modules")
+        dirs_to_copy.append(CUSTOM_MODULES)
     module_dirs_to_copy = [
-        "common",
-        "modules",
-        "examples",
-        "experimental",
+        COGNITE_MODULES,
     ]
     template_dir = resources.files("cognite_toolkit")
     target_dir = Path.cwd() / f"{init_dir}"
@@ -597,7 +609,7 @@ def main_init(
     print(dirs_to_copy)
     extract_dir = None
     if upgrade and git is not None:
-        zip = f"https://github.com/cognitedata/cdf-project-templates/archive/refs/heads/{git}.zip"
+        toolkit_github_url = f"https://github.com/cognitedata/cdf-project-templates/archive/refs/heads/{git}.zip"
         extract_dir = tempfile.mkdtemp(prefix="git.", suffix=".tmp", dir=Path.cwd())
         print(f"Upgrading templates from https://github.com/cognitedata/cdf-project-templates, branch {git}...")
         print(
@@ -605,7 +617,7 @@ def main_init(
         )
         if not dry_run:
             try:
-                zip_path, _ = urllib.request.urlretrieve(zip)
+                zip_path, _ = urllib.request.urlretrieve(toolkit_github_url)
                 with zipfile.ZipFile(zip_path, "r") as f:
                     f.extractall(extract_dir)
             except Exception as e:
@@ -661,7 +673,19 @@ def main_init(
             print(f"New project created in {target_dir}.")
         if upgrade:
             print("  All default.config.yaml files in the modules have been upgraded.")
-            print("  Your config.yaml files may need to be updated to override new default variales.")
+            print("  Your config.yaml files may need to be updated to override new default variables.")
+
+    config_filepath = target_dir / "config.yaml"
+    if not dry_run:
+        if clean or not config_filepath.exists():
+            config_str, _ = generate_config(target_dir)
+            config_filepath.write_text(config_str)
+            print(f"Created config.yaml file in {target_dir}.")
+        else:
+            current = config_filepath.read_text()
+            config_str, difference = generate_config(target_dir, existing_config=current)
+            config_filepath.write_text(config_str)
+            print(str(difference))
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
