@@ -24,4 +24,4 @@ authentication:
   audience: {{cicd_audience}}
 schedule:
   interval: '{{scheduleHourly}}'
-  isPaused: true
+  isPaused : {{pause_transformations}}

@@ -11,10 +11,4 @@ datamodel_version: '1'
 view_Asset_version: '1'
 view_WorkOrder_version: '1'
 view_WorkItem_version: '1'
-# In addition, the transformations are using the following variables from the global scope (your root default.config.yaml):
-#cicd_clientId
-#cicd_clientSecret
-#cicd_tokenUri
-#cdfProjectName
-#cicd_scopes
-#cicd_audience
+pause_transformations: true

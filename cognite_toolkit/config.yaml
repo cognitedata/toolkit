@@ -25,6 +25,7 @@ cognite_modules:
       #cdfProjectName
       #cicd_scopes
       #cicd_audience
+      pause_transformations: true
     cdf_oid_example_data:
     # Only valid for this module, loads template variables from environment
     #
@@ -47,15 +48,6 @@ cognite_modules:
     # Only valid for this module, loads template variables from environment
       raw_db: pump_assets
       data_set: src:lift_pump_stations
-      clientId: ${IDP_CLIENT_ID}
-      clientSecret: ${IDP_CLIENT_SECRET}
-      tokenUri: ${IDP_TOKEN_URL}
-      # Optional: If idP requires providing the scopes
-      cdfProjectName: ${CDF_PROJECT}
-      scopes:
-      - ${IDP_SCOPES}
-# Optional: If idP requires providing the audience
-      audience: ${IDP_AUDIENCE}
   experimental:
     cdf_asset_source_model:
     # Only valid for this module, loads template variables from environment
@@ -107,14 +99,6 @@ cognite_modules:
       infield_default_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
 # Transformation credentials
-      clientId: ${IDP_CLIENT_ID}
-      clientSecret: ${IDP_CLIENT_SECRET}
-      tokenUri: ${IDP_TOKEN_URL}
-      # Optional: If idP requires providing the scopes
-      cdfProjectName: ${CDF_PROJECT}
-      scopes: ${IDP_SCOPES}
-      # Optional: If idP requires providing the audience
-      audience: ${IDP_AUDIENCE}
   cdf_cluster: ${CDF_CLUSTER}
   cicd_clientId: ${IDP_CLIENT_ID}
   cicd_clientSecret: ${IDP_CLIENT_SECRET}
@@ -128,6 +112,9 @@ cognite_modules:
     cdf_apm_base:
       apm_datamodel_space: APM_SourceData
       apm_datamodel_version: '1'
+  scheduleHourly: 7 * * * *
+  scheduleQuarterly: 0/15 * * * *
+  scheduleDaily: 35 1 * * *
 custom_modules:
   my_example_module:
     example_variable: demo_dataset

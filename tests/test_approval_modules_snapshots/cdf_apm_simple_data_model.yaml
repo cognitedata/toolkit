@@ -358,7 +358,7 @@ Transformation:
     \ as endNode\nfrom\n  `asset_oid_workmate`.`asset2children`;\n"
   schedule:
     externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
-    interval: '{{scheduleHourly}}'
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -399,7 +399,7 @@ Transformation:
     \ as BOOLEAN) as isActive\nfrom\n  `asset_oid_workmate`.`assets`;\n"
   schedule:
     externalId: tr_asset_oid_workmate_apm_simple_load_assets
-    interval: '{{scheduleHourly}}'
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -434,7 +434,7 @@ Transformation:
     \ metrics\nfrom\n  `files_oid_{{source_files}}`.`timeseries2assets`;\n"
   schedule:
     externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets
-    interval: '{{scheduleHourly}}'
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -473,7 +473,7 @@ Transformation:
     \ method,\n  cast(`isCompleted` as BOOLEAN) as isCompleted\nfrom\n  `workorder_oid_workmate`.`workitems`;\n"
   schedule:
     externalId: tr_workorder_oid_workmate_apm_simple_load_workitems
-    interval: '{{scheduleHourly}}'
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -515,7 +515,7 @@ Transformation:
     from\n  `workorder_oid_workmate`.`workitem2assets`;\n"
   schedule:
     externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2assets
-    interval: '{{scheduleHourly}}'
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -557,7 +557,7 @@ Transformation:
     from\n  `workorder_oid_workmate`.`workorder2items`;\n"
   schedule:
     externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2workorders
-    interval: '{{scheduleHourly}}'
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -603,7 +603,7 @@ Transformation:
     \ STRING) as programNumber \nfrom `workorder_oid_workmate`.`workorders`;\n"
   schedule:
     externalId: tr_workorder_oid_workmate_apm_simple_load_workorders
-    interval: '{{scheduleHourly}}'
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -639,7 +639,7 @@ Transformation:
     \ as endNode\nfrom\n  `workorder_oid_workmate`.`workorder2assets`;\n"
   schedule:
     externalId: tr_workorder_oid_workmate_apm_simple_load_workorders2assets
-    interval: '{{scheduleHourly}}'
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -650,28 +650,28 @@ Transformation:
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
-  interval: '{{scheduleHourly}}'
+  interval: 7 * * * *
   isPaused: true
 - externalId: tr_asset_oid_workmate_apm_simple_load_assets
-  interval: '{{scheduleHourly}}'
+  interval: 7 * * * *
   isPaused: true
 - externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets
-  interval: '{{scheduleHourly}}'
+  interval: 7 * * * *
   isPaused: true
 - externalId: tr_workorder_oid_workmate_apm_simple_load_workitems
-  interval: '{{scheduleHourly}}'
+  interval: 7 * * * *
   isPaused: true
 - externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2assets
-  interval: '{{scheduleHourly}}'
+  interval: 7 * * * *
   isPaused: true
 - externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2workorders
-  interval: '{{scheduleHourly}}'
+  interval: 7 * * * *
   isPaused: true
 - externalId: tr_workorder_oid_workmate_apm_simple_load_workorders
-  interval: '{{scheduleHourly}}'
+  interval: 7 * * * *
   isPaused: true
 - externalId: tr_workorder_oid_workmate_apm_simple_load_workorders2assets
-  interval: '{{scheduleHourly}}'
+  interval: 7 * * * *
   isPaused: true
 View:
 - externalId: Asset
