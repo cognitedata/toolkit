@@ -28,6 +28,9 @@ CONFIG_FILE = "config.yaml"
 DEFAULT_PACKAGES_FILE = "default.packages.yaml"
 # The package files:
 PACKAGES_FILE = "packages.yaml"
+COGNITE_MODULES = "cognite_modules"
+CUSTOM_MODULES = "custom_modules"
+
 TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
@@ -481,7 +484,7 @@ def build_config(
                 print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
         build_dir.mkdir()
-    source_module_dir = source_dir / "cdf_modules"
+    source_module_dir = source_dir / COGNITE_MODULES
 
     selected_modules = get_selected_modules(source_module_dir, environment_file, build_env, verbose)
 
@@ -696,8 +699,8 @@ def iterate_modules(root_dir: Path) -> tuple[Path, list[Path]]:
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
     maps = []
     parts = module_dir.parts
-    if parts[0] != "cdf_modules" and "cdf_modules" in parts:
-        parts = parts[parts.index("cdf_modules") :]
+    if parts[0] != COGNITE_MODULES and COGNITE_MODULES in parts:
+        parts = parts[parts.index(COGNITE_MODULES) :]
     for no in range(len(parts), -1, -1):
         if c := config.get(".".join(parts[:no])):
             maps.append(c)

@@ -6,14 +6,14 @@ from typing import Any
 import pytest
 import yaml
 
-from cognite_toolkit.cdf_tk.templates import create_local_config, generate_config, split_config
+from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, create_local_config, generate_config, split_config
 
 BUILD_CONFIG = Path(__file__).parent / "project_configs"
 
 
 def generate_config_test_cases():
     expected = {
-        "cdf_modules": {
+        COGNITE_MODULES: {
             "a_module": {
                 "readwrite_source_id": "<change_me>",
                 "readonly_source_id": "<change_me>",
@@ -33,7 +33,7 @@ def generate_config_test_cases():
     yield pytest.param(yaml.safe_dump(expected, sort_keys=False), None, id="Include all")
 
     only_a_module = {
-        "cdf_modules": {
+        COGNITE_MODULES: {
             "a_module": {
                 "readwrite_source_id": "<change_me>",
                 "readonly_source_id": "<change_me>",

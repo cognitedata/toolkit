@@ -19,7 +19,7 @@ from cognite.client import CogniteClient
 from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf import Common, build, clean, deploy, main_init
-from cognite_toolkit.cdf_tk.templates import iterate_modules, read_yaml_file, read_yaml_files
+from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, iterate_modules, read_yaml_file, read_yaml_files
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -50,7 +50,7 @@ def chdir(new_dir: Path) -> Iterator[None]:
 
 
 def find_all_modules() -> Iterator[Path]:
-    for module, _ in iterate_modules(REPO_ROOT / "cognite_toolkit" / "cdf_modules"):
+    for module, _ in iterate_modules(REPO_ROOT / "cognite_toolkit" / COGNITE_MODULES):
         yield pytest.param(module, id=f"{module.parent.name}/{module.name}")
 
 

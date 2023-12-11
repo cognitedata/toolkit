@@ -1,4 +1,4 @@
-cdf_modules:
+cognite_modules:
   common:
     cdf_auth_readwrite_all:
       readwrite_source_id: <change_me>
@@ -118,12 +118,13 @@ cdf_modules:
       scopes: ${IDP_SCOPES}
 # Optional: If idP requires providing the audience
       audience: ${IDP_AUDIENCE}
-cdf_cluster: ${CDF_CLUSTER}
-cicd_clientId: ${IDP_CLIENT_ID}
-cicd_clientSecret: ${IDP_CLIENT_SECRET}
-cicd_tokenUri: ${IDP_TOKEN_URL}
-cdfProjectName: ${CDF_PROJECT}
-cicd_scopes:
-- ${IDP_SCOPES}
-# Optional: If idP requires providing the audience
-cicd_audience: ${IDP_AUDIENCE}
+  cdf_cluster: ${CDF_CLUSTER}
+  cicd_clientId: ${IDP_CLIENT_ID}
+  cicd_clientSecret: ${IDP_CLIENT_SECRET}
+  cicd_tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  cicd_scopes:
+  - ${IDP_SCOPES}
+  # Optional: If idP requires providing the audience
+  cicd_audience: ${IDP_AUDIENCE}
+custom_modules: {}

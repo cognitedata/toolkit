@@ -25,7 +25,9 @@ from cognite_toolkit.cdf_tk.load import (
     drop_load_resources,
 )
 from cognite_toolkit.cdf_tk.templates import (
+    COGNITE_MODULES,
     CONFIG_FILE,
+    CUSTOM_MODULES,
     ENVIRONMENTS_FILE,
     build_config,
     generate_config,
@@ -458,7 +460,7 @@ def auth_verify(
             "-f",
             help="Group yaml configuration file to use for group verification",
         ),
-    ] = "/cdf_modules/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
+    ] = f"/{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
     update_group: Annotated[
         Optional[int],
         typer.Option(
@@ -575,7 +577,8 @@ def main_init(
         )
         dirs_to_copy.append("local_modules")
     module_dirs_to_copy = [
-        "cdf_modules",
+        COGNITE_MODULES,
+        CUSTOM_MODULES,
     ]
     template_dir = resources.files("cognite_toolkit")
     target_dir = Path.cwd() / f"{init_dir}"
