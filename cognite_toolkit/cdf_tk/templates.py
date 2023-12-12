@@ -573,6 +573,8 @@ def generate_config(
         if not local_config:
             del last_config[removed.module]
 
+    config = _reorder_config_yaml(config)
+
     output = io.StringIO()
     yaml_loader.dump(config, output)
     output_yaml = output.getvalue()
@@ -585,7 +587,20 @@ def generate_config(
         else:
             leading_spaces = len(line) - len(line.lstrip())
         output_lines.append(line)
+
     return output_yaml, entries
+
+
+def _reorder_config_yaml(config: CommentedMap) -> CommentedMap:
+    """Reorder the config.yaml file to have the keys in alphabetical order
+    and the variables before the modules.
+    """
+    new_config = CommentedMap()
+    for key in sorted([k for k in config.keys() if not isinstance(config[k], dict)]):
+        new_config[key] = config[key]
+    for key in sorted([k for k in config.keys() if isinstance(config[k], dict)]):
+        new_config[key] = _reorder_config_yaml(config[key])
+    return new_config
 
 
 @dataclass
