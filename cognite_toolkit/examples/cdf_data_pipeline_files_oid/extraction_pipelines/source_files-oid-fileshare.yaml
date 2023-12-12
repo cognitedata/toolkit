@@ -1,10 +1,10 @@
-external_id: 'ep_src_files_{{location_name}}_{{source_name}}'
+externalId: 'ep_src_files_{{location_name}}_{{source_name}}'
 name: 'src:files:{{location_name}}:{{source_name}}'
-data_set_external_id: 'ds_files_{{location_name}}'
+dataSetExternalId: 'ds_files_{{location_name}}'
 description: 'File source extraction pipeline with configuration for File extractor reading data from {{location_name}}:{{source_name}}'
 rawTables:  [
-    dbName: 'src-files-{{location_name}}-{{source_name}}',
-    tableName: 'files_meta'
+    dbName: 'files_{{location_name}}_{{source_name}}',
+    tableName: '{{files_raw_input_table}}'
   ]
 
 source: '{{source_name}}'

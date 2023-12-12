@@ -78,4 +78,12 @@ capabilities:
         - WRITE
       scope:
         all: {}
+  - transformationsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        datasetScope: {
+            ids: ['ds_files_{{location_name}}']
+        }
   
