@@ -888,7 +888,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
         resources = [resources] if isinstance(resources, dict) else resources
 
         for resource in resources:
-            extractionPipelineConfig = ExtractionPipelineConfig.load(
+            extraction_pipeline_config = ExtractionPipelineConfig.load(
                 {
                     "externalId": resource.get("externalId"),
                     "description": resource.get("description"),
@@ -896,7 +896,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                 }
             )
             try:
-                self.client.extraction_pipelines.config.create(extractionPipelineConfig)
+                self.client.extraction_pipelines.config.create(extraction_pipeline_config)
 
             except Exception as e:
                 print(f"[bold red]ERROR:[/] Failed to create extraction pipeline config.\n{e}")
