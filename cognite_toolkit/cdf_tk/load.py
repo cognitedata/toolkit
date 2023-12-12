@@ -863,7 +863,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                         if item.external_id == ext_id:
                             items.remove(item)
                 try:
-                    extractionPipelineList = ExtractionPipelineList(self.client.extraction_pipelines.create(items))
+                    extractionPipelineList = self.client.extraction_pipelines.create(items)
                 except Exception as e:
                     print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
                     self.ToolGlobals.failed = True
