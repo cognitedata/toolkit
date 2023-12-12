@@ -868,7 +868,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                     self.ToolGlobals.failed = True
                     return ExtractionPipelineList([])
 
-        file_name = filepath.stem.split(".", 2)[1]
+        file_name =re.sub(r'^(\d+)\.', "", filepath.stem)
         config_file_stem = f"{file_name}.config"
         config_file = next(
             (file for file in Path(filepath.parent).iterdir() if file.is_file() and config_file_stem in file.name),
