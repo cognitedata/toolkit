@@ -1254,9 +1254,11 @@ def deploy_or_clean_resources(
     if nr_of_items == 0:
         return DeployResult(name=loader.display_name, created=0, deleted=0, skipped=0, total=0)
     if action == "deploy":
-        print(f"[bold]Uploading {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
+        action_word = "Loading" if dry_run else "Uploading"
+        print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     else:
-        print(f"[bold]Cleaning {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
+        action_word = "Loading" if dry_run else "Cleaning"
+        print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     batches = [item if isinstance(item, Sized) else [item] for item in items]
     if drop and loader.support_drop and action == "deploy":
         print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
@@ -1320,7 +1322,7 @@ def deploy_or_clean_resources(
                     if isinstance(loader, AuthLoader):
                         nr_of_deleted += len(created)
     if verbose:
-        prefix = "Would have " if dry_run else ""
+        prefix = "Would have" if dry_run else ""
         print(
             f"  {prefix} Created {nr_of_created}, Deleted {nr_of_deleted}, Skipped {nr_of_skipped}, Total {nr_of_items}."
         )
