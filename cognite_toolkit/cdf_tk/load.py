@@ -867,7 +867,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                 except Exception as e:
                     print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
                     self.ToolGlobals.failed = True
-                    return None
+                    return ExtractionPipelineList([])
 
         file_name = filepath.stem.split(".", 2)[1]
         config_file_stem = f"{file_name}.config"
