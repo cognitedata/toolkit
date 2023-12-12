@@ -10,4 +10,4 @@ metadata:
       tableName: "assets"
   transformations:
     - externalId: tr_asset_{{location_name}}_{{source_name}}_asset_hierarchy
-      type: "jetfire"
+      type: "Transformations"

@@ -5,7 +5,7 @@ DataSet:
     consoleSource: '{"names": ["workmate"]}'
     rawTables: '[{"databaseName": "asset_oid_workmate", "tableName": "assets"}]'
     transformations: '[{"externalId": "tr_asset_oid_workmate_asset_hierarchy", "type":
-      "jetfire"}]'
+      "Transformations"}]'
   name: asset:oid
 Group:
 - capabilities:

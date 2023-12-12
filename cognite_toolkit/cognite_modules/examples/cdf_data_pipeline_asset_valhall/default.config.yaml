@@ -3,7 +3,6 @@
 # The data originates from a single compressor on Aker BP’s Valhall oil platform 
 # in the North Sea. Aker BP selected the first stage compressor on the Valhall 
 # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
----
 # spesify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all' 
 location_name: oid 
 module_version: '1'

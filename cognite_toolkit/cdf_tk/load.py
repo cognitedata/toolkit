@@ -854,39 +854,40 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                     self.ToolGlobals.failed = True
                     return None
 
-            file_name = filepath.stem.split(".", 2)[1]
-            config_file_name = f"{file_name}.config.yaml"
-            config_file = next(
-                (
-                    file
-                    for file in Path(filepath.parent).iterdir()
-                    if file.is_file() and file.name.endswith(config_file_name)
-                ),
-                None,
+        file_name = filepath.stem.split(".", 2)[1]
+        config_file_name = f"{file_name}.config.yaml"
+        config_file = next(
+            (
+                file
+                for file in Path(filepath.parent).iterdir()
+                if file.is_file() and file.name.endswith(config_file_name)
+            ),
+            None,
+        )
+
+        if not config_file.exists():
+            print(
+                f"  [bold yellow]WARNING:[/] no config file for extraction pipeline found. Expected to find {config_file_name} in same folder as {file_name}"
             )
+            return extractionPipelineList
 
-            if not config_file.exists():
-                print(
-                    f"  [bold yellow]WARNING:[/] no config file for extraction pipeline found. Expected to find {config_file_name} in same folder as {file_name}"
-                )
-                return extractionPipelineList
+        resources = load_yaml_inject_variables(config_file, {})
+        resources = [resources] if isinstance(resources, dict) else resources
 
-            resources = load_yaml_inject_variables(config_file, {})
-            resources = [resources] if isinstance(resources, dict) else resources
-
-            for resource in resources:
-                extractionPipelineConfig = ExtractionPipelineConfig.load(
-                    {
-                        "externalId": resource.get("externalId"),
-                        "description": resource.get("description"),
-                        "config": yaml.dump(resource.get("config", ""), indent=4),
-                    }
-                )
-                try:
-                    self.client.extraction_pipelines.config.create(extractionPipelineConfig)
-                except Exception as e:
-                    print(f"[bold red]ERROR:[/] Failed to create extraction pipeline config.\n{e}")
-                    self.ToolGlobals.failed = True
+        for resource in resources:
+            extractionPipelineConfig = ExtractionPipelineConfig.load(
+                {
+                    "externalId": resource.get("externalId"),
+                    "description": resource.get("description"),
+                    "config": yaml.dump(resource.get("config", ""), indent=4),
+                }
+            )
+            try:
+                self.client.extraction_pipelines.config.create(extractionPipelineConfig)
+                
+            except Exception as e:
+                print(f"[bold red]ERROR:[/] Failed to create extraction pipeline config.\n{e}")
+                self.ToolGlobals.failed = True
 
         return extractionPipelineList
 
