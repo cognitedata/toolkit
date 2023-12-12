@@ -87,7 +87,6 @@ Group:
   sourceId: <update me>
 Transformation:
 - conflictMode: upsert
-  dataSetId: 999
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:
