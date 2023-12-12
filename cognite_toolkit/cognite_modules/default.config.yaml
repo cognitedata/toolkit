@@ -12,3 +12,9 @@ cicd_scopes:
   - ${IDP_SCOPES}
 # Optional: If idP requires providing the audience
 cicd_audience: ${IDP_AUDIENCE}
+# Seven minutes past each hour
+scheduleHourly: '7 * * * *'
+# Every fifteen minutes
+scheduleQuarterly: '0/15 * * * *'
+# Daily at 1:35 AM
+scheduleDaily: '35 1 * * *'
