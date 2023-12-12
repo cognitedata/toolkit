@@ -518,7 +518,7 @@ def generate_config(
     else:
         directories = directory
     config = {}
-    comments = {}
+    comments: dict[str, dict[Literal["above", "after"], list[str]]] = {}
     for dir_ in directories:
         defaults = sorted(directory.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(dir_))
 
@@ -526,8 +526,10 @@ def generate_config(
             if include_modules is not None and default_config.parent.name not in include_modules:
                 continue
             raw_file = default_config.read_text()
-            file_comments = _extract_comments(raw_file, default_config.parent.name)
-            comments.update(file_comments)
+
+            comments.update(
+                _extract_comments(raw_file, key_prefix=".".join(default_config.parent.relative_to(directory).parts))
+            )
 
             file_data = yaml.safe_load(raw_file)
             parts = default_config.relative_to(directory).parent.parts
@@ -548,16 +550,13 @@ def generate_config(
                 )
                 continue
             local_config = config
-            for key in parts[:-1]:
+            for key in parts:
                 if key not in local_config:
                     local_config[key] = {}
                 local_config = local_config[key]
 
-            if parts[-1] in local_config:
-                local_config[parts[-1]].update(file_data)
-            else:
-                local_config[parts[-1]] = file_data
-            config.ca = file_data.ca
+            local_config.update(file_data)
+
             entries.extend(
                 [
                     ConfigEntry(
@@ -572,7 +571,7 @@ def generate_config(
             )
 
     config = _reorder_config_yaml(config)
-    output_yaml = yaml.safe_dump(config)
+    output_yaml = _dump_yaml_with_comments(config, comments)
     return output_yaml, entries
 
 
@@ -588,8 +587,75 @@ def _reorder_config_yaml(config: dict[str, Any]) -> dict[str, Any]:
     return new_config
 
 
-def _extract_comments(raw_file: str, module_name: str) -> dict[str, Any]:
-    pass
+def _extract_comments(
+    raw_file: str, key_prefix: str = ""
+) -> dict[str | None, dict[Literal["above", "after"], list[str]]]:
+    """Extract comments from a raw file and return a dictionary with the comments."""
+    comments: dict[str, dict[Literal["above", "after"], list[str]]] = defaultdict(lambda: {"above": [], "after": []})
+    position: Literal["above", "after"]
+    variable: str | None = None
+    last_comment: str | None = None
+    for line in raw_file.splitlines():
+        if ":" in line:
+            variable = str(line.split(":", maxsplit=1)[0].strip())
+            if last_comment:
+                key = key_prefix
+                if variable:
+                    key = f"{key_prefix}.{variable}"
+                comments[key]["above"].append(last_comment)
+                last_comment = None
+        if "#" in line:
+            before, comment = str(line).rsplit("#", maxsplit=1)
+            position = "after" if ":" in before else "above"
+            if position == "after" and (before.count('"') % 2 == 1 or before.count("'") % 2 == 1):
+                # The comment is inside a string
+                continue
+            if position == "after" or variable is None:
+                key = key_prefix
+                if variable:
+                    key = f"{key_prefix}.{variable}"
+                comments[key][position].append(comment.strip())
+            else:
+                last_comment = comment.strip()
+    return dict(comments)
+
+
+def _dump_yaml_with_comments(
+    config: dict[str, Any], comments: dict[str, dict[Literal["above", "after"], list[str]]], indent_size: int = 2
+) -> str:
+    """Dump a config dictionary to a yaml string"""
+    dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
+    out_lines = []
+    if module_comment := comments.get(""):
+        for comment in module_comment["above"]:
+            out_lines.append(f"# {comment}")
+    last_indent = 0
+    last_variable: str | None = None
+    path = ""
+    for line in dumped.splitlines():
+        indent = len(line) - len(line.lstrip())
+        if last_indent < indent:
+            path = f"{path}.{last_variable}" if path else last_variable
+        elif last_indent > indent:
+            # Adding some extra space between modules
+            out_lines.append("")
+            levels = (last_indent - indent) // indent_size
+            if path.count(".") >= levels:
+                path = path.rsplit(".", maxsplit=levels)[0]
+            else:
+                path = ""
+
+        variable = line.split(":", maxsplit=1)[0].strip()
+        if comment := comments.get(f"{path}.{variable}", comments.get(variable)):
+            for line_comment in comment["above"]:
+                out_lines.append(f"{' ' * indent}# {line_comment}")
+            if after := comment["after"]:
+                line = f"{line} # {after[0]}"
+
+        out_lines.append(line)
+        last_indent = indent
+        last_variable = variable
+    return "\n".join(out_lines)
 
 
 @dataclass

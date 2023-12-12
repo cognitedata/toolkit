@@ -8,6 +8,7 @@ import yaml
 
 from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
+    _dump_yaml_with_comments,
     _extract_comments,
     create_local_config,
     generate_config,
@@ -95,25 +96,64 @@ def test_create_local_config(my_config: dict[str, Any]):
 
 
 @pytest.mark.parametrize(
-    "raw_file, modul_name, expected_comments",
+    "raw_file, key_prefix, expected_comments",
     [
         pytest.param(
             """# This is a module comment
 variable: value # After variable comment
 # Before variable comment
-variable2: value2""",
-            "a_module",
+variable2: value2
+variable3: 'value with #in it'
+variable4: "value with #in it" # But a comment after
+""",
+            "super_module.module_a",
             {
-                "a_module": {
-                    "variable1": {"end_line_comment": "After variable comment"},
-                    "variable2": {"above_comment": ["Before variable comment"]},
-                },
-                "module comment": ["This is a module comment"],
+                "super_module.module_a": {"above": ["This is a module comment"], "after": []},
+                "super_module.module_a.variable": {"above": [], "after": ["After variable comment"]},
+                "super_module.module_a.variable2": {"above": ["Before variable comment"], "after": []},
+                "super_module.module_a.variable4": {"above": [], "after": ["But a comment after"]},
             },
             id="module comments",
         )
     ],
 )
-def test_extract_comments(raw_file: str, modul_name: str, expected_comments: dict[str, Any]):
-    actual_comments = _extract_comments(raw_file, modul_name)
+def test_extract_comments(raw_file: str, key_prefix: str, expected_comments: dict[str, Any]):
+    actual_comments = _extract_comments(raw_file, key_prefix)
     assert actual_comments == expected_comments
+
+
+@pytest.mark.parametrize(
+    "config, comments, expected",
+    [
+        pytest.param(
+            {
+                "top_variable": "my_top_variable",
+                "module_a": {
+                    "readwrite_source_id": "my_readwrite_source_id",
+                    "readonly_source_id": "my_readonly_source_id",
+                },
+                "parent": {"child": {"child_variable": "my_child_variable"}},
+            },
+            {
+                "": {"above": ["This is a module comment"], "after": []},
+                "top_variable": {"above": [], "after": ["After variable comment"]},
+                "module_a": {"above": ["Before variable comment"], "after": []},
+                "parent.child.child_variable": {"above": [], "after": ["With a comment after"]},
+            },
+            """# This is a module comment
+top_variable: my_top_variable # After variable comment
+# Before variable comment
+module_a:
+  readwrite_source_id: my_readwrite_source_id
+  readonly_source_id: my_readonly_source_id
+parent:
+  child:
+    child_variable: my_child_variable # With a comment after""",
+            id="Config with comments",
+        )
+    ],
+)
+def test_dump_yaml_with_comments(config: dict[str, Any], comments: dict[str, Any], expected: str):
+    actual = _dump_yaml_with_comments(config, comments)
+
+    assert actual == expected
