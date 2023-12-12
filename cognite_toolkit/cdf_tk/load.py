@@ -851,7 +851,6 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
         return ExtractionPipeline.load(resource)
 
     def create(self, items: Sequence[ExtractionPipeline], drop: bool, filepath: Path) -> ExtractionPipelineList:
-        extractionPipelineList = None
 
         try:
             extraction_pipelines = self.client.extraction_pipelines.create(items)
