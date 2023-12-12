@@ -27,6 +27,7 @@ Changes are grouped as follows:
 - All cognite templates have been moved into `cognite_templates` folder, while `local_templates` is renamed to `custom_templates`.
 - Move cdf_apm_base into separate folder.
 - The file `local.yaml` has been renamed `environments.yaml` to better reflect its purpose.
+- Removed demo `sourceId` from `cdf_infield_location` module.
 - Changed the isPaused flag to use a module-level variable instead of hardcoded in cdf_apm_simple_data_model.
   
 ### Fixed
