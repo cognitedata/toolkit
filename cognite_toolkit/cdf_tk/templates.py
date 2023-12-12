@@ -528,7 +528,8 @@ def generate_config(
         for default_config in defaults:
             if include_modules is not None and default_config.parent.name not in include_modules:
                 continue
-            file_data = yaml_loader.load(default_config.read_text())
+            raw_file = default_config.read_text()
+            file_data = yaml_loader.load(raw_file)
             parts = default_config.relative_to(directory).parent.parts
             if len(parts) == 0:
                 # This is a root config file
