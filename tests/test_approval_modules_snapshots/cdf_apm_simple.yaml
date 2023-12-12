@@ -892,7 +892,7 @@ Transformation:
     from\n  `apm_simple`.`assets`;\n"
   schedule:
     externalId: apm_simple-load-asset-hierarchy
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -928,7 +928,7 @@ Transformation:
     \ as endNode\nfrom\n  `apm_simple`.`asset2children`;\n"
   schedule:
     externalId: apm_simple-load-asset2children
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -969,7 +969,7 @@ Transformation:
     \ as BOOLEAN) as isActive\nfrom\n  `apm_simple`.`assets`;\n"
   schedule:
     externalId: apm_simple-load-assets
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -1004,7 +1004,7 @@ Transformation:
     \ metrics\nfrom\n  `apm_simple`.`timeseries2assets`;\n"
   schedule:
     externalId: apm_simple-load-timeseries2assets
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -1043,7 +1043,7 @@ Transformation:
     \ method,\n  cast(`isCompleted` as BOOLEAN) as isCompleted\nfrom\n  `apm_simple`.`workitems`;\n"
   schedule:
     externalId: apm_simple-load-workitems
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -1085,7 +1085,7 @@ Transformation:
     from\n  `apm_simple`.`workitem2assets`;\n"
   schedule:
     externalId: apm_simple-load-workitems2assets
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -1127,7 +1127,7 @@ Transformation:
     from\n  `apm_simple`.`workorder2items`;\n"
   schedule:
     externalId: apm_simple-load-workitems2workorders
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -1173,7 +1173,7 @@ Transformation:
     \ STRING) as programNumber \nfrom `apm_simple`.`workorders`;\n"
   schedule:
     externalId: apm_simple-load-workorders
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -1209,7 +1209,7 @@ Transformation:
     \ as endNode\nfrom\n  `apm_simple`.`workorder2assets`;\n"
   schedule:
     externalId: apm_simple-load-workorders2assets
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -1220,31 +1220,31 @@ Transformation:
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
 - externalId: apm_simple-load-asset-hierarchy
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 - externalId: apm_simple-load-asset2children
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 - externalId: apm_simple-load-assets
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 - externalId: apm_simple-load-timeseries2assets
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 - externalId: apm_simple-load-workitems
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 - externalId: apm_simple-load-workitems2assets
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 - externalId: apm_simple-load-workitems2workorders
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 - externalId: apm_simple-load-workorders
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 - externalId: apm_simple-load-workorders2assets
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 View:
 - externalId: Asset
