@@ -217,7 +217,7 @@ def deploy(
         typer.Option(
             "--env",
             "-e",
-            help="Build environment to build for",
+            help="CDF project environment to build for. Defined in environments.yaml. Defaults to dev.",
         ),
     ] = "dev",
     interactive: Annotated[
@@ -225,7 +225,7 @@ def deploy(
         typer.Option(
             "--interactive",
             "-i",
-            help="Whether to use interactive mode when deciding which modules to deploy",
+            help="Whether to use interactive mode when deciding which modules to deploy.",
         ),
     ] = False,
     drop: Annotated[
@@ -233,7 +233,7 @@ def deploy(
         typer.Option(
             "--drop",
             "-d",
-            help="Whether to drop existing configurations, drop per resource if present",
+            help="Whether to drop existing configurations, drop per resource if present.",
         ),
     ] = False,
     dry_run: Annotated[
@@ -241,7 +241,7 @@ def deploy(
         typer.Option(
             "--dry-run",
             "-r",
-            help="Whether to do a dry-run, do dry-run if present",
+            help="Whether to do a dry-run, do dry-run if present.",
         ),
     ] = False,
     include: Annotated[
@@ -249,11 +249,11 @@ def deploy(
         typer.Option(
             "--include",
             "-i",
-            help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}",
+            help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
         ),
     ] = None,
 ) -> None:
-    """Deploy one or more configuration types from the built configrations to a CDF environment of your choice (as set in local.yaml)."""
+    """Deploy one or more resource types from the built configurations to a CDF project environment of your choice (as set in environments.yaml)."""
     # Override cluster and project from the options/env variables
     if ctx.obj.mockToolGlobals is not None:
         ToolGlobals = ctx.obj.mockToolGlobals
@@ -297,7 +297,7 @@ def deploy(
     results = DeployResults([], "deploy", dry_run=dry_run)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
-        print("[bold]EVALUATING auth resources with ALL scope...[/]")
+        print("[bold]EVALUATING auth resources (groups) with ALL scope...[/]")
         result = deploy_or_clean_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
             directory,
@@ -305,7 +305,7 @@ def deploy(
         )
         results.append(result)
         if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
+            print("[bold red]ERROR: [/] Failure to deploy auth (groups) with ALL scope as expected.")
             exit(1)
     for LoaderCls in TopologicalSorter(selected_loaders).static_order():
         result = deploy_or_clean_resources(
@@ -331,7 +331,7 @@ def deploy(
         results.append(result)
     print(results.create_rich_table())
     if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
+        print("[bold red]ERROR: [/] Failure to deploy auth (groups) scoped to resources as expected.")
         exit(1)
 
 
@@ -341,7 +341,7 @@ def clean(
     build_dir: Annotated[
         Optional[str],
         typer.Argument(
-            help="Where to find the module templates to clean from",
+            help="Where to find the module templates to clean from. Defaults to ./build directory.",
             allow_dash=True,
         ),
     ] = "./build",
@@ -350,7 +350,7 @@ def clean(
         typer.Option(
             "--env",
             "-e",
-            help="Build environment to clean for",
+            help="CDF project environment to use for cleaning.",
         ),
     ] = "dev",
     interactive: Annotated[
@@ -358,7 +358,7 @@ def clean(
         typer.Option(
             "--interactive",
             "-i",
-            help="Whether to use interactive mode when deciding which modules to clean",
+            help="Whether to use interactive mode when deciding which resource types to clean.",
         ),
     ] = False,
     dry_run: Annotated[
@@ -374,11 +374,11 @@ def clean(
         typer.Option(
             "--include",
             "-i",
-            help=f"Specify which resources to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
+            help=f"Specify which resource types to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
         ),
     ] = None,
 ) -> None:
-    """Clean up a CDF environment as set in local.yaml based on the configuration files in the build directory."""
+    """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
     # Override cluster and project from the options/env variables
     if ctx.obj.mockToolGlobals is not None:
         ToolGlobals = ctx.obj.mockToolGlobals
@@ -466,7 +466,7 @@ def auth_verify(
         typer.Option(
             "--dry-run",
             "-r",
-            help="Whether to do a dry-run, do dry-run if present",
+            help="Whether to do a dry-run, do dry-run if present.",
         ),
     ] = False,
     interactive: Annotated[
@@ -474,7 +474,7 @@ def auth_verify(
         typer.Option(
             "--interactive",
             "-i",
-            help="Will run the verification in interactive mode, prompting for input. Used to bootstrap a new project",
+            help="Will run the verification in interactive mode, prompting for input. Used to bootstrap a new project.",
         ),
     ] = False,
     group_file: Annotated[
@@ -482,7 +482,7 @@ def auth_verify(
         typer.Option(
             "--group-file",
             "-f",
-            help="Path to group yaml configuration file to use for group verification",
+            help="Path to group yaml configuration file to use for group verification. Defaults to readwrite.all.group.yaml from the cdf_auth_readwrite_all common module.",
         ),
     ] = f"/{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
     update_group: Annotated[
@@ -490,7 +490,7 @@ def auth_verify(
         typer.Option(
             "--update-group",
             "-u",
-            help="Used to update an existing group with the configurations from the configuration file. Set to the group id to update or 1 to update the default write-all group (if the tool is only member of one group)",
+            help="Used to update an existing group with the configurations from the configuration file. Set to the group id to update or 1 to update the default write-all group (if the tool is only member of one group).",
         ),
     ] = 0,
     create_group: Annotated[
@@ -498,14 +498,17 @@ def auth_verify(
         typer.Option(
             "--create-group",
             "-c",
-            help="Used to create a new group with the configurations from the configuration file. Set to the source id that the new group should be configured with",
+            help="Used to create a new group with the configurations from the configuration file. Set to the source id that the new group should be configured with.",
         ),
     ] = None,
 ):
-    """When you have a CDF_TOKEN or a pair of CDF_CLIENT_ID and CDF_CLIENT_SECRET for a CDF project,
-    you can use this command to verify that the token has the correct access rights to the project.
+    """When you have the necessary information about your identity provider configuration,
+    you can use this command to configure the tool and verify that the token has the correct access rights to the project.
     It can also create a group with the correct access rights, defaulting to write-all group
     meant for an admin/CICD pipeline.
+
+    As a minimum, you need the CDF project name, the CDF cluster, an identity provider token URL, and a service account client ID
+    and client secret (or an OAuth2 token set in CDF_TOKEN environment variable).
 
     Needed capabilites for bootstrapping:
     "projectsAcl": ["LIST", "READ"],
@@ -546,7 +549,7 @@ def main_init(
         typer.Option(
             "--dry-run",
             "-r",
-            help="Whether to do a dry-run, do dry-run if present",
+            help="Whether to do a dry-run, do dry-run if present.",
         ),
     ] = False,
     upgrade: Annotated[
@@ -554,7 +557,7 @@ def main_init(
         typer.Option(
             "--upgrade",
             "-u",
-            help="Will upgrade templates in place without overwriting existing config.yaml and other files",
+            help="Will upgrade templates in place without overwriting existing config.yaml and other files.",
         ),
     ] = False,
     git: Annotated[
@@ -569,24 +572,24 @@ def main_init(
         Optional[bool],
         typer.Option(
             "--no-backup",
-            help="Will skip making a backup before upgrading",
+            help="Will skip making a backup before upgrading.",
         ),
     ] = False,
     clean: Annotated[
         Optional[bool],
         typer.Option(
             "--clean",
-            help="Will delete the new_project directory before starting",
+            help="Will delete the new_project directory before starting.",
         ),
     ] = False,
     init_dir: Annotated[
         Optional[str],
         typer.Argument(
-            help="Directory path to initialize or upgrade with templates",
+            help="Directory path to project to initialize or upgrade with templates.",
         ),
     ] = "new_project",
 ):
-    """Initialize a new CDF project with templates."""
+    """Initialize or upgrade a new CDF project with templates."""
 
     files_to_copy = []
     dirs_to_copy = []
