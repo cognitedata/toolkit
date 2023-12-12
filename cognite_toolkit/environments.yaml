@@ -24,7 +24,7 @@ demo:
     - cdf_demo_infield
     - cdf_oid_example_data
 local:
-  project: <customer>-dev
+  project: <customer-dev>
   type: dev
   deploy:
     - cdf_auth_readwrite_all
@@ -33,18 +33,18 @@ local:
     - cdf_infield_common
     - cdf_infield_location
 dev:
-  project: <customer>-dev
+  project: <customer-dev>
   type: dev
   deploy:
     - cdf_demo_infield
     - cdf_oid_example_data
 staging:
-  project: <customer>-staging
+  project: <customer-staging>
   type: staging
   deploy:
     - cdf_infield
 prod:
-  project: <customer>-prod
+  project: <customer-prod>
   type: prod
   deploy:
     - cdf_infield

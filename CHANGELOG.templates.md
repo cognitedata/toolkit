@@ -17,7 +17,11 @@ Changes are grouped as follows:
 ## TBD - 2023-12-TBD
 ### Added
 - Explicitly define model `space` in `experimental/cdf_asset_source_model/` and `experimental/example_pump_model/`.
-
+- The module `my_example_module` has been added to the `custom_modules` folder.
+### Changed
+- All cognite templates have been moved into `cognite_templates` folder, while `local_templates` is renamed to `custom_templates`.
+- Move cdf_apm_base into separate folder.
+- The file `local.yaml` has been renamed `environments.yaml` to better reflect its purpose.
 ## [0.2.0] - 2023-12-01
 
 ### Changed
