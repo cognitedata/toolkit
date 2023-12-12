@@ -18,10 +18,11 @@ import itertools
 import json
 import re
 from abc import ABC, abstractmethod
-from collections import Counter
-from collections.abc import Sequence, Sized
+from collections import Counter, UserList
+from collections.abc import Iterable, Sequence, Sized
 from contextlib import suppress
 from dataclasses import dataclass
+from functools import total_ordering
 from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar, Union, final
 
@@ -78,6 +79,7 @@ from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModel
 from cognite.client.data_classes.iam import Group, GroupList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from rich import print
+from rich.table import Table
 from typing_extensions import Self
 
 from .delete import delete_instances
@@ -368,6 +370,14 @@ class AuthLoader(Loader[int, Group, GroupList]):
     ):
         super().__init__(client, ToolGlobals)
         self.load = target_scopes
+
+    @property
+    def display_name(self):
+        if self.load.startswith("all"):
+            scope = "all"
+        else:
+            scope = "resource scoped"
+        return f"{self.api_name}({scope})"
 
     @staticmethod
     def fixup_resource(local: T_Resource, remote: T_Resource) -> T_Resource:
@@ -980,6 +990,7 @@ class SpaceLoader(Loader[str, SpaceApply, SpaceApplyList]):
     filename_pattern = r"^.*\.?(space)$"
     resource_cls = SpaceApply
     list_cls = SpaceApplyList
+    _display_name = "spaces"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
@@ -1025,6 +1036,8 @@ class ContainerLoader(Loader[ContainerId, ContainerApply, ContainerApplyList]):
     list_cls = ContainerApplyList
     dependencies = frozenset({SpaceLoader})
 
+    _display_name = "containers"
+
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         # Todo Scoped to spaces
@@ -1058,6 +1071,8 @@ class ViewLoader(Loader[ViewId, ViewApply, ViewApplyList]):
     list_cls = ViewApplyList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
 
+    _display_name = "views"
+
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         # Todo Scoped to spaces
@@ -1083,6 +1098,7 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
     resource_cls = DataModelApply
     list_cls = DataModelApplyList
     dependencies = frozenset({SpaceLoader, ViewLoader})
+    _display_name = "data models"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -1201,17 +1217,64 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
         return items
 
 
-def drop_load_resources(
+@total_ordering
+@dataclass
+class DeployResult:
+    name: str
+    created: int
+    deleted: int
+    skipped: int
+    total: int
+
+    def __lt__(self, other):
+        return self.name < other.name
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+
+class DeployResults(UserList):
+    def __init__(self, collection: Iterable[DeployResult], action: Literal["deploy", "clean"], dry_run: bool = False):
+        super().__init__(collection)
+        self.action = action
+        self.dry_run = dry_run
+
+    def create_rich_table(self) -> Table:
+        table = Table(title=f"Summary of {self.action} command:")
+        prefix = ""
+        if self.dry_run:
+            prefix = "Would have "
+        table.add_column("Resource", justify="right")
+        table.add_column(f"{prefix}Created", justify="right", style="green")
+        table.add_column(f"{prefix}Deleted", justify="right", style="red")
+        table.add_column(f"{prefix}Skipped", justify="right", style="yellow")
+        table.add_column("Total", justify="right")
+        for item in sorted(self.data):
+            table.add_row(
+                item.name,
+                str(item.created),
+                str(item.deleted),
+                str(item.skipped),
+                str(item.total),
+            )
+
+        return table
+
+
+def deploy_or_clean_resources(
     loader: Loader,
     path: Path,
     ToolGlobals: CDFToolConfig,
     drop: bool = False,
     clean: bool = False,
-    load: bool = True,
+    action: Literal["deploy", "clean"] = "deploy",
     dry_run: bool = False,
     drop_data: bool = False,
     verbose: bool = False,
-):
+) -> DeployResult:
+    if action not in ["deploy", "clean"]:
+        raise ValueError(f"Invalid action {action}")
+
     if path.is_file():
         if path.suffix not in loader.filetypes or not loader.filetypes:
             raise ValueError("Invalid file type")
@@ -1232,29 +1295,29 @@ def drop_load_resources(
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
     if nr_of_items == 0:
-        return
-    nr_of_deleted = 0
-    nr_of_created = 0
-    if load:
-        print(f"[bold]Uploading {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
+        return DeployResult(name=loader.display_name, created=0, deleted=0, skipped=0, total=0)
+    if action == "deploy":
+        action_word = "Loading" if dry_run else "Uploading"
+        print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     else:
-        print(f"[bold]Cleaning {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
+        action_word = "Loading" if dry_run else "Cleaning"
+        print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     batches = [item if isinstance(item, Sized) else [item] for item in items]
-    if drop and loader.support_drop and load:
+    if drop and loader.support_drop and action == "deploy":
         print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
+
+    # Deleting resources.
+    nr_of_deleted = 0
     if (drop and loader.support_drop) or clean:
         for batch in batches:
-            drop_items: list = []
-            for item in batch:
-                # Set the context info for this CDF project
-                if hasattr(item, "data_set_id") and ToolGlobals.data_set_id is not None:
-                    item.data_set_id = ToolGlobals.data_set_id
-                drop_items.append(loader.get_id(item))
-            if not dry_run:
+            drop_items = [loader.get_id(item) for item in batch]
+            if dry_run:
+                nr_of_deleted += len(drop_items)
+                if verbose:
+                    print(f"  Would have deleted {len(drop_items)} {loader.display_name}.")
+            else:
                 try:
                     nr_of_deleted += loader.delete(drop_items, drop_data)
-                    if verbose:
-                        print(f"  Deleted {len(drop_items)} {loader.display_name}.")
                 except CogniteAPIError as e:
                     if e.code == 404:
                         print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.display_name} do(es) not exist.")
@@ -1262,37 +1325,57 @@ def drop_load_resources(
                     print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.display_name} do(es) not exist.")
                 except Exception as e:
                     print(
-                        f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.display_name}. Error {e}"
+                        f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.display_name}. Error {e}."
                     )
+                else:  # Delete succeeded
+                    if verbose:
+                        print(f"  Deleted {len(drop_items)} {loader.display_name}.")
+        if dry_run and action == "clean" and verbose:
+            # Only clean command prints this, if not we print it at the end
+            print(f"  Would have deleted {nr_of_deleted} {loader.display_name} in total.")
+
+    if action == "clean":
+        # Clean Command, only delete.
+        return DeployResult(name=loader.display_name, created=0, deleted=nr_of_deleted, skipped=0, total=nr_of_items)
+
+    nr_of_created = 0
+    nr_of_skipped = 0
+    for batch, filepath in zip(batches, filepaths):
+        if not drop and loader.support_upsert:
+            if verbose:
+                print(f"  Comparing {len(batch)} {loader.display_name} from {filepath}...")
+            batch = loader.remove_unchanged(batch)
+            if verbose:
+                print(f"    {len(batch)} {loader.display_name} to be deployed...")
+
+        if batch:
+            if dry_run:
+                nr_of_created += len(batch)
             else:
-                print(f"  Would have deleted {len(drop_items)} {loader.display_name}.")
-    if not load:
-        return
-    try:
-        if not dry_run:
-            for batch, filepath in zip(batches, filepaths):
-                if not drop and loader.support_upsert:
-                    if verbose:
-                        print(f"  Comparing {len(batch)} {loader.display_name} from {filepath}...")
-                    batch = loader.remove_unchanged(batch)
-                    if verbose:
-                        print(f"    {len(batch)} {loader.display_name} to be deployed...")
-                if len(batch) > 0:
+                try:
                     created = loader.create(batch, drop, filepath)
-                    nr_of_created += len(created) if created is not None else 0
+                except Exception as e:
+                    print(f"  [bold yellow]WARNING:[/] Failed to upload {loader.display_name}. Error {e}.")
+                    ToolGlobals.failed = True
+                    return
+                else:
+                    newly_created = len(created) if created is not None else 0
+                    nr_of_created += newly_created
+                    nr_of_skipped += len(batch) - newly_created
                     if isinstance(loader, AuthLoader):
                         nr_of_deleted += len(created)
-    except Exception as e:
-        print(f"[bold red]ERROR:[/] Failed to upload {loader.display_name}.")
-        print(e)
-        ToolGlobals.failed = True
-        return
-    if nr_of_deleted != 0:
+    if verbose:
+        prefix = "Would have" if dry_run else ""
         print(
-            f"  Deleted {nr_of_deleted} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files."
+            f"  {prefix} Created {nr_of_created}, Deleted {nr_of_deleted}, Skipped {nr_of_skipped}, Total {nr_of_items}."
         )
-
-    print(f"  Created {nr_of_created} out of {nr_of_items} {loader.display_name} from {len(filepaths)} config files.")
+    return DeployResult(
+        name=loader.display_name,
+        created=nr_of_created,
+        deleted=nr_of_deleted,
+        skipped=nr_of_skipped,
+        total=nr_of_items,
+    )
 
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
