@@ -16,15 +16,21 @@ Changes are grouped as follows:
 - `Security` in case of vulnerabilities.
 
 ## [TBD] - 2023-12-TBD
+
 ### Added
+
 - Warnings if a configuration file is using `snake_case` when then resource type is expecting `camelCase`.
 - Added support for validation of `space` for data models.
 - Check for whether template variables `<change_me>` are present in the config files.
 - Check for whether data set id is present in the config files.
 - Print table at the end of `cdf-tk deploy` with the resources that were created, deleted, and skipped.
+
 ### Removed
+
 - In the `deploy` command `drop_data` option has been removed. To drop data, use the `clean` command instead.
+
 ### Changed
+
 - Require all spaces to be explicitly defined as separate .space.yaml file.
 - The `data_set_id` for `Transformations` must now be set explicitly in the yaml config file for the `Transformation`
   under the `data_set_id` key. Note that you also need to explicitly define the `data_set` in its own yaml config file.
@@ -34,6 +40,7 @@ Changes are grouped as follows:
   set explicitly in the yaml config file.
 
 ### Fixed
+
 - When running `cdf-tk deploy` with `--dry-run` a `ValueError` was raised if not all datasets were pre-existing.
   This is now fixed by skipping dataset validation when running with `--dry-run`.
 
