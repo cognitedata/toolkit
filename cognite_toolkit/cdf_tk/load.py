@@ -892,9 +892,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                 {
                     "externalId": resource.get("externalId"),
                     "description": resource.get("description"),
-                    "config": yaml.dump(resource.get("config", ""), indent=4)
-                    if config_file.suffix == ".yaml"
-                    else str(resource.get("config", "")),
+                    "config": yaml.dump(resource.get("config", ""), indent=4),
                 }
             )
             try:
