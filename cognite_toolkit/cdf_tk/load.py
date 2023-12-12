@@ -884,7 +884,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
             )
             try:
                 self.client.extraction_pipelines.config.create(extractionPipelineConfig)
-                
+
             except Exception as e:
                 print(f"[bold red]ERROR:[/] Failed to create extraction pipeline config.\n{e}")
                 self.ToolGlobals.failed = True
