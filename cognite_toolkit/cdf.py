@@ -22,7 +22,8 @@ from cognite_toolkit.cdf_tk import bootstrap
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
-    drop_load_resources,
+    DeployResults,
+    deploy_or_clean_resources,
 )
 from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
@@ -276,41 +277,47 @@ def deploy(
     arguments = dict(
         ToolGlobals=ToolGlobals,
         drop=drop,
-        load=True,
+        action="deploy",
         dry_run=dry_run,
         drop_data=False,
         verbose=ctx.obj.verbose,
     )
-
+    results = DeployResults([], "deploy", dry_run=dry_run)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
         print("[bold]EVALUATING auth resources with ALL scope...[/]")
-        drop_load_resources(
+        result = deploy_or_clean_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
             directory,
             **arguments,
         )
+        results.append(result)
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
             exit(1)
     for LoaderCls in TopologicalSorter(selected_loaders).static_order():
-        drop_load_resources(
+        result = deploy_or_clean_resources(
             LoaderCls.create_loader(ToolGlobals),
             build_path / LoaderCls.folder_name,
             **arguments,
         )
+        results.append(result)
         if ToolGlobals.failed:
+            if results:
+                print(results.create_rich_table())
             print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
             exit(1)
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we need to get all the scoped access, as the resources should now have been created.
         print("[bold]EVALUATING auth resources scoped to resources...[/]")
-        drop_load_resources(
+        result = deploy_or_clean_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only"),
             directory,
             **arguments,
         )
+        results.append(result)
+    print(results.create_rich_table())
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to deploy auth as expected.")
         exit(1)
@@ -396,35 +403,40 @@ def clean(
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to delete data models as expected.")
         exit(1)
-
+    results = DeployResults([], "clean", dry_run=dry_run)
     for LoaderCls in reversed(list(TopologicalSorter(selected_loaders).static_order())):
-        drop_load_resources(
+        result = deploy_or_clean_resources(
             LoaderCls.create_loader(ToolGlobals),
             build_path / LoaderCls.folder_name,
             ToolGlobals,
             drop=True,
-            load=False,
+            action="clean",
             drop_data=True,
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
         )
+        results.append(result)
         if ToolGlobals.failed:
+            if results:
+                print(results.create_rich_table())
             print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
             exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        drop_load_resources(
+        result = deploy_or_clean_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
             directory,
             ToolGlobals,
             drop=True,
             clean=True,
-            load=False,
+            action="clean",
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
         )
-        if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to clean auth as expected.")
-            exit(1)
+        results.append(result)
+    print(results.create_rich_table())
+    if ToolGlobals.failed:
+        print("[bold red]ERROR: [/] Failure to clean auth as expected.")
+        exit(1)
 
 
 @auth_app.callback(invoke_without_command=True)

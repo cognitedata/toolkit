@@ -43,8 +43,7 @@ Row:
     table_name: collections_pump
   name: pump_assets_collections_pump_True
 Transformation:
-- dataSetId: 999
-  destination:
+- destination:
     type: asset_hierarchy
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
