@@ -68,31 +68,43 @@ def common(
     verbose: Annotated[
         bool,
         typer.Option(
-            help="Turn on to get more verbose output",
+            help="Turn on to get more verbose output when running the commands",
         ),
     ] = False,
     override_env: Annotated[
         bool,
         typer.Option(
-            help="Use .env file to override current environment variables",
+            help="Load the .env file in this or the parent directory, but also override currently set environment variables",
         ),
     ] = False,
     cluster: Annotated[
         Optional[str],
         typer.Option(
             envvar="CDF_CLUSTER",
-            help="Cognite Data Fusion cluster to use",
+            help="The Cognite Data Fusion cluster to use. Can also be set with the CDF_CLUSTER environment variable.",
         ),
     ] = None,
     project: Annotated[
         Optional[str],
         typer.Option(
             envvar="CDF_PROJECT",
-            help="Cognite Data Fusion project to use",
+            help="The Cognite Data Fusion project to use. Can also be set with the CDF_PROJECT environment variable.",
         ),
     ] = None,
-    version: bool = typer.Option(None, "--version", callback=_version_callback),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        help="See which version of the tooklit and the templates are installed.",
+        callback=_version_callback,
+    ),
 ):
+    """The cdf-tk tool is used to build and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.
+
+    Each of the main commands has a separate help, e.g. `cdf-tk build --help` or `cdf-tk deploy --help`.
+
+    You can find the documation at https://developer.cognite.com/sdks/toolkit/
+    and the template reference documentation at https://developer.cognite.com/sdks/toolkit/references/configs
+    """
     if ctx.invoked_subcommand is None:
         print(
             "[bold]A tool to manage and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.[/]"
@@ -103,7 +115,7 @@ def common(
     if override_env:
         print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
         if cluster is not None or project is not None:
-            print("            --cluster or --project are set and will override .env file values.")
+            print("            --cluster or --project is set and will override .env file values.")
     if not (Path.cwd() / ".env").is_file():
         if not (Path.cwd().parent / ".env").is_file():
             print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
@@ -159,8 +171,8 @@ def build(
         ),
     ] = False,
 ) -> None:
-    source_dir = Path(source_dir)
     """Build configuration files from the module templates to a local build directory."""
+    source_dir = Path(source_dir)
     if not source_dir.is_dir():
         print(f"  [bold red]ERROR:[/] {source_dir} does not exist")
         exit(1)
@@ -196,7 +208,7 @@ def deploy(
     build_dir: Annotated[
         Optional[str],
         typer.Argument(
-            help="Where to find the module templates to deploy from",
+            help="Where to find the module templates to deploy from. Defaults to current directory.",
             allow_dash=True,
         ),
     ] = "./build",
@@ -462,7 +474,7 @@ def auth_verify(
         typer.Option(
             "--interactive",
             "-i",
-            help="Will run the verification in interactive mode, prompting for input",
+            help="Will run the verification in interactive mode, prompting for input. Used to bootstrap a new project",
         ),
     ] = False,
     group_file: Annotated[
@@ -470,7 +482,7 @@ def auth_verify(
         typer.Option(
             "--group-file",
             "-f",
-            help="Group yaml configuration file to use for group verification",
+            help="Path to group yaml configuration file to use for group verification",
         ),
     ] = f"/{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
     update_group: Annotated[
@@ -478,7 +490,7 @@ def auth_verify(
         typer.Option(
             "--update-group",
             "-u",
-            help="Used to update an existing group with the configurations from the configuration file. Set to the group id to update or 1 to update the only available group",
+            help="Used to update an existing group with the configurations from the configuration file. Set to the group id to update or 1 to update the default write-all group (if the tool is only member of one group)",
         ),
     ] = 0,
     create_group: Annotated[
@@ -542,7 +554,7 @@ def main_init(
         typer.Option(
             "--upgrade",
             "-u",
-            help="Will upgrade templates in place without overwriting config.yaml files",
+            help="Will upgrade templates in place without overwriting existing config.yaml and other files",
         ),
     ] = False,
     git: Annotated[
@@ -570,7 +582,7 @@ def main_init(
     init_dir: Annotated[
         Optional[str],
         typer.Argument(
-            help="Directory to initialize with templates",
+            help="Directory path to initialize or upgrade with templates",
         ),
     ] = "new_project",
 ):
@@ -632,9 +644,10 @@ def main_init(
                 zip_path, _ = urllib.request.urlretrieve(toolkit_github_url)
                 with zipfile.ZipFile(zip_path, "r") as f:
                     f.extractall(extract_dir)
-            except Exception as e:
+            except Exception:
                 print(
-                    f"Failed to download templates. Are you sure that the branch {git} exists in the repository?\n{e}"
+                    f"Failed to download templates. Are you sure that the branch {git} exists in"
+                    + "the https://github.com/cognitedata/cdf-project-templatesrepository?\n{e}"
                 )
                 exit(1)
         template_dir = Path(extract_dir) / f"cdf-project-templates-{git}" / "cognite_toolkit"
@@ -680,19 +693,19 @@ def main_init(
         shutil.rmtree(extract_dir)
     if not dry_run:
         if upgrade:
-            print(f"Project in {target_dir} was upgraded.")
+            print(f"You project in {target_dir} was upgraded.")
         else:
-            print(f"New project created in {target_dir}.")
+            print(f"A new project was created in {target_dir}.")
         if upgrade:
-            print("  All default.config.yaml files in the modules have been upgraded.")
-            print("  Your config.yaml files may need to be updated to override new default variables.")
+            print("  All default variables from the modules have been upgraded.")
+            print("  Please check you config.yaml file for new default variables that may need to be changed.")
 
     config_filepath = target_dir / "config.yaml"
     if not dry_run:
         if clean or not config_filepath.exists():
             config_str, _ = generate_config(target_dir)
             config_filepath.write_text(config_str)
-            print(f"Created config.yaml file in {target_dir}.")
+            print(f"Created your config.yaml file in {target_dir}.")
         else:
             current = config_filepath.read_text()
             config_str, difference = generate_config(target_dir, existing_config=current)
@@ -703,7 +716,7 @@ def main_init(
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
     if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
         print(
-            f"  [bold red]ERROR:[/] Invalid data types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
+            f"  [bold red]ERROR:[/] Invalid resource types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
         )
         exit(1)
     include = include or list(_AVAILABLE_DATA_TYPES)
@@ -719,7 +732,7 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
         mapping[i] = datatype
     print("\na) All")
     print("q) Quit")
-    answer = input("Select data types to include: ")
+    answer = input("Select resource types to include: ")
     if answer.casefold() == "a":
         return list(include)
     elif answer.casefold() == "q":
