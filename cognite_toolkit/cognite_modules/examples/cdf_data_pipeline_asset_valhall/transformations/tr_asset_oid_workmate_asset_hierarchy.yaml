@@ -8,15 +8,14 @@ conflictMode: upsert
 # Specify credentials separately like this:
 # You can also use different credentials for the running transformations than the ones you use to deploy
 authentication:
-  clientId: {{clientId}}
-  clientSecret: {{clientSecret}}
-  tokenUri: {{tokenUri}}
-  # Optional: If idP requires providing the scopes
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the cicd_scopes
   cdfProjectName: {{cdfProjectName}}
-  scopes:
-    - {{scopes}}
-  # Optional: If idP requires providing the audience
-  audience: {{audience}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the cicd_audience
+  audience: {{cicd_audience}}
 schedule:
   # every hour
   interval: '0 * * * *'
