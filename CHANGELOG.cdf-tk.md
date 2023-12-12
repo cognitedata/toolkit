@@ -21,6 +21,7 @@ Changes are grouped as follows:
 - Added support for validation of `space` for data models.
 - Check for whether template variables `<change_me>` are present in the config files.
 - Check for whether data set id is present in the config files.
+- Print table at the end of `cdf-tk deploy` with the resources that were created, deleted, and skipped.
 ### Removed
 - In the `deploy` command `drop_data` option has been removed. To drop data, use the `clean` command instead.
 ### Changed
@@ -29,7 +30,8 @@ Changes are grouped as follows:
   under the `data_set_id` key. Note that you also need to explicitly define the `data_set` in its own yaml config file.
 - All config files have been merged to a single config file, `config.yaml`. Upon calling `cdf-tk init` the `config.yaml`
   is created in the root folder of the project based on the `default.config.yaml` file of each module.
-
+- DataSetID is no longer set implicitly when running the `cdf-tk deploy` command. Instead, the `data_set_id` must be
+  set explicitly in the yaml config file.
 
 ### Fixed
 - When running `cdf-tk deploy` with `--dry-run` a `ValueError` was raised if not all datasets were pre-existing.
