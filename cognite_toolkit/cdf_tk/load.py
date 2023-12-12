@@ -792,7 +792,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
-    filename_pattern = r'^(?:(?!\.config).)*$'  # Matches all yaml files except config.yaml
+    filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except config.yaml
     resource_cls = ExtractionPipeline
     list_cls = ExtractionPipelineList
     dependencies = frozenset({DataSetsLoader, RawLoader})
@@ -826,9 +826,8 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
             return 0
 
     def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipeline:
-        
         resource = load_yaml_inject_variables(filepath, {})
-        
+
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
             resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
@@ -857,11 +856,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
         file_name = filepath.stem.split(".", 2)[1]
         config_file_stem = f"{file_name}.config"
         config_file = next(
-            (
-                file
-                for file in Path(filepath.parent).iterdir()
-                if file.is_file() and config_file_stem in file.name
-            ),
+            (file for file in Path(filepath.parent).iterdir() if file.is_file() and config_file_stem in file.name),
             None,
         )
 
@@ -879,7 +874,9 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                 {
                     "externalId": resource.get("externalId"),
                     "description": resource.get("description"),
-                    "config": yaml.dump(resource.get("config", ""), indent=4) if config_file.suffix == ".yaml" else str(resource.get("config", ""))
+                    "config": yaml.dump(resource.get("config", ""), indent=4)
+                    if config_file.suffix == ".yaml"
+                    else str(resource.get("config", "")),
                 }
             )
             try:
