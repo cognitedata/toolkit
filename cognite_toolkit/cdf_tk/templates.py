@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import itertools
 import os
 import re
@@ -13,7 +12,6 @@ from typing import Any, Literal, overload
 
 import yaml
 from rich import print
-from ruamel.yaml import YAML, CommentedMap
 
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
@@ -512,8 +510,6 @@ def generate_config(
     Returns:
         A config dictionary.
     """
-    yaml_loader = YAML()
-    config = CommentedMap()
     if not directory.exists():
         raise ValueError(f"Directory {directory} does not exist")
     entries = ConfigEntries((existing_config and yaml.safe_load(existing_config)) or None)
@@ -521,7 +517,8 @@ def generate_config(
         directories = [directory]
     else:
         directories = directory
-
+    config = {}
+    comments = {}
     for dir_ in directories:
         defaults = sorted(directory.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(dir_))
 
@@ -529,7 +526,10 @@ def generate_config(
             if include_modules is not None and default_config.parent.name not in include_modules:
                 continue
             raw_file = default_config.read_text()
-            file_data = yaml_loader.load(raw_file)
+            file_comments = _extract_comments(raw_file, default_config.parent.name)
+            comments.update(file_comments)
+
+            file_data = yaml.safe_load(raw_file)
             parts = default_config.relative_to(directory).parent.parts
             if len(parts) == 0:
                 # This is a root config file
@@ -550,7 +550,7 @@ def generate_config(
             local_config = config
             for key in parts[:-1]:
                 if key not in local_config:
-                    local_config[key] = CommentedMap()
+                    local_config[key] = {}
                 local_config = local_config[key]
 
             if parts[-1] in local_config:
@@ -572,33 +572,24 @@ def generate_config(
             )
 
     config = _reorder_config_yaml(config)
-
-    output = io.StringIO()
-    yaml_loader.dump(config, output)
-    output_yaml = output.getvalue()
-    # Indent comments
-    output_lines = []
-    leading_spaces = 0
-    for line in output_yaml.splitlines():
-        if line.lstrip().startswith("#"):
-            line = f"{' '*leading_spaces}{line}"
-        else:
-            leading_spaces = len(line) - len(line.lstrip())
-        output_lines.append(line)
-
+    output_yaml = yaml.safe_dump(config)
     return output_yaml, entries
 
 
-def _reorder_config_yaml(config: CommentedMap) -> CommentedMap:
+def _reorder_config_yaml(config: dict[str, Any]) -> dict[str, Any]:
     """Reorder the config.yaml file to have the keys in alphabetical order
     and the variables before the modules.
     """
-    new_config = CommentedMap()
+    new_config = {}
     for key in sorted([k for k in config.keys() if not isinstance(config[k], dict)]):
         new_config[key] = config[key]
     for key in sorted([k for k in config.keys() if isinstance(config[k], dict)]):
         new_config[key] = _reorder_config_yaml(config[key])
     return new_config
+
+
+def _extract_comments(raw_file: str, module_name: str) -> dict[str, Any]:
+    pass
 
 
 @dataclass

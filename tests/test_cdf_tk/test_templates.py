@@ -8,6 +8,7 @@ import yaml
 
 from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
+    _extract_comments,
     create_local_config,
     generate_config,
     split_config,
@@ -91,3 +92,28 @@ def test_create_local_config(my_config: dict[str, Any]):
     local_config = create_local_config(configs, Path("parent/child/auth/"))
 
     assert dict(local_config.items()) == {"top_variable": "my_top_variable", "child_variable": "my_child_variable"}
+
+
+@pytest.mark.parametrize(
+    "raw_file, modul_name, expected_comments",
+    [
+        pytest.param(
+            """# This is a module comment
+variable: value # After variable comment
+# Before variable comment
+variable2: value2""",
+            "a_module",
+            {
+                "a_module": {
+                    "variable1": {"end_line_comment": "After variable comment"},
+                    "variable2": {"above_comment": ["Before variable comment"]},
+                },
+                "module comment": ["This is a module comment"],
+            },
+            id="module comments",
+        )
+    ],
+)
+def test_extract_comments(raw_file: str, modul_name: str, expected_comments: dict[str, Any]):
+    actual_comments = _extract_comments(raw_file, modul_name)
+    assert actual_comments == expected_comments
