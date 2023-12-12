@@ -16,7 +16,7 @@ from rich import print
 from ruamel.yaml import YAML, CommentedMap
 
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
-from cognite_toolkit.cdf_tk.utils import LoadWarning, validate_case_raw
+from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
 
 # This is the default config located locally in each module.
 DEFAULT_CONFIG_FILE = "default.config.yaml"
@@ -489,20 +489,12 @@ def build_config(
     selected_modules = get_selected_modules(source_module_dir, environment_file, build_env, verbose)
 
     config = read_yaml_file(config_file)
+    warnings = validate_config_yaml(config, config_file)
+    if warnings:
+        print("  [bold yellow]WARNING:[/] Found the following warnings in config.yaml:")
+        for warning in warnings:
+            print(f"    {warning}")
     process_config_files(source_module_dir, selected_modules, build_dir, config, build_env, verbose)
-
-
-def generate_warnings_report(load_warnings: list[LoadWarning], indent: int = 0) -> str:
-    report = [""]
-    for (file, identifier, id_name), file_warnings in itertools.groupby(
-        sorted(load_warnings), key=lambda w: (w.filepath, w.id_value, w.id_name)
-    ):
-        report.append(f"{'    '*indent}In File {str(file)!r}")
-        report.append(f"{'    '*indent}In entry {id_name}={identifier!r}")
-        for warning in file_warnings:
-            report.append(f"{'    '*(indent+1)}{warning!s}")
-
-    return "\n".join(report)
 
 
 def generate_config(
@@ -808,12 +800,17 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
             loader = loader[0]
         else:
             loader = next((loader for loader in loader if re.match(loader.filename_pattern, destination.stem)), None)
+
         if loader:
             load_warnings = validate_case_raw(
                 parsed, loader.resource_cls, destination, identifier_key=loader.identifier_key
             )
             if load_warnings:
-                print(f"  [bold yellow]WARNING:[/]{generate_warnings_report(load_warnings, indent=1)}")
+                print(f"  [bold yellow]WARNING:[/] Found potential snake_case issues: {load_warnings!s}")
+
+            data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, destination)
+            if data_set_warnings:
+                print(f"  [bold yellow]WARNING:[/] Found missing data_sets: {data_set_warnings!s}")
 
 
 if __name__ == "__main__":
