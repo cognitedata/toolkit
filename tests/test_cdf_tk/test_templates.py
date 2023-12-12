@@ -6,9 +6,15 @@ from typing import Any
 import pytest
 import yaml
 
-from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, create_local_config, generate_config, split_config
+from cognite_toolkit.cdf_tk.templates import (
+    COGNITE_MODULES,
+    create_local_config,
+    generate_config,
+    split_config,
+)
 
 BUILD_CONFIG = Path(__file__).parent / "project_configs"
+DATA = Path(__file__).parent / "data"
 
 
 def generate_config_test_cases():
