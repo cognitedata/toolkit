@@ -92,7 +92,7 @@ Transformation:
     , \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
   schedule:
     externalId: pump_model-populate-lift_station_pumps_edges
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -131,7 +131,7 @@ Transformation:
     \  startswith(title, 'Pump')\n"
   schedule:
     externalId: pump_model-populate-pump_container
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -142,10 +142,10 @@ Transformation:
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
 - externalId: pump_model-populate-lift_station_pumps_edges
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 - externalId: pump_model-populate-pump_container
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 View:
 - externalId: LiftStation

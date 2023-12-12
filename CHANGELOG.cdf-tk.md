@@ -19,6 +19,8 @@ Changes are grouped as follows:
 ### Added
 - Warnings if a configuration file is using `snake_case` when then resource type is expecting `camelCase`.
 - Added support for validation of `space` for data models.
+- Check for whether template variables `<change_me>` are present in the config files.
+- Check for whether data set id is present in the config files.
 - Print table at the end of `cdf-tk deploy` with the resources that were created, deleted, and skipped.
 ### Removed
 - In the `deploy` command `drop_data` option has been removed. To drop data, use the `clean` command instead.
