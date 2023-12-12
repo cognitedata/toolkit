@@ -792,6 +792,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
+    filename_pattern = r'^(?:(?!\.config).)*$'  # Matches all yaml files except config.yaml
     resource_cls = ExtractionPipeline
     list_cls = ExtractionPipelineList
     dependencies = frozenset({DataSetsLoader, RawLoader})
@@ -825,10 +826,9 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
             return 0
 
     def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipeline:
-        if filepath.name.endswith(".config.yaml"):
-            return None
-
+        
         resource = load_yaml_inject_variables(filepath, {})
+        
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
             resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
@@ -855,19 +855,19 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                     return None
 
         file_name = filepath.stem.split(".", 2)[1]
-        config_file_name = f"{file_name}.config.yaml"
+        config_file_stem = f"{file_name}.config"
         config_file = next(
             (
                 file
                 for file in Path(filepath.parent).iterdir()
-                if file.is_file() and file.name.endswith(config_file_name)
+                if file.is_file() and config_file_stem in file.name
             ),
             None,
         )
 
         if not config_file.exists():
             print(
-                f"  [bold yellow]WARNING:[/] no config file for extraction pipeline found. Expected to find {config_file_name} in same folder as {file_name}"
+                f"  [bold yellow]WARNING:[/] no config file for extraction pipeline found. Expected to find {config_file_stem} in same folder as {file_name}"
             )
             return extractionPipelineList
 
@@ -879,7 +879,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                 {
                     "externalId": resource.get("externalId"),
                     "description": resource.get("description"),
-                    "config": yaml.dump(resource.get("config", ""), indent=4),
+                    "config": yaml.dump(resource.get("config", ""), indent=4) if config_file.suffix == ".yaml" else str(resource.get("config", ""))
                 }
             )
             try:
