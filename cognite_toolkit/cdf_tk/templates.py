@@ -513,7 +513,7 @@ def generate_config(
         A config dictionary.
     """
     yaml_loader = YAML()
-    config = (existing_config and yaml_loader.load(existing_config)) or CommentedMap()
+    config = CommentedMap()
     if not directory.exists():
         raise ValueError(f"Directory {directory} does not exist")
     entries = ConfigEntries((existing_config and yaml.safe_load(existing_config)) or None)
@@ -532,9 +532,9 @@ def generate_config(
             parts = default_config.relative_to(directory).parent.parts
             if len(parts) == 0:
                 # This is a root config file
-                for key, value in file_data.items():
-                    config[key] = value
-                    entries.append(
+                config.update(file_data)
+                entries.extend(
+                    [
                         ConfigEntry(
                             key=key,
                             module="",
@@ -542,17 +542,23 @@ def generate_config(
                             last_value=None,
                             current_value=value,
                         )
-                    )
+                        for key, value in file_data.items()
+                    ]
+                )
                 continue
             local_config = config
-            for key in parts:
+            for key in parts[:-1]:
                 if key not in local_config:
                     local_config[key] = CommentedMap()
                 local_config = local_config[key]
 
-            for key, value in file_data.items():
-                local_config[key] = value
-                entries.append(
+            if parts[-1] in local_config:
+                local_config[parts[-1]].update(file_data)
+            else:
+                local_config[parts[-1]] = file_data
+            config.ca = file_data.ca
+            entries.extend(
+                [
                     ConfigEntry(
                         key=key,
                         module=default_config.parent.name,
@@ -560,18 +566,9 @@ def generate_config(
                         last_value=None,
                         current_value=value,
                     )
-                )
-    for removed in entries.removed:
-        parts = removed.path.split(".")
-        parts.append(removed.module)
-        local_config = config
-        last_config = None
-        for key in parts:
-            last_config = local_config
-            local_config = local_config[key]
-        del local_config[removed.key]
-        if not local_config:
-            del last_config[removed.module]
+                    for key, value in file_data.items()
+                ]
+            )
 
     config = _reorder_config_yaml(config)
 
@@ -644,6 +641,10 @@ class ConfigEntries(UserList):
             super().append(item)
         else:
             self._lookup[item.module][item.key].current_value = item.current_value
+
+    def extend(self, items: list[ConfigEntry]) -> None:
+        for item in items:
+            self.append(item)
 
     @property
     def changed(self) -> list[ConfigEntry]:
