@@ -854,7 +854,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
         extractionPipelineList = None
 
         try:
-            extractionPipelineList = ExtractionPipelineList(self.client.extraction_pipelines.create(items))
+            extraction_pipelines = self.client.extraction_pipelines.create(items)
         except CogniteDuplicatedError as e:
             if len(e.duplicated) < len(items):
                 for dup in e.duplicated:
