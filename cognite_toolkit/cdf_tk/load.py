@@ -808,7 +808,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
-    filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names that ends with config.yaml
+    filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
     resource_cls = ExtractionPipeline
     list_cls = ExtractionPipelineList
     dependencies = frozenset({DataSetsLoader, RawLoader})
@@ -851,7 +851,6 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
         return ExtractionPipeline.load(resource)
 
     def create(self, items: Sequence[ExtractionPipeline], drop: bool, filepath: Path) -> ExtractionPipelineList:
-
         try:
             extraction_pipelines = self.client.extraction_pipelines.create(items)
         except CogniteDuplicatedError as e:
@@ -862,16 +861,20 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                         if item.external_id == ext_id:
                             items.remove(item)
                 try:
-                    extractionPipelineList = self.client.extraction_pipelines.create(items)
+                    extraction_pipelines = self.client.extraction_pipelines.create(items)
                 except Exception as e:
                     print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
                     self.ToolGlobals.failed = True
                     return ExtractionPipelineList([])
 
-        file_name =re.sub(r'^(\d+)\.', "", filepath.stem)
+        file_name = re.sub(r"^(\d+)\.", "", filepath.stem)
         config_file_stem = f"{file_name}.config"
         config_file = next(
-            (file for file in Path(filepath.parent).iterdir() if file.is_file() and file.stem.endswith(config_file_stem)),
+            (
+                file
+                for file in Path(filepath.parent).iterdir()
+                if file.is_file() and file.stem.endswith(config_file_stem)
+            ),
             None,
         )
 
@@ -879,7 +882,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
             print(
                 f"  [bold yellow]WARNING:[/] no config file for extraction pipeline found. Expected to find {config_file_stem} in same folder as {file_name}"
             )
-            return extractionPipelineList
+            return extraction_pipelines
 
         resources = load_yaml_inject_variables(config_file, {})
         resources = [resources] if isinstance(resources, dict) else resources
@@ -901,7 +904,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                 print(f"[bold red]ERROR:[/] Failed to create extraction pipeline config.\n{e}")
                 self.ToolGlobals.failed = True
 
-        return extractionPipelineList
+        return extraction_pipelines
 
 
 @final
