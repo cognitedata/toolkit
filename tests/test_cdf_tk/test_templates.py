@@ -38,7 +38,7 @@ def generate_config_test_cases():
         },
     }
 
-    yield pytest.param(yaml.safe_dump(expected, sort_keys=False), None, id="Include all")
+    yield pytest.param(expected, None, id="Include all")
 
     only_a_module = {
         COGNITE_MODULES: {
@@ -48,7 +48,7 @@ def generate_config_test_cases():
             },
         }
     }
-    yield pytest.param(yaml.safe_dump(only_a_module, sort_keys=False), {"a_module"}, id="Include one module")
+    yield pytest.param(only_a_module, {"a_module"}, id="Include one module")
 
 
 @pytest.mark.parametrize(
@@ -58,7 +58,7 @@ def generate_config_test_cases():
 def test_generate_config(expected: str, include: set[str] | None) -> None:
     actual, _ = generate_config(BUILD_CONFIG, include_modules=include)
 
-    assert actual == expected
+    assert yaml.safe_load(actual) == expected
 
 
 @pytest.fixture()
@@ -146,9 +146,11 @@ top_variable: my_top_variable # After variable comment
 module_a:
   readwrite_source_id: my_readwrite_source_id
   readonly_source_id: my_readonly_source_id
+
 parent:
   child:
-    child_variable: my_child_variable # With a comment after""",
+    child_variable: my_child_variable # With a comment after
+""",
             id="Config with comments",
         )
     ],

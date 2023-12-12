@@ -655,6 +655,7 @@ def _dump_yaml_with_comments(
         out_lines.append(line)
         last_indent = indent
         last_variable = variable
+    out_lines.append("")
     return "\n".join(out_lines)
 
 
