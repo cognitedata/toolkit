@@ -808,7 +808,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
-    filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except config.yaml
+    filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names that ends with config.yaml
     resource_cls = ExtractionPipeline
     list_cls = ExtractionPipelineList
     dependencies = frozenset({DataSetsLoader, RawLoader})
