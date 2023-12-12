@@ -22,6 +22,7 @@ Changes are grouped as follows:
 - All cognite templates have been moved into `cognite_templates` folder, while `local_templates` is renamed to `custom_templates`.
 - Move cdf_apm_base into separate folder.
 - The file `local.yaml` has been renamed `environments.yaml` to better reflect its purpose.
+- Removed demo `sourceId` from `cdf_infield_location` module.
 ## [0.2.0] - 2023-12-01
 
 ### Changed
