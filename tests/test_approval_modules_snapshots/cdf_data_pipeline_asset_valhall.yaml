@@ -29,7 +29,7 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_asset_oid_extractor
-  sourceId: <update me>
+  sourceId: <change_me>
 - capabilities:
   - transformationsAcl:
       actions:
@@ -48,7 +48,7 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_asset_oid_processing
-  sourceId: <update me>
+  sourceId: <change_me>
 - capabilities:
   - rawAcl:
       actions:
@@ -71,7 +71,7 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_asset_oid_processing
-  sourceId: <update me>
+  sourceId: <change_me>
 - capabilities:
   - assetsAcl:
       actions:
@@ -84,7 +84,7 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_asset_oid_read
-  sourceId: <update me>
+  sourceId: <change_me>
 Transformation:
 - conflictMode: upsert
   destination:
