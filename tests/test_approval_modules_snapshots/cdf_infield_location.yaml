@@ -440,16 +440,17 @@ Transformation:
   ownerIsCurrentUser: true
   query: "--- Parents\nselect\n  cast(asset.externalId as STRING) as externalId,\n\
     \  (case\n    when isnull(asset.parentExternalId) then null\n    else node_reference('sp_asset_oid_source',\
-    \ asset.parentExternalId)\n  end) as parent,\n  null as source,\n  null as root,\n\
-    \  null as description,\n  null as title,\n  null as sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL')\
-    \ as asset\n  inner join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId\
-    \ = rootAsset.id\n\nUNION ALL\n--- Children\nselect\n  cast(asset.externalId as\
-    \ STRING) as externalId,\n  null as parent,\n  cast(\"Asset Hierarachy\" as STRING)\
-    \ as source,\n  node_reference('sp_asset_oid_source', cast(rootAsset.externalId\
-    \ as STRING)) as root,\n  cast(asset.description as STRING) as description,\n\
-    \  cast(asset.name as STRING) as title,\n  cast(asset.externalId as STRING) as\
-    \ sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as asset\n  inner join cdf_assetSubtree('WMT:VAL')\
-    \ as rootAsset on asset.rootId = rootAsset.id\n"
+    \ asset.parentExternalId)\n  end) as parent,\n-- When combining multiple queries\
+    \ with UNION all, all queries must have the same columns.\n  null as source,\n\
+    \  null as root,\n  null as description,\n  null as title,\n  null as sourceId\n\
+    from\n  cdf_assetSubtree('WMT:VAL') as asset\n  inner join cdf_assetSubtree('WMT:VAL')\
+    \ as rootAsset on asset.rootId = rootAsset.id\n\nUNION ALL\n--- Children\nselect\n\
+    \  cast(asset.externalId as STRING) as externalId,\n  null as parent,\n  cast(\"\
+    Asset Hierarachy\" as STRING) as source,\n  node_reference('sp_asset_oid_source',\
+    \ cast(rootAsset.externalId as STRING)) as root,\n  cast(asset.description as\
+    \ STRING) as description,\n  cast(asset.name as STRING) as title,\n  cast(asset.externalId\
+    \ as STRING) as sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as asset\n  inner\
+    \ join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId = rootAsset.id\n"
   schedule:
     externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
     interval: 7 * * * *
