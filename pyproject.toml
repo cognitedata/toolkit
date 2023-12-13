@@ -19,7 +19,6 @@ regex = "^2023.6.3"
 chardet = "^5.1.0"
 typer = {version = "^0.9.0", extras = ["all"]}
 pytest-icdiff = "*"  # Used for better diffs in pytest
-'ruamel.yaml' = "^0.18" # Used for perserving comments in yaml files
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.7.1"
