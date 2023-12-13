@@ -30,8 +30,7 @@ Space:
   name: cdfTemplateInstances
   space: cdfTemplateInstances
 Transformation:
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: Asset
@@ -78,7 +77,7 @@ Transformation:
     \ 'Pump');\n"
   schedule:
     externalId: sync-asset_hierarchy_cdf_asset_source_model
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -89,7 +88,7 @@ Transformation:
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
 - externalId: sync-asset_hierarchy_cdf_asset_source_model
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 View:
 - externalId: Asset

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -16,7 +17,16 @@ from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 
-from cognite_toolkit.cdf_tk.utils import CaseWarning, CDFToolConfig, load_yaml_inject_variables, validate_case_raw
+from cognite_toolkit.cdf_tk.utils import (
+    CDFToolConfig,
+    DataSetMissingWarning,
+    SnakeCaseWarning,
+    TemplateVariableWarning,
+    load_yaml_inject_variables,
+    validate_case_raw,
+    validate_config_yaml,
+    validate_data_set_is_set,
+)
 
 THIS_FOLDER = Path(__file__).resolve().parent
 
@@ -87,8 +97,8 @@ def test_validate_raw() -> None:
     assert len(warnings) == 2
     assert sorted(warnings) == sorted(
         [
-            CaseWarning(raw_file, "wrong_case", "externalId", "is_string", "isString"),
-            CaseWarning(raw_file, "wrong_case", "externalId", "is_step", "isStep"),
+            SnakeCaseWarning(raw_file, "wrong_case", "externalId", "is_string", "isString"),
+            SnakeCaseWarning(raw_file, "wrong_case", "externalId", "is_step", "isStep"),
         ]
     )
 
@@ -99,5 +109,44 @@ def test_validate_raw_nested() -> None:
 
     assert len(warnings) == 1
     assert warnings == [
-        CaseWarning(raw_file, "WorkItem", "externalId", "container_property_identifier", "containerPropertyIdentifier")
+        SnakeCaseWarning(
+            raw_file, "WorkItem", "externalId", "container_property_identifier", "containerPropertyIdentifier"
+        )
     ]
+
+
+@pytest.mark.parametrize(
+    "config_yaml, expected_warnings",
+    [
+        pytest.param(
+            {"sourceId": "<change_me>"},
+            [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "")],
+            id="Single warning",
+        ),
+        pytest.param(
+            {"a_module": {"sourceId": "<change_me>"}},
+            [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "a_module")],
+            id="Nested warning",
+        ),
+        pytest.param(
+            {"a_super_module": {"a_module": {"sourceId": "<change_me>"}}},
+            [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "a_super_module.a_module")],
+            id="Deep nested warning",
+        ),
+        pytest.param({"a_module": {"sourceId": "123"}}, [], id="No warning"),
+    ],
+)
+def test_validate_config_yaml(config_yaml: dict[str, Any], expected_warnings: list[TemplateVariableWarning]) -> None:
+    warnings = validate_config_yaml(config_yaml, Path("config.yaml"))
+
+    assert sorted(warnings) == sorted(expected_warnings)
+
+
+def test_validate_data_set_is_set():
+    warnings = validate_data_set_is_set(
+        {"externalId": "myTimeSeries", "name": "My Time Series"}, TimeSeries, Path("timeseries.yaml")
+    )
+
+    assert sorted(warnings) == sorted(
+        [DataSetMissingWarning(Path("timeseries.yaml"), "myTimeSeries", "externalId", "TimeSeries")]
+    )

@@ -4,6 +4,18 @@ DataSet:
   name: infield:oid:app_data
 Group:
 - capabilities:
+  - groupsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        currentuserscope: {}
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: gp_infield_oid_checklist_admins
+  sourceId: <change_me>
+- capabilities:
   - threedAcl:
       actions:
       - READ
@@ -90,7 +102,19 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_infield_oid_checklist_admins
-  sourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+  sourceId: <change_me>
+- capabilities:
+  - groupsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        currentuserscope: {}
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: gp_infield_oid_normal_users
+  sourceId: <change_me>
 - capabilities:
   - threedAcl:
       actions:
@@ -178,7 +202,19 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_infield_oid_normal_users
-  sourceId: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+  sourceId: <change_me>
+- capabilities:
+  - groupsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        currentuserscope: {}
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: gp_infield_oid_template_admins
+  sourceId: <change_me>
 - capabilities:
   - threedAcl:
       actions:
@@ -266,7 +302,19 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_infield_oid_template_admins
-  sourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+  sourceId: <change_me>
+- capabilities:
+  - groupsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        currentuserscope: {}
+  metadata:
+    module_version: '1'
+    origin: cdf-project-templates
+  name: gp_infield_oid_viewers
+  sourceId: <change_me>
 - capabilities:
   - threedAcl:
       actions:
@@ -339,7 +387,7 @@ Group:
     module_version: '1'
     origin: cdf-project-templates
   name: gp_infield_oid_viewers
-  sourceId: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+  sourceId: <change_me>
 Node:
 - externalId: default_infield_config_minimal
   instanceType: node
@@ -371,44 +419,7 @@ Space:
   name: sp:infield:oid:source
   space: sp_asset_oid_source
 Transformation:
-- dataSetId: 999
-  destination:
-    instanceSpace: sp_asset_oid_source
-    type: nodes
-    view:
-      externalId: Asset
-      space: cdf_core
-      version: v1
-  destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
-  externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
-  ignoreNullFields: true
-  isPublic: true
-  name: asset:oid:workmate:infield:sync_asset_parents_from_hierarchy_to_apm
-  ownerIsCurrentUser: true
-  query: "select\n  cast(asset.externalId as STRING) as externalId,\n  (case\n   \
-    \ when isnull(asset.parentExternalId) then null\n    else node_reference('sp_asset_oid_source',\
-    \ asset.parentExternalId) \n  end) as parent\nfrom\n  cdf_assetSubtree('WMT:VAL')\
-    \ as asset\n  inner join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId\
-    \ = rootAsset.id"
-  schedule:
-    externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
-    interval: 0 * * * *
-    isPaused: false
-  sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
+- destination:
     instanceSpace: sp_asset_oid_source
     type: nodes
     view:
@@ -427,15 +438,24 @@ Transformation:
   isPublic: true
   name: asset:oid:workmate:infield:sync_assets_from_hierarchy_to_apm
   ownerIsCurrentUser: true
-  query: "select\n  cast(asset.externalId as STRING) as externalId, \n  cast(\"Asset\
-    \ Hierarachy\" as STRING) as source,\n  node_reference('sp_asset_oid_source',\
-    \ cast(rootAsset.externalId as STRING)) as root,\n  cast(asset.description as\
-    \ STRING) as description,\n  cast(asset.name as STRING) as title,\n  cast(asset.externalId\
-    \ as STRING) as sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as asset\n  inner\
-    \ join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId = rootAsset.id"
+  query: "--- Create All Assets without properties\n--- This is necessary so we can\
+    \ populate the direct relations\n--- in the next select statement\nselect\n  cast(asset.externalId\
+    \ as STRING) as externalId,\n  --- We skip the remaining properties,\n  --- but\
+    \ need to have these columns set so we can do a UNION ALL operation with the statement\
+    \ below.\n  null as parent,\n  null as source,\n  null as root,\n  null as description,\n\
+    \  null as title,\n  null as sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as\
+    \ asset\n\nUNION ALL\n\n--- Create All Assets with properties including direct\
+    \ relations\nselect\n  cast(asset.externalId as STRING) as externalId,\n  (case\n\
+    \    when isnull(asset.parentExternalId) then null\n    else node_reference('sp_asset_oid_source',\
+    \ asset.parentExternalId)\n  end) as parent,\n  cast(\"Asset Hierarachy\" as STRING)\
+    \ as source,\n  node_reference('sp_asset_oid_source', cast(rootAsset.externalId\
+    \ as STRING)) as root,\n  cast(asset.description as STRING) as description,\n\
+    \  cast(asset.name as STRING) as title,\n  cast(asset.externalId as STRING) as\
+    \ sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as asset\n  -- Get root asset\n\
+    \  inner join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId = rootAsset.id\n"
   schedule:
     externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: false
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -444,8 +464,7 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: APM_Activity
@@ -475,7 +494,7 @@ Transformation:
     \    'workmate' as source\n  from\n    `workorder_oid_workmate`.`workorders`;\n"
   schedule:
     externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: false
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -485,17 +504,13 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
-  interval: 0 * * * *
-  isPaused: false
 - externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: false
 - externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: false
 deleted:
   Transformation:
-  - externalId: tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm
   - externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
   - externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities

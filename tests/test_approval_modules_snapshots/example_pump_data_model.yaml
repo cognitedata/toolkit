@@ -65,8 +65,7 @@ Space:
   name: pumpModelSpace
   space: pumpModelSpace
 Transformation:
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: pumps
       destinationType: LiftStation
@@ -93,7 +92,7 @@ Transformation:
     , \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
   schedule:
     externalId: pump_model-populate-lift_station_pumps_edges
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -102,8 +101,7 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- dataSetId: 999
-  destination:
+- destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: Pump
@@ -133,7 +131,7 @@ Transformation:
     \  startswith(title, 'Pump')\n"
   schedule:
     externalId: pump_model-populate-pump_container
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -144,10 +142,10 @@ Transformation:
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
 - externalId: pump_model-populate-lift_station_pumps_edges
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 - externalId: pump_model-populate-pump_container
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 View:
 - externalId: LiftStation

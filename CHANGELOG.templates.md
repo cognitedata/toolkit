@@ -13,10 +13,29 @@ Changes are grouped as follows:
 - `Removed` for now removed features.
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
-- 
+  
 ## TBD - 2023-12-TBD
+
 ### Added
+
 - Explicitly define model `space` in `experimental/cdf_asset_source_model/` and `experimental/example_pump_model/`.
+- The module `my_example_module` has been added to the `custom_modules` folder.
+- Added globally defined schedule variables that can be used across all modules.
+  
+### Changed
+
+- All cognite templates have been moved into `cognite_templates` folder, while `local_templates` is renamed to `custom_templates`.
+- Move cdf_apm_base into separate folder.
+- The file `local.yaml` has been renamed `environments.yaml` to better reflect its purpose.
+- Removed demo `sourceId` from `cdf_infield_location` module.
+- Changed the isPaused flag to use a module-level variable instead of hardcoded in `cdf_apm_simple_data_model`.
+- Combined the child and parent transformations `sync_assets_from_hierarchy_to_apm` in `cdf_infield_location`. 
+  This has the benefit of not having to wait for the parent transformation to finish before starting the child transformation, 
+  thus no longer a dependency between the two transformations.
+
+### Fixed
+
+- Removed transformation identity provider variables from modules and reused the global cicd_ prefixed ones.
 
 ## [0.2.0] - 2023-12-01
 

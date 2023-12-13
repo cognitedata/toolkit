@@ -18,7 +18,7 @@ jobs:
     name: Loadmaster
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: snok/install-poetry@v1
@@ -34,7 +34,7 @@ jobs:
       - name: Initialize project
         run: cdf-tk init demo_project
       - name: "Pre-processing for demo environment"
-        run: ./demo/preproc.sh
+        run: python ./demo/preproc.py
       - name: "Build the templates"
         run: cdf-tk build --build-dir=./build --env=demo ./demo_project
       # be careful, this works as promised

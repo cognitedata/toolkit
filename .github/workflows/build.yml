@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: snok/install-poetry@v1
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: snok/install-poetry@v1
@@ -52,7 +52,7 @@ jobs:
     name: Dry Run Demo
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: snok/install-poetry@v1
@@ -68,7 +68,7 @@ jobs:
       - name: Initialize project
         run: cdf-tk init demo_project
       - name: "Pre-processing for demo environment"
-        run: ./demo/preproc.sh
+        run: python ./demo/preproc.py
       - name: "Build the templates"
         run: cdf-tk build --build-dir=./build --env=demo ./demo_project
       - name: "Verify and create access rights"

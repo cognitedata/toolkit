@@ -4,22 +4,38 @@ import itertools
 import os
 import re
 import shutil
+from collections import ChainMap, UserList, defaultdict
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, overload
 
 import yaml
 from rich import print
 
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
-from cognite_toolkit.cdf_tk.utils import LoadWarning, validate_case_raw
+from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
+
+# This is the default config located locally in each module.
+DEFAULT_CONFIG_FILE = "default.config.yaml"
+# The environment file:
+ENVIRONMENTS_FILE = "environments.yaml"
+# The local config file:
+CONFIG_FILE = "config.yaml"
+# The default package files
+DEFAULT_PACKAGES_FILE = "default.packages.yaml"
+# The package files:
+PACKAGES_FILE = "packages.yaml"
+COGNITE_MODULES = "cognite_modules"
+CUSTOM_MODULES = "custom_modules"
 
 TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 # Add any other files below that should be included in a build
-EXCL_FILES = ["README.md"]
-# Which suffixes to exclude when we create indexed files (i.e. they are bundled with their main config file)
-EXCL_INDEX_SUFFIX = ["sql", "csv", "parquet"]
+EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
+# Which suffixes to exclude when we create indexed files (i.e., they are bundled with their main config file)
+EXCL_INDEX_SUFFIX = frozenset([".sql", ".csv", ".parquet"])
 # Which suffixes to process for template variable replacement
-PROC_TMPL_VARS_SUFFIX = ["yaml", "yml", "sql", "csv", "parquet", "json", "txt", "md", "html", "py"]
+PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"])
 
 
 def read_environ_config(
@@ -42,19 +58,21 @@ def read_environ_config(
     global_config = read_yaml_files(root_dir, "default.packages.yaml")
     packages = global_config.get("packages", {})
     packages.update(read_yaml_files(root_dir, "packages.yaml").get("packages", {}))
-    local_config = read_yaml_files(root_dir, "local.yaml")
-    print(f"  Environment is {build_env}, using that section in local.yaml.\n")
+    environment_config = read_yaml_files(root_dir, ENVIRONMENTS_FILE)
+
+    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE}.\n")
     if verbose:
         print("  [bold green]INFO:[/] Found defined packages:")
         for name, content in packages.items():
             print(f"    {name}: {content}")
     modules = []
-    if len(local_config) == 0:
+    if len(environment_config) == 0:
         return []
     try:
-        defs = local_config[build_env]
+        defs = environment_config[build_env]
     except KeyError:
-        raise ValueError(f"Environment {build_env} not found in local.yaml")
+        print(f"  [bold red]ERROR:[/] Environment {build_env} not found in {ENVIRONMENTS_FILE}")
+        exit(1)
 
     os.environ["CDF_ENVIRON"] = build_env
     for k, v in defs.items():
@@ -66,9 +84,10 @@ def read_environ_config(
                     )
                     print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
                 else:
-                    raise ValueError(
-                        f"Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
+                    print(
+                        f"  [bold red]ERROR:[/]Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
                     )
+                    exit(1)
         elif k == "type":
             os.environ["CDF_BUILD_TYPE"] = v
         elif k == "deploy":
@@ -113,6 +132,99 @@ def read_environ_config(
     return load_list
 
 
+def get_selected_modules(
+    source_module: Path,
+    environment_file: Path,
+    build_env: str = "dev",
+    verbose: bool = False,
+) -> list[str]:
+    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
+
+    modules_by_package = _read_packages(source_module, verbose)
+
+    selected_module_and_packages = _get_modules_and_packages(environment_file, build_env)
+
+    selected_packages = [package for package in selected_module_and_packages if package in modules_by_package]
+    if verbose:
+        print("  [bold green]INFO:[/] Selected packages:")
+        for package in selected_packages:
+            print(f"    {package}")
+
+    selected_modules = [module for module in selected_module_and_packages if module not in modules_by_package]
+    selected_modules.extend(itertools.chain.from_iterable(modules_by_package[package] for package in selected_packages))
+
+    if verbose:
+        print("  [bold green]INFO:[/] Selected modules:")
+        for module in selected_modules:
+            print(f"    {module}")
+    if not selected_modules:
+        print(
+            f"  [bold yellow]WARNING:[/] Found no defined modules in {ENVIRONMENTS_FILE!s}, have you configured the environment ({build_env})?"
+        )
+        exit(1)
+
+    available_modules = {module.name for module, _ in iterate_modules(source_module)}
+    if not (missing_modules := set(selected_modules) - available_modules):
+        return selected_modules
+
+    print(f"  [bold red]ERROR:[/] Modules {missing_modules} not found in {source_module}.")
+    exit(1)
+
+
+def _get_modules_and_packages(environment_file: Path, build_env: str) -> list[str]:
+    environment_config = read_yaml_file(environment_file)
+    environment = environment_config.get(build_env)
+    if environment is None:
+        raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
+    try:
+        project_config = environment["project"]
+        environment_type = environment["type"]
+        deploy = environment["deploy"]
+    except KeyError:
+        print(
+            f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', or 'deploy' in {ENVIRONMENTS_FILE!s}"
+        )
+        exit(1)
+
+    os.environ["CDF_ENVIRON"] = build_env
+    os.environ["CDF_BUILD_TYPE"] = environment_type
+    if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != project_config:
+        if build_env == "dev" or build_env == "local" or build_env == "demo":
+            print(
+                f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({project_config}) and what is defined in environment ({project_env})."
+            )
+            print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
+        else:
+            print(
+                f"  [bold red]ERROR:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({project_config}) and what is defined in environment ({project_env=} != {project_config=})."
+            )
+            exit(1)
+    return deploy
+
+
+def _read_packages(source_module, verbose):
+    cdf_modules_by_packages = read_yaml_file(source_module / COGNITE_MODULES / DEFAULT_PACKAGES_FILE).get(
+        "packages", {}
+    )
+    if (package_path := source_module / COGNITE_MODULES / PACKAGES_FILE).exists():
+        local_modules_by_packages = read_yaml_file(package_path).get("packages", {})
+        if overwrites := set(cdf_modules_by_packages.keys()) & set(local_modules_by_packages.keys()):
+            print(
+                f"  [bold yellow]WARNING:[/] Found modules in {PACKAGES_FILE} that are also defined in {DEFAULT_PACKAGES_FILE}:"
+            )
+            for module in overwrites:
+                print(f"    {module}")
+            print(f"  Using the modules defined in {PACKAGES_FILE}.")
+        modules_by_package = {**cdf_modules_by_packages, **local_modules_by_packages}
+    else:
+        modules_by_package = cdf_modules_by_packages
+    if verbose:
+        print("  [bold green]INFO:[/] Found defined packages:")
+        for name, content in modules_by_package.items():
+            print(f"    {name}: {content}")
+    return modules_by_package
+
+
 def read_yaml_files(
     yaml_dirs: list[str] | str,
     name: str | None = None,
@@ -149,6 +261,37 @@ def read_yaml_files(
             continue
         data.update(config_data)
     return data
+
+
+@overload
+def read_yaml_file(filepath: Path, expected_output: Literal["dict"] = "dict") -> dict[str, Any]:
+    ...
+
+
+@overload
+def read_yaml_file(filepath: Path, expected_output: Literal["list"]) -> list[dict[str, Any]]:
+    ...
+
+
+def read_yaml_file(
+    filepath: Path, expected_output: Literal["list", "dict"] = "dict"
+) -> dict[str, Any] | list[dict[str, Any]]:
+    """Read a YAML file and return a dictionary
+
+    filepath: path to the YAML file
+    """
+    try:
+        config_data = yaml.safe_load(filepath.read_text())
+    except yaml.YAMLError as e:
+        print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
+        return {}
+    if expected_output == "list" and isinstance(config_data, dict):
+        print(f"  [bold red]ERROR:[/] {filepath} is not a list")
+        exit(1)
+    elif expected_output == "dict" and isinstance(config_data, list):
+        print(f"  [bold red]ERROR:[/] {filepath} is not a dict")
+        exit(1)
+    return config_data
 
 
 def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
@@ -280,173 +423,481 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
 
 
 def process_config_files(
-    dirs: list[str],
-    yaml_data: str,
-    build_dir: str = "./build",
+    source_module_dir: Path,
+    selected_modules: list[str],
+    build_dir: Path,
+    config: dict[str, Any],
+    build_env: str = "dev",
+    verbose: bool = False,
+) -> None:
+    configs = split_config(config)
+    number_by_resource_type = defaultdict(int)
+
+    for module_dir, filepaths in iterate_modules(source_module_dir):
+        if module_dir.name not in selected_modules:
+            continue
+        if verbose:
+            print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
+        local_config = create_local_config(configs, module_dir)
+        # Sort to support 1., 2. etc prefixes
+        filepaths.sort()
+        for filepath in filepaths:
+            if verbose:
+                print(f"    [bold green]INFO:[/] Processing {filepath.name}")
+
+            if filepath.suffix.lower() not in PROC_TMPL_VARS_SUFFIX:
+                # Copy the file as is, not variable replacement
+                destination = build_dir / filepath.parent.name / filepath.name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(filepath, destination)
+                continue
+
+            content = filepath.read_text()
+            content = replace_variables(content, local_config, build_env)
+            filename = create_file_name(filepath, number_by_resource_type)
+
+            destination = build_dir / filepath.parent.name / filename
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(content)
+
+            validate(content, destination, filepath)
+
+
+def build_config(
+    build_dir: Path,
+    source_dir: Path,
+    config_file: Path,
+    environment_file: Path,
     build_env: str = "dev",
     clean: bool = False,
     verbose: bool = False,
 ):
-    path = Path(build_dir)
-    if path.exists():
-        if any(path.iterdir()):
+    if build_env is None:
+        raise ValueError("build_env must be specified")
+    if build_dir.exists():
+        if any(build_dir.iterdir()):
             if clean:
-                shutil.rmtree(path)
-                path.mkdir()
-                print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir}.")
+                shutil.rmtree(build_dir)
+                build_dir.mkdir()
+                print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
             else:
                 print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
-        path.mkdir()
+        build_dir.mkdir()
 
-    local_yaml_path = ""
-    yaml_local = {}
-    indices = {}
-    for directory in dirs:
-        if verbose:
-            print(f"  [bold green]INFO:[/] Processing module {directory}")
-        for dirpath, _, filenames in os.walk(directory):
-            # Sort to support 1., 2. etc prefixes
-            filenames.sort()
-            # When we have traversed out of the module, reset the local yaml config
-            if local_yaml_path not in dirpath:
-                local_yaml_path == ""
-                yaml_local = {}
-            for file_name in filenames:
-                # Find the root folder and drop processing all files in this dolder
-                if file_name == "config.yaml" or file_name == "default.config.yaml":
-                    # Pick up this local yaml files
-                    local_yaml_path = dirpath
-                    yaml_local = read_yaml_files([dirpath])
-                    filenames = []
-            for file_name in filenames:
-                if file_name in EXCL_FILES:
-                    continue
-                if verbose:
-                    print(f"    [bold green]INFO:[/] Processing {file_name}")
-                split_path = Path(dirpath).parts
-                cdf_path = split_path[len(split_path) - 1]
-                new_path = Path(f"{build_dir}/{cdf_path}")
-                new_path.mkdir(exist_ok=True, parents=True)
-                if (Path(dirpath) / file_name).suffix.lower()[1:] not in PROC_TMPL_VARS_SUFFIX:
-                    shutil.copyfile(Path(dirpath) / file_name, new_path / file_name)
-                    continue
-                with open(dirpath + "/" + file_name) as f:
-                    content = f.read()
-                # Replace the local yaml variables
-                for k, v in yaml_local.items():
-                    if "." in k:
-                        # If the key has a dot, it is a build_env specific variable.
-                        # Skip if it's the wrong environment.
-                        if k.split(".")[0] != build_env:
-                            continue
-                        k = k.split(".", 2)[1]
-                    # assuming template variables are in the format {{key}}
-                    # TODO: issue warning if key is not found, this can indicate a config file error
-                    content = content.replace(f"{{{{{k}}}}}", str(v))
-                # Replace the root yaml variables
-                for k, v in yaml_data.items():
-                    if "." in k:
-                        # If the key has a dot, it is a build_env specific variable.
-                        # Skip if it's the wrong environment.
-                        if k.split(".")[0] != build_env:
-                            continue
-                        k = k.split(".", 2)[1]
-                    # assuming template variables are in the format {{key}}
-                    content = content.replace(f"{{{{{k}}}}}", str(v))
-                orig_file = Path(dirpath) / file_name
-                # For .sql and other dependent files, we do not prefix as we expect them
-                # to be named with the external_id of the entitiy they are associated with.
-                if file_name.split(".")[-1] not in EXCL_INDEX_SUFFIX:
-                    if not indices.get(cdf_path):
-                        indices[cdf_path] = 1
-                    else:
-                        indices[cdf_path] += 1
-                    # Get rid of the local index
-                    if re.match("^[0-9]+\\.", file_name):
-                        file_name = file_name.split(".", 1)[1]
-                    file_name = f"{indices[cdf_path]}.{file_name}"
+    selected_modules = get_selected_modules(source_dir, environment_file, build_env, verbose)
 
-                filepath = new_path / file_name
-                for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-                    print(
-                        f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {new_path}/{file_name}"
+    config = read_yaml_file(config_file)
+    warnings = validate_config_yaml(config, config_file)
+    if warnings:
+        print("  [bold yellow]WARNING:[/] Found the following warnings in config.yaml:")
+        for warning in warnings:
+            print(f"    {warning}")
+    process_config_files(source_dir, selected_modules, build_dir, config, build_env, verbose)
+
+
+def generate_config(
+    directory: Path | Sequence[Path], include_modules: set[str] | None = None, existing_config: str | None = None
+) -> tuple[str, ConfigEntries]:
+    """Generate a config dictionary from the default.config.yaml files in the given directories.
+
+    You can specify a set of modules to include in the config. If you do not specify any modules, all modules will be included.
+
+    Args:
+        directory: A root directory to search for default.config.yaml files.
+        include_modules: A set of modules to include in the config. If None, all modules will be included.
+        existing_config: An existing config dictionary to
+
+    Returns:
+        A config dictionary.
+    """
+    if not directory.exists():
+        raise ValueError(f"Directory {directory} does not exist")
+    entries = ConfigEntries((existing_config and yaml.safe_load(existing_config)) or None)
+    if isinstance(directory, Path):
+        directories = [directory]
+    else:
+        directories = directory
+    config = {}
+    comments: dict[str, dict[Literal["above", "after"], list[str]]] = {}
+    for dir_ in directories:
+        defaults = sorted(directory.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(dir_))
+
+        for default_config in defaults:
+            if include_modules is not None and default_config.parent.name not in include_modules:
+                continue
+            raw_file = default_config.read_text()
+
+            comments.update(
+                _extract_comments(raw_file, key_prefix=tuple(default_config.parent.relative_to(directory).parts))
+            )
+
+            file_data = yaml.safe_load(raw_file)
+            parts = default_config.relative_to(directory).parent.parts
+            if len(parts) == 0:
+                # This is a root config file
+                config.update(file_data)
+                entries.extend(
+                    [
+                        ConfigEntry(
+                            key=key,
+                            module="",
+                            path="",
+                            last_value=None,
+                            current_value=value,
+                        )
+                        for key, value in file_data.items()
+                    ]
+                )
+                continue
+            local_config = config
+            for key in parts:
+                if key not in local_config:
+                    local_config[key] = {}
+                local_config = local_config[key]
+
+            local_config.update(file_data)
+
+            entries.extend(
+                [
+                    ConfigEntry(
+                        key=key,
+                        module=default_config.parent.name,
+                        path=".".join(parts[:-1]),
+                        last_value=None,
+                        current_value=value,
                     )
+                    for key, value in file_data.items()
+                ]
+            )
 
-                filepath.write_text(content)
-
-                if filepath.suffix in {".yaml", ".yml"}:
-                    try:
-                        parsed = yaml.safe_load(content)
-                    except yaml.YAMLError as e:
-                        print(
-                            f"  [bold red]ERROR:[/] YAML validation error for {file_name} after substituting config variables: \n{e}"
-                        )
-                        exit(1)
-
-                    if isinstance(parsed, dict):
-                        parsed = [parsed]
-                    for item in parsed:
-                        if not check_yaml_semantics(
-                            parsed=item,
-                            filepath_src=orig_file,
-                            filepath_build=filepath,
-                        ):
-                            exit(1)
-                    loader = LOADER_BY_FOLDER_NAME.get(filepath.parent.name)
-                    if len(loader) == 1:
-                        loader = loader[0]
-                    else:
-                        loader = next(
-                            (loader for loader in loader if re.match(loader.filename_pattern, filepath.stem)), None
-                        )
-                    if loader:
-                        load_warnings = validate_case_raw(
-                            parsed, loader.resource_cls, filepath, identifier_key=loader.identifier_key
-                        )
-                        if load_warnings:
-                            print(f"  [bold yellow]WARNING:[/]{generate_warnings_report(load_warnings, indent=1)}")
+    config = _reorder_config_yaml(config)
+    output_yaml = _dump_yaml_with_comments(config, comments)
+    return output_yaml, entries
 
 
-def build_config(
-    build_dir: str = "./build",
-    source_dir: str = "./",
-    build_env: str = "dev",
-    clean: bool = False,
-    verbose=False,
-):
-    if build_env is None:
-        raise ValueError("build_env must be specified")
-    if not source_dir.endswith("/"):
-        source_dir = source_dir + "/"
-    modules = read_environ_config(
-        root_dir=source_dir,
-        tmpl_dirs=TMPL_DIRS,
-        build_env=build_env,
-        verbose=verbose,
+def _reorder_config_yaml(config: dict[str, Any]) -> dict[str, Any]:
+    """Reorder the config.yaml file to have the keys in alphabetical order
+    and the variables before the modules.
+    """
+    new_config = {}
+    for key in sorted([k for k in config.keys() if not isinstance(config[k], dict)]):
+        new_config[key] = config[key]
+    for key in sorted([k for k in config.keys() if isinstance(config[k], dict)]):
+        new_config[key] = _reorder_config_yaml(config[key])
+    return new_config
+
+
+def _extract_comments(
+    raw_file: str, key_prefix: tuple[str, ...] = tuple()
+) -> dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]]:
+    """Extract comments from a raw file and return a dictionary with the comments."""
+    comments: dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]] = defaultdict(
+        lambda: {"above": [], "after": []}
     )
-    process_config_files(
-        dirs=modules,
-        yaml_data=read_yaml_files(yaml_dirs=source_dir),
-        build_dir=build_dir,
-        build_env=build_env,
-        clean=clean,
-        verbose=verbose,
-    )
-    # Copy the root deployment yaml files
-    shutil.copyfile(Path(source_dir) / "local.yaml", Path(build_dir) / "local.yaml")
-    shutil.copyfile(Path(source_dir) / "packages.yaml", Path(build_dir) / "packages.yaml")
-    shutil.copyfile(Path(source_dir) / "default.packages.yaml", Path(build_dir) / "default.packages.yaml")
+    position: Literal["above", "after"]
+    variable: str | None = None
+    last_comment: str | None = None
+    for line in raw_file.splitlines():
+        if ":" in line:
+            variable = str(line.split(":", maxsplit=1)[0].strip())
+            if last_comment:
+                comments[(*key_prefix, variable)]["above"].append(last_comment)
+                last_comment = None
+        if "#" in line:
+            before, comment = str(line).rsplit("#", maxsplit=1)
+            position = "after" if ":" in before else "above"
+            if position == "after" and (before.count('"') % 2 == 1 or before.count("'") % 2 == 1):
+                # The comment is inside a string
+                continue
+            if position == "after" or variable is None:
+                key = (*key_prefix, *((variable and [variable]) or []))
+                comments[key][position].append(comment.strip())
+            else:
+                last_comment = comment.strip()
+    return dict(comments)
 
 
-def generate_warnings_report(load_warnings: list[LoadWarning], indent: int = 0) -> str:
-    report = [""]
-    for (file, identifier, id_name), file_warnings in itertools.groupby(
-        sorted(load_warnings), key=lambda w: (w.filepath, w.id_value, w.id_name)
-    ):
-        report.append(f"{'    '*indent}In File {str(file)!r}")
-        report.append(f"{'    '*indent}In entry {id_name}={identifier!r}")
-        for warning in file_warnings:
-            report.append(f"{'    '*(indent+1)}{warning!s}")
+def _dump_yaml_with_comments(
+    config: dict[str, Any],
+    comments: dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]],
+    indent_size: int = 2,
+) -> str:
+    """Dump a config dictionary to a yaml string"""
+    dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
+    out_lines = []
+    if module_comment := comments.get(tuple()):
+        for comment in module_comment["above"]:
+            out_lines.append(f"# {comment}")
+    last_indent = 0
+    last_variable: str | None = None
+    path: tuple[str, ...] = tuple()
+    for line in dumped.splitlines():
+        indent = len(line) - len(line.lstrip())
+        if last_indent < indent:
+            path = (*path, last_variable)
+        elif last_indent > indent:
+            # Adding some extra space between modules
+            out_lines.append("")
+            indent_reduction_steps = (last_indent - indent) // indent_size
+            path = path[:-indent_reduction_steps]
 
-    return "\n".join(report)
+        variable = line.split(":", maxsplit=1)[0].strip()
+        if comment := comments.get((*path, variable)):
+            for line_comment in comment["above"]:
+                out_lines.append(f"{' ' * indent}# {line_comment}")
+            if after := comment["after"]:
+                line = f"{line} # {after[0]}"
+
+        out_lines.append(line)
+        last_indent = indent
+        last_variable = variable
+    out_lines.append("")
+    return "\n".join(out_lines)
+
+
+@dataclass
+class ConfigEntries(UserList):
+    def __init__(self, entries: list[ConfigEntry] | dict | None = None):
+        if isinstance(entries, dict):
+            entries = self._initialize(entries)
+        super().__init__(entries or [])
+        self._lookup = {}
+        for entry in self:
+            self._lookup.setdefault(entry.module, {})[entry.key] = entry
+
+    @staticmethod
+    def _initialize(entries: dict, path: str = "") -> list[ConfigEntry]:
+        results = []
+        if "." in path:
+            path_to, module = path.rsplit(".", maxsplit=1)
+        else:
+            module = path
+            path_to = ""
+        for key, value in entries.items():
+            if isinstance(value, dict):
+                results.extend(ConfigEntries._initialize(value, f"{path}.{key}" if path else key))
+            else:
+                results.append(
+                    ConfigEntry(
+                        key=key,
+                        module=module,
+                        path=path_to,
+                        last_value=value,
+                        current_value=None,
+                    )
+                )
+        return results
+
+    def append(self, item: ConfigEntry) -> None:
+        if item.module not in self._lookup:
+            self._lookup[item.module] = {}
+        if item.key not in self._lookup[item.module]:
+            self._lookup[item.module][item.key] = item
+            super().append(item)
+        else:
+            self._lookup[item.module][item.key].current_value = item.current_value
+
+    def extend(self, items: list[ConfigEntry]) -> None:
+        for item in items:
+            self.append(item)
+
+    @property
+    def changed(self) -> list[ConfigEntry]:
+        return [entry for entry in self if entry.changed]
+
+    @property
+    def removed(self) -> list[ConfigEntry]:
+        return [entry for entry in self if entry.removed]
+
+    @property
+    def added(self) -> list[ConfigEntry]:
+        return [entry for entry in self if entry.added]
+
+    @property
+    def unchanged(self) -> list[ConfigEntry]:
+        return [entry for entry in self if entry.unchanged]
+
+    def __str__(self) -> str:
+        total_variables = len(self)
+        lines = []
+        if removed := self.removed:
+            lines.append(f"Removed {len(removed)} variables from config.yaml: {[str(r) for r in removed]}")
+        if added := self.added:
+            lines.append(f"Added {len(added)} variables to config.yaml: {[str(a) for a in added]}")
+        if changed := self.changed:
+            lines.append(f"Changed {len(changed)} variables in config.yaml: {[str(c) for c in changed]}")
+        if total_variables == len(self.unchanged):
+            lines.append("No variables in config.yaml was changed.")
+        return "\n".join(lines)
+
+
+@dataclass
+class ConfigEntry:
+    key: str
+    module: str
+    path: str
+    last_value: Any | None
+    current_value: Any | None
+
+    @property
+    def changed(self) -> bool:
+        return self.last_value is not None and self.current_value is not None and self.last_value != self.current_value
+
+    @property
+    def removed(self) -> bool:
+        return self.last_value is not None and self.current_value is None
+
+    @property
+    def added(self) -> bool:
+        return self.last_value is None and self.current_value is not None
+
+    @property
+    def unchanged(self) -> bool:
+        return self.last_value is not None and self.current_value is not None and self.last_value == self.current_value
+
+    def __str__(self):
+        prefix = self._prefix()
+        if self.removed:
+            return f"{prefix}{self.key} was removed"
+        elif self.added:
+            return f"{prefix}{self.key} was added"
+        elif self.changed:
+            return f"{prefix}{self.key} changed from {self.last_value!r} to {self.current_value!r}"
+        else:
+            return f"{prefix}{self.key} is unchanged"
+
+    def __repr__(self):
+        prefix = self._prefix()
+        return f"{prefix}{self.key}={self.current_value!r}"
+
+    def _prefix(self):
+        parts = []
+        if self.path:
+            parts.append(self.path)
+        if self.module:
+            parts.append(self.module)
+        prefix = ""
+        if parts:
+            prefix = ".".join(parts) + "."
+        return prefix
+
+
+def iterate_modules(root_dir: Path) -> tuple[Path, list[Path]]:
+    for module_dir in root_dir.rglob("*"):
+        if not module_dir.is_dir():
+            continue
+        module_directories = [path for path in module_dir.iterdir() if path.is_dir()]
+        is_any_resource_directories = any(dir.name in LOADER_BY_FOLDER_NAME for dir in module_directories)
+        if module_directories and is_any_resource_directories:
+            yield module_dir, [
+                path
+                for path in module_dir.rglob("*")
+                if path.is_file() and path.name not in EXCL_FILES and path.parent != module_dir
+            ]
+
+
+def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
+    maps = []
+    parts = module_dir.parts
+    if parts[0] != COGNITE_MODULES and COGNITE_MODULES in parts:
+        parts = parts[parts.index(COGNITE_MODULES) :]
+    if parts[0] != CUSTOM_MODULES and CUSTOM_MODULES in parts:
+        parts = parts[parts.index(CUSTOM_MODULES) :]
+    for no in range(len(parts), -1, -1):
+        if c := config.get(".".join(parts[:no])):
+            maps.append(c)
+    return ChainMap(*maps)
+
+
+def split_config(config: dict[str, Any]) -> dict[str, dict[str, str]]:
+    configs = {}
+    _split_config(config, configs, prefix="")
+    return configs
+
+
+def _split_config(config: dict[str, Any], configs: dict[str, dict[str, str]], prefix: str = "") -> None:
+    for key, value in config.items():
+        if isinstance(value, dict):
+            if prefix and not prefix.endswith("."):
+                prefix = f"{prefix}."
+            _split_config(value, configs, prefix=f"{prefix}{key}")
+        else:
+            configs.setdefault(prefix.removesuffix("."), {})[key] = value
+
+
+def create_file_name(filepath: Path, number_by_resource_type: dict[str, int]) -> str:
+    filename = filepath.name
+    if filepath.suffix in EXCL_INDEX_SUFFIX:
+        return filename
+    # Get rid of the local index
+    filename = re.sub("^[0-9]+\\.", "", filename)
+    number_by_resource_type[filepath.parent.name] += 1
+    filename = f"{number_by_resource_type[filepath.parent.name]}.{filename}"
+    return filename
+
+
+def replace_variables(content: str, local_config: Mapping[str, str], build_env: str) -> str:
+    for name, variable in local_config.items():
+        if "." in name:
+            # If the key has a dot, it is a build_env specific variable.
+            # Skip if it's the wrong environment.
+            env, name = name.split(".", 1)
+            if env != build_env:
+                continue
+        content = content.replace(f"{{{{{name}}}}}", str(variable))
+    return content
+
+
+def validate(content: str, destination: Path, source_path: Path) -> None:
+    for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
+        print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {destination!s}")
+
+    if destination.suffix in {".yaml", ".yml"}:
+        try:
+            parsed = yaml.safe_load(content)
+        except yaml.YAMLError as e:
+            print(
+                f"  [bold red]ERROR:[/] YAML validation error for {destination.name} after substituting config variables: \n{e}"
+            )
+            exit(1)
+
+        if isinstance(parsed, dict):
+            parsed = [parsed]
+        for item in parsed:
+            if not check_yaml_semantics(
+                parsed=item,
+                filepath_src=source_path,
+                filepath_build=destination,
+            ):
+                exit(1)
+        loader = LOADER_BY_FOLDER_NAME.get(destination.parent.name, [])
+        if len(loader) == 1:
+            loader = loader[0]
+        else:
+            loader = next((loader for loader in loader if re.match(loader.filename_pattern, destination.stem)), None)
+
+        if loader is None:
+            print(
+                f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r} is not supported by the toolkit."
+            )
+            print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
+            return
+
+        if loader:
+            load_warnings = validate_case_raw(
+                parsed, loader.resource_cls, destination, identifier_key=loader.identifier_key
+            )
+            if load_warnings:
+                print(f"  [bold yellow]WARNING:[/] Found potential snake_case issues: {load_warnings!s}")
+
+            data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, destination)
+            if data_set_warnings:
+                print(f"  [bold yellow]WARNING:[/] Found missing data_sets: {data_set_warnings!s}")
+
+
+if __name__ == "__main__":
+    target_dir = Path(__file__).resolve().parent.parent
+    config_str, differences = generate_config(target_dir, existing_config=(target_dir / CONFIG_FILE).read_text())
+    (target_dir / CONFIG_FILE).write_text(config_str)
+    print(str(differences))
