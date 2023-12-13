@@ -1,46 +1,73 @@
+# Globally variables are available to all submodules
+# of the cognite_modules.
 cognite_modules:
+  cdfProjectName: ${CDF_PROJECT}
+  cdf_cluster: ${CDF_CLUSTER}
+  # Optional: If idP requires providing the audience
+  cicd_audience: ${IDP_AUDIENCE}
+  cicd_clientId: ${IDP_CLIENT_ID}
+  cicd_clientSecret: ${IDP_CLIENT_SECRET}
+  # Optional: If idP requires providing the scopes
+  cicd_scopes:
+  - ${IDP_SCOPES}
+  cicd_tokenUri: ${IDP_TOKEN_URL}
+  # Daily at 1:35 AM
+  scheduleDaily: 35 1 * * *
+  # Seven minutes past each hour
+  scheduleHourly: 7 * * * *
+  # Every fifteen minutes
+  scheduleQuarterly: 0/15 * * * *
   common:
     cdf_auth_readwrite_all:
-      readwrite_source_id: <change_me>
       readonly_source_id: <change_me>
+      readwrite_source_id: <change_me>
+
+  core:
+    cdf_apm_base:
+      apm_datamodel_space: APM_SourceData
+      apm_datamodel_version: '1'
+
   examples:
-    cdf_apm_simple_data_model:
     # Values here are only valid for this module.
     # The raw database values here point to the RAW data loaded in the cdf_oid_example_data
     # module. If you have changed the default values in that module, you need to change them here as well.
-      default_location: oid
-      source_asset: workmate
-      source_workorder: workmate
-      source_timeseries: pi
+    cdf_apm_simple_data_model:
       datamodel: apm_simple
-      space: apm_simple
       datamodel_version: '1'
-      view_Asset_version: '1'
-      view_WorkOrder_version: '1'
-      view_WorkItem_version: '1'
+      default_location: oid
       pause_transformations: true
-    cdf_oid_example_data:
+      source_asset: workmate
+      source_timeseries: pi
+      source_workorder: workmate
+      space: apm_simple
+      view_Asset_version: '1'
+      view_WorkItem_version: '1'
+      view_WorkOrder_version: '1'
+
     # Only valid for this module, loads template variables from environment
-    #
-    # In the example below we are setting up a project based on the Open Industry Data (OID), 
+    # 
+    # In the example below we are setting up a project based on the Open Industry Data (OID),
     # that originates from the Valhall oil rig. Note that the location/site is NOT used
     # to structure the data when on-boarding. The expectation is that a single source system
     # and it's data pipeline may supply data for multiple locations/sites.
     # The structuring of the data based on site/location should happen as part of processing
     # the data in CDF, i.e. contextualisation.
-    #
+    # 
     # Each of data resource types have assigned the source system where the data originates from.
     # This information will be used to construct RAW database names, and to create data sets in CDF,
     # and can be used to control access.
+    cdf_oid_example_data:
       default_location: oid
       source_asset: workmate
-      source_workorder: workmate
       source_files: fileshare
       source_timeseries: pi
-    example_pump_asset_hierarchy:
+      source_workorder: workmate
+
     # Only valid for this module, loads template variables from environment
-      raw_db: pump_assets
+    example_pump_asset_hierarchy:
       data_set: src:lift_pump_stations
+      raw_db: pump_assets
+      
     cdf_data_pipeline_asset_valhall:
       location_name: oid
       module_version: '1'
@@ -59,38 +86,46 @@ cognite_modules:
       audience: ${IDP_AUDIENCE}
       pause_transformations: true
   experimental:
+    # Only valid for this module, loads template variables from environment
     cdf_asset_source_model:
-    # Only valid for this module, loads template variables from environment
-      model_space: ExtendedSourceDataModels
+      data_model_version: '1'
       instance_space: cdfTemplateInstances
-      view_asset_version: '1'
-      data_model_version: '1'
+      model_space: ExtendedSourceDataModels
       root_asset_external_id: lift_pump_stations:root
-    example_pump_data_model:
+      view_asset_version: '1'
+
     # Only valid for this module, loads template variables from environment
-      model_space: pumpModelSpace
-      instance_space: pumpInstanceSpace
-      source_model_space: ExtendedSourceDataModels
-      source_model: ExtendedSourceData
-      view_Pump_version: '1'
-      view_LiftStation_version: '1'
-      data_model_version: '1'
+    example_pump_data_model:
       data_model: PumpLiftStations
+      data_model_version: '1'
+      instance_space: pumpInstanceSpace
+      model_space: pumpModelSpace
+      source_model: ExtendedSourceData
+      source_model_space: ExtendedSourceDataModels
+      view_LiftStation_version: '1'
+      view_Pump_version: '1'
+
   infield:
     cdf_infield_common:
       applicationsconfiguration_source_id: <change_me>
-    cdf_infield_location:
+
     # This default_location points to the location created by the cdf_oid_example_data module.
     # When you create your own location by copying the cdf_oid_example_data module to
     # set up data sets and groups, the below needs to refer to the location to define.
-    #
-      default_location: oid
-      module_version: '1'
-      apm_datamodel_space: APM_SourceData
+    # 
+    cdf_infield_location:
       apm_app_config_external_id: default-infield-config-minimal
       apm_config_instance_space: APM_Config
-      # RAW databases to load workorders and other workorder data from
-      # The below values point to the RAW database in the cdf_oid_example_data and should be
+      apm_datamodel_space: APM_SourceData
+      default_location: oid
+      # infield and must be updated for each location
+      infield_default_location_checklist_admin_users_source_id: <change_me>
+      infield_default_location_normal_users_source_id: <change_me>
+      infield_default_location_template_admin_users_source_id: <change_me>
+      infield_default_location_viewer_users_source_id: <change_me>
+      module_version: '1'
+      # the root asset for this location, needs to be updated for each location
+      root_asset_external_id: WMT:VAL
       # changed if you want to load workorders from another RAW database.
       source_asset: workmate
       source_workorder: workmate
@@ -98,33 +133,6 @@ cognite_modules:
       # The table name in the raw_db database that has workorder data
       workorder_table_name: workorders
 
-# the root asset for this location, needs to be updated for each location
-      root_asset_external_id: WMT:VAL
-
-# the following properties are required for 
-# infield and must be updated for each location
-      infield_default_location_checklist_admin_users_source_id: <change_me>
-      infield_default_location_normal_users_source_id: <change_me>
-      infield_default_location_template_admin_users_source_id: <change_me>
-      infield_default_location_viewer_users_source_id: <change_me>
-
-# Transformation credentials
-  cdf_cluster: ${CDF_CLUSTER}
-  cicd_clientId: ${IDP_CLIENT_ID}
-  cicd_clientSecret: ${IDP_CLIENT_SECRET}
-  cicd_tokenUri: ${IDP_TOKEN_URL}
-  cdfProjectName: ${CDF_PROJECT}
-  cicd_scopes:
-  - ${IDP_SCOPES}
-# Optional: If idP requires providing the audience
-  cicd_audience: ${IDP_AUDIENCE}
-  core:
-    cdf_apm_base:
-      apm_datamodel_space: APM_SourceData
-      apm_datamodel_version: '1'
-  scheduleHourly: 7 * * * *
-  scheduleQuarterly: 0/15 * * * *
-  scheduleDaily: 35 1 * * *
 custom_modules:
   my_example_module:
-    example_variable: demo_dataset
+    example_variable: demo_dataset # This is the variable that will be used in the module

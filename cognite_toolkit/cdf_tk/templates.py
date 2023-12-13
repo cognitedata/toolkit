@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import itertools
 import os
 import re
@@ -13,7 +12,6 @@ from typing import Any, Literal, overload
 
 import yaml
 from rich import print
-from ruamel.yaml import YAML, CommentedMap
 
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
@@ -205,8 +203,10 @@ def _get_modules_and_packages(environment_file: Path, build_env: str) -> list[st
 
 
 def _read_packages(source_module, verbose):
-    cdf_modules_by_packages = read_yaml_file(source_module / DEFAULT_PACKAGES_FILE).get("packages", {})
-    if (package_path := source_module / PACKAGES_FILE).exists():
+    cdf_modules_by_packages = read_yaml_file(source_module / COGNITE_MODULES / DEFAULT_PACKAGES_FILE).get(
+        "packages", {}
+    )
+    if (package_path := source_module / COGNITE_MODULES / PACKAGES_FILE).exists():
         local_modules_by_packages = read_yaml_file(package_path).get("packages", {})
         if overwrites := set(cdf_modules_by_packages.keys()) & set(local_modules_by_packages.keys()):
             print(
@@ -484,9 +484,8 @@ def build_config(
                 print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
         build_dir.mkdir()
-    source_module_dir = source_dir / COGNITE_MODULES
 
-    selected_modules = get_selected_modules(source_module_dir, environment_file, build_env, verbose)
+    selected_modules = get_selected_modules(source_dir, environment_file, build_env, verbose)
 
     config = read_yaml_file(config_file)
     warnings = validate_config_yaml(config, config_file)
@@ -494,7 +493,7 @@ def build_config(
         print("  [bold yellow]WARNING:[/] Found the following warnings in config.yaml:")
         for warning in warnings:
             print(f"    {warning}")
-    process_config_files(source_module_dir, selected_modules, build_dir, config, build_env, verbose)
+    process_config_files(source_dir, selected_modules, build_dir, config, build_env, verbose)
 
 
 def generate_config(
@@ -512,8 +511,6 @@ def generate_config(
     Returns:
         A config dictionary.
     """
-    yaml_loader = YAML()
-    config = (existing_config and yaml_loader.load(existing_config)) or CommentedMap()
     if not directory.exists():
         raise ValueError(f"Directory {directory} does not exist")
     entries = ConfigEntries((existing_config and yaml.safe_load(existing_config)) or None)
@@ -521,20 +518,27 @@ def generate_config(
         directories = [directory]
     else:
         directories = directory
-
+    config = {}
+    comments: dict[str, dict[Literal["above", "after"], list[str]]] = {}
     for dir_ in directories:
         defaults = sorted(directory.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(dir_))
 
         for default_config in defaults:
             if include_modules is not None and default_config.parent.name not in include_modules:
                 continue
-            file_data = yaml_loader.load(default_config.read_text())
+            raw_file = default_config.read_text()
+
+            comments.update(
+                _extract_comments(raw_file, key_prefix=tuple(default_config.parent.relative_to(directory).parts))
+            )
+
+            file_data = yaml.safe_load(raw_file)
             parts = default_config.relative_to(directory).parent.parts
             if len(parts) == 0:
                 # This is a root config file
-                for key, value in file_data.items():
-                    config[key] = value
-                    entries.append(
+                config.update(file_data)
+                entries.extend(
+                    [
                         ConfigEntry(
                             key=key,
                             module="",
@@ -542,17 +546,20 @@ def generate_config(
                             last_value=None,
                             current_value=value,
                         )
-                    )
+                        for key, value in file_data.items()
+                    ]
+                )
                 continue
             local_config = config
             for key in parts:
                 if key not in local_config:
-                    local_config[key] = CommentedMap()
+                    local_config[key] = {}
                 local_config = local_config[key]
 
-            for key, value in file_data.items():
-                local_config[key] = value
-                entries.append(
+            local_config.update(file_data)
+
+            entries.extend(
+                [
                     ConfigEntry(
                         key=key,
                         module=default_config.parent.name,
@@ -560,32 +567,93 @@ def generate_config(
                         last_value=None,
                         current_value=value,
                     )
-                )
-    for removed in entries.removed:
-        parts = removed.path.split(".")
-        parts.append(removed.module)
-        local_config = config
-        last_config = None
-        for key in parts:
-            last_config = local_config
-            local_config = local_config[key]
-        del local_config[removed.key]
-        if not local_config:
-            del last_config[removed.module]
+                    for key, value in file_data.items()
+                ]
+            )
 
-    output = io.StringIO()
-    yaml_loader.dump(config, output)
-    output_yaml = output.getvalue()
-    # Indent comments
-    output_lines = []
-    leading_spaces = 0
-    for line in output_yaml.splitlines():
-        if line.lstrip().startswith("#"):
-            line = f"{' '*leading_spaces}{line}"
-        else:
-            leading_spaces = len(line) - len(line.lstrip())
-        output_lines.append(line)
+    config = _reorder_config_yaml(config)
+    output_yaml = _dump_yaml_with_comments(config, comments)
     return output_yaml, entries
+
+
+def _reorder_config_yaml(config: dict[str, Any]) -> dict[str, Any]:
+    """Reorder the config.yaml file to have the keys in alphabetical order
+    and the variables before the modules.
+    """
+    new_config = {}
+    for key in sorted([k for k in config.keys() if not isinstance(config[k], dict)]):
+        new_config[key] = config[key]
+    for key in sorted([k for k in config.keys() if isinstance(config[k], dict)]):
+        new_config[key] = _reorder_config_yaml(config[key])
+    return new_config
+
+
+def _extract_comments(
+    raw_file: str, key_prefix: tuple[str, ...] = tuple()
+) -> dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]]:
+    """Extract comments from a raw file and return a dictionary with the comments."""
+    comments: dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]] = defaultdict(
+        lambda: {"above": [], "after": []}
+    )
+    position: Literal["above", "after"]
+    variable: str | None = None
+    last_comment: str | None = None
+    for line in raw_file.splitlines():
+        if ":" in line:
+            variable = str(line.split(":", maxsplit=1)[0].strip())
+            if last_comment:
+                comments[(*key_prefix, variable)]["above"].append(last_comment)
+                last_comment = None
+        if "#" in line:
+            before, comment = str(line).rsplit("#", maxsplit=1)
+            position = "after" if ":" in before else "above"
+            if position == "after" and (before.count('"') % 2 == 1 or before.count("'") % 2 == 1):
+                # The comment is inside a string
+                continue
+            if position == "after" or variable is None:
+                key = (*key_prefix, *((variable and [variable]) or []))
+                comments[key][position].append(comment.strip())
+            else:
+                last_comment = comment.strip()
+    return dict(comments)
+
+
+def _dump_yaml_with_comments(
+    config: dict[str, Any],
+    comments: dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]],
+    indent_size: int = 2,
+) -> str:
+    """Dump a config dictionary to a yaml string"""
+    dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
+    out_lines = []
+    if module_comment := comments.get(tuple()):
+        for comment in module_comment["above"]:
+            out_lines.append(f"# {comment}")
+    last_indent = 0
+    last_variable: str | None = None
+    path: tuple[str, ...] = tuple()
+    for line in dumped.splitlines():
+        indent = len(line) - len(line.lstrip())
+        if last_indent < indent:
+            path = (*path, last_variable)
+        elif last_indent > indent:
+            # Adding some extra space between modules
+            out_lines.append("")
+            indent_reduction_steps = (last_indent - indent) // indent_size
+            path = path[:-indent_reduction_steps]
+
+        variable = line.split(":", maxsplit=1)[0].strip()
+        if comment := comments.get((*path, variable)):
+            for line_comment in comment["above"]:
+                out_lines.append(f"{' ' * indent}# {line_comment}")
+            if after := comment["after"]:
+                line = f"{line} # {after[0]}"
+
+        out_lines.append(line)
+        last_indent = indent
+        last_variable = variable
+    out_lines.append("")
+    return "\n".join(out_lines)
 
 
 @dataclass
@@ -629,6 +697,10 @@ class ConfigEntries(UserList):
             super().append(item)
         else:
             self._lookup[item.module][item.key].current_value = item.current_value
+
+    def extend(self, items: list[ConfigEntry]) -> None:
+        for item in items:
+            self.append(item)
 
     @property
     def changed(self) -> list[ConfigEntry]:
@@ -716,9 +788,13 @@ def iterate_modules(root_dir: Path) -> tuple[Path, list[Path]]:
         if not module_dir.is_dir():
             continue
         module_directories = [path for path in module_dir.iterdir() if path.is_dir()]
-        is_all_resource_directories = all(dir.name in LOADER_BY_FOLDER_NAME for dir in module_directories)
-        if module_directories and is_all_resource_directories:
-            yield module_dir, [path for path in module_dir.rglob("*") if path.is_file() and path.name not in EXCL_FILES]
+        is_any_resource_directories = any(dir.name in LOADER_BY_FOLDER_NAME for dir in module_directories)
+        if module_directories and is_any_resource_directories:
+            yield module_dir, [
+                path
+                for path in module_dir.rglob("*")
+                if path.is_file() and path.name not in EXCL_FILES and path.parent != module_dir
+            ]
 
 
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
@@ -795,11 +871,18 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
                 filepath_build=destination,
             ):
                 exit(1)
-        loader = LOADER_BY_FOLDER_NAME.get(destination.parent.name)
+        loader = LOADER_BY_FOLDER_NAME.get(destination.parent.name, [])
         if len(loader) == 1:
             loader = loader[0]
         else:
             loader = next((loader for loader in loader if re.match(loader.filename_pattern, destination.stem)), None)
+
+        if loader is None:
+            print(
+                f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r} is not supported by the toolkit."
+            )
+            print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
+            return
 
         if loader:
             load_warnings = validate_case_raw(
