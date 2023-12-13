@@ -172,6 +172,45 @@ def test_deploy_module_approval(
 
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
+def test_deploy_dry_run_module_approval(
+    module_path: Path,
+    local_tmp_path: Path,
+    local_tmp_project_path: Path,
+    monkeypatch: MonkeyPatch,
+    cognite_client_approval: CogniteClient,
+    cdf_tool_config: CDFToolConfig,
+    typer_context: typer.Context,
+    init_project: None,
+) -> None:
+    mock_read_yaml_files(module_path, monkeypatch)
+    mock_read_yaml_file(module_path, monkeypatch)
+
+    build(
+        typer_context,
+        source_dir=str(local_tmp_project_path),
+        build_dir=str(local_tmp_path),
+        build_env="dev",
+        clean=True,
+    )
+    deploy(
+        typer_context,
+        build_dir=str(local_tmp_path),
+        build_env="dev",
+        interactive=False,
+        drop=True,
+        dry_run=True,
+        include=[],
+    )
+
+    assert cdf_tool_config.verify_dataset.call_count == 0, "Dataset should not be checked in dry run"
+    assert cdf_tool_config.verify_spaces.call_count == 0, "Spaces should not be checked in dry run"
+    assert (
+        cdf_tool_config.verify_extraction_pipeline.call_count == 0
+    ), "Extraction pipelines should not be checked in dry run"
+    assert cdf_tool_config.verify_capabilities.call_count == 0, "Capabilities should not be checked in dry run"
+
+
+@pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_clean_module_approval(
     module_path: Path,
     local_tmp_path: Path,
