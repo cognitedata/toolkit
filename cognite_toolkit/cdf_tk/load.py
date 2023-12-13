@@ -367,11 +367,11 @@ class AuthLoader(Loader[int, Group, GroupList]):
         ] = "all",
     ):
         super().__init__(client, ToolGlobals)
-        self.load = target_scopes
+        self.target_scopes = target_scopes
 
     @property
     def display_name(self):
-        if self.load.startswith("all"):
+        if self.target_scopes.startswith("all"):
             scope = "all"
         else:
             scope = "resource scoped"
@@ -412,7 +412,10 @@ class AuthLoader(Loader[int, Group, GroupList]):
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    if not dry_run and self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
+                    if not dry_run and self.target_scopes not in [
+                        "all_skipped_validation",
+                        "all_scoped_skipped_validation",
+                    ]:
                         values["scope"]["datasetScope"]["ids"] = [
                             self.ToolGlobals.verify_dataset(ext_id)
                             for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
@@ -421,7 +424,10 @@ class AuthLoader(Loader[int, Group, GroupList]):
                         values["scope"]["datasetScope"]["ids"] = [-1]
 
                 if len(values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
-                    if not dry_run and self.load not in ["all_skipped_validation", "all_scoped_skipped_validation"]:
+                    if not dry_run and self.target_scopes not in [
+                        "all_skipped_validation",
+                        "all_scoped_skipped_validation",
+                    ]:
                         values["scope"]["extractionPipelineScope"]["ids"] = [
                             self.ToolGlobals.verify_extraction_pipeline(ext_id)
                             for ext_id in values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])
@@ -464,11 +470,11 @@ class AuthLoader(Loader[int, Group, GroupList]):
         return len(found)
 
     def create(self, items: Sequence[Group], drop: bool, filepath: Path) -> GroupList:
-        if self.load == "all":
+        if self.target_scopes == "all":
             to_create = items
-        elif self.load == "all_skipped_validation":
+        elif self.target_scopes == "all_skipped_validation":
             raise ValueError("all_skipped_validation is not supported for group creation as scopes would be wrong.")
-        elif self.load == "resource_scoped_only":
+        elif self.target_scopes == "resource_scoped_only":
             to_create = []
             for item in items:
                 item.capabilities = [
@@ -476,7 +482,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
                 ]
                 if item.capabilities:
                     to_create.append(item)
-        elif self.load == "all_scoped_only" or self.load == "all_scoped_skipped_validation":
+        elif self.target_scopes == "all_scoped_only" or self.target_scopes == "all_scoped_skipped_validation":
             to_create = []
             for item in items:
                 item.capabilities = [
@@ -485,7 +491,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
                 if item.capabilities:
                     to_create.append(item)
         else:
-            raise ValueError(f"Invalid load value {self.load}")
+            raise ValueError(f"Invalid load value {self.target_scopes}")
 
         if len(to_create) == 0:
             return []

@@ -435,7 +435,7 @@ def clean(
             exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         result = deploy_or_clean_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
             directory,
             ToolGlobals,
             drop=True,

@@ -44,6 +44,8 @@ Changes are grouped as follows:
 
 - When running `cdf-tk deploy` with `--dry-run` a `ValueError` was raised if not all datasets were pre-existing.
   This is now fixed by skipping dataset validation when running with `--dry-run`.
+- When having a `auth` group with mixed capabilities of all scoped and resource scoped, the all scoped capabilities
+  were not removed when running `cdf-tk deploy`. This is now fixed.
 
 ## [0.1.0a3] - 2023-12-01
 
