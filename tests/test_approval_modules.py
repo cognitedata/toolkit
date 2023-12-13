@@ -121,20 +121,8 @@ def mock_read_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr("cognite_toolkit.cdf_tk.templates.read_yaml_file", fake_read_yaml_file)
 
 
-@pytest.mark.parametrize("module_path", list(find_all_modules()))
-def test_deploy_module_approval(
-    module_path: Path,
-    local_tmp_path: Path,
-    local_tmp_project_path: Path,
-    monkeypatch: MonkeyPatch,
-    cognite_client_approval: CogniteClient,
-    cdf_tool_config: CDFToolConfig,
-    typer_context: typer.Context,
-    data_regression,
-) -> None:
-    mock_read_yaml_files(module_path, monkeypatch)
-    mock_read_yaml_file(module_path, monkeypatch)
-
+@pytest.fixture
+def init_project(typer_context: typer.Context, local_tmp_project_path: Path) -> None:
     main_init(
         typer_context,
         dry_run=False,
@@ -144,6 +132,23 @@ def test_deploy_module_approval(
         no_backup=True,
         clean=True,
     )
+    return None
+
+
+@pytest.mark.parametrize("module_path", list(find_all_modules()))
+def test_deploy_module_approval(
+    module_path: Path,
+    local_tmp_path: Path,
+    local_tmp_project_path: Path,
+    monkeypatch: MonkeyPatch,
+    cognite_client_approval: CogniteClient,
+    cdf_tool_config: CDFToolConfig,
+    typer_context: typer.Context,
+    init_project: None,
+    data_regression,
+) -> None:
+    mock_read_yaml_files(module_path, monkeypatch)
+    mock_read_yaml_file(module_path, monkeypatch)
 
     build(
         typer_context,
