@@ -5,6 +5,7 @@ select
     when isnull(asset.parentExternalId) then null
     else node_reference('sp_asset_{{default_location}}_source', asset.parentExternalId)
   end) as parent,
+-- When combining multiple queries with UNION all, all queries must have the same columns.
   null as source,
   null as root,
   null as description,
