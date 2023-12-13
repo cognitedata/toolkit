@@ -203,8 +203,10 @@ def _get_modules_and_packages(environment_file: Path, build_env: str) -> list[st
 
 
 def _read_packages(source_module, verbose):
-    cdf_modules_by_packages = read_yaml_file(source_module / DEFAULT_PACKAGES_FILE).get("packages", {})
-    if (package_path := source_module / PACKAGES_FILE).exists():
+    cdf_modules_by_packages = read_yaml_file(source_module / COGNITE_MODULES / DEFAULT_PACKAGES_FILE).get(
+        "packages", {}
+    )
+    if (package_path := source_module / COGNITE_MODULES / PACKAGES_FILE).exists():
         local_modules_by_packages = read_yaml_file(package_path).get("packages", {})
         if overwrites := set(cdf_modules_by_packages.keys()) & set(local_modules_by_packages.keys()):
             print(
@@ -482,9 +484,8 @@ def build_config(
                 print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
         build_dir.mkdir()
-    source_module_dir = source_dir / COGNITE_MODULES
 
-    selected_modules = get_selected_modules(source_module_dir, environment_file, build_env, verbose)
+    selected_modules = get_selected_modules(source_dir, environment_file, build_env, verbose)
 
     config = read_yaml_file(config_file)
     warnings = validate_config_yaml(config, config_file)
@@ -492,7 +493,7 @@ def build_config(
         print("  [bold yellow]WARNING:[/] Found the following warnings in config.yaml:")
         for warning in warnings:
             print(f"    {warning}")
-    process_config_files(source_module_dir, selected_modules, build_dir, config, build_env, verbose)
+    process_config_files(source_dir, selected_modules, build_dir, config, build_env, verbose)
 
 
 def generate_config(
@@ -791,9 +792,13 @@ def iterate_modules(root_dir: Path) -> tuple[Path, list[Path]]:
         if not module_dir.is_dir():
             continue
         module_directories = [path for path in module_dir.iterdir() if path.is_dir()]
-        is_all_resource_directories = all(dir.name in LOADER_BY_FOLDER_NAME for dir in module_directories)
-        if module_directories and is_all_resource_directories:
-            yield module_dir, [path for path in module_dir.rglob("*") if path.is_file() and path.name not in EXCL_FILES]
+        is_any_resource_directories = any(dir.name in LOADER_BY_FOLDER_NAME for dir in module_directories)
+        if module_directories and is_any_resource_directories:
+            yield module_dir, [
+                path
+                for path in module_dir.rglob("*")
+                if path.is_file() and path.name not in EXCL_FILES and path.parent != module_dir
+            ]
 
 
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
@@ -870,11 +875,18 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
                 filepath_build=destination,
             ):
                 exit(1)
-        loader = LOADER_BY_FOLDER_NAME.get(destination.parent.name)
+        loader = LOADER_BY_FOLDER_NAME.get(destination.parent.name, [])
         if len(loader) == 1:
             loader = loader[0]
         else:
             loader = next((loader for loader in loader if re.match(loader.filename_pattern, destination.stem)), None)
+
+        if loader is None:
+            print(
+                f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r} is not supported by the toolkit."
+            )
+            print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
+            return
 
         if loader:
             load_warnings = validate_case_raw(
