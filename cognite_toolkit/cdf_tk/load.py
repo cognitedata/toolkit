@@ -852,7 +852,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
 
     def create(self, items: Sequence[ExtractionPipeline], drop: bool, filepath: Path) -> ExtractionPipelineList:
         try:
-            extraction_pipelines = self.client.extraction_pipelines.create(items)
+            return self.client.extraction_pipelines.create(items)
         except CogniteDuplicatedError as e:
             if len(e.duplicated) < len(items):
                 for dup in e.duplicated:
@@ -861,48 +861,56 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                         if item.external_id == ext_id:
                             items.remove(item)
                 try:
-                    extraction_pipelines = self.client.extraction_pipelines.create(items)
+                    return self.client.extraction_pipelines.create(items)
                 except Exception as e:
                     print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
                     self.ToolGlobals.failed = True
                     return ExtractionPipelineList([])
 
-        file_name = re.sub(r"^(\d+)\.", "", filepath.stem)
-        config_file_stem = f"{file_name}.config"
-        config_file = next(
-            (
-                file
-                for file in Path(filepath.parent).iterdir()
-                if file.is_file() and file.stem.endswith(config_file_stem)
-            ),
-            None,
+
+@final
+class ExtractionPipelineConfigLoader(Loader[str, ExtractionPipelineConfig, list[ExtractionPipelineConfig]]):
+    support_drop = True
+    api_name = "extraction_pipelines.config"
+    folder_name = "extraction_pipelines"
+    filename_pattern = r"^.*\.config$"
+    resource_cls = ExtractionPipelineConfig
+    dependencies = frozenset({ExtractionPipelineLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return ExtractionPipelinesAcl(
+            [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
+            ExtractionPipelinesAcl.Scope.All(),
         )
 
-        if not config_file.exists():
+    def get_id(self, item: ExtractionPipeline) -> str:
+        return item.external_id
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipelineConfig:
+        resource = load_yaml_inject_variables(filepath, {})
+        try:
+            resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
+        except Exception:
             print(
-                f"  [bold yellow]WARNING:[/] no config file for extraction pipeline found. Expected to find {config_file_stem} in same folder as {file_name}"
+                "[yellow]WARNING:[/] configuration could not be parsed as valid YAML, which is the recommended format.\n"
             )
-            return extraction_pipelines
+            resource["config"] = resource.get("config", "")
+        return ExtractionPipelineConfig.load(resource)
 
-        resources = load_yaml_inject_variables(config_file, {})
-        resources = [resources] if isinstance(resources, dict) else resources
+    def create(
+        self, items: Sequence[ExtractionPipelineConfig], drop: bool, filepath: Path
+    ) -> list[ExtractionPipelineConfig]:
+        try:
+            return [self.client.extraction_pipelines.config.create(items[0])]
+        except Exception as e:
+            print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
+            self.ToolGlobals.failed = True
+            return ExtractionPipelineConfig()
 
-        for resource in resources:
-            extraction_pipeline_config = ExtractionPipelineConfig.load(
-                {
-                    "externalId": resource.get("externalId"),
-                    "description": resource.get("description"),
-                    "config": yaml.dump(resource.get("config", ""), indent=4),
-                }
-            )
-            try:
-                self.client.extraction_pipelines.config.create(extraction_pipeline_config)
-
-            except Exception as e:
-                print(f"[bold red]ERROR:[/] Failed to create extraction pipeline config.\n{e}")
-                self.ToolGlobals.failed = True
-
-        return extraction_pipelines
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+        configs = self.client.extraction_pipelines.config.list(external_id=ids)
+        return len(configs)
 
 
 @final

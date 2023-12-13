@@ -113,7 +113,7 @@ Transformation:
     \  `asset_oid_workmate`.`assets`\n"
   schedule:
     externalId: tr_asset_oid_workmate_asset_hierarchy
-    interval: 0 * * * *
+    interval: 7 * * * *
     isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -124,7 +124,7 @@ Transformation:
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_asset_hierarchy
-  interval: 0 * * * *
+  interval: 7 * * * *
   isPaused: true
 deleted:
   Transformation:
