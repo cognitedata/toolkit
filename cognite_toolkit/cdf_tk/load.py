@@ -27,11 +27,13 @@ from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar, Union, final
 
 import pandas as pd
+import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     DataSet,
     DataSetList,
     ExtractionPipeline,
+    ExtractionPipelineConfig,
     ExtractionPipelineList,
     FileMetadata,
     FileMetadataList,
@@ -542,11 +544,13 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
 
     def load_resource(self, filepath: Path, dry_run: bool) -> DataSetList:
         resource = load_yaml_inject_variables(filepath, {})
-        data_sets = list(resource) if isinstance(resource, dict) else resource
+
+        data_sets = [resource] if isinstance(resource, dict) else resource
+
         for data_set in data_sets:
             if data_set.get("metadata"):
                 for key, value in data_set["metadata"].items():
-                    data_set["metadata"][key] = json.dumps(value) if isinstance(value, dict) else value
+                    data_set["metadata"][key] = json.dumps(value)
         return DataSetList.load(data_sets)
 
     def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList | None:
@@ -804,6 +808,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
     support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
+    filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
     resource_cls = ExtractionPipeline
     list_cls = ExtractionPipelineList
     dependencies = frozenset({DataSetsLoader, RawLoader})
@@ -838,15 +843,16 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
 
     def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipeline:
         resource = load_yaml_inject_variables(filepath, {})
+
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
             resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
+
         return ExtractionPipeline.load(resource)
 
-    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList | None:
+    def create(self, items: Sequence[ExtractionPipeline], drop: bool, filepath: Path) -> ExtractionPipelineList:
         try:
-            return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
-
+            return self.client.extraction_pipelines.create(items)
         except CogniteDuplicatedError as e:
             if len(e.duplicated) < len(items):
                 for dup in e.duplicated:
@@ -855,12 +861,56 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
                         if item.external_id == ext_id:
                             items.remove(item)
                 try:
-                    return ExtractionPipelineList(self.client.extraction_pipelines.create(items))
+                    return self.client.extraction_pipelines.create(items)
                 except Exception as e:
                     print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
                     self.ToolGlobals.failed = True
-                    return None
-            return None
+                    return ExtractionPipelineList([])
+
+
+@final
+class ExtractionPipelineConfigLoader(Loader[str, ExtractionPipelineConfig, list[ExtractionPipelineConfig]]):
+    support_drop = True
+    api_name = "extraction_pipelines.config"
+    folder_name = "extraction_pipelines"
+    filename_pattern = r"^.*\.config$"
+    resource_cls = ExtractionPipelineConfig
+    dependencies = frozenset({ExtractionPipelineLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return ExtractionPipelinesAcl(
+            [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
+            ExtractionPipelinesAcl.Scope.All(),
+        )
+
+    def get_id(self, item: ExtractionPipeline) -> str:
+        return item.external_id
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipelineConfig:
+        resource = load_yaml_inject_variables(filepath, {})
+        try:
+            resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
+        except Exception:
+            print(
+                "[yellow]WARNING:[/] configuration could not be parsed as valid YAML, which is the recommended format.\n"
+            )
+            resource["config"] = resource.get("config", "")
+        return ExtractionPipelineConfig.load(resource)
+
+    def create(
+        self, items: Sequence[ExtractionPipelineConfig], drop: bool, filepath: Path
+    ) -> list[ExtractionPipelineConfig]:
+        try:
+            return [self.client.extraction_pipelines.config.create(items[0])]
+        except Exception as e:
+            print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
+            self.ToolGlobals.failed = True
+            return ExtractionPipelineConfig()
+
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+        configs = self.client.extraction_pipelines.config.list(external_id=ids)
+        return len(configs)
 
 
 @final
@@ -1255,6 +1305,7 @@ def deploy_or_clean_resources(
         filepaths = [file for file in filepaths if pattern.match(file.stem)]
 
     items = [loader.load_resource(f, dry_run) for f in filepaths]
+    items = [item for item in items if item is not None]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
     if nr_of_items == 0:
