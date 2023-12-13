@@ -19,6 +19,7 @@ asset_location_extractor_group_source_id: <update me>
 asset_location_processing_group_source_id: <update me>
 asset_location_read_group_source_id: <update me>
 
+pause_transformations: true
 
 # Transformation credentials
 clientId: ${IDP_CLIENT_ID}

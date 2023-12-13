@@ -18,5 +18,5 @@ authentication:
   audience: {{cicd_audience}}
 schedule:
   # every hour
-  interval: '0 * * * *'
-  isPaused: true
+  interval: '{{scheduleHourly}}'
+  isPaused: {{pause_transformations}}
