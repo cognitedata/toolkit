@@ -75,9 +75,9 @@ cognite_modules:
       asset_dataset: ds_asset_oid
       asset_raw_input_db: asset_oid_workmate
       asset_raw_input_table: assets
-      asset_location_extractor_group_source_id: <update me>
-      asset_location_processing_group_source_id: <update me>
-      asset_location_read_group_source_id: <update me>
+      asset_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+      asset_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+      asset_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
       clientId: ${IDP_CLIENT_ID}
       clientSecret: ${IDP_CLIENT_SECRET}
       tokenUri: ${IDP_TOKEN_URL}
