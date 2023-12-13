@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-import os, shutil
+import os
+import shutil
 from pathlib import Path
 
 import yaml
@@ -8,8 +9,8 @@ THIS_FOLDER = Path(__file__).parent.absolute()
 DEMO_PROJECT = THIS_FOLDER.parent / "demo_project"
 TOOLKIT_FOLDER = THIS_FOLDER.parent / "cognite_toolkit"
 
-def run() -> None:
 
+def run() -> None:
     print(TOOLKIT_FOLDER)
 
     print("Running copy commands to prep deployment of demo...")
@@ -25,7 +26,7 @@ def run() -> None:
     for key, value in variables.items():
         print(f"updating {key}")
         config_yaml = config_yaml.replace(f"{key}: <change_me>", f"{key}: {value}")
-    
+
     config_yaml_path.write_text(config_yaml)
 
 
