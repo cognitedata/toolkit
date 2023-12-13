@@ -529,7 +529,7 @@ def generate_config(
             raw_file = default_config.read_text()
 
             comments.update(
-                _extract_comments(raw_file, key_prefix=".".join(default_config.parent.relative_to(directory).parts))
+                _extract_comments(raw_file, key_prefix=tuple(default_config.parent.relative_to(directory).parts))
             )
 
             file_data = yaml.safe_load(raw_file)
@@ -589,10 +589,12 @@ def _reorder_config_yaml(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def _extract_comments(
-    raw_file: str, key_prefix: str = ""
-) -> dict[str | None, dict[Literal["above", "after"], list[str]]]:
+    raw_file: str, key_prefix: tuple[str, ...] = tuple()
+) -> dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]]:
     """Extract comments from a raw file and return a dictionary with the comments."""
-    comments: dict[str, dict[Literal["above", "after"], list[str]]] = defaultdict(lambda: {"above": [], "after": []})
+    comments: dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]] = defaultdict(
+        lambda: {"above": [], "after": []}
+    )
     position: Literal["above", "after"]
     variable: str | None = None
     last_comment: str | None = None
@@ -600,10 +602,7 @@ def _extract_comments(
         if ":" in line:
             variable = str(line.split(":", maxsplit=1)[0].strip())
             if last_comment:
-                key = key_prefix
-                if variable:
-                    key = f"{key_prefix}.{variable}"
-                comments[key]["above"].append(last_comment)
+                comments[(*key_prefix, variable)]["above"].append(last_comment)
                 last_comment = None
         if "#" in line:
             before, comment = str(line).rsplit("#", maxsplit=1)
@@ -612,9 +611,7 @@ def _extract_comments(
                 # The comment is inside a string
                 continue
             if position == "after" or variable is None:
-                key = key_prefix
-                if variable:
-                    key = f"{key_prefix}.{variable}"
+                key = (*key_prefix, *((variable and [variable]) or []))
                 comments[key][position].append(comment.strip())
             else:
                 last_comment = comment.strip()
@@ -622,32 +619,31 @@ def _extract_comments(
 
 
 def _dump_yaml_with_comments(
-    config: dict[str, Any], comments: dict[str, dict[Literal["above", "after"], list[str]]], indent_size: int = 2
+    config: dict[str, Any],
+    comments: dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]],
+    indent_size: int = 2,
 ) -> str:
     """Dump a config dictionary to a yaml string"""
     dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
     out_lines = []
-    if module_comment := comments.get(""):
+    if module_comment := comments.get(tuple()):
         for comment in module_comment["above"]:
             out_lines.append(f"# {comment}")
     last_indent = 0
     last_variable: str | None = None
-    path = ""
+    path: tuple[str, ...] = tuple()
     for line in dumped.splitlines():
         indent = len(line) - len(line.lstrip())
         if last_indent < indent:
-            path = f"{path}.{last_variable}" if path else last_variable
+            path = (*path, last_variable)
         elif last_indent > indent:
             # Adding some extra space between modules
             out_lines.append("")
-            levels = (last_indent - indent) // indent_size
-            if path.count(".") >= levels:
-                path = path.rsplit(".", maxsplit=levels)[0]
-            else:
-                path = ""
+            indent_reduction_steps = (last_indent - indent) // indent_size
+            path = path[:-indent_reduction_steps]
 
         variable = line.split(":", maxsplit=1)[0].strip()
-        if comment := comments.get(f"{path}.{variable}", comments.get(variable)):
+        if comment := comments.get((*path, variable)):
             for line_comment in comment["above"]:
                 out_lines.append(f"{' ' * indent}# {line_comment}")
             if after := comment["after"]:

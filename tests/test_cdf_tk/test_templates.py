@@ -106,18 +106,18 @@ variable2: value2
 variable3: 'value with #in it'
 variable4: "value with #in it" # But a comment after
 """,
-            "super_module.module_a",
+            tuple("super_module.module_a".split(".")),
             {
-                "super_module.module_a": {"above": ["This is a module comment"], "after": []},
-                "super_module.module_a.variable": {"above": [], "after": ["After variable comment"]},
-                "super_module.module_a.variable2": {"above": ["Before variable comment"], "after": []},
-                "super_module.module_a.variable4": {"above": [], "after": ["But a comment after"]},
+                ("super_module", "module_a"): {"above": ["This is a module comment"], "after": []},
+                ("super_module", "module_a", "variable"): {"above": [], "after": ["After variable comment"]},
+                ("super_module", "module_a", "variable2"): {"above": ["Before variable comment"], "after": []},
+                ("super_module", "module_a", "variable4"): {"above": [], "after": ["But a comment after"]},
             },
             id="module comments",
         )
     ],
 )
-def test_extract_comments(raw_file: str, key_prefix: str, expected_comments: dict[str, Any]):
+def test_extract_comments(raw_file: str, key_prefix: tuple[str, ...], expected_comments: dict[str, Any]):
     actual_comments = _extract_comments(raw_file, key_prefix)
     assert actual_comments == expected_comments
 
@@ -135,10 +135,10 @@ def test_extract_comments(raw_file: str, key_prefix: str, expected_comments: dic
                 "parent": {"child": {"child_variable": "my_child_variable"}},
             },
             {
-                "": {"above": ["This is a module comment"], "after": []},
-                "top_variable": {"above": [], "after": ["After variable comment"]},
-                "module_a": {"above": ["Before variable comment"], "after": []},
-                "parent.child.child_variable": {"above": [], "after": ["With a comment after"]},
+                tuple(): {"above": ["This is a module comment"], "after": []},
+                ("top_variable",): {"above": [], "after": ["After variable comment"]},
+                ("module_a",): {"above": ["Before variable comment"], "after": []},
+                ("parent", "child", "child_variable"): {"above": [], "after": ["With a comment after"]},
             },
             """# This is a module comment
 top_variable: my_top_variable # After variable comment
@@ -155,7 +155,7 @@ parent:
         )
     ],
 )
-def test_dump_yaml_with_comments(config: dict[str, Any], comments: dict[str, Any], expected: str):
+def test_dump_yaml_with_comments(config: dict[str, Any], comments: dict[tuple[str, ...], Any], expected: str):
     actual = _dump_yaml_with_comments(config, comments)
 
     assert actual == expected
