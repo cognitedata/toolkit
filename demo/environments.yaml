@@ -21,3 +21,4 @@ demo:
   deploy:
     - cdf_demo_infield
     - cdf_oid_example_data
+    - cdf_data_pipeline_asset_valhall
