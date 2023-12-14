@@ -12,3 +12,4 @@ view_Asset_version: '1'
 view_WorkOrder_version: '1'
 view_WorkItem_version: '1'
 pause_transformations: true
+data_set: ds_oid_example_data
