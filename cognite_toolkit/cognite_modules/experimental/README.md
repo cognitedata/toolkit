@@ -1,4 +1,5 @@
-# Experimental module folder
-This folder contains experimental modules. These modules are not supported by Cognite and are not guaranteed to work.
+# EXPERIMENTAL modules
 
-They are used to test new features and ideas. They may be removed at any time.
+This folder contains experimental modules. These modules are not supported by Cognite.
+
+They are used to test new features and ideas. They may be removed at any time or promoted to a stable module.
