@@ -389,6 +389,38 @@ class ApprovalCogniteClient:
             if (call_count := sum(method.call_count for method in methods))
         }
 
+    def not_mocked_calls(self) -> dict[str, int]:
+        mocked_apis: dict[str : set[str]] = defaultdict(set)
+        for r in _API_RESOURCES:
+            if r.api_name.count(".") == 1:
+                api_name, sub_api = r.api_name.split(".")
+            elif r.api_name.count(".") == 0:
+                api_name, sub_api = r.api_name, ""
+            else:
+                raise ValueError(f"Invalid api name {r.api_name}")
+            mocked_apis[api_name] |= {sub_api} if sub_api else set()
+
+        not_mocked: dict[str, int] = defaultdict(int)
+        for api_name, api in vars(self.mock_client).items():
+            if not isinstance(api, MagicMock) or api_name.startswith("_") or api_name.startswith("assert_"):
+                continue
+            mocked_sub_apis = mocked_apis.get(api_name, set())
+            for method_name in dir(api):
+                if method_name.startswith("_") or method_name.startswith("assert_"):
+                    continue
+                method = getattr(api, method_name)
+                if api_name not in mocked_apis and isinstance(method, MagicMock) and method.call_count:
+                    not_mocked[f"{api_name}.{method_name}"] += method.call_count
+                if hasattr(method, "_spec_set") and method._spec_set and method_name not in mocked_sub_apis:
+                    # this is a sub api that must be checked
+                    for sub_method_name in dir(method):
+                        if sub_method_name.startswith("_") or sub_method_name.startswith("assert_"):
+                            continue
+                        sub_method = getattr(method, sub_method_name)
+                        if isinstance(sub_method, MagicMock) and sub_method.call_count:
+                            not_mocked[f"{api_name}.{method_name}.{sub_method_name}"] += sub_method.call_count
+        return dict(not_mocked)
+
 
 @pytest.fixture
 def cognite_client_approval() -> ApprovalCogniteClient:
