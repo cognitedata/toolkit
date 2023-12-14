@@ -4,9 +4,12 @@
     cast(`key` as STRING) as id,
     cast(`status` as STRING) as status,
     /* cast(`startTime` as TIMESTAMP) as startTime,
-    cast(`endTime` as TIMESTAMP) as endTime,*/
-    cast('2023-12-01T09:00:00' as TIMESTAMP) as startTime,
-    cast('2023-12-06T09:00:00' as TIMESTAMP) as endTime,
+    cast(`endTime` as TIMESTAMP) as endTime,
+    NOTE!!! The below two datas just updates all workorders to be from now 
+    and into the future. This is done for the sake of the demo data.
+    */
+    cast(current_date() as TIMESTAMP) as startTime,
+    cast(date_add(current_date(), 7) as TIMESTAMP) as endTime,
     cast(`title` as STRING) as title,
     '{{root_asset_external_id}}' as rootLocation,
     'workmate' as source
