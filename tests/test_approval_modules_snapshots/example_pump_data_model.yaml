@@ -41,20 +41,20 @@ Container:
       type:
         list: false
         type: float64
-  space: sp_pumpModelSpace
+  space: sp_pump_model_space
   usedFor: node
 DataModel:
 - externalId: PumpLiftStations
   name: PumpLiftStations
-  space: sp_pumpModelSpace
+  space: sp_pump_model_space
   version: '1'
   views:
   - externalId: Pump
-    space: sp_pumpModelSpace
+    space: sp_pump_model_space
     type: view
     version: '1'
   - externalId: LiftStation
-    space: sp_pumpModelSpace
+    space: sp_pump_model_space
     type: view
     version: '1'
 DataSet:
@@ -63,11 +63,11 @@ DataSet:
   name: Example Pump Data
 Space:
 - description: Space for the instances.
-  name: sp_pumpInstanceSpace
-  space: sp_pumpInstanceSpace
+  name: sp_pump_instance_space
+  space: sp_pump_instance_space
 - description: Space for the Pump Model.
-  name: sp_pumpModelSpace
-  space: sp_pumpModelSpace
+  name: sp_pump_model_space
+  space: sp_pump_model_space
 Transformation:
 - dataSetId: 42
   destination:
@@ -75,9 +75,9 @@ Transformation:
       destinationRelationshipFromType: pumps
       destinationType: LiftStation
       externalId: PumpLiftStations
-      space: sp_pumpModelSpace
+      space: sp_pump_model_space
       version: '1'
-    instanceSpace: sp_pumpInstanceSpace
+    instanceSpace: sp_pump_instance_space
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -92,8 +92,8 @@ Transformation:
   name: pump_model-populate-lift_station_pumps_edges
   ownerIsCurrentUser: true
   query: "select\n  concat(cast(`parent`.externalId as STRING), ':', cast(`externalId`\
-    \ as STRING)) as externalId,\n  `parent` as startNode,\n  node_reference('sp_pumpInstanceSpace',\
-    \ cast(`externalId` as STRING)) as endNode\nfrom\n  cdf_data_models(\"sp_ExtendedSourceDataModels\"\
+    \ as STRING)) as externalId,\n  `parent` as startNode,\n  node_reference('sp_pump_instance_space',\
+    \ cast(`externalId` as STRING)) as endNode\nfrom\n  cdf_data_models(\"sp_extended_source_data_models\"\
     , \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
   schedule:
     externalId: tr_pump_model-populate-lift_station_pumps_edges
@@ -112,9 +112,9 @@ Transformation:
       destinationRelationshipFromType: null
       destinationType: Pump
       externalId: PumpLiftStations
-      space: sp_pumpModelSpace
+      space: sp_pump_model_space
       version: '1'
-    instanceSpace: sp_pumpInstanceSpace
+    instanceSpace: sp_pump_instance_space
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -133,8 +133,8 @@ Transformation:
     \ '$.LowHeadFT') as DOUBLE) as LowHeadFT,\n  cast(get_json_object(`metadata`,\
     \ '$.DesignPointFlowGPM') as DOUBLE) as DesignPointFlowGPM,\n  cast(get_json_object(`metadata`,\
     \ '$.LowHeadFlowGPM') as DOUBLE) as LowHeadFlowGPM\nfrom\n  cdf_data_models(\"\
-    sp_ExtendedSourceDataModels\", \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n\
-    \  startswith(title, 'Pump')\n"
+    sp_extended_source_data_models\", \"ExtendedSourceData\", \"1\", \"Asset\")\n\
+    where\n  startswith(title, 'Pump')\n"
   schedule:
     externalId: tr_pump_model-populate-pump_container
     interval: 7 * * * *
@@ -178,13 +178,13 @@ View:
       name: pumps
       source:
         externalId: Pump
-        space: sp_pumpModelSpace
+        space: sp_pump_model_space
         type: view
         version: '1'
       type:
         externalId: LiftStation.pumps
-        space: sp_pumpModelSpace
-  space: sp_pumpModelSpace
+        space: sp_pump_model_space
+  space: sp_pump_model_space
   version: '1'
 - externalId: Pump
   filter:
@@ -207,28 +207,28 @@ View:
     DesignPointFlowGPM:
       container:
         externalId: Pump
-        space: sp_pumpModelSpace
+        space: sp_pump_model_space
         type: container
       containerPropertyIdentifier: DesignPointFlowGPM
       name: DesignPointFlowGPM
     DesignPointHeadFT:
       container:
         externalId: Pump
-        space: sp_pumpModelSpace
+        space: sp_pump_model_space
         type: container
       containerPropertyIdentifier: DesignPointHeadFT
       name: DesignPointHeadFT
     LowHeadFT:
       container:
         externalId: Pump
-        space: sp_pumpModelSpace
+        space: sp_pump_model_space
         type: container
       containerPropertyIdentifier: LowHeadFT
       name: LowHeadFT
     LowHeadFlowGPM:
       container:
         externalId: Pump
-        space: sp_pumpModelSpace
+        space: sp_pump_model_space
         type: container
       containerPropertyIdentifier: LowHeadFlowGPM
       name: LowHeadFlowGPM
@@ -241,15 +241,15 @@ View:
       name: liftStation
       source:
         externalId: LiftStation
-        space: sp_pumpModelSpace
+        space: sp_pump_model_space
         type: view
         version: '1'
-  space: sp_pumpModelSpace
+  space: sp_pump_model_space
   version: '1'
 deleted:
   DataModel:
   - externalId: PumpLiftStations
-    space: sp_pumpModelSpace
+    space: sp_pump_model_space
     type: datamodel
     version: '1'
   Transformation:
@@ -257,10 +257,10 @@ deleted:
   - externalId: tr_pump_model-populate-pump_container
   View:
   - externalId: LiftStation
-    space: sp_pumpModelSpace
+    space: sp_pump_model_space
     type: view
     version: '1'
   - externalId: Pump
-    space: sp_pumpModelSpace
+    space: sp_pump_model_space
     type: view
     version: '1'
