@@ -83,7 +83,7 @@ class ApprovalCogniteClient:
         # This is used to log all delete operations
         self._deleted_resources: dict[str, list[str | int | dict[str, Any]]] = defaultdict(list)
         # This is used to log all create operations
-        self._created_resources: dict[str, list[CogniteResource]] = defaultdict(list)
+        self._created_resources: dict[str, list[CogniteResource | dict[str, Any]]] = defaultdict(list)
 
         # This is used to log all operations
         self._delete_methods: dict[str, list[MagicMock]] = defaultdict(list)
@@ -155,6 +155,7 @@ class ApprovalCogniteClient:
                 deleted.extend({"externalId": i} for i in external_id)
             if deleted:
                 deleted_resources[resource_cls.__name__].extend(deleted)
+            return deleted
 
         def delete_data_modeling(ids: VersionedDataModelingId | Sequence[VersionedDataModelingId]) -> list:
             deleted = []
@@ -341,6 +342,11 @@ class ApprovalCogniteClient:
         return method
 
     def dump(self) -> dict[str, Any]:
+        """This returns a dictionary with all the resources that have been created and deleted.
+
+        Returns:
+            A dict with the resources that have been created and deleted, {resource_name: [resource, ...]}
+        """
         dumped = {}
         for key in sorted(self._created_resources):
             values = self._created_resources[key]
@@ -372,6 +378,11 @@ class ApprovalCogniteClient:
         return dumped
 
     def create_calls(self) -> dict[str, int]:
+        """This returns all the calls that have been made to the mock client to create methods.
+
+        For example, if you have mocked the 'time_series' API, and the code you test calls the 'time_series.create' method,
+        then this method will return {'time_series': 1}
+        """
         return {
             key: call_count
             for key, methods in self._create_methods.items()
@@ -379,6 +390,11 @@ class ApprovalCogniteClient:
         }
 
     def retrieve_calls(self) -> dict[str, int]:
+        """This returns all the calls that have been made to the mock client to retrieve methods.
+
+        For example, if you have mocked the 'time_series' API, and the code you test calls the 'time_series.list' method,
+        then this method will return {'time_series': 1}
+        """
         return {
             key: call_count
             for key, methods in self._retrieve_methods.items()
@@ -386,6 +402,11 @@ class ApprovalCogniteClient:
         }
 
     def delete_calls(self) -> dict[str, int]:
+        """This returns all the calls that have been made to the mock client to delete methods.
+
+        For example, if you have mocked the 'time_series' API, and the code you test calls the 'time_series.delete' method,
+        then this method will return {'time_series': 1}
+        """
         return {
             key: call_count
             for key, methods in self._delete_methods.items()
@@ -393,6 +414,14 @@ class ApprovalCogniteClient:
         }
 
     def not_mocked_calls(self) -> dict[str, int]:
+        """This returns all the calls that have been made to the mock client to sub APIs that have not been mocked.
+
+        For example, if you have not mocked the 'time_series' API, and the code you test calls the 'time_series.list' method,
+        then this method will return {'time_series.list': 1}
+
+        Returns:
+            A dict with the calls that have been made to sub APIs that have not been mocked, {api_name.method_name: call_count}
+        """
         mocked_apis: dict[str : set[str]] = defaultdict(set)
         for r in _API_RESOURCES:
             if r.api_name.count(".") == 1:
@@ -437,8 +466,14 @@ class Method:
     """Represent a method in the CogniteClient that should be mocked
 
     Args:
-        api_class_method: The name of the method in the CogniteClient
-        mock_name: The name of the method in the ApprovalCogniteClient
+        api_class_method: The name of the method in the CogniteClient, for example, 'create', 'insert_dataframe'
+        mock_name: The name of the method in the ApprovalCogniteClient, for example, 'create', 'insert_dataframe'
+
+    The available mock methods you can see inside
+    * ApprovalCogniteClient._create_create_method,
+    * ApprovalCogniteClient._create_delete_method,
+    * ApprovalCogniteClient._create_retrieve_method
+
     """
 
     api_class_method: str
@@ -454,7 +489,7 @@ class APIResource:
         resource_cls: The resource class for the API
         list_cls: The list resource API class
         methods: The methods that should be mocked
-        _write_cls: The write resource class for the API. For example, the write class for 'data_modeling.views' is 'ViewApply'
+        _write_cls: The write resource class for the API. For example, the writing class for 'data_modeling.views' is 'ViewApply'
         _write_list_cls: The write list class in the CogniteClient
 
     """
@@ -476,6 +511,8 @@ class APIResource:
         return self._write_list_cls or self.list_cls
 
 
+# This is used to define the resources that should be mocked in the ApprovalCogniteClient
+# You can add more resources here if you need to mock more resources
 _API_RESOURCES = [
     APIResource(
         api_name="iam.groups",
