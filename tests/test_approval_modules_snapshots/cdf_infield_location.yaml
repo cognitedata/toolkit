@@ -419,7 +419,8 @@ Space:
   name: sp:infield:oid:source
   space: sp_asset_oid_source
 Transformation:
-- destination:
+- dataSetId: 42
+  destination:
     instanceSpace: sp_asset_oid_source
     type: nodes
     view:
@@ -464,7 +465,8 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- destination:
+- dataSetId: 42
+  destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: APM_Activity

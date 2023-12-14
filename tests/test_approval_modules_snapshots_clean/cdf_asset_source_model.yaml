@@ -1,20 +1,20 @@
 deleted:
   Container:
   - externalId: Asset
-    space: ExtendedSourceDataModels
+    space: sp_ExtendedSourceDataModels
     type: container
   DataModel:
   - externalId: ExtendedSourceData
-    space: ExtendedSourceDataModels
+    space: sp_ExtendedSourceDataModels
     type: datamodel
     version: '1'
   Space:
-  - ExtendedSourceDataModels
-  - cdfTemplateInstances
+  - sp_ExtendedSourceDataModels
+  - sp_cdfTemplateInstances
   Transformation:
-  - externalId: sync-asset_hierarchy_cdf_asset_source_model
+  - externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   View:
   - externalId: Asset
-    space: ExtendedSourceDataModels
+    space: sp_ExtendedSourceDataModels
     type: view
     version: '1'
