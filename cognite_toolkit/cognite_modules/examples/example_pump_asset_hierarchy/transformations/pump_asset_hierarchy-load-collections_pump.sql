@@ -56,4 +56,4 @@ SELECT
   LifeCycleStatus,
   LocationDescription
   ) as metadata
-from `{{raw_db}`.`collections_pump`
+from `{{raw_db}}`.`collections_pump`

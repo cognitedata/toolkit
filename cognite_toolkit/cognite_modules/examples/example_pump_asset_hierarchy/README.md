@@ -1,7 +1,7 @@
 # example_pump_asset_hierarchy
 
-This module contains an example of source data for pumps and their associated assets with a transformations
-into CDF classic asset hierarchy.
+This module contains an example of source data for pumps and their associated assets with a transformation that moves the data
+into the CDF classic asset hierarchy.
 
 ## About the data
 
@@ -13,7 +13,7 @@ From the source:
  The purpose of this dataset is to show the line configurations associated with the pumps operating at the lift stations around the City's Collection system.
 ```
 
-This is the basis for the practical guide to data modeling in CDF found in the [Cognite Documentation](https://pr-1865.docs.preview.cogniteapp.com/cdf/dm/dm_guides/dm_create_asset_hierarchy).
+This is the basis for the practical guide to data modeling in CDF found in the [Cognite Documentation](https://docs.cognite.com/cdf/dm/dm_guides/dm_create_asset_hierarchy).
 
 ## Managed resources
 
