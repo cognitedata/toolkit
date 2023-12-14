@@ -41,20 +41,20 @@ def mocked_init(self, client_name: str):
 
 def test_init():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
-        instance = CDFToolConfig(client_name="cdf-project-templates")
+        instance = CDFToolConfig()
         assert isinstance(instance._client, CogniteClientMock)
 
 
 def test_dataset_missing_acl():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         with pytest.raises(CogniteAuthError):
-            instance = CDFToolConfig(client_name="cdf-project-templates")
+            instance = CDFToolConfig()
             instance.verify_dataset("test")
 
 
 def test_dataset_create():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
-        instance = CDFToolConfig(client_name="cdf-project-templates")
+        instance = CDFToolConfig()
         instance._client.config.project = "cdf-project-templates"
         instance._client.iam.token.inspect = Mock(
             spec=TokenAPI.inspect,

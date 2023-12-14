@@ -246,11 +246,7 @@ def deploy(
     if ctx.obj.mockToolGlobals is not None:
         ToolGlobals = ctx.obj.mockToolGlobals
     else:
-        ToolGlobals = CDFToolConfig(
-            client_name="cdf-project-templates",
-            cluster=ctx.obj.cluster,
-            project=ctx.obj.project,
-        )
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
 
@@ -371,11 +367,7 @@ def clean(
     if ctx.obj.mockToolGlobals is not None:
         ToolGlobals = ctx.obj.mockToolGlobals
     else:
-        ToolGlobals = CDFToolConfig(
-            client_name="cdf-project-templates",
-            cluster=ctx.obj.cluster,
-            project=ctx.obj.project,
-        )
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
 
     # Set environment variables from local.yaml
     read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
@@ -507,11 +499,7 @@ def auth_verify(
     if ctx.obj.mockToolGlobals is not None:
         ToolGlobals = ctx.obj.mockToolGlobals
     else:
-        ToolGlobals = CDFToolConfig(
-            client_name="cdf-project-templates",
-            cluster=ctx.obj.cluster,
-            project=ctx.obj.project,
-        )
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
     bootstrap.check_auth(
         ToolGlobals,
         group_file=group_file,
