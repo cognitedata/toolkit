@@ -15,12 +15,12 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
-from cognite.client import CogniteClient
 from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf import Common, build, clean, deploy, main_init
 from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, iterate_modules, read_yaml_file, read_yaml_files
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from tests.conftest import ApprovalCogniteClient
 
 REPO_ROOT = Path(__file__).parent.parent
 
@@ -67,7 +67,7 @@ def local_tmp_project_path(local_tmp_path: Path):
 
 
 @pytest.fixture
-def cdf_tool_config(cognite_client_approval: CogniteClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
+def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
     monkeypatch.setenv("CDF_PROJECT", "pytest-project")
     monkeypatch.setenv("IDP_TOKEN_URL", "dummy")
     monkeypatch.setenv("IDP_CLIENT_ID", "dummy")
@@ -76,8 +76,8 @@ def cdf_tool_config(cognite_client_approval: CogniteClient, monkeypatch: MonkeyP
     with chdir(REPO_ROOT):
         # Build must always be executed from root of the project
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_client.return_value = cognite_client_approval
-        cdf_tool.verify_capabilities.return_value = cognite_client_approval
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
         cdf_tool.failed = False
 
         cdf_tool.verify_dataset.return_value = 42
@@ -141,7 +141,7 @@ def test_deploy_module_approval(
     local_tmp_path: Path,
     local_tmp_project_path: Path,
     monkeypatch: MonkeyPatch,
-    cognite_client_approval: CogniteClient,
+    cognite_client_approval: ApprovalCogniteClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
     init_project: None,
@@ -177,7 +177,7 @@ def test_deploy_dry_run_module_approval(
     local_tmp_path: Path,
     local_tmp_project_path: Path,
     monkeypatch: MonkeyPatch,
-    cognite_client_approval: CogniteClient,
+    cognite_client_approval: ApprovalCogniteClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
     init_project: None,
@@ -216,7 +216,7 @@ def test_clean_module_approval(
     local_tmp_path: Path,
     local_tmp_project_path: Path,
     monkeypatch: MonkeyPatch,
-    cognite_client_approval: CogniteClient,
+    cognite_client_approval: ApprovalCogniteClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
     data_regression,

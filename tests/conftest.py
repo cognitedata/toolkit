@@ -1,393 +1,618 @@
 from __future__ import annotations
 
 import hashlib
-import inspect
 import itertools
 from collections import defaultdict
-from collections.abc import MutableSequence, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock
+from typing import Any, Callable, Literal, cast
 
 import pandas as pd
 import pytest
 from cognite.client import CogniteClient
-from cognite.client._api.data_modeling.containers import ContainersAPI
-from cognite.client._api.data_modeling.data_models import DataModelsAPI
-from cognite.client._api.data_modeling.graphql import DataModelingGraphQLAPI
-from cognite.client._api.data_modeling.instances import InstancesAPI
-from cognite.client._api.data_modeling.spaces import SpacesAPI
-from cognite.client._api.data_modeling.views import ViewsAPI
-from cognite.client._api.data_sets import DataSetsAPI
-from cognite.client._api.datapoints import DatapointsAPI
-from cognite.client._api.files import FilesAPI
-from cognite.client._api.iam import GroupsAPI
-from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
-from cognite.client._api.time_series import TimeSeriesAPI
-from cognite.client._api.transformations import TransformationsAPI, TransformationSchedulesAPI
-from cognite.client._api_client import APIClient
 from cognite.client.data_classes import (
     Database,
     DatabaseList,
+    Datapoints,
     DatapointsList,
+    DataSet,
     DataSetList,
+    FileMetadata,
     FileMetadataList,
+    Group,
     GroupList,
+    Row,
     RowList,
+    Table,
     TableList,
+    TimeSeries,
     TimeSeriesList,
+    Transformation,
     TransformationList,
+    TransformationSchedule,
     TransformationScheduleList,
 )
 from cognite.client.data_classes._base import CogniteResource, CogniteResourceList
 from cognite.client.data_classes.data_modeling import (
+    Container,
+    ContainerApply,
     ContainerApplyList,
     ContainerList,
+    DataModel,
+    DataModelApply,
     DataModelApplyList,
     DataModelList,
+    Node,
+    NodeApply,
     NodeApplyList,
     NodeList,
+    Space,
+    SpaceApply,
     SpaceApplyList,
     SpaceList,
     VersionedDataModelingId,
+    View,
+    ViewApply,
     ViewApplyList,
     ViewList,
 )
 from cognite.client.data_classes.data_modeling.ids import EdgeId, InstanceId, NodeId
-from cognite.client.testing import monkeypatch_cognite_client
+from cognite.client.testing import CogniteClientMock, monkeypatch_cognite_client
 
 TEST_FOLDER = Path(__file__).resolve().parent
 
 
-@pytest.fixture
-def cognite_client_approval() -> CogniteClient:
-    """
-    Change directory to new_dir and return to the original directory when exiting the context.
+class ApprovalCogniteClient:
+    """A mock CogniteClient that is used for testing the clean, deploy commands
+    of the cognite-toolkit.
 
     Args:
-        new_dir: The new directory to change to.
+        mock_client: The mock client to use.
 
     """
-    with monkeypatch_cognite_client() as client:
-        written_resources: dict[str, Sequence[CogniteResource | dict[str, Any]]] = {}
-        deleted_resources: dict[str, list[str | int | dict[str, Any]]] = defaultdict(list)
-        created_resources: dict[str, list[CogniteResource]] = defaultdict(list)
-        client.iam.groups = create_mock_api(
-            client, GroupsAPI, GroupList, written_resources, deleted_resources, created_resources
-        )
-        client.data_sets = create_mock_api(
-            client, DataSetsAPI, DataSetList, written_resources, deleted_resources, created_resources
-        )
-        client.time_series = create_mock_api(
-            client, TimeSeriesAPI, TimeSeriesList, written_resources, deleted_resources, created_resources
-        )
-        client.raw.databases = create_mock_api(
-            client, RawDatabasesAPI, DatabaseList, written_resources, deleted_resources, created_resources
-        )
-        client.raw.tables = create_mock_api(
-            client, RawTablesAPI, TableList, written_resources, deleted_resources, created_resources
-        )
-        client.transformations = create_mock_api(
-            client, TransformationsAPI, TransformationList, written_resources, deleted_resources, created_resources
-        )
-        client.transformations.schedules = create_mock_api(
-            client,
-            TransformationSchedulesAPI,
-            TransformationScheduleList,
-            written_resources,
-            deleted_resources,
-            created_resources,
-        )
-        client.data_modeling.containers = create_mock_api(
-            client,
-            ContainersAPI,
-            ContainerList,
-            written_resources,
-            deleted_resources,
-            created_resources,
-            ContainerApplyList,
-        )
-        client.data_modeling.views = create_mock_api(
-            client, ViewsAPI, ViewList, written_resources, deleted_resources, created_resources, ViewApplyList
-        )
-        client.data_modeling.data_models = create_mock_api(
-            client,
-            DataModelsAPI,
-            DataModelList,
-            written_resources,
-            deleted_resources,
-            created_resources,
-            DataModelApplyList,
-        )
-        client.data_modeling.spaces = create_mock_api(
-            client, SpacesAPI, SpaceList, written_resources, deleted_resources, created_resources, SpaceApplyList
-        )
-        client.raw.rows = create_mock_api(
-            client, RawRowsAPI, RowList, written_resources, deleted_resources, created_resources
-        )
-        client.time_series.data = create_mock_api(
-            client, DatapointsAPI, DatapointsList, written_resources, deleted_resources, created_resources
-        )
-        client.files = create_mock_api(
-            client, FilesAPI, FileMetadataList, written_resources, deleted_resources, created_resources
-        )
-        client.data_modeling.graphql = create_mock_api(
-            client,
-            DataModelingGraphQLAPI,
-            DataModelList,
-            written_resources,
-            deleted_resources,
-            created_resources,
-            DataModelApplyList,
-        )
-        client.data_modeling.instances = create_mock_api(
-            client, InstancesAPI, NodeList, written_resources, deleted_resources, created_resources, NodeApplyList
-        )
 
-        def dump() -> dict[str, Any]:
-            dumped = {}
-            for key in sorted(written_resources):
-                values = written_resources[key]
-                if values:
-                    dumped[key] = sorted(
-                        [value.dump(camel_case=True) if hasattr(value, "dump") else value for value in values],
-                        key=lambda x: x.get("externalId", x.get("dbName", x.get("db_name", x.get("name")))),
-                    )
-            if deleted_resources:
-                dumped["deleted"] = {}
-                for key in sorted(deleted_resources):
-                    values = deleted_resources[key]
+    def __init__(self, mock_client: CogniteClientMock):
+        self.mock_client = mock_client
+        # This is used to simulate the existing resources in CDF
+        self._existing_resources: dict[str, list[CogniteResource]] = defaultdict(list)
+        # This is used to log all delete operations
+        self._deleted_resources: dict[str, list[str | int | dict[str, Any]]] = defaultdict(list)
+        # This is used to log all create operations
+        self._created_resources: dict[str, list[CogniteResource]] = defaultdict(list)
 
-                    def sort_deleted(x):
-                        if not isinstance(x, dict):
-                            return x
-                        if "externalId" in x:
-                            return x["externalId"]
-                        if "db_name" in x and "name" in x and isinstance(x["name"], list):
-                            return x["db_name"] + "/" + x["name"][0]
-                        return "missing"
+        # This is used to log all operations
+        self._delete_methods: dict[str, list[Callable]] = defaultdict(list)
+        self._create_methods: dict[str, list[Callable]] = defaultdict(list)
+        self._retrieve_methods: dict[str, list[Callable]] = defaultdict(list)
 
-                    if values:
-                        dumped["deleted"][key] = sorted(
-                            values,
-                            key=sort_deleted,
+        # Setup all mock methods
+        for resource in _API_RESOURCES:
+            parts = resource.api_name.split(".")
+            mock_api = mock_client
+            for part in parts:
+                if not hasattr(mock_api, part):
+                    raise ValueError(f"Invalid api name {resource.api_name}, could not find {part}")
+                mock_api = getattr(mock_api, part)
+            for method_type, methods in resource.methods.items():
+                method_factory: Callable = {
+                    "create": self._create_create_method,
+                    "delete": self._create_delete_method,
+                    "retrieve": self._create_retrieve_method,
+                }[method_type]
+                for mock_method in methods:
+                    if not hasattr(mock_api, mock_method.api_class_method):
+                        raise ValueError(
+                            f"Invalid api method {mock_method.api_class_method} for resource {resource.api_name}"
                         )
+                    method = getattr(mock_api, mock_method.api_class_method)
+                    method.side_effect = method_factory(resource, mock_method.mock_name, mock_client)
 
-            return dumped
+    @property
+    def client(self) -> CogniteClient:
+        return cast(CogniteClient, self.mock_client)
 
-        client.dump = dump
+    def append(self, resource_cls: type[CogniteResource], items: CogniteResource | Sequence[CogniteResource]) -> None:
+        """This is used to simulate existing resources in CDF.
 
-        try:
-            yield client
+        Args:
+            resource_cls: The type of resource this is.
+            items: The list of resources to append.
 
-        finally:
-            written_resources.clear()
-
-
-def create_mock_api(
-    client: CogniteClient,
-    api_client: type[APIClient],
-    read_list_cls: type[CogniteResourceList],
-    written_resources: dict[str, MutableSequence[CogniteResource | dict[str, Any]]],
-    deleted_resources: dict[str, list[str | int | dict[str, Any]]],
-    created_resources: dict[str, list[CogniteResource]],
-    write_list_cls: type[CogniteResourceList] | None = None,
-) -> MagicMock:
-    resource_cls = read_list_cls._RESOURCE
-    write_list_cls = write_list_cls or read_list_cls
-    write_resource_cls = write_list_cls._RESOURCE
-
-    written_resources[resource_cls.__name__] = write_list_cls([])
-    mock = MagicMock(spec=api_client)
-
-    def append(value: CogniteResource | Sequence[CogniteResource]) -> None:
-        if isinstance(value, Sequence):
-            created_resources[resource_cls.__name__].extend(value)
+        """
+        if isinstance(items, Sequence):
+            self._existing_resources[resource_cls.__name__].extend(items)
         else:
-            created_resources[resource_cls.__name__].append(value)
+            self._existing_resources[resource_cls.__name__].append(items)
 
-    mock.append = append
+    def _create_delete_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+        deleted_resources = self._deleted_resources
+        resource_cls = resource.resource_cls
 
-    def return_values(*args, **kwargs):
-        return read_list_cls(created_resources[resource_cls.__name__], cognite_client=client)
+        def delete_id_external_id(
+            id: int | Sequence[int] | None = None,
+            external_id: str | Sequence[str] | None = None,
+            **_,
+        ) -> list:
+            deleted = []
+            if not isinstance(id, str) and isinstance(id, Sequence):
+                deleted.extend({"id": i} for i in id)
+            elif isinstance(id, int):
+                deleted.append({"id": id})
+            if isinstance(external_id, str):
+                deleted.append({"externalId": external_id})
+            elif isinstance(external_id, Sequence):
+                deleted.extend({"externalId": i} for i in external_id)
+            if deleted:
+                deleted_resources[resource_cls.__name__].extend(deleted)
 
-    if hasattr(api_client, "list"):
-        mock.list = return_values
-    if hasattr(api_client, "retrieve"):
-        mock.retrieve = return_values
-    if hasattr(api_client, "retrieve_multiple"):
-        mock.retrieve_multiple = return_values
+        def delete_data_modeling(ids: VersionedDataModelingId | Sequence[VersionedDataModelingId]) -> list:
+            deleted = []
+            if isinstance(ids, (VersionedDataModelingId, InstanceId)):
+                deleted.append(ids.dump(camel_case=True))
+            elif isinstance(ids, Sequence):
+                deleted.extend([id.dump(camel_case=True) for id in ids])
+            if deleted:
+                deleted_resources[resource_cls.__name__].extend(deleted)
+            return deleted
 
-    def create(*args, **kwargs) -> Any:
-        created = []
-        for value in itertools.chain(args, kwargs.values()):
-            if isinstance(value, write_resource_cls):
-                created.append(value)
-            elif isinstance(value, Sequence) and all(isinstance(v, write_resource_cls) for v in value):
-                created.extend(value)
-            elif isinstance(value, str) and issubclass(write_resource_cls, Database):
-                created.append(Database(name=value))
-        written_resources[resource_cls.__name__].extend(created)
-        return write_list_cls(created)
-
-    def insert_dataframe(*args, **kwargs) -> None:
-        args = list(args)
-        kwargs = dict(kwargs)
-        dataframe_hash = ""
-        dataframe_cols = []
-        for arg in list(args):
-            if isinstance(arg, pd.DataFrame):
-                args.remove(arg)
-                dataframe_hash = int(hashlib.sha256(pd.util.hash_pandas_object(arg, index=True).values).hexdigest(), 16)
-                dataframe_cols = list(arg.columns)
-                break
-
-        for key in list(kwargs):
-            if isinstance(kwargs[key], pd.DataFrame):
-                value = kwargs.pop(key)
-                dataframe_hash = int(
-                    hashlib.sha256(pd.util.hash_pandas_object(value, index=True).values).hexdigest(), 16
+        def delete_instances(
+            nodes: NodeId | Sequence[NodeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
+            edges: EdgeId | Sequence[EdgeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
+        ) -> list:
+            deleted = []
+            if isinstance(nodes, NodeId):
+                deleted.append(nodes.dump(camel_case=True, include_instance_type=True))
+            elif isinstance(nodes, tuple):
+                deleted.append(NodeId(*nodes).dump(camel_case=True, include_instance_type=True))
+            elif isinstance(edges, EdgeId):
+                deleted.append(edges.dump(camel_case=True, include_instance_type=True))
+            elif isinstance(edges, tuple):
+                deleted.append(EdgeId(*edges).dump(camel_case=True, include_instance_type=True))
+            elif isinstance(nodes, Sequence):
+                deleted.extend(
+                    [
+                        node.dump(camel_case=True, include_instance_type=True) if isinstance(node, NodeId) else node
+                        for node in nodes
+                    ]
                 )
-                dataframe_cols = list(value.columns)
-                break
-        if not dataframe_hash:
-            raise ValueError("No dataframe found in arguments")
-        name = "_".join([str(arg) for arg in itertools.chain(args, kwargs.values())])
-        if not name:
-            name = "_".join(dataframe_cols)
-        written_resources[resource_cls.__name__].append(
-            {
-                "name": name,
-                "args": args,
-                "kwargs": kwargs,
-                "dataframe": dataframe_hash,
-                "columns": dataframe_cols,
-            }
-        )
+            elif isinstance(edges, Sequence):
+                deleted.extend(
+                    [
+                        edge.dump(camel_case=True, include_instance_type=True) if isinstance(edge, EdgeId) else edge
+                        for edge in edges
+                    ]
+                )
 
-    def upload(*args, **kwargs) -> None:
-        name = ""
-        for k, v in kwargs.items():
-            if isinstance(v, Path) or (isinstance(v, str) and Path(v).exists()):
-                kwargs[k] = "/".join(Path(v).relative_to(TEST_FOLDER).parts)
-                name = Path(v).name
+            if deleted:
+                deleted_resources[resource_cls.__name__].extend(deleted)
+            return deleted
 
-        written_resources[resource_cls.__name__].append(
-            {
-                "name": name,
-                "args": list(args),
-                "kwargs": dict(kwargs),
-            }
-        )
+        def delete_space(spaces: str | Sequence[str]) -> list:
+            deleted = []
+            if isinstance(spaces, str):
+                deleted.append(spaces)
+            elif isinstance(spaces, Sequence):
+                deleted.extend(spaces)
+            if deleted:
+                deleted_resources[resource_cls.__name__].extend(deleted)
+            return deleted
 
-    def apply_dml(*args, **kwargs):
-        data = dict(kwargs)
-        data["args"] = list(args)
-        written_resources[resource_cls.__name__].append(data)
-
-    def delete_core(
-        id: int | Sequence[int] | None = None,
-        external_id: str | Sequence[str] | None = None,
-        **_,
-    ) -> list:
-        deleted = []
-        if not isinstance(id, str) and isinstance(id, Sequence):
-            deleted.extend({"id": i} for i in id)
-        elif isinstance(id, int):
-            deleted.append({"id": id})
-        if isinstance(external_id, str):
-            deleted.append({"externalId": external_id})
-        elif isinstance(external_id, Sequence):
-            deleted.extend({"externalId": i} for i in external_id)
-        if deleted:
+        def delete_raw(db_name: str, name: str | Sequence[str]) -> list:
+            deleted = [{"db_name": db_name, "name": name if isinstance(name, str) else sorted(name)}]
             deleted_resources[resource_cls.__name__].extend(deleted)
-        return deleted
+            return deleted
 
-    def delete_data_modeling(ids: VersionedDataModelingId | Sequence[VersionedDataModelingId]) -> list:
-        deleted = []
-        if isinstance(ids, (VersionedDataModelingId, InstanceId)):
-            deleted.append(ids.dump(camel_case=True))
-        elif isinstance(ids, Sequence):
-            deleted.extend([id.dump(camel_case=True) for id in ids])
-        if deleted:
-            deleted_resources[resource_cls.__name__].extend(deleted)
-        return deleted
-
-    def delete_instances(
-        nodes: NodeId | Sequence[NodeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
-        edges: EdgeId | Sequence[EdgeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
-    ) -> list:
-        deleted = []
-        if isinstance(nodes, NodeId):
-            deleted.append(nodes.dump(camel_case=True, include_instance_type=True))
-        elif isinstance(nodes, tuple):
-            deleted.append(NodeId(*nodes).dump(camel_case=True, include_instance_type=True))
-        elif isinstance(edges, EdgeId):
-            deleted.append(edges.dump(camel_case=True, include_instance_type=True))
-        elif isinstance(edges, tuple):
-            deleted.append(EdgeId(*edges).dump(camel_case=True, include_instance_type=True))
-        elif isinstance(nodes, Sequence):
-            deleted.extend(
-                [
-                    node.dump(camel_case=True, include_instance_type=True) if isinstance(node, NodeId) else node
-                    for node in nodes
-                ]
-            )
-        elif isinstance(edges, Sequence):
-            deleted.extend(
-                [
-                    edge.dump(camel_case=True, include_instance_type=True) if isinstance(edge, EdgeId) else edge
-                    for edge in edges
-                ]
+        available_delete_methods = {
+            fn.__name__: fn
+            for fn in [
+                delete_id_external_id,
+                delete_instances,
+                delete_raw,
+                delete_data_modeling,
+                delete_space,
+            ]
+        }
+        if mock_method not in available_delete_methods:
+            raise ValueError(
+                f"Invalid mock delete method {mock_method} for resource {resource_cls.__name__}. "
+                f"Supported {list(available_delete_methods)}"
             )
 
-        if deleted:
-            deleted_resources[resource_cls.__name__].extend(deleted)
-        return deleted
+        method = available_delete_methods[mock_method]
+        self._delete_methods[resource_cls.__name__].append(method)
+        return method
 
-    def delete_space(spaces: str | Sequence[str]) -> list:
-        deleted = []
-        if isinstance(spaces, str):
-            deleted.append(spaces)
-        elif isinstance(spaces, Sequence):
-            deleted.extend(spaces)
-        if deleted:
-            deleted_resources[resource_cls.__name__].extend(deleted)
-        return deleted
+    def _create_create_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+        created_resources = self._created_resources
+        write_resource_cls = resource.write_cls
+        write_list_cls = resource.write_list_cls
+        resource_cls = resource.resource_cls
 
-    def delete_raw(db_name: str, name: str | Sequence[str]) -> list:
-        deleted = [{"db_name": db_name, "name": name if isinstance(name, str) else sorted(name)}]
-        deleted_resources[resource_cls.__name__].extend(deleted)
-        return deleted
+        def create(*args, **kwargs) -> Any:
+            created = []
+            for value in itertools.chain(args, kwargs.values()):
+                if isinstance(value, write_resource_cls):
+                    created.append(value)
+                elif isinstance(value, Sequence) and all(isinstance(v, write_resource_cls) for v in value):
+                    created.extend(value)
+                elif isinstance(value, str) and issubclass(write_resource_cls, Database):
+                    created.append(Database(name=value))
+            created_resources[resource_cls.__name__].extend(created)
+            return write_list_cls(created)
 
-    if hasattr(api_client, "create"):
-        mock.create = create
-    elif hasattr(api_client, "apply"):
-        mock.apply = create
+        def insert_dataframe(*args, **kwargs) -> None:
+            args = list(args)
+            kwargs = dict(kwargs)
+            dataframe_hash = ""
+            dataframe_cols = []
+            for arg in list(args):
+                if isinstance(arg, pd.DataFrame):
+                    args.remove(arg)
+                    dataframe_hash = int(
+                        hashlib.sha256(pd.util.hash_pandas_object(arg, index=True).values).hexdigest(), 16
+                    )
+                    dataframe_cols = list(arg.columns)
+                    break
 
-    if hasattr(api_client, "upsert"):
-        mock.upsert = create
+            for key in list(kwargs):
+                if isinstance(kwargs[key], pd.DataFrame):
+                    value = kwargs.pop(key)
+                    dataframe_hash = int(
+                        hashlib.sha256(pd.util.hash_pandas_object(value, index=True).values).hexdigest(), 16
+                    )
+                    dataframe_cols = list(value.columns)
+                    break
+            if not dataframe_hash:
+                raise ValueError("No dataframe found in arguments")
+            name = "_".join([str(arg) for arg in itertools.chain(args, kwargs.values())])
+            if not name:
+                name = "_".join(dataframe_cols)
+            created_resources[resource_cls.__name__].append(
+                {
+                    "name": name,
+                    "args": args,
+                    "kwargs": kwargs,
+                    "dataframe": dataframe_hash,
+                    "columns": dataframe_cols,
+                }
+            )
 
-    if hasattr(api_client, "insert_dataframe"):
-        mock.insert_dataframe = insert_dataframe
+        def upload(*args, **kwargs) -> None:
+            name = ""
+            for k, v in kwargs.items():
+                if isinstance(v, Path) or (isinstance(v, str) and Path(v).exists()):
+                    kwargs[k] = "/".join(Path(v).relative_to(TEST_FOLDER).parts)
+                    name = Path(v).name
 
-    if hasattr(api_client, "upload"):
-        mock.upload = upload
+            created_resources[resource_cls.__name__].append(
+                {
+                    "name": name,
+                    "args": list(args),
+                    "kwargs": dict(kwargs),
+                }
+            )
 
-    if hasattr(api_client, "apply_dml"):
-        mock.apply_dml = apply_dml
+        def apply_dml(*args, **kwargs):
+            data = dict(kwargs)
+            data["args"] = list(args)
+            created_resources[resource_cls.__name__].append(data)
 
-    if hasattr(api_client, "delete"):
-        signature = inspect.signature(api_client.delete)
-        if "ids" in signature.parameters:
-            mock.delete = delete_data_modeling
-        elif "nodes" in signature.parameters:
-            mock.delete = delete_instances
-        elif "spaces" in signature.parameters:
-            mock.delete = delete_space
-        elif "db_name" in signature.parameters:
-            mock.delete = delete_raw
-        else:
-            mock.delete = delete_core
+        available_create_methods = {fn.__name__: fn for fn in [create, insert_dataframe, upload, apply_dml]}
+        if mock_method not in available_create_methods:
+            raise ValueError(
+                f"Invalid mock create method {mock_method} for resource {resource_cls.__name__}. Supported {available_create_methods.keys()}"
+            )
+        method = available_create_methods[mock_method]
+        self._create_methods[resource_cls.__name__].append(method)
+        return method
 
-    return mock
+    def _create_retrieve_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+        existing_resources = self._existing_resources
+        resource_cls = resource.resource_cls
+        read_list_cls = resource.list_cls
+
+        def return_values(*args, **kwargs):
+            return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
+
+        def return_value(*args, **kwargs):
+            return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)[0]
+
+        available_retrieve_methods = {
+            fn.__name__: fn
+            for fn in [
+                return_values,
+                return_value,
+            ]
+        }
+        if mock_method not in available_retrieve_methods:
+            raise ValueError(
+                f"Invalid mock retrieve method {mock_method} for resource {resource_cls.__name__}. Supported {available_retrieve_methods.keys()}"
+            )
+        method = available_retrieve_methods[mock_method]
+        self._retrieve_methods[resource_cls.__name__].append(method)
+        return method
+
+    def dump(self) -> dict[str, Any]:
+        dumped = {}
+        for key in sorted(self._created_resources):
+            values = self._created_resources[key]
+            if values:
+                dumped[key] = sorted(
+                    [value.dump(camel_case=True) if hasattr(value, "dump") else value for value in values],
+                    key=lambda x: x.get("externalId", x.get("dbName", x.get("db_name", x.get("name")))),
+                )
+        if self._deleted_resources:
+            dumped["deleted"] = {}
+            for key in sorted(self._deleted_resources):
+                values = self._deleted_resources[key]
+
+                def sort_deleted(x):
+                    if not isinstance(x, dict):
+                        return x
+                    if "externalId" in x:
+                        return x["externalId"]
+                    if "db_name" in x and "name" in x and isinstance(x["name"], list):
+                        return x["db_name"] + "/" + x["name"][0]
+                    return "missing"
+
+                if values:
+                    dumped["deleted"][key] = sorted(
+                        values,
+                        key=sort_deleted,
+                    )
+
+        return dumped
+
+
+@pytest.fixture
+def cognite_client_approval() -> ApprovalCogniteClient:
+    with monkeypatch_cognite_client() as client:
+        approval_client = ApprovalCogniteClient(client)
+        yield approval_client
+
+
+@dataclass
+class Method:
+    """Represent a method in the CogniteClient that should be mocked
+
+    Args:
+        api_class_method: The name of the method in the CogniteClient
+        mock_name: The name of the method in the ApprovalCogniteClient
+    """
+
+    api_class_method: str
+    mock_name: str
+
+
+@dataclass
+class APIResource:
+    """This is used to define the resources that should be mocked in the ApprovalCogniteClient
+
+    Args:
+        api_name: The name of the resource in the CogniteClient, for example, 'time_series', 'data_modeling.views'
+        resource_cls: The resource class for the API
+        list_cls: The list resource API class
+        methods: The methods that should be mocked
+        _write_cls: The write resource class for the API. For example, the write class for 'data_modeling.views' is 'ViewApply'
+        _write_list_cls: The write list class in the CogniteClient
+
+    """
+
+    api_name: str
+    resource_cls: type[CogniteResource]
+    list_cls: type[CogniteResourceList]
+    methods: dict[Literal["create", "delete", "retrieve"], list[Method]]
+
+    _write_cls: type[CogniteResource] | None = None
+    _write_list_cls: type[CogniteResourceList] | None = None
+
+    @property
+    def write_cls(self) -> type[CogniteResource]:
+        return self._write_cls or self.resource_cls
+
+    @property
+    def write_list_cls(self) -> type[CogniteResourceList]:
+        return self._write_list_cls or self.list_cls
+
+
+_API_RESOURCES = [
+    APIResource(
+        api_name="iam.groups",
+        resource_cls=Group,
+        list_cls=GroupList,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "retrieve": [Method(api_class_method="list", mock_name="return_values")],
+        },
+    ),
+    APIResource(
+        api_name="data_sets",
+        resource_cls=DataSet,
+        list_cls=DataSetList,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="time_series",
+        resource_cls=TimeSeries,
+        list_cls=TimeSeriesList,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="raw.databases",
+        resource_cls=Database,
+        list_cls=DatabaseList,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create")],
+            "retrieve": [Method(api_class_method="list", mock_name="return_values")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
+        },
+    ),
+    APIResource(
+        api_name="raw.tables",
+        resource_cls=Table,
+        list_cls=TableList,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create")],
+            "retrieve": [Method(api_class_method="list", mock_name="return_values")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
+        },
+    ),
+    APIResource(
+        api_name="raw.rows",
+        resource_cls=Row,
+        list_cls=RowList,
+        methods={
+            "create": [Method(api_class_method="insert_dataframe", mock_name="insert_dataframe")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="transformations",
+        resource_cls=Transformation,
+        list_cls=TransformationList,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_value"),
+                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="transformations.schedules",
+        resource_cls=TransformationSchedule,
+        list_cls=TransformationScheduleList,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_value"),
+                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="data_modeling.containers",
+        resource_cls=Container,
+        list_cls=ContainerList,
+        _write_cls=ContainerApply,
+        _write_list_cls=ContainerApplyList,
+        methods={
+            "create": [Method(api_class_method="apply", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="data_modeling.views",
+        resource_cls=View,
+        list_cls=ViewList,
+        _write_cls=ViewApply,
+        _write_list_cls=ViewApplyList,
+        methods={
+            "create": [Method(api_class_method="apply", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="data_modeling.data_models",
+        resource_cls=DataModel,
+        list_cls=DataModelList,
+        _write_cls=DataModelApply,
+        _write_list_cls=DataModelApplyList,
+        methods={
+            "create": [Method(api_class_method="apply", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="data_modeling.spaces",
+        resource_cls=Space,
+        list_cls=SpaceList,
+        _write_cls=SpaceApply,
+        _write_list_cls=SpaceApplyList,
+        methods={
+            "create": [Method(api_class_method="apply", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_space")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="time_series.data",
+        resource_cls=Datapoints,
+        list_cls=DatapointsList,
+        methods={
+            "create": [
+                Method(api_class_method="insert", mock_name="create"),
+                Method(api_class_method="insert_dataframe", mock_name="insert_dataframe"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="files",
+        resource_cls=FileMetadata,
+        list_cls=FileMetadataList,
+        methods={
+            "create": [Method(api_class_method="upload", mock_name="upload")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_value"),
+                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="data_modeling.instances",
+        resource_cls=Node,
+        list_cls=NodeList,
+        _write_cls=NodeApply,
+        _write_list_cls=NodeApplyList,
+        methods={
+            "create": [Method(api_class_method="apply", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_instances")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_values"),
+            ],
+        },
+    ),
+]
