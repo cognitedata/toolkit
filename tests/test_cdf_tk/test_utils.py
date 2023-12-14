@@ -33,28 +33,27 @@ THIS_FOLDER = Path(__file__).resolve().parent
 DATA_FOLDER = THIS_FOLDER / "load_data"
 
 
-def mocked_init(self, client_name: str):
-    self._client_name = client_name
+def mocked_init(self):
     self._client = CogniteClientMock()
     self._data_set_id_by_external_id = {}
 
 
 def test_init():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
-        instance = CDFToolConfig(client_name="cdf-project-templates")
+        instance = CDFToolConfig()
         assert isinstance(instance._client, CogniteClientMock)
 
 
 def test_dataset_missing_acl():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         with pytest.raises(CogniteAuthError):
-            instance = CDFToolConfig(client_name="cdf-project-templates")
+            instance = CDFToolConfig()
             instance.verify_dataset("test")
 
 
 def test_dataset_create():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
-        instance = CDFToolConfig(client_name="cdf-project-templates")
+        instance = CDFToolConfig()
         instance._client.config.project = "cdf-project-templates"
         instance._client.iam.token.inspect = Mock(
             spec=TokenAPI.inspect,
