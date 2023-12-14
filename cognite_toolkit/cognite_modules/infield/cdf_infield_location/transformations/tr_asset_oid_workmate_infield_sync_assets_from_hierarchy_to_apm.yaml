@@ -10,6 +10,7 @@ destination:
 ignoreNullFields: true
 shared: true
 action: upsert
+dataSetExternalId: ds_infield_{{default_location}}_app_data
 # Specify credentials separately like this:
 # You can also use different credentials for the running transformations than the ones you use to deploy
 authentication:

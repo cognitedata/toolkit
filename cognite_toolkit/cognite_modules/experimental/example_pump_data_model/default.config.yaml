@@ -7,3 +7,4 @@ view_Pump_version: "1"
 view_LiftStation_version: "1"
 data_model_version: "1"
 data_model: "PumpLiftStations"
+data_set: ds_example_pump_data
