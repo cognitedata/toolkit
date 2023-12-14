@@ -461,7 +461,7 @@ class APIResource:
 
     api_name: str
     resource_cls: type[CogniteResource]
-    list_cls: type[CogniteResourceList]
+    list_cls: type[CogniteResourceList] | type[list]
     methods: dict[Literal["create", "delete", "retrieve"], list[Method]]
 
     _write_cls: type[CogniteResource] | None = None
