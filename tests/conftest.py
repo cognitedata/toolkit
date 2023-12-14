@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, cast
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
@@ -82,9 +83,9 @@ class ApprovalCogniteClient:
         self._created_resources: dict[str, list[CogniteResource]] = defaultdict(list)
 
         # This is used to log all operations
-        self._delete_methods: dict[str, list[Callable]] = defaultdict(list)
-        self._create_methods: dict[str, list[Callable]] = defaultdict(list)
-        self._retrieve_methods: dict[str, list[Callable]] = defaultdict(list)
+        self._delete_methods: dict[str, list[MagicMock]] = defaultdict(list)
+        self._create_methods: dict[str, list[MagicMock]] = defaultdict(list)
+        self._retrieve_methods: dict[str, list[MagicMock]] = defaultdict(list)
 
         # Setup all mock methods
         for resource in _API_RESOURCES:
@@ -100,6 +101,11 @@ class ApprovalCogniteClient:
                     "delete": self._create_delete_method,
                     "retrieve": self._create_retrieve_method,
                 }[method_type]
+                method_dict = {
+                    "create": self._create_methods,
+                    "delete": self._delete_methods,
+                    "retrieve": self._retrieve_methods,
+                }[method_type]
                 for mock_method in methods:
                     if not hasattr(mock_api, mock_method.api_class_method):
                         raise ValueError(
@@ -107,6 +113,7 @@ class ApprovalCogniteClient:
                         )
                     method = getattr(mock_api, mock_method.api_class_method)
                     method.side_effect = method_factory(resource, mock_method.mock_name, mock_client)
+                    method_dict[resource.resource_cls.__name__].append(method)
 
     @property
     def client(self) -> CogniteClient:
@@ -220,7 +227,6 @@ class ApprovalCogniteClient:
             )
 
         method = available_delete_methods[mock_method]
-        self._delete_methods[resource_cls.__name__].append(method)
         return method
 
     def _create_create_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
@@ -304,7 +310,6 @@ class ApprovalCogniteClient:
                 f"Invalid mock create method {mock_method} for resource {resource_cls.__name__}. Supported {available_create_methods.keys()}"
             )
         method = available_create_methods[mock_method]
-        self._create_methods[resource_cls.__name__].append(method)
         return method
 
     def _create_retrieve_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
@@ -330,7 +335,6 @@ class ApprovalCogniteClient:
                 f"Invalid mock retrieve method {mock_method} for resource {resource_cls.__name__}. Supported {available_retrieve_methods.keys()}"
             )
         method = available_retrieve_methods[mock_method]
-        self._retrieve_methods[resource_cls.__name__].append(method)
         return method
 
     def dump(self) -> dict[str, Any]:
@@ -363,6 +367,27 @@ class ApprovalCogniteClient:
                     )
 
         return dumped
+
+    def create_calls(self) -> dict[str, int]:
+        return {
+            key: call_count
+            for key, methods in self._create_methods.items()
+            if (call_count := sum(method.call_count for method in methods))
+        }
+
+    def retrieve_calls(self) -> dict[str, int]:
+        return {
+            key: call_count
+            for key, methods in self._retrieve_methods.items()
+            if (call_count := sum(method.call_count for method in methods))
+        }
+
+    def delete_calls(self) -> dict[str, int]:
+        return {
+            key: call_count
+            for key, methods in self._delete_methods.items()
+            if (call_count := sum(method.call_count for method in methods))
+        }
 
 
 @pytest.fixture

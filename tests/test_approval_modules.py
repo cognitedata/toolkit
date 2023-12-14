@@ -202,6 +202,12 @@ def test_deploy_dry_run_module_approval(
         include=[],
     )
 
+    assert not (
+        calls := cognite_client_approval.create_calls()
+    ), f"No resources should be created in dry run: got these calls: {calls}"
+    assert not (
+        calls := cognite_client_approval.delete_calls()
+    ), f"No resources should be deleted in dry run: got these calls: {calls}"
     assert cdf_tool_config.verify_dataset.call_count == 0, "Dataset should not be checked in dry run"
     assert cdf_tool_config.verify_spaces.call_count == 0, "Spaces should not be checked in dry run"
     assert (
