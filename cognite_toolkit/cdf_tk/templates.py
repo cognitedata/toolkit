@@ -891,7 +891,7 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
             if load_warnings:
                 print(f"  [bold yellow]WARNING:[/] Found potential snake_case issues: {load_warnings!s}")
 
-            data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, destination)
+            data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, source_path)
             if data_set_warnings:
                 print(f"  [bold yellow]WARNING:[/] Found missing data_sets: {data_set_warnings!s}")
 
