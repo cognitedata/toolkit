@@ -166,6 +166,7 @@ def test_deploy_module_approval(
         dry_run=False,
         include=[],
     )
+
     not_mocked = cognite_client_approval.not_mocked_calls()
     assert not not_mocked, (
         f"The following APIs have been called without being mocked: {not_mocked}, "

@@ -19,6 +19,9 @@ from cognite.client.data_classes import (
     DatapointsList,
     DataSet,
     DataSetList,
+    ExtractionPipeline,
+    ExtractionPipelineConfig,
+    ExtractionPipelineList,
     FileMetadata,
     FileMetadataList,
     Group,
@@ -569,6 +572,32 @@ _API_RESOURCES = [
                 Method(api_class_method="list", mock_name="return_values"),
                 Method(api_class_method="retrieve", mock_name="return_value"),
                 Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="extraction_pipelines",
+        resource_cls=ExtractionPipeline,
+        list_cls=ExtractionPipelineList,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_value"),
+                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="extraction_pipelines.config",
+        resource_cls=ExtractionPipelineConfig,
+        list_cls=ExtractionPipelineConfig,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_value"),
             ],
         },
     ),
