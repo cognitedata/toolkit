@@ -6,7 +6,7 @@ source_asset: workmate
 source_workorder: workmate
 source_timeseries: pi
 datamodel: apm_simple
-space: apm_simple
+space: sp_apm_simple
 datamodel_version: '1'
 view_Asset_version: '1'
 view_WorkOrder_version: '1'
