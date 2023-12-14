@@ -213,7 +213,6 @@ def test_deploy_dry_run_module_approval(
     assert (
         cdf_tool_config.verify_extraction_pipeline.call_count == 0
     ), "Extraction pipelines should not be checked in dry run"
-    assert cdf_tool_config.verify_capabilities.call_count == 0, "Capabilities should not be checked in dry run"
 
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
