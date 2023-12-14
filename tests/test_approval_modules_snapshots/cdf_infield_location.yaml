@@ -488,10 +488,12 @@ Transformation:
   query: "  select\n    cast(`externalId` as STRING) as externalId,\n    cast(`description`\
     \ as STRING) as description,\n    cast(`key` as STRING) as id,\n    cast(`status`\
     \ as STRING) as status,\n    /* cast(`startTime` as TIMESTAMP) as startTime,\n\
-    \    cast(`endTime` as TIMESTAMP) as endTime,*/\n    cast('2023-12-01T09:00:00'\
-    \ as TIMESTAMP) as startTime,\n    cast('2023-12-06T09:00:00' as TIMESTAMP) as\
-    \ endTime,\n    cast(`title` as STRING) as title,\n    'WMT:VAL' as rootLocation,\n\
-    \    'workmate' as source\n  from\n    `workorder_oid_workmate`.`workorders`;\n"
+    \    cast(`endTime` as TIMESTAMP) as endTime,\n    NOTE!!! The below two datas\
+    \ just updates all workorders to be from now \n    and into the future. This is\
+    \ done for the sake of the demo data.\n    */\n    cast(current_date() as TIMESTAMP)\
+    \ as startTime,\n    cast(date_add(current_date(), 7) as TIMESTAMP) as endTime,\n\
+    \    cast(`title` as STRING) as title,\n    'WMT:VAL' as rootLocation,\n    'workmate'\
+    \ as source\n  from\n    `workorder_oid_workmate`.`workorders`;\n"
   schedule:
     externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
     interval: 7 * * * *
