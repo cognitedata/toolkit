@@ -9,7 +9,7 @@ that are controlled by the templates. Everybody else should either have no acces
 
 ## Managed resources
 
-This module manages two groups:
+This module manages the following resources:
 
 1. a group with read-write access (`gp_cicd_all_read_write`) to everything in a CDF project (for `cdf-tk` as an admin tool or
     through a CI/CD pipeline).
