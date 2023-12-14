@@ -103,8 +103,8 @@ cognite_modules:
     cdf_asset_source_model:
       data_model_version: '1'
       data_set: ds_example_asset_source_data
-      instance_space: sp_cdfTemplateInstances
-      model_space: sp_ExtendedSourceDataModels
+      instance_space: sp_cdf_template_instances
+      model_space: sp_extended_source_data_models
       root_asset_external_id: lift_pump_stations:root
       view_asset_version: '1'
 
@@ -113,10 +113,10 @@ cognite_modules:
       data_model: PumpLiftStations
       data_model_version: '1'
       data_set: ds_example_pump_data
-      instance_space: sp_pumpInstanceSpace
-      model_space: sp_pumpModelSpace
+      instance_space: sp_pump_instance_space
+      model_space: sp_pump_model_space
       source_model: ExtendedSourceData
-      source_model_space: sp_ExtendedSourceDataModels
+      source_model_space: sp_extended_source_data_models
       view_LiftStation_version: '1'
       view_Pump_version: '1'
 
