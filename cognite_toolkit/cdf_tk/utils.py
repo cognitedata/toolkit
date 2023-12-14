@@ -347,9 +347,11 @@ class CDFToolConfig:
 
         if pipeline is not None:
             return pipeline.id
-        raise ValueError(
-            f"Extraction pipeline {external_id} does not exist, you need to create it first. Do this by adding a config file to the extraction_pipelines folder."
-        )
+        else:
+            print(
+                f"  [bold yellow]WARNING[/] Extraction pipeline {external_id} does not exist. It may have been deleted, or not been part of the module."
+            )
+            return -1
 
     def verify_spaces(self, space: str | list[str]) -> list[str]:
         """Verify that the configured space exists and is accessible
