@@ -36,5 +36,5 @@ The `example_pump_asset_hierarchy` module contains example data that can be used
 The `cdf_asset_source_model` model shows how to extend the system data model for assets to represent custom properties,
 as well as how to transform data from the classic asset hierarchy into the extended asset model.
 
-Finally, this module shows how to extend the data model even further to sup-types of the extended asset and how to
+Finally, this module shows how to extend the data model even further to sub-types of the extended asset and how to
 categorise the assets from the `source_model` found in the `source_model_space`.

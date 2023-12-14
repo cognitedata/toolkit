@@ -6,5 +6,5 @@ your own modifications. You should then update the `deploy:` section in your `en
 the module.
 
 Some of these modules also contain data that you can use to quickly get started without ingesting data
-into CDF. The cdf_apm_simple module is a good example of this. It contains a small data set from Open Industrial
-Data, the Valhall platform.
+into CDF. The cdf_apm_simple module is a good example of this. It contains a small data set from [Open Industrial
+Data](https://learn.cognite.com/open-industrial-data), the Valhall platform.

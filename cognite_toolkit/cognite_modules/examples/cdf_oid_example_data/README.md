@@ -3,7 +3,7 @@
 ## About the module
 
 The module has a basic data set that can be used as example data for many other modules and
-purposes. It is used by other packages and modules like cdf_infield_loaction.
+purposes. It is used by other packages and modules like cdf_infield_location.
 
 ## About the data
 
