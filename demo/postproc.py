@@ -20,8 +20,10 @@ def run() -> None:
     print("Doing post-processing activities for demo project...")
     ToolGlobals = CDFToolConfig()
     try:
-        print("Running tr_asset_oid_workmate_asset_hierarchy...")
-        ToolGlobals.client.transformations.run(transformation_external_id="tr_asset_oid_workmate_asset_hierarchy")
+        print("Running tr_asset_oid_workmate_asset_hierarchy_example...")
+        ToolGlobals.client.transformations.run(
+            transformation_external_id="tr_asset_oid_workmate_asset_hierarchy_example"
+        )
         print("Running tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities...")
         ToolGlobals.client.transformations.run(
             transformation_external_id="tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities"
