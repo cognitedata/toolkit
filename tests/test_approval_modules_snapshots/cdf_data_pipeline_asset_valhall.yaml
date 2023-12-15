@@ -7,6 +7,38 @@ DataSet:
     transformations: '[{"externalId": "tr_asset_oid_workmate_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
+ExtractionPipeline:
+- dataSetId: 42
+  description: Asset source extraction pipeline with configuration for DB extractor
+    reading data from oid:workmate
+  documentation: "The DB Extractor is a general database extractor that connects to\
+    \ a database, executes one or several queries and sends the result to CDF RAW.\n\
+    \nThe extractor connects to a database over ODBC, which means that you need an\
+    \ ODBC driver for your database. If you are running the Docker version of the\
+    \ extractor, ODBC drivers for MySQL, MS SQL, PostgreSql and Oracle DB are preinstalled\
+    \ in the image. See the example config for details on connection strings for these.\
+    \ If you are running the Windows exe version of the extractor, you must provide\
+    \ an ODBC driver yourself. These are typically provided by the database vendor.\n\
+    \nFurther documentation is available [here](./docs/documentation.md)\n\nFor information\
+    \ on development, consider the following guides:\n\n * [Development guide](guides/development.md)\n\
+    \ * [Release guide](guides/release.md)"
+  externalId: ep_src_asset_oid_workmate
+  name: src:asset:oid:workmate
+  rawTables:
+  - dbName: asset_oid_workmate
+    tableName: assets
+  source: workmate
+ExtractionPipelineConfig:
+- config: "databases:\n-   connection-string: DSN={MyPostgresDsn}\n    name: postgres\n\
+    \    type: odbc\nlogger:\n    console:\n        level: INFO\n    file:\n     \
+    \   level: INFO\n        path: file.log\nqueries:\n-   database: postgres\n  \
+    \  destination:\n        database: db-extractor\n        table: postgres\n   \
+    \     type: raw\n    incremental-field: id\n    initial-start: 0\n    name: test-postgres\n\
+    \    primary-key: '{id}'\n    query: \"SELECT\\n\\n  *\\nFROM\\n\\n  mytable\\\
+    nWHERE\\n\\n  {incremental_field} >= '{start_at}'\\n\\\n        ORDER BY\\n\\\
+    n  {incremental_field} ASC\\n\"\n"
+  description: DB extractor config reading data from oid:workmate
+  externalId: ep_src_asset_oid_workmate
 Group:
 - capabilities:
   - rawAcl:
@@ -87,6 +119,7 @@ Group:
   sourceId: <change_me>
 Transformation:
 - conflictMode: upsert
+  dataSetId: 42
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:
@@ -127,5 +160,7 @@ TransformationSchedule:
   interval: 7 * * * *
   isPaused: true
 deleted:
+  ExtractionPipeline:
+  - externalId: ep_src_asset_oid_workmate
   Transformation:
   - externalId: tr_asset_oid_workmate_asset_hierarchy

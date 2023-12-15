@@ -8,6 +8,7 @@ destination:
   instanceSpace: 'sp_asset_{{default_location}}_source'
   type: nodes
 ignoreNullFields: true
+dataSetExternalId: ds_transformations_{{default_location}}
 shared: true
 action: upsert
 # Specify credentials separately like this:

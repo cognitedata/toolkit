@@ -88,7 +88,7 @@ Container:
       type:
         list: false
         type: timestamp
-  space: apm_simple
+  space: sp_apm_simple
   usedFor: node
 - externalId: WorkItem
   name: WorkItem
@@ -161,7 +161,7 @@ Container:
       nullable: true
       type:
         type: direct
-  space: apm_simple
+  space: sp_apm_simple
   usedFor: node
 - externalId: WorkOrder
   name: WorkOrder
@@ -306,39 +306,44 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: apm_simple
+  space: sp_apm_simple
   usedFor: node
 DataModel:
 - externalId: apm_simple
   name: apm_simple
-  space: apm_simple
+  space: sp_apm_simple
   version: '1'
   views:
   - externalId: Asset
-    space: apm_simple
+    space: sp_apm_simple
     type: view
     version: '1'
   - externalId: WorkOrder
-    space: apm_simple
+    space: sp_apm_simple
     type: view
     version: '1'
   - externalId: WorkItem
-    space: apm_simple
+    space: sp_apm_simple
     type: view
     version: '1'
+DataSet:
+- description: This dataset contains transformations data for the oid location.
+  externalId: ds_transformations_oid
+  name: transformations:oid
 Space:
 - description: Space for APM simple data model
-  name: apm_simple
-  space: apm_simple
+  name: sp_apm_simple
+  space: sp_apm_simple
 Transformation:
-- destination:
+- dataSetId: 42
+  destination:
     dataModel:
       destinationRelationshipFromType: children
       destinationType: Asset
       externalId: apm_simple
-      space: apm_simple
+      space: sp_apm_simple
       version: '1'
-    instanceSpace: apm_simple
+    instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -367,14 +372,15 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 - conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: Asset
       externalId: apm_simple
-      space: apm_simple
+      space: sp_apm_simple
       version: '1'
-    instanceSpace: apm_simple
+    instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -406,14 +412,15 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- destination:
+- dataSetId: 42
+  destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: Asset
       externalId: apm_simple
-      space: apm_simple
+      space: sp_apm_simple
       version: '1'
-    instanceSpace: apm_simple
+    instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -428,7 +435,7 @@ Transformation:
   name: timeseries:oid:pi:apm_simple:load_timeseries2assets
   ownerIsCurrentUser: true
   query: "select\n  cast(`asset` as STRING) as externalId,\n  array(timeseries) as\
-    \ metrics\nfrom\n  `files_oid_{{source_files}}`.`timeseries2assets`;\n"
+    \ metrics\nfrom\n  `files_oid_pi`.`timeseries2assets`;\n"
   schedule:
     externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets
     interval: 7 * * * *
@@ -440,14 +447,15 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- destination:
+- dataSetId: 42
+  destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: WorkItem
       externalId: apm_simple
-      space: apm_simple
+      space: sp_apm_simple
       version: '1'
-    instanceSpace: apm_simple
+    instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -478,14 +486,15 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- destination:
+- dataSetId: 42
+  destination:
     dataModel:
       destinationRelationshipFromType: linkedAssets
       destinationType: WorkItem
       externalId: apm_simple
-      space: apm_simple
+      space: sp_apm_simple
       version: '1'
-    instanceSpace: apm_simple
+    instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -519,14 +528,15 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- destination:
+- dataSetId: 42
+  destination:
     dataModel:
       destinationRelationshipFromType: workItems
       destinationType: WorkOrder
       externalId: apm_simple
-      space: apm_simple
+      space: sp_apm_simple
       version: '1'
-    instanceSpace: apm_simple
+    instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -560,14 +570,15 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- destination:
+- dataSetId: 42
+  destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: WorkOrder
       externalId: apm_simple
-      space: apm_simple
+      space: sp_apm_simple
       version: '1'
-    instanceSpace: apm_simple
+    instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -605,14 +616,15 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- destination:
+- dataSetId: 42
+  destination:
     dataModel:
       destinationRelationshipFromType: linkedAssets
       destinationType: WorkOrder
       externalId: apm_simple
-      space: apm_simple
+      space: sp_apm_simple
       version: '1'
-    instanceSpace: apm_simple
+    instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -672,14 +684,14 @@ View:
     areaId:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: areaId
       name: areaId
     categoryId:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: categoryId
       name: categoryId
@@ -689,83 +701,83 @@ View:
       name: children
       source:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: view
         version: '1'
       type:
         externalId: Asset.children
-        space: apm_simple
+        space: sp_apm_simple
     createdDate:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: createdDate
       name: createdDate
     description:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: description
       name: description
     documents:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: documents
       name: documents
     isActive:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: isActive
       name: isActive
     isCriticalLine:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: isCriticalLine
       name: isCriticalLine
     metrics:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: metrics
       name: metrics
     parent:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: parent
       name: parent
     sourceDb:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: sourceDb
       name: sourceDb
     tag:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: tag
       name: tag
     updatedDate:
       container:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: updatedDate
       name: updatedDate
-  space: apm_simple
+  space: sp_apm_simple
   version: '1'
 - externalId: WorkItem
   name: WorkItem
@@ -773,35 +785,35 @@ View:
     criticality:
       container:
         externalId: WorkItem
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: criticality
       name: criticality
     description:
       container:
         externalId: WorkItem
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: description
       name: description
     isCompleted:
       container:
         externalId: WorkItem
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: isCompleted
       name: isCompleted
     itemInfo:
       container:
         externalId: WorkItem
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: itemInfo
       name: itemInfo
     itemName:
       container:
         externalId: WorkItem
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: itemName
       name: itemName
@@ -811,41 +823,41 @@ View:
       name: linkedAssets
       source:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: view
         version: '1'
       type:
         externalId: WorkItem.linkedAssets
-        space: apm_simple
+        space: sp_apm_simple
     method:
       container:
         externalId: WorkItem
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: method
       name: method
     title:
       container:
         externalId: WorkItem
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: title
       name: title
     toBeDone:
       container:
         externalId: WorkItem
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: toBeDone
       name: toBeDone
     workOrder:
       container:
         externalId: WorkItem
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: workOrder
       name: workOrder
-  space: apm_simple
+  space: sp_apm_simple
   version: '1'
 - externalId: WorkOrder
   name: WorkOrder
@@ -853,70 +865,70 @@ View:
     actualHours:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: actualHours
       name: actualHours
     createdDate:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: createdDate
       name: createdDate
     description:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: description
       name: description
     dueDate:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: dueDate
       name: dueDate
     durationHours:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: durationHours
       name: durationHours
     endTime:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: endTime
       name: endTime
     isActive:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: isActive
       name: isActive
     isCancelled:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: isCancelled
       name: isCancelled
     isCompleted:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: isCompleted
       name: isCompleted
     isSafetyCritical:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: isSafetyCritical
       name: isSafetyCritical
@@ -926,58 +938,58 @@ View:
       name: linkedAssets
       source:
         externalId: Asset
-        space: apm_simple
+        space: sp_apm_simple
         type: view
         version: 8069f1498c7f9a
       type:
         externalId: WorkOrder.linkedAssets
-        space: apm_simple
+        space: sp_apm_simple
     percentageProgress:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: percentageProgress
       name: percentageProgress
     plannedStart:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: plannedStart
       name: plannedStart
     priorityDescription:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: priorityDescription
       name: priorityDescription
     programNumber:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: programNumber
       name: programNumber
     startTime:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: startTime
       name: startTime
     status:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: status
       name: status
     title:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: title
       name: title
@@ -987,32 +999,32 @@ View:
       name: workItems
       source:
         externalId: WorkItem
-        space: apm_simple
+        space: sp_apm_simple
         type: view
         version: 94d2b7121128a2
       type:
         externalId: WorkOrder.workItems
-        space: apm_simple
+        space: sp_apm_simple
     workOrderNumber:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: workOrderNumber
       name: workOrderNumber
     workPackageNumber:
       container:
         externalId: WorkOrder
-        space: apm_simple
+        space: sp_apm_simple
         type: container
       containerPropertyIdentifier: workPackageNumber
       name: workPackageNumber
-  space: apm_simple
+  space: sp_apm_simple
   version: '1'
 deleted:
   DataModel:
   - externalId: apm_simple
-    space: apm_simple
+    space: sp_apm_simple
     type: datamodel
     version: '1'
   Transformation:
@@ -1026,14 +1038,14 @@ deleted:
   - externalId: tr_workorder_oid_workmate_apm_simple_load_workorders2assets
   View:
   - externalId: Asset
-    space: apm_simple
+    space: sp_apm_simple
     type: view
     version: '1'
   - externalId: WorkItem
-    space: apm_simple
+    space: sp_apm_simple
     type: view
     version: '1'
   - externalId: WorkOrder
-    space: apm_simple
+    space: sp_apm_simple
     type: view
     version: '1'

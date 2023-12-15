@@ -24,7 +24,7 @@ Changes are grouped as follows:
 - Check for whether template variables `<change_me>` are present in the config files.
 - Check for whether data set id is present in the config files.
 - Print table at the end of `cdf-tk deploy` with the resources that were created, deleted, and skipped.
-- Support for Extraction Pipelines and Extraction Pipeline configuration for remotely configured Extractors 
+- Support for Extraction Pipelines and Extraction Pipeline configuration for remotely configured Extractors
 
 ### Removed
 
@@ -46,6 +46,7 @@ Changes are grouped as follows:
   This is now fixed by skipping dataset validation when running with `--dry-run`.
 - When having a `auth` group with mixed capabilities of all scoped and resource scoped, the all scoped capabilities
   were not removed when running `cdf-tk deploy`. This is now fixed.
+- Loading `Transformation` did not support setting `dataSetExternalId` in the yaml config file. This is now fixed.
 
 ## [0.1.0a3] - 2023-12-01
 
@@ -75,6 +76,8 @@ Changes are grouped as follows:
 - Missing .sql files for transformations will now raise an error in the build step.
 - The build step will now raise a number of warnings for missing externalIds in the yaml files,
   as well as if the naming conventions are not followed.
+- System section in `environments.yaml` to track local state of `cdf-toolkit`.
+- Introduced a `build_environment.yaml` in the `/build` folder to track how the build was run.
 
 ### Fixed
 

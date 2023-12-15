@@ -1,7 +1,25 @@
 DataSet:
+- description: This dataset contains 3D data for the oid location.
+  externalId: ds_3d_oid
+  name: 3d:oid
+- description: This dataset contains asset data for the oid location.
+  externalId: ds_asset_oid
+  name: asset:oid
+- description: This dataset contains files for the oid location.
+  externalId: ds_files_oid
+  name: files:oid
 - description: This dataset is for writing data from Infield for the location oid.
   externalId: ds_infield_oid_app_data
   name: infield:oid:app_data
+- description: This dataset contains relationships data for the oid location.
+  externalId: ds_relationships_oid
+  name: relationships:oid
+- description: This dataset contains timeseries for the oid location.
+  externalId: ds_timeseries_oid
+  name: timeseries:oid
+- description: This dataset contains transformations data for the oid location.
+  externalId: ds_transformations_oid
+  name: transformations:oid
 Group:
 - capabilities:
   - groupsAcl:
@@ -419,7 +437,8 @@ Space:
   name: sp:infield:oid:source
   space: sp_asset_oid_source
 Transformation:
-- destination:
+- dataSetId: 42
+  destination:
     instanceSpace: sp_asset_oid_source
     type: nodes
     view:
@@ -464,7 +483,8 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-- destination:
+- dataSetId: 42
+  destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: APM_Activity

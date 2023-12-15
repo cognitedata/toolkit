@@ -13,6 +13,7 @@ from typing import Any, Literal, overload
 import yaml
 from rich import print
 
+from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
 
@@ -20,6 +21,7 @@ from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml
 DEFAULT_CONFIG_FILE = "default.config.yaml"
 # The environment file:
 ENVIRONMENTS_FILE = "environments.yaml"
+BUILD_ENVIRONMENT_FILE = "build_environment.yaml"
 # The local config file:
 CONFIG_FILE = "config.yaml"
 # The default package files
@@ -29,7 +31,6 @@ PACKAGES_FILE = "packages.yaml"
 COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
 
-TMPL_DIRS = ["common", "modules", "local_modules", "examples", "experimental"]
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # Which suffixes to exclude when we create indexed files (i.e., they are bundled with their main config file)
@@ -38,112 +39,108 @@ EXCL_INDEX_SUFFIX = frozenset([".sql", ".csv", ".parquet"])
 PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"])
 
 
-def read_environ_config(
-    root_dir: str = "./",
-    build_env: str = "dev",
-    tmpl_dirs: [str] = TMPL_DIRS,
-    set_env_only: bool = False,
-    verbose: bool = False,
-) -> list[str]:
-    """Read the global configuration files and return a list of modules in correct order.
+@dataclass
+class BuildEnvironment:
+    name: Literal["dev", "local", "demo", "staging", "prod"]
+    project: str
+    build_type: str
+    deploy: list[str]
+    system: SystemVariables
 
-    The presence of a module directory in tmpl_dirs is verified.
-    Yields:
-        List of modules in the order they should be processed.
-        Exception(ValueError) if a module is not found in tmpl_dirs.
-    """
-    if not root_dir.endswith("/"):
-        root_dir = root_dir + "/"
-    tmpl_dirs = [root_dir + t for t in tmpl_dirs]
-    global_config = read_yaml_files(root_dir, "default.packages.yaml")
-    packages = global_config.get("packages", {})
-    packages.update(read_yaml_files(root_dir, "packages.yaml").get("packages", {}))
-    environment_config = read_yaml_files(root_dir, ENVIRONMENTS_FILE)
-
-    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE}.\n")
-    if verbose:
-        print("  [bold green]INFO:[/] Found defined packages:")
-        for name, content in packages.items():
-            print(f"    {name}: {content}")
-    modules = []
-    if len(environment_config) == 0:
-        return []
-    try:
-        defs = environment_config[build_env]
-    except KeyError:
-        print(f"  [bold red]ERROR:[/] Environment {build_env} not found in {ENVIRONMENTS_FILE}")
-        exit(1)
-
-    os.environ["CDF_ENVIRON"] = build_env
-    for k, v in defs.items():
-        if k == "project":
-            if os.environ.get("CDF_PROJECT", "<not set>") != v:
-                if build_env == "dev" or build_env == "local" or build_env == "demo":
-                    print(
-                        f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ.get('CDF_PROJECT','<not_set>')})."
-                    )
-                    print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
-                else:
-                    print(
-                        f"  [bold red]ERROR:[/]Project name mismatch (CDF_PROJECT) between local.yaml ({v}) and what is defined in environment ({os.environ['CDF_PROJECT']})."
-                    )
-                    exit(1)
-        elif k == "type":
-            os.environ["CDF_BUILD_TYPE"] = v
-        elif k == "deploy":
-            print(f"  [bold green]INFO:[/] Building module list for environment {build_env}...")
-            for m in v:
-                for g2, g3 in packages.items():
-                    if m == g2:
-                        if verbose:
-                            print(f"    Including modules from package {m}: {g3}")
-                        for m2 in g3:
-                            if m2 not in modules:
-                                modules.append(m2)
-                    elif m not in modules and packages.get(m) is None:
-                        if verbose:
-                            print(f"    Including explicitly defined module {m}")
-                        modules.append(m)
-    if set_env_only:
-        return []
-    if len(modules) == 0:
-        print(
-            f"  [bold yellow]WARNING:[/] Found no defined modules in local.yaml, have you configured the environment ({build_env})?"
-        )
-    load_list = []
-    module_dirs = {}
-    for d in tmpl_dirs:
-        if not module_dirs.get(d):
-            module_dirs[d] = []
+    @classmethod
+    def load(
+        cls, environment_config: dict[str, Any], build_env: str, action: Literal["build", "deploy", "clean"]
+    ) -> BuildEnvironment:
+        if build_env is None:
+            raise ValueError("build_env must be specified")
+        environment = environment_config.get(build_env)
+        if environment is None:
+            raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
+        system = SystemVariables.load(environment_config, action)
         try:
-            for dirnames in Path(d).iterdir():
-                module_dirs[d].append(dirnames.name)
-        except Exception:
-            ...
-    for m in modules:
-        found = False
-        for dir, mod in module_dirs.items():
-            if m in mod:
-                load_list.append(f"{dir}/{m}")
-                found = True
-                break
-        if not found:
-            raise ValueError(f"Module {m} not found in template directories {tmpl_dirs}.")
-    return load_list
+            return BuildEnvironment(
+                name=build_env,
+                project=environment["project"],
+                build_type=environment["type"],
+                deploy=environment["deploy"],
+                system=system,
+            )
+        except KeyError:
+            print(
+                f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', or 'deploy' in {ENVIRONMENTS_FILE!s}"
+            )
+            exit(1)
+
+    def dump(self) -> dict[str, Any]:
+        return {
+            self.name: {
+                "project": self.project,
+                "type": self.build_type,
+                "deploy": self.deploy,
+            },
+            "__system": {
+                "cdf_toolkit_version": self.system.cdf_toolkit_version,
+            },
+        }
+
+    def dump_to_file(self, build_dir: Path) -> None:
+        (build_dir / BUILD_ENVIRONMENT_FILE).write_text(yaml.dump(self.dump(), sort_keys=False, indent=2))
+
+    def validate_environment(self):
+        if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != self.project:
+            if self.name in {"dev", "local", "demo"}:
+                print(
+                    f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({self.project}) and what is defined in environment ({project_env})."
+                )
+                print(f"  Environment is {self.name}, continuing (would have stopped for staging and prod)...")
+            else:
+                print(
+                    f"  [bold red]ERROR:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({self.project}) and what is defined in environment ({project_env=} != {self.project=})."
+                )
+                exit(1)
+
+    def set_environment_variables(self):
+        os.environ["CDF_ENVIRON"] = self.name
+        os.environ["CDF_BUILD_TYPE"] = self.build_type
+
+
+@dataclass
+class SystemVariables:
+    cdf_toolkit_version: str
+
+    @classmethod
+    def load(cls, data: dict[str, Any], action: Literal["build", "deploy", "clean"]) -> SystemVariables:
+        file_name = BUILD_ENVIRONMENT_FILE if action in {"deploy", "clean"} else ENVIRONMENTS_FILE
+        try:
+            system = SystemVariables(cdf_toolkit_version=data["__system"]["cdf_toolkit_version"])
+        except KeyError:
+            print(
+                f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {file_name!s}"
+            )
+            if action in {"deploy", "clean"}:
+                print(f"  rerun `cdf-tk build` to build the templates again and create `{file_name!s}` correctly.")
+            elif action == "build":
+                print(
+                    f"  run `cdf-tk init --upgrade` to initialize the templates again and create a correct `{file_name!s}` file."
+                )
+            exit(1)
+        if system.cdf_toolkit_version != _version.__version__:
+            print(
+                f"  [bold red]Error:[/] The version of the templates ({system.cdf_toolkit_version}) does not match the version of the installed package ({_version.__version__})."
+            )
+            print("  Please either run `cdf-tk init --upgrade` to upgrade the templates OR")
+            print(f"  run `pip install cognite-toolkit==={system.cdf_toolkit_version}` to downgrade cdf-tk.")
+            exit(1)
+        return system
 
 
 def get_selected_modules(
     source_module: Path,
-    environment_file: Path,
-    build_env: str = "dev",
+    selected_module_and_packages: list[str],
+    build_env: str,
     verbose: bool = False,
 ) -> list[str]:
-    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
-
     modules_by_package = _read_packages(source_module, verbose)
-
-    selected_module_and_packages = _get_modules_and_packages(environment_file, build_env)
-
     selected_packages = [package for package in selected_module_and_packages if package in modules_by_package]
     if verbose:
         print("  [bold green]INFO:[/] Selected packages:")
@@ -171,37 +168,6 @@ def get_selected_modules(
     exit(1)
 
 
-def _get_modules_and_packages(environment_file: Path, build_env: str) -> list[str]:
-    environment_config = read_yaml_file(environment_file)
-    environment = environment_config.get(build_env)
-    if environment is None:
-        raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
-    try:
-        project_config = environment["project"]
-        environment_type = environment["type"]
-        deploy = environment["deploy"]
-    except KeyError:
-        print(
-            f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', or 'deploy' in {ENVIRONMENTS_FILE!s}"
-        )
-        exit(1)
-
-    os.environ["CDF_ENVIRON"] = build_env
-    os.environ["CDF_BUILD_TYPE"] = environment_type
-    if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != project_config:
-        if build_env == "dev" or build_env == "local" or build_env == "demo":
-            print(
-                f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({project_config}) and what is defined in environment ({project_env})."
-            )
-            print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
-        else:
-            print(
-                f"  [bold red]ERROR:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({project_config}) and what is defined in environment ({project_env=} != {project_config=})."
-            )
-            exit(1)
-    return deploy
-
-
 def _read_packages(source_module, verbose):
     cdf_modules_by_packages = read_yaml_file(source_module / COGNITE_MODULES / DEFAULT_PACKAGES_FILE).get(
         "packages", {}
@@ -223,44 +189,6 @@ def _read_packages(source_module, verbose):
         for name, content in modules_by_package.items():
             print(f"    {name}: {content}")
     return modules_by_package
-
-
-def read_yaml_files(
-    yaml_dirs: list[str] | str,
-    name: str | None = None,
-) -> dict[str, Any]:
-    """Read all YAML files in the given directories and return a dictionary
-
-    This function will not traverse into sub-directories.
-
-    yaml_dirs: list of directories to read YAML files from
-    name: (optional) name of the file(s) to read, either filename or regex. Defaults to config.yaml and default.config.yaml
-    """
-
-    if isinstance(yaml_dirs, str):
-        yaml_dirs = [yaml_dirs]
-    files = []
-    if name is None:
-        # Order is important!
-        for directory in yaml_dirs:
-            files.extend(Path(directory).glob("default.config.yaml"))
-            files.extend(Path(directory).glob("config.yaml"))
-    else:
-        name = re.compile(f"^{name}")
-        for directory in yaml_dirs:
-            for file in Path(directory).glob("*.yaml"):
-                if not (name.match(file.name)):
-                    continue
-                files.append(file)
-    data = {}
-    for yaml_file in files:
-        try:
-            config_data = yaml.safe_load(yaml_file.read_text())
-        except yaml.YAMLError as e:
-            print(f"  [bold red]ERROR:[/] reading {yaml_file}: {e}")
-            continue
-        data.update(config_data)
-    return data
 
 
 @overload
@@ -467,25 +395,23 @@ def build_config(
     build_dir: Path,
     source_dir: Path,
     config_file: Path,
-    environment_file: Path,
-    build_env: str = "dev",
+    build: BuildEnvironment,
     clean: bool = False,
     verbose: bool = False,
 ):
-    if build_env is None:
-        raise ValueError("build_env must be specified")
-    if build_dir.exists():
-        if any(build_dir.iterdir()):
-            if clean:
-                shutil.rmtree(build_dir)
-                build_dir.mkdir()
-                print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
-            else:
-                print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
+    is_populated = build_dir.exists() and any(build_dir.iterdir())
+    if is_populated and clean:
+        shutil.rmtree(build_dir)
+        build_dir.mkdir()
+        print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
+    elif is_populated:
+        print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
         build_dir.mkdir()
 
-    selected_modules = get_selected_modules(source_dir, environment_file, build_env, verbose)
+    build.validate_environment()
+
+    selected_modules = get_selected_modules(source_dir, build.deploy, build.name, verbose)
 
     config = read_yaml_file(config_file)
     warnings = validate_config_yaml(config, config_file)
@@ -493,7 +419,9 @@ def build_config(
         print("  [bold yellow]WARNING:[/] Found the following warnings in config.yaml:")
         for warning in warnings:
             print(f"    {warning}")
-    process_config_files(source_dir, selected_modules, build_dir, config, build_env, verbose)
+    process_config_files(source_dir, selected_modules, build_dir, config, build.name, verbose)
+    build.dump_to_file(build_dir)
+    print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}.")
 
 
 def generate_config(
@@ -891,7 +819,7 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
             if load_warnings:
                 print(f"  [bold yellow]WARNING:[/] Found potential snake_case issues: {load_warnings!s}")
 
-            data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, destination)
+            data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, source_path)
             if data_set_warnings:
                 print(f"  [bold yellow]WARNING:[/] Found missing data_sets: {data_set_warnings!s}")
 

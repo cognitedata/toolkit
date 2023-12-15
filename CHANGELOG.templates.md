@@ -23,9 +23,14 @@ Changes are grouped as follows:
 - The module `my_example_module` has been added to the `custom_modules` folder.
 - Added globally defined schedule variables that can be used across all modules.
 - A complete example of an Asset data pipeline in `examples/cdf_asset_data_pipeline/` shows how to configure an Extractor, monitor the status of the Extraction Pipeline, and load the data into the asset hierarchy using Transformations.
+- DataSet to all example modules: `cdf_apm_simple_data_model`, `cdf_asset_source_model`, `cdf_oid_example_data`, 
+  `example_pump_data_model`, `example_pump_asset_hierarchy`.
   
 ### Changed
 
+- **BREAKING** All externalIds and names have been changed to follow the naming conventions for resources
+  in `examples/cdf_oid_example_data`, `examples/cdf_apm_simple_data_model`, `modules/cdf_apm_base`,
+  `modules/cdf_infield_common`, and `modules/cdf_infield_location`.
 - All cognite templates have been moved into `cognite_templates` folder, while `local_templates` is renamed to `custom_templates`.
 - Move cdf_apm_base into separate folder.
 - The file `local.yaml` has been renamed `environments.yaml` to better reflect its purpose.
@@ -34,20 +39,16 @@ Changes are grouped as follows:
 - Combined the child and parent transformations `sync_assets_from_hierarchy_to_apm` in `cdf_infield_location`. 
   This has the benefit of not having to wait for the parent transformation to finish before starting the child transformation, 
   thus no longer a dependency between the two transformations.
+- Added all datasets to the `cdf_infield_locaton` module that previously were just a template, but created in `cdf_oid_example_data`.
+  If both modules are used, the datasets will be attempted created twice, but this is not a problem.
 
 ### Fixed
 
 - Removed transformation identity provider variables from modules and reused the global cicd_ prefixed ones.
+- Ensure all transformations in `cognite_modules` are prefixed with `tr_` and all spaces are prefixed with `sp_`.
 
-## [0.2.0] - 2023-12-01
 
-### Changed
-
-- **BREAKING** All externalIds and names have been changed to follow the naming conventions for resources
-  in `examples/cdf_oid_example_data`, `examples/cdf_apm_simple_data_model`, `modules/cdf_apm_base`,
-  `modules/cdf_infield_common`, and `modules/cdf_infield_location`.
-
-## [0.1.2] - 2023-11-29
+## [0.1.0a3] - 2023-11-29
 
 ### Changed
 
@@ -61,7 +62,7 @@ Changes are grouped as follows:
 - Fix wrong reference to `apm_simple` in `examples/cdf_apm_simple_data_model` and `modules/cdf_infield_location`.
 - Exemplify use of a single config yaml file for multiple file resources in `examples/cdf_oid_example_data/files/files.yaml`.
 
-## [0.1.1] - 2023-11-23
+## [0.1.0a2] - 2023-11-23
 
 ### Changed
 
@@ -76,6 +77,6 @@ Changes are grouped as follows:
 - cdf_infield_common module and the auth applications-configuration.yaml did not load group source id
    correctly due to source_id being used instead of sourceId. This is now fixed.
 
-## [0.1.0] - 2023-11-21
+## [0.1.0a1] - 2023-11-21
 
 Initial release
