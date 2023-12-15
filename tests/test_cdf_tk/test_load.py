@@ -2,7 +2,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from cognite.client import CogniteClient
 from cognite.client.data_classes import DataSet
 
 from cognite_toolkit.cdf_tk.load import (
@@ -13,6 +12,7 @@ from cognite_toolkit.cdf_tk.load import (
     deploy_or_clean_resources,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from tests.conftest import ApprovalCogniteClient
 
 THIS_FOLDER = Path(__file__).resolve().parent
 
@@ -28,11 +28,11 @@ SNAPSHOTS_DIR = THIS_FOLDER / "load_data_snapshots"
     ],
 )
 def test_loader_class(
-    loader_cls: type[Loader], directory: Path, cognite_client_approval: CogniteClient, data_regression
+    loader_cls: type[Loader], directory: Path, cognite_client_approval: ApprovalCogniteClient, data_regression
 ):
     cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.verify_client.return_value = cognite_client_approval
-    cdf_tool.verify_capabilities.return_value = cognite_client_approval
+    cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+    cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
     cdf_tool.data_set_id = 999
 
     deploy_or_clean_resources(
@@ -43,10 +43,10 @@ def test_loader_class(
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{directory.name}.yaml")
 
 
-def test_upsert_data_set(cognite_client_approval: CogniteClient):
+def test_upsert_data_set(cognite_client_approval: ApprovalCogniteClient):
     cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.verify_client.return_value = cognite_client_approval
-    cdf_tool.verify_capabilities.return_value = cognite_client_approval
+    cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+    cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
 
     loader = DataSetsLoader.create_loader(cdf_tool)
     loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", dry_run=False)
@@ -58,7 +58,7 @@ def test_upsert_data_set(cognite_client_approval: CogniteClient):
     first.created_time = 42
     first.last_updated_time = 42
     # Simulate that the data set is already in CDF
-    cognite_client_approval.data_sets.append(first)
+    cognite_client_approval.append(DataSet, first)
 
     changed = loader.remove_unchanged(loaded)
 
