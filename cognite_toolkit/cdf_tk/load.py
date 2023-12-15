@@ -792,9 +792,6 @@ class TransformationScheduleLoader(Loader[str, TransformationSchedule, Transform
             self.client.transformations.schedules.delete(external_id=ids, ignore_unknown_ids=False)
             return len(ids)
         except CogniteNotFoundError as e:
-            print(
-                f"  [bold yellow]WARNING:[/] {len(e.not_found)} out of {len(ids)} transformation schedules do(es) not exist."
-            )
             return len(ids) - len(e.not_found)
 
     def create(self, items: Sequence[Transformation], drop: bool, filepath: Path) -> TransformationList:
@@ -1349,8 +1346,11 @@ def deploy_or_clean_resources(
         # as these resources share the same folder.
         pattern = re.compile(loader.filename_pattern)
         filepaths = [file for file in filepaths if pattern.match(file.stem)]
-
-    items = [loader.load_resource(f, dry_run) for f in filepaths]
+    if action == "clean":
+        # If we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
+        items = [loader.load_resource(f, dry_run=True) for f in filepaths]
+    else:
+        items = [loader.load_resource(f, dry_run) for f in filepaths]
     items = [item for item in items if item is not None]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
@@ -1364,7 +1364,12 @@ def deploy_or_clean_resources(
         print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     batches = [item if isinstance(item, Sized) else [item] for item in items]
     if drop and loader.support_drop and action == "deploy":
-        print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
+        if drop_data and (loader.api_name == "data_modeling.spaces" or loader.api_name == "data_modeling.containers"):
+            print(
+                f"  --drop-data is specified, will delete existing nodes and edges before before deleting {loader.display_name}."
+            )
+        else:
+            print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
 
     # Deleting resources.
     nr_of_deleted = 0
