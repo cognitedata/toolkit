@@ -90,10 +90,6 @@ Transformation:
     \ as STRING)) as externalId,\n  `parent` as startNode,\n  node_reference('pumpInstanceSpace',\
     \ cast(`externalId` as STRING)) as endNode\nfrom\n  cdf_data_models(\"ExtendedSourceDataModels\"\
     , \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
-  schedule:
-    externalId: pump_model-populate-lift_station_pumps_edges
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -129,10 +125,6 @@ Transformation:
     \ '$.LowHeadFlowGPM') as DOUBLE) as LowHeadFlowGPM\nfrom\n  cdf_data_models(\"\
     ExtendedSourceDataModels\", \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n\
     \  startswith(title, 'Pump')\n"
-  schedule:
-    externalId: pump_model-populate-pump_container
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -247,6 +239,9 @@ deleted:
     type: datamodel
     version: '1'
   Transformation:
+  - externalId: pump_model-populate-lift_station_pumps_edges
+  - externalId: pump_model-populate-pump_container
+  TransformationSchedule:
   - externalId: pump_model-populate-lift_station_pumps_edges
   - externalId: pump_model-populate-pump_container
   View:

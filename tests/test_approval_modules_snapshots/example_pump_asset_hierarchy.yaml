@@ -75,10 +75,6 @@ Transformation:
     \  LowHeadFT,\n  LowHeadFlowGPM,\n  PumpControl,\n  PumpModel,\n  Shape__Length,\n\
     \  Enabled,\n  DesignPointHeadFT,\n  LowHeadFT,\n  FacilityID,\n  InstallDate,\n\
     \  LifeCycleStatus,\n  LocationDescription\n  ) as metadata\nfrom `pump_assets`.`collections_pump`\n"
-  schedule:
-    externalId: pump_asset_hierarchy-load-collections_pump
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -96,4 +92,6 @@ deleted:
     name:
     - collections_pump
   Transformation:
+  - externalId: pump_asset_hierarchy-load-collections_pump
+  TransformationSchedule:
   - externalId: pump_asset_hierarchy-load-collections_pump

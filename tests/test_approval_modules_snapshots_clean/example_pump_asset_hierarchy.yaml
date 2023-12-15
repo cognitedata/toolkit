@@ -5,3 +5,5 @@ deleted:
     - collections_pump
   Transformation:
   - externalId: pump_asset_hierarchy-load-collections_pump
+  TransformationSchedule:
+  - externalId: pump_asset_hierarchy-load-collections_pump
