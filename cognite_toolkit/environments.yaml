@@ -24,10 +24,14 @@ demo:
     - cdf_demo_infield
     - cdf_oid_example_data
 local:
-  project: trial-572dca111144a5196a6b1
+  project: <customer-dev>
   type: dev
   deploy:
-    - cdf_data_pipeline_asset_valhall
+    - cdf_auth_readwrite_all
+    - cdf_apm_base
+    - cdf_oid_example_data
+    - cdf_infield_common
+    - cdf_infield_location
 dev:
   project: <customer-dev>
   type: dev
