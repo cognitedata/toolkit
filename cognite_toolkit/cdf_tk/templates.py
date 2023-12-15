@@ -13,6 +13,7 @@ from typing import Any, Literal, overload
 import yaml
 from rich import print
 
+from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
 
@@ -112,12 +113,22 @@ class SystemVariables:
     @classmethod
     def load(cls, data: dict[str, Any]) -> SystemVariables:
         try:
-            return SystemVariables(cdf_toolkit_version=data["__system"]["cdf_toolkit_version"])
+            system = SystemVariables(cdf_toolkit_version=data["__system"]["cdf_toolkit_version"])
         except KeyError:
             print(
                 f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {ENVIRONMENTS_FILE!s}"
             )
-        exit(1)
+            exit(1)
+        if system.cdf_toolkit_version != _version.__version__:
+            print(
+                f"  [bold red]Error:[/] The version of the templates ({system.cdf_toolkit_version}) does not match the version of the installed package ({_version.__version__})."
+            )
+            print("  Please run `cdf-tk init --upgrade` to upgrade the templates OR.")
+            print(
+                f"  Please run `pip install cognite-toolkit==={system.cdf_toolkit_version}` to downgrade the installed package."
+            )
+            exit(1)
+        return system
 
 
 def read_environ_config(
