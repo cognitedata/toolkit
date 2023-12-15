@@ -73,13 +73,13 @@ Transformation:
     where\n-- This is used to select the Lift Stations.\n isnotnull(`externalId`)\
     \ and isnotnull(`parentExternalId`) and not startswith(name, 'Pump')\n\nUNION\
     \ ALL\n-- Pumps\nselect\n  concat('pump:', cast(`externalId` as STRING)) as externalId,\n\
-    \  node_reference('cdfTemplateInstances', `parentExternalId`) as parent,\n  node_reference('cdfTemplateInstances',\
-    \ 'lift_pump_stations:root') as root,\n  cast(`name` as STRING) as title,\n  cast(`source`\
-    \ as STRING) as source,\n  cast(`description` as STRING) as description,\n  cast(`labels`\
-    \ as ARRAY < STRING >) as labels,\n  to_json(`metadata`) as metadata\nfrom\n \
-    \ cdf_assetSubtree('lift_pump_stations:root')\nwhere\n-- This is used to select\
-    \ the Pumps.\n isnotnull(`externalId`) and isnotnull(`parentExternalId`) and startswith(name,\
-    \ 'Pump');\n"
+    \  node_reference('sp_cdf_template_instances', `parentExternalId`) as parent,\n\
+    \  node_reference('sp_cdf_template_instances', 'lift_pump_stations:root') as root,\n\
+    \  cast(`name` as STRING) as title,\n  cast(`source` as STRING) as source,\n \
+    \ cast(`description` as STRING) as description,\n  cast(`labels` as ARRAY < STRING\
+    \ >) as labels,\n  to_json(`metadata`) as metadata\nfrom\n  cdf_assetSubtree('lift_pump_stations:root')\n\
+    where\n-- This is used to select the Pumps.\n isnotnull(`externalId`) and isnotnull(`parentExternalId`)\
+    \ and startswith(name, 'Pump');\n"
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -88,7 +88,7 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
+- externalId: sync-asset_hierarchy_cdf_asset_source_model
   interval: 7 * * * *
   isPaused: true
 View:
@@ -116,7 +116,7 @@ deleted:
     type: datamodel
     version: '1'
   Transformation:
-  - externalId: sync-asset_hierarchy_cdf_asset_source_model
+  - externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   TransformationSchedule:
   - externalId: sync-asset_hierarchy_cdf_asset_source_model
   View:

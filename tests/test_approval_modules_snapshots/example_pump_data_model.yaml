@@ -129,8 +129,8 @@ Transformation:
     \ '$.LowHeadFT') as DOUBLE) as LowHeadFT,\n  cast(get_json_object(`metadata`,\
     \ '$.DesignPointFlowGPM') as DOUBLE) as DesignPointFlowGPM,\n  cast(get_json_object(`metadata`,\
     \ '$.LowHeadFlowGPM') as DOUBLE) as LowHeadFlowGPM\nfrom\n  cdf_data_models(\"\
-    ExtendedSourceDataModels\", \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n\
-    \  startswith(title, 'Pump')\n"
+    sp_extended_source_data_models\", \"ExtendedSourceData\", \"1\", \"Asset\")\n\
+    where\n  startswith(title, 'Pump')\n"
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -139,10 +139,10 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: tr_pump_model-populate-lift_station_pumps_edges
+- externalId: pump_model-populate-lift_station_pumps_edges
   interval: 7 * * * *
   isPaused: true
-- externalId: tr_pump_model-populate-pump_container
+- externalId: pump_model-populate-pump_container
   interval: 7 * * * *
   isPaused: true
 View:
@@ -245,8 +245,8 @@ deleted:
     type: datamodel
     version: '1'
   Transformation:
-  - externalId: pump_model-populate-lift_station_pumps_edges
-  - externalId: pump_model-populate-pump_container
+  - externalId: tr_pump_model-populate-lift_station_pumps_edges
+  - externalId: tr_pump_model-populate-pump_container
   TransformationSchedule:
   - externalId: pump_model-populate-lift_station_pumps_edges
   - externalId: pump_model-populate-pump_container

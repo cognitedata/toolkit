@@ -427,7 +427,7 @@ Transformation:
   name: timeseries:oid:pi:apm_simple:load_timeseries2assets
   ownerIsCurrentUser: true
   query: "select\n  cast(`asset` as STRING) as externalId,\n  array(timeseries) as\
-    \ metrics\nfrom\n  `files_oid_{{source_files}}`.`timeseries2assets`;\n"
+    \ metrics\nfrom\n  `files_oid_pi`.`timeseries2assets`;\n"
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}

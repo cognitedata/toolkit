@@ -12,8 +12,8 @@ deleted:
   - sp_pump_instance_space
   - sp_pump_model_space
   Transformation:
-  - externalId: pump_model-populate-lift_station_pumps_edges
-  - externalId: pump_model-populate-pump_container
+  - externalId: tr_pump_model-populate-lift_station_pumps_edges
+  - externalId: tr_pump_model-populate-pump_container
   TransformationSchedule:
   - externalId: pump_model-populate-lift_station_pumps_edges
   - externalId: pump_model-populate-pump_container
