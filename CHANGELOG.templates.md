@@ -23,6 +23,8 @@ Changes are grouped as follows:
 - The module `my_example_module` has been added to the `custom_modules` folder.
 - Added globally defined schedule variables that can be used across all modules.
 - A complete example of an Asset data pipeline in `examples/cdf_asset_data_pipeline/` shows how to configure an Extractor, monitor the status of the Extraction Pipeline, and load the data into the asset hierarchy using Transformations.
+- DataSet to all example modules: `cdf_apm_simple_data_model`, `cdf_asset_source_model`, `cdf_oid_example_data`, 
+  `example_pump_data_model`, `example_pump_asset_hierarchy`.
   
 ### Changed
 
@@ -42,6 +44,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - Removed transformation identity provider variables from modules and reused the global cicd_ prefixed ones.
+- Ensure all transformations in `cognite_modules` are prefixed with `tr_` and all spaces are prefixed with `sp_`.
 
 
 ## [0.1.0a3] - 2023-11-29

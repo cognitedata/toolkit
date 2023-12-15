@@ -14,6 +14,9 @@ DataSet:
 - description: This dataset contains timeseries for the oid location.
   externalId: ds_timeseries_oid
   name: timeseries:oid
+- description: This dataset contains transformations data for the oid location.
+  externalId: ds_transformations_oid
+  name: transformations:oid
 FileMetadata:
 - args: []
   kwargs:
@@ -656,6 +659,7 @@ TimeSeries:
   unit: degC
 Transformation:
 - conflictMode: upsert
+  dataSetId: 42
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:

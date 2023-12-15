@@ -10,34 +10,39 @@ Container:
       type:
         list: false
         type: json
-  space: ExtendedSourceDataModels
+  space: sp_extended_source_data_models
   usedFor: node
 DataModel:
 - externalId: ExtendedSourceData
   name: ExtendedSourceData
-  space: ExtendedSourceDataModels
+  space: sp_extended_source_data_models
   version: '1'
   views:
   - externalId: Asset
-    space: ExtendedSourceDataModels
+    space: sp_extended_source_data_models
     type: view
     version: '1'
+DataSet:
+- description: This dataset contains the example asset source data.
+  externalId: ds_example_asset_source_data
+  name: Example Asset Source Data
 Space:
-- description: Space for the model in the ExtendedSourceData data model
-  name: ExtendedSourceDataModels
-  space: ExtendedSourceDataModels
 - description: Space for the instances in the ExtendedSourceData data model
-  name: cdfTemplateInstances
-  space: cdfTemplateInstances
+  name: sp_cdf_template_instances
+  space: sp_cdf_template_instances
+- description: Space for the model in the ExtendedSourceData data model
+  name: sp_extended_source_data_models
+  space: sp_extended_source_data_models
 Transformation:
-- destination:
+- dataSetId: 42
+  destination:
     dataModel:
       destinationRelationshipFromType: null
       destinationType: Asset
       externalId: ExtendedSourceData
-      space: ExtendedSourceDataModels
+      space: sp_extended_source_data_models
       version: '1'
-    instanceSpace: cdfTemplateInstances
+    instanceSpace: sp_cdf_template_instances
     type: instances
   destinationOidcCredentials:
     audience: ${IDP_AUDIENCE}
@@ -46,7 +51,7 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-  externalId: sync-asset_hierarchy_cdf_asset_source_model
+  externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   ignoreNullFields: false
   isPublic: true
   name: sync-asset_hierarchy_cdf_asset_source_model
@@ -54,14 +59,14 @@ Transformation:
   query: "-- Root Asset\n-- The asset must be set up in hierarchical order as the\
     \ container for the parent asset requires the\n-- parent asset to be created first.\n\
     \nselect\n  cast(`externalId` as STRING) as externalId,\n  null as parent,\n \
-    \ node_reference('cdfTemplateInstances', 'lift_pump_stations:root') as root,\n\
+    \ node_reference('sp_cdf_template_instances', 'lift_pump_stations:root') as root,\n\
     \  cast(`name` as STRING) as title,\n  cast(`source` as STRING) as source,\n \
     \ cast(`description` as STRING) as description,\n  cast(`labels` as ARRAY < STRING\
     \ >) as labels,\n  to_json(`metadata`) as metadata\nfrom\n  cdf_assetSubtree(\"\
     lift_pump_stations:root\")\nwhere\n-- The root asset is created with a null parentExternalId.\n\
     \  isnull(`parentExternalId`)\n\nUNION ALL\n-- Pump Stations\nselect\n  cast(`externalId`\
-    \ as STRING) as externalId,\n  node_reference('cdfTemplateInstances', `parentExternalId`)\
-    \ as parent,\n  node_reference('cdfTemplateInstances', 'lift_pump_stations:root')\
+    \ as STRING) as externalId,\n  node_reference('sp_cdf_template_instances', `parentExternalId`)\
+    \ as parent,\n  node_reference('sp_cdf_template_instances', 'lift_pump_stations:root')\
     \ as root,\n  cast(`name` as STRING) as title,\n  cast(`source` as STRING) as\
     \ source,\n  cast(`description` as STRING) as description,\n  cast(`labels` as\
     \ ARRAY < STRING >) as labels,\n  to_json(`metadata`) as metadata\nfrom\n  cdf_assetSubtree('lift_pump_stations:root')\n\
@@ -83,7 +88,7 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: sync-asset_hierarchy_cdf_asset_source_model
+- externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   interval: 7 * * * *
   isPaused: true
 View:
@@ -98,16 +103,16 @@ View:
     metadata:
       container:
         externalId: Asset
-        space: ExtendedSourceDataModels
+        space: sp_extended_source_data_models
         type: container
       containerPropertyIdentifier: metadata
       name: metadata
-  space: ExtendedSourceDataModels
+  space: sp_extended_source_data_models
   version: '1'
 deleted:
   DataModel:
   - externalId: ExtendedSourceData
-    space: ExtendedSourceDataModels
+    space: sp_extended_source_data_models
     type: datamodel
     version: '1'
   Transformation:
@@ -116,6 +121,6 @@ deleted:
   - externalId: sync-asset_hierarchy_cdf_asset_source_model
   View:
   - externalId: Asset
-    space: ExtendedSourceDataModels
+    space: sp_extended_source_data_models
     type: view
     version: '1'

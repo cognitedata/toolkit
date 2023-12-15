@@ -11,6 +11,7 @@ destination:
 ignoreNullFields: true
 shared: true
 conflictMode: upsert
+dataSetExternalId: ds_transformations_{{default_location}}
 # Specify credentials separately like this:
 # You can also use different credentials for the running transformations than the ones you use to deploy
 authentication:

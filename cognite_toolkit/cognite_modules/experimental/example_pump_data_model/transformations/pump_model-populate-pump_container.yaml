@@ -1,4 +1,4 @@
-externalId: pump_model-populate-pump_container
+externalId: tr_pump_model-populate-pump_container
 name: pump_model-populate-pump_container
 destination:
   dataModel:
@@ -8,7 +8,7 @@ destination:
     destinationType: Pump
   instanceSpace: {{instance_space}}
   type: instances
-
+dataSetExternalId: {{data_set}}
 # Specify credentials separately like this:
 # You can also use different credentials for the running transformations than the ones you use to deploy
 authentication:

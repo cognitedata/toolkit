@@ -1,21 +1,21 @@
 deleted:
   Container:
   - externalId: Asset
-    space: apm_simple
+    space: sp_apm_simple
     type: container
   - externalId: WorkItem
-    space: apm_simple
+    space: sp_apm_simple
     type: container
   - externalId: WorkOrder
-    space: apm_simple
+    space: sp_apm_simple
     type: container
   DataModel:
   - externalId: apm_simple
-    space: apm_simple
+    space: sp_apm_simple
     type: datamodel
     version: '1'
   Space:
-  - apm_simple
+  - sp_apm_simple
   Transformation:
   - externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
   - externalId: tr_asset_oid_workmate_apm_simple_load_assets
@@ -36,14 +36,14 @@ deleted:
   - externalId: tr_workorder_oid_workmate_apm_simple_load_workorders2assets
   View:
   - externalId: Asset
-    space: apm_simple
+    space: sp_apm_simple
     type: view
     version: '1'
   - externalId: WorkItem
-    space: apm_simple
+    space: sp_apm_simple
     type: view
     version: '1'
   - externalId: WorkOrder
-    space: apm_simple
+    space: sp_apm_simple
     type: view
     version: '1'

@@ -715,6 +715,10 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
 
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
+        if raw.get("dataSetExternalId") is not None:
+            ds_external_id = raw.pop("dataSetExternalId")
+            raw["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
+
         transformation = Transformation.load(raw)
         transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
             source_oidc_credentials
@@ -732,8 +736,6 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
                     f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
                 )
         transformation.query = sql_file.read_text()
-        if isinstance(transformation.data_set_id, str):
-            transformation.data_set_id = self.ToolGlobals.verify_dataset(transformation.data_set_id)
         return transformation
 
     def delete(self, ids: Sequence[str], drop_data: bool) -> int:
