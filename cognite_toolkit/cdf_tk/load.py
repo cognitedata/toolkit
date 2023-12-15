@@ -42,6 +42,8 @@ from cognite.client.data_classes import (
     TimeSeriesList,
     Transformation,
     TransformationList,
+    TransformationSchedule,
+    TransformationScheduleList,
     capabilities,
 )
 from cognite.client.data_classes._base import (
@@ -685,6 +687,9 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 class TransformationLoader(Loader[str, Transformation, TransformationList]):
     api_name = "transformations"
     folder_name = "transformations"
+    filename_pattern = (
+        r"^(?:(?!\.schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
+    )
     resource_cls = Transformation
     list_cls = TransformationList
     dependencies = frozenset({DataSetsLoader, RawLoader})
@@ -707,6 +712,10 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
     def load_resource(self, filepath: Path, dry_run: bool) -> Transformation:
         raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
+        if raw.get("schedule"):
+            print("[ERROR] Schedule should not be part of transformations. yaml")
+            # with open()...
+
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
         transformation = Transformation.load(raw)
@@ -748,11 +757,49 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
             print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
             self.ToolGlobals.failed = True
             return TransformationList([])
-        for t in items if isinstance(items, Sequence) else [items]:
-            if t.schedule.interval != "":
-                t.schedule.external_id = t.external_id
-                self.client.transformations.schedules.create(t.schedule)
         return created
+
+
+@final
+class TransformationScheduleLoader(Loader[str, TransformationSchedule, TransformationScheduleList]):
+    api_name = "transformations.schedules"
+    folder_name = "transformations"
+    filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
+    resource_cls = TransformationSchedule
+    list_cls = TransformationScheduleList
+    dependencies = frozenset({TransformationLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        scope = (
+            TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TransformationsAcl.Scope.All()
+        )
+        return TransformationsAcl(
+            [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
+            scope,
+        )
+
+    def get_id(self, item: Transformation) -> str:
+        return item.external_id
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> TransformationSchedule:
+        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+        return TransformationSchedule.load(raw)
+
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+        try:
+            self.client.transformations.schedules.delete(external_id=ids, ignore_unknown_ids=False)
+            return len(ids)
+        except CogniteNotFoundError as e:
+            print(
+                f"  [bold yellow]WARNING:[/] {len(e.not_found)} out of {len(ids)} transformation schedules do(es) not exist."
+            )
+            return len(ids) - len(e.not_found)
+
+    def create(self, items: Sequence[Transformation], drop: bool, filepath: Path) -> TransformationList:
+        return self.client.transformations.schedules.create(items)
 
 
 @final

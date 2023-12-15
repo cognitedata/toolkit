@@ -1,0 +1,3 @@
+schedule:
+  interval: '{{scheduleHourly}}'
+  isPaused : {{pause_transformations}}
