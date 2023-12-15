@@ -34,12 +34,6 @@ def run() -> None:
         ToolGlobals.client.transformations.run(
             transformation_external_id="tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm"
         )
-        # Wait until assets are in data models
-        time.sleep(10.0)
-        print("Running tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm...")
-        ToolGlobals.client.transformations.run(
-            transformation_external_id="tr_asset_oid_workmate_infield_sync_asset_parents_from_hierarchy_to_apm"
-        )
     except Exception as e:
         log.error(f"Failed to run post-processing activities for demo project:\n{e}")
         exit(1)
