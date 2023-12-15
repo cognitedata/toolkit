@@ -20,6 +20,7 @@ from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml
 DEFAULT_CONFIG_FILE = "default.config.yaml"
 # The environment file:
 ENVIRONMENTS_FILE = "environments.yaml"
+BUILD_ENVIRONMENT_FILE = "build_environment.yaml"
 # The local config file:
 CONFIG_FILE = "config.yaml"
 # The default package files
@@ -48,12 +49,14 @@ class BuildEnvironment:
 
     @classmethod
     def load(cls, environment_config: dict[str, Any], build_env: str) -> BuildEnvironment:
+        if build_env is None:
+            raise ValueError("build_env must be specified")
         environment = environment_config.get(build_env)
         if environment is None:
             raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
         system = SystemVariables.load(environment_config)
         try:
-            return BuildEnvironment(
+            build = BuildEnvironment(
                 name=build_env,
                 project=environment["project"],
                 build_type=environment["type"],
@@ -64,7 +67,10 @@ class BuildEnvironment:
             print(
                 f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', or 'deploy' in {ENVIRONMENTS_FILE!s}"
             )
-        exit(1)
+            exit(1)
+        else:
+            build.set_environment_variables()
+            return build
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -79,7 +85,7 @@ class BuildEnvironment:
         }
 
     def dump_to_file(self, build_dir: Path) -> None:
-        (build_dir / f"build_{ENVIRONMENTS_FILE}").write_text(yaml.dump(self.dump(), sort_keys=False, indent=2))
+        (build_dir / BUILD_ENVIRONMENT_FILE).write_text(yaml.dump(self.dump(), sort_keys=False, indent=2))
 
     def validate_environment(self):
         if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != self.project:
@@ -507,28 +513,21 @@ def build_config(
     build_dir: Path,
     source_dir: Path,
     config_file: Path,
-    environment_file: Path,
-    build_env: str = "dev",
+    build: BuildEnvironment,
     clean: bool = False,
     verbose: bool = False,
 ):
-    if build_env is None:
-        raise ValueError("build_env must be specified")
-    if build_dir.exists():
-        if any(build_dir.iterdir()):
-            if clean:
-                shutil.rmtree(build_dir)
-                build_dir.mkdir()
-                print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
-            else:
-                print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
+    is_populated = build_dir.exists() and any(build_dir.iterdir())
+    if is_populated and clean:
+        shutil.rmtree(build_dir)
+        build_dir.mkdir()
+        print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
+    elif is_populated:
+        print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
         build_dir.mkdir()
 
-    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
-    build = BuildEnvironment.load(read_yaml_file(environment_file), build_env)
     build.validate_environment()
-    build.set_environment_variables()
 
     selected_modules = get_selected_modules(source_dir, build.deploy, build.name, verbose)
 
@@ -538,7 +537,7 @@ def build_config(
         print("  [bold yellow]WARNING:[/] Found the following warnings in config.yaml:")
         for warning in warnings:
             print(f"    {warning}")
-    process_config_files(source_dir, selected_modules, build_dir, config, build_env, verbose)
+    process_config_files(source_dir, selected_modules, build_dir, config, build.name, verbose)
     build.dump_to_file(build_dir)
     print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}.")
 

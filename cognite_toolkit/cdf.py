@@ -28,9 +28,11 @@ from cognite_toolkit.cdf_tk.templates import (
     CONFIG_FILE,
     CUSTOM_MODULES,
     ENVIRONMENTS_FILE,
+    BuildEnvironment,
     build_config,
     generate_config,
     read_environ_config,
+    read_yaml_file,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
@@ -188,13 +190,14 @@ def build(
             f"\n[bold]Environment file:[/] {environment_file.absolute().relative_to(Path.cwd())!s} and [bold]config file:[/] {config_file.absolute().relative_to(Path.cwd())!s}"
         )
     )
+    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
+    build_ = BuildEnvironment.load(read_yaml_file(environment_file), build_env)
 
     build_config(
         build_dir=Path(build_dir),
         source_dir=source_dir,
         config_file=config_file,
-        environment_file=environment_file,
-        build_env=build_env,
+        build=build_,
         clean=clean,
         verbose=ctx.obj.verbose,
     )
