@@ -238,6 +238,13 @@ def deploy(
             help="Whether to drop existing configurations, drop per resource if present.",
         ),
     ] = False,
+    drop_data: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--drop-data",
+            help="Whether to drop existing data in data model containers and spaces.",
+        ),
+    ] = False,
     dry_run: Annotated[
         Optional[bool],
         typer.Option(
@@ -290,7 +297,7 @@ def deploy(
         drop=drop,
         action="deploy",
         dry_run=dry_run,
-        drop_data=False,
+        drop_data=drop_data,
         verbose=ctx.obj.verbose,
     )
     results = DeployResults([], "deploy", dry_run=dry_run)
