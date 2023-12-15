@@ -1,3 +1,0 @@
-externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets
-interval: 7 * * * *
-isPaused: true
