@@ -327,9 +327,9 @@ DataModel:
     type: view
     version: '1'
 DataSet:
-- description: This is the data set for the OID Example Data
-  externalId: ds_oid_example_data
-  name: OID Example Data
+- description: This dataset contains transformations data for the oid location.
+  externalId: ds_transformations_oid
+  name: transformations:oid
 Space:
 - description: Space for APM simple data model
   name: sp_apm_simple

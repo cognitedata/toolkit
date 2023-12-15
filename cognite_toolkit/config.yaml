@@ -32,7 +32,6 @@ cognite_modules:
     # The raw database values here point to the RAW data loaded in the cdf_oid_example_data
     # module. If you have changed the default values in that module, you need to change them here as well.
     cdf_apm_simple_data_model:
-      data_set: ds_oid_example_data
       datamodel: apm_simple
       datamodel_version: '1'
       default_location: oid
