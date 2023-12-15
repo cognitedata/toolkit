@@ -48,13 +48,15 @@ class BuildEnvironment:
     system: SystemVariables
 
     @classmethod
-    def load(cls, environment_config: dict[str, Any], build_env: str) -> BuildEnvironment:
+    def load(
+        cls, environment_config: dict[str, Any], build_env: str, action: Literal["build", "deploy", "clean"]
+    ) -> BuildEnvironment:
         if build_env is None:
             raise ValueError("build_env must be specified")
         environment = environment_config.get(build_env)
         if environment is None:
             raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
-        system = SystemVariables.load(environment_config)
+        system = SystemVariables.load(environment_config, action)
         try:
             return BuildEnvironment(
                 name=build_env,
@@ -107,22 +109,28 @@ class SystemVariables:
     cdf_toolkit_version: str
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> SystemVariables:
+    def load(cls, data: dict[str, Any], action: Literal["build", "deploy", "clean"]) -> SystemVariables:
         try:
             system = SystemVariables(cdf_toolkit_version=data["__system"]["cdf_toolkit_version"])
         except KeyError:
             print(
                 f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {ENVIRONMENTS_FILE!s}"
             )
+            if action in {"deploy", "clean"}:
+                print(
+                    f"  rerun `cdf-tk build` to build the templates again with `{BUILD_ENVIRONMENT_FILE!s}` created correctly."
+                )
+            elif action == "build":
+                print(
+                    f"  rerun `cdf-tk init` to initialize with the flag `--upgrade` the templates again with `{BUILD_ENVIRONMENT_FILE!s}` created correctly."
+                )
             exit(1)
         if system.cdf_toolkit_version != _version.__version__:
             print(
                 f"  [bold red]Error:[/] The version of the templates ({system.cdf_toolkit_version}) does not match the version of the installed package ({_version.__version__})."
             )
-            print("  Please run `cdf-tk init --upgrade` to upgrade the templates OR.")
-            print(
-                f"  Please run `pip install cognite-toolkit==={system.cdf_toolkit_version}` to downgrade the installed package."
-            )
+            print("  Please either run `cdf-tk init --upgrade` to upgrade the templates OR")
+            print(f"  run `pip install cognite-toolkit==={system.cdf_toolkit_version}` to downgrade cdf-tk.")
             exit(1)
         return system
 

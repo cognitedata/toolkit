@@ -191,7 +191,7 @@ def build(
         )
     )
     print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
-    build_ = BuildEnvironment.load(read_yaml_file(environment_file), build_env)
+    build_ = BuildEnvironment.load(read_yaml_file(environment_file), build_env, "build")
     build_.set_environment_variables()
 
     build_config(
@@ -262,7 +262,7 @@ def deploy(
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
 
-    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env)
+    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env, "deploy")
     build_.set_environment_variables()
 
     print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
@@ -384,7 +384,7 @@ def clean(
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
 
-    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env)
+    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env, "clean")
     build_.set_environment_variables()
 
     Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]")
