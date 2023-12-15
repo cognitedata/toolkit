@@ -1,3 +1,0 @@
-externalId: tr_asset_oid_workmate_apm_simple_load_assets
-interval: 7 * * * *
-isPaused: true
