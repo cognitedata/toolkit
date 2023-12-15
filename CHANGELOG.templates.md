@@ -37,6 +37,7 @@ Changes are grouped as follows:
 - Combined the child and parent transformations `sync_assets_from_hierarchy_to_apm` in `cdf_infield_location`. 
   This has the benefit of not having to wait for the parent transformation to finish before starting the child transformation, 
   thus no longer a dependency between the two transformations.
+- Transformation Schedules broken out into separate files, following naming convention `<transformation_name>.schedule.yaml`. 
 
 ### Fixed
 

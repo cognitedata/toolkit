@@ -25,6 +25,7 @@ Changes are grouped as follows:
 - Check for whether data set id is present in the config files.
 - Print table at the end of `cdf-tk deploy` with the resources that were created, deleted, and skipped.
 - Support for Extraction Pipelines and Extraction Pipeline configuration for remotely configured Extractors 
+- Separate loader for Transformation Schedule resources.
 
 ### Removed
 
