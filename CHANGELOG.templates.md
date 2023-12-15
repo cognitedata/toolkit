@@ -15,7 +15,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
   
-## TBD - 2023-12-TBD
+## [0.1.0b1] - 2023-12-15
 
 ### Added
 
@@ -45,7 +45,6 @@ Changes are grouped as follows:
 
 - Removed transformation identity provider variables from modules and reused the global cicd_ prefixed ones.
 - Ensure all transformations in `cognite_modules` are prefixed with `tr_` and all spaces are prefixed with `sp_`.
-
 
 ## [0.1.0a3] - 2023-11-29
 
