@@ -1,0 +1,13 @@
+externalId: 'ep_ctx_files_{{location_name}}_pandid_annotation'
+dataSetExternalId: 'ds_files_{{location_name}}'
+config:
+  data:
+    debug: False
+    runAll: True
+    docLimit: -1
+    docDataSetExtId: "{{files_dataset}}"
+    docTypeMetaCol: "doc_type"
+    pAndIdDocType: "PNID"
+    assetRootExtIds: [workmate:VAL]
+    matchTreshold: 0.85
+   
