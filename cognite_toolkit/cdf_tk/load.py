@@ -712,9 +712,6 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
     def load_resource(self, filepath: Path, dry_run: bool) -> Transformation:
         raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
-        if raw.get("schedule"):
-            print("[ERROR] Schedule should not be part of transformations. yaml")
-            # with open()...
 
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
