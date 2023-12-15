@@ -1,25 +1,25 @@
 deleted:
   Container:
   - externalId: Pump
-    space: pumpModelSpace
+    space: sp_pump_model_space
     type: container
   DataModel:
   - externalId: PumpLiftStations
-    space: pumpModelSpace
+    space: sp_pump_model_space
     type: datamodel
     version: '1'
   Space:
-  - pumpInstanceSpace
-  - pumpModelSpace
+  - sp_pump_instance_space
+  - sp_pump_model_space
   Transformation:
-  - externalId: pump_model-populate-lift_station_pumps_edges
-  - externalId: pump_model-populate-pump_container
+  - externalId: tr_pump_model-populate-lift_station_pumps_edges
+  - externalId: tr_pump_model-populate-pump_container
   View:
   - externalId: LiftStation
-    space: pumpModelSpace
+    space: sp_pump_model_space
     type: view
     version: '1'
   - externalId: Pump
-    space: pumpModelSpace
+    space: sp_pump_model_space
     type: view
     version: '1'
