@@ -1,5 +1,5 @@
-externalId: tr_asset_{{default_location}}_{{source_asset}}_asset_hierarchy
-name: asset:{{default_location}}:{{source_asset}}:asset_hierarchy
+externalId: tr_asset_{{default_location}}_{{source_asset}}_asset_hierarchy_example
+name: asset:{{default_location}}:{{source_asset}}:asset_hierarchy:example
 destination:
   type: "asset_hierarchy"
 ignoreNullFields: true
