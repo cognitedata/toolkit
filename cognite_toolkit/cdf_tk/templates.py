@@ -110,19 +110,18 @@ class SystemVariables:
 
     @classmethod
     def load(cls, data: dict[str, Any], action: Literal["build", "deploy", "clean"]) -> SystemVariables:
+        file_name = BUILD_ENVIRONMENT_FILE if action in {"deploy", "clean"} else ENVIRONMENTS_FILE
         try:
             system = SystemVariables(cdf_toolkit_version=data["__system"]["cdf_toolkit_version"])
         except KeyError:
             print(
-                f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {ENVIRONMENTS_FILE!s}"
+                f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {file_name!s}"
             )
             if action in {"deploy", "clean"}:
-                print(
-                    f"  rerun `cdf-tk build` to build the templates again with `{BUILD_ENVIRONMENT_FILE!s}` created correctly."
-                )
+                print(f"  rerun `cdf-tk build` to build the templates again and create `{file_name!s}` correctly.")
             elif action == "build":
                 print(
-                    f"  rerun `cdf-tk init` to initialize with the flag `--upgrade` the templates again with `{BUILD_ENVIRONMENT_FILE!s}` created correctly."
+                    f"  run `cdf-tk init --upgrade` to initialize the templates again and create a correct `{file_name!s}` file."
                 )
             exit(1)
         if system.cdf_toolkit_version != _version.__version__:
