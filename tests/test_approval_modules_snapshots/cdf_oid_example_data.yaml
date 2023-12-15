@@ -669,10 +669,10 @@ Transformation:
     clientSecret: ${IDP_CLIENT_SECRET}
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
-  externalId: tr_asset_oid_workmate_asset_hierarchy
+  externalId: tr_asset_oid_workmate_asset_hierarchy_example
   ignoreNullFields: true
   isPublic: true
-  name: asset:oid:workmate:asset_hierarchy
+  name: asset:oid:workmate:asset_hierarchy:example
   ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`externalId`\
     \ as STRING) as name,\n  cast(`description` as STRING) as description,\n  cast(`sourceDb`\
@@ -686,7 +686,7 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: tr_asset_oid_workmate_asset_hierarchy
+- externalId: tr_asset_oid_workmate_asset_hierarchy_example
   interval: 7 * * * *
   isPaused: false
 deleted:
@@ -739,6 +739,6 @@ deleted:
   - externalId: pi_163657
   - externalId: pi_191092
   Transformation:
-  - externalId: tr_asset_oid_workmate_asset_hierarchy
+  - externalId: tr_asset_oid_workmate_asset_hierarchy_example
   TransformationSchedule:
-  - externalId: tr_asset_oid_workmate_asset_hierarchy
+  - externalId: tr_asset_oid_workmate_asset_hierarchy_example
