@@ -75,6 +75,8 @@ Changes are grouped as follows:
 - Missing .sql files for transformations will now raise an error in the build step.
 - The build step will now raise a number of warnings for missing externalIds in the yaml files,
   as well as if the naming conventions are not followed.
+- System section in `environments.yaml` to track local state of `cdf-toolkit`.
+- Introduced a `build_environment.yaml` in the `/build` folder to track how the build was run.
 
 ### Fixed
 

@@ -17,8 +17,9 @@ import pytest
 import typer
 from pytest import MonkeyPatch
 
+from cognite_toolkit import _version
 from cognite_toolkit.cdf import Common, build, clean, deploy, main_init
-from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, iterate_modules, read_yaml_file, read_yaml_files
+from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, iterate_modules, read_yaml_file
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 from tests.conftest import ApprovalCogniteClient
 
@@ -98,27 +99,19 @@ def typer_context(cdf_tool_config: CDFToolConfig) -> typer.Context:
     return context
 
 
-def mock_read_yaml_files(module_path: Path, monkeypatch: MonkeyPatch) -> None:
-    def fake_read_yaml_files(
-        yaml_dirs: list[str],
-        name: str | None = None,
-    ) -> dict[str, Any]:
-        if name == "local.yaml":
-            return {"dev": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]}}
-        return read_yaml_files(yaml_dirs, name)
-
-    monkeypatch.setattr("cognite_toolkit.cdf_tk.templates.read_yaml_files", fake_read_yaml_files)
-
-
 def mock_read_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> None:
     def fake_read_yaml_file(
         filepath: Path, expected_output: Literal["list", "dict"] = "dict"
     ) -> dict[str, Any] | list[dict[str, Any]]:
         if filepath.name == "environments.yaml":
-            return {"dev": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]}}
+            return {
+                "dev": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]},
+                "__system": {"cdf_toolkit_version": _version.__version__},
+            }
         return read_yaml_file(filepath, expected_output)
 
     monkeypatch.setattr("cognite_toolkit.cdf_tk.templates.read_yaml_file", fake_read_yaml_file)
+    monkeypatch.setattr("cognite_toolkit.cdf.read_yaml_file", fake_read_yaml_file)
 
 
 @pytest.fixture
@@ -147,7 +140,6 @@ def test_deploy_module_approval(
     init_project: None,
     data_regression,
 ) -> None:
-    mock_read_yaml_files(module_path, monkeypatch)
     mock_read_yaml_file(module_path, monkeypatch)
 
     build(
@@ -188,7 +180,6 @@ def test_deploy_dry_run_module_approval(
     typer_context: typer.Context,
     init_project: None,
 ) -> None:
-    mock_read_yaml_files(module_path, monkeypatch)
     mock_read_yaml_file(module_path, monkeypatch)
 
     build(
@@ -232,7 +223,6 @@ def test_clean_module_approval(
     typer_context: typer.Context,
     data_regression,
 ) -> None:
-    mock_read_yaml_files(module_path, monkeypatch)
     mock_read_yaml_file(module_path, monkeypatch)
 
     main_init(
@@ -255,7 +245,7 @@ def test_clean_module_approval(
     clean(
         typer_context,
         build_dir=str(local_tmp_path),
-        build_env="test",
+        build_env="dev",
         interactive=False,
         dry_run=False,
         include=[],
