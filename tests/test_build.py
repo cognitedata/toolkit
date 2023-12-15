@@ -82,6 +82,17 @@ def test_config_yaml_updated() -> None:
     )
 
 
+def test_environment_system_variables_updated() -> None:
+    environments_yaml = yaml.safe_load(
+        (REPO_ROOT / "cognite_toolkit" / "environments.yaml").read_text(encoding="utf-8")
+    )
+    system_variables = environments_yaml["__system"]
+
+    assert (
+        system_variables["cdf_toolkit_version"] == __version__
+    ), "The 'cdf_tk_version' system variable is not up to date."
+
+
 def _parse_changelog(changelog: str) -> Iterator[Match[str]]:
     changelog = (REPO_ROOT / changelog).read_text(encoding="utf-8")
     return re.finditer(r"##\s\[(\d+\.\d+\.\d+(a\d+)?)\]\s-\s(\d+-\d+-\d+)", changelog)
