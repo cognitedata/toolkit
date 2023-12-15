@@ -47,7 +47,6 @@ prod:
 
 
 # DO NOT EDIT THE LINES BELOW!
-# This part is used by cdf-toolkit to keep track of version and help you upgrade.
+# This part is used by cdf-toolkit to keep track of the version and help you upgrade.
 __system:
   cdf_toolkit_version: 0.1.0a3
-

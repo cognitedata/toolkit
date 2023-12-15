@@ -17,8 +17,6 @@ from rich.panel import Panel
 
 from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk import bootstrap
-
-# from scripts.delete import clean_out_datamodels
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
@@ -43,7 +41,7 @@ auth_app = typer.Typer(
 app.add_typer(auth_app, name="auth")
 
 
-_AVAILABLE_DATA_TYPES: tuple[str] = tuple(LOADER_BY_FOLDER_NAME)
+_AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
 
 
 # Common parameters handled in common callback
