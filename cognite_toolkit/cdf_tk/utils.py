@@ -39,6 +39,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
 from cognite.client.utils._text import to_camel_case, to_snake_case
 from rich import print
 
+from cognite_toolkit._version import __version__
 from cognite_toolkit.cdf_tk._get_type_hints import _TypeHints
 
 logger = logging.getLogger(__name__)
@@ -55,13 +56,7 @@ class CDFToolConfig:
 
     """
 
-    def __init__(
-        self,
-        client_name: str = "Generic Cognite config deploy tool",
-        token: str | None = None,
-        cluster: str | None = None,
-        project: str | None = None,
-    ) -> None:
+    def __init__(self, token: str | None = None, cluster: str | None = None, project: str | None = None) -> None:
         self._data_set_id: int = 0
         self._data_set = None
         self._failed = False
@@ -74,6 +69,8 @@ class CDFToolConfig:
             client_secret="",
             scopes=[],
         )
+        # ClientName is used for logging usage of the CDF-Toolkit.
+        client_name = f"CDF-Toolkit:{__version__}"
 
         # CDF_CLUSTER and CDF_PROJECT are minimum requirements and can be overridden
         # when instansiating the class.
