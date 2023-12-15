@@ -8,7 +8,7 @@ import pytest
 import yaml
 from packaging.version import Version
 
-from cognite_toolkit._version import __template_version__, __version__
+from cognite_toolkit._version import __version__
 from cognite_toolkit.cdf_tk.templates import generate_config
 from tests.constants import REPO_ROOT
 
@@ -29,7 +29,7 @@ def test_pyproj_version_matches() -> None:
 
 @pytest.mark.parametrize(
     "package_version, changelog_name",
-    [(__version__, "CHANGELOG.cdf-tk.md"), (__template_version__, "CHANGELOG.templates.md")],
+    [(__version__, "CHANGELOG.cdf-tk.md"), (__version__, "CHANGELOG.templates.md")],
 )
 def test_changelog_entry_version_matches(package_version: str, changelog_name: str) -> None:
     match = next(_parse_changelog(changelog_name))

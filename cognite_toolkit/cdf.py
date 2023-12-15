@@ -58,7 +58,7 @@ class Common:
 
 def _version_callback(value: bool):
     if value:
-        typer.echo(f"CDF-Toolkit version: {_version.__version__}, Template version: {_version.__template_version__}")
+        typer.echo(f"CDF-Toolkit version: {_version.__version__}.")
         raise typer.Exit()
 
 

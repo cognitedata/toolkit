@@ -26,6 +26,9 @@ Changes are grouped as follows:
   
 ### Changed
 
+- **BREAKING** All externalIds and names have been changed to follow the naming conventions for resources
+  in `examples/cdf_oid_example_data`, `examples/cdf_apm_simple_data_model`, `modules/cdf_apm_base`,
+  `modules/cdf_infield_common`, and `modules/cdf_infield_location`.
 - All cognite templates have been moved into `cognite_templates` folder, while `local_templates` is renamed to `custom_templates`.
 - Move cdf_apm_base into separate folder.
 - The file `local.yaml` has been renamed `environments.yaml` to better reflect its purpose.
@@ -39,15 +42,8 @@ Changes are grouped as follows:
 
 - Removed transformation identity provider variables from modules and reused the global cicd_ prefixed ones.
 
-## [0.2.0] - 2023-12-01
 
-### Changed
-
-- **BREAKING** All externalIds and names have been changed to follow the naming conventions for resources
-  in `examples/cdf_oid_example_data`, `examples/cdf_apm_simple_data_model`, `modules/cdf_apm_base`,
-  `modules/cdf_infield_common`, and `modules/cdf_infield_location`.
-
-## [0.1.2] - 2023-11-29
+## [0.1.0a3] - 2023-11-29
 
 ### Changed
 
@@ -61,7 +57,7 @@ Changes are grouped as follows:
 - Fix wrong reference to `apm_simple` in `examples/cdf_apm_simple_data_model` and `modules/cdf_infield_location`.
 - Exemplify use of a single config yaml file for multiple file resources in `examples/cdf_oid_example_data/files/files.yaml`.
 
-## [0.1.1] - 2023-11-23
+## [0.1.0a2] - 2023-11-23
 
 ### Changed
 
@@ -76,6 +72,6 @@ Changes are grouped as follows:
 - cdf_infield_common module and the auth applications-configuration.yaml did not load group source id
    correctly due to source_id being used instead of sourceId. This is now fixed.
 
-## [0.1.0] - 2023-11-21
+## [0.1.0a1] - 2023-11-21
 
 Initial release
