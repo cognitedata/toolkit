@@ -1,4 +1,5 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -21,6 +22,7 @@ Changes are grouped as follows:
 - Explicitly define model `space` in `experimental/cdf_asset_source_model/` and `experimental/example_pump_model/`.
 - The module `my_example_module` has been added to the `custom_modules` folder.
 - Added globally defined schedule variables that can be used across all modules.
+- A complete example of an Asset data pipeline in `examples/cdf_asset_data_pipeline/` shows how to configure an Extractor, monitor the status of the Extraction Pipeline, and load the data into the asset hierarchy using Transformations.
   
 ### Changed
 
