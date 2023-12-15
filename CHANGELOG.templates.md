@@ -43,7 +43,6 @@ Changes are grouped as follows:
 ### Fixed
 
 - Removed transformation identity provider variables from modules and reused the global cicd_ prefixed ones.
-- In the `cdf_infield_location` set dataset for transformations.
 - Ensure all transformations in `cognite_modules` are prefixed with `tr_` and all spaces are prefixed with `sp_`.
 
 
