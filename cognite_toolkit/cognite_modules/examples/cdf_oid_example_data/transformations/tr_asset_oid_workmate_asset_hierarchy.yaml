@@ -16,6 +16,3 @@ authentication:
   scopes: {{cicd_scopes}}
   # Optional: If idP requires providing the cicd_audience
   audience: {{cicd_audience}}
-schedule:
-  interval: '{{scheduleHourly}}'
-  isPaused: false
