@@ -31,6 +31,7 @@ Changes are grouped as follows:
 - **BREAKING** All externalIds and names have been changed to follow the naming conventions for resources
   in `examples/cdf_oid_example_data`, `examples/cdf_apm_simple_data_model`, `modules/cdf_apm_base`,
   `modules/cdf_infield_common`, and `modules/cdf_infield_location`.
+- **BREAKING** Transformation Schedules broken out into separate files, following naming convention `<transformation_name>.schedule.yaml`. 
 - All cognite templates have been moved into `cognite_templates` folder, while `local_templates` is renamed to `custom_templates`.
 - Move cdf_apm_base into separate folder.
 - The file `local.yaml` has been renamed `environments.yaml` to better reflect its purpose.
@@ -39,7 +40,6 @@ Changes are grouped as follows:
 - Combined the child and parent transformations `sync_assets_from_hierarchy_to_apm` in `cdf_infield_location`. 
   This has the benefit of not having to wait for the parent transformation to finish before starting the child transformation, 
   thus no longer a dependency between the two transformations.
-- Transformation Schedules broken out into separate files, following naming convention `<transformation_name>.schedule.yaml`. 
 
 ### Fixed
 
