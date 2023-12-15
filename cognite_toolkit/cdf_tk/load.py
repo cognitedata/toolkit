@@ -794,7 +794,7 @@ class TransformationScheduleLoader(Loader[str, TransformationSchedule, Transform
         except CogniteNotFoundError as e:
             return len(ids) - len(e.not_found)
 
-    def create(self, items: Sequence[Transformation], drop: bool, filepath: Path) -> TransformationList:
+    def create(self, items: Sequence[TransformationSchedule], drop: bool, filepath: Path) -> TransformationScheduleList:
         return self.client.transformations.schedules.create(items)
 
 

@@ -48,6 +48,6 @@ deleted:
   - externalId: pi_163657
   - externalId: pi_191092
   Transformation:
-  - externalId: tr_asset_oid_workmate_asset_hierarchy
+  - externalId: tr_asset_oid_workmate_asset_hierarchy_example
   TransformationSchedule:
-  - externalId: tr_asset_oid_workmate_asset_hierarchy
+  - externalId: tr_asset_oid_workmate_asset_hierarchy_example
