@@ -17,8 +17,6 @@ from rich.panel import Panel
 
 from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk import bootstrap
-
-# from scripts.delete import clean_out_datamodels
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
@@ -26,13 +24,15 @@ from cognite_toolkit.cdf_tk.load import (
     deploy_or_clean_resources,
 )
 from cognite_toolkit.cdf_tk.templates import (
+    BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
     CONFIG_FILE,
     CUSTOM_MODULES,
     ENVIRONMENTS_FILE,
+    BuildEnvironment,
     build_config,
     generate_config,
-    read_environ_config,
+    read_yaml_file,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
@@ -43,7 +43,7 @@ auth_app = typer.Typer(
 app.add_typer(auth_app, name="auth")
 
 
-_AVAILABLE_DATA_TYPES: tuple[str] = tuple(LOADER_BY_FOLDER_NAME)
+_AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
 
 
 # Common parameters handled in common callback
@@ -58,7 +58,7 @@ class Common:
 
 def _version_callback(value: bool):
     if value:
-        typer.echo(f"CDF-Toolkit version: {_version.__version__}, Template version: {_version.__template_version__}")
+        typer.echo(f"CDF-Toolkit version: {_version.__version__}.")
         raise typer.Exit()
 
 
@@ -190,13 +190,15 @@ def build(
             f"\n[bold]Environment file:[/] {environment_file.absolute().relative_to(Path.cwd())!s} and [bold]config file:[/] {config_file.absolute().relative_to(Path.cwd())!s}"
         )
     )
+    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
+    build_ = BuildEnvironment.load(read_yaml_file(environment_file), build_env, "build")
+    build_.set_environment_variables()
 
     build_config(
         build_dir=Path(build_dir),
         source_dir=source_dir,
         config_file=config_file,
-        environment_file=environment_file,
-        build_env=build_env,
+        build=build_,
         clean=clean,
         verbose=ctx.obj.verbose,
     )
@@ -259,8 +261,9 @@ def deploy(
         ToolGlobals = ctx.obj.mockToolGlobals
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
-    # Set environment variables from local.yaml
-    read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
+
+    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env, "deploy")
+    build_.set_environment_variables()
 
     print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     build_path = Path(build_dir)
@@ -381,8 +384,8 @@ def clean(
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
 
-    # Set environment variables from local.yaml
-    read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
+    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env, "clean")
+    build_.set_environment_variables()
 
     Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]")
     build_path = Path(build_dir)

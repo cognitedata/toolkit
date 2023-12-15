@@ -8,7 +8,7 @@ import pytest
 import yaml
 from packaging.version import Version
 
-from cognite_toolkit._version import __template_version__, __version__
+from cognite_toolkit._version import __version__
 from cognite_toolkit.cdf_tk.templates import generate_config
 from tests.constants import REPO_ROOT
 
@@ -29,7 +29,7 @@ def test_pyproj_version_matches() -> None:
 
 @pytest.mark.parametrize(
     "package_version, changelog_name",
-    [(__version__, "CHANGELOG.cdf-tk.md"), (__template_version__, "CHANGELOG.templates.md")],
+    [(__version__, "CHANGELOG.cdf-tk.md"), (__version__, "CHANGELOG.templates.md")],
 )
 def test_changelog_entry_version_matches(package_version: str, changelog_name: str) -> None:
     match = next(_parse_changelog(changelog_name))
@@ -80,6 +80,17 @@ def test_config_yaml_updated() -> None:
         "The 'config.yaml' file is not up to date with the latest changes. "
         "Please run 'python -m cognite_toolkit.cdf_tk.templates' to update it."
     )
+
+
+def test_environment_system_variables_updated() -> None:
+    environments_yaml = yaml.safe_load(
+        (REPO_ROOT / "cognite_toolkit" / "environments.yaml").read_text(encoding="utf-8")
+    )
+    system_variables = environments_yaml["__system"]
+
+    assert (
+        system_variables["cdf_toolkit_version"] == __version__
+    ), "The 'cdf_tk_version' system variable is not up to date."
 
 
 def _parse_changelog(changelog: str) -> Iterator[Match[str]]:
