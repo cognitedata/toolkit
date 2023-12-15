@@ -1,7 +1,22 @@
 DataSet:
+- description: This dataset contains 3D data for the oid location.
+  externalId: ds_3d_oid
+  name: 3d:oid
+- description: This dataset contains asset data for the oid location.
+  externalId: ds_asset_oid
+  name: asset:oid
+- description: This dataset contains files for the oid location.
+  externalId: ds_files_oid
+  name: files:oid
 - description: This dataset is for writing data from Infield for the location oid.
   externalId: ds_infield_oid_app_data
   name: infield:oid:app_data
+- description: This dataset contains relationships data for the oid location.
+  externalId: ds_relationships_oid
+  name: relationships:oid
+- description: This dataset contains timeseries for the oid location.
+  externalId: ds_timeseries_oid
+  name: timeseries:oid
 Group:
 - capabilities:
   - groupsAcl:
