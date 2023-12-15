@@ -16,15 +16,22 @@ Changes are grouped as follows:
 - `Security` in case of vulnerabilities.
 
 ## [TBD] - 2023-12-TBD
+
 ### Added
+
 - Warnings if a configuration file is using `snake_case` when then resource type is expecting `camelCase`.
 - Added support for validation of `space` for data models.
 - Check for whether template variables `<change_me>` are present in the config files.
 - Check for whether data set id is present in the config files.
 - Print table at the end of `cdf-tk deploy` with the resources that were created, deleted, and skipped.
+- Support for Extraction Pipelines and Extraction Pipeline configuration for remotely configured Extractors 
+
 ### Removed
+
 - In the `deploy` command `drop_data` option has been removed. To drop data, use the `clean` command instead.
+
 ### Changed
+
 - Require all spaces to be explicitly defined as separate .space.yaml file.
 - The `data_set_id` for `Transformations` must now be set explicitly in the yaml config file for the `Transformation`
   under the `data_set_id` key. Note that you also need to explicitly define the `data_set` in its own yaml config file.
@@ -34,6 +41,7 @@ Changes are grouped as follows:
   set explicitly in the yaml config file.
 
 ### Fixed
+
 - When running `cdf-tk deploy` with `--dry-run` a `ValueError` was raised if not all datasets were pre-existing.
   This is now fixed by skipping dataset validation when running with `--dry-run`.
 - When having a `auth` group with mixed capabilities of all scoped and resource scoped, the all scoped capabilities
@@ -68,6 +76,8 @@ Changes are grouped as follows:
 - Missing .sql files for transformations will now raise an error in the build step.
 - The build step will now raise a number of warnings for missing externalIds in the yaml files,
   as well as if the naming conventions are not followed.
+- System section in `environments.yaml` to track local state of `cdf-toolkit`.
+- Introduced a `build_environment.yaml` in the `/build` folder to track how the build was run.
 
 ### Fixed
 

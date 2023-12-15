@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 def run() -> None:
     print("Doing post-processing activities for demo project...")
-    ToolGlobals = CDFToolConfig(client_name="cdf-project-templates")
+    ToolGlobals = CDFToolConfig()
     try:
         print("Running tr_asset_oid_workmate_asset_hierarchy...")
         ToolGlobals.client.transformations.run(transformation_external_id="tr_asset_oid_workmate_asset_hierarchy")
