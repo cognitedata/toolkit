@@ -24,6 +24,7 @@ from cognite_toolkit.cdf_tk.load import (
     deploy_or_clean_resources,
 )
 from cognite_toolkit.cdf_tk.templates import (
+    BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
     CONFIG_FILE,
     CUSTOM_MODULES,
@@ -31,7 +32,6 @@ from cognite_toolkit.cdf_tk.templates import (
     BuildEnvironment,
     build_config,
     generate_config,
-    read_environ_config,
     read_yaml_file,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -192,6 +192,7 @@ def build(
     )
     print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
     build_ = BuildEnvironment.load(read_yaml_file(environment_file), build_env)
+    build_.set_environment_variables()
 
     build_config(
         build_dir=Path(build_dir),
@@ -260,8 +261,9 @@ def deploy(
         ToolGlobals = ctx.obj.mockToolGlobals
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
-    # Set environment variables from local.yaml
-    read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
+
+    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env)
+    build_.set_environment_variables()
 
     print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     build_path = Path(build_dir)
@@ -382,8 +384,8 @@ def clean(
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
 
-    # Set environment variables from local.yaml
-    read_environ_config(root_dir=build_dir, build_env=build_env, set_env_only=True)
+    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env)
+    build_.set_environment_variables()
 
     Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]")
     build_path = Path(build_dir)

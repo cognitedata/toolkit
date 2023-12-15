@@ -19,7 +19,7 @@ from cognite.client import CogniteClient
 from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf import Common, build, clean, deploy, main_init
-from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, iterate_modules, read_yaml_file, read_yaml_files
+from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, iterate_modules, read_yaml_file
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -98,18 +98,6 @@ def typer_context(cdf_tool_config: CDFToolConfig) -> typer.Context:
     return context
 
 
-def mock_read_yaml_files(module_path: Path, monkeypatch: MonkeyPatch) -> None:
-    def fake_read_yaml_files(
-        yaml_dirs: list[str],
-        name: str | None = None,
-    ) -> dict[str, Any]:
-        if name == "local.yaml":
-            return {"dev": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]}}
-        return read_yaml_files(yaml_dirs, name)
-
-    monkeypatch.setattr("cognite_toolkit.cdf_tk.templates.read_yaml_files", fake_read_yaml_files)
-
-
 def mock_read_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> None:
     def fake_read_yaml_file(
         filepath: Path, expected_output: Literal["list", "dict"] = "dict"
@@ -132,7 +120,6 @@ def test_deploy_module_approval(
     typer_context: typer.Context,
     data_regression,
 ) -> None:
-    mock_read_yaml_files(module_path, monkeypatch)
     mock_read_yaml_file(module_path, monkeypatch)
 
     main_init(
@@ -177,7 +164,6 @@ def test_clean_module_approval(
     typer_context: typer.Context,
     data_regression,
 ) -> None:
-    mock_read_yaml_files(module_path, monkeypatch)
     mock_read_yaml_file(module_path, monkeypatch)
 
     main_init(
