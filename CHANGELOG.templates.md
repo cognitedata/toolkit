@@ -34,6 +34,8 @@ Changes are grouped as follows:
 - Combined the child and parent transformations `sync_assets_from_hierarchy_to_apm` in `cdf_infield_location`. 
   This has the benefit of not having to wait for the parent transformation to finish before starting the child transformation, 
   thus no longer a dependency between the two transformations.
+- Added all datasets to the `cdf_infield_locaton` module that previously were just a template, but created in `cdf_oid_example_data`.
+  If both modules are used, the datasets will be attempted created twice, but this is not a problem.
 
 ### Fixed
 
