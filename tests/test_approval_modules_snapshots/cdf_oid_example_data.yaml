@@ -678,10 +678,6 @@ Transformation:
     \ as STRING) as name,\n  cast(`description` as STRING) as description,\n  cast(`sourceDb`\
     \ as STRING) as source,\n  cast(`parentExternalId` as STRING) as parentExternalId\n\
     from\n  `asset_oid_workmate`.`assets`;\n"
-  schedule:
-    externalId: tr_asset_oid_workmate_asset_hierarchy
-    interval: 7 * * * *
-    isPaused: false
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -743,4 +739,6 @@ deleted:
   - externalId: pi_163657
   - externalId: pi_191092
   Transformation:
+  - externalId: tr_asset_oid_workmate_asset_hierarchy
+  TransformationSchedule:
   - externalId: tr_asset_oid_workmate_asset_hierarchy

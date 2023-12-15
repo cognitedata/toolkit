@@ -49,3 +49,5 @@ deleted:
   - externalId: pi_191092
   Transformation:
   - externalId: tr_asset_oid_workmate_asset_hierarchy
+  TransformationSchedule:
+  - externalId: tr_asset_oid_workmate_asset_hierarchy

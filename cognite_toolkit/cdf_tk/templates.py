@@ -421,7 +421,7 @@ def build_config(
             print(f"    {warning}")
     process_config_files(source_dir, selected_modules, build_dir, config, build.name, verbose)
     build.dump_to_file(build_dir)
-    print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}.")
+    print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
 
 
 def generate_config(

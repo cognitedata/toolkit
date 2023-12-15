@@ -144,10 +144,6 @@ Transformation:
     \     as dataSetId,\n  to_metadata_except(\n    array(\"sourceDb\", \"parentTag\"\
     , \"description\"), *) \n                                  as metadata\nFROM \n\
     \  `asset_oid_workmate`.`assets`\n"
-  schedule:
-    externalId: tr_asset_oid_workmate_asset_hierarchy
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -163,4 +159,6 @@ deleted:
   ExtractionPipeline:
   - externalId: ep_src_asset_oid_workmate
   Transformation:
+  - externalId: tr_asset_oid_workmate_asset_hierarchy
+  TransformationSchedule:
   - externalId: tr_asset_oid_workmate_asset_hierarchy

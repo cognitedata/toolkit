@@ -1,0 +1,3 @@
+externalId: tr_workorder_oid_workmate_apm_simple_load_workorders
+interval: 7 * * * *
+isPaused: true

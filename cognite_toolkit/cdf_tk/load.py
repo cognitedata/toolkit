@@ -42,6 +42,8 @@ from cognite.client.data_classes import (
     TimeSeriesList,
     Transformation,
     TransformationList,
+    TransformationSchedule,
+    TransformationScheduleList,
     capabilities,
 )
 from cognite.client.data_classes._base import (
@@ -685,6 +687,9 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 class TransformationLoader(Loader[str, Transformation, TransformationList]):
     api_name = "transformations"
     folder_name = "transformations"
+    filename_pattern = (
+        r"^(?:(?!\.schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
+    )
     resource_cls = Transformation
     list_cls = TransformationList
     dependencies = frozenset({DataSetsLoader, RawLoader})
@@ -707,6 +712,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
     def load_resource(self, filepath: Path, dry_run: bool) -> Transformation:
         raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
+
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
         if raw.get("dataSetExternalId") is not None:
@@ -750,11 +756,46 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
             print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
             self.ToolGlobals.failed = True
             return TransformationList([])
-        for t in items if isinstance(items, Sequence) else [items]:
-            if t.schedule.interval != "":
-                t.schedule.external_id = t.external_id
-                self.client.transformations.schedules.create(t.schedule)
         return created
+
+
+@final
+class TransformationScheduleLoader(Loader[str, TransformationSchedule, TransformationScheduleList]):
+    api_name = "transformations.schedules"
+    folder_name = "transformations"
+    filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
+    resource_cls = TransformationSchedule
+    list_cls = TransformationScheduleList
+    dependencies = frozenset({TransformationLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        scope = (
+            TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id])
+            if ToolGlobals.data_set_id
+            else TransformationsAcl.Scope.All()
+        )
+        return TransformationsAcl(
+            [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
+            scope,
+        )
+
+    def get_id(self, item: Transformation) -> str:
+        return item.external_id
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> TransformationSchedule:
+        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+        return TransformationSchedule.load(raw)
+
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+        try:
+            self.client.transformations.schedules.delete(external_id=ids, ignore_unknown_ids=False)
+            return len(ids)
+        except CogniteNotFoundError as e:
+            return len(ids) - len(e.not_found)
+
+    def create(self, items: Sequence[Transformation], drop: bool, filepath: Path) -> TransformationList:
+        return self.client.transformations.schedules.create(items)
 
 
 @final
@@ -1305,8 +1346,11 @@ def deploy_or_clean_resources(
         # as these resources share the same folder.
         pattern = re.compile(loader.filename_pattern)
         filepaths = [file for file in filepaths if pattern.match(file.stem)]
-
-    items = [loader.load_resource(f, dry_run) for f in filepaths]
+    if action == "clean":
+        # If we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
+        items = [loader.load_resource(f, dry_run=True) for f in filepaths]
+    else:
+        items = [loader.load_resource(f, dry_run) for f in filepaths]
     items = [item for item in items if item is not None]
     nr_of_batches = len(items)
     nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
@@ -1320,7 +1364,12 @@ def deploy_or_clean_resources(
         print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     batches = [item if isinstance(item, Sized) else [item] for item in items]
     if drop and loader.support_drop and action == "deploy":
-        print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
+        if drop_data and (loader.api_name == "data_modeling.spaces" or loader.api_name == "data_modeling.containers"):
+            print(
+                f"  --drop-data is specified, will delete existing nodes and edges before before deleting {loader.display_name}."
+            )
+        else:
+            print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
 
     # Deleting resources.
     nr_of_deleted = 0
