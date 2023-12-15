@@ -461,7 +461,13 @@ class DataSetMissingWarning(LoadWarning):
         return (self.id_name, self.id_value, self.filepath) == (other.id_name, other.id_value, other.filepath)
 
     def __str__(self):
-        return f"{type(self).__name__}: It is recommended that you set dataSetExternalId for {self.resource_name}. This is missing in {self.filepath.name}. Did you forget to add it?"
+        # Avoid circular import
+        from cognite_toolkit.cdf_tk.load import TransformationLoader
+
+        if self.filepath.parent.name == TransformationLoader.folder_name:
+            return f"{type(self).__name__}: It is recommended to use a data set if source or destination can be scoped with a data set. If not, ignore this warning."
+        else:
+            return f"{type(self).__name__}: It is recommended that you set dataSetExternalId for {self.resource_name}. This is missing in {self.filepath.name}. Did you forget to add it?"
 
 
 T_Warning = TypeVar("T_Warning", bound=LoadWarning)
