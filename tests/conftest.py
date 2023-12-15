@@ -303,12 +303,7 @@ class ApprovalCogniteClient:
                 }
             )
 
-        def apply_dml(*args, **kwargs):
-            data = dict(kwargs)
-            data["args"] = list(args)
-            created_resources[resource_cls.__name__].append(data)
-
-        available_create_methods = {fn.__name__: fn for fn in [create, insert_dataframe, upload, apply_dml]}
+        available_create_methods = {fn.__name__: fn for fn in [create, insert_dataframe, upload]}
         if mock_method not in available_create_methods:
             raise ValueError(
                 f"Invalid mock create method {mock_method} for resource {resource_cls.__name__}. Supported {available_create_methods.keys()}"
