@@ -38,6 +38,82 @@ EXCL_INDEX_SUFFIX = frozenset([".sql", ".csv", ".parquet"])
 PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"])
 
 
+@dataclass
+class BuildEnvironment:
+    name: Literal["dev", "local", "demo", "staging", "prod"]
+    project: str
+    build_type: str
+    deploy: list[str]
+    system: SystemVariables
+
+    @classmethod
+    def load(cls, environment_config: dict[str, Any], build_env: str) -> BuildEnvironment:
+        environment = environment_config.get(build_env)
+        if environment is None:
+            raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
+        system = SystemVariables.load(environment_config)
+        try:
+            return BuildEnvironment(
+                name=build_env,
+                project=environment["project"],
+                build_type=environment["type"],
+                deploy=environment["deploy"],
+                system=system,
+            )
+        except KeyError:
+            print(
+                f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', or 'deploy' in {ENVIRONMENTS_FILE!s}"
+            )
+        exit(1)
+
+    def dump(self) -> dict[str, Any]:
+        return {
+            self.name: {
+                "project": self.project,
+                "type": self.build_type,
+                "deploy": self.deploy,
+            },
+            "__system": {
+                "cdf_toolkit_version": self.system.cdf_toolkit_version,
+            },
+        }
+
+    def dump_to_file(self, build_dir: Path) -> None:
+        (build_dir / f"build_{ENVIRONMENTS_FILE}").write_text(yaml.dump(self.dump(), sort_keys=False, indent=2))
+
+    def validate_environment(self):
+        if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != self.project:
+            if self.name in {"dev", "local", "demo"}:
+                print(
+                    f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({self.project}) and what is defined in environment ({project_env})."
+                )
+                print(f"  Environment is {self.name}, continuing (would have stopped for staging and prod)...")
+            else:
+                print(
+                    f"  [bold red]ERROR:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({self.project}) and what is defined in environment ({project_env=} != {self.project=})."
+                )
+                exit(1)
+
+    def set_environment_variables(self):
+        os.environ["CDF_ENVIRON"] = self.name
+        os.environ["CDF_BUILD_TYPE"] = self.build_type
+
+
+@dataclass
+class SystemVariables:
+    cdf_toolkit_version: str
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> SystemVariables:
+        try:
+            return SystemVariables(cdf_toolkit_version=data["__system"]["cdf_toolkit_version"])
+        except KeyError:
+            print(
+                f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {ENVIRONMENTS_FILE!s}"
+            )
+        exit(1)
+
+
 def read_environ_config(
     root_dir: str = "./",
     build_env: str = "dev",
@@ -134,16 +210,11 @@ def read_environ_config(
 
 def get_selected_modules(
     source_module: Path,
-    environment_file: Path,
-    build_env: str = "dev",
+    selected_module_and_packages: list[str],
+    build_env: str,
     verbose: bool = False,
 ) -> list[str]:
-    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
-
     modules_by_package = _read_packages(source_module, verbose)
-
-    selected_module_and_packages = _get_modules_and_packages(environment_file, build_env)
-
     selected_packages = [package for package in selected_module_and_packages if package in modules_by_package]
     if verbose:
         print("  [bold green]INFO:[/] Selected packages:")
@@ -169,37 +240,6 @@ def get_selected_modules(
 
     print(f"  [bold red]ERROR:[/] Modules {missing_modules} not found in {source_module}.")
     exit(1)
-
-
-def _get_modules_and_packages(environment_file: Path, build_env: str) -> list[str]:
-    environment_config = read_yaml_file(environment_file)
-    environment = environment_config.get(build_env)
-    if environment is None:
-        raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
-    try:
-        project_config = environment["project"]
-        environment_type = environment["type"]
-        deploy = environment["deploy"]
-    except KeyError:
-        print(
-            f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', or 'deploy' in {ENVIRONMENTS_FILE!s}"
-        )
-        exit(1)
-
-    os.environ["CDF_ENVIRON"] = build_env
-    os.environ["CDF_BUILD_TYPE"] = environment_type
-    if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != project_config:
-        if build_env == "dev" or build_env == "local" or build_env == "demo":
-            print(
-                f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({project_config}) and what is defined in environment ({project_env})."
-            )
-            print(f"  Environment is {build_env}, continuing (would have stopped for staging and prod)...")
-        else:
-            print(
-                f"  [bold red]ERROR:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({project_config}) and what is defined in environment ({project_env=} != {project_config=})."
-            )
-            exit(1)
-    return deploy
 
 
 def _read_packages(source_module, verbose):
@@ -485,7 +525,12 @@ def build_config(
     else:
         build_dir.mkdir()
 
-    selected_modules = get_selected_modules(source_dir, environment_file, build_env, verbose)
+    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
+    build = BuildEnvironment.load(read_yaml_file(environment_file), build_env)
+    build.validate_environment()
+    build.set_environment_variables()
+
+    selected_modules = get_selected_modules(source_dir, build.deploy, build.name, verbose)
 
     config = read_yaml_file(config_file)
     warnings = validate_config_yaml(config, config_file)
@@ -494,6 +539,8 @@ def build_config(
         for warning in warnings:
             print(f"    {warning}")
     process_config_files(source_dir, selected_modules, build_dir, config, build_env, verbose)
+    build.dump_to_file(build_dir)
+    print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}.")
 
 
 def generate_config(
