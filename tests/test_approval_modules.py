@@ -18,6 +18,7 @@ import typer
 from cognite.client import CogniteClient
 from pytest import MonkeyPatch
 
+from cognite_toolkit import _version
 from cognite_toolkit.cdf import Common, build, clean, deploy, main_init
 from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, iterate_modules, read_yaml_file
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -103,10 +104,14 @@ def mock_read_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> None:
         filepath: Path, expected_output: Literal["list", "dict"] = "dict"
     ) -> dict[str, Any] | list[dict[str, Any]]:
         if filepath.name == "environments.yaml":
-            return {"dev": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]}}
+            return {
+                "dev": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]},
+                "__system": {"cdf_toolkit_version": _version.__version__},
+            }
         return read_yaml_file(filepath, expected_output)
 
     monkeypatch.setattr("cognite_toolkit.cdf_tk.templates.read_yaml_file", fake_read_yaml_file)
+    monkeypatch.setattr("cognite_toolkit.cdf.read_yaml_file", fake_read_yaml_file)
 
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
@@ -186,7 +191,7 @@ def test_clean_module_approval(
     clean(
         typer_context,
         build_dir=str(local_tmp_path),
-        build_env="test",
+        build_env="dev",
         interactive=False,
         dry_run=False,
         include=[],
