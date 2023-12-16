@@ -281,3 +281,4 @@ config.yaml
 !demo/config.yaml
 demo_project/
 tests/pytest-project/
+my_project/
