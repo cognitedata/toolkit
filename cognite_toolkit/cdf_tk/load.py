@@ -1283,11 +1283,17 @@ class DeployResult:
     skipped: int
     total: int
 
-    def __lt__(self, other):
-        return self.name < other.name
+    def __lt__(self, other: DeployResult) -> bool:
+        if isinstance(other, DeployResult):
+            return self.name < other.name
+        else:
+            return NotImplemented
 
-    def __eq__(self, other):
-        return self.name == other.name
+    def __eq__(self, other: DeployResult) -> bool:
+        if isinstance(other, DeployResult):
+            return self.name == other.name
+        else:
+            return NotImplemented
 
 
 class DeployResults(UserList):
