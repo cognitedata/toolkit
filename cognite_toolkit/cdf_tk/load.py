@@ -1312,7 +1312,7 @@ class DeployResults(UserList):
         table.add_column(f"{prefix}Deleted", justify="right", style="red")
         table.add_column(f"{prefix}Skipped", justify="right", style="yellow")
         table.add_column("Total", justify="right")
-        for item in sorted(self.data):
+        for item in sorted(entry for entry in self.data if entry is not None):
             table.add_row(
                 item.name,
                 str(item.created),
