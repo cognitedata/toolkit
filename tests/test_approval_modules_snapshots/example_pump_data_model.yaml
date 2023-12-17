@@ -139,10 +139,10 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: pump_model-populate-lift_station_pumps_edges
+- externalId: tr_pump_model-populate-lift_station_pumps_edges
   interval: 7 * * * *
   isPaused: true
-- externalId: pump_model-populate-pump_container
+- externalId: tr_pump_model-populate-pump_container
   interval: 7 * * * *
   isPaused: true
 View:
@@ -248,8 +248,8 @@ deleted:
   - externalId: tr_pump_model-populate-lift_station_pumps_edges
   - externalId: tr_pump_model-populate-pump_container
   TransformationSchedule:
-  - externalId: pump_model-populate-lift_station_pumps_edges
-  - externalId: pump_model-populate-pump_container
+  - externalId: tr_pump_model-populate-lift_station_pumps_edges
+  - externalId: tr_pump_model-populate-pump_container
   View:
   - externalId: LiftStation
     space: sp_pump_model_space

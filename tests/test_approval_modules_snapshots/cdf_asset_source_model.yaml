@@ -88,7 +88,7 @@ Transformation:
     scopes: ${IDP_SCOPES}
     tokenUri: ${IDP_TOKEN_URL}
 TransformationSchedule:
-- externalId: sync-asset_hierarchy_cdf_asset_source_model
+- externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   interval: 7 * * * *
   isPaused: true
 View:
@@ -118,7 +118,7 @@ deleted:
   Transformation:
   - externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   TransformationSchedule:
-  - externalId: sync-asset_hierarchy_cdf_asset_source_model
+  - externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   View:
   - externalId: Asset
     space: sp_extended_source_data_models
