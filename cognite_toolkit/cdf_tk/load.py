@@ -795,7 +795,26 @@ class TransformationScheduleLoader(Loader[str, TransformationSchedule, Transform
             return len(ids) - len(e.not_found)
 
     def create(self, items: Sequence[TransformationSchedule], drop: bool, filepath: Path) -> TransformationScheduleList:
-        return self.client.transformations.schedules.create(items)
+        try:
+            return self.client.transformations.schedules.create(items)
+        except CogniteDuplicatedError as e:
+            existing = {external_id for dup in e.duplicated if (external_id := dup.get("externalId", None))}
+            print(
+                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation schedules already exist(s): {existing}"
+            )
+            new_items = [item for item in items if item.external_id not in existing]
+            if len(new_items) == 0:
+                return TransformationScheduleList([])
+            try:
+                return self.client.transformations.schedules.create(new_items)
+            except CogniteAPIError as e:
+                print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+                self.ToolGlobals.failed = True
+                return TransformationScheduleList([])
+        except CogniteAPIError as e:
+            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+            self.ToolGlobals.failed = True
+            return TransformationScheduleList([])
 
 
 @final
