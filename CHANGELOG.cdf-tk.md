@@ -15,6 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0b2] - 2023-12-17
+
+### Fixed
+
+- Handle duplicate `TransformationSchedules` when loading `Transformation` resources.
+- Print table at the end of `cdf-tk deploy` failed with `AttributeError` is a resource.
+  returned empty. This is now fixed.
+- The `cdf-tk build` command no longer gives a warning about missing `sql` file for 
+  `TransformationSchedule`s.
+
 ## [0.1.0b1] - 2023-12-15
 
 ### Added

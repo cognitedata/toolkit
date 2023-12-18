@@ -14,7 +14,13 @@ Changes are grouped as follows:
 - `Removed` for now removed features.
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
-  
+
+## [0.1.0b2] - 2023-12-17
+
+### Fixed
+
+- In the package `example_pump` ensure all transformations are prefixed with `tr_`.
+
 ## [0.1.0b1] - 2023-12-15
 
 ### Added

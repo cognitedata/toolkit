@@ -795,7 +795,26 @@ class TransformationScheduleLoader(Loader[str, TransformationSchedule, Transform
             return len(ids) - len(e.not_found)
 
     def create(self, items: Sequence[TransformationSchedule], drop: bool, filepath: Path) -> TransformationScheduleList:
-        return self.client.transformations.schedules.create(items)
+        try:
+            return self.client.transformations.schedules.create(items)
+        except CogniteDuplicatedError as e:
+            existing = {external_id for dup in e.duplicated if (external_id := dup.get("externalId", None))}
+            print(
+                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation schedules already exist(s): {existing}"
+            )
+            new_items = [item for item in items if item.external_id not in existing]
+            if len(new_items) == 0:
+                return TransformationScheduleList([])
+            try:
+                return self.client.transformations.schedules.create(new_items)
+            except CogniteAPIError as e:
+                print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+                self.ToolGlobals.failed = True
+                return TransformationScheduleList([])
+        except CogniteAPIError as e:
+            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+            self.ToolGlobals.failed = True
+            return TransformationScheduleList([])
 
 
 @final
@@ -1283,11 +1302,17 @@ class DeployResult:
     skipped: int
     total: int
 
-    def __lt__(self, other):
-        return self.name < other.name
+    def __lt__(self, other: DeployResult) -> bool:
+        if isinstance(other, DeployResult):
+            return self.name < other.name
+        else:
+            return NotImplemented
 
-    def __eq__(self, other):
-        return self.name == other.name
+    def __eq__(self, other: DeployResult) -> bool:
+        if isinstance(other, DeployResult):
+            return self.name == other.name
+        else:
+            return NotImplemented
 
 
 class DeployResults(UserList):
@@ -1306,7 +1331,7 @@ class DeployResults(UserList):
         table.add_column(f"{prefix}Deleted", justify="right", style="red")
         table.add_column(f"{prefix}Skipped", justify="right", style="yellow")
         table.add_column("Total", justify="right")
-        for item in sorted(self.data):
+        for item in sorted(entry for entry in self.data if entry is not None):
             table.add_row(
                 item.name,
                 str(item.created),
