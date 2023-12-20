@@ -82,5 +82,5 @@ script command can be used to clean up configurations using the scripts/delete.p
 
 ## Setting up Environment
 
-When you develop `cdf-tk` you should avoid triggering `sentry` errors. To do this you need to set the `environment` 
+When you develop `cdf-tk` you should avoid sending errors to  `sentry`. You can control `sentry` by setting the  `environment` 
 variable `SENTRY_ENABLED=false`.
