@@ -224,7 +224,6 @@ class CDFToolConfig:
             return value
         # If the var was none, we want to re-evaluate from environment.
         var: str | None = os.environ.get(attr)
-        # self._environ[attr] = os.environ.get(attr, None)
         if var is None and default is None and fail:
             raise ValueError(f"{attr} property is not available as an environment variable and no default set.")
         elif var is None and default is None:
