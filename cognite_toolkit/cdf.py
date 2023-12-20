@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import os
 import shutil
 import sys
 import tempfile
@@ -39,7 +39,7 @@ from cognite_toolkit.cdf_tk.templates import (
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
-if "pytest" not in sys.modules:
+if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
     sentry_sdk.init(
         dsn="https://ea8b03f98a675ce080056f1583ed9ce7@o124058.ingest.sentry.io/4506429021093888",
         # Set traces_sample_rate to 1.0 to capture 100%
