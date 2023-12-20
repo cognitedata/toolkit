@@ -1,5 +1,7 @@
 #!/usr/bin/env python
+
 import shutil
+import sys
 import tempfile
 import urllib
 import zipfile
@@ -10,6 +12,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Annotated, Optional
 
+import sentry_sdk
 import typer
 from dotenv import load_dotenv
 from rich import print
@@ -35,6 +38,14 @@ from cognite_toolkit.cdf_tk.templates import (
     read_yaml_file,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+
+if "pytest" not in sys.modules:
+    sentry_sdk.init(
+        dsn="https://ea8b03f98a675ce080056f1583ed9ce7@o124058.ingest.sentry.io/4506429021093888",
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        traces_sample_rate=1.0,
+    )
 
 app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
 auth_app = typer.Typer(
