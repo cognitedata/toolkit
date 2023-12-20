@@ -27,7 +27,7 @@ from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, ClassVar, Generic, TypeVar, get_origin
+from typing import Any, ClassVar, Generic, Literal, TypeVar, get_origin, overload
 
 import yaml
 from cognite.client import ClientConfig, CogniteClient
@@ -58,10 +58,10 @@ class CDFToolConfig:
 
     def __init__(self, token: str | None = None, cluster: str | None = None, project: str | None = None) -> None:
         self._data_set_id: int = 0
-        self._data_set = None
+        self._data_set: str | None = None
         self._failed = False
-        self._environ = {}
-        self._data_set_id_by_external_id: dict[str, id] = {}
+        self._environ: dict[str, str | None] = {}
+        self._data_set_id_by_external_id: dict[str, int] = {}
         self._existing_spaces: set[str] = set()
         self.oauth_credentials = OAuthClientCredentials(
             token_url="",
@@ -119,7 +119,7 @@ class CDFToolConfig:
             # We can infer scopes and audience from the cluster value.
             # However, the URL to use to retrieve the token, as well as
             # the client id and secret, must be set as environment variables.
-            self._scopes = [
+            self._scopes: list[str] = [
                 self.environ(
                     "IDP_SCOPES",
                     f"https://{self._cluster}.cognitedata.com/.default",
@@ -144,10 +144,10 @@ class CDFToolConfig:
                 )
             )
 
-    def environment_variables(self) -> dict[str, str]:
+    def environment_variables(self) -> dict[str, str | None]:
         return self._environ.copy()
 
-    def as_string(self):
+    def as_string(self) -> str:
         environment = self._environ.copy()
         if "IDP_CLIENT_SECRET" in environment:
             environment["IDP_CLIENT_SECRET"] = "***"
@@ -158,7 +158,7 @@ class CDFToolConfig:
             envs += f"  {e}={environment[e]}\n"
         return f"Cluster {self._cluster} with project {self._project} and config:\n{envs}"
 
-    def __str__(self):
+    def __str__(self) -> str:
         environment = self._environ.copy()
         if "IDP_CLIENT_SECRET" in environment:
             environment["IDP_CLIENT_SECRET"] = "***"
@@ -175,7 +175,7 @@ class CDFToolConfig:
         return self._failed
 
     @failed.setter
-    def failed(self, value: bool):
+    def failed(self, value: bool) -> None:
         self._failed = value
 
     @property
@@ -191,11 +191,19 @@ class CDFToolConfig:
         return self._data_set_id if self._data_set_id > 0 else None
 
     # Use this to ignore the data set when verifying the client's access capabilities
-    def clear_dataset(self):
+    def clear_dataset(self) -> None:
         self._data_set_id = 0
         self._data_set = None
 
-    def environ(self, attr: str, default: str | list[str] | None = None, fail: bool = True) -> str:
+    @overload
+    def environ(self, attr: str, default: str | None = None, fail: Literal[True] = True) -> str:
+        ...
+
+    @overload
+    def environ(self, attr: str, default: str | None = None, fail: Literal[False] = False) -> str | None:
+        ...
+
+    def environ(self, attr: str, default: str | None = None, fail: bool = True) -> str | None:
         """Helper function to load variables from the environment.
 
         Use python-dotenv to load environment variables from an .env file before
@@ -212,22 +220,28 @@ class CDFToolConfig:
             Value of the environment variable
             Raises ValueError if environment variable is not set and fail=True
         """
-        if attr in self._environ and self._environ[attr] is not None:
-            return self._environ[attr]
+        if value := self._environ.get(attr):
+            return value
         # If the var was none, we want to re-evaluate from environment.
-        self._environ[attr] = os.environ.get(attr, None)
-        if self._environ[attr] is None:
-            if default is None and fail:
-                raise ValueError(f"{attr} property is not available as an environment variable and no default set.")
-            self._environ[attr] = default
-        return self._environ[attr]
+        var: str | None = os.environ.get(attr)
+        # self._environ[attr] = os.environ.get(attr, None)
+        if var is None and default is None and fail:
+            raise ValueError(f"{attr} property is not available as an environment variable and no default set.")
+        elif var is None and default is None:
+            # Todo: Should this be handled differently?
+            var = None
+        elif var is None:
+            var = default
+
+        self._environ[attr] = var
+        return var
 
     @property
-    def data_set(self) -> str:
+    def data_set(self) -> str | None:
         return self._data_set
 
     @data_set.setter
-    def data_set(self, value: str):
+    def data_set(self, value: str) -> None:
         if value is None:
             raise ValueError("Please provide an externalId of a dataset.")
         self._data_set = value
@@ -236,7 +250,7 @@ class CDFToolConfig:
 
     def verify_client(
         self,
-        capabilities: list[dict[str, list[str]]] | None = None,
+        capabilities: dict[str, list[str]] | None = None,
         data_set_id: int = 0,
         space_id: str | None = None,
     ) -> CogniteClient:
@@ -269,7 +283,7 @@ class CDFToolConfig:
                 raise CogniteAuthError("Don't have any access rights. Check credentials.")
         except Exception as e:
             raise e
-        scope = {}
+        scope: dict[str, dict[str, Any]] = {}
         if data_set_id > 0:
             scope["dataSetScope"] = {"ids": [data_set_id]}
         if space_id is not None:
@@ -287,7 +301,7 @@ class CDFToolConfig:
                     }
                 )
                 for cap, actions in capabilities.items()
-            ] or None
+            ]
         except Exception:
             raise ValueError(f"Failed to load capabilities from {capabilities}. Wrong syntax?")
         comp = self.client.iam.compare_capabilities(resp.capabilities, caps)
@@ -319,7 +333,7 @@ class CDFToolConfig:
             data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
         except CogniteAPIError as e:
             raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on datasetsAcl.") from e
-        if data_set is not None:
+        if data_set is not None and data_set.id is not None:
             self._data_set_id_by_external_id[data_set_external_id] = data_set.id
             return data_set.id
         raise ValueError(
@@ -342,7 +356,7 @@ class CDFToolConfig:
         except CogniteAPIError as e:
             raise CogniteAuthError("Don't have correct access rights. Need READ on extractionPipelinesAcl.") from e
 
-        if pipeline is not None:
+        if pipeline is not None and pipeline.id is not None:
             return pipeline.id
         else:
             print(
@@ -361,17 +375,20 @@ class CDFToolConfig:
             Re-raises underlying SDK exception
         """
         if isinstance(space, str):
-            space = [space]
-        if all([s in self._existing_spaces for s in space]):
-            return space
+            spaces = [space]
+        else:
+            spaces = space
+
+        if all([s in self._existing_spaces for s in spaces]):
+            return spaces
 
         self.verify_client(capabilities={"dataModelsAcl": ["READ"]})
         try:
-            existing = self.client.data_modeling.spaces.retrieve(space)
+            existing = self.client.data_modeling.spaces.retrieve(spaces)
         except CogniteAPIError as e:
             raise CogniteAuthError("Don't have correct access rights. Need READ on dataModelsAcl.") from e
 
-        if missing := (({space} if isinstance(space, str) else set(space)) - set(existing.as_ids())):
+        if missing := (set(spaces) - set(existing.as_ids())):
             raise ValueError(
                 f"Space {missing} does not exist, you need to create it first. Do this by adding a config file to the data model folder."
             )
@@ -402,7 +419,7 @@ class SnakeCaseWarning(LoadWarning):
     actual: str
     expected: str
 
-    def __lt__(self, other: SnakeCaseWarning) -> bool:
+    def __lt__(self, other: object) -> bool:
         if not isinstance(other, SnakeCaseWarning):
             return NotImplemented
         return (self.filepath, self.id_value, self.expected, self.actual) < (
@@ -412,7 +429,7 @@ class SnakeCaseWarning(LoadWarning):
             other.actual,
         )
 
-    def __eq__(self, other: SnakeCaseWarning) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, SnakeCaseWarning):
             return NotImplemented
         return (self.filepath, self.id_value, self.expected, self.actual) == (
@@ -422,7 +439,7 @@ class SnakeCaseWarning(LoadWarning):
             other.actual,
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"CaseWarning: Got {self.actual!r}. Did you mean {self.expected!r}?"
 
 
@@ -431,17 +448,17 @@ class SnakeCaseWarning(LoadWarning):
 class TemplateVariableWarning(LoadWarning):
     path: str
 
-    def __lt__(self, other: TemplateVariableWarning) -> bool:
+    def __lt__(self, other: object) -> bool:
         if not isinstance(other, TemplateVariableWarning):
             return NotImplemented
         return (self.id_name, self.id_value, self.path) < (other.id_name, other.id_value, other.path)
 
-    def __eq__(self, other: TemplateVariableWarning) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, TemplateVariableWarning):
             return NotImplemented
         return (self.id_name, self.id_value, self.path) == (other.id_name, other.id_value, other.path)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{type(self).__name__}: Variable {self.id_name!r} has value {self.id_value!r} in file: {self.filepath.name}. Did you forget to change it?"
 
 
@@ -450,17 +467,17 @@ class TemplateVariableWarning(LoadWarning):
 class DataSetMissingWarning(LoadWarning):
     resource_name: str
 
-    def __lt__(self, other: DataSetMissingWarning) -> bool:
+    def __lt__(self, other: object) -> bool:
         if not isinstance(other, DataSetMissingWarning):
             return NotImplemented
         return (self.id_name, self.id_value, self.filepath) < (other.id_name, other.id_value, other.filepath)
 
-    def __eq__(self, other: DataSetMissingWarning) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, DataSetMissingWarning):
             return NotImplemented
         return (self.id_name, self.id_value, self.filepath) == (other.id_name, other.id_value, other.filepath)
 
-    def __str__(self):
+    def __str__(self) -> str:
         # Avoid circular import
         from cognite_toolkit.cdf_tk.load import TransformationLoader
 
@@ -493,7 +510,7 @@ class SnakeCaseWarningList(Warnings[SnakeCaseWarning]):
 
 
 class TemplateVariableWarningList(Warnings[TemplateVariableWarning]):
-    def __str__(self):
+    def __str__(self) -> str:
         output = [""]
         for path, module_warnings in itertools.groupby(sorted(self), key=lambda w: w.path):
             if path:
@@ -505,7 +522,7 @@ class TemplateVariableWarningList(Warnings[TemplateVariableWarning]):
 
 
 class DataSetMissingWarningList(Warnings[DataSetMissingWarning]):
-    def __str__(self):
+    def __str__(self) -> str:
         output = [""]
         for filepath, warnings in itertools.groupby(sorted(self), key=lambda w: w.filepath):
             output.append(f"    In file {str(filepath)!r}")
