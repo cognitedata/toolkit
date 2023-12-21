@@ -83,4 +83,4 @@ script command can be used to clean up configurations using the scripts/delete.p
 ## Setting up Environment
 
 When you develop `cdf-tk` you should avoid sending errors to  `sentry`. You can control `sentry` by setting the  `environment` 
-variable `SENTRY_ENABLED=false`.
+variable `SENTRY_ENABLED=false`. This is set automatically when you use the `cdf-tk-dev.py`.

@@ -25,12 +25,15 @@
         },
 """
 
+import os
 import sys
 from pathlib import Path
 
 root_folder = rf"{Path(Path(__file__).parent.absolute())}"
 
 sys.path.append(root_folder)
+# Avoid sending requests to sentry when doing development
+os.environ["SENTRY_ENABLED"] = "false"
 
 from cognite_toolkit.cdf import app  # noqa: E402
 
