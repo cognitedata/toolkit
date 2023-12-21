@@ -11,7 +11,7 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = ">=7.5, <7.6", extras = ["pandas"]}
+cognite-sdk = {version = ">=7.5.4, <7.6", extras = ["pandas"]}
 pandas = "^2.1.1"
 pyyaml = "^6.0.1"
 dacite = "^1.8.1"
@@ -27,6 +27,7 @@ pre-commit = "^3.6.0"
 pytest = "^7.4.2"
 pep8-naming = "^0.13.3"
 pytest-regressions = "^2.4.2"
+types-PyYAML = "^6"
 twine = "^4.0.2"
 tomli = { version = "^2.0.1", python = "<3.11" }
 toml = { version = "^0.10.2", python = ">=3.11" }
