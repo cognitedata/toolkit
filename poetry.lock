@@ -212,13 +212,13 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cognite-sdk"
-version = "7.5.6"
+version = "7.5.7"
 description = "Cognite Python SDK"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "cognite_sdk-7.5.6-py3-none-any.whl", hash = "sha256:11f0a5bc83e9a753386ef3d381c23291e9c33447afd21d2535da1daf6a5e95e8"},
-    {file = "cognite_sdk-7.5.6.tar.gz", hash = "sha256:529d009831af63d99f1a835e67509e280280e2233dd8c4ceb3f0e8e2e8d79801"},
+    {file = "cognite_sdk-7.5.7-py3-none-any.whl", hash = "sha256:7e4b64ff8912966d5d6c1f65118cc07d294a92bd4f3a2c866df1abd632ba1af6"},
+    {file = "cognite_sdk-7.5.7.tar.gz", hash = "sha256:bdf4149d4b9b8553669bf3801025463999174979bb541a564e5b08cc54564866"},
 ]
 
 [package.dependencies]
@@ -1494,6 +1494,17 @@ doc = ["cairosvg (>=2.5.2,<3.0.0)", "mdx-include (>=1.4.1,<2.0.0)", "mkdocs (>=1
 test = ["black (>=22.3.0,<23.0.0)", "coverage (>=6.2,<7.0)", "isort (>=5.0.6,<6.0.0)", "mypy (==0.910)", "pytest (>=4.4.0,<8.0.0)", "pytest-cov (>=2.10.0,<5.0.0)", "pytest-sugar (>=0.9.4,<0.10.0)", "pytest-xdist (>=1.32.0,<4.0.0)", "rich (>=10.11.0,<14.0.0)", "shellingham (>=1.3.0,<2.0.0)"]
 
 [[package]]
+name = "types-pyyaml"
+version = "6.0.12.12"
+description = "Typing stubs for PyYAML"
+optional = false
+python-versions = "*"
+files = [
+    {file = "types-PyYAML-6.0.12.12.tar.gz", hash = "sha256:334373d392fde0fdf95af5c3f1661885fa10c52167b14593eb856289e1855062"},
+    {file = "types_PyYAML-6.0.12.12-py3-none-any.whl", hash = "sha256:c05bc6c158facb0676674b7f11fe3960db4f389718e19e62bd2b84d6205cfd24"},
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.9.0"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -1569,4 +1580,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "396847f137a1189d4b19d6867fee9bb90bf984866586848499777ade8450b28e"
+content-hash = "b93d26c3de8e20908546bd1cd13e1e59a2e6e98936589c45ad1e8aaca579ddcb"
