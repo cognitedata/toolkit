@@ -14,18 +14,16 @@ python-dotenv = "^1.0.0"
 cognite-sdk = {version = ">=7.5.4, <7.6", extras = ["pandas"]}
 pandas = "^2.1.1"
 pyyaml = "^6.0.1"
-dacite = "^1.8.1"
-regex = "^2023.6.3"
 chardet = "^5.1.0"
 typer = {version = "^0.9.0", extras = ["all"]}
 sentry-sdk = "^1.39"
-pytest-icdiff = "*"  # Used for better diffs in pytest
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.7.1"
 pre-commit = "^3.6.0"
 pytest = "^7.4.2"
 pep8-naming = "^0.13.3"
+pytest-icdiff = "*"  # Used for better diffs in pytest
 pytest-regressions = "^2.4.2"
 types-PyYAML = "^6"
 twine = "^4.0.2"
