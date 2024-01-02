@@ -1,5 +1,7 @@
 #!/usr/bin/env python
+import os
 import shutil
+import sys
 import tempfile
 import urllib
 import zipfile
@@ -10,6 +12,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Annotated, Optional
 
+import sentry_sdk
 import typer
 from dotenv import load_dotenv
 from rich import print
@@ -35,6 +38,14 @@ from cognite_toolkit.cdf_tk.templates import (
     read_yaml_file,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+
+if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
+    sentry_sdk.init(
+        dsn="https://ea8b03f98a675ce080056f1583ed9ce7@o124058.ingest.sentry.io/4506429021093888",
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        traces_sample_rate=1.0,
+    )
 
 app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
 auth_app = typer.Typer(
@@ -327,10 +338,11 @@ def deploy(
             exit(1)
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        # Last, we need to get all the scoped access, as the resources should now have been created.
+        # Last, we create the Groups again, but this time we do not filter out any capabilities
+        # and we do not skip validation as the resources should now have been created.
         print("[bold]EVALUATING auth resources scoped to resources...[/]")
         result = deploy_or_clean_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only"),
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
             directory,
             **arguments,
         )

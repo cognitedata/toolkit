@@ -1,4 +1,3 @@
 * @cognitedata/developer-velocity
-/modules/cdf_apm_base/* @cognitedata/developer-velocity @cognitedata/opsup-team-dev
-/modules/cdf_infield_common/* @cognitedata/developer-velocity @cognitedata/opsup-team-dev
-/modules/cdf_infield_location/* @cognitedata/developer-velocity @cognitedata/opsup-team-dev
+/cognite_toolkit/cognite_modules/core/cdf_apm_base/* @cognitedata/developer-velocity @cognitedata/opsup-team-dev
+/cognite_toolkit/cognite_modules/infield/* @cognitedata/developer-velocity @cognitedata/opsup-team-dev

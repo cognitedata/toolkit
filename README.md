@@ -14,12 +14,6 @@ It supports three different modes of operation:
    bundled with templates useful for getting started with Cognite Data Fusion, as well as for specific use cases
    delivered by Cognite or its partners. You can also create your own templates and share them.
 
-## ALPHA NOTE
-
-The templates and the `cdf-tk` tool are currently in ALPHA. The scope in alpha is on Asset
-Performance Management focused on Infield (Digital Operator Rounds). The templates and tooling
-will be continously improved throughout moving towards beta and general availability.
-
 ## For more information
 
 More details about the tool can be found at
