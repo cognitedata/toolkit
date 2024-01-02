@@ -32,7 +32,8 @@ No changes to templates.
 - Explicitly define model `space` in `experimental/cdf_asset_source_model/` and `experimental/example_pump_model/`.
 - The module `my_example_module` has been added to the `custom_modules` folder.
 - Added globally defined schedule variables that can be used across all modules.
-- A complete example of an Asset data pipeline in `examples/cdf_asset_data_pipeline/` shows how to configure an Extractor, monitor the status of the Extraction Pipeline, and load the data into the asset hierarchy using Transformations.
+- A complete example of an Asset data pipeline in `examples/cdf_asset_data_pipeline/` shows how to configure an
+  Extractor, monitor the status of the Extraction Pipeline, and load the data into the asset hierarchy using Transformations.
 - DataSet to all example modules: `cdf_apm_simple_data_model`, `cdf_asset_source_model`, `cdf_oid_example_data`,
   `example_pump_data_model`, `example_pump_asset_hierarchy`.
   
@@ -41,14 +42,14 @@ No changes to templates.
 - **BREAKING** All externalIds and names have been changed to follow the naming conventions for resources
   in `examples/cdf_oid_example_data`, `examples/cdf_apm_simple_data_model`, `modules/cdf_apm_base`,
   `modules/cdf_infield_common`, and `modules/cdf_infield_location`.
-- **BREAKING** Transformation Schedules broken out into separate files, following naming convention `<transformation_name>.schedule.yaml`. 
+- **BREAKING** Transformation Schedules broken out into separate files, following naming convention `<transformation_name>.schedule.yaml`.
 - All cognite templates have been moved into `cognite_templates` folder, while `local_templates` is renamed to `custom_templates`.
 - Move cdf_apm_base into separate folder.
 - The file `local.yaml` has been renamed `environments.yaml` to better reflect its purpose.
 - Removed demo `sourceId` from `cdf_infield_location` module.
 - Changed the isPaused flag to use a module-level variable instead of hardcoded in `cdf_apm_simple_data_model`.
-- Combined the child and parent transformations `sync_assets_from_hierarchy_to_apm` in `cdf_infield_location`. 
-  This has the benefit of not having to wait for the parent transformation to finish before starting the child transformation, 
+- Combined the child and parent transformations `sync_assets_from_hierarchy_to_apm` in `cdf_infield_location`.
+  This has the benefit of not having to wait for the parent transformation to finish before starting the child transformation,
   thus no longer a dependency between the two transformations.
 
 ### Fixed
@@ -74,7 +75,8 @@ No changes to templates.
 
 ### Changed
 
-- Changed format of infield external_ids to be more readable, moving `_dataset` (ds) and `_space` to the beginning of the external_id.
+- Changed format of infield external_ids to be more readable, moving `_dataset` (ds) and `_space` to the beginning of
+  the external_id.
 - `examples/cdf_apm_simple/raw` and `examples/example_dump_asst_hierarchy/raw` now explicitly
   defines database and table name in `.yaml` files for each table.
 - Added `data_set` to `examples/example_dump_asst_hierarchy/`, which was implicitly defined in

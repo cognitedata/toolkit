@@ -46,9 +46,9 @@ You will find three transformations in this module:
   will duplicate the asset hierarchy into the APM data models. It uses the default location source data space to
   store the instances. If you have multiple locations, you need one such transformation per asset hierarchy/location.
   This transformation should run before everything else.
-* [Assets hierarchy parent relationships to data models](./transformations/sync_asset_parents_from_hierarchy_to_apm.sql) -
-  This transformation should run after the asset hierarchy has been copied the APM data models as it requires the assets
-  to exist.
+* [Assets hierarchy parent relationships to data models](./transformations/sync_asset_parents_from_hierarchy_to_apm.sql)
+   -- This transformation should run after the asset hierarchy has been copied the APM data models as it
+   requires the assets to exist.
 * [Work orders to activities](./transformations/sync_workorders_to_activities.sql) - This transformation will copy
   work orders from the RAW data model to the APM data model. This transformation relies on the `examples/apm_simple` module
   and the RAW workorders table. In a customer deployment, you will adapt this transformation to populate APM _Activity
