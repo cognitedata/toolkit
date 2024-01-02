@@ -15,6 +15,10 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0b3] - 2024-01-02
+
+No changes to templates.
+
 ## [0.1.0b2] - 2023-12-17
 
 ### Fixed
@@ -29,7 +33,7 @@ Changes are grouped as follows:
 - The module `my_example_module` has been added to the `custom_modules` folder.
 - Added globally defined schedule variables that can be used across all modules.
 - A complete example of an Asset data pipeline in `examples/cdf_asset_data_pipeline/` shows how to configure an Extractor, monitor the status of the Extraction Pipeline, and load the data into the asset hierarchy using Transformations.
-- DataSet to all example modules: `cdf_apm_simple_data_model`, `cdf_asset_source_model`, `cdf_oid_example_data`, 
+- DataSet to all example modules: `cdf_apm_simple_data_model`, `cdf_asset_source_model`, `cdf_oid_example_data`,
   `example_pump_data_model`, `example_pump_asset_hierarchy`.
   
 ### Changed
