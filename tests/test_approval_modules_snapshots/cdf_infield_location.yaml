@@ -34,6 +34,12 @@ Group:
   name: gp_infield_oid_checklist_admins
   sourceId: <change_me>
 - capabilities:
+  - groupsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        currentuserscope: {}
   - threedAcl:
       actions:
       - READ
@@ -134,6 +140,12 @@ Group:
   name: gp_infield_oid_normal_users
   sourceId: <change_me>
 - capabilities:
+  - groupsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        currentuserscope: {}
   - threedAcl:
       actions:
       - READ
@@ -234,6 +246,12 @@ Group:
   name: gp_infield_oid_template_admins
   sourceId: <change_me>
 - capabilities:
+  - groupsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        currentuserscope: {}
   - threedAcl:
       actions:
       - READ
@@ -334,6 +352,12 @@ Group:
   name: gp_infield_oid_viewers
   sourceId: <change_me>
 - capabilities:
+  - groupsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        currentuserscope: {}
   - threedAcl:
       actions:
       - READ
