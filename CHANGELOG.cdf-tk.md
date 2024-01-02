@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0b3] - TBD
+### Fixed
+
+- Fixed bug in `cdf-tk deploy` where auth groups with a mix of all and resource scoped capabilities skipped 
+  the all scoped capabilities. This is now fixed.
+
 ## [0.1.0b2] - 2023-12-17
 
 ### Fixed
