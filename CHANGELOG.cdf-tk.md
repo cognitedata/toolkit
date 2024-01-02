@@ -15,7 +15,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [0.1.0b3] - 2024-01-12
+## [0.1.0b3] - 2024-01-02
 
 ### Fixed
 
