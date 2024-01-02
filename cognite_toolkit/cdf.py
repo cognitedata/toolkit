@@ -341,7 +341,7 @@ def deploy(
         # Last, we need to get all the scoped access, as the resources should now have been created.
         print("[bold]EVALUATING auth resources scoped to resources...[/]")
         result = deploy_or_clean_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only"),
+            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
             directory,
             **arguments,
         )
