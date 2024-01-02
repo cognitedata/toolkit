@@ -1,0 +1,24 @@
+name: "repeater"
+# externalId: "repeater" (optional)
+owner: "Charlie"
+description: "Returns the input data, secrets, and function info."
+metadata:
+  release: "2024-01-01"
+  version: "1.0.0"
+secrets:
+  api-key: "{{EXAMPLE_FUNCTION_API_KEY}}"
+envVars:
+  ENV: "staging"
+# cpu
+# memory
+runtime: "py311"
+# indexUrl
+# extraIndexUrls
+
+# Where to find the code
+folder: "." # (default)
+# functionPath: "./handler.py" (path to the handler if the function is a single file)
+
+# commonFolder: "../common" (optional)
+
+# replicas: 0 (default) values above 0 will add extra replicas of the function ({name}-1...{name}-{replicas})
