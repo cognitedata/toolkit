@@ -338,7 +338,8 @@ def deploy(
             exit(1)
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        # Last, we need to get all the scoped access, as the resources should now have been created.
+        # Last, we create the Groups again, but this time we do not filter out any capabilities
+        # and we do not skip validation as the resources should now have been created.
         print("[bold]EVALUATING auth resources scoped to resources...[/]")
         result = deploy_or_clean_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
