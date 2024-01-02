@@ -91,6 +91,19 @@ Group:
           dbsToTables:
             asset_oid_workmate:
               tables: []
+  - transformationsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - LIST
+      - CREATE
+      - DELETE
+      scope:
+        all: {}
   - assetsAcl:
       actions:
       - READ

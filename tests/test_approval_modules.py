@@ -168,6 +168,12 @@ def test_deploy_module_approval(
     dump = cognite_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{module_path.name}.yaml")
 
+    for group_calls in cognite_client_approval.auth_create_group_calls():
+        lost_capabilities = group_calls.capabilities_all_calls - group_calls.last_created_capabilities
+        assert (
+            not lost_capabilities
+        ), f"The group {group_calls.name!r} has lost the capabilities: {', '.join(lost_capabilities)}"
+
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_deploy_dry_run_module_approval(

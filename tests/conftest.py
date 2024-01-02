@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import itertools
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, cast
@@ -447,6 +447,26 @@ class ApprovalCogniteClient:
                         if isinstance(sub_method, MagicMock) and sub_method.call_count:
                             not_mocked[f"{api_name}.{method_name}.{sub_method_name}"] += sub_method.call_count
         return dict(not_mocked)
+
+    def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:
+        groups = cast(GroupList, self._created_resources[Group.__name__])
+        groups = sorted(groups, key=lambda x: x.name)
+        for name, group in itertools.groupby(groups, key=lambda x: x.name):
+            yield AuthGroupCalls(name=name, calls=list(group))
+
+
+@dataclass
+class AuthGroupCalls:
+    name: str
+    calls: list[Group]
+
+    @property
+    def last_created_capabilities(self) -> set[str]:
+        return {c._capability_name for c in self.calls[-1].capabilities}
+
+    @property
+    def capabilities_all_calls(self) -> set[str]:
+        return {c._capability_name for call in self.calls for c in call.capabilities}
 
 
 @pytest.fixture
