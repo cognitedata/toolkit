@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
@@ -32,34 +33,34 @@ from .utils import CDFToolConfig
 
 @dataclass
 class AuthVariables:
-    cluster: str
-    project: str
-    token: str
-    client_id: str
-    client_secret: str
-    cdf_url: str = None
-    token_url: str = None
-    tenant_id: str = None
-    audience: str = None
-    scopes: str = None
+    cluster: str | None
+    project: str | None
+    token: str | None
+    client_id: str | None
+    client_secret: str | None
+    cdf_url: str | None = None
+    token_url: str | None = None
+    tenant_id: str | None = None
+    audience: str | None = None
+    scopes: str | None = None
     ok: bool = False
     info: str = ""
+    error: bool = False
+    warning: bool = False
 
 
 def get_auth_variables(interactive: bool = False, verbose: bool = False) -> AuthVariables:
     vars = AuthVariables(
-        cluster=os.environ.get("CDF_CLUSTER", None),
-        project=os.environ.get("CDF_PROJECT", None),
-        token=os.environ.get("CDF_TOKEN", None),
-        client_id=os.environ.get("IDP_CLIENT_ID", None),
-        client_secret=os.environ.get("IDP_CLIENT_SECRET", None),
-        cdf_url=os.environ.get("CDF_URL", None),
-        tenant_id=os.environ.get("IDP_TENANT_ID", None),
-        audience=os.environ.get("IDP_AUDIENCE", None),
-        scopes=os.environ.get("IDP_SCOPES", None),
+        cluster=os.environ.get("CDF_CLUSTER"),
+        project=os.environ.get("CDF_PROJECT"),
+        token=os.environ.get("CDF_TOKEN"),
+        client_id=os.environ.get("IDP_CLIENT_ID"),
+        client_secret=os.environ.get("IDP_CLIENT_SECRET"),
+        cdf_url=os.environ.get("CDF_URL"),
+        tenant_id=os.environ.get("IDP_TENANT_ID"),
+        audience=os.environ.get("IDP_AUDIENCE"),
+        scopes=os.environ.get("IDP_SCOPES"),
     )
-    vars.error = False
-    vars.warning = False
     if interactive:
         if vars.cluster is None or len(vars.cluster) == 0:
             vars.cluster = "westeurope-1"
@@ -197,11 +198,11 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
                     f.write("# When using a token, the IDP variables are not needed, so they are not included.\n")
                     f.write("CDF_TOKEN=" + vars.token + "\n")
                 else:
-                    f.write("IDP_CLIENT_ID=" + vars.client_id + "\n")
-                    f.write("IDP_CLIENT_SECRET=" + vars.client_secret + "\n")
+                    f.write("IDP_CLIENT_ID=" + (vars.client_id or "") + "\n")
+                    f.write("IDP_CLIENT_SECRET=" + (vars.client_secret or "") + "\n")
                     if vars.tenant_id is not None and len(vars.tenant_id) > 0:
                         f.write("IDP_TENANT_ID=" + vars.tenant_id + "\n")
-                    f.write("IDP_TOKEN_URL=" + vars.token_url + "\n")
+                    f.write("IDP_TOKEN_URL=" + (vars.token_url or "") + "\n")
                 f.write("# The below variables don't have to be set if you have just accepted the defaults.\n")
                 f.write("# They are automatically constructed unless they are set.\n")
                 f.write("CDF_URL=" + vars.cdf_url + "\n")
@@ -213,21 +214,21 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
 
 def check_auth(
     ToolGlobals: CDFToolConfig,
-    auth_vars: AuthVariables = None,
+    auth_vars: AuthVariables | None = None,
     group_file: str | None = None,
     update_group: int = 0,
     create_group: str | None = None,
     interactive: bool = False,
     dry_run: bool = False,
     verbose: bool = False,
-) -> CogniteClient:
+) -> CogniteClient | None:
     print("[bold]Checking current service principal/application and environment configurations...[/]")
     if auth_vars is None:
         auth_vars = get_auth_variables(verbose=verbose, interactive=interactive)
     if auth_vars.error:
         print(auth_vars.info)
         ToolGlobals.failed = True
-        return
+        return None
     if auth_vars.warning:
         print(auth_vars.info)
     else:
@@ -243,14 +244,14 @@ def check_auth(
                 "  [bold red]ERROR[/]: Valid authentication token, but it does not give any access rights. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
             )
             ToolGlobals.failed = True
-            return
+            return None
         print("  [bold green]OK[/]")
     except Exception:
         print(
             "  [bold red]ERROR[/]: Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
         )
         ToolGlobals.failed = True
-        return
+        return None
     try:
         print("Checking projects that the service principal/application has access to...")
         if len(resp.projects) == 0:
@@ -258,14 +259,14 @@ def check_auth(
                 "  [bold red]ERROR[/]: The service principal/application configured for this client does not have access to any projects."
             )
             ToolGlobals.failed = True
-            return
+            return None
         projects = ""
         projects = projects.join(f"  - {p.url_name}\n" for p in resp.projects)
         print(projects[0:-1])
     except Exception as e:
         print(f"  [bold red]ERROR[/]: Failed to process project information from inspect()\n{e}")
         ToolGlobals.failed = True
-        return
+        return None
     print(f"[italic]Focusing on current project {auth_vars.project} only from here on.[/]")
     print(
         "Checking basic project and group manipulation access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
@@ -296,7 +297,7 @@ def check_auth(
                 "    [bold red]ERROR[/]: Unable to continue, the service principal/application configured for this client does not have the basic read group access rights."
             )
             ToolGlobals.failed = True
-            return
+            return None
     project_info = ToolGlobals.client.get(f"/api/v1/projects/{auth_vars.project}").json()
     print("Checking identity provider settings...")
     oidc = project_info.get("oidcConfiguration", {})
@@ -319,7 +320,7 @@ def check_auth(
     except Exception:
         print("  [bold red]ERROR[/]: Unable to retrieve CDF groups.")
         ToolGlobals.failed = True
-        return
+        return None
     read_write = Group.load(
         Path(f"{Path(__file__).parent.parent.as_posix()}{group_file}").read_text(),
     )
@@ -352,7 +353,7 @@ def check_auth(
                 + "         With multiple groups available, you must use the --update_group=<full-group-i> option to specify which group to update."
             )
             ToolGlobals.failed = True
-            return
+            return None
     else:
         print("  [bold green]OK[/] - Only one group is used for this service principal/application.")
     print("---------------------")
@@ -372,7 +373,7 @@ def check_auth(
 
     diff = ToolGlobals.client.iam.compare_capabilities(
         resp.capabilities,
-        read_write.capabilities,
+        read_write.capabilities or [],
         project=auth_vars.project,
     )
     if len(diff) > 0:
@@ -449,7 +450,7 @@ def check_auth(
             if group is None:
                 print(f"  [bold red]ERROR[/]: Unable to find --group-id={update_group} in CDF.")
                 ToolGlobals.failed = True
-                return
+                return None
             read_write.name = group.name
             read_write.source_id = group.source_id
             read_write.metadata = group.metadata
@@ -459,17 +460,18 @@ def check_auth(
         try:
             if not dry_run:
                 new = ToolGlobals.client.iam.groups.create(read_write)
+                new = cast(Group, new)  # Missing overload in .create method.
                 print(
-                    f"  [bold green]OK[/] - Created new group {new.id} with {len(read_write.capabilities)} capabilities."
+                    f"  [bold green]OK[/] - Created new group {new.id} with {len(read_write.capabilities or [])} capabilities."
                 )
             else:
                 print(
-                    f"  [bold green]OK[/] - Would have created new group with {len(read_write.capabilities)} capabilities."
+                    f"  [bold green]OK[/] - Would have created new group with {len(read_write.capabilities or [])} capabilities."
                 )
         except Exception as e:
             print(f"  [bold red]ERROR[/]: Unable to create new group {read_write.name}.\n{e}")
             ToolGlobals.failed = True
-            return
+            return None
         if update_group:
             try:
                 if not dry_run:
@@ -480,4 +482,6 @@ def check_auth(
             except Exception as e:
                 print(f"  [bold red]ERROR[/]: Unable to delete old group {update_group}.\n{e}")
                 ToolGlobals.failed = True
-                return
+                return None
+
+    return None
