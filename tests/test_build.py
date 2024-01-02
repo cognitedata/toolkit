@@ -35,7 +35,7 @@ def test_changelog_entry_version_matches(package_version: str, changelog_name: s
     match = next(_parse_changelog(changelog_name))
     changelog_version = match.group(1)
     assert changelog_version == package_version, (
-        f"The latest entry in 'CHANGELOG.md' has a different version ({changelog_version}) than "
+        f"The latest entry in '{changelog_name}' has a different version ({changelog_version}) than "
         f"cognite_toolkit/_version.py: ({__version__}). Did you forgot to add a new entry? "
         "Or maybe you haven't followed the required format?"
     )
@@ -68,7 +68,9 @@ def test_changelog_entry_date(changelog_name: str) -> None:
     try:
         datetime.strptime(date := match.group(3), "%Y-%m-%d")
     except Exception:
-        assert False, f"Date given in the newest entry in 'CHANGELOG.md', {date!r}, is not valid/parsable (YYYY-MM-DD)"
+        assert (
+            False
+        ), f"Date given in the newest entry in '{changelog_name}', {date!r}, is not valid/parsable (YYYY-MM-DD)"
     else:
         assert True
 
@@ -95,4 +97,4 @@ def test_environment_system_variables_updated() -> None:
 
 def _parse_changelog(changelog: str) -> Iterator[Match[str]]:
     changelog = (REPO_ROOT / changelog).read_text(encoding="utf-8")
-    return re.finditer(r"##\s\[(\d+\.\d+\.\d+(a\d+)?)\]\s-\s(\d+-\d+-\d+)", changelog)
+    return re.finditer(r"##\s\[(\d+\.\d+\.\d+([ab]\d+)?)\]\s-\s(\d+-\d+-\d+)", changelog)

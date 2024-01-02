@@ -2,7 +2,7 @@ name: Release pypi package
 on:
   push:
     branches:
-      - release*
+      - release
 env:
   PYTHON_VERSION: '3.11'
 jobs:
@@ -64,7 +64,7 @@ jobs:
       - name: Initialize project
         run: cdf-tk init demo_project
       - name: "Pre-processing for demo environment"
-        run: ./demo/preproc.sh
+        run: python ./demo/preproc.py
       - name: "Build the templates"
         run: cdf-tk build --build-dir=./build --env=demo ./demo_project
   deploy:

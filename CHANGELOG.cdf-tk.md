@@ -15,7 +15,17 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [TBD] - 2023-12-TBD
+## [0.1.0b2] - 2023-12-17
+
+### Fixed
+
+- Handle duplicate `TransformationSchedules` when loading `Transformation` resources.
+- Print table at the end of `cdf-tk deploy` failed with `AttributeError` is a resource.
+  returned empty. This is now fixed.
+- The `cdf-tk build` command no longer gives a warning about missing `sql` file for 
+  `TransformationSchedule`s.
+
+## [0.1.0b1] - 2023-12-15
 
 ### Added
 
@@ -24,7 +34,8 @@ Changes are grouped as follows:
 - Check for whether template variables `<change_me>` are present in the config files.
 - Check for whether data set id is present in the config files.
 - Print table at the end of `cdf-tk deploy` with the resources that were created, deleted, and skipped.
-- Support for Extraction Pipelines and Extraction Pipeline configuration for remotely configured Extractors
+- Support for Extraction Pipelines and Extraction Pipeline configuration for remotely configured Extractors 
+- Separate loader for Transformation Schedule resources.
 
 ### Removed
 

@@ -360,10 +360,6 @@ Transformation:
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference('apm_simple',\
     \ `sourceExternalId`) as startNode,\n  node_reference('apm_simple', `targetExternalId`)\
     \ as endNode\nfrom\n  `asset_oid_workmate`.`asset2children`;\n"
-  schedule:
-    externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -401,10 +397,6 @@ Transformation:
     \ `parentExternalId`) as parent,\n  cast(`description` as STRING) as description,\n\
     \  cast(`tag` as STRING) as tag,\n  cast(`areaId` as INT) as areaId,\n  cast(`isActive`\
     \ as BOOLEAN) as isActive\nfrom\n  `asset_oid_workmate`.`assets`;\n"
-  schedule:
-    externalId: tr_asset_oid_workmate_apm_simple_load_assets
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -436,10 +428,6 @@ Transformation:
   ownerIsCurrentUser: true
   query: "select\n  cast(`asset` as STRING) as externalId,\n  array(timeseries) as\
     \ metrics\nfrom\n  `files_oid_pi`.`timeseries2assets`;\n"
-  schedule:
-    externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -475,10 +463,6 @@ Transformation:
     \  cast(`itemName` as STRING) as itemName,\n  cast(`title` as STRING) as title,\n\
     \  cast(`criticality` as STRING) as criticality,\n  cast(`method` as STRING) as\
     \ method,\n  cast(`isCompleted` as BOOLEAN) as isCompleted\nfrom\n  `workorder_oid_workmate`.`workitems`;\n"
-  schedule:
-    externalId: tr_workorder_oid_workmate_apm_simple_load_workitems
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -517,10 +501,6 @@ Transformation:
     \ as STRING) as externalId,\n  node_reference('apm_simple', `sourceExternalId`)\
     \ as startNode,\n  node_reference('apm_simple', `targetExternalId`) as endNode\n\
     from\n  `workorder_oid_workmate`.`workitem2assets`;\n"
-  schedule:
-    externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2assets
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -559,10 +539,6 @@ Transformation:
     \ as STRING) as externalId,\n  node_reference('apm_simple', `sourceExternalId`)\
     \ as startNode,\n  node_reference('apm_simple', `targetExternalId`) as endNode\n\
     from\n  `workorder_oid_workmate`.`workorder2items`;\n"
-  schedule:
-    externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2workorders
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -605,10 +581,6 @@ Transformation:
     \ as STRING) as priorityDescription, \ncast(`dueDate` as TIMESTAMP) as dueDate,\
     \ \ncast(`createdDate` as TIMESTAMP) as createdDate, \ncast(`programNumber` as\
     \ STRING) as programNumber \nfrom `workorder_oid_workmate`.`workorders`;\n"
-  schedule:
-    externalId: tr_workorder_oid_workmate_apm_simple_load_workorders
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -641,10 +613,6 @@ Transformation:
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference('apm_simple',\
     \ `sourceExternalId`) as startNode,\n  node_reference('apm_simple', `targetExternalId`)\
     \ as endNode\nfrom\n  `workorder_oid_workmate`.`workorder2assets`;\n"
-  schedule:
-    externalId: tr_workorder_oid_workmate_apm_simple_load_workorders2assets
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -1028,6 +996,15 @@ deleted:
     type: datamodel
     version: '1'
   Transformation:
+  - externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
+  - externalId: tr_asset_oid_workmate_apm_simple_load_assets
+  - externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets
+  - externalId: tr_workorder_oid_workmate_apm_simple_load_workitems
+  - externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2assets
+  - externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2workorders
+  - externalId: tr_workorder_oid_workmate_apm_simple_load_workorders
+  - externalId: tr_workorder_oid_workmate_apm_simple_load_workorders2assets
+  TransformationSchedule:
   - externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
   - externalId: tr_asset_oid_workmate_apm_simple_load_assets
   - externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets

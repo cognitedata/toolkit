@@ -79,3 +79,8 @@ The `cdf-tk deploy` script command will clean configurations if you specify `--d
 try to apply the configuration multiple times without having to clean up manually. If you want to delete
 everything that is governed by your templates, including data ingested into data models, the  `cdf-tk clean`
 script command can be used to clean up configurations using the scripts/delete.py functions.
+
+## Setting up Environment
+
+When you develop `cdf-tk` you should avoid sending errors to  `sentry`. You can control `sentry` by setting the  `environment` 
+variable `SENTRY_ENABLED=false`. This is set automatically when you use the `cdf-tk-dev.py`.

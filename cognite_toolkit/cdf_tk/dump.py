@@ -4,6 +4,7 @@ import datetime
 import json
 import os
 import tempfile
+from collections import defaultdict
 from collections.abc import Sequence
 
 from cognite.client import CogniteClient
@@ -12,12 +13,13 @@ from cognite.client.data_classes.data_modeling import (
     DirectRelation,
     DirectRelationReference,
     ViewId,
+    ViewList,
 )
 
 from .utils import CDFToolConfig
 
 
-def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> None:
+def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: str) -> None:
     """Describe data model from CDF"""
 
     print("Describing data model ({model_name}) in space ({space_name})...")
@@ -30,12 +32,16 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> No
     )
     try:
         space = client.data_modeling.spaces.retrieve(space_name)
-        print(f"Found the space {space_name} with name ({space.name}) and description ({space.description}).")
-        print(f"  - created_time: {datetime.datetime.fromtimestamp(space.created_time/1000)}")
-        print(f"  - last_updated_time: {datetime.datetime.fromtimestamp(space.last_updated_time/1000)}")
     except Exception as e:
         print(f"Failed to retrieve space {space_name}.")
         print(e)
+    else:
+        if space is None:
+            print(f"Failed to retrieve space {space_name}. It does not exists or you do not have access to it.")
+        else:
+            print(f"Found the space {space_name} with name ({space.name}) and description ({space.description}).")
+            print(f"  - created_time: {datetime.datetime.fromtimestamp(space.created_time/1000)}")
+            print(f"  - last_updated_time: {datetime.datetime.fromtimestamp(space.last_updated_time/1000)}")
     try:
         containers = client.data_modeling.containers.list(space=space_name, limit=None)
     except Exception as e:
@@ -64,75 +70,72 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name, model_name) -> No
     views = data_model.data[0].views
     print(f"  {model_name} has {len(views)} views:")
     direct_relations = 0
-    edge_relations = 0
+    nr_of_edge_relations = 0
     for v in views:
         print(f"    {v.external_id}, version: {v.version}")
         print(f"       - properties: {len(v.properties)}")
         print(f"       - used for {v.used_for}s")
         print(f"       - implements: {v.implements}")
-        for p, d in v.properties.items():
-            if type(d.type) is DirectRelation:
+        for p, edge_type in v.properties.items():
+            if type(edge_type.type) is DirectRelation:
                 direct_relations += 1
-                if d.source is None:
+                if edge_type.source is None:
                     print(f"{p} has no source")
                     continue
                 print(
-                    f"       - direct relation 1:1 {p} --> ({d.source.space}, {d.source.external_id}, {d.source.version})"
+                    f"       - direct relation 1:1 {p} --> ({edge_type.source.space}, {edge_type.source.external_id}, {edge_type.source.version})"
                 )
-            elif type(d.type) is DirectRelationReference:
-                edge_relations += 1
+            elif type(edge_type.type) is DirectRelationReference:
+                nr_of_edge_relations += 1
                 print(
-                    f"       - edge relation 1:MANY {p} -- {d.direction} --> ({d.source.space}, {d.source.external_id}, {d.source.version})"
+                    f"       - edge relation 1:MANY {p} -- {edge_type.direction} --> ({edge_type.source.space}, {edge_type.source.external_id}, {edge_type.source.version})"
                 )
 
     print(f"Total direct relations: {direct_relations}")
-    print(f"Total edge relations: {edge_relations}")
+    print(f"Total edge relations: {nr_of_edge_relations}")
     print("------------------------------------------")
 
     # Find any edges in the space
     # Iterate over all the edges in the view 1,000 at the time
     edge_count = 0
-    edge_relations = {}
-    for instance_list in client.data_modeling.instances(
+    edge_relations: dict[str, int] = defaultdict(int)
+    for edge_list in client.data_modeling.instances(
         instance_type="edge",
         include_typing=False,
         filter={"equals": {"property": ["edge", "space"], "value": space_name}},
         chunk_size=1000,
     ):
-        for i in instance_list.data:
-            if type(i.type) is DirectRelationReference:
-                if edge_relations.get(i.type.external_id) is None:
-                    edge_relations[i.type.external_id] = 0
-                edge_relations[i.type.external_id] += 1
-        edge_count += len(instance_list.data)
+        for edge in edge_list:
+            edge_relations[edge.type.external_id] += 1
+        edge_count += len(edge_list.data)
     sum = 0
     for count in edge_relations.values():
         sum += count
     print(f"Found in total {edge_count} edges in space {space_name} spread over {len(edge_relations)} types:")
-    for d, c in edge_relations.items():
-        print(f"  {d}: {c}")
+    for edge_type, count in edge_relations.items():
+        print(f"  {edge_type}: {count}")
     print("------------------------------------------")
     # Find all nodes in the space
     node_count = 0
-    for instance_list in client.data_modeling.instances(
+    for node_list in client.data_modeling.instances(
         instance_type="node",
         include_typing=False,
         filter={"equals": {"property": ["node", "space"], "value": space_name}},
         chunk_size=1000,
     ):
-        node_count += len(instance_list)
+        node_count += len(node_list)
     print(f"Found in total {node_count} nodes in space {space_name} across all views and containers.")
     # For all the views in this data model...
     for v in views:
         node_count = 0
         # Iterate over all the nodes in the view 1,000 at the time
-        for instance_list in client.data_modeling.instances(
+        for node_list in client.data_modeling.instances(
             instance_type="node",
             include_typing=False,
             sources=ViewId(space_name, v.external_id, v.version),
             chunk_size=1000,
         ):
-            node_count += len(instance_list)
+            node_count += len(node_list)
         print(f"  {node_count} nodes of view {v.external_id}.")
 
 
@@ -140,7 +143,7 @@ def dump_datamodels_all(
     ToolGlobals: CDFToolConfig,
     target_dir: str = "tmp",
     include_global: bool = False,
-):
+) -> None:
     print("Verifying access rights...")
     client = ToolGlobals.verify_client(
         capabilities={
@@ -154,23 +157,20 @@ def dump_datamodels_all(
     except Exception as e:
         print("  Failed to retrieve all spaces.")
         print(e)
-    spaces = spaces.data
     try:
         print("  containers...")
         containers = client.data_modeling.containers.list(limit=None, include_global=True)
     except Exception as e:
         print("Failed to retrieve all containers.")
         print(e)
-        return
-    containers = containers.data
+        return None
     try:
         print("  views...")
         views = client.data_modeling.views.list(limit=None, space=None, include_global=include_global)
     except Exception as e:
         print("  Failed to retrieve all views.")
         print(e)
-        return
-    views = views.data
+        return None
     try:
         print("  data models...")
         data_models: DataModelList = client.data_modeling.data_models.list(
@@ -179,8 +179,7 @@ def dump_datamodels_all(
     except Exception as e:
         print("  Failed to retrieve all data models.")
         print(e)
-        return
-    data_models = data_models.data
+        return None
     print("Writing...")
     for s in spaces:
         os.makedirs(f"{target_dir}/{s.space}")
@@ -206,8 +205,8 @@ def dump_datamodels_all(
 
 def dump_datamodel(
     ToolGlobals: CDFToolConfig,
-    space_name,
-    model_name,
+    space_name: str,
+    model_name: str,
     version: str = "1",
     target_dir: str = "tmp",
 ) -> None:
@@ -233,8 +232,7 @@ def dump_datamodel(
     except Exception as e:
         print(f"Failed to retrieve containers for data model {model_name}.")
         print(e)
-        return
-    containers = containers.data
+        return None
     try:
         print("  data model...")
         data_model = client.data_modeling.data_models.retrieve((space_name, model_name, version), inline_views=False)
@@ -246,16 +244,17 @@ def dump_datamodel(
     if len(data_model) == 0:
         print(f"Failed to retrieve data model {model_name} in space {space_name}.")
         return
+
     try:
         print("  views...")
-        views = client.data_modeling.views.retrieve((space_name, model_name, None))
+        views = client.data_modeling.views.retrieve((space_name, model_name))
     except Exception as e:
         print(f"Failed to retrieve views from {model_name} in space {space_name}.")
         print(e)
         return
     if len(views.data) == 0:
         print(f"{model_name} in space {space_name} does not have any views in this space.")
-        views = []
+        views = ViewList([])
     else:
         views = views.data[0].views
     print("Writing...")
@@ -283,7 +282,7 @@ def dump_transformations(
     external_ids: Sequence[str] | None = None,
     target_dir: str | None = None,
     ignore_unknown_ids: bool = True,
-):
+) -> None:
     """Dump transformations from CDF"""
 
     print("Verifying access rights...")
@@ -303,7 +302,7 @@ def dump_transformations(
     except Exception as e:
         print("Failed to retrieve transformations.")
         print(e)
-        return
+        return None
     # Clean up and write
     print("Writing...")
     for t in transformations:
@@ -331,3 +330,4 @@ def dump_transformations(
             for line in query.splitlines():
                 file.write(line + "\n")
     print(f"Done writing {len(transformations)} transformations to {target_dir}.")
+    return None

@@ -472,10 +472,6 @@ Transformation:
     \  cast(asset.name as STRING) as title,\n  cast(asset.externalId as STRING) as\
     \ sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as asset\n  -- Get root asset\n\
     \  inner join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId = rootAsset.id\n"
-  schedule:
-    externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
-    interval: 7 * * * *
-    isPaused: false
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -514,10 +510,6 @@ Transformation:
     \ as startTime,\n    cast(date_add(current_date(), 7) as TIMESTAMP) as endTime,\n\
     \    cast(`title` as STRING) as title,\n    'WMT:VAL' as rootLocation,\n    'workmate'\
     \ as source\n  from\n    `workorder_oid_workmate`.`workorders`;\n"
-  schedule:
-    externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
-    interval: 7 * * * *
-    isPaused: false
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -534,5 +526,8 @@ TransformationSchedule:
   isPaused: false
 deleted:
   Transformation:
+  - externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
+  - externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
+  TransformationSchedule:
   - externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
   - externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities

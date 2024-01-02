@@ -283,7 +283,7 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
             print(
                 f"      [bold yellow]WARNING:[/] the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended `gp_` based prefix."
             )
-    elif resource_type == "transformations":
+    elif resource_type == "transformations" and not filepath_src.stem.endswith("schedule"):
         # First try to find the sql file next to the yaml file with the same name
         sql_file1 = filepath_src.parent / f"{filepath_src.stem}.sql"
         if not sql_file1.exists():
@@ -421,7 +421,7 @@ def build_config(
             print(f"    {warning}")
     process_config_files(source_dir, selected_modules, build_dir, config, build.name, verbose)
     build.dump_to_file(build_dir)
-    print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}.")
+    print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
 
 
 def generate_config(

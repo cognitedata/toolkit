@@ -80,10 +80,6 @@ Transformation:
     \ >) as labels,\n  to_json(`metadata`) as metadata\nfrom\n  cdf_assetSubtree('lift_pump_stations:root')\n\
     where\n-- This is used to select the Pumps.\n isnotnull(`externalId`) and isnotnull(`parentExternalId`)\
     \ and startswith(name, 'Pump');\n"
-  schedule:
-    externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
-    interval: 7 * * * *
-    isPaused: true
   sourceOidcCredentials:
     audience: ${IDP_AUDIENCE}
     cdfProjectName: ${CDF_PROJECT}
@@ -120,6 +116,8 @@ deleted:
     type: datamodel
     version: '1'
   Transformation:
+  - externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
+  TransformationSchedule:
   - externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   View:
   - externalId: Asset
