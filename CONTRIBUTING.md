@@ -99,7 +99,9 @@ To release a new version of the `cdf-tk` tool and the templates, you need to do 
       are clearly marked as such (`**BREAKING**`).
    1. Do the same update to `CHANGELOG.templates.md` file.
    1. Update the following files with the new version number: `cognite_toolkit/__version.py`,
-      `cognite_toolkit/environments.py`, and `pyproject.toml`.
+      `cognite_toolkit/environments.yaml`, and `pyproject.toml`.
+   1. Update `demo/environments.yaml` with the new version number. If not, the test build and deploy will
+      fail the test build as the environments.yaml is detected as not upgraded.
    1. Run `poetry lock` to update the `poetry.lock` file.
    1. Run `pytest tests` locally to ensure that tests pass.
 1. Get approval to merge the branch into `main`:
