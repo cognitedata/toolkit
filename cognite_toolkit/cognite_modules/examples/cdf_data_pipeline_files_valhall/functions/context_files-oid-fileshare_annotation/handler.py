@@ -1,14 +1,18 @@
 import logging
 import time
-from fractions import Fraction
-from threading import Event
+import os
+import re
+import sys
+
 from time import gmtime, strftime
 from typing import Any, Dict, List, Optional, Tuple
 import traceback
 
-import arrow
 import yaml
-from cognite.client import CogniteClient
+from datetime import datetime
+
+from cognite.client import CogniteClient, ClientConfig
+from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     Annotation,
     AnnotationFilter,
@@ -17,17 +21,6 @@ from cognite.client.data_classes import (
     FileMetadataUpdate,
 )
 from cognite.client.exceptions import CogniteAPIError
-from cognite.extractorutils.base import Extractor
-from cognite.extractorutils.statestore import AbstractStateStore
-
-from .config import Config
-
-
-
-# The following line must be added to all python modules (after imports):
-logger = logging.getLogger(f"func.{__name__}")
-logger.info("---------------------------------------START--------------------------------------------")
-
 
 # P&ID original file defaults
 orgMimeType = "application/pdf"
@@ -47,13 +40,16 @@ creatingAppVersion = "1.0.0"
 maxLengthMetadata = 10000
 
 # static variables
-functionName = "Contextualization: P&ID Annotation"
+functionName = "P&ID Annotation"
 
+# log configuration
+logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s %(name)s: %(message)s', datefmt='%Y-%m-%d,%H:%M:%S', level=logging.INFO)
+logger = logging.getLogger(functionName)
+logger.info("---------------------------------------START--------------------------------------------")
 
 
 def handle(client, data):
     msg = ""
-    logger.info(f"[STARTING] {functionName}")
     logger.info("[STARTING] Extracting input data")
     try:
         annoConfig = getConfigParam(client, data)
@@ -67,10 +63,10 @@ def handle(client, data):
     except Exception as e:
         tb = traceback.format_exc()
         msg = f"Function: {functionName}: Extraction failed - Message: {repr(e)} - {tb}"
-        logger.error(f"[FAILED] {functionName}. Error: {msg}")
+        logger.error(f"[FAILED] Error: {msg}")
         return {"error": e.__str__(), "status": "failed"}
 
-    logger.info(f"[FINISHED] {functionName} : {msg}")
+    logger.info(f"[FINISHED] : {msg}")
 
     return {"status": "succeeded"}
 
@@ -103,7 +99,6 @@ def getConfigParam(
     annoConfig["docTypeMetaCol"] = data["docTypeMetaCol"]
     annoConfig["pAndIdDocType"] = data["pAndIdDocType"]
     annoConfig["assetRootExtIds"] = data["assetRootExtIds"]
-    annoConfig["shortNamePrefix"] = data["shortNamePrefix"]
     annoConfig["matchTreshold"] = data["matchTreshold"]
 
     return annoConfig
@@ -138,7 +133,6 @@ def annotate_p_and_id(
     docTypeMetaCol = annoConfig["docTypeMetaCol"]
     pAndIdDocType = annoConfig["pAndIdDocType"]
     assetRootExtIds = annoConfig["assetRootExtIds"]
-    shortNamePrefix = annoConfig["shortNamePrefix"]
     matchTreshold = annoConfig["matchTreshold"]
 
     for assetRootExtId in assetRootExtIds:
@@ -146,7 +140,6 @@ def annotate_p_and_id(
         try:
 
             files_all, files_process = get_files(
-                logger,
                 cognite_client,
                 docDataSetExtId,
                 assetRootExtId,
@@ -156,19 +149,18 @@ def annotate_p_and_id(
                 debug,
                 docLimit,
             )
-            entities = get_files_entities(logger, files_all, shortNamePrefix, assetRootExtId)
+            entities = get_files_entities(files_all)
 
             if len(entities) > 0:
                 annotationList = get_existing_annotations(
-                    logger, cognite_client, entities
+                    cognite_client, entities
                 )
 
             if len(files_process) > 0:
                 entities = get_assets(
-                    logger, cognite_client, assetRootExtId, entities
+                    cognite_client, assetRootExtId, entities
                 )
                 numAnnotated, numErrors = process_files(
-                    logger,
                     cognite_client,
                     matchTreshold,
                     entities,
@@ -177,7 +169,7 @@ def annotate_p_and_id(
                     debug,
                 )
 
-                msg = f"Annotated P&ID files for asset: {assetRootExtId} was: {numAnnotated} - file errors: {numErrors}"
+                msg = f"Annotated P&ID files for asset: {assetRootExtId} number of files annotated: {numAnnotated} - file not annotaded due to errors: {numErrors}"
                 logger.info(msg)
                 cognite_client.extraction_pipelines.runs.create(
                     ExtractionPipelineRun(
@@ -205,7 +197,6 @@ def annotate_p_and_id(
 
 
 def get_files(
-    logger: Any,
     cognite_client: CogniteClient,
     docDataSetExtId: str,
     assetRootExtId: str,
@@ -236,10 +227,11 @@ def get_files(
         f"Get files to annotate data set: {docDataSetExtId}, asset root: {assetRootExtId} doc_type: {pAndIdDocType} and mime_type: {orgMimeType}"
     )
 
+    #    asset_subtree_external_ids=[assetRootExtId],
+
     file_list = cognite_client.files.list(
         metadata={docTypeMetaCol: pAndIdDocType},
         data_set_external_ids=[docDataSetExtId],
-        asset_subtree_external_ids=[assetRootExtId],
         mime_type=orgMimeType,
         limit=docLimit,
     )
@@ -294,7 +286,7 @@ def update_file_metadata(
 ) -> tuple[Dict[str, FileMetadata], List[FileMetadataUpdate]]:
 
     annotated_date = (
-        arrow.get(file.metadata.get(file_annotated, "")).datetime
+        datetime.strptime(file.metadata.get(file_annotated, ""), '%Y-%m-%d %H:%M:%S')
         if file.metadata and file_annotated is not None
         else None
     )
@@ -316,16 +308,12 @@ def update_file_metadata(
 
 
 def get_files_entities(
-    logger: Any,
-    pAndIdFiles: Dict[str, FileMetadata],
-    shortNamePrefix: Optional[Dict],
-    assetRootExtId: str,
+    pAndIdFiles: Dict[str, FileMetadata]
 ) -> List[Dict[str, Any]]:
     """
     Loop found P&ID files and create list of enties used for matching against file names in P&ID
 
     :param pAndIdFiles: Dict of files found based on filter
-    :param shortNamePrefix:
 
     :returns: list of entities
     """
@@ -336,29 +324,30 @@ def get_files_entities(
     for file_extId, file_meta in pAndIdFiles.items():
         numDoc += 1
         fnameList = []
-        if file_meta.name is not None:
-            fname = file_meta.name.rsplit(".", 1)[0]
-            fnameCore = fname.split(".", 1)[0]
-        else:
+        if file_meta.name is None:
             logger.warning(f"No name found for file with external ID: {file_extId}, and metadata: {file_meta}")
             continue
-
-        fnameList.append(fnameCore)
-
-        # This is used since file name references in P&ID not uses the full file name       
-        if (
-            shortNamePrefix
-            and assetRootExtId in shortNamePrefix
-            and fnameCore.find(shortNamePrefix[assetRootExtId]) > -1
-        ):
-            shortName = fnameCore[fnameCore.find(shortNamePrefix[assetRootExtId])
-                + 1 : ]  
-            fnameList.append(shortName)
-
-            shortName = fnameCore[fnameCore.find(shortNamePrefix[assetRootExtId])
-                + len(shortNamePrefix[assetRootExtId]) : ]  
-            fnameList.append(shortName)
-            
+        
+        # build list with possible file name variations used in P&ID to refer to other P&ID
+        split_name = re.split("[,._ \-!?:]+", file_meta.name)
+        
+        ctx_name = ""
+        core_name = "" 
+        next_name = ""
+        for name in reversed(split_name):
+            if core_name == "":
+                idx = file_meta.name.find(name)
+                core_name = file_meta.name[:idx-1]
+                fnameList.append(core_name)
+            else:
+                idx = core_name.find(name+next_name)
+                if idx != 0:
+                    ctx_name = core_name[idx:]
+                    if next_name != "":  # Ignore first part of name in matching
+                        fnameList.append(ctx_name)
+                    next_name = core_name[idx-1:]
+        
+        # add entities for files used to match between file references in P&ID to other files
         entities.append(
             {
                 "externalId": file_extId,
@@ -373,7 +362,7 @@ def get_files_entities(
 
 
 def get_existing_annotations(
-    logger: Any, cognite_client: CogniteClient, entities: List[Dict[str, Any]]
+    cognite_client: CogniteClient, entities: List[Dict[str, Any]]
 ) -> Dict[Optional[int], List[Optional[int]]]:
     """
     Read list of already annotated files and get corresponding annotations
@@ -419,7 +408,6 @@ def get_existing_annotations(
 
 
 def get_assets(
-    logger: Any,
     cognite_client: CogniteClient,
     assetRootExtId: str,
     entities: List[Dict[str, Any]],
@@ -457,12 +445,16 @@ def get_assets(
             ):  # ignore system asset names (01, 02, ...)
 
                 nameList.append(name)          
-                if name.find('-') > 0 and name.split('-', 1)[0].isnumeric():
-                    nameList.append(name.split('-', 1)[1])  
-                        
+
+                # Split name - and if a system number is used also add name without system number to list                    
+                split_name = re.split("[,._ \-:]+", name)
+                if split_name[0].isnumeric():
+                    nameList.append(name[len(split_name[0])+1:])
+                    
                 entities.append(
                     {
                         "externalId": asset.external_id,
+                        "orgName": name,
                         "name": nameList,
                         "id": asset.id,
                         "type": "asset",
@@ -477,7 +469,6 @@ def get_assets(
 
 
 def process_files(
-    logger: Any,
     cognite_client: CogniteClient,
     matchTreshold: float,
     entities: List[Dict[str, Any]],
@@ -485,6 +476,18 @@ def process_files(
     annotationList: Dict[Optional[int], List[Optional[int]]],
     debug: bool,
 ) -> Tuple[int, int]:
+    """
+    Contextualize files by calling the annotation function 
+    Then update the metadata for the P&ID input file 
+
+    :param cognite_client: client id used to connect to CDF
+    :param matchTreshold: score used to qualify match
+    :param entities: list of input entities that are used to match content in file
+    :param annotationList: list of existing annotations for input files
+    :param debug: debug flag, if tru do not update original file
+
+    :returns: number of annotated files and number of errors
+    """
     numAnnotated = 0
     numErrors = 0
     for fileId, file in files.items():
@@ -495,7 +498,7 @@ def process_files(
 
             # contextualize, create annotation and get list of matched tags
             entities_name_found, entities_id_found = detect_create_annotation(
-                logger, cognite_client, matchTreshold, fileId, entities, annotationList
+                cognite_client, matchTreshold, fileId, entities, annotationList
             )
 
             # create a string of matched tag - to be added to metadata
@@ -527,7 +530,7 @@ def process_files(
                             {file_annotated: convert_date_time, "tags": assetNames}
                         )
                     )
-                    updateOrgFiles(logger, cognite_client, my_update, file.external_id)
+                    updateOrgFiles(cognite_client, my_update, file.external_id)
                 except Exception as e:
                     s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
                     logger.warning(
@@ -551,14 +554,13 @@ def process_files(
                 my_update = FileMetadataUpdate(id=file.id).metadata.add(
                     {file_annotated: convert_date_time, annotationErrorMsg: msg}
                 )
-                updateOrgFiles(logger, cognite_client, my_update, file.external_id)
+                updateOrgFiles(cognite_client, my_update, file.external_id)
             pass
 
     return numAnnotated, numErrors
 
 
 def detect_create_annotation(
-    logger: Any,
     cognite_client: CogniteClient,
     matchTreshold: float,
     fileId: str,
@@ -567,13 +569,12 @@ def detect_create_annotation(
 ) -> Tuple[List[Any], List[Any]]:
     """
     Detect tags + files and create annotation for P&ID
-
-    :param logger: loggoer opbject initiated by main module
-    :param cognite_client: Dict of files found based on filter
-    :param matchTreshold:
-    :param fileId:
-    :param entities:
-    :param annotationList:
+    
+    :param cognite_client: client id used to connect to CDF
+    :param matchTreshold: score used to qualify match
+    :param fileId: file to be processed
+    :param entities: list of input entities that are used to match content in file
+    :param annotationList: list of existing annotations for input files
 
     :returns: list of found ID and names in P&ID
     """
@@ -627,7 +628,7 @@ def detect_create_annotation(
             else:
                 annotationType = assetAnnotationType
                 refType = "assetRef"
-                txtValue = item["entities"][0]["name"][0]
+                txtValue = item["entities"][0]["orgName"]
                 entities_name_found.append(item["entities"][0]["name"][0])
                 entities_id_found.append(item["entities"][0]["id"])
 
@@ -690,7 +691,7 @@ def detect_create_annotation(
         if len(createAnnotationList) > 0:
             cognite_client.annotations.create(createAnnotationList)
 
-        deleteAnnotations(deleteAnnotationList, cognite_client, logger)
+        deleteAnnotations(deleteAnnotationList, cognite_client)
 
         # sort / deduplicate list of names and id
         entities_name_found = list(dict.fromkeys(entities_name_found))
@@ -706,7 +707,7 @@ def  getSysNums(annotations: Any) -> Dict[str, int]:
     
     :annotations found by context api 
 
-    ::returns: dict of system numbers and number of times used.
+    :returns: dict of system numbers and number of times used.
     """
 
     detectedSytemNum = {}
@@ -730,7 +731,7 @@ def getCord(vertices: Dict) -> Tuple[int, int, int, int]:
 
     :param vertices coordinates from contextualization
 
-    ::returns: coordinates used by annotations.
+    :returns: coordinates used by annotations.
     """
 
     initValues = True
@@ -772,14 +773,12 @@ def getCord(vertices: Dict) -> Tuple[int, int, int, int]:
 
 
 def deleteAnnotations(
-    deleteAnnotationList: List, cognite_client: CogniteClient, logger: Any
+    deleteAnnotationList: List, cognite_client: CogniteClient
 ) -> None:
-
     """
     Clean up / delete exising annotatoions
 
     :param deleteAnnotationList: list of annotation IDs to be deleted
-    :param logger: loggoer opbject initiated by main module
     :param cognite_client: Dict of files found based on filter
 
     :returns: None
@@ -797,7 +796,6 @@ def deleteAnnotations(
 
 
 def updateOrgFiles(
-    logger: Any,
     cognite_client: CogniteClient,
     my_updates: FileMetadataUpdate,
     fileExtId: str,
@@ -818,4 +816,46 @@ def updateOrgFiles(
         logger.error(f"Failed to update the file {fileExtId}, Message: {s}  - {r}")
         pass
 
+
+def main():
+    """
+    Code used for local Test & Debug  
+    update local .env file to set variables to connect to CDF
+    """
+       
+    cdfProjectName = os.environ["CDF_PROJECT"]
+    cdfCluster = os.environ["CDF_CLUSTER"]
+    clientId = os.environ["IDP_CLIENT_ID"]
+    clientSecret = os.environ["IDP_CLIENT_SECRET"]
+    tokenUri = os.environ["IDP_TOKEN_URL"]
+
+    baseUrl = f"https://{cdfCluster}.cognitedata.com"    
+    scopes = f"{baseUrl}/.default"
+    
+    oauth_provider = OAuthClientCredentials(
+        token_url=tokenUri,
+        client_id=clientId,
+        client_secret=clientSecret,
+        scopes=scopes,
+    )
+
+    cnf = ClientConfig(
+        client_name=cdfProjectName,
+        base_url=baseUrl,
+        project=cdfProjectName,
+        credentials=oauth_provider,
+    )
+    
+    client = CogniteClient(cnf)
+
+    data = {
+        "ExtractionPipelineExtId": "ep_ctx_files_oid_pandid_annotation",
+    }
+
+    # Test function handler
+    handle(client, data)
+
+
+if __name__ == "__main__":
+    main()
 
