@@ -17,8 +17,8 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes.data_modeling import (
     ContainerList,
     DataModelList,
-    Space,
-    SpaceList,
+    SpaceApply,
+    SpaceApplyList,
     ViewList,
 )
 from rich import print
@@ -29,9 +29,9 @@ from .utils import CDFToolConfig
 def delete_instances(
     ToolGlobals: CDFToolConfig,
     space_name: str,
-    dry_run=False,
-    delete_edges=True,
-    delete_nodes=True,
+    dry_run: bool = False,
+    delete_edges: bool = True,
+    delete_nodes: bool = True,
 ) -> bool:
     """Delete instances in a space from CDF based on the space name
 
@@ -81,17 +81,17 @@ def delete_instances(
         node_count = 0
         node_delete = 0
         try:
-            for instance_list in client.data_modeling.instances(
+            for node_list in client.data_modeling.instances(
                 instance_type="node",
                 include_typing=False,
                 filter={"equals": {"property": ["node", "space"], "value": space_name}},
                 chunk_size=1000,
             ):
-                instances = [(space_name, i.external_id) for i in instance_list.data]
+                instances = [(space_name, i.external_id) for i in node_list]
                 if not dry_run:
                     ret = client.data_modeling.instances.delete(instances)
                     node_delete += len(ret.nodes)
-                node_count += len(instance_list)
+                node_count += len(node_list)
         except Exception as e:
             print(f"[bold red]ERROR: [/] Failed to delete nodes in {space_name}.\n{e}")
             ToolGlobals.failed = True
@@ -100,7 +100,9 @@ def delete_instances(
     return True
 
 
-def delete_containers(ToolGlobals: CDFToolConfig, dry_run=False, containers: ContainerList = None) -> None:
+def delete_containers_function(
+    ToolGlobals: CDFToolConfig, dry_run: bool = False, containers: ContainerList | None = None
+) -> None:
     if containers is None or len(containers) == 0:
         return
     client: CogniteClient = ToolGlobals.verify_client(
@@ -119,7 +121,7 @@ def delete_containers(ToolGlobals: CDFToolConfig, dry_run=False, containers: Con
         ToolGlobals.failed = True
 
 
-def delete_views(ToolGlobals: CDFToolConfig, dry_run=False, views: ViewList = None) -> None:
+def delete_views_function(ToolGlobals: CDFToolConfig, dry_run: bool = False, views: ViewList | None = None) -> None:
     if views is None or len(views) == 0:
         return
     client: CogniteClient = ToolGlobals.verify_client(
@@ -139,7 +141,7 @@ def delete_views(ToolGlobals: CDFToolConfig, dry_run=False, views: ViewList = No
         ToolGlobals.failed = True
 
 
-def delete_spaces(ToolGlobals: CDFToolConfig, dry_run=False, spaces: SpaceList = None) -> None:
+def delete_spaces(ToolGlobals: CDFToolConfig, dry_run: bool = False, spaces: SpaceApplyList | None = None) -> None:
     if spaces is None or len(spaces) == 0:
         return
     client: CogniteClient = ToolGlobals.verify_client(
@@ -157,9 +159,12 @@ def delete_spaces(ToolGlobals: CDFToolConfig, dry_run=False, spaces: SpaceList =
     except Exception as e:
         print(f"[bold red]ERROR: [/] Failed to delete {len(spaces.as_ids())} space(s).\n{e}")
         ToolGlobals.failed = True
+    return None
 
 
-def delete_datamodels(ToolGlobals: CDFToolConfig, dry_run=False, datamodels: DataModelList = None) -> None:
+def delete_datamodels(
+    ToolGlobals: CDFToolConfig, dry_run: bool = False, datamodels: DataModelList | None = None
+) -> None:
     if datamodels is None or len(datamodels) == 0:
         return
     client: CogniteClient = ToolGlobals.verify_client(
@@ -184,13 +189,13 @@ def delete_datamodel_all(
     space_name: str | None = None,
     model_name: str | None = None,
     version: str | None = None,
-    delete_edges=True,
-    delete_nodes=True,
-    delete_views=True,
-    delete_containers=True,
-    delete_space=True,
-    delete_datamodel=True,
-    dry_run=False,
+    delete_edges: bool = True,
+    delete_nodes: bool = True,
+    delete_views: bool = True,
+    delete_containers: bool = True,
+    delete_space: bool = True,
+    delete_datamodel: bool = True,
+    dry_run: bool = False,
 ) -> None:
     """Delete data model from CDF based on the data model and space
 
@@ -218,12 +223,13 @@ def delete_datamodel_all(
     except Exception as e:
         print(f"[bold red]ERROR: [/] Failed to retrieve data model {model_name}, version {version}.")
         print(e)
-        return
+        return None
     if len(data_model) == 0:
         print(f"[bold red]ERROR: [/] Failed to retrieve data model {model_name}, version {version}.")
-        view_list = []
+        view_list = ViewList([])
     else:
-        views: ViewList = data_model.data[0].views
+        views: ViewList = ViewList(data_model[0].views)
+
     print(f"[bold]Deleting {len(views.as_ids())} views in the data model {model_name}...[/]")
     try:
         containers = client.data_modeling.containers.list(space=space_name, limit=None)
@@ -235,23 +241,25 @@ def delete_datamodel_all(
     print(f"  Deleting {len(containers.as_ids())} containers in the space {space_name}")
     if delete_nodes or delete_edges:
         delete_instances(
-            ToolGlobals.client,
+            ToolGlobals,
             space_name=space_name,
             dry_run=dry_run,
             delete_edges=delete_edges,
             delete_nodes=delete_nodes,
         )
     if delete_containers:
-        delete_containers(ToolGlobals, dry_run=dry_run, containers=containers)
+        delete_containers_function(ToolGlobals, dry_run=dry_run, containers=containers)
     if delete_views:
-        delete_views(ToolGlobals, dry_run=dry_run, views=view_list)
+        delete_views_function(ToolGlobals, dry_run=dry_run, views=view_list)
     if delete_datamodel:
-        delete_datamodel(ToolGlobals, dry_run=dry_run, datamodels=data_model)
+        delete_datamodels(ToolGlobals, dry_run=dry_run, datamodels=data_model)
     if delete_space:
-        delete_spaces(ToolGlobals, dry_run=dry_run, spaces=[Space(name=space_name)])
+        delete_spaces(
+            ToolGlobals, dry_run=dry_run, spaces=SpaceApplyList([SpaceApply(space=space_name, name=space_name)])
+        )
 
 
-def clean_out_datamodels(ToolGlobals: CDFToolConfig, dry_run=False, instances=False) -> None:
+def clean_out_datamodels(ToolGlobals: CDFToolConfig, dry_run: bool = False, instances: bool = False) -> None:
     """WARNING!!!!
 
     Destructive: will delete all containers, views, data models, and spaces either
@@ -281,15 +289,15 @@ def clean_out_datamodels(ToolGlobals: CDFToolConfig, dry_run=False, instances=Fa
     print(f"  {len(views)} view(s)")
     print(f"  {len(data_models)} data model(s)")
     print("Deleting...")
-    delete_containers(ToolGlobals, dry_run=dry_run, containers=containers)
-    delete_views(ToolGlobals, dry_run=dry_run, views=views)
+    delete_containers_function(ToolGlobals, dry_run=dry_run, containers=containers)
+    delete_views_function(ToolGlobals, dry_run=dry_run, views=views)
     delete_datamodels(ToolGlobals, dry_run=dry_run, datamodels=data_models)
-    for s in spaces.data:
+    for s in spaces:
         if instances:
             delete_instances(ToolGlobals, space_name=s.space, dry_run=dry_run)
         else:
             print(
                 "[bold yellow]WARNING[/]Did not find --instances flag and will try to delete empty spaces without deleting remaining nodes and edges."
             )
-    delete_spaces(ToolGlobals, dry_run=dry_run, spaces=spaces)
+    delete_spaces(ToolGlobals, dry_run=dry_run, spaces=spaces.as_apply())
     ToolGlobals.failed = False
