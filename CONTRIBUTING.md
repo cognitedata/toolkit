@@ -108,7 +108,7 @@ To release a new version of the `cdf-tk` tool and the templates, you need to do 
    1. Verify that all Github actions pass.
 1. Create a release branch: `release-x.y.z` from `main`:
    1. Create a new tag on the branch with the version number, e.g. `v0.1.0b3`.
-   1. Open a PR on `release` branch.
+   1. Open a PR with the existing `release` branch as base comparing to your new `release-x.y.z` branch.
    1. Get approval and merge.
    1. Verify that the Github action `release` passes and pushes to PyPi.
 1. Create a new release on github.com with the tag and release notes:
