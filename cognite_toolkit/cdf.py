@@ -23,6 +23,7 @@ from cognite_toolkit.cdf_tk import bootstrap
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
+    DataSetsLoader,
     DeployResults,
     deploy_or_clean_resources,
 )
@@ -324,6 +325,9 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth (groups) with ALL scope as expected.")
             exit(1)
+    resolved_list = list(TopologicalSorter(selected_loaders).static_order())
+    if len(resolved_list) > len(selected_loaders):
+        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
     for LoaderCls in TopologicalSorter(selected_loaders).static_order():
         result = deploy_or_clean_resources(
             LoaderCls.create_loader(ToolGlobals),
@@ -430,9 +434,16 @@ def clean(
         print("[bold red]ERROR: [/] Failure to delete data models as expected.")
         exit(1)
     results = DeployResults([], "clean", dry_run=dry_run)
+    resolved_list = list(TopologicalSorter(selected_loaders).static_order())
+    if len(resolved_list) > len(selected_loaders):
+        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
     for LoaderCls in reversed(list(TopologicalSorter(selected_loaders).static_order())):
+        loader = LoaderCls.create_loader(ToolGlobals)
+        if type(loader) == DataSetsLoader:
+            print("[bold]WARNING:[/] Dataset cleaning is not supported, skipping...")
+            continue
         result = deploy_or_clean_resources(
-            LoaderCls.create_loader(ToolGlobals),
+            loader,
             build_path / LoaderCls.folder_name,
             ToolGlobals,
             drop=True,
