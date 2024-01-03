@@ -76,7 +76,8 @@ from cognite.client.data_classes.data_modeling import (
     SpaceApplyList,
     ViewApply,
     ViewApplyList,
-    DataModelingId, EdgeList, NodeList,
+    DataModelingId, EdgeList, NodeList, Edge, Node, DataModel, DataModelList, ViewList, View, ContainerList, Container,
+    SpaceList, Space,
 )
 from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, EdgeId, NodeId, ViewId, InstanceId
 from cognite.client.data_classes.iam import Group, GroupList
@@ -90,7 +91,7 @@ from .utils import CDFToolConfig, load_yaml_inject_variables
 
 
 @dataclass
-class RawTable(CogniteObject):
+class RawTable(CogniteResource):
     db_name: str
     table_name: str
 
@@ -103,6 +104,10 @@ class RawTable(CogniteObject):
             "dbName" if camel_case else "db_name": self.db_name,
             "tableName" if camel_case else "table_name": self.table_name,
         }
+
+
+class RawTableList(CogniteResourceList[RawTable]):
+    _RESOURCE = RawTable
 
 
 @dataclass
@@ -180,6 +185,9 @@ class LoadableEdges(EdgeApplyList):
             "replace": self.replace,
             "edges": self.edges.dump(camel_case),
         }
+
+class ExtractionPipelineConfigList(CogniteResourceList[ExtractionPipelineConfig]):
+    _RESOURCE = ExtractionPipelineConfig
 
 
 T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId])
@@ -334,7 +342,7 @@ T_Loader = TypeVar("T_Loader", bound=Loader)
 
 
 @final
-class AuthLoader(Loader[int, Group, GroupList]):
+class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
     support_drop = False
     support_upsert = True
     api_name = "iam.groups"
@@ -501,7 +509,7 @@ class AuthLoader(Loader[int, Group, GroupList]):
 
 
 @final
-class DataSetsLoader(Loader[str, DataSet, DataSetList]):
+class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
     support_drop = False
     support_upsert = True
     api_name = "data_sets"
@@ -575,7 +583,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSetList]):
 
 
 @final
-class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
+class RawLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
     api_name = "raw.rows"
     folder_name = "raw"
     resource_cls = RawTable
@@ -638,7 +646,7 @@ class RawLoader(Loader[RawTable, RawTable, list[RawTable]]):
 
 
 @final
-class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
+class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeries, TimeSeriesList, TimeSeriesList]):
     api_name = "time_series"
     folder_name = "timeseries"
     resource_cls = TimeSeriesList
@@ -676,7 +684,7 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeriesList]):
 
 
 @final
-class TransformationLoader(Loader[str, Transformation, TransformationList]):
+class TransformationLoader(Loader[str, Transformation, Transformation, TransformationList, TransformationList]):
     api_name = "transformations"
     folder_name = "transformations"
     filename_pattern = (
@@ -752,7 +760,7 @@ class TransformationLoader(Loader[str, Transformation, TransformationList]):
 
 
 @final
-class TransformationScheduleLoader(Loader[str, TransformationSchedule, TransformationScheduleList]):
+class TransformationScheduleLoader(Loader[str, TransformationSchedule, TransformationSchedule, TransformationScheduleList, TransformationScheduleList]):
     api_name = "transformations.schedules"
     folder_name = "transformations"
     filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
@@ -810,7 +818,7 @@ class TransformationScheduleLoader(Loader[str, TransformationSchedule, Transform
 
 
 @final
-class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
+class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesList]):
     support_drop = False
     filetypes = frozenset({"csv", "parquet"})
     api_name = "time_series.data"
@@ -858,7 +866,7 @@ class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
 
 
 @final
-class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelineList]):
+class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipeline, ExtractionPipelineList, ExtractionPipelineList]):
     support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
@@ -923,7 +931,7 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
 
 
 @final
-class ExtractionPipelineConfigLoader(Loader[str, ExtractionPipelineConfig, list[ExtractionPipelineConfig]]):
+class ExtractionPipelineConfigLoader(Loader[str, ExtractionPipelineConfig, ExtractionPipelineConfig, ExtractionPipelineConfigList, ExtractionPipelineConfigList]):
     support_drop = True
     api_name = "extraction_pipelines.config"
     folder_name = "extraction_pipelines"
@@ -968,7 +976,7 @@ class ExtractionPipelineConfigLoader(Loader[str, ExtractionPipelineConfig, list[
 
 
 @final
-class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
+class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileMetadataList]):
     api_name = "files"
     filetypes = frozenset({"yaml", "yml"})
     folder_name = "files"
@@ -1052,7 +1060,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadataList]):
 
 
 @final
-class SpaceLoader(Loader[str, SpaceApply, SpaceApplyList]):
+class SpaceLoader(Loader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     api_name = "data_modeling.spaces"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(space)$"
@@ -1096,7 +1104,7 @@ class SpaceLoader(Loader[str, SpaceApply, SpaceApplyList]):
         return self.client.data_modeling.spaces.apply(items)
 
 
-class ContainerLoader(Loader[ContainerId, ContainerApply, ContainerApplyList]):
+class ContainerLoader(Loader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
     api_name = "data_modeling.containers"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(container)$"
@@ -1131,7 +1139,7 @@ class ContainerLoader(Loader[ContainerId, ContainerApply, ContainerApplyList]):
         return self.client.data_modeling.containers.apply(items)
 
 
-class ViewLoader(Loader[ViewId, ViewApply, ViewApplyList]):
+class ViewLoader(Loader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     api_name = "data_modeling.views"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(view)$"
@@ -1159,7 +1167,7 @@ class ViewLoader(Loader[ViewId, ViewApply, ViewApplyList]):
 
 
 @final
-class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
+class DataModelLoader(Loader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
     api_name = "data_modeling.data_models"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(datamodel)$"
@@ -1186,7 +1194,7 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
 
 
 @final
-class NodeLoader(Loader[NodeId, NodeApply, LoadableNodes, NodeList]):
+class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
@@ -1237,7 +1245,7 @@ class NodeLoader(Loader[NodeId, NodeApply, LoadableNodes, NodeList]):
 
 
 @final
-class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges, EdgeList]):
+class EdgeLoader(Loader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(edge)$"
