@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import datetime
 
+from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling import (
     DirectRelation,
     DirectRelationReference,
-    ViewId,
 )
 from rich import print
 from rich.table import Table
@@ -94,20 +94,20 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         view_names[-1] = view_names[-1][0:-1]
     table.add_row("List of views", "".join(view_names))
     print(table)
-    for v in views:
-        table = Table(title=f"View {v.external_id}, version {v.version} in space {space_name}")
+    for view in views:
+        table = Table(title=f"View {view.external_id}, version {view.version} in space {space_name}")
         table.add_column("Info", justify="left")
         table.add_column("Value", justify="left", style="green")
-        table.add_row("Number of properties", str(len(v.properties)))
-        table.add_row("Used for", str(v.used_for))
-        if v.implements is None:
-            v.implements = []
+        table.add_row("Number of properties", str(len(view.properties)))
+        table.add_row("Used for", str(view.used_for))
+        if view.implements is None:
+            view.implements = []
         else:
-            implements_str = [f"{i}\n" for i in v.implements]
+            implements_str = [f"{i}\n" for i in view.implements]
         if len(implements_str) > 0:
             implements_str[-1] = implements_str[-1][0:-1]
         table.add_row("Implements", "".join(implements_str))
-        properties = [f"{p}\n" for p in v.properties.keys()]
+        properties = [f"{p}\n" for p in view.properties.keys()]
         if len(properties) > 0:
             properties[-1] = properties[-1][0:-1]
         table.add_row("List of properties", "".join(properties))
@@ -115,7 +115,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         edge_relations_str = []
         nr_of_direct_relations = 0
         nr_of_edge_relations = 0
-        for p, edge_type in v.properties.items():
+        for p, edge_type in view.properties.items():
             if type(edge_type.type) is DirectRelation:
                 nr_of_direct_relations += 1
                 if edge_type.source is None:
@@ -138,29 +138,27 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         node_count = 0
         # Iterate over all the nodes in the view 1,000 at the time
         try:
-            for node_list in client.data_modeling.instances(
+            result = client.data_modeling.instances.aggregate(
+                view.as_id(),
+                aggregates=Count("externalId"),
                 instance_type="node",
-                include_typing=False,
-                sources=ViewId(v.space, v.external_id, v.version),
-                chunk_size=1000,
-            ):
-                node_count += len(node_list)
+            )
+            node_count = int(result.value)
         except Exception as e:
-            print(f"Failed to retrieve nodes for view {v.external_id} version {v.version} in space {v.space}.")
+            print(f"Failed to retrieve nodes for view {view.external_id} version {view.version} in space {view.space}.")
             print(e)
-        table.add_row("Number of nodes", str(node_count))
+        table.add_row("Number of nodes", f"{node_count:,}")
         edge_count = 0
         # Iterate over all the edges in the view 1,000 at the time
         try:
-            for edge_list in client.data_modeling.instances(
+            result = client.data_modeling.instances.aggregate(
+                view.as_id(),
+                aggregates=Count("externalId"),
                 instance_type="edge",
-                include_typing=False,
-                filter={"sources": ViewId(v.space, v.external_id, v.version)},
-                chunk_size=1000,
-            ):
-                edge_count += len(edge_list)
+            )
+            edge_count = int(result.value)
         except Exception as e:
-            print(f"Failed to retrieve edges for view {v.external_id} version {v.version} in space {v.space}.")
+            print(f"Failed to retrieve edges for view {view.external_id} version {view.version} in space {view.space}.")
             print(e)
-        table.add_row("Number of edges", str(edge_count))
+        table.add_row("Number of edges", f"{edge_count:,}")
         print(table)
