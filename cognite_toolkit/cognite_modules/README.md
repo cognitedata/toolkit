@@ -1,6 +1,6 @@
 # Main modules folder
 
-** YOU SHOULD NOT EDIT ANY OF THE FILES IN THIS DIRECTORY AND SUB-DIRECTORIES **
+> NOTE! YOU SHOULD NOT EDIT ANY OF THE FILES IN THIS DIRECTORY AND SUB-DIRECTORIES
 
 Modules in this folder come bundled with the `cdf-tk` tool. They are managed
 from a [public repository](https://github.com/cognitedata/cdf-project-templates).
@@ -23,4 +23,5 @@ The modules are grouped into sub-directories:
 * **<solution>**: e.g. apm and infield. These modules are specific to a particular solution. Typically,
   a solution like infield consists of multiple modules.
 
-See the [module and package documentation](https://developer.cognite.com/sdks/toolkit/references/module_reference) for an introduction.
+See the [module and package documentation](https://developer.cognite.com/sdks/toolkit/references/module_reference) for
+an introduction.
