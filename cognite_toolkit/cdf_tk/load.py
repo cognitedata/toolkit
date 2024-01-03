@@ -19,9 +19,9 @@ import json
 import re
 from abc import ABC, abstractmethod
 from collections import Counter, UserList
-from collections.abc import Iterable, Sequence, Sized, Collection
+from collections.abc import Iterable, Sequence, Sized
 from contextlib import suppress
-from dataclasses import dataclass, InitVar
+from dataclasses import dataclass
 from functools import total_ordering
 from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar, Union, final
@@ -47,9 +47,10 @@ from cognite.client.data_classes import (
     capabilities,
 )
 from cognite.client.data_classes._base import (
-    CogniteObject,
     CogniteResource,
-    CogniteResourceList, T_CogniteResource, T_CogniteResourceList,
+    CogniteResourceList,
+    T_CogniteResource,
+    T_CogniteResourceList,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -64,22 +65,33 @@ from cognite.client.data_classes.capabilities import (
     TransformationsAcl,
 )
 from cognite.client.data_classes.data_modeling import (
+    Container,
     ContainerApply,
     ContainerApplyList,
+    ContainerList,
+    DataModel,
     DataModelApply,
     DataModelApplyList,
+    DataModelingId,
+    DataModelList,
+    Edge,
     EdgeApply,
     EdgeApplyList,
+    EdgeList,
+    Node,
     NodeApply,
     NodeApplyList,
+    NodeList,
+    Space,
     SpaceApply,
     SpaceApplyList,
+    SpaceList,
+    View,
     ViewApply,
     ViewApplyList,
-    DataModelingId, EdgeList, NodeList, Edge, Node, DataModel, DataModelList, ViewList, View, ContainerList, Container,
-    SpaceList, Space,
+    ViewList,
 )
-from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, EdgeId, NodeId, ViewId, InstanceId
+from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, EdgeId, InstanceId, NodeId, ViewId
 from cognite.client.data_classes.iam import Group, GroupList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from rich import print
@@ -186,6 +198,7 @@ class LoadableEdges(EdgeApplyList):
             "edges": self.edges.dump(camel_case),
         }
 
+
 class ExtractionPipelineConfigList(CogniteResourceList[ExtractionPipelineConfig]):
     _RESOURCE = ExtractionPipelineConfig
 
@@ -195,7 +208,10 @@ T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId])
 T_CogniteResourceWrite = TypeVar("T_CogniteResourceWrite", bound=CogniteResource)
 T_CogniteResourceWriteList = TypeVar("T_CogniteResourceWriteList", bound=CogniteResourceList)
 
-class Loader(ABC, Generic[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_CogniteResourceWriteList, T_CogniteResourceList]):
+
+class Loader(
+    ABC, Generic[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_CogniteResourceWriteList, T_CogniteResourceList]
+):
     """
     This is the base class for all loaders. It defines the interface that all loaders must implement.
 
@@ -221,10 +237,10 @@ class Loader(ABC, Generic[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_Cog
     filename_pattern = ""
     api_name: str
     folder_name: str
-    resource_write_cls: T_CogniteResourceWrite
-    resource_cls: T_CogniteResource
-    list_cls: T_CogniteResourceList
-    list_write_cls: T_CogniteResourceWriteList
+    resource_write_cls: type[T_CogniteResourceWrite]
+    resource_cls: type[T_CogniteResource]
+    list_cls: type[T_CogniteResourceList]
+    list_write_cls: type[T_CogniteResourceWriteList]
     identifier_key: str = "externalId"
     dependencies: frozenset[T_Loader] = frozenset()
     _display_name: str = ""
@@ -256,7 +272,9 @@ class Loader(ABC, Generic[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_Cog
         return getattr(parent, api_name)
 
     @classmethod
-    def create_loader(cls, ToolGlobals: CDFToolConfig) -> Loader[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_CogniteResourceWriteList, T_CogniteResourceList]:
+    def create_loader(
+        cls, ToolGlobals: CDFToolConfig
+    ) -> Loader[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_CogniteResourceWriteList, T_CogniteResourceList]:
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
         return cls(client, ToolGlobals)
 
@@ -277,17 +295,18 @@ class Loader(ABC, Generic[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_Cog
         them equal if we should consider them equal (and skip writing to CDF)."""
         return local
 
-    def remove_unchanged(self, local: T_CogniteResourceWrite | Sequence[T_CogniteResourceWrite]) -> T_CogniteResourceWrite | Sequence[T_CogniteResourceWrite]:
-        if not isinstance(local, Sequence):
-            local = [local]
-        if len(local) == 0:
-            return local
+    def remove_unchanged(
+        self, local: T_CogniteResourceWrite | Sequence[T_CogniteResourceWrite]
+    ) -> T_CogniteResourceWriteList:
+        local_list = self.list_write_cls(local if isinstance(local, Sequence) else [local])
+        if len(local_list) == 0:
+            return local_list
         try:
             remote = self.retrieve([self.get_id(item) for item in local])
         except CogniteNotFoundError:
-            return local
+            return local_list
         if len(remote) == 0:
-            return local
+            return local_list
         for l_resource in local:
             for r in remote:
                 if self.get_id(l_resource) == self.get_id(r):
@@ -299,10 +318,10 @@ class Loader(ABC, Generic[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_Cog
                     if l_yaml == r_yaml:
                         local.remove(l_resource)
                         break
-        return local
+        return local_list
 
     # Default implementations that can be overridden
-    def create(self, items: T_CogniteResourceWriteList, drop: bool, filepath: Path) -> T_CogniteResourceList:
+    def create(self, items: T_CogniteResourceWriteList, drop: bool, filepath: Path) -> T_CogniteResourceList | None:
         try:
             created = self.api_class.create(items)
             return created
@@ -331,7 +350,7 @@ class Loader(ABC, Generic[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_Cog
     def retrieve(self, ids: Sequence[T_ID]) -> T_CogniteResourceList:
         return self.api_class.retrieve(ids)
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> T_CogniteResource | T_CogniteResourceWriteList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> T_CogniteResourceWrite | T_CogniteResourceWriteList:
         raw_yaml = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_cls.load(raw_yaml)
@@ -348,7 +367,9 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
     api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
+    resource_write_cls = Group
     list_cls = GroupList
+    list_write_cls = GroupList
     identifier_key = "name"
     resource_scopes = frozenset(
         {
@@ -382,7 +403,7 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
         return f"{self.api_name}({scope})"
 
     @staticmethod
-    def fixup_resource(local: T_Resource, remote: T_Resource) -> T_Resource:
+    def fixup_resource(local: Group, remote: Group) -> Group:
         local.id = remote.id
         local.is_deleted = False  # If remote is_deleted, this will fail the check.
         local.metadata = remote.metadata  # metadata has no order guarantee, so we exclude it from compare
@@ -440,20 +461,21 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
                         values["scope"]["extractionPipelineScope"]["ids"] = [-1]
         return Group.load(raw)
 
-    def retrieve(self, ids: Sequence[int]) -> T_ResourceList:
-        remote = self.client.iam.groups.list(all=True).data
+    def retrieve(self, ids: Sequence[int]) -> GroupList:
+        remote = self.client.iam.groups.list(all=True)
         found = [g for g in remote if g.name in ids]
-        return found
+        return GroupList(found)
 
     def delete(self, ids: Sequence[int], drop_data: bool) -> int:
+        ids_ = list(ids)
         # Let's prevent that we delete groups we belong to
         try:
-            groups = self.client.iam.groups.list().data
+            groups = self.client.iam.groups.list()
         except Exception as e:
             print(
                 f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
             )
-            return
+            return 0
         my_source_ids = set()
         for g in groups:
             if g.source_id not in my_source_ids:
@@ -465,15 +487,15 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
                     f"  [bold yellow]WARNING:[/] Not deleting group {g.name} with sourceId {g.source_id} as it is used by the current service principal."
                 )
                 print("     If you want to delete this group, you must do it manually.")
-                if g.name not in ids:
+                if g.name not in ids_:
                     print(f"    [bold red]ERROR[/] You seem to have duplicate groups of name {g.name}.")
                 else:
-                    ids.remove(g.name)
-        found = [g.id for g in groups if g.name in ids]
+                    ids_.remove(g.name)
+        found = [g.id for g in groups if g.name in ids_]
         self.client.iam.groups.delete(found)
         return len(found)
 
-    def create(self, items: Sequence[Group], drop: bool, filepath: Path) -> GroupList:
+    def create(self, items: GroupList, drop: bool, filepath: Path) -> GroupList:
         if self.target_scopes == "all":
             to_create = items
         elif self.target_scopes == "all_skipped_validation":
@@ -498,14 +520,14 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
             raise ValueError(f"Invalid load value {self.target_scopes}")
 
         if len(to_create) == 0:
-            return []
+            return GroupList([])
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
-        old_groups = self.client.iam.groups.list(all=True).data
+        old_groups = self.client.iam.groups.list(all=True)
         created = self.client.iam.groups.create(to_create)
         created_names = {g.name for g in created}
         to_delete = [g.id for g in old_groups if g.name in created_names]
         self.client.iam.groups.delete(to_delete)
-        return created
+        return cast(GroupList, created)
 
 
 @final
@@ -515,7 +537,9 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
     api_name = "data_sets"
     folder_name = "data_sets"
     resource_cls = DataSet
+    resource_write_cls = DataSet
     list_cls = DataSetList
+    list_write_cls = DataSetList
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -555,7 +579,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
                     data_set["metadata"][key] = json.dumps(value)
         return DataSetList.load(data_sets)
 
-    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList | None:
+    def create(self, items: DataSetList, drop: bool, filepath: Path) -> DataSetList | None:
         created = DataSetList([], cognite_client=self.client)
         # There is a bug in the data set API, so only one duplicated data set is returned at the time,
         # so we need to iterate.
@@ -760,7 +784,9 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
 
 
 @final
-class TransformationScheduleLoader(Loader[str, TransformationSchedule, TransformationSchedule, TransformationScheduleList, TransformationScheduleList]):
+class TransformationScheduleLoader(
+    Loader[str, TransformationSchedule, TransformationSchedule, TransformationScheduleList, TransformationScheduleList]
+):
     api_name = "transformations.schedules"
     folder_name = "transformations"
     filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
@@ -866,7 +892,9 @@ class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesL
 
 
 @final
-class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipeline, ExtractionPipelineList, ExtractionPipelineList]):
+class ExtractionPipelineLoader(
+    Loader[str, ExtractionPipeline, ExtractionPipeline, ExtractionPipelineList, ExtractionPipelineList]
+):
     support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
@@ -931,7 +959,15 @@ class ExtractionPipelineLoader(Loader[str, ExtractionPipeline, ExtractionPipelin
 
 
 @final
-class ExtractionPipelineConfigLoader(Loader[str, ExtractionPipelineConfig, ExtractionPipelineConfig, ExtractionPipelineConfigList, ExtractionPipelineConfigList]):
+class ExtractionPipelineConfigLoader(
+    Loader[
+        str,
+        ExtractionPipelineConfig,
+        ExtractionPipelineConfig,
+        ExtractionPipelineConfigList,
+        ExtractionPipelineConfigList,
+    ]
+):
     support_drop = True
     api_name = "extraction_pipelines.config"
     folder_name = "extraction_pipelines"
@@ -1222,7 +1258,6 @@ class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
         else:
             raise ValueError(f"Unexpected node yaml file format {filepath.name}")
 
-
     def delete(self, ids: Sequence[NodeId], drop_data: bool) -> int:
         if not drop_data:
             print("  [bold]INFO:[/] Skipping deletion of nodes as drop_data flag is not set...")
@@ -1479,5 +1514,5 @@ for loader in Loader.__subclasses__():
     if loader.folder_name not in LOADER_BY_FOLDER_NAME:
         LOADER_BY_FOLDER_NAME[loader.folder_name] = []
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    LOADER_BY_FOLDER_NAME[loader.folder_name].append(loader) # type: ignore[type-abstract]
+    LOADER_BY_FOLDER_NAME[loader.folder_name].append(loader)  # type: ignore[type-abstract]
 del loader  # cleanup module namespace
