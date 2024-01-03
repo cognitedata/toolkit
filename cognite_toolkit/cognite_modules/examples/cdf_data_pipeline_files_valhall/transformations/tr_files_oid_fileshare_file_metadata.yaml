@@ -1,4 +1,5 @@
 externalId: 'tr_files_{{location_name}}_{{source_name}}_file_matadata'
+dataSetExternalId: 'ds_transformations_{{location_name}}'
 name: 'files:{{location_name}}:{{source_name}}:file_matadata'
 destination:
   type: "files"
@@ -8,16 +9,11 @@ conflictMode: upsert
 # Specify credentials separately like this:
 # You can also use different credentials for the running transformations than the ones you use to deploy
 authentication:
-  clientId: {{clientId}}
-  clientSecret: {{clientSecret}}
-  tokenUri: {{tokenUri}}
-  # Optional: If idP requires providing the scopes
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the cicd_scopes
   cdfProjectName: {{cdfProjectName}}
-  scopes:
-    - {{scopes}}
-  # Optional: If idP requires providing the audience
-  audience: {{audience}}
-schedule:
-  # every hour
-  interval: '0 * * * *'
-  isPaused: true
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the cicd_audience
+  audience: {{cicd_audience}}
