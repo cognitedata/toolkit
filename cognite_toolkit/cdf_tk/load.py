@@ -855,7 +855,10 @@ class DatapointsLoader(Loader[list[str], Path, TimeSeriesList]):
             raise ValueError("Datapoints must be loaded one at a time.")
         datafile = items[0]
         if datafile.suffix == ".csv":
-            data = pd.read_csv(datafile, parse_dates=True, dayfirst=True, index_col=0)
+            # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+            file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+            data = pd.read_csv(io.StringIO(file_content), parse_dates=True, dayfirst=True, index_col=0)
+            data.index = pd.DatetimeIndex(data.index)
         elif datafile.suffix == ".parquet":
             data = pd.read_parquet(datafile, engine="pyarrow")
         else:
@@ -1426,6 +1429,7 @@ def deploy_or_clean_resources(
 
     if action == "clean":
         # Clean Command, only delete.
+        nr_of_items = nr_of_deleted
         return DeployResult(name=loader.display_name, created=0, deleted=nr_of_deleted, skipped=0, total=nr_of_items)
 
     nr_of_created = 0
@@ -1452,6 +1456,11 @@ def deploy_or_clean_resources(
                     newly_created = len(created) if created is not None else 0
                     nr_of_created += newly_created
                     nr_of_skipped += len(batch) - newly_created
+                    # For timeseries.datapoints, we can load multiple timeseries in one file,
+                    # so the number of created items can be larger than the number of items in the batch.
+                    if nr_of_skipped < 0:
+                        nr_of_items += -nr_of_skipped
+                        nr_of_skipped = 0
                     if isinstance(loader, AuthLoader):
                         nr_of_deleted += len(created)
     if verbose:

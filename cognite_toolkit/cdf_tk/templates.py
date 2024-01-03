@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import datetime
+import io
 import itertools
 import os
 import re
@@ -10,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, overload
 
+import pandas as pd
 import yaml
 from rich import print
 
@@ -386,7 +389,25 @@ def process_config_files(
 
             destination = build_dir / filepath.parent.name / filename
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_text(content)
+            if "timeseries_datapoints" in filepath.parent.name and filepath.suffix.lower() == ".csv":
+                # Special case for timeseries datapoints, we want to timeshit datapoints
+                # if the file is a csv file and we have been instructed to.
+                # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+                file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+                data = pd.read_csv(io.StringIO(file_content), parse_dates=True, dayfirst=True, index_col=0)
+                if "timeshift_" in data.index.name:
+                    print(
+                        "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
+                    )
+                    data.index.name = data.index.name.replace("timeshift_", "")
+                    data.index = pd.DatetimeIndex(data.index)
+                    periods = datetime.datetime.today() - data.index[-1]
+                    data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
+                    destination.write_text(data.to_csv())
+                else:
+                    destination.write_text(content)
+            else:
+                destination.write_text(content)
 
             validate(content, destination, filepath)
 
@@ -656,7 +677,7 @@ class ConfigEntries(UserList):
         if changed := self.changed:
             lines.append(f"Changed {len(changed)} variables in config.yaml: {[str(c) for c in changed]}")
         if total_variables == len(self.unchanged):
-            lines.append("No variables in config.yaml was changed.")
+            lines.append("No variables in config.yaml were changed.")
         return "\n".join(lines)
 
 
