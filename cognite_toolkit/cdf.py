@@ -767,7 +767,7 @@ def describe_datamodel_cmd(
             "--datamodel",
             "-d",
             prompt=False,
-            help="Data model to describe",
+            help="Data model to describe. If not specified, the first data model found in the space will be described.",
         ),
     ] = None,
 ):
