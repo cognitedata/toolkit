@@ -19,9 +19,9 @@ import json
 import re
 from abc import ABC, abstractmethod
 from collections import Counter, UserList
-from collections.abc import Iterable, Sequence, Sized
+from collections.abc import Iterable, Sequence, Sized, Collection
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, InitVar
 from functools import total_ordering
 from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar, Union, final
@@ -49,7 +49,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes._base import (
     CogniteObject,
     CogniteResource,
-    CogniteResourceList,
+    CogniteResourceList, T_CogniteResource, T_CogniteResourceList,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -76,8 +76,9 @@ from cognite.client.data_classes.data_modeling import (
     SpaceApplyList,
     ViewApply,
     ViewApplyList,
+    DataModelingId, EdgeList, NodeList,
 )
-from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, EdgeId, NodeId, ViewId
+from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, EdgeId, NodeId, ViewId, InstanceId
 from cognite.client.data_classes.iam import Group, GroupList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from rich import print
@@ -105,7 +106,7 @@ class RawTable(CogniteObject):
 
 
 @dataclass
-class LoadableNodes(CogniteObject):
+class LoadableNodes(NodeApplyList):
     """
     This is a helper class for nodes that contains arguments that are required for writing the
     nodes to CDF.
@@ -116,11 +117,11 @@ class LoadableNodes(CogniteObject):
     replace: bool
     nodes: NodeApplyList
 
-    def __len__(self):
-        return len(self.nodes)
+    def __post_init__(self):
+        self.data = self.nodes.data
 
-    def __iter__(self):
-        return iter(self.nodes)
+    def __len__(self) -> int:
+        return len(self.data)
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
@@ -143,7 +144,7 @@ class LoadableNodes(CogniteObject):
 
 
 @dataclass
-class LoadableEdges(CogniteObject):
+class LoadableEdges(EdgeApplyList):
     """
     This is a helper class for edges that contains arguments that are required for writing the
     edges to CDF.
@@ -155,11 +156,11 @@ class LoadableEdges(CogniteObject):
     replace: bool
     edges: EdgeApplyList
 
-    def __len__(self):
-        return len(self.edges)
+    def __post_init__(self):
+        self.data = self.edges.data
 
-    def __iter__(self):
-        return iter(self.edges)
+    def __len__(self) -> int:
+        return len(self.data)
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
@@ -181,26 +182,12 @@ class LoadableEdges(CogniteObject):
         }
 
 
-@dataclass
-class Difference:
-    added: list[CogniteResource]
-    removed: list[CogniteResource]
-    changed: list[CogniteResource]
-    unchanged: list[CogniteResource]
+T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId])
 
-    def __iter__(self):
-        return iter([self.added, self.removed, self.changed, self.unchanged])
+T_CogniteResourceWrite = TypeVar("T_CogniteResourceWrite", bound=CogniteResource)
+T_CogniteResourceWriteList = TypeVar("T_CogniteResourceWriteList", bound=CogniteResourceList)
 
-    def __next__(self):
-        return next([self.added, self.removed, self.changed, self.unchanged])
-
-
-T_ID = TypeVar("T_ID", bound=Union[str, int])
-T_Resource = TypeVar("T_Resource")
-T_ResourceList = TypeVar("T_ResourceList")
-
-
-class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
+class Loader(ABC, Generic[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_CogniteResourceWriteList, T_CogniteResourceList]):
     """
     This is the base class for all loaders. It defines the interface that all loaders must implement.
 
@@ -226,10 +213,12 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
     filename_pattern = ""
     api_name: str
     folder_name: str
-    resource_cls: type[CogniteResource]
-    list_cls: type[CogniteResourceList]
+    resource_write_cls: T_CogniteResourceWrite
+    resource_cls: T_CogniteResource
+    list_cls: T_CogniteResourceList
+    list_write_cls: T_CogniteResourceWriteList
     identifier_key: str = "externalId"
-    dependencies: frozenset[Loader] = frozenset()
+    dependencies: frozenset[T_Loader] = frozenset()
     _display_name: str = ""
 
     def __init__(self, client: CogniteClient, ToolGlobals: CDFToolConfig):
@@ -241,13 +230,13 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
             raise AttributeError(f"Invalid api_name {self.api_name}.")
 
     @property
-    def display_name(self):
+    def display_name(self) -> str:
         if self._display_name:
             return self._display_name
         return self.api_name
 
     @staticmethod
-    def _get_api_class(client, api_name: str):
+    def _get_api_class(client: CogniteClient, api_name: str) -> Any:
         parent = client
         if (dot_count := Counter(api_name)["."]) == 1:
             parent_name, api_name = api_name.split(".")
@@ -259,7 +248,7 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         return getattr(parent, api_name)
 
     @classmethod
-    def create_loader(cls, ToolGlobals: CDFToolConfig):
+    def create_loader(cls, ToolGlobals: CDFToolConfig) -> Loader[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_CogniteResourceWriteList, T_CogniteResourceList]:
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
         return cls(client, ToolGlobals)
 
@@ -270,17 +259,17 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
 
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_Resource) -> T_ID:
+    def get_id(cls, item: T_CogniteResource | T_CogniteResourceWrite) -> T_ID:
         raise NotImplementedError
 
     @staticmethod
-    def fixup_resource(local: T_Resource, remote: T_Resource) -> T_Resource:
+    def fixup_resource(local: T_CogniteResourceWrite, remote: T_CogniteResource) -> T_CogniteResourceWrite:
         """Takes the local (to be pushed) and remote (from CDF) resource and returns the
         local resource with properties from the remote resource copied over to make
         them equal if we should consider them equal (and skip writing to CDF)."""
         return local
 
-    def remove_unchanged(self, local: T_Resource | Sequence[T_Resource]) -> T_Resource | Sequence[T_Resource]:
+    def remove_unchanged(self, local: T_CogniteResourceWrite | Sequence[T_CogniteResourceWrite]) -> T_CogniteResourceWrite | Sequence[T_CogniteResourceWrite]:
         if not isinstance(local, Sequence):
             local = [local]
         if len(local) == 0:
@@ -305,40 +294,43 @@ class Loader(ABC, Generic[T_ID, T_Resource, T_ResourceList]):
         return local
 
     # Default implementations that can be overridden
-    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList:
+    def create(self, items: T_CogniteResourceWriteList, drop: bool, filepath: Path) -> T_CogniteResourceList:
         try:
             created = self.api_class.create(items)
             return created
         except CogniteAPIError as e:
             if e.code == 409:
                 print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
-                return []
+                return self.list_cls([])
             else:
                 print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
                 self.ToolGlobals.failed = True
-                return []
+                return self.list_cls([])
         except CogniteDuplicatedError as e:
             print(
                 f"  [bold yellow]WARNING:[/] {len(e.duplicated)} out of {len(items)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
             )
-            return []
+            return self.list_cls([])
         except Exception as e:
             print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
             self.ToolGlobals.failed = True
-            return []
+            return self.list_cls([])
 
     def delete(self, ids: Sequence[T_ID], drop_data: bool) -> int:
         self.api_class.delete(ids)
         return len(ids)
 
-    def retrieve(self, ids: Sequence[T_ID]) -> T_ResourceList:
+    def retrieve(self, ids: Sequence[T_ID]) -> T_CogniteResourceList:
         return self.api_class.retrieve(ids)
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> T_Resource | T_ResourceList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> T_CogniteResource | T_CogniteResourceWriteList:
         raw_yaml = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_cls.load(raw_yaml)
         return self.resource_cls.load(raw_yaml)
+
+
+T_Loader = TypeVar("T_Loader", bound=Loader)
 
 
 @final
@@ -1188,13 +1180,13 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModelApplyList]):
     def get_id(cls, item: DataModelApply) -> DataModelId:
         return item.as_id()
 
-    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList:
+    def create(self, items: DataModelApplyList, drop: bool, filepath: Path) -> DataModelApplyList:
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.data_models.apply(items)
 
 
 @final
-class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
+class NodeLoader(Loader[NodeId, NodeApply, LoadableNodes, NodeList]):
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
@@ -1211,14 +1203,17 @@ class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
             DataModelInstancesAcl.Scope.All(),
         )
 
-    def get_id(self, item: NodeApply) -> NodeId:
+    @classmethod
+    def get_id(cls, item: NodeApply) -> NodeId:
         return item.as_id()
 
     def load_resource(self, filepath: Path, dry_run: bool) -> LoadableNodes:
         raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
-        if isinstance(raw, list):
+        if isinstance(raw, dict):
+            return LoadableNodes._load(raw, cognite_client=self.client)
+        else:
             raise ValueError(f"Unexpected node yaml file format {filepath.name}")
-        return LoadableNodes.load(raw, cognite_client=self.client)
+
 
     def delete(self, ids: Sequence[NodeId], drop_data: bool) -> int:
         if not drop_data:
@@ -1242,12 +1237,13 @@ class NodeLoader(Loader[list[NodeId], NodeApply, LoadableNodes]):
 
 
 @final
-class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
+class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges, EdgeList]):
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(edge)$"
     resource_cls = EdgeApply
-    list_cls = LoadableEdges
+    list_cls = EdgeList
+    list_write_cls = LoadableEdges
     _display_name = "edges"
 
     # Note edges do not need nodes to be created first, as they are created as part of the edge creation.
@@ -1262,14 +1258,16 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
             DataModelInstancesAcl.Scope.All(),
         )
 
-    def get_id(self, item: EdgeApply) -> EdgeId:
+    @classmethod
+    def get_id(cls, item: EdgeApply) -> EdgeId:
         return item.as_id()
 
     def load_resource(self, filepath: Path, dry_run: bool) -> LoadableEdges:
         raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
-        if isinstance(raw, list):
+        if isinstance(raw, dict):
+            return LoadableEdges._load(raw, cognite_client=self.client)
+        else:
             raise ValueError(f"Unexpected edge yaml file format {filepath.name}")
-        return LoadableEdges.load(raw, cognite_client=self.client)
 
     def delete(self, ids: Sequence[EdgeId], drop_data: bool) -> int:
         if not drop_data:
@@ -1278,7 +1276,7 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, LoadableEdges]):
         deleted = self.client.data_modeling.instances.delete(edges=ids)
         return len(deleted.edges)
 
-    def create(self, items: Sequence[LoadableEdges], drop: bool, filepath: Path) -> LoadableEdges:
+    def create(self, items: LoadableEdges, drop: bool, filepath: Path) -> EdgeList:
         if not isinstance(items, LoadableEdges):
             raise ValueError("Unexpected edge format file format")
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
@@ -1302,13 +1300,13 @@ class DeployResult:
     skipped: int
     total: int
 
-    def __lt__(self, other: DeployResult) -> bool:
+    def __lt__(self, other: object) -> bool:
         if isinstance(other, DeployResult):
             return self.name < other.name
         else:
             return NotImplemented
 
-    def __eq__(self, other: DeployResult) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, DeployResult):
             return self.name == other.name
         else:
@@ -1353,7 +1351,7 @@ def deploy_or_clean_resources(
     dry_run: bool = False,
     drop_data: bool = False,
     verbose: bool = False,
-) -> DeployResult:
+) -> DeployResult | None:
     if action not in ["deploy", "clean"]:
         raise ValueError(f"Invalid action {action}")
 
@@ -1387,7 +1385,7 @@ def deploy_or_clean_resources(
     else:
         action_word = "Loading" if dry_run else "Cleaning"
         print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
-    batches = [item if isinstance(item, Sized) else [item] for item in items]
+    batches = [item if isinstance(item, Sequence) else [item] for item in items]
     if drop and loader.support_drop and action == "deploy":
         if drop_data and (loader.api_name == "data_modeling.spaces" or loader.api_name == "data_modeling.containers"):
             print(
@@ -1447,7 +1445,7 @@ def deploy_or_clean_resources(
                 except Exception as e:
                     print(f"  [bold yellow]WARNING:[/] Failed to upload {loader.display_name}. Error {e}.")
                     ToolGlobals.failed = True
-                    return
+                    return None
                 else:
                     newly_created = len(created) if created is not None else 0
                     nr_of_created += newly_created
@@ -1472,5 +1470,6 @@ LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for loader in Loader.__subclasses__():
     if loader.folder_name not in LOADER_BY_FOLDER_NAME:
         LOADER_BY_FOLDER_NAME[loader.folder_name] = []
-    LOADER_BY_FOLDER_NAME[loader.folder_name].append(loader)
+    # MyPy bug: https://github.com/python/mypy/issues/4717
+    LOADER_BY_FOLDER_NAME[loader.folder_name].append(loader) # type: ignore[type-abstract]
 del loader  # cleanup module namespace
