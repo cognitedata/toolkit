@@ -20,6 +20,7 @@ from rich.panel import Panel
 
 from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk import bootstrap
+from cognite_toolkit.cdf_tk.describe import describe_datamodel
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
@@ -52,7 +53,11 @@ app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=F
 auth_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
+describe_app = typer.Typer(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
 app.add_typer(auth_app, name="auth")
+app.add_typer(describe_app, name="describe")
 
 
 _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
@@ -735,6 +740,47 @@ def main_init(
             config_str, difference = generate_config(target_dir, existing_config=current)
             config_filepath.write_text(config_str)
             print(str(difference))
+
+
+@describe_app.callback(invoke_without_command=True)
+def describe_main(ctx: typer.Context):
+    """Commands to describe and document configurations and CDF project state."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk describe --help[/] for more information.")
+
+
+@describe_app.command("datamodel")
+def describe_datamodel_cmd(
+    ctx: typer.Context,
+    space: Annotated[
+        str,
+        typer.Option(
+            "--space",
+            "-s",
+            prompt=True,
+            help="Space where the data model to describe is located.",
+        ),
+    ] = None,
+    data_model: Annotated[
+        str,
+        typer.Option(
+            "--datamodel",
+            "-d",
+            prompt=False,
+            help="Data model to describe",
+        ),
+    ] = None,
+):
+    """This command will describe the characteristics of a data model given the space
+    name and datamodel name."""
+    if space is None or len(space) == 0:
+        print("[bold red]ERROR: [/] --space is required.")
+        exit(1)
+    if ctx.obj.mockToolGlobals is not None:
+        ToolGlobals = ctx.obj.mockToolGlobals
+    else:
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    describe_datamodel(ToolGlobals, space, data_model)
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
