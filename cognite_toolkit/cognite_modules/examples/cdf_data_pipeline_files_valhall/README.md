@@ -31,7 +31,7 @@ This module manages the following resources:
    - ID: fu_context_files_oid_fileshare_annotation
      - Content: Extracts all tags in P&ID that matches tags from Asset Hierarchy and creates CDF annotations used for linking found objects in document to other resource types in CDF
 
-![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/843dc875-5675-462e-9904-23044f7f4557)
+![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/32c5d53f-5fdb-44a8-9362-35e8152b83e3)
 
 
 ## Variables
