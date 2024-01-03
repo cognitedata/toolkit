@@ -753,7 +753,7 @@ def describe_main(ctx: typer.Context):
 def describe_datamodel_cmd(
     ctx: typer.Context,
     space: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--space",
             "-s",
@@ -762,7 +762,7 @@ def describe_datamodel_cmd(
         ),
     ] = None,
     data_model: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--datamodel",
             "-d",
