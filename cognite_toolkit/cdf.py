@@ -328,7 +328,7 @@ def deploy(
     resolved_list = list(TopologicalSorter(selected_loaders).static_order())
     if len(resolved_list) > len(selected_loaders):
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
-    for LoaderCls in TopologicalSorter(selected_loaders).static_order():
+    for LoaderCls in resolved_list:
         result = deploy_or_clean_resources(
             LoaderCls.create_loader(ToolGlobals),
             build_path / LoaderCls.folder_name,
@@ -437,9 +437,9 @@ def clean(
     resolved_list = list(TopologicalSorter(selected_loaders).static_order())
     if len(resolved_list) > len(selected_loaders):
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
-    for LoaderCls in reversed(list(TopologicalSorter(selected_loaders).static_order())):
+    for LoaderCls in reversed(resolved_list):
         loader = LoaderCls.create_loader(ToolGlobals)
-        if type(loader) == DataSetsLoader:
+        if type(loader) is DataSetsLoader:
             print("[bold]WARNING:[/] Dataset cleaning is not supported, skipping...")
             continue
         result = deploy_or_clean_resources(
