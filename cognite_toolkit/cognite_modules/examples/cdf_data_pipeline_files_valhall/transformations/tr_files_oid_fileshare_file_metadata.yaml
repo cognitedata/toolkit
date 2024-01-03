@@ -1,5 +1,5 @@
 externalId: 'tr_files_{{location_name}}_{{source_name}}_file_matadata'
-dataSetExternalId: 'ds_transformations_{{location_name}}'
+dataSetExternalId: 'ds_files_{{location_name}}'
 name: 'files:{{location_name}}:{{source_name}}:file_matadata'
 destination:
   type: "files"
