@@ -100,10 +100,8 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         table.add_column("Value", justify="left", style="green")
         table.add_row("Number of properties", str(len(view.properties)))
         table.add_row("Used for", str(view.used_for))
-        if view.implements is None:
-            view.implements = []
-        else:
-            implements_str = [f"{i}\n" for i in view.implements]
+
+        implements_str = [f"{i}\n" for i in view.implements or []]
         if len(implements_str) > 0:
             implements_str[-1] = implements_str[-1][0:-1]
         table.add_row("Implements", "".join(implements_str))
