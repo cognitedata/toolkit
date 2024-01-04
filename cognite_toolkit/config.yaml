@@ -53,6 +53,10 @@ cognite_modules:
     # location based on OID example data
     cdf_data_pipeline_asset_valhall:
       asset_dataset: ds_asset_oid
+      # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+      asset_location_extractor_group_source_id: <change_me>
+      asset_location_processing_group_source_id: <change_me>
+      asset_location_read_group_source_id: <change_me>
       asset_raw_input_db: asset_oid_workmate
       asset_raw_input_table: assets
       location_name: oid
