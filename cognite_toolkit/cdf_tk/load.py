@@ -1048,9 +1048,7 @@ class ExtractionPipelineConfigLoader(
             resource["config"] = resource.get("config", "")
         return ExtractionPipelineConfig.load(resource)
 
-    def create(
-        self, items: Sequence[ExtractionPipelineConfig], drop: bool, filepath: Path
-    ) -> ExtractionPipelineConfigList:
+    def create(self, items: ExtractionPipelineConfigList, drop: bool, filepath: Path) -> ExtractionPipelineConfigList:
         try:
             return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
         except Exception as e:
