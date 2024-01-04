@@ -395,13 +395,41 @@ class CDFToolConfig:
         return [space.space for space in existing]
 
 
-def load_yaml_inject_variables(filepath: Path, variables: dict[str, str | None]) -> dict[str, Any] | list[dict[str, Any]]:
+@overload
+def load_yaml_inject_variables(
+    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["list"]
+) -> list[dict[str, Any]]:
+    ...
+
+
+@overload
+def load_yaml_inject_variables(
+    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["dict"]
+) -> dict[str, Any]:
+    ...
+
+
+def load_yaml_inject_variables(
+    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
+) -> dict[str, Any] | list[dict[str, Any]]:
     content = filepath.read_text()
     for key, value in variables.items():
         if value is None:
             continue
         content = content.replace("${%s}" % key, value)
-    return yaml.safe_load(content)
+    result = yaml.safe_load(content)
+    if required_return_type == "any":
+        return result
+    elif required_return_type == "list":
+        if isinstance(result, list):
+            return result
+        raise ValueError(f"Expected a list, but got {type(result)}")
+    elif required_return_type == "dict":
+        if isinstance(result, dict):
+            return result
+        raise ValueError(f"Expected a dict, but got {type(result)}")
+    else:
+        raise ValueError(f"Unknown required_return_type {required_return_type}")
 
 
 @dataclass(frozen=True)

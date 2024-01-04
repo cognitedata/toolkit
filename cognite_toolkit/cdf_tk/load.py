@@ -313,12 +313,12 @@ class Loader(
         if len(local_list) == 0:
             return local_list
         try:
-            remote = self.retrieve([self.get_id(item) for item in local])
+            remote = self.retrieve([self.get_id(item) for item in local_list])
         except CogniteNotFoundError:
             return local_list
         if len(remote) == 0:
             return local_list
-        for l_resource in local:
+        for l_resource in local_list:
             for r in remote:
                 if self.get_id(l_resource) == self.get_id(r):
                     r_yaml = self.resource_cls.dump_yaml(r)
@@ -327,7 +327,7 @@ class Loader(
                     copy_l = self.resource_cls.load(self.resource_cls.dump_yaml(l_resource))
                     l_yaml = self.resource_cls.dump_yaml(self.fixup_resource(copy_l, r))
                     if l_yaml == r_yaml:
-                        local.remove(l_resource)
+                        local_list.remove(l_resource)
                         break
         return local_list
 
@@ -1069,21 +1069,21 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
-            files = FileMetadataList([FileMetadata.load(resource)])
+            files_metadata = FileMetadataList([FileMetadata.load(resource)])
         except Exception:
-            files = FileMetadataList.load(
+            files_metadata = FileMetadataList.load(
                 load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
             )
         # If we have a file with exact one file config, check to see if this is a pattern to expand
-        if len(files.data) == 1 and ("$FILENAME" in files.data[0].external_id or ""):
+        if len(files_metadata) == 1 and ("$FILENAME" in (files_metadata[0].external_id or "")):
             # It is, so replace this file with all files in this folder using the same data
-            file_data = files.data[0]
+            file_data = files_metadata.data[0]
             ext_id_pattern = file_data.external_id
-            files = FileMetadataList([], cognite_client=self.client)
+            files_metadata = FileMetadataList([], cognite_client=self.client)
             for file in filepath.parent.glob("*"):
                 if file.suffix[1:] in ["yaml", "yml"]:
                     continue
-                files.append(
+                files_metadata.append(
                     FileMetadata(
                         name=file.name,
                         external_id=re.sub(r"\$FILENAME", file.name, ext_id_pattern),
@@ -1097,22 +1097,26 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
                         security_categories=file_data.security_categories,
                     )
                 )
-        for file in files.data:
-            if not Path(filepath.parent / file.name).exists():
-                raise FileNotFoundError(f"Could not find file {file.name} referenced in filepath {filepath.name}")
-            if isinstance(file.data_set_id, str):
+        for meta in files_metadata:
+            if meta.name is None:
+                raise ValueError(f"File {meta.external_id} has no name.")
+            if not Path(filepath.parent / meta.name).exists():
+                raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
+            if isinstance(meta.data_set_id, str):
                 # Replace external_id with internal id
-                file.data_set_id = self.ToolGlobals.verify_dataset(file.data_set_id) if not dry_run else -1
-        return files
+                meta.data_set_id = self.ToolGlobals.verify_dataset(meta.data_set_id) if not dry_run else -1
+        return files_metadata
 
-    def create(self, items: Sequence[FileMetadata], drop: bool, filepath: Path) -> FileMetadataList:
+    def create(self, items: FileMetadataList, drop: bool, filepath: Path) -> FileMetadataList:
         created = FileMetadataList([])
         for meta in items:
             if meta.name is None:
                 raise ValueError(f"File {meta.external_id} has no name.")
             datafile = filepath.parent / meta.name
             try:
-                created.append(self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False)))
+                created.append(
+                    self.client.files.upload(path=str(datafile), overwrite=drop, **meta.dump(camel_case=False))
+                )
             except CogniteAPIError as e:
                 if e.code == 409:
                     print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
