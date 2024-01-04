@@ -58,7 +58,6 @@ Group:
           ids:
           - 1
   metadata:
-    module_version: '1'
     origin: cdf-project-templates
   name: gp_asset_oid_extractor
   sourceId: <change_me>
@@ -77,7 +76,6 @@ Group:
       scope:
         all: {}
   metadata:
-    module_version: '1'
     origin: cdf-project-templates
   name: gp_asset_oid_processing
   sourceId: <change_me>
@@ -113,7 +111,6 @@ Group:
           ids:
           - 42
   metadata:
-    module_version: '1'
     origin: cdf-project-templates
   name: gp_asset_oid_processing
   sourceId: <change_me>
@@ -126,7 +123,6 @@ Group:
           ids:
           - 42
   metadata:
-    module_version: '1'
     origin: cdf-project-templates
   name: gp_asset_oid_read
   sourceId: <change_me>
