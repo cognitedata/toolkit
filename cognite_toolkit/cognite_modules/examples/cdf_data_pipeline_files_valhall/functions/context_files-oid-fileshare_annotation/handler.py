@@ -1,17 +1,14 @@
 import logging
-import time
 import os
 import re
-import sys
-
-from time import gmtime, strftime
-from typing import Any, Dict, List, Optional, Tuple
+import time
 import traceback
+from datetime import datetime
+from time import gmtime, strftime
+from typing import Any, Optional
 
 import yaml
-from datetime import datetime
-
-from cognite.client import CogniteClient, ClientConfig
+from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     Annotation,
@@ -43,7 +40,11 @@ maxLengthMetadata = 10000
 functionName = "P&ID Annotation"
 
 # log configuration
-logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s %(name)s: %(message)s', datefmt='%Y-%m-%d,%H:%M:%S', level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s.%(msecs)03d %(levelname)s %(name)s: %(message)s",
+    datefmt="%Y-%m-%d,%H:%M:%S",
+    level=logging.INFO,
+)
 logger = logging.getLogger(functionName)
 logger.info("---------------------------------------START--------------------------------------------")
 
@@ -62,7 +63,7 @@ def handle(client, data):
         annotate_p_and_id(client, annoConfig)
     except Exception as e:
         tb = traceback.format_exc()
-        msg = f"Function: {functionName}: Extraction failed - Message: {repr(e)} - {tb}"
+        msg = f"Function: {functionName}: Extraction failed - Message: {e!r} - {tb}"
         logger.error(f"[FAILED] Error: {msg}")
         return {"error": e.__str__(), "status": "failed"}
 
@@ -71,13 +72,8 @@ def handle(client, data):
     return {"status": "succeeded"}
 
 
-    
-    
-def getConfigParam(
-    cognite_client: CogniteClient, data: Dict[str, Any]
-) -> Dict[str, Any]:
-    
-    annoConfig: Dict[str, Any] = {}
+def getConfigParam(cognite_client: CogniteClient, data: dict[str, Any]) -> dict[str, Any]:
+    annoConfig: dict[str, Any] = {}
 
     extractionPipelineExtId = data["ExtractionPipelineExtId"]
 
@@ -89,7 +85,6 @@ def getConfigParam(
             raise Exception("No configuration found in pipeline")
     except Exception as e:
         logger.error(f"Not able to load pipeline : {extractionPipelineExtId} configuration - {e}")
-
 
     annoConfig["ExtractionPipelineExtId"] = extractionPipelineExtId
     annoConfig["debug"] = data["debug"]
@@ -104,10 +99,7 @@ def getConfigParam(
     return annoConfig
 
 
-
-def annotate_p_and_id(
-    cognite_client: CogniteClient, annoConfig: Dict[str, Any]
-) -> None:
+def annotate_p_and_id(cognite_client: CogniteClient, annoConfig: dict[str, Any]) -> None:
     """
     Read configuration and start P&ID annotation process by
     1. Reading files to annotate
@@ -136,9 +128,7 @@ def annotate_p_and_id(
     matchTreshold = annoConfig["matchTreshold"]
 
     for assetRootExtId in assetRootExtIds:
-
         try:
-
             files_all, files_process = get_files(
                 cognite_client,
                 docDataSetExtId,
@@ -152,14 +142,10 @@ def annotate_p_and_id(
             entities = get_files_entities(files_all)
 
             if len(entities) > 0:
-                annotationList = get_existing_annotations(
-                    cognite_client, entities
-                )
+                annotationList = get_existing_annotations(cognite_client, entities)
 
             if len(files_process) > 0:
-                entities = get_assets(
-                    cognite_client, assetRootExtId, entities
-                )
+                entities = get_assets(cognite_client, assetRootExtId, entities)
                 numAnnotated, numErrors = process_files(
                     cognite_client,
                     matchTreshold,
@@ -180,8 +166,7 @@ def annotate_p_and_id(
                 )
 
         except (CogniteAPIError, Exception) as e:
-
-            msg = f"Annotated P&ID files failed on root asset: {assetRootExtId} failed - Message: {str(e)}"
+            msg = f"Annotated P&ID files failed on root asset: {assetRootExtId} failed - Message: {e!s}"
             logger.exception(msg)
             if len(msg) > 1000:
                 msg = msg[0:995] + "..."
@@ -195,7 +180,6 @@ def annotate_p_and_id(
             pass
 
 
-
 def get_files(
     cognite_client: CogniteClient,
     docDataSetExtId: str,
@@ -205,7 +189,7 @@ def get_files(
     runAll: bool,
     debug: bool,
     docLimit: int = -1,
-) -> tuple[Dict[str, FileMetadata], Dict[str, FileMetadata]]:
+) -> tuple[dict[str, FileMetadata], dict[str, FileMetadata]]:
     """
     Read files based on doc_type and mime_type to find P&ID files
 
@@ -218,10 +202,10 @@ def get_files(
     :returns: dict of files
     """
 
-    pAndIdFiles_all: Dict[str, FileMetadata] = {}  # Define a type for Dict
-    pAndIdFiles_process: Dict[str, FileMetadata] = {}  # Define a type for Dict
+    pAndIdFiles_all: dict[str, FileMetadata] = {}  # Define a type for Dict
+    pAndIdFiles_process: dict[str, FileMetadata] = {}  # Define a type for Dict
     numDoc = 0
-    metaFileUpdate: List[FileMetadataUpdate] = []
+    metaFileUpdate: list[FileMetadataUpdate] = []
 
     logger.info(
         f"Get files to annotate data set: {docDataSetExtId}, asset root: {assetRootExtId} doc_type: {pAndIdDocType} and mime_type: {orgMimeType}"
@@ -235,33 +219,30 @@ def get_files(
         mime_type=orgMimeType,
         limit=docLimit,
     )
-    
+
     for file in file_list:
         numDoc += 1
         pAndIdFiles_all[file.external_id] = file
-        
+
         # only process files related to docLimit (-1 == ALL)
         if docLimit == -1 or numDoc <= docLimit:
-            
             # debug
             # if file.name == "SKA-AK-ER251-R-XB-2011-001.pdf":
             #    pAndIdFiles_process[file.external_id] = file
             #    break
             # else:
             #    continue
-            
-            if file_annotated is not None and file_annotated not in (
-                file.metadata or {}
-            ):
+
+            if file_annotated is not None and file_annotated not in (file.metadata or {}):
                 if file.external_id is not None:
                     pAndIdFiles_process[file.external_id] = file
 
             # if run all - remove metadata element from last annotation
             elif runAll:
                 if not debug and file_annotated is not None:
-                    file_meta_update = FileMetadataUpdate(
-                        external_id=file.external_id
-                    ).metadata.remove([file_annotated])
+                    file_meta_update = FileMetadataUpdate(external_id=file.external_id).metadata.remove(
+                        [file_annotated]
+                    )
                     metaFileUpdate.append(file_meta_update)
                 if file.external_id is not None:
                     pAndIdFiles_process[file.external_id] = file
@@ -279,14 +260,13 @@ def get_files(
 
 
 def update_file_metadata(
-    metaFileUpdate: List[FileMetadataUpdate],
+    metaFileUpdate: list[FileMetadataUpdate],
     file: FileMetadata,
-    pAndIdFiles: Dict[str, FileMetadata],
+    pAndIdFiles: dict[str, FileMetadata],
     file_annotated: str,
-) -> tuple[Dict[str, FileMetadata], List[FileMetadataUpdate]]:
-
+) -> tuple[dict[str, FileMetadata], list[FileMetadataUpdate]]:
     annotated_date = (
-        datetime.strptime(file.metadata.get(file_annotated, ""), '%Y-%m-%d %H:%M:%S')
+        datetime.strptime(file.metadata.get(file_annotated, ""), "%Y-%m-%d %H:%M:%S")
         if file.metadata and file_annotated is not None
         else None
     )
@@ -297,9 +277,7 @@ def update_file_metadata(
         and file.last_updated_time > annotated_stamp + 3600000
     ):  # live 1 h for buffer
         if file_annotated is not None:  # Check for None
-            file_meta_update = FileMetadataUpdate(
-                external_id=file.external_id
-            ).metadata.remove([file_annotated])
+            file_meta_update = FileMetadataUpdate(external_id=file.external_id).metadata.remove([file_annotated])
             metaFileUpdate.append(file_meta_update)
         if file.external_id is not None:
             pAndIdFiles[file.external_id] = file
@@ -307,9 +285,7 @@ def update_file_metadata(
     return pAndIdFiles, metaFileUpdate
 
 
-def get_files_entities(
-    pAndIdFiles: Dict[str, FileMetadata]
-) -> List[Dict[str, Any]]:
+def get_files_entities(pAndIdFiles: dict[str, FileMetadata]) -> list[dict[str, Any]]:
     """
     Loop found P&ID files and create list of enties used for matching against file names in P&ID
 
@@ -327,26 +303,26 @@ def get_files_entities(
         if file_meta.name is None:
             logger.warning(f"No name found for file with external ID: {file_extId}, and metadata: {file_meta}")
             continue
-        
+
         # build list with possible file name variations used in P&ID to refer to other P&ID
         split_name = re.split("[,._ \-!?:]+", file_meta.name)
-        
+
         ctx_name = ""
-        core_name = "" 
+        core_name = ""
         next_name = ""
         for name in reversed(split_name):
             if core_name == "":
                 idx = file_meta.name.find(name)
-                core_name = file_meta.name[:idx-1]
+                core_name = file_meta.name[: idx - 1]
                 fnameList.append(core_name)
             else:
-                idx = core_name.find(name+next_name)
+                idx = core_name.find(name + next_name)
                 if idx != 0:
                     ctx_name = core_name[idx:]
                     if next_name != "":  # Ignore first part of name in matching
                         fnameList.append(ctx_name)
-                    next_name = core_name[idx-1:]
-        
+                    next_name = core_name[idx - 1 :]
+
         # add entities for files used to match between file references in P&ID to other files
         entities.append(
             {
@@ -362,8 +338,8 @@ def get_files_entities(
 
 
 def get_existing_annotations(
-    cognite_client: CogniteClient, entities: List[Dict[str, Any]]
-) -> Dict[Optional[int], List[Optional[int]]]:
+    cognite_client: CogniteClient, entities: list[dict[str, Any]]
+) -> dict[Optional[int], list[Optional[int]]]:
     """
     Read list of already annotated files and get corresponding annotations
 
@@ -375,25 +351,19 @@ def get_existing_annotations(
 
     fileList = []
     annotationList = None
-    annotatedFileText: Dict[Optional[int], List[Optional[int]]] = {}
+    annotatedFileText: dict[Optional[int], list[Optional[int]]] = {}
 
-    logger.info(
-        "Get existing annotations based on annotated_resource_type= file, and filtered by found files"
-    )
+    logger.info("Get existing annotations based on annotated_resource_type= file, and filtered by found files")
     for item in entities:
         fileList.append({"id": item["id"]})
 
     n = 1000
     for i in range(0, len(fileList), n):
-        subFileList =  fileList[i:i + n]
+        subFileList = fileList[i : i + n]
 
         if len(subFileList) > 0:
-            annotateFilter = AnnotationFilter(
-                annotated_resource_type="file", annotated_resource_ids=subFileList
-            )
-            annotationList = cognite_client.annotations.list(
-                limit=-1, filter=annotateFilter
-            )
+            annotateFilter = AnnotationFilter(annotated_resource_type="file", annotated_resource_ids=subFileList)
+            annotationList = cognite_client.annotations.list(limit=-1, filter=annotateFilter)
 
         for anno in annotationList or []:
             # only get old annotations created by this app - do not thouch manual or other created annotations
@@ -410,8 +380,8 @@ def get_existing_annotations(
 def get_assets(
     cognite_client: CogniteClient,
     assetRootExtId: str,
-    entities: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    entities: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Get Asset used as input to contextualization
 
@@ -424,9 +394,7 @@ def get_assets(
     """
 
     logger.info(f"Get assets based on asset_subtree_external_ids = {assetRootExtId}")
-    assets = cognite_client.assets.list(
-        asset_subtree_external_ids=[assetRootExtId], limit=-1
-    )
+    assets = cognite_client.assets.list(asset_subtree_external_ids=[assetRootExtId], limit=-1)
 
     # clean up dummy tags ans system numbers
     for asset in assets:
@@ -440,17 +408,14 @@ def get_assets(
                 and "DUMMY TAG" in asset.metadata.get("Description", "").upper()
             ):
                 notDymmy = False
-            if (
-                name is not None and len(name) > 3 and notDymmy
-            ):  # ignore system asset names (01, 02, ...)
+            if name is not None and len(name) > 3 and notDymmy:  # ignore system asset names (01, 02, ...)
+                nameList.append(name)
 
-                nameList.append(name)          
-
-                # Split name - and if a system number is used also add name without system number to list                    
+                # Split name - and if a system number is used also add name without system number to list
                 split_name = re.split("[,._ \-:]+", name)
                 if split_name[0].isnumeric():
-                    nameList.append(name[len(split_name[0])+1:])
-                    
+                    nameList.append(name[len(split_name[0]) + 1 :])
+
                 entities.append(
                     {
                         "externalId": asset.external_id,
@@ -460,25 +425,24 @@ def get_assets(
                         "type": "asset",
                     }
                 )
-        except Exception as e:
+        except Exception:
             logger.error(f"Not able to get entities for asset name: {name}, id {asset.external_id}")
             pass
 
     return entities
 
 
-
 def process_files(
     cognite_client: CogniteClient,
     matchTreshold: float,
-    entities: List[Dict[str, Any]],
-    files: Dict[str, FileMetadata],
-    annotationList: Dict[Optional[int], List[Optional[int]]],
+    entities: list[dict[str, Any]],
+    files: dict[str, FileMetadata],
+    annotationList: dict[Optional[int], list[Optional[int]]],
     debug: bool,
-) -> Tuple[int, int]:
+) -> tuple[int, int]:
     """
-    Contextualize files by calling the annotation function 
-    Then update the metadata for the P&ID input file 
+    Contextualize files by calling the annotation function
+    Then update the metadata for the P&ID input file
 
     :param cognite_client: client id used to connect to CDF
     :param matchTreshold: score used to qualify match
@@ -526,22 +490,16 @@ def process_files(
                     my_update = (
                         FileMetadataUpdate(id=file.id)
                         .asset_ids.set(assetIdsList)
-                        .metadata.add(
-                            {file_annotated: convert_date_time, "tags": assetNames}
-                        )
+                        .metadata.add({file_annotated: convert_date_time, "tags": assetNames})
                     )
                     updateOrgFiles(cognite_client, my_update, file.external_id)
                 except Exception as e:
                     s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-                    logger.warning(
-                        f"Not able to update refrence doc : {fileId} - {s}  - {r}"
-                    )
+                    logger.warning(f"Not able to update refrence doc : {fileId} - {s}  - {r}")
                     pass
 
             else:
-                logger.info(
-                    f"Converted and created (not upload due to DEBUG) file: {fileId}"
-                )
+                logger.info(f"Converted and created (not upload due to DEBUG) file: {fileId}")
                 logger.info(f"Assets found: {assetNames}")
 
         except Exception as e:
@@ -564,12 +522,12 @@ def detect_create_annotation(
     cognite_client: CogniteClient,
     matchTreshold: float,
     fileId: str,
-    entities: List,
-    annotationList: Dict,
-) -> Tuple[List[Any], List[Any]]:
+    entities: list,
+    annotationList: dict,
+) -> tuple[list[Any], list[Any]]:
     """
     Detect tags + files and create annotation for P&ID
-    
+
     :param cognite_client: client id used to connect to CDF
     :param matchTreshold: score used to qualify match
     :param fileId: file to be processed
@@ -581,8 +539,8 @@ def detect_create_annotation(
 
     entities_id_found = []
     entities_name_found = []
-    createAnnotationList: List[Annotation] = []
-    deleteAnnotationList: List[int] = []
+    createAnnotationList: list[Annotation] = []
+    deleteAnnotationList: list[int] = []
     itemNum = 0
 
     # in case contextualization service not is avaiable - back off and retry
@@ -602,9 +560,7 @@ def detect_create_annotation(
             # retry func if CDF api returns an error
             if retryNum < 3:
                 retryNum += 1
-                logger.warning(
-                    f"Retry #{retryNum} - wait before retry - error was: {s}  - {r}"
-                )
+                logger.warning(f"Retry #{retryNum} - wait before retry - error was: {s}  - {r}")
                 time.sleep(retryNum * 5)
                 pass
             else:
@@ -634,8 +590,8 @@ def detect_create_annotation(
 
             if item["confidence"] >= 0.5:
                 tokens = item["text"].split("-")
-                
-                # logic to create suggestions for annotations if system number is missing 
+
+                # logic to create suggestions for annotations if system number is missing
                 # but suggestion matches most frequent system number from P&ID
                 if len(tokens) == 2 and item["confidence"] >= matchTreshold and len(item["entities"]) == 1:
                     sysTokenFound = item["entities"][0]["name"][0].split("-")
@@ -647,9 +603,9 @@ def detect_create_annotation(
                             continue
                     else:
                         continue
-                        
+
                 elif item["confidence"] >= matchTreshold and len(item["entities"]) == 1:
-                        annotationStatus = annotationStatusAproved
+                    annotationStatus = annotationStatusAproved
 
                 elif item["confidence"] >= 0.5 and item["entities"][0]["type"] == "asset" and len(tokens) > 5:
                     annotationStatus = annotationStatusSuggested
@@ -699,13 +655,14 @@ def detect_create_annotation(
 
     return entities_name_found, entities_id_found
 
-def  getSysNums(annotations: Any) -> Dict[str, int]:
+
+def getSysNums(annotations: Any) -> dict[str, int]:
     """
-    Get dict of used system number in P&ID. The dict is used to annotate if system 
-    number is missing - but then only annotation of found text is part of most  
-    frequent used system number 
-    
-    :annotations found by context api 
+    Get dict of used system number in P&ID. The dict is used to annotate if system
+    number is missing - but then only annotation of found text is part of most
+    frequent used system number
+
+    :annotations found by context api
 
     :returns: dict of system numbers and number of times used.
     """
@@ -720,11 +677,11 @@ def  getSysNums(annotations: Any) -> Dict[str, int]:
                 detectedSytemNum[sysNum] += 1
             else:
                 detectedSytemNum[sysNum] = 1
-    
-    return detectedSytemNum
-    
 
-def getCord(vertices: Dict) -> Tuple[int, int, int, int]:
+    return detectedSytemNum
+
+
+def getCord(vertices: dict) -> tuple[int, int, int, int]:
     """
     Get coordinates for text box based on input from contextualization
     and convert it to coordinates used in annotations.
@@ -768,13 +725,11 @@ def getCord(vertices: Dict) -> Tuple[int, int, int, int]:
                 yMin -= 0.001
             else:
                 yMax += 0.001
-        
+
     return xMin, xMax, yMin, yMax
 
 
-def deleteAnnotations(
-    deleteAnnotationList: List, cognite_client: CogniteClient
-) -> None:
+def deleteAnnotations(deleteAnnotationList: list, cognite_client: CogniteClient) -> None:
     """
     Clean up / delete exising annotatoions
 
@@ -819,19 +774,19 @@ def updateOrgFiles(
 
 def main():
     """
-    Code used for local Test & Debug  
+    Code used for local Test & Debug
     update local .env file to set variables to connect to CDF
     """
-       
+
     cdfProjectName = os.environ["CDF_PROJECT"]
     cdfCluster = os.environ["CDF_CLUSTER"]
     clientId = os.environ["IDP_CLIENT_ID"]
     clientSecret = os.environ["IDP_CLIENT_SECRET"]
     tokenUri = os.environ["IDP_TOKEN_URL"]
 
-    baseUrl = f"https://{cdfCluster}.cognitedata.com"    
+    baseUrl = f"https://{cdfCluster}.cognitedata.com"
     scopes = f"{baseUrl}/.default"
-    
+
     oauth_provider = OAuthClientCredentials(
         token_url=tokenUri,
         client_id=clientId,
@@ -845,7 +800,7 @@ def main():
         project=cdfProjectName,
         credentials=oauth_provider,
     )
-    
+
     client = CogniteClient(cnf)
 
     data = {
@@ -858,4 +813,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

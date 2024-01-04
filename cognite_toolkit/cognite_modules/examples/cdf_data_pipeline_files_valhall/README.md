@@ -1,16 +1,16 @@
 # cdf_data_pipeline_files_valhall
 
 This module relies on these example data modules being loaded:
-- cdf_oid_example_data being loaded.
+
+- cdf_oid_example_data
 - cdf_data_pipeline_asset_valhall
 
-The module creates a simple data pipeline for processing files from the OID example module. OID is used as the examle location name.
+The module creates a simple data pipeline for processing files from the OID example module. 
+OID is used as the examle location name.
 Since the pipeline don't load from a source the example data from cdf_oid_example_data is loaded to files and RAW in CDF.
 
 Requred example data in the module `cdf_oid_example_data` is a small data set from [Open Industrial
 Data](https://learn.cognite.com/open-industrial-data), the Valhall platform.
-
-
 
 ## Managed resources
 
@@ -33,11 +33,10 @@ This module manages the following resources:
 4. function:
    - ID: `fu_context_files_oid_fileshare_annotation`
      - Content: Extracts all tags in P&ID that matches tags from Asset Hierarchy and creates CDF annotations used for linking found objects in document to other resource types in CDF
-    
+
 ### Illustration of the files data pipeline
 
 ![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/32c5d53f-5fdb-44a8-9362-35e8152b83e3)
-
 
 ## Variables
 
@@ -62,4 +61,3 @@ you can copy it to `custom_modules`, change the name (remove the cdf_ prefix), a
 various sub-directories.
 
 See [Using Templates](https://developer.cognite.com/sdks/toolkit/templates)
-
