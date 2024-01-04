@@ -17,7 +17,6 @@ import io
 import itertools
 import json
 import re
-import typing
 from abc import ABC, abstractmethod
 from collections import Counter, UserList
 from collections.abc import Iterable, Sequence, Sized
@@ -880,7 +879,6 @@ class TransformationScheduleLoader(
 
 
 @final
-@typing.no_type_check
 class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesList]):  # type: ignore[type-var]
     support_drop = False
     filetypes = frozenset({"csv", "parquet"})
