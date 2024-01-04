@@ -89,11 +89,13 @@ from cognite.client.data_classes.data_modeling import (
     View,
     ViewApply,
     ViewApplyList,
-    ViewList,
+    ViewList, EdgeApplyResultList, NodeApplyResultList,
 )
-from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, EdgeId, InstanceId, NodeId, ViewId
+from cognite.client.data_classes.data_modeling.ids import ContainerId, DataModelId, EdgeId, InstanceId, NodeId, ViewId, \
+    VersionedDataModelingId
 from cognite.client.data_classes.iam import Group, GroupList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
+from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.table import Table
 from typing_extensions import Self
@@ -134,14 +136,14 @@ class LoadableNodes(NodeApplyList):
     replace: bool
     nodes: NodeApplyList
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.data = self.nodes.data
 
     def __len__(self) -> int:
         return len(self.data)
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self: # type: ignore[override]
         return cls(
             auto_create_direct_relations=resource["autoCreateDirectRelations"],
             skip_on_version_conflict=resource["skipOnVersionConflict"],
@@ -149,7 +151,7 @@ class LoadableNodes(NodeApplyList):
             nodes=NodeApplyList.load(resource["nodes"]),
         )
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+    def dump(self, camel_case: bool = True) -> dict[str, Any]: # type: ignore[override]
         return {
             "autoCreateDirectRelations"
             if camel_case
@@ -173,14 +175,14 @@ class LoadableEdges(EdgeApplyList):
     replace: bool
     edges: EdgeApplyList
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.data = self.edges.data
 
     def __len__(self) -> int:
         return len(self.data)
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self: # type: ignore[override]
         return cls(
             auto_create_start_nodes=resource["autoCreateStartNodes"],
             auto_create_end_nodes=resource["autoCreateEndNodes"],
@@ -189,7 +191,7 @@ class LoadableEdges(EdgeApplyList):
             edges=EdgeApplyList.load(resource["edges"]),
         )
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+    def dump(self, camel_case: bool = True) -> dict[str, Any]: # type: ignore[override]
         return {
             "autoCreateStartNodes" if camel_case else "auto_create_start_nodes": self.auto_create_start_nodes,
             "autoCreateEndNodes" if camel_case else "auto_create_end_nodes": self.auto_create_end_nodes,
@@ -203,7 +205,7 @@ class ExtractionPipelineConfigList(CogniteResourceList[ExtractionPipelineConfig]
     _RESOURCE = ExtractionPipelineConfig
 
 
-T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId])
+T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId])
 
 T_CogniteResourceWrite = TypeVar("T_CogniteResourceWrite", bound=CogniteResource)
 T_CogniteResourceWriteList = TypeVar("T_CogniteResourceWriteList", bound=CogniteResourceList)
@@ -242,7 +244,7 @@ class Loader(
     list_cls: type[T_CogniteResourceList]
     list_write_cls: type[T_CogniteResourceWriteList]
     identifier_key: str = "externalId"
-    dependencies: frozenset[T_Loader] = frozenset()
+    dependencies: frozenset[type[Loader]] = frozenset()
     _display_name: str = ""
 
     def __init__(self, client: CogniteClient, ToolGlobals: CDFToolConfig):
@@ -280,7 +282,7 @@ class Loader(
 
     @classmethod
     @abstractmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
     @classmethod
@@ -321,7 +323,7 @@ class Loader(
         return local_list
 
     # Default implementations that can be overridden
-    def create(self, items: T_CogniteResourceWriteList, drop: bool, filepath: Path) -> T_CogniteResourceList | None:
+    def create(self, items: T_CogniteResourceWriteList, drop: bool, filepath: Path) -> Sized:
         try:
             created = self.api_class.create(items)
             return created
@@ -343,11 +345,11 @@ class Loader(
             self.ToolGlobals.failed = True
             return self.list_cls([])
 
-    def delete(self, ids: Sequence[T_ID], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[T_ID], drop_data: bool) -> int:
         self.api_class.delete(ids)
         return len(ids)
 
-    def retrieve(self, ids: Sequence[T_ID]) -> T_CogniteResourceList:
+    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_CogniteResourceList:
         return self.api_class.retrieve(ids)
 
     def load_resource(self, filepath: Path, dry_run: bool) -> T_CogniteResourceWrite | T_CogniteResourceWriteList:
@@ -356,8 +358,6 @@ class Loader(
             return self.list_cls.load(raw_yaml)
         return self.resource_cls.load(raw_yaml)
 
-
-T_Loader = TypeVar("T_Loader", bound=Loader)
 
 
 @final
@@ -461,12 +461,12 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
                         values["scope"]["extractionPipelineScope"]["ids"] = [-1]
         return Group.load(raw)
 
-    def retrieve(self, ids: Sequence[int]) -> GroupList:
+    def retrieve(self, ids: SequenceNotStr[int]) -> GroupList:
         remote = self.client.iam.groups.list(all=True)
         found = [g for g in remote if g.name in ids]
         return GroupList(found)
 
-    def delete(self, ids: Sequence[int], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[int], drop_data: bool) -> int:
         ids_ = list(ids)
         # Let's prevent that we delete groups we belong to
         try:
@@ -551,10 +551,10 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
     def get_id(self, item: DataSet) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
-    def retrieve(self, ids: Sequence[str]) -> DataSetList:
+    def retrieve(self, ids: SequenceNotStr[str]) -> DataSetList:
         return self.client.data_sets.retrieve_multiple(external_ids=ids)
 
     @staticmethod
@@ -625,7 +625,7 @@ class RawLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]
     def get_id(cls, item: RawTable) -> RawTable:
         return item
 
-    def delete(self, ids: Sequence[RawTable], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[RawTable], drop_data: bool) -> int:
         count = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
@@ -693,7 +693,7 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeries, TimeSeriesList, TimeS
     def get_id(self, item: TimeSeries) -> str:
         return item.external_id
 
-    def retrieve(self, ids: Sequence[str]) -> TimeSeriesList:
+    def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def delete(self, ids: Sequence[str], drop_data: bool) -> int:
@@ -768,7 +768,7 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
         transformation.query = sql_file.read_text()
         return transformation
 
-    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         self.client.transformations.delete(external_id=ids, ignore_unknown_ids=True)
         return len(ids)
 
@@ -821,7 +821,7 @@ class TransformationScheduleLoader(
         raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         return TransformationSchedule.load(raw)
 
-    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         try:
             self.client.transformations.schedules.delete(external_id=ids, ignore_unknown_ids=False)
             return len(ids)
@@ -880,7 +880,7 @@ class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesL
     def get_id(cls, item: Path) -> list[str]:
         raise NotImplementedError
 
-    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         # Drop all datapoints?
         raise NotImplementedError()
 
@@ -923,7 +923,7 @@ class ExtractionPipelineLoader(
     def get_id(self, item: ExtractionPipeline) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         try:
             self.client.extraction_pipelines.delete(external_id=ids)
             return len(ids)
@@ -1019,7 +1019,7 @@ class ExtractionPipelineConfigLoader(
             self.ToolGlobals.failed = True
             return ExtractionPipelineConfig()
 
-    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         configs = self.client.extraction_pipelines.config.list(external_id=ids)
         return len(configs)
 
@@ -1048,7 +1048,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
     def get_id(cls, item: FileMetadata) -> str:
         return item.external_id
 
-    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         self.client.files.delete(external_id=ids)
         return len(ids)
 
@@ -1097,6 +1097,8 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
     def create(self, items: Sequence[FileMetadata], drop: bool, filepath: Path) -> FileMetadataList:
         created = FileMetadataList([])
         for meta in items:
+            if meta.name is None:
+                raise ValueError(f"File {meta.external_id} has no name.")
             datafile = filepath.parent / meta.name
             try:
                 created.append(self.client.files.upload(path=datafile, overwrite=drop, **meta.dump(camel_case=False)))
@@ -1136,10 +1138,10 @@ class SpaceLoader(Loader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
         ]
 
     @classmethod
-    def get_id(cls, item: SpaceApply) -> str:
+    def get_id(cls, item: SpaceApply | Space) -> str:
         return item.space
 
-    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         if not drop_data:
             print("  [bold]INFO:[/] Skipping deletion of spaces as drop_data flag is not set...")
             return 0
@@ -1178,14 +1180,14 @@ class ContainerLoader(Loader[ContainerId, ContainerApply, Container, ContainerAp
         )
 
     @classmethod
-    def get_id(cls, item: ContainerApply) -> ContainerId:
+    def get_id(cls, item: ContainerApply | Container) -> ContainerId:
         return item.as_id()
 
-    def delete(self, ids: Sequence[ContainerId], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[ContainerId], drop_data: bool) -> int:
         if not drop_data:
             print("  [bold]INFO:[/] Skipping deletion of containers as drop_data flag is not set...")
             return 0
-        deleted = self.client.data_modeling.containers.delete(ids)
+        deleted = self.client.data_modeling.containers.delete(cast(Sequence, ids))
         return len(deleted)
 
     def create(self, items: Sequence[ContainerApply], drop: bool, filepath: Path) -> ContainerList:
@@ -1215,7 +1217,7 @@ class ViewLoader(Loader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
         )
 
     @classmethod
-    def get_id(cls, item: ViewApply) -> ViewId:
+    def get_id(cls, item: ViewApply | View) -> ViewId:
         return item.as_id()
 
     def create(self, items: ViewApplyList, drop: bool, filepath: Path) -> ViewList:
@@ -1244,10 +1246,10 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModel, DataModelAp
         )
 
     @classmethod
-    def get_id(cls, item: DataModelApply) -> DataModelId:
+    def get_id(cls, item: DataModelApply | DataModel) -> DataModelId:
         return item.as_id()
 
-    def create(self, items: DataModelApplyList, drop: bool, filepath: Path) -> DataModelApplyList:
+    def create(self, items: DataModelApplyList, drop: bool, filepath: Path) -> DataModelList:
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.data_models.apply(items)
 
@@ -1273,7 +1275,7 @@ class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
         )
 
     @classmethod
-    def get_id(cls, item: NodeApply) -> NodeId:
+    def get_id(cls, item: NodeApply | Node) -> NodeId:
         return item.as_id()
 
     def load_resource(self, filepath: Path, dry_run: bool) -> LoadableNodes:
@@ -1283,25 +1285,25 @@ class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
         else:
             raise ValueError(f"Unexpected node yaml file format {filepath.name}")
 
-    def delete(self, ids: Sequence[NodeId], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[NodeId], drop_data: bool) -> int:
         if not drop_data:
             print("  [bold]INFO:[/] Skipping deletion of nodes as drop_data flag is not set...")
             return 0
-        deleted = self.client.data_modeling.instances.delete(nodes=ids)
+        deleted = self.client.data_modeling.instances.delete(nodes=cast(Sequence, ids))
         return len(deleted.nodes)
 
-    def create(self, items: LoadableNodes, drop: bool, filepath: Path) -> None:
+    def create(self, items: LoadableNodes, drop: bool, filepath: Path) -> NodeApplyResultList:
         if not isinstance(items, LoadableNodes):
             raise ValueError("Unexpected node format file format")
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         item = items
-        _ = self.client.data_modeling.instances.apply(
+        result = self.client.data_modeling.instances.apply(
             nodes=item.nodes,
             auto_create_direct_relations=item.auto_create_direct_relations,
             skip_on_version_conflict=item.skip_on_version_conflict,
             replace=item.replace,
         )
-        return None
+        return result.nodes
 
 
 @final
@@ -1328,7 +1330,7 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
         )
 
     @classmethod
-    def get_id(cls, item: EdgeApply) -> EdgeId:
+    def get_id(cls, item: EdgeApply | Edge) -> EdgeId:
         return item.as_id()
 
     def load_resource(self, filepath: Path, dry_run: bool) -> LoadableEdges:
@@ -1338,26 +1340,26 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
         else:
             raise ValueError(f"Unexpected edge yaml file format {filepath.name}")
 
-    def delete(self, ids: Sequence[EdgeId], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[EdgeId], drop_data: bool) -> int:
         if not drop_data:
             print("  [bold]INFO:[/] Skipping deletion of edges as drop_data flag is not set...")
             return 0
-        deleted = self.client.data_modeling.instances.delete(edges=ids)
+        deleted = self.client.data_modeling.instances.delete(edges=cast(Sequence, ids))
         return len(deleted.edges)
 
-    def create(self, items: LoadableEdges, drop: bool, filepath: Path) -> None:
+    def create(self, items: LoadableEdges, drop: bool, filepath: Path) -> EdgeApplyResultList:
         if not isinstance(items, LoadableEdges):
             raise ValueError("Unexpected edge format file format")
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         item = items
-        _ = self.client.data_modeling.instances.apply(
+        result = self.client.data_modeling.instances.apply(
             edges=item.edges,
             auto_create_start_nodes=item.auto_create_start_nodes,
             auto_create_end_nodes=item.auto_create_end_nodes,
             skip_on_version_conflict=item.skip_on_version_conflict,
             replace=item.replace,
         )
-        return None
+        return result.edges
 
 
 @total_ordering
