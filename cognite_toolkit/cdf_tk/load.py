@@ -17,6 +17,7 @@ import io
 import itertools
 import json
 import re
+import typing
 from abc import ABC, abstractmethod
 from collections import Counter, UserList
 from collections.abc import Iterable, Sequence, Sized
@@ -734,7 +735,7 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope = (
+        scope: capabilities.AllScope | capabilities.DataSetScope = (
             TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id])
             if ToolGlobals.data_set_id
             else TransformationsAcl.Scope.All()
@@ -744,15 +745,18 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
             scope,
         )
 
-    def get_id(self, item: Transformation) -> str:
+    @classmethod
+    def get_id(cls, item: Transformation) -> str:
+        if item.external_id is None:
+            raise ValueError("Transformation must have external_id set.")
         return item.external_id
 
     def load_resource(self, filepath: Path, dry_run: bool) -> Transformation:
-        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables(), required_return_type="dict")
         # The `authentication` key is custom for this template:
 
-        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or {}
-        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or {}
+        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or None
+        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or None
         if raw.get("dataSetExternalId") is not None:
             ds_external_id = raw.pop("dataSetExternalId")
             raw["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
@@ -777,7 +781,7 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
         return transformation
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
-        self.client.transformations.delete(external_id=ids, ignore_unknown_ids=True)
+        self.client.transformations.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=True)
         return len(ids)
 
     def create(self, items: Sequence[Transformation], drop: bool, filepath: Path) -> TransformationList:
@@ -789,12 +793,12 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
             )
             for dup in e.duplicated:
                 print(f"           {dup.get('externalId', 'N/A')}")
-            return []
+            return TransformationList([])
         except Exception as e:
             print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
             self.ToolGlobals.failed = True
             return TransformationList([])
-        return created
+        return cast(TransformationList, created)
 
 
 @final
@@ -812,7 +816,7 @@ class TransformationScheduleLoader(
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope = (
+        scope: capabilities.AllScope | capabilities.DataSetScope = (
             TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id])
             if ToolGlobals.data_set_id
             else TransformationsAcl.Scope.All()
@@ -822,23 +826,26 @@ class TransformationScheduleLoader(
             scope,
         )
 
-    def get_id(self, item: Transformation) -> str:
+    @classmethod
+    def get_id(cls, item: TransformationSchedule) -> str:
+        if item.external_id is None:
+            raise ValueError("TransformationSchedule must have external_id set.")
         return item.external_id
 
     def load_resource(self, filepath: Path, dry_run: bool) -> TransformationSchedule:
-        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables(), required_return_type="dict")
         return TransformationSchedule.load(raw)
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         try:
-            self.client.transformations.schedules.delete(external_id=ids, ignore_unknown_ids=False)
+            self.client.transformations.schedules.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=False)
             return len(ids)
         except CogniteNotFoundError as e:
             return len(ids) - len(e.not_found)
 
-    def create(self, items: Sequence[TransformationSchedule], drop: bool, filepath: Path) -> TransformationScheduleList:
+    def create(self, items: TransformationScheduleList, drop: bool, filepath: Path) -> TransformationScheduleList:
         try:
-            return self.client.transformations.schedules.create(items)
+            return cast(TransformationScheduleList, self.client.transformations.schedules.create(items))
         except CogniteDuplicatedError as e:
             existing = {external_id for dup in e.duplicated if (external_id := dup.get("externalId", None))}
             print(
@@ -848,7 +855,7 @@ class TransformationScheduleLoader(
             if len(new_items) == 0:
                 return TransformationScheduleList([])
             try:
-                return self.client.transformations.schedules.create(new_items)
+                return cast(TransformationScheduleList, self.client.transformations.schedules.create(new_items))
             except CogniteAPIError as e:
                 print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
                 self.ToolGlobals.failed = True
@@ -859,8 +866,10 @@ class TransformationScheduleLoader(
             return TransformationScheduleList([])
 
 
+
 @final
-class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesList]):
+@typing.no_type_check
+class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesList]): # type: ignore[type-var]
     support_drop = False
     filetypes = frozenset({"csv", "parquet"})
     api_name = "time_series.data"
@@ -870,7 +879,7 @@ class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesL
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope = (
+        scope: capabilities.AllScope | capabilities.DataSetScope = (
             TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
             if ToolGlobals.data_set_id
             else TimeSeriesAcl.Scope.All()
@@ -888,7 +897,7 @@ class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesL
     def get_id(cls, item: Path) -> list[str]:
         raise NotImplementedError
 
-    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[list[str]], drop_data: bool) -> int:
         # Drop all datapoints?
         raise NotImplementedError()
 
@@ -931,13 +940,17 @@ class ExtractionPipelineLoader(
             ExtractionPipelinesAcl.Scope.All(),
         )
 
-    def get_id(self, item: ExtractionPipeline) -> str:
+    @classmethod
+    def get_id(cls, item: ExtractionPipeline) -> str:
+        if item.external_id is None:
+            raise ValueError("ExtractionPipeline must have external_id set.")
         return item.external_id
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
+        id_list = list(ids)
         try:
-            self.client.extraction_pipelines.delete(external_id=ids)
-            return len(ids)
+            self.client.extraction_pipelines.delete(external_id=id_list)
+            return len(id_list)
         except CogniteNotFoundError as e:
             print(
                 f"  [bold yellow]WARNING:[/] {len(e.not_found)} out of {len(ids)} extraction pipelines do(es) not exist."
@@ -945,15 +958,15 @@ class ExtractionPipelineLoader(
 
             for dup in e.not_found:
                 ext_id = dup.get("externalId", None)
-                ids.remove(ext_id)
+                id_list.remove(ext_id)
 
-            if len(ids) > 0:
-                self.client.extraction_pipelines.delete(external_id=ids)
-                return len(ids)
+            if len(id_list) > 0:
+                self.client.extraction_pipelines.delete(external_id= id_list)
+                return len(id_list)
             return 0
 
     def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipeline:
-        resource = load_yaml_inject_variables(filepath, {})
+        resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
 
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
@@ -961,7 +974,7 @@ class ExtractionPipelineLoader(
 
         return ExtractionPipeline.load(resource)
 
-    def create(self, items: Sequence[ExtractionPipeline], drop: bool, filepath: Path) -> ExtractionPipelineList:
+    def create(self, items: ExtractionPipelineList, drop: bool, filepath: Path) -> ExtractionPipelineList:
         try:
             return self.client.extraction_pipelines.create(items)
         except CogniteDuplicatedError as e:
@@ -976,7 +989,7 @@ class ExtractionPipelineLoader(
                 except Exception as e:
                     print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
                     self.ToolGlobals.failed = True
-                    return ExtractionPipelineList([])
+        return ExtractionPipelineList([])
 
 
 @final
@@ -1006,11 +1019,14 @@ class ExtractionPipelineConfigLoader(
             ExtractionPipelinesAcl.Scope.All(),
         )
 
-    def get_id(self, item: ExtractionPipeline) -> str:
+    @classmethod
+    def get_id(cls, item: ExtractionPipelineConfig) -> str:
+        if item.external_id is None:
+            raise ValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
 
     def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipelineConfig:
-        resource = load_yaml_inject_variables(filepath, {})
+        resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
         try:
             resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
         except Exception:
@@ -1022,17 +1038,20 @@ class ExtractionPipelineConfigLoader(
 
     def create(
         self, items: Sequence[ExtractionPipelineConfig], drop: bool, filepath: Path
-    ) -> list[ExtractionPipelineConfig]:
+    ) -> ExtractionPipelineConfigList:
         try:
-            return [self.client.extraction_pipelines.config.create(items[0])]
+            return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
         except Exception as e:
             print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
             self.ToolGlobals.failed = True
-            return ExtractionPipelineConfig()
+            return ExtractionPipelineConfigList([])
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
-        configs = self.client.extraction_pipelines.config.list(external_id=ids)
-        return len(configs)
+        count = 0
+        for id_ in ids:
+            result = self.client.extraction_pipelines.config.list(external_id=id_)
+            count += len(result)
+        return count
 
 
 @final
@@ -1048,6 +1067,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        scope: capabilities.AllScope | capabilities.DataSetScope
         if ToolGlobals.data_set_id is None:
             scope = FilesAcl.Scope.All()
         else:
@@ -1057,22 +1077,26 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
 
     @classmethod
     def get_id(cls, item: FileMetadata) -> str:
+        if item.external_id is None:
+            raise ValueError("FileMetadata must have external_id set.")
         return item.external_id
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
-        self.client.files.delete(external_id=ids)
+        self.client.files.delete(external_id=cast(Sequence, ids))
         return len(ids)
 
     def load_resource(self, filepath: Path, dry_run: bool) -> FileMetadata | FileMetadataList:
         try:
-            resource = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+            resource = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables(), required_return_type="dict")
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
             files_metadata = FileMetadataList([FileMetadata.load(resource)])
         except Exception:
             files_metadata = FileMetadataList.load(
-                load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+                load_yaml_inject_variables(
+                    filepath, self.ToolGlobals.environment_variables(), required_return_type="list"
+                )
             )
         # If we have a file with exact one file config, check to see if this is a pattern to expand
         if len(files_metadata) == 1 and ("$FILENAME" in (files_metadata[0].external_id or "")):
