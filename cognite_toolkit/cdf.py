@@ -159,18 +159,16 @@ def common(
 @app.command("build")
 def build(
     ctx: typer.Context,
-    source_dir: Annotated[
-        str,
-        typer.Argument(
-            default="./",
-            help="Where to find the module templates to build from",
-            allow_dash=True,
-        ),
-    ] = "./",
+    source_dir: str = typer.Argument(
+        default="./",
+        help="Where to find the module templates to build from",
+        allow_dash=True,
+    ),
     build_dir: Annotated[
         str,
         typer.Option(
-            "./build" "--build-dir",
+            "./build",
+            "--build-dir",
             "-b",
             help="Where to save the built module files",
         ),
