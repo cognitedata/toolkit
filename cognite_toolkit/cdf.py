@@ -20,9 +20,11 @@ from rich.panel import Panel
 
 from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk import bootstrap
+from cognite_toolkit.cdf_tk.describe import describe_datamodel
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
+    DataSetsLoader,
     DeployResults,
     deploy_or_clean_resources,
 )
@@ -51,7 +53,11 @@ app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=F
 auth_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
+describe_app = typer.Typer(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
 app.add_typer(auth_app, name="auth")
+app.add_typer(describe_app, name="describe")
 
 
 _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
@@ -324,7 +330,10 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth (groups) with ALL scope as expected.")
             exit(1)
-    for LoaderCls in TopologicalSorter(selected_loaders).static_order():
+    resolved_list = list(TopologicalSorter(selected_loaders).static_order())
+    if len(resolved_list) > len(selected_loaders):
+        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
+    for LoaderCls in resolved_list:
         result = deploy_or_clean_resources(
             LoaderCls.create_loader(ToolGlobals),
             build_path / LoaderCls.folder_name,
@@ -430,9 +439,16 @@ def clean(
         print("[bold red]ERROR: [/] Failure to delete data models as expected.")
         exit(1)
     results = DeployResults([], "clean", dry_run=dry_run)
-    for LoaderCls in reversed(list(TopologicalSorter(selected_loaders).static_order())):
+    resolved_list = list(TopologicalSorter(selected_loaders).static_order())
+    if len(resolved_list) > len(selected_loaders):
+        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
+    for LoaderCls in reversed(resolved_list):
+        loader = LoaderCls.create_loader(ToolGlobals)
+        if type(loader) is DataSetsLoader:
+            print("[bold]WARNING:[/] Dataset cleaning is not supported, skipping...")
+            continue
         result = deploy_or_clean_resources(
-            LoaderCls.create_loader(ToolGlobals),
+            loader,
             build_path / LoaderCls.folder_name,
             ToolGlobals,
             drop=True,
@@ -724,6 +740,47 @@ def main_init(
             config_str, difference = generate_config(target_dir, existing_config=current)
             config_filepath.write_text(config_str)
             print(str(difference))
+
+
+@describe_app.callback(invoke_without_command=True)
+def describe_main(ctx: typer.Context):
+    """Commands to describe and document configurations and CDF project state."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk describe --help[/] for more information.")
+
+
+@describe_app.command("datamodel")
+def describe_datamodel_cmd(
+    ctx: typer.Context,
+    space: Annotated[
+        Optional[str],
+        typer.Option(
+            "--space",
+            "-s",
+            prompt=True,
+            help="Space where the data model to describe is located.",
+        ),
+    ] = None,
+    data_model: Annotated[
+        Optional[str],
+        typer.Option(
+            "--datamodel",
+            "-d",
+            prompt=False,
+            help="Data model to describe. If not specified, the first data model found in the space will be described.",
+        ),
+    ] = None,
+):
+    """This command will describe the characteristics of a data model given the space
+    name and datamodel name."""
+    if space is None or len(space) == 0:
+        print("[bold red]ERROR: [/] --space is required.")
+        exit(1)
+    if ctx.obj.mockToolGlobals is not None:
+        ToolGlobals = ctx.obj.mockToolGlobals
+    else:
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    describe_datamodel(ToolGlobals, space, data_model)
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:

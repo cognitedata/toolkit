@@ -34,11 +34,16 @@ repos:
       - id: debug-statements
       - id: check-docstring-first
 
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+    - id: markdownlint
+
 # Mypy must be run in the local system environment, not in the pre-commit environment.
   - hooks:
     - id: mypy
       name: mypy
-      entry: dmypy run -- cognite_toolkit/cdf_tk/utils.py cognite_toolkit/cdf_tk/bootstrap.py cognite_toolkit/cdf_tk/dump.py cognite_toolkit/cdf_tk/delete.py cognite_toolkit/cdf_tk/load.py
+      entry: mypy cognite_toolkit/cdf_tk/utils.py cognite_toolkit/cdf_tk/bootstrap.py cognite_toolkit/cdf_tk/dump.py cognite_toolkit/cdf_tk/delete.py cognite_toolkit/cdf_tk/load.py
       files: ^.*.(py|pyi)$
       language: system
       pass_filenames: false
