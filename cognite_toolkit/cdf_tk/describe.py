@@ -47,7 +47,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         print(e)
         return None
     containers_str = "\n".join([c.external_id for c in containers])
-    table.add_row(f"Containers ({len(containers_str)})", "".join(containers_str))
+    table.add_row(f"Containers ({len(containers)})", "".join(containers_str))
     print(table)
     try:
         data_models = client.data_modeling.data_models.list(
