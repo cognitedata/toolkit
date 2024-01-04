@@ -408,6 +408,11 @@ def load_yaml_inject_variables(
 ) -> dict[str, Any]:
     ...
 
+@overload
+def load_yaml_inject_variables(
+    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
+) -> dict[str, Any] | list[dict[str, Any]]:
+    ...
 
 def load_yaml_inject_variables(
     filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
