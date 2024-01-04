@@ -45,29 +45,25 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
     except Exception as e:
         print(f"Failed to retrieve containers for data model {model_name}.")
         print(e)
-        return
-    container_list = [(space_name, c.external_id) for c in containers.data]
-    containers_str = []
-    for c in container_list:
-        containers_str.append(f"{c[1]}\n")
-    if len(containers_str) > 0:
-        containers_str[-1] = containers_str[-1][0:-1]
+        return None
+    containers_str = "\n".join([c.external_id for c in containers])
     table.add_row(f"Containers ({len(containers_str)})", "".join(containers_str))
     print(table)
     try:
-        data_model = client.data_modeling.data_models.list(
+        data_models = client.data_modeling.data_models.list(
             space=space_name, include_global=True, inline_views=True, limit=None
         )
     except Exception as e:
         print(f"Failed to retrieve data model {model_name} in space {space_name}.")
         print(e)
-        return
-    if len(data_model) == 0:
+        return None
+    if len(data_models) == 0:
         print(f"Failed to retrieve data model {model_name} in space {space_name}.")
-        return
-    model_name = data_model.data[0].name
-    if len(data_model.data) > 1:
-        print(f"Found {len(data_model.data)} data models in space {space_name}.")
+        return None
+    data_model = data_models[0]
+    model_name = data_model.name
+    if len(data_models) > 1:
+        print(f"Found {len(data_model)} data models in space {space_name}.")
         print(f"  Only describing the first one ({model_name}).")
         print("  Use the --data-model flag to specify which data model to describe.")
 
@@ -81,19 +77,18 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
     )
     table.add_row(
         "Global",
-        "True" if data_model.data[0].is_global else "False",
+        "True" if data_model[0].is_global else "False",
     )
     table.add_row("Created time", str(datetime.datetime.fromtimestamp(data_model.data[0].created_time / 1000)))
     table.add_row(
         "Last updated time", str(datetime.datetime.fromtimestamp(data_model.data[0].last_updated_time / 1000))
     )
-    views = data_model.data[0].views
+    views = data_model[0].views
     table.add_row("Number of views", str(len(views)))
-    view_names = [f"{v.external_id}\n" for v in views]
-    if len(view_names) > 0:
-        view_names[-1] = view_names[-1][0:-1]
+    view_names = "\n".join([v.external_id for v in views])
     table.add_row("List of views", "".join(view_names))
     print(table)
+    model_edge_types: list[DirectRelationReference] = []
     for view in views:
         table = Table(title=f"View {view.external_id}, version {view.version} in space {space_name}")
         table.add_column("Info", justify="left")
@@ -101,38 +96,31 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         table.add_row("Number of properties", str(len(view.properties)))
         table.add_row("Used for", str(view.used_for))
 
-        implements_str = [f"{i}\n" for i in view.implements or []]
-        if len(implements_str) > 0:
-            implements_str[-1] = implements_str[-1][0:-1]
-        table.add_row("Implements", "".join(implements_str))
-        properties = [f"{p}\n" for p in view.properties.keys()]
-        if len(properties) > 0:
-            properties[-1] = properties[-1][0:-1]
+        implements_str = "\n".join([i.external_id for i in view.implements or []])
+        table.add_row("Implements", implements_str)
+        properties = "\n".join(view.properties.keys())
         table.add_row("List of properties", "".join(properties))
         direct_relations_str = []
         edge_relations_str = []
-        nr_of_direct_relations = 0
-        nr_of_edge_relations = 0
         for p, edge_type in view.properties.items():
             if type(edge_type.type) is DirectRelation:
-                nr_of_direct_relations += 1
                 if edge_type.source is None:
                     direct_relations_str.append(f"{p} --> no source")
-                    continue
-                direct_relations_str.append(
-                    f"{p} --> ({edge_type.source.space}, {edge_type.source.external_id}, {edge_type.source.version})\n"
-                )
+                else:
+                    direct_relations_str.append(
+                        f"{p} --> ({edge_type.source.space}, {edge_type.source.external_id}, {edge_type.source.version})"
+                    )
             elif type(edge_type.type) is DirectRelationReference:
-                nr_of_edge_relations += 1
                 edge_relations_str.append(
-                    f"{p} -- {edge_type.direction} --> ({edge_type.source.space}, {edge_type.source.external_id}, {edge_type.source.version})\n"
+                    f"{p} -- {edge_type.direction} --> ({edge_type.source.space}, {edge_type.source.external_id}, {edge_type.source.version})"
                 )
-        if len(direct_relations_str) > 0:
-            direct_relations_str[-1] = direct_relations_str[-1][0:-1]
-        if len(edge_relations_str) > 0:
-            edge_relations_str[-1] = edge_relations_str[-1][0:-1]
-        table.add_row(f"Direct relations({nr_of_direct_relations})", "".join(direct_relations_str))
-        table.add_row(f"Edge relations({nr_of_edge_relations})", "".join(edge_relations_str))
+                model_edge_types.append(edge_type.type)
+        nr_of_direct_relations = len(direct_relations_str)
+        nr_of_edge_relations = len(edge_relations_str)
+        direct_relations_str = "\n".join(direct_relations_str)
+        edge_relations_str = "\n".join(edge_relations_str)
+        table.add_row(f"Direct relations({nr_of_direct_relations})", direct_relations_str)
+        table.add_row(f"Edge relations({nr_of_edge_relations})", edge_relations_str)
         node_count = 0
         # Iterate over all the nodes in the view 1,000 at the time
         try:
