@@ -70,20 +70,18 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
     table = Table(title=f"Data model {model_name} in space {space_name}")
     table.add_column("Info", justify="right")
     table.add_column("Value", justify="left", style="green")
-    table.add_row("Description", str(data_model.data[0].description))
+    table.add_row("Description", str(data_model.description))
     table.add_row(
         "Version",
-        str(data_model.data[0].version),
+        str(data_model.version),
     )
     table.add_row(
         "Global",
-        "True" if data_model[0].is_global else "False",
+        "True" if data_model.is_global else "False",
     )
-    table.add_row("Created time", str(datetime.datetime.fromtimestamp(data_model.data[0].created_time / 1000)))
-    table.add_row(
-        "Last updated time", str(datetime.datetime.fromtimestamp(data_model.data[0].last_updated_time / 1000))
-    )
-    views = data_model[0].views
+    table.add_row("Created time", str(datetime.datetime.fromtimestamp(data_model.created_time / 1000)))
+    table.add_row("Last updated time", str(datetime.datetime.fromtimestamp(data_model.last_updated_time / 1000)))
+    views = data_model.views
     table.add_row("Number of views", str(len(views)))
     view_names = "\n".join([v.external_id for v in views])
     table.add_row("List of views", "".join(view_names))
