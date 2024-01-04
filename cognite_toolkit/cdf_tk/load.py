@@ -24,7 +24,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeVar, Union, final
+from typing import Any, Generic, Literal, TypeVar, Union, final, cast
 
 import pandas as pd
 import yaml
@@ -611,7 +611,9 @@ class RawLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]
     api_name = "raw.rows"
     folder_name = "raw"
     resource_cls = RawTable
-    list_cls = list[RawTable]
+    resource_write_cls = RawTable
+    list_cls = RawTableList
+    list_write_cls = RawTableList
     identifier_key = "table_name"
     data_file_types = frozenset({"csv", "parquet"})
 
@@ -673,8 +675,10 @@ class RawLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]
 class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeries, TimeSeriesList, TimeSeriesList]):
     api_name = "time_series"
     folder_name = "timeseries"
-    resource_cls = TimeSeriesList
+    resource_cls = TimeSeries
+    resource_write_cls = TimeSeries
     list_cls = TimeSeriesList
+    list_write_cls = TimeSeriesList
     dependencies = frozenset({DataSetsLoader})
 
     @classmethod
@@ -715,7 +719,9 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
         r"^(?:(?!\.schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
     )
     resource_cls = Transformation
+    resource_write_cls = Transformation
     list_cls = TransformationList
+    list_write_cls = TransformationList
     dependencies = frozenset({DataSetsLoader, RawLoader})
 
     @classmethod
@@ -791,7 +797,9 @@ class TransformationScheduleLoader(
     folder_name = "transformations"
     filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
     resource_cls = TransformationSchedule
+    resource_write_cls = TransformationSchedule
     list_cls = TransformationScheduleList
+    list_write_cls = TransformationScheduleList
     dependencies = frozenset({TransformationLoader})
 
     @classmethod
@@ -900,7 +908,9 @@ class ExtractionPipelineLoader(
     folder_name = "extraction_pipelines"
     filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
     resource_cls = ExtractionPipeline
+    resource_write_cls = ExtractionPipeline
     list_cls = ExtractionPipelineList
+    list_write_cls = ExtractionPipelineList
     dependencies = frozenset({DataSetsLoader, RawLoader})
 
     @classmethod
@@ -973,6 +983,9 @@ class ExtractionPipelineConfigLoader(
     folder_name = "extraction_pipelines"
     filename_pattern = r"^.*\.config$"
     resource_cls = ExtractionPipelineConfig
+    resource_write_cls = ExtractionPipelineConfig
+    list_cls = ExtractionPipelineConfigList
+    list_write_cls = ExtractionPipelineConfigList
     dependencies = frozenset({ExtractionPipelineLoader})
 
     @classmethod
@@ -1017,7 +1030,9 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
     filetypes = frozenset({"yaml", "yml"})
     folder_name = "files"
     resource_cls = FileMetadata
+    resource_write_cls = FileMetadata
     list_cls = FileMetadataList
+    list_write_cls = FileMetadataList
     dependencies = frozenset({DataSetsLoader})
 
     @classmethod
@@ -1100,8 +1115,10 @@ class SpaceLoader(Loader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     api_name = "data_modeling.spaces"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(space)$"
-    resource_cls = SpaceApply
-    list_cls = SpaceApplyList
+    resource_cls = Space
+    resource_write_cls = SpaceApply
+    list_write_cls = SpaceApplyList
+    list_cls = SpaceList
     _display_name = "spaces"
 
     @classmethod
@@ -1136,7 +1153,7 @@ class SpaceLoader(Loader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
         deleted = self.client.data_modeling.spaces.delete(ids)
         return len(deleted)
 
-    def create(self, items: Sequence[SpaceApply], drop: bool, filepath: Path) -> T_ResourceList:
+    def create(self, items: Sequence[SpaceApply], drop: bool, filepath: Path) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
 
 
@@ -1144,8 +1161,10 @@ class ContainerLoader(Loader[ContainerId, ContainerApply, Container, ContainerAp
     api_name = "data_modeling.containers"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(container)$"
-    resource_cls = ContainerApply
-    list_cls = ContainerApplyList
+    resource_cls = Container
+    resource_write_cls = ContainerApply
+    list_cls = ContainerList
+    list_write_cls = ContainerApplyList
     dependencies = frozenset({SpaceLoader})
 
     _display_name = "containers"
@@ -1169,7 +1188,7 @@ class ContainerLoader(Loader[ContainerId, ContainerApply, Container, ContainerAp
         deleted = self.client.data_modeling.containers.delete(ids)
         return len(deleted)
 
-    def create(self, items: Sequence[ContainerApply], drop: bool, filepath: Path) -> T_ResourceList:
+    def create(self, items: Sequence[ContainerApply], drop: bool, filepath: Path) -> ContainerList:
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
 
         return self.client.data_modeling.containers.apply(items)
@@ -1179,8 +1198,10 @@ class ViewLoader(Loader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     api_name = "data_modeling.views"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(view)$"
-    resource_cls = ViewApply
-    list_cls = ViewApplyList
+    resource_cls = View
+    resource_write_cls = ViewApply
+    list_cls = ViewList
+    list_write_cls = ViewApplyList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
 
     _display_name = "views"
@@ -1197,7 +1218,7 @@ class ViewLoader(Loader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     def get_id(cls, item: ViewApply) -> ViewId:
         return item.as_id()
 
-    def create(self, items: Sequence[T_Resource], drop: bool, filepath: Path) -> T_ResourceList:
+    def create(self, items: ViewApplyList, drop: bool, filepath: Path) -> ViewList:
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.views.apply(items)
 
@@ -1207,8 +1228,10 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModel, DataModelAp
     api_name = "data_modeling.data_models"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(datamodel)$"
-    resource_cls = DataModelApply
-    list_cls = DataModelApplyList
+    resource_cls = DataModel
+    resource_write_cls = DataModelApply
+    list_cls = DataModelList
+    list_write_cls = DataModelApplyList
     dependencies = frozenset({SpaceLoader, ViewLoader})
     _display_name = "data models"
 
@@ -1234,8 +1257,10 @@ class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
-    resource_cls = NodeApply
-    list_cls = LoadableNodes
+    resource_cls = Node
+    resource_write_cls = NodeApply
+    list_cls = NodeList
+    list_write_cls = LoadableNodes
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _display_name = "nodes"
 
@@ -1265,7 +1290,7 @@ class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
         deleted = self.client.data_modeling.instances.delete(nodes=ids)
         return len(deleted.nodes)
 
-    def create(self, items: Sequence[LoadableNodes], drop: bool, filepath: Path) -> LoadableNodes:
+    def create(self, items: LoadableNodes, drop: bool, filepath: Path) -> None:
         if not isinstance(items, LoadableNodes):
             raise ValueError("Unexpected node format file format")
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
@@ -1276,7 +1301,7 @@ class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
             skip_on_version_conflict=item.skip_on_version_conflict,
             replace=item.replace,
         )
-        return items
+        return None
 
 
 @final
@@ -1284,7 +1309,8 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(edge)$"
-    resource_cls = EdgeApply
+    resource_cls = Edge
+    resource_write_cls = EdgeApply
     list_cls = EdgeList
     list_write_cls = LoadableEdges
     _display_name = "edges"
@@ -1319,7 +1345,7 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
         deleted = self.client.data_modeling.instances.delete(edges=ids)
         return len(deleted.edges)
 
-    def create(self, items: LoadableEdges, drop: bool, filepath: Path) -> EdgeList:
+    def create(self, items: LoadableEdges, drop: bool, filepath: Path) -> None:
         if not isinstance(items, LoadableEdges):
             raise ValueError("Unexpected edge format file format")
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
@@ -1331,7 +1357,7 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
             skip_on_version_conflict=item.skip_on_version_conflict,
             replace=item.replace,
         )
-        return items
+        return None
 
 
 @total_ordering
