@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import annotations
+
 import os
 import shutil
 import sys
@@ -10,7 +12,7 @@ from dataclasses import dataclass
 from graphlib import TopologicalSorter
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Optional, cast
 
 import sentry_sdk
 import typer
@@ -68,12 +70,12 @@ _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
 class Common:
     override_env: bool
     verbose: bool
-    cluster: str
-    project: str
-    mockToolGlobals: CDFToolConfig
+    cluster: str | None
+    project: str | None
+    mockToolGlobals: CDFToolConfig | None
 
 
-def _version_callback(value: bool):
+def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"CDF-Toolkit version: {_version.__version__}.")
         raise typer.Exit()
@@ -85,6 +87,7 @@ def common(
     verbose: Annotated[
         bool,
         typer.Option(
+            False,
             help="Turn on to get more verbose output when running the commands",
         ),
     ] = False,
@@ -114,7 +117,7 @@ def common(
         help="See which version of the tooklit and the templates are installed.",
         callback=_version_callback,
     ),
-):
+) -> None:
     """The cdf-tk tool is used to build and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.
 
     Each of the main commands has a separate help, e.g. `cdf-tk build --help` or `cdf-tk deploy --help`.
@@ -157,31 +160,34 @@ def common(
 def build(
     ctx: typer.Context,
     source_dir: Annotated[
-        Optional[str],
+        str,
         typer.Argument(
+            default="./",
             help="Where to find the module templates to build from",
             allow_dash=True,
         ),
     ] = "./",
     build_dir: Annotated[
-        Optional[str],
+        str,
         typer.Option(
-            "--build-dir",
+            "./build" "--build-dir",
             "-b",
             help="Where to save the built module files",
         ),
     ] = "./build",
     build_env: Annotated[
-        Optional[str],
+        str,
         typer.Option(
+            "dev",
             "--env",
             "-e",
             help="Build environment to build for",
         ),
     ] = "dev",
     clean: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
+            False,
             "--clean",
             "-c",
             help="Delete the build directory before building the configurations",
@@ -189,21 +195,21 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
-    source_dir = Path(source_dir)
-    if not source_dir.is_dir():
-        print(f"  [bold red]ERROR:[/] {source_dir} does not exist")
+    source_path = Path(source_dir)
+    if not source_path.is_dir():
+        print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
     environment_file = Path.cwd() / ENVIRONMENTS_FILE
-    if not environment_file.is_file() and not (environment_file := source_dir / ENVIRONMENTS_FILE).is_file():
+    if not environment_file.is_file() and not (environment_file := source_path / ENVIRONMENTS_FILE).is_file():
         print(f"  [bold red]ERROR:[/] {environment_file} does not exist")
         exit(1)
-    config_file = Path.cwd() / CONFIG_FILE
-    if not config_file.is_file() and not (config_file := source_dir / CONFIG_FILE).is_file():
+    config_file = Path.cwd() / Path(CONFIG_FILE)
+    if not config_file.is_file() and not (config_file := source_path / Path(CONFIG_FILE)).is_file():
         print(f"  [bold red]ERROR:[/] {config_file} does not exist")
         exit(1)
     print(
         Panel(
-            f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_dir!s} as sources...[/bold]"
+            f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_path!s} as sources...[/bold]"
             f"\n[bold]Environment file:[/] {environment_file.absolute().relative_to(Path.cwd())!s} and [bold]config file:[/] {config_file.absolute().relative_to(Path.cwd())!s}"
         )
     )
@@ -213,7 +219,7 @@ def build(
 
     build_config(
         build_dir=Path(build_dir),
-        source_dir=source_dir,
+        source_dir=source_path,
         config_file=config_file,
         build=build_,
         clean=clean,
@@ -225,46 +231,52 @@ def build(
 def deploy(
     ctx: typer.Context,
     build_dir: Annotated[
-        Optional[str],
+        str,
         typer.Argument(
+            default="./build",
             help="Where to find the module templates to deploy from. Defaults to current directory.",
             allow_dash=True,
         ),
     ] = "./build",
     build_env: Annotated[
-        Optional[str],
+        str,
         typer.Option(
+            "dev",
             "--env",
             "-e",
             help="CDF project environment to build for. Defined in environments.yaml. Defaults to dev.",
         ),
     ] = "dev",
     interactive: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
+            False,
             "--interactive",
             "-i",
             help="Whether to use interactive mode when deciding which modules to deploy.",
         ),
     ] = False,
     drop: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
+            False,
             "--drop",
             "-d",
             help="Whether to drop existing configurations, drop per resource if present.",
         ),
     ] = False,
     drop_data: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
+            False,
             "--drop-data",
             help="Whether to drop existing data in data model containers and spaces.",
         ),
     ] = False,
     dry_run: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
+            False,
             "--dry-run",
             "-r",
             help="Whether to do a dry-run, do dry-run if present.",
@@ -273,6 +285,7 @@ def deploy(
     include: Annotated[
         Optional[list[str]],
         typer.Option(
+            None,
             "--include",
             "-i",
             help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
@@ -366,39 +379,44 @@ def deploy(
 def clean(
     ctx: typer.Context,
     build_dir: Annotated[
-        Optional[str],
+        str,
         typer.Argument(
+            default="./build",
             help="Where to find the module templates to clean from. Defaults to ./build directory.",
             allow_dash=True,
         ),
-    ] = "./build",
+    ],
     build_env: Annotated[
-        Optional[str],
+        str,
         typer.Option(
+            "dev",
             "--env",
             "-e",
             help="CDF project environment to use for cleaning.",
         ),
-    ] = "dev",
+    ],
     interactive: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
+            False,
             "--interactive",
             "-i",
             help="Whether to use interactive mode when deciding which resource types to clean.",
         ),
-    ] = False,
+    ],
     dry_run: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
+            False,
             "--dry-run",
             "-r",
             help="Whether to do a dry-run, do dry-run if present",
         ),
-    ] = False,
+    ],
     include: Annotated[
         Optional[list[str]],
         typer.Option(
+            None,
             "--include",
             "-i",
             help=f"Specify which resource types to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
@@ -482,17 +500,18 @@ def clean(
 
 
 @auth_app.callback(invoke_without_command=True)
-def auth_main(ctx: typer.Context):
+def auth_main(ctx: typer.Context) -> None:
     """Test, validate, and configure authentication and authorization for CDF projects."""
     if ctx.invoked_subcommand is None:
         print("Use [bold yellow]cdf-tk auth --help[/] for more information.")
+    return None
 
 
 @auth_app.command("verify")
 def auth_verify(
     ctx: typer.Context,
     dry_run: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
             "--dry-run",
             "-r",
@@ -500,7 +519,7 @@ def auth_verify(
         ),
     ] = False,
     interactive: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
             "--interactive",
             "-i",
@@ -508,7 +527,7 @@ def auth_verify(
         ),
     ] = False,
     group_file: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             "--group-file",
             "-f",
@@ -516,7 +535,7 @@ def auth_verify(
         ),
     ] = f"/{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
     update_group: Annotated[
-        Optional[int],
+        int,
         typer.Option(
             "--update-group",
             "-u",
@@ -531,7 +550,7 @@ def auth_verify(
             help="Used to create a new group with the configurations from the configuration file. Set to the source id that the new group should be configured with.",
         ),
     ] = None,
-):
+) -> None:
     """When you have the necessary information about your identity provider configuration,
     you can use this command to configure the tool and verify that the token has the correct access rights to the project.
     It can also create a group with the correct access rights, defaulting to write-all group
@@ -614,11 +633,11 @@ def main_init(
             help="Directory path to project to initialize or upgrade with templates.",
         ),
     ] = "new_project",
-):
+) -> None:
     """Initialize or upgrade a new CDF project with templates."""
 
-    files_to_copy = []
-    dirs_to_copy = []
+    files_to_copy: list[str] = []
+    dirs_to_copy: list[str] = []
     if not upgrade:
         files_to_copy.extend(
             [
@@ -632,7 +651,7 @@ def main_init(
     module_dirs_to_copy = [
         COGNITE_MODULES,
     ]
-    template_dir = resources.files("cognite_toolkit")
+    template_dir = cast(Path, resources.files("cognite_toolkit"))
     target_dir = Path.cwd() / f"{init_dir}"
     if target_dir.exists():
         if not upgrade:
@@ -680,13 +699,13 @@ def main_init(
                 )
                 exit(1)
         template_dir = Path(extract_dir) / f"cdf-project-templates-{git}" / "cognite_toolkit"
-    for f in files_to_copy:
+    for filepath in files_to_copy:
         if dry_run and ctx.obj.verbose:
-            print("Would copy file", f, "to", target_dir)
+            print("Would copy file", filepath, "to", target_dir)
         elif not dry_run:
             if ctx.obj.verbose:
-                print("Copying file", f, "to", target_dir)
-            shutil.copyfile(Path(template_dir) / f, target_dir / f)
+                print("Copying file", filepath, "to", target_dir)
+            shutil.copyfile(Path(template_dir) / filepath, target_dir / filepath)
     for d in dirs_to_copy:
         if dry_run and ctx.obj.verbose:
             if upgrade:
@@ -743,10 +762,11 @@ def main_init(
 
 
 @describe_app.callback(invoke_without_command=True)
-def describe_main(ctx: typer.Context):
+def describe_main(ctx: typer.Context) -> None:
     """Commands to describe and document configurations and CDF project state."""
     if ctx.invoked_subcommand is None:
         print("Use [bold yellow]cdf-tk describe --help[/] for more information.")
+    return None
 
 
 @describe_app.command("datamodel")
@@ -770,7 +790,7 @@ def describe_datamodel_cmd(
             help="Data model to describe. If not specified, the first data model found in the space will be described.",
         ),
     ] = None,
-):
+) -> None:
     """This command will describe the characteristics of a data model given the space
     name and datamodel name."""
     if space is None or len(space) == 0:
@@ -781,6 +801,7 @@ def describe_datamodel_cmd(
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
     describe_datamodel(ToolGlobals, space, data_model)
+    return None
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:

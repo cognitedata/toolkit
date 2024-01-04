@@ -15,7 +15,7 @@ from rich.table import Table
 from .utils import CDFToolConfig
 
 
-def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: str) -> None:
+def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: str | None) -> None:
     """Describe data model from CDF"""
 
     print(f"Describing data model ({model_name}) in space ({space_name})...")
