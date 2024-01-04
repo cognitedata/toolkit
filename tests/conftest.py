@@ -69,6 +69,8 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.ids import EdgeId, InstanceId, NodeId
 from cognite.client.testing import CogniteClientMock, monkeypatch_cognite_client
 
+from cognite_toolkit.cdf_tk.load import ExtractionPipelineConfigList
+
 TEST_FOLDER = Path(__file__).resolve().parent
 
 
@@ -338,10 +340,17 @@ class ApprovalCogniteClient:
                 edges=EdgeApplyResultList([]),
             )
 
-        available_create_methods = {fn.__name__: fn for fn in [create, insert_dataframe, upload, create_instances]}
+        def create_extraction_pipeline_config(config: ExtractionPipelineConfig) -> ExtractionPipelineConfig:
+            created_resources[resource_cls.__name__].append(config)
+            return config
+
+        available_create_methods = {
+            fn.__name__: fn
+            for fn in [create, insert_dataframe, upload, create_instances, create_extraction_pipeline_config]
+        }
         if mock_method not in available_create_methods:
             raise ValueError(
-                f"Invalid mock create method {mock_method} for resource {resource_cls.__name__}. Supported {available_create_methods.keys()}"
+                f"Invalid mock create method {mock_method} for resource {resource_cls.__name__}. Supported {list(available_create_methods.keys())}"
             )
         method = available_create_methods[mock_method]
         return method
@@ -679,9 +688,9 @@ _API_RESOURCES = [
     APIResource(
         api_name="extraction_pipelines.config",
         resource_cls=ExtractionPipelineConfig,
-        list_cls=ExtractionPipelineConfig,
+        list_cls=ExtractionPipelineConfigList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
+            "create": [Method(api_class_method="create", mock_name="create_extraction_pipeline_config")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
                 Method(api_class_method="retrieve", mock_name="return_value"),
