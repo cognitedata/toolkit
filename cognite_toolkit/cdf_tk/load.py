@@ -215,7 +215,7 @@ class ExtractionPipelineConfigList(CogniteResourceList[ExtractionPipelineConfig]
     _RESOURCE = ExtractionPipelineConfig
 
 
-T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId])
+T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawTable])
 
 T_CogniteResourceWrite = TypeVar("T_CogniteResourceWrite", bound=CogniteResource)
 T_CogniteResourceWriteList = TypeVar("T_CogniteResourceWriteList", bound=CogniteResourceList)
@@ -325,7 +325,7 @@ class Loader(
                     r_yaml = self.resource_cls.dump_yaml(r)
                     # To avoid that we mess up the original local resource, we use the
                     # "through yaml copy"-trick to create a copy of the local resource.
-                    copy_l = self.resource_cls.load(self.resource_cls.dump_yaml(l_resource))
+                    copy_l = self.resource_write_cls.load(self.resource_cls.dump_yaml(l_resource))
                     l_yaml = self.resource_cls.dump_yaml(self.fixup_resource(copy_l, r))
                     if l_yaml == r_yaml:
                         local_list.remove(l_resource)
@@ -365,12 +365,12 @@ class Loader(
     def load_resource(self, filepath: Path, dry_run: bool) -> T_CogniteResourceWrite | T_CogniteResourceWriteList:
         raw_yaml = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
-            return self.list_cls.load(raw_yaml)
-        return self.resource_cls.load(raw_yaml)
+            return self.list_write_cls.load(raw_yaml)
+        return self.resource_write_cls.load(raw_yaml)
 
 
 @final
-class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
+class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
     support_drop = False
     support_upsert = True
     api_name = "iam.groups"
@@ -404,7 +404,7 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
         self.target_scopes = target_scopes
 
     @property
-    def display_name(self):
+    def display_name(self) -> str:
         if self.target_scopes.startswith("all"):
             scope = "all"
         else:
@@ -426,9 +426,9 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
         target_scopes: Literal[
             "all", "all_skipped_validation", "all_scoped_skipped_validation", "resource_scoped_only", "all_scoped_only"
         ] = "all",
-    ):
+    ) -> AuthLoader:
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client, ToolGlobals, target_scopes)
+        return AuthLoader(client, ToolGlobals, target_scopes)
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
@@ -442,7 +442,9 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
         return item.name
 
     def load_resource(self, filepath: Path, dry_run: bool) -> Group:
-        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+        raw = load_yaml_inject_variables(
+            filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
+        )
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
@@ -470,12 +472,12 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
                         values["scope"]["extractionPipelineScope"]["ids"] = [-1]
         return Group.load(raw)
 
-    def retrieve(self, ids: SequenceNotStr[int]) -> GroupList:
+    def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
         remote = self.client.iam.groups.list(all=True)
         found = [g for g in remote if g.name in ids]
         return GroupList(found)
 
-    def delete(self, ids: SequenceNotStr[int], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         ids_ = list(ids)
         # Let's prevent that we delete groups we belong to
         try:
@@ -500,7 +502,7 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
                     print(f"    [bold red]ERROR[/] You seem to have duplicate groups of name {g.name}.")
                 else:
                     ids_.remove(g.name)
-        found = [g.id for g in groups if g.name in ids_]
+        found = [g.id for g in groups if g.name in ids_ and g.id]
         self.client.iam.groups.delete(found)
         return len(found)
 
@@ -510,18 +512,22 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
         elif self.target_scopes == "all_skipped_validation":
             raise ValueError("all_skipped_validation is not supported for group creation as scopes would be wrong.")
         elif self.target_scopes == "resource_scoped_only":
-            to_create = []
+            to_create = GroupList([])
             for item in items:
                 item.capabilities = [
-                    capability for capability in item.capabilities if type(capability.scope) in self.resource_scopes
+                    capability
+                    for capability in item.capabilities or []
+                    if type(capability.scope) in self.resource_scopes
                 ]
                 if item.capabilities:
                     to_create.append(item)
         elif self.target_scopes == "all_scoped_only" or self.target_scopes == "all_scoped_skipped_validation":
-            to_create = []
+            to_create = GroupList([])
             for item in items:
                 item.capabilities = [
-                    capability for capability in item.capabilities if type(capability.scope) not in self.resource_scopes
+                    capability
+                    for capability in item.capabilities or []
+                    if type(capability.scope) not in self.resource_scopes
                 ]
                 if item.capabilities:
                     to_create.append(item)
@@ -532,9 +538,9 @@ class AuthLoader(Loader[int, Group, Group, GroupList, GroupList]):
             return GroupList([])
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.iam.groups.list(all=True)
-        created = self.client.iam.groups.create(to_create)
+        created = cast(GroupList, self.client.iam.groups.create(to_create))
         created_names = {g.name for g in created}
-        to_delete = [g.id for g in old_groups if g.name in created_names]
+        to_delete = [g.id for g in old_groups if g.name in created_names and g.id]
         self.client.iam.groups.delete(to_delete)
         return cast(GroupList, created)
 
@@ -557,14 +563,17 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
             DataSetsAcl.Scope.All(),
         )
 
-    def get_id(self, item: DataSet) -> str:
+    @classmethod
+    def get_id(cls, item: DataSet) -> str:
+        if item.external_id is None:
+            raise ValueError("DataSet must have external_id set.")
         return item.external_id
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DataSetList:
-        return self.client.data_sets.retrieve_multiple(external_ids=ids)
+        return self.client.data_sets.retrieve_multiple(external_ids=cast(Sequence, ids))
 
     @staticmethod
     def fixup_resource(local: DataSet, remote: DataSet) -> DataSet:
@@ -588,7 +597,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
                     data_set["metadata"][key] = json.dumps(value)
         return DataSetList.load(data_sets)
 
-    def create(self, items: DataSetList, drop: bool, filepath: Path) -> DataSetList | None:
+    def create(self, items: DataSetList, drop: bool, filepath: Path) -> DataSetList:
         created = DataSetList([], cognite_client=self.client)
         # There is a bug in the data set API, so only one duplicated data set is returned at the time,
         # so we need to iterate.
@@ -608,11 +617,8 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
             except Exception as e:
                 print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
                 self.ToolGlobals.failed = True
-                return None
-        if len(created) == 0:
-            return None
-        else:
-            return created
+                return DataSetList([])
+        return created
 
 
 @final
@@ -699,14 +705,17 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeries, TimeSeriesList, TimeS
             else TimeSeriesAcl.Scope.All(),
         )
 
-    def get_id(self, item: TimeSeries) -> str:
+    @classmethod
+    def get_id(cls, item: TimeSeries) -> str:
+        if item.external_id is None:
+            raise ValueError("TimeSeries must have external_id set.")
         return item.external_id
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
-        return self.client.time_series.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+        return self.client.time_series.retrieve_multiple(external_ids=cast(Sequence, ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
-        self.client.time_series.delete(external_id=ids, ignore_unknown_ids=True)
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
+        self.client.time_series.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=True)
         return len(ids)
 
     def load_resource(self, filepath: Path, dry_run: bool) -> TimeSeries | TimeSeriesList:
@@ -752,7 +761,9 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
         return item.external_id
 
     def load_resource(self, filepath: Path, dry_run: bool) -> Transformation:
-        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables(), required_return_type="dict")
+        raw = load_yaml_inject_variables(
+            filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
+        )
         # The `authentication` key is custom for this template:
 
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or None
@@ -833,7 +844,9 @@ class TransformationScheduleLoader(
         return item.external_id
 
     def load_resource(self, filepath: Path, dry_run: bool) -> TransformationSchedule:
-        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables(), required_return_type="dict")
+        raw = load_yaml_inject_variables(
+            filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
+        )
         return TransformationSchedule.load(raw)
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
@@ -866,10 +879,9 @@ class TransformationScheduleLoader(
             return TransformationScheduleList([])
 
 
-
 @final
 @typing.no_type_check
-class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesList]): # type: ignore[type-var]
+class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesList]):  # type: ignore[type-var]
     support_drop = False
     filetypes = frozenset({"csv", "parquet"})
     api_name = "time_series.data"
@@ -961,7 +973,7 @@ class ExtractionPipelineLoader(
                 id_list.remove(ext_id)
 
             if len(id_list) > 0:
-                self.client.extraction_pipelines.delete(external_id= id_list)
+                self.client.extraction_pipelines.delete(external_id=id_list)
                 return len(id_list)
             return 0
 
@@ -1087,7 +1099,9 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
 
     def load_resource(self, filepath: Path, dry_run: bool) -> FileMetadata | FileMetadataList:
         try:
-            resource = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables(), required_return_type="dict")
+            resource = load_yaml_inject_variables(
+                filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
+            )
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
