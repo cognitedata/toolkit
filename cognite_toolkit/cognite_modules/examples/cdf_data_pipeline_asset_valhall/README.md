@@ -1,15 +1,15 @@
 # cdf_data_pipeline_asset_valhall
 
 This module relies on these example data modules being loaded:
+
 - cdf_oid_example_data being loaded.
 
-The module creates a simple data pipeline for processing assets from the OID example module. OID is used as the examle location name.
+The module creates a simple data pipeline for processing assets from the OID example module.
+OID is used as the examle location name.
 Since the pipeline don't load from a source the example data from cdf_oid_example_data is loaded to files and RAW in CDF.
 
 Requred example data in the module `cdf_oid_example_data` is a small data set from [Open Industrial
 Data](https://learn.cognite.com/open-industrial-data), the Valhall platform.
-
-
 
 ## Managed resources
 
@@ -26,11 +26,10 @@ This module manages the following resources:
 3. transformations:
    - ID: `tr_asset_oid_workmate_asset_hierarchy`
      - Content: Creation of aset hierarchy based on input asset data from OID
-    
+
 ### Illustration of the files data pipeline
 
 ![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/ba534b90-cc8f-4825-9692-d44dad58da6e)
-
 
 ## Variables
 
