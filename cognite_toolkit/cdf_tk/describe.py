@@ -132,17 +132,4 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
             print(f"Failed to retrieve nodes for view {view.external_id} version {view.version} in space {view.space}.")
             print(e)
         table.add_row("Number of nodes", f"{node_count:,}")
-        edge_count = 0
-        # Iterate over all the edges in the view 1,000 at the time
-        try:
-            result = client.data_modeling.instances.aggregate(
-                view.as_id(),
-                aggregates=Count("externalId"),
-                instance_type="edge",
-            )
-            edge_count = int(result.value)
-        except Exception as e:
-            print(f"Failed to retrieve edges for view {view.external_id} version {view.version} in space {view.space}.")
-            print(e)
-        table.add_row("Number of edges", f"{edge_count:,}")
         print(table)
