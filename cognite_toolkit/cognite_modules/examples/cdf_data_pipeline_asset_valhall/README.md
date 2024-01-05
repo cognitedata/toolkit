@@ -2,7 +2,7 @@
 
 This module relies on these example data modules being loaded:
 
-- cdf_oid_example_data being loaded.
+- cdf_oid_example_data
 
 The module creates a simple data pipeline for processing assets from the OID example module.
 OID is used as the examle location name.
