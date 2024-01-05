@@ -27,7 +27,7 @@ This module manages the following resources:
    - ID: `tr_asset_oid_workmate_asset_hierarchy`
      - Content: Creation of asset hierarchy based on input asset data from OID
 
-### Illustration of the files data pipeline
+### Illustration of the asset data pipeline
 
 ![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/ba534b90-cc8f-4825-9692-d44dad58da6e)
 

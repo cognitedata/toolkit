@@ -6,6 +6,8 @@ from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling import (
     DirectRelation,
     DirectRelationReference,
+    MappedProperty,
+    SingleHopConnectionDefinition,
 )
 from rich import print
 from rich.table import Table
@@ -13,7 +15,7 @@ from rich.table import Table
 from .utils import CDFToolConfig
 
 
-def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: str) -> None:
+def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: str | None) -> None:
     """Describe data model from CDF"""
 
     print(f"Describing data model ({model_name}) in space ({space_name})...")
@@ -61,9 +63,9 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         print(f"Failed to retrieve data model {model_name} in space {space_name}.")
         return None
     data_model = data_models[0]
-    model_name = data_model.name
+    model_name = data_model.name or data_model.external_id
     if len(data_models) > 1:
-        print(f"Found {len(data_model)} data models in space {space_name}.")
+        print(f"Found {len(data_models)} data models in space {space_name}.")
         print(f"  Only describing the first one ({model_name}).")
         print("  Use the --data-model flag to specify which data model to describe.")
 
@@ -98,27 +100,25 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         table.add_row("Implements", implements_str)
         properties = "\n".join(view.properties.keys())
         table.add_row("List of properties", "".join(properties))
-        direct_relations_str = []
-        edge_relations_str = []
+        direct_relations = []
+        edge_relations = []
         for p, edge_type in view.properties.items():
-            if type(edge_type.type) is DirectRelation:
+            if isinstance(edge_type, MappedProperty) and type(edge_type.type) is DirectRelation:
                 if edge_type.source is None:
-                    direct_relations_str.append(f"{p} --> no source")
+                    direct_relations.append(f"{p} --> no source")
                 else:
-                    direct_relations_str.append(
+                    direct_relations.append(
                         f"{p} --> ({edge_type.source.space}, {edge_type.source.external_id}, {edge_type.source.version})"
                     )
-            elif type(edge_type.type) is DirectRelationReference:
-                edge_relations_str.append(
+            elif isinstance(edge_type, SingleHopConnectionDefinition):
+                edge_relations.append(
                     f"{p} -- {edge_type.direction} --> ({edge_type.source.space}, {edge_type.source.external_id}, {edge_type.source.version})"
                 )
                 model_edge_types.append(edge_type.type)
-        nr_of_direct_relations = len(direct_relations_str)
-        nr_of_edge_relations = len(edge_relations_str)
-        direct_relations_str = "\n".join(direct_relations_str)
-        edge_relations_str = "\n".join(edge_relations_str)
-        table.add_row(f"Direct relations({nr_of_direct_relations})", direct_relations_str)
-        table.add_row(f"Edge relations({nr_of_edge_relations})", edge_relations_str)
+        nr_of_direct_relations = len(direct_relations)
+        nr_of_edge_relations = len(edge_relations)
+        table.add_row(f"Direct relations({nr_of_direct_relations})", "\n".join(direct_relations))
+        table.add_row(f"Edge relations({nr_of_edge_relations})", "\n".join(edge_relations))
         node_count = 0
         # Iterate over all the nodes in the view 1,000 at the time
         try:
