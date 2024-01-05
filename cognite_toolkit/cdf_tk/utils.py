@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import re
+import sys
 import types
 import typing
 from collections import UserList
@@ -649,9 +650,11 @@ def _validate_case_raw(
                 continue
 
             container_type = get_origin(type_hint)
-            if container_type is types.UnionType:
-                args = typing.get_args(type_hint)
-                type_hint = next((arg for arg in args if arg is not type(None)), None)
+            if sys.version_info >= (3, 10):
+                # UnionType was introduced in Python 3.10
+                if container_type is types.UnionType:
+                    args = typing.get_args(type_hint)
+                    type_hint = next((arg for arg in args if arg is not type(None)), None)
 
             mappings = [dict, collections.abc.MutableMapping, collections.abc.Mapping]
             is_mapping = container_type in mappings or (
