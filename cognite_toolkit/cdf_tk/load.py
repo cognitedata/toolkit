@@ -477,7 +477,7 @@ class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
         return GroupList(found)
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
-        ids_ = list(ids)
+        id_list = list(ids)
         # Let's prevent that we delete groups we belong to
         try:
             groups = self.client.iam.groups.list()
@@ -497,11 +497,11 @@ class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
                     f"  [bold yellow]WARNING:[/] Not deleting group {g.name} with sourceId {g.source_id} as it is used by the current service principal."
                 )
                 print("     If you want to delete this group, you must do it manually.")
-                if g.name not in ids_:
+                if g.name not in id_list:
                     print(f"    [bold red]ERROR[/] You seem to have duplicate groups of name {g.name}.")
                 else:
-                    ids_.remove(g.name)
-        found = [g.id for g in groups if g.name in ids_ and g.id]
+                    id_list.remove(g.name)
+        found = [g.id for g in groups if g.name in id_list and g.id]
         self.client.iam.groups.delete(found)
         return len(found)
 
