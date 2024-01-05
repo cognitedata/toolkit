@@ -581,7 +581,7 @@ def main_init(
             "-r",
             help="Whether to do a dry-run, do dry-run if present.",
         ),
-    ],
+    ] = False,
     upgrade: Annotated[
         bool,
         typer.Option(
@@ -589,7 +589,7 @@ def main_init(
             "-u",
             help="Will upgrade templates in place without overwriting existing config.yaml and other files.",
         ),
-    ],
+    ] = False,
     git: Annotated[
         Optional[str],
         typer.Option(
