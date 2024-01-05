@@ -6,7 +6,7 @@ This module relies on these example data modules being loaded:
 
 The module creates a simple data pipeline for processing assets from the OID example module.
 OID is used as the examle location name.
-Since the pipeline don't load from a source the example data from cdf_oid_example_data is loaded to files and RAW in CDF.
+Since the pipeline doesn't load from a source, the example data from cdf_oid_example_data is loaded to files and RAW in CDF.
 
 Requred example data in the module `cdf_oid_example_data` is a small data set from [Open Industrial
 Data](https://learn.cognite.com/open-industrial-data), the Valhall platform.
