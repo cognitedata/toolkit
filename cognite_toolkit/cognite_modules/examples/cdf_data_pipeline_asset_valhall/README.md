@@ -17,7 +17,7 @@ This module manages the following resources:
 
 1. data set:
    - ID: `ds_asset_oid`
-     - Content: Data linage, used Links to used extraction pipelines, transformation and raw tabels
+     - Content: Data lineage, used Links to used extraction pipelines, transformation and raw tabels
 
 2. extraction pipeline:
    - ID: `ep_src_asset_oid_workmate`
