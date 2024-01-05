@@ -37,7 +37,7 @@ The following variables are required and defined in this module:
 
 | Variable | Description |
 |----------|-------------|
-| location_name | The location for your data, name used in all resource type realted to data pipeline. We use oid (Open Industrial Data) |
+| location_name | The location for your data, name used in all resource type related to data pipeline. We use oid (Open Industrial Data) |
 | source_name | The name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..|
 | asset_dataset | The name of data set used for assets in this example, must correspond to name used in example data|
 | pause_transformations | Whether transformations should be created as paused.        |
