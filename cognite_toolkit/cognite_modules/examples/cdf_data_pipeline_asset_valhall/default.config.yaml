@@ -8,7 +8,7 @@
 # location based on OID example data
 location_name: oid
 
-# spesify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
+# specify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
 source_name: workmate
 asset_dataset: ds_asset_oid
 asset_raw_input_db: asset_oid_workmate
