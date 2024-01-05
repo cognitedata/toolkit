@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import re
+import types
 import typing
 from collections import UserList
 from collections.abc import Collection, Sequence
@@ -643,12 +644,20 @@ def _validate_case_raw(
         if (parameter := signature.parameters.get(to_snake_case(key))) and (
             type_hint := type_hints_by_name.get(parameter.name)
         ):
-            if issubclass(type_hint, CogniteObject):
+            if inspect.isclass(type_hint) and issubclass(type_hint, CogniteObject):
                 warnings.extend(_validate_case_raw(value, type_hint, filepath, identifier_key, identifier_value))
                 continue
 
             container_type = get_origin(type_hint)
-            if container_type not in [dict, dict, collections.abc.MutableMapping, collections.abc.Mapping]:
+            if container_type is types.UnionType:
+                args = typing.get_args(type_hint)
+                type_hint = next((arg for arg in args if arg is not type(None)), None)
+
+            mappings = [dict, collections.abc.MutableMapping, collections.abc.Mapping]
+            is_mapping = container_type in mappings or (
+                isinstance(type_hint, types.GenericAlias) and len(typing.get_args(type_hint)) == 2
+            )
+            if not is_mapping:
                 continue
             args = typing.get_args(type_hint)
             if not args:
