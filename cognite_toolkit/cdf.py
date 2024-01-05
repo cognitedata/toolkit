@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-from __future__ import annotations
-
+# The Typer parameters get mixed up if we use the __future__ import annotations
 import os
 import shutil
 import sys
@@ -12,7 +11,7 @@ from dataclasses import dataclass
 from graphlib import TopologicalSorter
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, Optional, cast
+from typing import Annotated, Optional, Union, cast
 
 import sentry_sdk
 import typer
@@ -70,9 +69,9 @@ _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
 class Common:
     override_env: bool
     verbose: bool
-    cluster: str | None
-    project: str | None
-    mockToolGlobals: CDFToolConfig | None
+    cluster: Union[str, None]
+    project: Union[str, None]
+    mockToolGlobals: Union[CDFToolConfig, None]
 
 
 def _version_callback(value: bool) -> None:
@@ -87,7 +86,6 @@ def common(
     verbose: Annotated[
         bool,
         typer.Option(
-            False,
             help="Turn on to get more verbose output when running the commands",
         ),
     ] = False,
@@ -111,12 +109,14 @@ def common(
             help="The Cognite Data Fusion project to use. Can also be set with the CDF_PROJECT environment variable.",
         ),
     ] = None,
-    version: bool = typer.Option(
-        None,
-        "--version",
-        help="See which version of the tooklit and the templates are installed.",
-        callback=_version_callback,
-    ),
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            help="See which version of the tooklit and the templates are installed.",
+            callback=_version_callback,
+        ),
+    ] = False,
 ) -> None:
     """The cdf-tk tool is used to build and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.
 
@@ -159,15 +159,16 @@ def common(
 @app.command("build")
 def build(
     ctx: typer.Context,
-    source_dir: str = typer.Argument(
-        default="./",
-        help="Where to find the module templates to build from",
-        allow_dash=True,
-    ),
+    source_dir: Annotated[
+        str,
+        typer.Argument(
+            help="Where to find the module templates to build from",
+            allow_dash=True,
+        ),
+    ] = "./",
     build_dir: Annotated[
         str,
         typer.Option(
-            "./build",
             "--build-dir",
             "-b",
             help="Where to save the built module files",
@@ -176,7 +177,6 @@ def build(
     build_env: Annotated[
         str,
         typer.Option(
-            "dev",
             "--env",
             "-e",
             help="Build environment to build for",
@@ -185,7 +185,6 @@ def build(
     clean: Annotated[
         bool,
         typer.Option(
-            False,
             "--clean",
             "-c",
             help="Delete the build directory before building the configurations",
@@ -231,7 +230,6 @@ def deploy(
     build_dir: Annotated[
         str,
         typer.Argument(
-            default="./build",
             help="Where to find the module templates to deploy from. Defaults to current directory.",
             allow_dash=True,
         ),
@@ -239,16 +237,14 @@ def deploy(
     build_env: Annotated[
         str,
         typer.Option(
-            "dev",
             "--env",
             "-e",
-            help="CDF project environment to build for. Defined in environments.yaml. Defaults to dev.",
+            help="CDF project environment to build for. Defined in environments.yaml.",
         ),
     ] = "dev",
     interactive: Annotated[
         bool,
         typer.Option(
-            False,
             "--interactive",
             "-i",
             help="Whether to use interactive mode when deciding which modules to deploy.",
@@ -257,7 +253,6 @@ def deploy(
     drop: Annotated[
         bool,
         typer.Option(
-            False,
             "--drop",
             "-d",
             help="Whether to drop existing configurations, drop per resource if present.",
@@ -266,7 +261,6 @@ def deploy(
     drop_data: Annotated[
         bool,
         typer.Option(
-            False,
             "--drop-data",
             help="Whether to drop existing data in data model containers and spaces.",
         ),
@@ -274,7 +268,6 @@ def deploy(
     dry_run: Annotated[
         bool,
         typer.Option(
-            False,
             "--dry-run",
             "-r",
             help="Whether to do a dry-run, do dry-run if present.",
@@ -283,7 +276,6 @@ def deploy(
     include: Annotated[
         Optional[list[str]],
         typer.Option(
-            None,
             "--include",
             "-i",
             help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
@@ -379,42 +371,37 @@ def clean(
     build_dir: Annotated[
         str,
         typer.Argument(
-            default="./build",
             help="Where to find the module templates to clean from. Defaults to ./build directory.",
             allow_dash=True,
         ),
-    ],
+    ] = "./build",
     build_env: Annotated[
         str,
         typer.Option(
-            "dev",
             "--env",
             "-e",
             help="CDF project environment to use for cleaning.",
         ),
-    ],
+    ] = "dev",
     interactive: Annotated[
         bool,
         typer.Option(
-            False,
             "--interactive",
             "-i",
             help="Whether to use interactive mode when deciding which resource types to clean.",
         ),
-    ],
+    ] = False,
     dry_run: Annotated[
         bool,
         typer.Option(
-            False,
             "--dry-run",
             "-r",
             help="Whether to do a dry-run, do dry-run if present",
         ),
-    ],
+    ] = False,
     include: Annotated[
         Optional[list[str]],
         typer.Option(
-            None,
             "--include",
             "-i",
             help=f"Specify which resource types to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
@@ -588,21 +575,21 @@ def auth_verify(
 def main_init(
     ctx: typer.Context,
     dry_run: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
             "--dry-run",
             "-r",
             help="Whether to do a dry-run, do dry-run if present.",
         ),
-    ] = False,
+    ],
     upgrade: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
             "--upgrade",
             "-u",
             help="Will upgrade templates in place without overwriting existing config.yaml and other files.",
         ),
-    ] = False,
+    ],
     git: Annotated[
         Optional[str],
         typer.Option(
@@ -612,21 +599,21 @@ def main_init(
         ),
     ] = None,
     no_backup: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
             "--no-backup",
             help="Will skip making a backup before upgrading.",
         ),
     ] = False,
     clean: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
             "--clean",
             help="Will delete the new_project directory before starting.",
         ),
     ] = False,
     init_dir: Annotated[
-        Optional[str],
+        str,
         typer.Argument(
             help="Directory path to project to initialize or upgrade with templates.",
         ),
