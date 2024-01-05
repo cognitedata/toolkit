@@ -25,7 +25,7 @@ This module manages the following resources:
 
 3. transformations:
    - ID: `tr_asset_oid_workmate_asset_hierarchy`
-     - Content: Creation of aset hierarchy based on input asset data from OID
+     - Content: Creation of asset hierarchy based on input asset data from OID
 
 ### Illustration of the files data pipeline
 
