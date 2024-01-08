@@ -29,6 +29,7 @@ from cognite_toolkit.cdf_tk.load import (
     DeployResults,
     deploy_or_clean_resources,
 )
+from cognite_toolkit.cdf_tk.run import run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
@@ -57,8 +58,12 @@ auth_app = typer.Typer(
 describe_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
+run_app = typer.Typer(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
 app.add_typer(auth_app, name="auth")
 app.add_typer(describe_app, name="describe")
+app.add_typer(run_app, name="run")
 
 
 _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
@@ -797,6 +802,35 @@ def describe_datamodel_cmd(
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
     describe_datamodel(ToolGlobals, space, data_model)
     return None
+
+
+@run_app.callback(invoke_without_command=True)
+def run_main(ctx: typer.Context) -> None:
+    """Commands to execute processes in CDF."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk run --help[/] for more information.")
+
+
+@run_app.command("transformation")
+def run_transformation_cmd(
+    ctx: typer.Context,
+    external_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--external_id",
+            "-e",
+            prompt=True,
+            help="External id of the transformation to run.",
+        ),
+    ] = None,
+) -> None:
+    """This command will run the specified transformation using a one-time session."""
+    if ctx.obj.mockToolGlobals is not None:
+        ToolGlobals = ctx.obj.mockToolGlobals
+    else:
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    external_id = cast(str, external_id).strip()
+    run_transformation(ToolGlobals, external_id)
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
