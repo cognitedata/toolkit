@@ -100,6 +100,12 @@ def common(
             help="Load the .env file in this or the parent directory, but also override currently set environment variables",
         ),
     ] = False,
+    env_path: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Path to .env file to load. Defaults to .env in current or parent directory.",
+        ),
+    ] = None,
     cluster: Annotated[
         Optional[str],
         typer.Option(
@@ -141,17 +147,21 @@ def common(
         print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
         if cluster is not None or project is not None:
             print("            --cluster or --project is set and will override .env file values.")
-    if not (Path.cwd() / ".env").is_file():
-        if not (Path.cwd().parent / ".env").is_file():
-            print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
-        else:
-            if verbose:
-                print("Loading .env file found in parent directory.")
-            load_dotenv("../.env", override=override_env)
+
+    if env_path is not None:
+        if not (dotenv_file := Path(env_path)).is_file():
+            print(f"  [bold red]ERROR:[/] {env_path} does not exist.")
+            exit(1)
     else:
+        if not (dotenv_file := Path.cwd() / ".env").is_file():
+            if not (dotenv_file := Path.cwd().parent / ".env").is_file():
+                print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
+
+    if dotenv_file.is_file():
         if verbose:
-            print("Loading .env file found in current directory.")
-        load_dotenv(".env", override=override_env)
+            print(f"Loading .env file: {dotenv_file.relative_to(Path.cwd())!s}")
+        load_dotenv(dotenv_file, override=override_env)
+
     ctx.obj = Common(
         verbose=verbose,
         override_env=override_env,
