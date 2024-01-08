@@ -15,7 +15,11 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [TBD] - TBD
+## [0.1.0b4] - 2024-01-08
+
+### Added
+
+- Added `--env-path` option to enable arbitrary locations of `.env` file
 
 ### Fixed
 
