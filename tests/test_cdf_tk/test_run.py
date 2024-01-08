@@ -10,7 +10,7 @@ from tests.conftest import ApprovalCogniteClient
 from tests.test_cdf_tk.conftest import get_capabilities_mock, get_post_mock
 
 
-def test_get_oneshot_session(MockCDFToolConfig):
+def test_get_oneshot_session(MockCDFToolConfig: CDFToolConfig):
     MockCDFToolConfig._client.iam.token.inspect = get_capabilities_mock(
         [
             SessionsAcl(
