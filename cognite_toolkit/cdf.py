@@ -29,6 +29,7 @@ from cognite_toolkit.cdf_tk.load import (
     DeployResults,
     deploy_or_clean_resources,
 )
+from cognite_toolkit.cdf_tk.run import run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
@@ -57,8 +58,12 @@ auth_app = typer.Typer(
 describe_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
+run_app = typer.Typer(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
 app.add_typer(auth_app, name="auth")
 app.add_typer(describe_app, name="describe")
+app.add_typer(run_app, name="run")
 
 
 _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
@@ -95,6 +100,12 @@ def common(
             help="Load the .env file in this or the parent directory, but also override currently set environment variables",
         ),
     ] = False,
+    env_path: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Path to .env file to load. Defaults to .env in current or parent directory.",
+        ),
+    ] = None,
     cluster: Annotated[
         Optional[str],
         typer.Option(
@@ -136,17 +147,21 @@ def common(
         print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
         if cluster is not None or project is not None:
             print("            --cluster or --project is set and will override .env file values.")
-    if not (Path.cwd() / ".env").is_file():
-        if not (Path.cwd().parent / ".env").is_file():
-            print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
-        else:
-            if verbose:
-                print("Loading .env file found in parent directory.")
-            load_dotenv("../.env", override=override_env)
+
+    if env_path is not None:
+        if not (dotenv_file := Path(env_path)).is_file():
+            print(f"  [bold red]ERROR:[/] {env_path} does not exist.")
+            exit(1)
     else:
+        if not (dotenv_file := Path.cwd() / ".env").is_file():
+            if not (dotenv_file := Path.cwd().parent / ".env").is_file():
+                print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
+
+    if dotenv_file.is_file():
         if verbose:
-            print("Loading .env file found in current directory.")
-        load_dotenv(".env", override=override_env)
+            print(f"Loading .env file: {dotenv_file.relative_to(Path.cwd())!s}")
+        load_dotenv(dotenv_file, override=override_env)
+
     ctx.obj = Common(
         verbose=verbose,
         override_env=override_env,
@@ -787,6 +802,35 @@ def describe_datamodel_cmd(
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
     describe_datamodel(ToolGlobals, space, data_model)
     return None
+
+
+@run_app.callback(invoke_without_command=True)
+def run_main(ctx: typer.Context) -> None:
+    """Commands to execute processes in CDF."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk run --help[/] for more information.")
+
+
+@run_app.command("transformation")
+def run_transformation_cmd(
+    ctx: typer.Context,
+    external_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--external_id",
+            "-e",
+            prompt=True,
+            help="External id of the transformation to run.",
+        ),
+    ] = None,
+) -> None:
+    """This command will run the specified transformation using a one-time session."""
+    if ctx.obj.mockToolGlobals is not None:
+        ToolGlobals = ctx.obj.mockToolGlobals
+    else:
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    external_id = cast(str, external_id).strip()
+    run_transformation(ToolGlobals, external_id)
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
