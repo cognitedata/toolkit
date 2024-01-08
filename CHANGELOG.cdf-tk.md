@@ -19,7 +19,7 @@ Changes are grouped as follows:
 
 ### Added
 
-- Added `--env-path` option to enable arbitrary locations of `.env` file
+- Added `--env-path` option to specify custom locations of `.env` file
 
 ### Fixed
 
