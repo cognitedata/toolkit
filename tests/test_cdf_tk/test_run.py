@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 from requests import Response
 
@@ -12,7 +12,7 @@ def test_get_oneshot_session(cognite_client_approval: ApprovalCogniteClient):
     cdf_tool.client = cognite_client_approval.mock_client
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
     cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
-    cdf_tool.oauth_credentials = cognite_client_approval.mock_client
+    cdf_tool.oauth_credentials = Mock()
     cdf_tool.oauth_credentials.authorization_header.return_value = ("Bearer", "123")
     sessionResponse = Response()
     sessionResponse.status_code = 200
