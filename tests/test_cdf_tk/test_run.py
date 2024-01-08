@@ -44,4 +44,4 @@ def test_run_transformation(cognite_client_approval: ApprovalCogniteClient):
     )
     cognite_client_approval.client.transformations.retrieve_multiple.return_value = TransformationList([transformation])
 
-    run_transformation(cdf_tool, "test")
+    assert run_transformation(cdf_tool, "test") is True

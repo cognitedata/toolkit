@@ -28,14 +28,14 @@ def get_oneshot_session(ToolGlobals: CDFToolConfig) -> CreatedSession | None:
     return None
 
 
-def run_transformation(ToolGlobals: CDFToolConfig, external_ids: str | list[str]) -> None:
+def run_transformation(ToolGlobals: CDFToolConfig, external_ids: str | list[str]) -> bool:
     """Run a transformation in CDF"""
     if isinstance(external_ids, str):
         external_ids = [external_ids]
     session = get_oneshot_session(ToolGlobals)
     if session is None:
         print("[bold red]ERROR:[/] Could not get a oneshot session.")
-        return None
+        return False
     try:
         transformations: TransformationList = ToolGlobals.client.transformations.retrieve_multiple(
             external_ids=external_ids
@@ -43,10 +43,10 @@ def run_transformation(ToolGlobals: CDFToolConfig, external_ids: str | list[str]
     except Exception as e:
         print("[bold red]ERROR:[/] Could not retrieve transformations.")
         print(e)
-        return None
+        return False
     if transformations is None or len(transformations) == 0:
         print(f"[bold red]ERROR:[/] Could not find transformation with external_id {external_ids}")
-        return None
+        return False
     nonce = NonceCredentials(session_id=session.id, nonce=session.nonce, cdf_project_name=ToolGlobals.project)
     for transformation in transformations:
         transformation.source_nonce = nonce
@@ -56,7 +56,7 @@ def run_transformation(ToolGlobals: CDFToolConfig, external_ids: str | list[str]
     except Exception as e:
         print("[bold red]ERROR:[/] Could not update transformations with oneshot session.")
         print(e)
-        return None
+        return False
     for transformation in transformations:
         try:
             job = ToolGlobals.client.transformations.run(
@@ -66,3 +66,4 @@ def run_transformation(ToolGlobals: CDFToolConfig, external_ids: str | list[str]
         except Exception as e:
             print(f"[bold red]ERROR:[/] Could not run transformation {transformation.external_id}.")
             print(e)
+    return True
