@@ -43,7 +43,7 @@ repos:
   - hooks:
     - id: mypy
       name: mypy
-      entry: mypy cognite_toolkit/cdf_tk/utils.py cognite_toolkit/cdf_tk/bootstrap.py cognite_toolkit/cdf_tk/dump.py cognite_toolkit/cdf_tk/delete.py
+      entry: mypy cognite_toolkit/
       files: ^.*.(py|pyi)$
       language: system
       pass_filenames: false

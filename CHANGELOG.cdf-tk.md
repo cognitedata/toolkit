@@ -15,6 +15,17 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0b4] - 2024-01-08
+
+### Added
+
+- Added `--env-path` option to specify custom locations of `.env` file
+
+### Fixed
+
+- Fixed bug in command `cdf-tk build` that can occur when running on `Python>=3.10` which caused an error with text
+  `TypeError: issubclass() arg 1 must be a class`. This is now fixed.
+
 ## [0.1.0b3] - 2024-01-02
 
 ### Fixed
