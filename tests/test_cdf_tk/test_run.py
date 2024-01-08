@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, Mock
 
-from cognite.client.data_classes.transformations import Transformation, TransformationList
+from cognite.client.data_classes.transformations import Transformation
 from requests import Response
 
 from cognite_toolkit.cdf_tk.run import get_oneshot_session, run_transformation
@@ -42,6 +42,6 @@ def test_run_transformation(cognite_client_approval: ApprovalCogniteClient):
         external_id="test",
         query="SELECT * FROM timeseries",
     )
-    cognite_client_approval.client.transformations.retrieve_multiple.return_value = TransformationList([transformation])
+    cognite_client_approval.append(Transformation, transformation)
 
     assert run_transformation(cdf_tool, "test") is True
