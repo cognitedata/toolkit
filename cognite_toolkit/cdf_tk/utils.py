@@ -720,3 +720,19 @@ def validate_data_set_is_set(
     value = raw.get(identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}"))
     warnings.append(DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__))
     return warnings
+
+
+def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
+    """
+    This is useful if we provide a relative path to some resource in a config file.
+    """
+    if path.is_absolute():
+        raise ValueError(f"Path {path} is not relative.")
+
+    if isinstance(base_path, str):
+        base_path = Path(base_path)
+
+    if not base_path.is_dir():
+        base_path = base_path.parent
+
+    return (base_path / path).resolve()
