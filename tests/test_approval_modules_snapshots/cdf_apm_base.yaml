@@ -1,5 +1,7 @@
 Container:
-- externalId: APM_Activity
+- constraints: {}
+  externalId: APM_Activity
+  indexes: {}
   properties:
     assetExternalId:
       nullable: true
@@ -79,7 +81,9 @@ Container:
         type: text
   space: APM_SourceData
   usedFor: node
-- externalId: APM_Config
+- constraints: {}
+  externalId: APM_Config
+  indexes: {}
   properties:
     appDataSpaceId:
       nullable: true
@@ -118,7 +122,9 @@ Container:
         type: text
   space: APM_Config
   usedFor: node
-- externalId: APM_Notification
+- constraints: {}
+  externalId: APM_Notification
+  indexes: {}
   properties:
     assetExternalId:
       nullable: true
@@ -181,7 +187,9 @@ Container:
         type: text
   space: APM_SourceData
   usedFor: node
-- externalId: APM_Operation
+- constraints: {}
+  externalId: APM_Operation
+  indexes: {}
   properties:
     assetExternalId:
       nullable: true
@@ -284,6 +292,7 @@ View:
     operations for individual assets. It provides an overarching description and is
     considered incomplete until all its operations are finished.
   externalId: APM_Activity
+  implements: []
   name: APM_Activity
   properties:
     assetExternalId:
@@ -331,7 +340,7 @@ View:
       containerPropertyIdentifier: id
       description: Unique identifier from the source, such as object ID in SAP.
     notifications:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       description: Originating notifications linked to this maintenance activity.
       direction: outwards
       source:
@@ -400,6 +409,7 @@ View:
   version: '1'
 - description: Config data for APM applications
   externalId: APM_Config
+  implements: []
   name: APM Config
   properties:
     appDataSpaceId:
@@ -452,6 +462,7 @@ View:
     in technical objects within the plant. It comprehensively logs tasks for long-term
     analysis and aids in task planning and execution.
   externalId: APM_Notification
+  implements: []
   name: APM_Notification
   properties:
     assetExternalId:
@@ -534,6 +545,7 @@ View:
 - description: An operation delineates a distinct maintenance task tailored for a
     specific asset, such as gasket replacement, scaffolding setup, or level measurement.
   externalId: APM_Operation
+  implements: []
   name: APM_Operation
   properties:
     assetExternalId:

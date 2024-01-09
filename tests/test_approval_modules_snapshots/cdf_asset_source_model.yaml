@@ -1,5 +1,7 @@
 Container:
-- externalId: Asset
+- constraints: {}
+  externalId: Asset
+  indexes: {}
   name: Asset
   properties:
     metadata:

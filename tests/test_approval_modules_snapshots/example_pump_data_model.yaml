@@ -7,6 +7,7 @@ Container:
         space: cdf_core
         type: container
   externalId: Pump
+  indexes: {}
   name: Pump
   properties:
     DesignPointFlowGPM:
@@ -165,7 +166,7 @@ View:
   name: LiftStation
   properties:
     pumps:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: pumps
       source:

@@ -1,5 +1,7 @@
 Container:
-- externalId: Asset
+- constraints: {}
+  externalId: Asset
+  indexes: {}
   name: Asset
   properties:
     areaId:
@@ -90,7 +92,9 @@ Container:
         type: timestamp
   space: sp_apm_simple
   usedFor: node
-- externalId: WorkItem
+- constraints: {}
+  externalId: WorkItem
+  indexes: {}
   name: WorkItem
   properties:
     criticality:
@@ -163,7 +167,9 @@ Container:
         type: direct
   space: sp_apm_simple
   usedFor: node
-- externalId: WorkOrder
+- constraints: {}
+  externalId: WorkOrder
+  indexes: {}
   name: WorkOrder
   properties:
     actualHours:
@@ -647,6 +653,7 @@ TransformationSchedule:
   isPaused: true
 View:
 - externalId: Asset
+  implements: []
   name: Asset
   properties:
     areaId:
@@ -664,7 +671,7 @@ View:
       containerPropertyIdentifier: categoryId
       name: categoryId
     children:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: children
       source:
@@ -748,6 +755,7 @@ View:
   space: sp_apm_simple
   version: '1'
 - externalId: WorkItem
+  implements: []
   name: WorkItem
   properties:
     criticality:
@@ -786,7 +794,7 @@ View:
       containerPropertyIdentifier: itemName
       name: itemName
     linkedAssets:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: linkedAssets
       source:
@@ -828,6 +836,7 @@ View:
   space: sp_apm_simple
   version: '1'
 - externalId: WorkOrder
+  implements: []
   name: WorkOrder
   properties:
     actualHours:
@@ -901,7 +910,7 @@ View:
       containerPropertyIdentifier: isSafetyCritical
       name: isSafetyCritical
     linkedAssets:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: linkedAssets
       source:
@@ -962,7 +971,7 @@ View:
       containerPropertyIdentifier: title
       name: title
     workItems:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: workItems
       source:
