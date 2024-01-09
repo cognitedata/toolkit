@@ -36,7 +36,7 @@ from cognite.client.data_classes import (
     TransformationSchedule,
     TransformationScheduleList,
 )
-from cognite.client.data_classes._base import CogniteResource, CogniteResourceList
+from cognite.client.data_classes._base import CogniteResource, CogniteResourceList, T_CogniteResource
 from cognite.client.data_classes.data_modeling import (
     Container,
     ContainerApply,
@@ -416,6 +416,17 @@ class ApprovalCogniteClient:
                     )
 
         return dumped
+
+    def created_resources_of_type(self, resource_type: type[T_CogniteResource]) -> list[T_CogniteResource]:
+        """This returns all the resources that have been created of a specific type.
+
+        Args:
+            resource_type: The type of resource to return, for example, 'TimeSeries', 'DataSet', 'Transformation'
+
+        Returns:
+            A list of all the resources that have been created of a specific type.
+        """
+        return self._created_resources.get(resource_type.__name__, [])
 
     def create_calls(self) -> dict[str, int]:
         """This returns all the calls that have been made to the mock client to create methods.
