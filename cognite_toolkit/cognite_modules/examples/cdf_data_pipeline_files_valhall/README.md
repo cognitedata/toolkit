@@ -5,11 +5,12 @@ This module relies on these example data modules being loaded:
 - cdf_oid_example_data
 - cdf_data_pipeline_asset_valhall
 
-The module creates a simple data pipeline for processing files from the OID example module. 
+The module creates a simple data pipeline for processing files from the OID example module.
+The processing here is related to the annotation/contextualization mapping of tags in P&ID documents to assets in the asset hierarchy.
 OID is used as the examle location name.
-Since the pipeline don't load from a source the example data from cdf_oid_example_data is loaded to files and RAW in CDF.
+Since the pipeline doesn't load from a source, the example data from cdf_oid_example_data is loaded to files and RAW in CDF.
 
-Requred example data in the module `cdf_oid_example_data` is a small data set from [Open Industrial
+Required example data in the module `cdf_oid_example_data` is a small data set from [Open Industrial
 Data](https://learn.cognite.com/open-industrial-data), the Valhall platform.
 
 ## Managed resources
@@ -18,7 +19,7 @@ This module manages the following resources:
 
 1. data set:
    - ID: `ds_files_oid`
-     - Content: Data linage, used Links to used extraction pipelines, transformation and raw tabels
+     - Content: Data lineage, used Links to used extraction pipelines, transformation and raw tabels
 
 2. extraction pipeline:
    - ID: `ep_src_files_oid_fileshare`
@@ -28,7 +29,7 @@ This module manages the following resources:
 
 3. transformations:
    - ID: `tr_files_oid_fileshare_file_matadata`
-     - Content: update of metadata for example file metdata, prepping for contextualization / annotation
+     - Content: update of metadata for example file metdata, prepping for contextualization / annotation 
 
 4. function:
    - ID: `fu_context_files_oid_fileshare_annotation`
@@ -44,8 +45,8 @@ The following variables are required and defined in this module:
 
 | Variable | Description |
 |----------|-------------|
-| location_name | The location for your data, name used in all resource type realted to data pipeline. We use oid (Open Industrial Data) |
-| source_name | The name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..|
+| location_name | The location for your data, name used in all resource type related to data pipeline. We use oid (Open Industrial Data) |
+| source_name | The name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..|
 | files_dataset | The name of data set used for files in this example, must correspond to name used in example data|
 | pause_transformations | Whether transformations should be created as paused.        |
 | files_raw_input_db | CDF RAW DB name used for files metadata, must correspond to name used in example data|
