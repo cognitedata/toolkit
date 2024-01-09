@@ -102,6 +102,7 @@ from cognite.client.data_classes.data_modeling.ids import (
     VersionedDataModelingId,
     ViewId,
 )
+from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.iam import Group, GroupList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -208,10 +209,6 @@ class LoadableEdges(EdgeApplyList):
             "replace": self.replace,
             "edges": self.edges.dump(camel_case),
         }
-
-
-class ExtractionPipelineConfigList(CogniteResourceList[ExtractionPipelineConfig]):
-    _RESOURCE = ExtractionPipelineConfig
 
 
 T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawTable])
