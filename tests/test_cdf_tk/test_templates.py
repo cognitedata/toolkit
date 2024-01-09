@@ -15,7 +15,7 @@ from cognite_toolkit.cdf_tk.templates import (
     split_config,
 )
 
-BUILD_CONFIG = Path(__file__).parent / "project_configs"
+BUILD_CONFIG = Path(__file__).parent / "project_for_test"
 DATA = Path(__file__).parent / "data"
 
 
@@ -51,14 +51,15 @@ def generate_config_test_cases():
     yield pytest.param(only_a_module, {"a_module"}, id="Include one module")
 
 
-@pytest.mark.parametrize(
-    "expected, include",
-    list(generate_config_test_cases()),
-)
-def test_generate_config(expected: str, include: set[str] | None) -> None:
-    actual, _ = generate_config(BUILD_CONFIG, include_modules=include)
+class TestGenerateConfig:
+    @pytest.mark.parametrize(
+        "expected, include",
+        list(generate_config_test_cases()),
+    )
+    def test_generate_config(self, expected: str, include: set[str] | None) -> None:
+        actual, _ = generate_config(BUILD_CONFIG, include_modules=include)
 
-    assert yaml.safe_load(actual) == expected
+        assert yaml.safe_load(actual) == expected
 
 
 @pytest.fixture()
