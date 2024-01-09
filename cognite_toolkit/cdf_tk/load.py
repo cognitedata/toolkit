@@ -302,13 +302,6 @@ class Loader(
     def get_id(cls, item: T_WriteClass | T_WritableCogniteResource) -> T_ID:
         raise NotImplementedError
 
-    @staticmethod
-    def fixup_resource(local: T_WriteClass, remote: T_CogniteResource) -> T_CogniteResourceList:
-        """Takes the local (to be pushed) and remote (from CDF) resource and returns the
-        local resource with properties from the remote resource copied over to make
-        them equal if we should consider them equal (and skip writing to CDF)."""
-        return local
-
     def remove_unchanged(
         self, local: T_WriteClass | Sequence[T_WriteClass]
     ) -> T_CogniteResourceList:
@@ -411,14 +404,6 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
         else:
             scope = "resource scoped"
         return f"{self.api_name}({scope})"
-
-    @staticmethod
-    def fixup_resource(local: Group, remote: Group) -> Group:
-        local.id = remote.id
-        local.is_deleted = False  # If remote is_deleted, this will fail the check.
-        local.metadata = remote.metadata  # metadata has no order guarantee, so we exclude it from compare
-        local.deleted_time = remote.deleted_time
-        return local
 
     @classmethod
     def create_loader(
