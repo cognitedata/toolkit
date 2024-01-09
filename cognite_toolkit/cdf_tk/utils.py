@@ -21,6 +21,8 @@ import json
 import logging
 import os
 import re
+import sys
+import types
 import typing
 from collections import UserList
 from collections.abc import Collection, Sequence
@@ -395,13 +397,48 @@ class CDFToolConfig:
         return [space.space for space in existing]
 
 
-def load_yaml_inject_variables(filepath: Path, variables: dict[str, str]) -> dict[str, Any] | list[dict[str, Any]]:
+@overload
+def load_yaml_inject_variables(
+    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["list"]
+) -> list[dict[str, Any]]:
+    ...
+
+
+@overload
+def load_yaml_inject_variables(
+    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["dict"]
+) -> dict[str, Any]:
+    ...
+
+
+@overload
+def load_yaml_inject_variables(
+    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
+) -> dict[str, Any] | list[dict[str, Any]]:
+    ...
+
+
+def load_yaml_inject_variables(
+    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
+) -> dict[str, Any] | list[dict[str, Any]]:
     content = filepath.read_text()
     for key, value in variables.items():
         if value is None:
             continue
         content = content.replace("${%s}" % key, value)
-    return yaml.safe_load(content)
+    result = yaml.safe_load(content)
+    if required_return_type == "any":
+        return result
+    elif required_return_type == "list":
+        if isinstance(result, list):
+            return result
+        raise ValueError(f"Expected a list, but got {type(result)}")
+    elif required_return_type == "dict":
+        if isinstance(result, dict):
+            return result
+        raise ValueError(f"Expected a dict, but got {type(result)}")
+    else:
+        raise ValueError(f"Unknown required_return_type {required_return_type}")
 
 
 @dataclass(frozen=True)
@@ -608,12 +645,22 @@ def _validate_case_raw(
         if (parameter := signature.parameters.get(to_snake_case(key))) and (
             type_hint := type_hints_by_name.get(parameter.name)
         ):
-            if issubclass(type_hint, CogniteObject):
+            if inspect.isclass(type_hint) and issubclass(type_hint, CogniteObject):
                 warnings.extend(_validate_case_raw(value, type_hint, filepath, identifier_key, identifier_value))
                 continue
 
             container_type = get_origin(type_hint)
-            if container_type not in [dict, dict, collections.abc.MutableMapping, collections.abc.Mapping]:
+            if sys.version_info >= (3, 10):
+                # UnionType was introduced in Python 3.10
+                if container_type is types.UnionType:
+                    args = typing.get_args(type_hint)
+                    type_hint = next((arg for arg in args if arg is not type(None)), None)
+
+            mappings = [dict, collections.abc.MutableMapping, collections.abc.Mapping]
+            is_mapping = container_type in mappings or (
+                isinstance(type_hint, types.GenericAlias) and len(typing.get_args(type_hint)) == 2
+            )
+            if not is_mapping:
                 continue
             args = typing.get_args(type_hint)
             if not args:
