@@ -12,7 +12,7 @@ from cognite_toolkit.cdf_tk.load import (
     deploy_or_clean_resources,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
-from tests.conftest import ApprovalCogniteClient
+from tests.approval_client import ApprovalCogniteClient
 
 THIS_FOLDER = Path(__file__).resolve().parent
 
