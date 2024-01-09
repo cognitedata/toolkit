@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Support for custom environment variables injected into build files when calling the command `cdf-tk deploy`.
+
 ## [0.1.0b4] - 2024-01-08
 
 ### Added
