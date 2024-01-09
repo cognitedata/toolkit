@@ -50,6 +50,7 @@ cognite_modules:
     # in the North Sea. Aker BP selected the first stage compressor on the Valhall
     # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
     # spesify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all'
+    # location based on OID example data
     cdf_data_pipeline_asset_valhall:
       asset_dataset: ds_asset_oid
       # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
@@ -58,20 +59,10 @@ cognite_modules:
       asset_location_read_group_source_id: <change_me>
       asset_raw_input_db: asset_oid_workmate
       asset_raw_input_table: assets
-      # Optional: If idP requires providing the audience
-      audience: ${IDP_AUDIENCE}
-      # Optional: If idP requires providing the scopes
-      cdfProjectName: ${CDF_PROJECT}
-      # Transformation credentials
-      clientId: ${IDP_CLIENT_ID}
-      clientSecret: ${IDP_CLIENT_SECRET}
       location_name: oid
-      module_version: '1'
       pause_transformations: true
-      scopes: ${IDP_SCOPES}
       # spesify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
       source_name: workmate
-      tokenUri: ${IDP_TOKEN_URL}
 
 
     # This is the configuration used for the example data from The Open Industrial Data (oid)

@@ -1,20 +1,23 @@
 from __future__ import annotations
 
+import datetime
+import io
 import itertools
 import os
 import re
 import shutil
 from collections import ChainMap, UserList, defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, overload
+from typing import Any, Literal, cast, overload
 
+import pandas as pd
 import yaml
 from rich import print
 
 from cognite_toolkit import _version
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
 
 # This is the default config located locally in each module.
@@ -59,7 +62,7 @@ class BuildEnvironment:
         system = SystemVariables.load(environment_config, action)
         try:
             return BuildEnvironment(
-                name=build_env,
+                name=cast(Literal["dev", "local", "demo", "staging", "prod"], build_env),
                 project=environment["project"],
                 build_type=environment["type"],
                 deploy=environment["deploy"],
@@ -86,7 +89,7 @@ class BuildEnvironment:
     def dump_to_file(self, build_dir: Path) -> None:
         (build_dir / BUILD_ENVIRONMENT_FILE).write_text(yaml.dump(self.dump(), sort_keys=False, indent=2))
 
-    def validate_environment(self):
+    def validate_environment(self) -> None:
         if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != self.project:
             if self.name in {"dev", "local", "demo"}:
                 print(
@@ -98,8 +101,9 @@ class BuildEnvironment:
                     f"  [bold red]ERROR:[/] Project name mismatch (CDF_PROJECT) between {ENVIRONMENTS_FILE!s} ({self.project}) and what is defined in environment ({project_env=} != {self.project=})."
                 )
                 exit(1)
+        return None
 
-    def set_environment_variables(self):
+    def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.name
         os.environ["CDF_BUILD_TYPE"] = self.build_type
 
@@ -168,7 +172,7 @@ def get_selected_modules(
     exit(1)
 
 
-def _read_packages(source_module, verbose):
+def _read_packages(source_module: Path, verbose: bool) -> dict[str, Any]:
     cdf_modules_by_packages = read_yaml_file(source_module / COGNITE_MODULES / DEFAULT_PACKAGES_FILE).get(
         "packages", {}
     )
@@ -359,7 +363,7 @@ def process_config_files(
     verbose: bool = False,
 ) -> None:
     configs = split_config(config)
-    number_by_resource_type = defaultdict(int)
+    number_by_resource_type: dict[str, int] = defaultdict(int)
 
     for module_dir, filepaths in iterate_modules(source_module_dir):
         if module_dir.name not in selected_modules:
@@ -386,7 +390,25 @@ def process_config_files(
 
             destination = build_dir / filepath.parent.name / filename
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_text(content)
+            if "timeseries_datapoints" in filepath.parent.name and filepath.suffix.lower() == ".csv":
+                # Special case for timeseries datapoints, we want to timeshit datapoints
+                # if the file is a csv file and we have been instructed to.
+                # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+                file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+                data = pd.read_csv(io.StringIO(file_content), parse_dates=True, dayfirst=True, index_col=0)
+                if "timeshift_" in data.index.name:
+                    print(
+                        "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
+                    )
+                    data.index.name = data.index.name.replace("timeshift_", "")
+                    data.index = pd.DatetimeIndex(data.index)
+                    periods = datetime.datetime.today() - data.index[-1]
+                    data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
+                    destination.write_text(data.to_csv())
+                else:
+                    destination.write_text(content)
+            else:
+                destination.write_text(content)
 
             validate(content, destination, filepath)
 
@@ -398,7 +420,7 @@ def build_config(
     build: BuildEnvironment,
     clean: bool = False,
     verbose: bool = False,
-):
+) -> None:
     is_populated = build_dir.exists() and any(build_dir.iterdir())
     if is_populated and clean:
         shutil.rmtree(build_dir)
@@ -422,10 +444,11 @@ def build_config(
     process_config_files(source_dir, selected_modules, build_dir, config, build.name, verbose)
     build.dump_to_file(build_dir)
     print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
+    return None
 
 
 def generate_config(
-    directory: Path | Sequence[Path], include_modules: set[str] | None = None, existing_config: str | None = None
+    directory: Path, include_modules: set[str] | None = None, existing_config: str | None = None
 ) -> tuple[str, ConfigEntries]:
     """Generate a config dictionary from the default.config.yaml files in the given directories.
 
@@ -445,9 +468,9 @@ def generate_config(
     if isinstance(directory, Path):
         directories = [directory]
     else:
-        directories = directory
+        directories = list(directory)
     config = {}
-    comments: dict[str, dict[Literal["above", "after"], list[str]]] = {}
+    comments: dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]] = {}
     for dir_ in directories:
         defaults = sorted(directory.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(dir_))
 
@@ -563,6 +586,8 @@ def _dump_yaml_with_comments(
     for line in dumped.splitlines():
         indent = len(line) - len(line.lstrip())
         if last_indent < indent:
+            if last_variable is None:
+                raise ValueError("Unexpected state of last_variable being None")
             path = (*path, last_variable)
         elif last_indent > indent:
             # Adding some extra space between modules
@@ -571,10 +596,10 @@ def _dump_yaml_with_comments(
             path = path[:-indent_reduction_steps]
 
         variable = line.split(":", maxsplit=1)[0].strip()
-        if comment := comments.get((*path, variable)):
-            for line_comment in comment["above"]:
+        if local_comment := comments.get((*path, variable)):
+            for line_comment in local_comment["above"]:
                 out_lines.append(f"{' ' * indent}# {line_comment}")
-            if after := comment["after"]:
+            if after := local_comment["after"]:
                 line = f"{line} # {after[0]}"
 
         out_lines.append(line)
@@ -590,7 +615,7 @@ class ConfigEntries(UserList):
         if isinstance(entries, dict):
             entries = self._initialize(entries)
         super().__init__(entries or [])
-        self._lookup = {}
+        self._lookup: dict[str, dict[str, ConfigEntry]] = {}
         for entry in self:
             self._lookup.setdefault(entry.module, {})[entry.key] = entry
 
@@ -626,7 +651,7 @@ class ConfigEntries(UserList):
         else:
             self._lookup[item.module][item.key].current_value = item.current_value
 
-    def extend(self, items: list[ConfigEntry]) -> None:
+    def extend(self, items: Iterable[ConfigEntry]) -> None:
         for item in items:
             self.append(item)
 
@@ -656,7 +681,7 @@ class ConfigEntries(UserList):
         if changed := self.changed:
             lines.append(f"Changed {len(changed)} variables in config.yaml: {[str(c) for c in changed]}")
         if total_variables == len(self.unchanged):
-            lines.append("No variables in config.yaml was changed.")
+            lines.append("No variables in config.yaml were changed.")
         return "\n".join(lines)
 
 
@@ -684,7 +709,7 @@ class ConfigEntry:
     def unchanged(self) -> bool:
         return self.last_value is not None and self.current_value is not None and self.last_value == self.current_value
 
-    def __str__(self):
+    def __str__(self) -> str:
         prefix = self._prefix()
         if self.removed:
             return f"{prefix}{self.key} was removed"
@@ -695,11 +720,11 @@ class ConfigEntry:
         else:
             return f"{prefix}{self.key} is unchanged"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         prefix = self._prefix()
         return f"{prefix}{self.key}={self.current_value!r}"
 
-    def _prefix(self):
+    def _prefix(self) -> str:
         parts = []
         if self.path:
             parts.append(self.path)
@@ -711,7 +736,7 @@ class ConfigEntry:
         return prefix
 
 
-def iterate_modules(root_dir: Path) -> tuple[Path, list[Path]]:
+def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
     for module_dir in root_dir.rglob("*"):
         if not module_dir.is_dir():
             continue
@@ -739,7 +764,7 @@ def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str
 
 
 def split_config(config: dict[str, Any]) -> dict[str, dict[str, str]]:
-    configs = {}
+    configs: dict[str, dict[str, str]] = {}
     _split_config(config, configs, prefix="")
     return configs
 
@@ -799,11 +824,12 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
                 filepath_build=destination,
             ):
                 exit(1)
-        loader = LOADER_BY_FOLDER_NAME.get(destination.parent.name, [])
-        if len(loader) == 1:
-            loader = loader[0]
+        loaders = LOADER_BY_FOLDER_NAME.get(destination.parent.name, [])
+        loader: type[Loader] | None = None
+        if len(loaders) == 1:
+            loader = loaders[0]
         else:
-            loader = next((loader for loader in loader if re.match(loader.filename_pattern, destination.stem)), None)
+            loader = next((loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)), None)
 
         if loader is None:
             print(

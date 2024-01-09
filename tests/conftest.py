@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import itertools
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, cast
@@ -47,9 +47,14 @@ from cognite.client.data_classes.data_modeling import (
     DataModelApply,
     DataModelApplyList,
     DataModelList,
+    EdgeApply,
+    EdgeApplyResultList,
+    InstancesApplyResult,
     Node,
     NodeApply,
     NodeApplyList,
+    NodeApplyResult,
+    NodeApplyResultList,
     NodeList,
     Space,
     SpaceApply,
@@ -63,6 +68,8 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.data_modeling.ids import EdgeId, InstanceId, NodeId
 from cognite.client.testing import CogniteClientMock, monkeypatch_cognite_client
+
+from cognite_toolkit.cdf_tk.load import ExtractionPipelineConfigList
 
 TEST_FOLDER = Path(__file__).resolve().parent
 
@@ -303,10 +310,47 @@ class ApprovalCogniteClient:
                 }
             )
 
-        available_create_methods = {fn.__name__: fn for fn in [create, insert_dataframe, upload]}
+        def create_instances(
+            nodes: NodeApply | Sequence[NodeApply] | None = None,
+            edges: EdgeApply | Sequence[EdgeApply] | None = None,
+            **kwargs,
+        ) -> InstancesApplyResult:
+            created = []
+            if isinstance(nodes, NodeApply):
+                created.append(nodes)
+            elif isinstance(nodes, Sequence) and all(isinstance(v, NodeApply) for v in nodes):
+                created.extend(nodes)
+            if edges is not None:
+                raise NotImplementedError("Edges not supported yet")
+            created_resources[resource_cls.__name__].extend(created)
+            return InstancesApplyResult(
+                nodes=NodeApplyResultList(
+                    [
+                        NodeApplyResult(
+                            space=node.space,
+                            external_id=node.external_id,
+                            version=node.existing_version or 1,
+                            was_modified=True,
+                            last_updated_time=1,
+                            created_time=1,
+                        )
+                        for node in (nodes if isinstance(nodes, Sequence) else [nodes])
+                    ]
+                ),
+                edges=EdgeApplyResultList([]),
+            )
+
+        def create_extraction_pipeline_config(config: ExtractionPipelineConfig) -> ExtractionPipelineConfig:
+            created_resources[resource_cls.__name__].append(config)
+            return config
+
+        available_create_methods = {
+            fn.__name__: fn
+            for fn in [create, insert_dataframe, upload, create_instances, create_extraction_pipeline_config]
+        }
         if mock_method not in available_create_methods:
             raise ValueError(
-                f"Invalid mock create method {mock_method} for resource {resource_cls.__name__}. Supported {available_create_methods.keys()}"
+                f"Invalid mock create method {mock_method} for resource {resource_cls.__name__}. Supported {list(available_create_methods.keys())}"
             )
         method = available_create_methods[mock_method]
         return method
@@ -447,6 +491,26 @@ class ApprovalCogniteClient:
                         if isinstance(sub_method, MagicMock) and sub_method.call_count:
                             not_mocked[f"{api_name}.{method_name}.{sub_method_name}"] += sub_method.call_count
         return dict(not_mocked)
+
+    def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:
+        groups = cast(GroupList, self._created_resources[Group.__name__])
+        groups = sorted(groups, key=lambda x: x.name)
+        for name, group in itertools.groupby(groups, key=lambda x: x.name):
+            yield AuthGroupCalls(name=name, calls=list(group))
+
+
+@dataclass
+class AuthGroupCalls:
+    name: str
+    calls: list[Group]
+
+    @property
+    def last_created_capabilities(self) -> set[str]:
+        return {c._capability_name for c in self.calls[-1].capabilities}
+
+    @property
+    def capabilities_all_calls(self) -> set[str]:
+        return {c._capability_name for call in self.calls for c in call.capabilities}
 
 
 @pytest.fixture
@@ -624,9 +688,9 @@ _API_RESOURCES = [
     APIResource(
         api_name="extraction_pipelines.config",
         resource_cls=ExtractionPipelineConfig,
-        list_cls=ExtractionPipelineConfig,
+        list_cls=ExtractionPipelineConfigList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
+            "create": [Method(api_class_method="create", mock_name="create_extraction_pipeline_config")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
                 Method(api_class_method="retrieve", mock_name="return_value"),
@@ -725,7 +789,7 @@ _API_RESOURCES = [
         _write_cls=NodeApply,
         _write_list_cls=NodeApplyList,
         methods={
-            "create": [Method(api_class_method="apply", mock_name="create")],
+            "create": [Method(api_class_method="apply", mock_name="create_instances")],
             "delete": [Method(api_class_method="delete", mock_name="delete_instances")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),

@@ -15,6 +15,24 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0b4] - 2024-01-08
+
+### Added
+
+- Added `--env-path` option to specify custom locations of `.env` file
+
+### Fixed
+
+- Fixed bug in command `cdf-tk build` that can occur when running on `Python>=3.10` which caused an error with text
+  `TypeError: issubclass() arg 1 must be a class`. This is now fixed.
+
+## [0.1.0b3] - 2024-01-02
+
+### Fixed
+
+- Fixed bug in `cdf-tk deploy` where auth groups with a mix of all and resource scoped capabilities skipped
+  the all scoped capabilities. This is now fixed.
+
 ## [0.1.0b2] - 2023-12-17
 
 ### Fixed
@@ -22,7 +40,7 @@ Changes are grouped as follows:
 - Handle duplicate `TransformationSchedules` when loading `Transformation` resources.
 - Print table at the end of `cdf-tk deploy` failed with `AttributeError` is a resource.
   returned empty. This is now fixed.
-- The `cdf-tk build` command no longer gives a warning about missing `sql` file for 
+- The `cdf-tk build` command no longer gives a warning about missing `sql` file for
   `TransformationSchedule`s.
 
 ## [0.1.0b1] - 2023-12-15
@@ -34,7 +52,7 @@ Changes are grouped as follows:
 - Check for whether template variables `<change_me>` are present in the config files.
 - Check for whether data set id is present in the config files.
 - Print table at the end of `cdf-tk deploy` with the resources that were created, deleted, and skipped.
-- Support for Extraction Pipelines and Extraction Pipeline configuration for remotely configured Extractors 
+- Support for Extraction Pipelines and Extraction Pipeline configuration for remotely configured Extractors
 - Separate loader for Transformation Schedule resources.
 
 ### Removed

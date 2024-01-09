@@ -82,5 +82,42 @@ script command can be used to clean up configurations using the scripts/delete.p
 
 ## Setting up Environment
 
-When you develop `cdf-tk` you should avoid sending errors to  `sentry`. You can control `sentry` by setting the  `environment` 
-variable `SENTRY_ENABLED=false`. This is set automatically when you use the `cdf-tk-dev.py`.
+When you develop `cdf-tk` you should avoid sending errors to  `sentry`. You can control `sentry` by setting
+the  `environment` variable `SENTRY_ENABLED=false`. This is set automatically when you use the `cdf-tk-dev.py`.
+
+## Releasing
+
+The templates are bundled with the `cdf-tk` tool, so they are released together.
+To release a new version of the `cdf-tk` tool and the templates, you need to do the following:
+
+1. Create a new preparation branch from `main` where you can make the final changes and do version bumping,
+   e.g. `prepare_for_0_1_0b3`. Use `aX` for alpha, `bX` for beta, and `rcX` for
+   release candidate:
+   1. Update `CHANGELOG.cdf-tk.md` file with a header e.g. `## [0.1.0b3] - 2024-01-12` and review the
+      change comments since the previous release. Ensure that the changes are correctly reflected in the
+      comments and that the changes can be easily understood. Also verify that any breaking changes
+      are clearly marked as such (`**BREAKING**`).
+   1. Do the same update to `CHANGELOG.templates.md` file.
+   1. Update the following files with the new version number: `cognite_toolkit/_version.py`,
+      `cognite_toolkit/environments.yaml`, and `pyproject.toml`.
+   1. Update `demo/environments.yaml` with the new version number. If not, the test build and deploy will
+      fail the test build as the environments.yaml is detected as not upgraded.
+   1. Run `poetry lock` to update the `poetry.lock` file.
+   1. Run `pytest tests` locally to ensure that tests pass.
+1. Get approval to merge the branch into `main`:
+   1. Verify that all Github actions pass.
+1. Create a release branch: `release-x.y.z` from `main`:
+   1. Create a new tag on the branch with the version number, e.g. `v0.1.0b3`.
+   1. Open a PR with the existing `release` branch as base comparing to your new `release-x.y.z` branch.
+   1. Get approval and merge.
+   1. Verify that the Github action `release` passes and pushes to PyPi.
+1. Create a new release on github.com with the tag and release notes:
+   1. Find the tag you created and create the new release.
+   1. Copy the release notes from the `CHANGELOG.cdf-tk.md` file, add a `# cdf-tk` header.
+   1. Copy then further below the release notes from the `CHANGELOG.templates.md` file, add
+      a `# Templates` header.
+   1. Remember to mark as pre-release if this is not a final release.
+1. Evaluate necessary announcements:
+   1. On the Cognite Hub group, create a new post.
+   1. As part of product releases, evaluate what to include.
+   1. Cognite internal announcements.
