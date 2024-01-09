@@ -59,6 +59,11 @@ def generate_config_test_cases():
     yield pytest.param(only_a_module, {"a_module"}, id="Include one module")
 
 
+@pytest.fixture(scope="session")
+def config_yaml() -> str:
+    return (BUILD_CONFIG / "config.yaml").read_text()
+
+
 class TestGenerateConfig:
     @pytest.mark.parametrize(
         "expected, include",
@@ -69,16 +74,25 @@ class TestGenerateConfig:
 
         assert yaml.safe_load(actual) == expected
 
-    def test_generate_with_comments(self) -> None:
-        expected = dict_keys(yaml.safe_load((BUILD_CONFIG / "config.yaml").read_text()))
+    def test_generate_with_comments(self, config_yaml) -> None:
+        expected_keys = dict_keys(yaml.safe_load(config_yaml))
 
-        actual_path, _ = generate_config(BUILD_CONFIG)
+        actual, _ = generate_config(BUILD_CONFIG)
 
-        actual_keys = dict_keys(yaml.safe_load(Path(actual_path).read_text()))
-        missing = expected - actual_keys
+        actual_keys = dict_keys(yaml.safe_load(actual))
+        missing = expected_keys - actual_keys
         assert not missing, f"Missing keys: {missing}"
-        extra = actual_keys - expected
+        extra = actual_keys - expected_keys
         assert not extra, f"Extra keys: {extra}"
+
+    def test_generate_persist_variable_with_comment(self, config_yaml: str) -> None:
+        custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
+
+        actual, difference = generate_config(BUILD_CONFIG, existing_config=config_yaml)
+
+        loaded = yaml.safe_load(actual)
+        assert loaded["cognite_modules"]["another_module"]["source_asset"] == "my_new_workmate"
+        assert custom_comment in actual
 
 
 @pytest.fixture()
