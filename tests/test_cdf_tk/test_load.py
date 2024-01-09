@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from cognite.client.data_classes import DataSet, DataSetWrite
+from cognite.client.data_classes import DataSet
 
 from cognite_toolkit.cdf_tk.load import (
     DatapointsLoader,
