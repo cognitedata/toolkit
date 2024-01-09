@@ -69,12 +69,12 @@ class TestGenerateConfig:
         "expected, include",
         list(generate_config_test_cases()),
     )
-    def test_generate_partial(self, expected: str, include: set[str] | None) -> None:
+    def test_partial_generation(self, expected: str, include: set[str] | None) -> None:
         actual, _ = generate_config(BUILD_CONFIG, include_modules=include)
 
         assert yaml.safe_load(actual) == expected
 
-    def test_generate_with_comments(self, config_yaml) -> None:
+    def test_producing_correct_keys(self, config_yaml) -> None:
         expected_keys = dict_keys(yaml.safe_load(config_yaml))
 
         actual, _ = generate_config(BUILD_CONFIG)
@@ -85,7 +85,7 @@ class TestGenerateConfig:
         extra = actual_keys - expected_keys
         assert not extra, f"Extra keys: {extra}"
 
-    def test_generate_persist_variable_with_comment(self, config_yaml: str) -> None:
+    def test_persist_variable_with_comment(self, config_yaml: str) -> None:
         custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
 
         actual, difference = generate_config(BUILD_CONFIG, existing_config=config_yaml)
