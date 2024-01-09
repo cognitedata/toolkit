@@ -9,8 +9,8 @@ Open Industrial Data data in cdf_oid_example_data.
 
 This module manages the following resources:
 
-1. a group with read-write access (`gp_cicd_all_read_write`) to everything in a CDF project (for `cdf-tk` as an admin tool or
-    through a CI/CD pipeline).
+1. a group with read-write access (`gp_cicd_all_read_write`) to everything in a CDF project (for `cdf-tk` as an admin
+   tool or through a CI/CD pipeline).
 2. a group with read-only access `gp_cicd_all_read_only` (for viewing configurations from UI).
 
 ## Variables
