@@ -37,6 +37,10 @@ from cognite.client.data_classes import (
     ExtractionPipelineList,
     FileMetadata,
     FileMetadataList,
+    Function,
+    FunctionList,
+    FunctionSchedule,
+    FunctionSchedulesList,
     OidcCredentials,
     TimeSeries,
     TimeSeriesList,
@@ -45,11 +49,6 @@ from cognite.client.data_classes import (
     TransformationSchedule,
     TransformationScheduleList,
     capabilities,
-    Function,
-    FunctionList,
-    FunctionSchedule,
-    FunctionSchedulesList
-
 )
 from cognite.client.data_classes._base import (
     CogniteObject,
@@ -63,11 +62,11 @@ from cognite.client.data_classes.capabilities import (
     DataSetsAcl,
     ExtractionPipelinesAcl,
     FilesAcl,
+    FunctionsAcl,
     GroupsAcl,
     RawAcl,
     TimeSeriesAcl,
     TransformationsAcl,
-    FunctionsAcl,
 )
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
@@ -1482,7 +1481,7 @@ for loader in Loader.__subclasses__():
 del loader  # cleanup module namespace
 
 
-class FunctionLoader(Loader[str,Function,FunctionList]):
+class FunctionLoader(Loader[str, Function, FunctionList]):
     api_name = "functions"
     folder_name = "functions"
     filename_pattern = (
@@ -1496,7 +1495,9 @@ class FunctionLoader(Loader[str,Function,FunctionList]):
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
-            FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], FilesAcl.Scope.All()), # Needed for uploading function artifacts
+            FilesAcl(
+                [FilesAcl.Action.Read, FilesAcl.Action.Write], FilesAcl.Scope.All()
+            ),  # Needed for uploading function artifacts
         ]
 
     def get_id(self, item: Function) -> str:
@@ -1509,11 +1510,11 @@ class FunctionLoader(Loader[str,Function,FunctionList]):
         ...
 
     def delete(self, ids: Sequence[str], drop_data: bool) -> int:
-        self.client.functions.delete(external_id=ids, ignore_unknown_ids=True)
+        self.client.functions.delete(external_id=ids)
         return len(ids)
 
 
-class FunctionScheduleLoader(Loader[str,FunctionSchedule,FunctionSchedulesList]):
+class FunctionScheduleLoader(Loader[str, FunctionSchedule, FunctionSchedulesList]):
     api_name = "functions.schedules"
     folder_name = "functions"
     filename_pattern = r"^*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
@@ -1535,5 +1536,9 @@ class FunctionScheduleLoader(Loader[str,FunctionSchedule,FunctionSchedulesList])
         ...
 
     def delete(self, ids: Sequence[str], drop_data: bool) -> int:
-        self.client.functions.delete(external_id=ids, ignore_unknown_ids=True)
-        return len(ids)
+        # Need to list schedules using the function id or xid (xid is optional!)
+
+        # self.client.functions.schedules.list(function_id=)
+
+        # self.client.functions.schedules.delete(id=)
+        return 0
