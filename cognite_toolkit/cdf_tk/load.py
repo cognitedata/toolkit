@@ -331,12 +331,14 @@ class Loader(
 
         if len(remote) == 0:
             return local_list
-        remote_by_id = {self.get_id(item): item for item in remote.as_write()}
+        # We make the remote into writable which removes all server-set properties
+        # such that we can compare the local and remote resources
+        remote_writable_by_id = {self.get_id(item): item for item in remote.as_write()}
 
         output = self.list_write_cls([])
         for local_resource in local_list:
             local_id = self.get_id(local_resource)
-            if local_id in remote_by_id and local_resource == remote_by_id[local_id]:
+            if local_id in remote_writable_by_id and local_resource == remote_writable_by_id[local_id]:
                 continue
             output.append(local_resource)
         return output
