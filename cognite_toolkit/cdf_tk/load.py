@@ -31,7 +31,9 @@ import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     DataSet,
+    DataSetWrite,
     DataSetList,
+    DatabaseWriteList,
     ExtractionPipeline,
     ExtractionPipelineConfig,
     ExtractionPipelineList,
@@ -44,13 +46,18 @@ from cognite.client.data_classes import (
     TransformationList,
     TransformationSchedule,
     TransformationScheduleList,
-    capabilities,
+    capabilities, DataSetWriteList, TimeSeriesWrite, TimeSeriesWriteList, TransformationWrite, TransformationWriteList,
+    TransformationScheduleWriteList, TransformationScheduleWrite, FileMetadataWrite, FileMetadataWriteList,
 )
 from cognite.client.data_classes._base import (
     CogniteResource,
+WriteableCogniteResource,
     CogniteResourceList,
+    WriteableCogniteResourceList,
     T_CogniteResource,
+    T_WriteClass,
     T_CogniteResourceList,
+    T_WritableCogniteResource,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -102,8 +109,9 @@ from cognite.client.data_classes.data_modeling.ids import (
     VersionedDataModelingId,
     ViewId,
 )
-from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
-from cognite.client.data_classes.iam import Group, GroupList
+from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList, ExtractionPipelineWrite, \
+    ExtractionPipelineConfigWrite, ExtractionPipelineConfigWriteList, ExtractionPipelineWriteList
+from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, GroupWriteList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -213,12 +221,10 @@ class LoadableEdges(EdgeApplyList):
 
 T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawTable])
 
-T_CogniteResourceWrite = TypeVar("T_CogniteResourceWrite", bound=CogniteResource)
-T_CogniteResourceWriteList = TypeVar("T_CogniteResourceWriteList", bound=CogniteResourceList)
-
+T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 
 class Loader(
-    ABC, Generic[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_CogniteResourceWriteList, T_CogniteResourceList]
+    ABC, Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList]
 ):
     """
     This is the base class for all loaders. It defines the interface that all loaders must implement.
@@ -245,10 +251,10 @@ class Loader(
     filename_pattern = ""
     api_name: str
     folder_name: str
-    resource_write_cls: type[T_CogniteResourceWrite]
-    resource_cls: type[T_CogniteResource]
-    list_cls: type[T_CogniteResourceList]
-    list_write_cls: type[T_CogniteResourceWriteList]
+    resource_write_cls: type[T_WriteClass]
+    resource_cls: type[T_WritableCogniteResource]
+    list_cls: type[T_WritableCogniteResourceList]
+    list_write_cls: type[T_CogniteResourceList]
     identifier_key: str = "externalId"
     dependencies: frozenset[type[Loader]] = frozenset()
     _display_name: str = ""
@@ -282,7 +288,7 @@ class Loader(
     @classmethod
     def create_loader(
         cls, ToolGlobals: CDFToolConfig
-    ) -> Loader[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_CogniteResourceWriteList, T_CogniteResourceList]:
+    ) -> Loader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList]:
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
         return cls(client, ToolGlobals)
 
@@ -293,43 +299,42 @@ class Loader(
 
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_CogniteResource | T_CogniteResourceWrite) -> T_ID:
+    def get_id(cls, item: T_WriteClass | T_WritableCogniteResource) -> T_ID:
         raise NotImplementedError
 
     @staticmethod
-    def fixup_resource(local: T_CogniteResourceWrite, remote: T_CogniteResource) -> T_CogniteResourceWrite:
+    def fixup_resource(local: T_WriteClass, remote: T_CogniteResource) -> T_CogniteResourceList:
         """Takes the local (to be pushed) and remote (from CDF) resource and returns the
         local resource with properties from the remote resource copied over to make
         them equal if we should consider them equal (and skip writing to CDF)."""
         return local
 
     def remove_unchanged(
-        self, local: T_CogniteResourceWrite | Sequence[T_CogniteResourceWrite]
-    ) -> T_CogniteResourceWriteList:
+        self, local: T_WriteClass | Sequence[T_WriteClass]
+    ) -> T_CogniteResourceList:
         local_list = self.list_write_cls(local if isinstance(local, Sequence) else [local])
         if len(local_list) == 0:
             return local_list
+
         try:
             remote = self.retrieve([self.get_id(item) for item in local_list])
         except CogniteNotFoundError:
             return local_list
+
         if len(remote) == 0:
             return local_list
-        for l_resource in local_list:
-            for r in remote:
-                if self.get_id(l_resource) == self.get_id(r):
-                    r_yaml = self.resource_cls.dump_yaml(r)
-                    # To avoid that we mess up the original local resource, we use the
-                    # "through yaml copy"-trick to create a copy of the local resource.
-                    copy_l = self.resource_write_cls.load(self.resource_cls.dump_yaml(l_resource))
-                    l_yaml = self.resource_cls.dump_yaml(self.fixup_resource(copy_l, r))
-                    if l_yaml == r_yaml:
-                        local_list.remove(l_resource)
-                        break
-        return local_list
+        remote_by_id = {self.get_id(item): item for item in remote.as_write()}
+
+        output = self.list_write_cls([])
+        for local_resource in local_list:
+            local_id = self.get_id(local_resource)
+            if local_id in remote_by_id and local_resource == remote_by_id[local_id]:
+                continue
+            output.append(local_resource)
+        return output
 
     # Default implementations that can be overridden
-    def create(self, items: T_CogniteResourceWriteList, drop: bool, filepath: Path) -> Sized:
+    def create(self, items: T_CogniteResourceList, drop: bool, filepath: Path) -> Sized:
         try:
             created = self.api_class.create(items)
             return created
@@ -355,10 +360,10 @@ class Loader(
         self.api_class.delete(ids)
         return len(ids)
 
-    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_CogniteResourceList:
+    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
         return self.api_class.retrieve(ids)
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> T_CogniteResourceWrite | T_CogniteResourceWriteList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> T_WriteClass | T_CogniteResourceList:
         raw_yaml = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
@@ -366,15 +371,15 @@ class Loader(
 
 
 @final
-class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
+class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
     support_drop = False
     support_upsert = True
     api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
-    resource_write_cls = Group
+    resource_write_cls = GroupWrite
     list_cls = GroupList
-    list_write_cls = GroupList
+    list_write_cls = GroupWriteList
     identifier_key = "name"
     resource_scopes = frozenset(
         {
@@ -542,15 +547,15 @@ class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
 
 
 @final
-class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
+class DataSetsLoader(Loader[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
     support_drop = False
     support_upsert = True
     api_name = "data_sets"
     folder_name = "data_sets"
     resource_cls = DataSet
-    resource_write_cls = DataSet
+    resource_write_cls = DataSetWrite
     list_cls = DataSetList
-    list_write_cls = DataSetList
+    list_write_cls = DataSetWriteList
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -582,7 +587,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
         local.last_updated_time = remote.last_updated_time
         return local
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> DataSetList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
 
         data_sets = [resource] if isinstance(resource, dict) else resource
@@ -591,7 +596,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
             if data_set.get("metadata"):
                 for key, value in data_set["metadata"].items():
                     data_set["metadata"][key] = json.dumps(value)
-        return DataSetList.load(data_sets)
+        return DataSetWriteList.load(data_sets)
 
     def create(self, items: DataSetList, drop: bool, filepath: Path) -> DataSetList:
         created = DataSetList([], cognite_client=self.client)
@@ -683,13 +688,13 @@ class RawLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]
 
 
 @final
-class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeries, TimeSeriesList, TimeSeriesList]):
+class TimeSeriesLoader(Loader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     api_name = "time_series"
     folder_name = "timeseries"
     resource_cls = TimeSeries
-    resource_write_cls = TimeSeries
+    resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
-    list_write_cls = TimeSeriesList
+    list_write_cls = TimeSeriesWriteList
     dependencies = frozenset({DataSetsLoader})
 
     @classmethod
@@ -726,16 +731,16 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeries, TimeSeriesList, TimeS
 
 
 @final
-class TransformationLoader(Loader[str, Transformation, Transformation, TransformationList, TransformationList]):
+class TransformationLoader(Loader[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]):
     api_name = "transformations"
     folder_name = "transformations"
     filename_pattern = (
         r"^(?:(?!\.schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
     )
     resource_cls = Transformation
-    resource_write_cls = Transformation
+    resource_write_cls = TransformationWrite
     list_cls = TransformationList
-    list_write_cls = TransformationList
+    list_write_cls = TransformationWriteList
     dependencies = frozenset({DataSetsLoader, RawLoader})
 
     @classmethod
@@ -810,15 +815,15 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
 
 @final
 class TransformationScheduleLoader(
-    Loader[str, TransformationSchedule, TransformationSchedule, TransformationScheduleList, TransformationScheduleList]
+    Loader[str, TransformationScheduleWrite, TransformationSchedule, TransformationScheduleWriteList, TransformationScheduleList]
 ):
     api_name = "transformations.schedules"
     folder_name = "transformations"
     filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
     resource_cls = TransformationSchedule
-    resource_write_cls = TransformationSchedule
+    resource_write_cls = TransformationScheduleWrite
     list_cls = TransformationScheduleList
-    list_write_cls = TransformationScheduleList
+    list_write_cls = TransformationScheduleWriteList
     dependencies = frozenset({TransformationLoader})
 
     @classmethod
@@ -876,7 +881,7 @@ class TransformationScheduleLoader(
 
 
 @final
-class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesList]):  # type: ignore[type-var]
+class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesWriteList, TimeSeriesList]):  # type: ignore[type-var]
     support_drop = False
     filetypes = frozenset({"csv", "parquet"})
     api_name = "time_series.data"
@@ -928,16 +933,16 @@ class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesL
 
 @final
 class ExtractionPipelineLoader(
-    Loader[str, ExtractionPipeline, ExtractionPipeline, ExtractionPipelineList, ExtractionPipelineList]
+    Loader[str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList]
 ):
     support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
     filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
     resource_cls = ExtractionPipeline
-    resource_write_cls = ExtractionPipeline
+    resource_write_cls = ExtractionPipelineWrite
     list_cls = ExtractionPipelineList
-    list_write_cls = ExtractionPipelineList
+    list_write_cls = ExtractionPipelineWriteList
     dependencies = frozenset({DataSetsLoader, RawLoader})
 
     @classmethod
@@ -1003,9 +1008,9 @@ class ExtractionPipelineLoader(
 class ExtractionPipelineConfigLoader(
     Loader[
         str,
+        ExtractionPipelineConfigWrite,
         ExtractionPipelineConfig,
-        ExtractionPipelineConfig,
-        ExtractionPipelineConfigList,
+        ExtractionPipelineConfigWriteList,
         ExtractionPipelineConfigList,
     ]
 ):
@@ -1014,9 +1019,9 @@ class ExtractionPipelineConfigLoader(
     folder_name = "extraction_pipelines"
     filename_pattern = r"^.*\.config$"
     resource_cls = ExtractionPipelineConfig
-    resource_write_cls = ExtractionPipelineConfig
+    resource_write_cls = ExtractionPipelineConfigWrite
     list_cls = ExtractionPipelineConfigList
-    list_write_cls = ExtractionPipelineConfigList
+    list_write_cls = ExtractionPipelineConfigWriteList
     dependencies = frozenset({ExtractionPipelineLoader})
 
     @classmethod
@@ -1060,13 +1065,13 @@ class ExtractionPipelineConfigLoader(
 
 
 @final
-class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileMetadataList]):
+class FileLoader(Loader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
     api_name = "files"
     filetypes = frozenset({"yaml", "yml"})
     folder_name = "files"
     resource_cls = FileMetadata
-    resource_write_cls = FileMetadata
-    list_cls = FileMetadataList
+    resource_write_cls = FileMetadataWrite
+    list_cls = FileMetadataWriteList
     list_write_cls = FileMetadataList
     dependencies = frozenset({DataSetsLoader})
 
