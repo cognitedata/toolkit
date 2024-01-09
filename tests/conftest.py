@@ -60,17 +60,19 @@ def local_tmp_project_path() -> Path:
 @pytest.fixture
 def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
     monkeypatch.setenv("CDF_PROJECT", "pytest-project")
+    monkeypatch.setenv("CDF_CLUSTER", "bluefield")
     monkeypatch.setenv("IDP_TOKEN_URL", "dummy")
     monkeypatch.setenv("IDP_CLIENT_ID", "dummy")
     monkeypatch.setenv("IDP_CLIENT_SECRET", "dummy")
 
     with chdir(REPO_ROOT):
+        real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
         # Build must always be executed from root of the project
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
         cdf_tool.failed = False
-
+        cdf_tool.environment_variables.side_effect = real_config.environment_variables
         cdf_tool.verify_dataset.return_value = 42
         cdf_tool.data_set_id = 999
         yield cdf_tool
