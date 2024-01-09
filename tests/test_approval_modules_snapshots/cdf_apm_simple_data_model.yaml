@@ -346,12 +346,12 @@ Transformation:
     instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
   ignoreNullFields: true
   isPublic: true
@@ -361,12 +361,12 @@ Transformation:
     \ `sourceExternalId`) as startNode,\n  node_reference('apm_simple', `targetExternalId`)\
     \ as endNode\nfrom\n  `asset_oid_workmate`.`asset2children`;\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
   destination:
@@ -379,12 +379,12 @@ Transformation:
     instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_asset_oid_workmate_apm_simple_load_assets
   ignoreNullFields: true
   isPublic: true
@@ -398,12 +398,12 @@ Transformation:
     \  cast(`tag` as STRING) as tag,\n  cast(`areaId` as INT) as areaId,\n  cast(`isActive`\
     \ as BOOLEAN) as isActive\nfrom\n  `asset_oid_workmate`.`assets`;\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 - dataSetId: 42
   destination:
     dataModel:
@@ -415,12 +415,12 @@ Transformation:
     instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets
   ignoreNullFields: true
   isPublic: true
@@ -429,12 +429,12 @@ Transformation:
   query: "select\n  cast(`asset` as STRING) as externalId,\n  array(timeseries) as\
     \ metrics\nfrom\n  `files_oid_pi`.`timeseries2assets`;\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 - dataSetId: 42
   destination:
     dataModel:
@@ -446,12 +446,12 @@ Transformation:
     instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_workorder_oid_workmate_apm_simple_load_workitems
   ignoreNullFields: true
   isPublic: true
@@ -464,12 +464,12 @@ Transformation:
     \  cast(`criticality` as STRING) as criticality,\n  cast(`method` as STRING) as\
     \ method,\n  cast(`isCompleted` as BOOLEAN) as isCompleted\nfrom\n  `workorder_oid_workmate`.`workitems`;\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 - dataSetId: 42
   destination:
     dataModel:
@@ -481,12 +481,12 @@ Transformation:
     instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2assets
   ignoreNullFields: true
   isPublic: true
@@ -502,12 +502,12 @@ Transformation:
     \ as startNode,\n  node_reference('apm_simple', `targetExternalId`) as endNode\n\
     from\n  `workorder_oid_workmate`.`workitem2assets`;\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 - dataSetId: 42
   destination:
     dataModel:
@@ -519,12 +519,12 @@ Transformation:
     instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2workorders
   ignoreNullFields: true
   isPublic: true
@@ -540,12 +540,12 @@ Transformation:
     \ as startNode,\n  node_reference('apm_simple', `targetExternalId`) as endNode\n\
     from\n  `workorder_oid_workmate`.`workorder2items`;\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 - dataSetId: 42
   destination:
     dataModel:
@@ -557,12 +557,12 @@ Transformation:
     instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_workorder_oid_workmate_apm_simple_load_workorders
   ignoreNullFields: true
   isPublic: true
@@ -582,12 +582,12 @@ Transformation:
     \ \ncast(`createdDate` as TIMESTAMP) as createdDate, \ncast(`programNumber` as\
     \ STRING) as programNumber \nfrom `workorder_oid_workmate`.`workorders`;\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 - dataSetId: 42
   destination:
     dataModel:
@@ -599,12 +599,12 @@ Transformation:
     instanceSpace: sp_apm_simple
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_workorder_oid_workmate_apm_simple_load_workorders2assets
   ignoreNullFields: true
   isPublic: true
@@ -614,12 +614,12 @@ Transformation:
     \ `sourceExternalId`) as startNode,\n  node_reference('apm_simple', `targetExternalId`)\
     \ as endNode\nfrom\n  `workorder_oid_workmate`.`workorder2assets`;\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
   interval: 7 * * * *

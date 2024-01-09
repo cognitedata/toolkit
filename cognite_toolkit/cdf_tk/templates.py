@@ -429,7 +429,7 @@ def build_config(
     elif is_populated:
         print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
-        build_dir.mkdir()
+        build_dir.mkdir(exist_ok=True)
 
     build.validate_environment()
 
