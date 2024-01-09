@@ -16,7 +16,15 @@ from cognite_toolkit.cdf_tk.templates import (
 )
 
 BUILD_CONFIG = Path(__file__).parent / "project_for_test"
-DATA = Path(__file__).parent / "data"
+
+
+def dict_keys(d: dict[str, Any]) -> set[str]:
+    keys = set()
+    for k, v in d.items():
+        keys.add(k)
+        if isinstance(v, dict):
+            keys.update(dict_keys(v))
+    return keys
 
 
 def generate_config_test_cases():
@@ -56,10 +64,21 @@ class TestGenerateConfig:
         "expected, include",
         list(generate_config_test_cases()),
     )
-    def test_generate_config(self, expected: str, include: set[str] | None) -> None:
+    def test_generate_partial(self, expected: str, include: set[str] | None) -> None:
         actual, _ = generate_config(BUILD_CONFIG, include_modules=include)
 
         assert yaml.safe_load(actual) == expected
+
+    def test_generate_with_comments(self) -> None:
+        expected = dict_keys(yaml.safe_load((BUILD_CONFIG / "config.yaml").read_text()))
+
+        actual_path, _ = generate_config(BUILD_CONFIG)
+
+        actual_keys = dict_keys(yaml.safe_load(Path(actual_path).read_text()))
+        missing = expected - actual_keys
+        assert not missing, f"Missing keys: {missing}"
+        extra = actual_keys - expected
+        assert not extra, f"Extra keys: {extra}"
 
 
 @pytest.fixture()
