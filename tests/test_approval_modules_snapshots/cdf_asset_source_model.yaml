@@ -45,12 +45,12 @@ Transformation:
     instanceSpace: sp_cdf_template_instances
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   ignoreNullFields: false
   isPublic: true
@@ -81,12 +81,12 @@ Transformation:
     where\n-- This is used to select the Pumps.\n isnotnull(`externalId`) and isnotnull(`parentExternalId`)\
     \ and startswith(name, 'Pump');\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   interval: 7 * * * *
