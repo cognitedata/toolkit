@@ -45,6 +45,11 @@ from cognite.client.data_classes import (
     TransformationSchedule,
     TransformationScheduleList,
     capabilities,
+    Function,
+    FunctionList,
+    FunctionSchedule,
+    FunctionSchedulesList
+
 )
 from cognite.client.data_classes._base import (
     CogniteObject,
@@ -62,6 +67,7 @@ from cognite.client.data_classes.capabilities import (
     RawAcl,
     TimeSeriesAcl,
     TransformationsAcl,
+    FunctionsAcl,
 )
 from cognite.client.data_classes.data_modeling import (
     ContainerApply,
@@ -1474,3 +1480,60 @@ for loader in Loader.__subclasses__():
         LOADER_BY_FOLDER_NAME[loader.folder_name] = []
     LOADER_BY_FOLDER_NAME[loader.folder_name].append(loader)
 del loader  # cleanup module namespace
+
+
+class FunctionLoader(Loader[str,Function,FunctionList]):
+    api_name = "functions"
+    folder_name = "functions"
+    filename_pattern = (
+        r"^(?:(?!schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
+    )
+    resource_cls = Function
+    list_cls = FunctionList
+    dependencies = frozenset({DataSetsLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+        return [
+            FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
+            FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], FilesAcl.Scope.All()), # Needed for uploading function artifacts
+        ]
+
+    def get_id(self, item: Function) -> str:
+        return item.external_id
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> Function:
+        ...
+
+    def create(self, items: Sequence[Function], drop: bool, filepath: Path) -> FunctionList:
+        ...
+
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+        self.client.functions.delete(external_id=ids, ignore_unknown_ids=True)
+        return len(ids)
+
+
+class FunctionScheduleLoader(Loader[str,FunctionSchedule,FunctionSchedulesList]):
+    api_name = "functions.schedules"
+    folder_name = "functions"
+    filename_pattern = r"^*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
+    resource_cls = FunctionSchedule
+    list_cls = FunctionSchedulesList
+    dependencies = frozenset({FunctionLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All())
+
+    def get_id(self, item: Function) -> str:
+        return item.external_id
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> FunctionSchedule:
+        ...
+
+    def create(self, items: Sequence[Function], drop: bool, filepath: Path) -> FunctionSchedulesList:
+        ...
+
+    def delete(self, ids: Sequence[str], drop_data: bool) -> int:
+        self.client.functions.delete(external_id=ids, ignore_unknown_ids=True)
+        return len(ids)
