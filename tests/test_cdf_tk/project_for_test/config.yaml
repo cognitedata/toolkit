@@ -11,7 +11,6 @@ cognite_modules:
     source_files: fileshare # This is a comment after a variable
     source_timeseries: pi
   top_variable: <top_variable>
-  # This is a comment at the end of a module
   parent_module:
     child_module:
       child_variable: <change_me>
