@@ -395,7 +395,7 @@ def process_config_files(
                 # if the file is a csv file and we have been instructed to.
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = pd.read_csv(io.StringIO(file_content), parse_dates=True, dayfirst=True, index_col=0)
+                data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
                 if "timeshift_" in data.index.name:
                     print(
                         "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
