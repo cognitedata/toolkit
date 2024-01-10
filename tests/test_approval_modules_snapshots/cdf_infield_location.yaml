@@ -480,7 +480,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: asset:oid:workmate:infield:sync_assets_from_hierarchy_to_apm
-  ownerIsCurrentUser: true
   query: "--- Create All Assets without properties\n--- This is necessary so we can\
     \ populate the direct relations\n--- in the next select statement\nselect\n  cast(asset.externalId\
     \ as STRING) as externalId,\n  --- We skip the remaining properties,\n  --- but\
@@ -524,7 +523,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: workorder:oid:workmate:infield:sync_workorders_to_apm_activities
-  ownerIsCurrentUser: true
   query: "  select\n    cast(`externalId` as STRING) as externalId,\n    cast(`description`\
     \ as STRING) as description,\n    cast(`key` as STRING) as id,\n    cast(`status`\
     \ as STRING) as status,\n    /* cast(`startTime` as TIMESTAMP) as startTime,\n\
