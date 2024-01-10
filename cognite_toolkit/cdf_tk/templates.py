@@ -642,9 +642,9 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         total_variables = len(self)
         lines = []
         if removed := self.removed:
-            lines.append(f"Untracked {len(removed)} variables in config.yaml: {[str(r) for r in removed]}")
+            lines.append(f"Untracked {len(removed)} variables in config.yaml.")
         if added := self.added:
-            lines.append(f"Added {len(added)} variables to config.yaml: {[str(a) for a in added]}")
+            lines.append(f"Added {len(added)} variables to config.yaml.")
         if total_variables == len(self.unchanged):
             lines.append("No variables in config.yaml were changed.")
         return "\n".join(lines)
