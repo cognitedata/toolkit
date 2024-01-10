@@ -672,7 +672,7 @@ def main_init(
     if not dry_run and not upgrade:
         target_dir.mkdir(exist_ok=True)
     if upgrade:
-        print("  Will upgrade modules and files in place, config.yaml files will not be touched.")
+        print("  Will upgrade modules and files in place.")
     print(f"Will copy these files to {target_dir}:")
     print(files_to_copy)
     print(f"Will copy these module directories to {target_dir}:")
@@ -744,10 +744,6 @@ def main_init(
             print(f"You project in {target_dir} was upgraded.")
         else:
             print(f"A new project was created in {target_dir}.")
-        if upgrade:
-            print("  All default variables from the modules have been upgraded.")
-            print("  Please check you config.yaml file for new default variables that may need to be changed.")
-
     config_filepath = target_dir / "config.yaml"
     if not dry_run:
         if clean or not config_filepath.exists():
@@ -758,6 +754,7 @@ def main_init(
             current = config_filepath.read_text()
             config_yaml = ConfigYAML.load(target_dir, existing_config_yaml=current)
             config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
+            print("  All default variables from the modules have been upgraded.")
             print(str(config_yaml))
             if ctx.obj.verbose:
                 for added in config_yaml.added:

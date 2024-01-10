@@ -466,7 +466,7 @@ class ConfigEntry:
         current_value: The current value of the variable
         default_value: The default value of the variable
         current_comment: The comment attached to the variable in the current config.yaml file
-        default_comment: The comment attached the variable in the default.config.yaml files in the module directories.
+        default_comment: The comment attached to the variable in the default.config.yaml files in the module directories.
 
     """
 
