@@ -1,4 +1,5 @@
 cognite_modules:
+  top_variable: <top_variable>
   a_module:
     readwrite_source_id: <change_me>
     # This is a comment in the middle of the file
@@ -10,7 +11,6 @@ cognite_modules:
     source_workorder: workmate
     source_files: fileshare # This is a comment after a variable
     source_timeseries: pi
-  top_variable: <top_variable>
   parent_module:
     child_module:
       child_variable: <change_me>
