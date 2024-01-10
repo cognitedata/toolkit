@@ -159,7 +159,11 @@ def common(
 
     if dotenv_file.is_file():
         if verbose:
-            print(f"Loading .env file: {dotenv_file.relative_to(Path.cwd())!s}")
+            try:
+                path_str = dotenv_file.relative_to(Path.cwd())
+            except ValueError:
+                path_str = dotenv_file.absolute()
+            print(f"Loading .env file: {path_str!s}")
         load_dotenv(dotenv_file, override=override_env)
 
     ctx.obj = Common(
