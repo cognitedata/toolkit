@@ -22,7 +22,6 @@ demo:
   # Order is important.
   deploy:
     - cdf_demo_infield
-    - cdf_oid_example_data
 local:
   project: <customer-dev>
   type: dev
