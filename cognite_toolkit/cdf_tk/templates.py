@@ -7,7 +7,7 @@ import os
 import re
 import shutil
 from collections import ChainMap, UserDict, defaultdict
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, cast, overload
@@ -531,17 +531,17 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         super().__init__(entries or [])
 
     @classmethod
-    def load(cls, directory: Path | Sequence[Path], existing_config_yaml: str | None = None) -> ConfigYAML:
-        """Loads the config.yaml file from a module directory and all its subdirectories.
+    def load(cls, cognite_modules: Path, existing_config_yaml: str | None = None) -> ConfigYAML:
+        """Loads the config.yaml file 'cognite_modules' directory and optionally and existing config.yaml file.
 
         Args:
-            directory: The directory with all the modules.
+            cognite_modules: The directory with all the cognite modules
             existing_config_yaml: The existing config.yaml file to compare against.
 
         Returns:
             A ConfigYAML object with all the entries in the config.yaml file.
         """
-        directories = [directory] if isinstance(directory, Path) else list(directory)
+        directories = [cognite_modules]
         if files := [dir_ for dir_ in directories if dir_.is_file()]:
             raise ValueError(f"Expected directories, found files: {files}")
 
