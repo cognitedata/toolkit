@@ -671,7 +671,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                         # Automatically indent based on the first variable
                         indent = leading_spaces
                 elif leading_spaces < last_leading_spaces and parent_variables:
-                    parent_variables = parent_variables[: -(leading_spaces // (indent or 2))]
+                    parent_variables = parent_variables[: -((last_leading_spaces - leading_spaces) // (indent or 2))]
 
                 if last_comment:
                     comments[(*key_prefix, *parent_variables, variable)].above.append(last_comment)
