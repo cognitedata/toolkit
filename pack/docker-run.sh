@@ -9,22 +9,22 @@ echo "Running image '$IMAGE:$TAG'"
 echo "$(pwd)"
 
 # Create a temporary directory for the build output
-BUILD_DIR=$(mktemp -d)
-
+BUILD_DIR=$(mktemp -d -q $(pwd)/cdf-tk.XXXXXX)
 
 # Build Command
 set +e
 docker run \
-  --mount type=bind,source=$(pwd)/demo_project,target=/workspace/demo_project,readonly \
-  --mount type=bind,source="$BUILD_DIR",target=/workspace/build_output \
+  -v $(realpath ./demo_project):/tmp/demo_project:ro \
+  -v $BUILD_DIR:/workspace/build_output \
   --entrypoint run \
   --rm \
   $IMAGE \
+  --env-path=/tmp/demo_project/.env \
   build \
   --build-dir=/workspace/build_output \
   --env=demo \
   --clean \
-  /workspace/demo_project
+  /tmp/demo_project
 set -e
 
 # Check if build was successful
@@ -38,10 +38,12 @@ echo "Build successful, starting deployment."
 # Deploy Command
 set +e
 docker run \
-  --mount type=bind,source="$BUILD_DIR",target=/workspace/build_output,readonly \
+  -v $(realpath ./demo_project):/tmp/demo_project:ro \
+  -v $BUILD_DIR:/workspace/build_output:ro \
   --entrypoint run \
   --rm \
   $IMAGE \
+  --env-path=/tmp/demo_project/.env \
   deploy \
   --drop \
   --env=demo \
@@ -50,7 +52,7 @@ docker run \
 set -e
 
 IMAGE_SIZE=$(docker image inspect $IMAGE:$TAG --format='{{.Size}}')
-echo "Size of the Docker image: $IMAGE_SIZE bytes"
+echo "Size of the Docker image: $(($IMAGE_SIZE / (1024 * 1024)))MB"
 
 RESULT=$?
 exit $RESULT
