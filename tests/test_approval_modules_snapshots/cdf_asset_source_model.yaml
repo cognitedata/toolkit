@@ -1,5 +1,7 @@
 Container:
-- externalId: Asset
+- constraints: {}
+  externalId: Asset
+  indexes: {}
   name: Asset
   properties:
     metadata:
@@ -55,7 +57,6 @@ Transformation:
   ignoreNullFields: false
   isPublic: true
   name: sync-asset_hierarchy_cdf_asset_source_model
-  ownerIsCurrentUser: true
   query: "-- Root Asset\n-- The asset must be set up in hierarchical order as the\
     \ container for the parent asset requires the\n-- parent asset to be created first.\n\
     \nselect\n  cast(`externalId` as STRING) as externalId,\n  null as parent,\n \

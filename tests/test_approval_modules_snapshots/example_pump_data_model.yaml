@@ -7,6 +7,7 @@ Container:
         space: cdf_core
         type: container
   externalId: Pump
+  indexes: {}
   name: Pump
   properties:
     DesignPointFlowGPM:
@@ -90,7 +91,6 @@ Transformation:
   ignoreNullFields: false
   isPublic: true
   name: pump_model-populate-lift_station_pumps_edges
-  ownerIsCurrentUser: true
   query: "select\n  concat(cast(`parent`.externalId as STRING), ':', cast(`externalId`\
     \ as STRING)) as externalId,\n  `parent` as startNode,\n  node_reference('sp_pump_instance_space',\
     \ cast(`externalId` as STRING)) as endNode\nfrom\n  cdf_data_models(\"sp_extended_source_data_models\"\
@@ -123,7 +123,6 @@ Transformation:
   ignoreNullFields: false
   isPublic: true
   name: pump_model-populate-pump_container
-  ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(get_json_object(`metadata`,\
     \ '$.DesignPointHeadFT') as DOUBLE) as DesignPointHeadFT,\n  cast(get_json_object(`metadata`,\
     \ '$.LowHeadFT') as DOUBLE) as LowHeadFT,\n  cast(get_json_object(`metadata`,\
@@ -165,7 +164,7 @@ View:
   name: LiftStation
   properties:
     pumps:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: pumps
       source:

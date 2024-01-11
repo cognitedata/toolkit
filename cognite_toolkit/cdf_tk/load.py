@@ -32,25 +32,37 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     DataSet,
     DataSetList,
+    DataSetWrite,
+    DataSetWriteList,
     ExtractionPipeline,
     ExtractionPipelineConfig,
     ExtractionPipelineList,
     FileMetadata,
     FileMetadataList,
+    FileMetadataWrite,
+    FileMetadataWriteList,
     OidcCredentials,
     TimeSeries,
     TimeSeriesList,
+    TimeSeriesWrite,
+    TimeSeriesWriteList,
     Transformation,
     TransformationList,
     TransformationSchedule,
     TransformationScheduleList,
+    TransformationScheduleWrite,
+    TransformationScheduleWriteList,
+    TransformationWrite,
+    TransformationWriteList,
     capabilities,
 )
 from cognite.client.data_classes._base import (
-    CogniteResource,
     CogniteResourceList,
-    T_CogniteResource,
     T_CogniteResourceList,
+    T_WritableCogniteResource,
+    T_WriteClass,
+    WriteableCogniteResource,
+    WriteableCogniteResourceList,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -102,7 +114,14 @@ from cognite.client.data_classes.data_modeling.ids import (
     VersionedDataModelingId,
     ViewId,
 )
-from cognite.client.data_classes.iam import Group, GroupList
+from cognite.client.data_classes.extractionpipelines import (
+    ExtractionPipelineConfigList,
+    ExtractionPipelineConfigWrite,
+    ExtractionPipelineConfigWriteList,
+    ExtractionPipelineWrite,
+    ExtractionPipelineWriteList,
+)
+from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, GroupWriteList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -114,7 +133,7 @@ from .utils import CDFToolConfig, load_yaml_inject_variables
 
 
 @dataclass
-class RawTable(CogniteResource):
+class RawTable(WriteableCogniteResource):
     db_name: str
     table_name: str
 
@@ -128,9 +147,15 @@ class RawTable(CogniteResource):
             "tableName" if camel_case else "table_name": self.table_name,
         }
 
+    def as_write(self) -> RawTable:
+        return self
 
-class RawTableList(CogniteResourceList[RawTable]):
+
+class RawTableList(WriteableCogniteResourceList[RawTable, RawTable]):
     _RESOURCE = RawTable
+
+    def as_write(self) -> CogniteResourceList[RawTable]:
+        return self
 
 
 @dataclass
@@ -210,18 +235,13 @@ class LoadableEdges(EdgeApplyList):
         }
 
 
-class ExtractionPipelineConfigList(CogniteResourceList[ExtractionPipelineConfig]):
-    _RESOURCE = ExtractionPipelineConfig
-
-
 T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawTable])
 
-T_CogniteResourceWrite = TypeVar("T_CogniteResourceWrite", bound=CogniteResource)
-T_CogniteResourceWriteList = TypeVar("T_CogniteResourceWriteList", bound=CogniteResourceList)
+T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 
 
 class Loader(
-    ABC, Generic[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_CogniteResourceWriteList, T_CogniteResourceList]
+    ABC, Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList]
 ):
     """
     This is the base class for all loaders. It defines the interface that all loaders must implement.
@@ -248,10 +268,10 @@ class Loader(
     filename_pattern = ""
     api_name: str
     folder_name: str
-    resource_write_cls: type[T_CogniteResourceWrite]
-    resource_cls: type[T_CogniteResource]
-    list_cls: type[T_CogniteResourceList]
-    list_write_cls: type[T_CogniteResourceWriteList]
+    resource_write_cls: type[T_WriteClass]
+    resource_cls: type[T_WritableCogniteResource]
+    list_cls: type[T_WritableCogniteResourceList]
+    list_write_cls: type[T_CogniteResourceList]
     identifier_key: str = "externalId"
     dependencies: frozenset[type[Loader]] = frozenset()
     _display_name: str = ""
@@ -285,7 +305,7 @@ class Loader(
     @classmethod
     def create_loader(
         cls, ToolGlobals: CDFToolConfig
-    ) -> Loader[T_ID, T_CogniteResourceWrite, T_CogniteResource, T_CogniteResourceWriteList, T_CogniteResourceList]:
+    ) -> Loader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList]:
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
         return cls(client, ToolGlobals)
 
@@ -296,43 +316,35 @@ class Loader(
 
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_CogniteResource | T_CogniteResourceWrite) -> T_ID:
+    def get_id(cls, item: T_WriteClass | T_WritableCogniteResource) -> T_ID:
         raise NotImplementedError
 
-    @staticmethod
-    def fixup_resource(local: T_CogniteResourceWrite, remote: T_CogniteResource) -> T_CogniteResourceWrite:
-        """Takes the local (to be pushed) and remote (from CDF) resource and returns the
-        local resource with properties from the remote resource copied over to make
-        them equal if we should consider them equal (and skip writing to CDF)."""
-        return local
-
-    def remove_unchanged(
-        self, local: T_CogniteResourceWrite | Sequence[T_CogniteResourceWrite]
-    ) -> T_CogniteResourceWriteList:
+    def remove_unchanged(self, local: T_WriteClass | Sequence[T_WriteClass]) -> T_CogniteResourceList:
         local_list = self.list_write_cls(local if isinstance(local, Sequence) else [local])
         if len(local_list) == 0:
             return local_list
+
         try:
             remote = self.retrieve([self.get_id(item) for item in local_list])
         except CogniteNotFoundError:
             return local_list
+
         if len(remote) == 0:
             return local_list
-        for l_resource in local_list:
-            for r in remote:
-                if self.get_id(l_resource) == self.get_id(r):
-                    r_yaml = self.resource_cls.dump_yaml(r)
-                    # To avoid that we mess up the original local resource, we use the
-                    # "through yaml copy"-trick to create a copy of the local resource.
-                    copy_l = self.resource_write_cls.load(self.resource_cls.dump_yaml(l_resource))
-                    l_yaml = self.resource_cls.dump_yaml(self.fixup_resource(copy_l, r))
-                    if l_yaml == r_yaml:
-                        local_list.remove(l_resource)
-                        break
-        return local_list
+        # We make the remote into writable which removes all server-set properties
+        # such that we can compare the local and remote resources
+        remote_writable_by_id = {self.get_id(item): item for item in remote.as_write()}
+
+        output = self.list_write_cls([])
+        for local_resource in local_list:
+            local_id = self.get_id(local_resource)
+            if local_id in remote_writable_by_id and local_resource == remote_writable_by_id[local_id]:
+                continue
+            output.append(local_resource)
+        return output
 
     # Default implementations that can be overridden
-    def create(self, items: T_CogniteResourceWriteList, drop: bool, filepath: Path) -> Sized:
+    def create(self, items: T_CogniteResourceList, drop: bool, filepath: Path) -> Sized:
         try:
             created = self.api_class.create(items)
             return created
@@ -358,10 +370,10 @@ class Loader(
         self.api_class.delete(ids)
         return len(ids)
 
-    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_CogniteResourceList:
+    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
         return self.api_class.retrieve(ids)
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> T_CogniteResourceWrite | T_CogniteResourceWriteList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> T_WriteClass | T_CogniteResourceList:
         raw_yaml = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
@@ -369,15 +381,15 @@ class Loader(
 
 
 @final
-class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
+class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
     support_drop = False
     support_upsert = True
     api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
-    resource_write_cls = Group
+    resource_write_cls = GroupWrite
     list_cls = GroupList
-    list_write_cls = GroupList
+    list_write_cls = GroupWriteList
     identifier_key = "name"
     resource_scopes = frozenset(
         {
@@ -410,14 +422,6 @@ class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
             scope = "resource scoped"
         return f"{self.api_name}({scope})"
 
-    @staticmethod
-    def fixup_resource(local: Group, remote: Group) -> Group:
-        local.id = remote.id
-        local.is_deleted = False  # If remote is_deleted, this will fail the check.
-        local.metadata = remote.metadata  # metadata has no order guarantee, so we exclude it from compare
-        local.deleted_time = remote.deleted_time
-        return local
-
     @classmethod
     def create_loader(
         cls,
@@ -437,10 +441,10 @@ class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
         )
 
     @classmethod
-    def get_id(cls, item: Group) -> str:
+    def get_id(cls, item: GroupWrite | Group) -> str:
         return item.name
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> Group:
+    def load_resource(self, filepath: Path, dry_run: bool) -> GroupWrite:
         raw = load_yaml_inject_variables(
             filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
         )
@@ -469,7 +473,7 @@ class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
                         ]
                     else:
                         values["scope"]["extractionPipelineScope"]["ids"] = [-1]
-        return Group.load(raw)
+        return GroupWrite.load(raw)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
         remote = self.client.iam.groups.list(all=True)
@@ -505,13 +509,13 @@ class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
         self.client.iam.groups.delete(found)
         return len(found)
 
-    def create(self, items: GroupList, drop: bool, filepath: Path) -> GroupList:
+    def create(self, items: GroupWriteList, drop: bool, filepath: Path) -> GroupList:
         if self.target_scopes == "all":
             to_create = items
         elif self.target_scopes == "all_skipped_validation":
             raise ValueError("all_skipped_validation is not supported for group creation as scopes would be wrong.")
         elif self.target_scopes == "resource_scoped_only":
-            to_create = GroupList([])
+            to_create = GroupWriteList([])
             for item in items:
                 item.capabilities = [
                     capability
@@ -521,7 +525,7 @@ class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
                 if item.capabilities:
                     to_create.append(item)
         elif self.target_scopes == "all_scoped_only" or self.target_scopes == "all_scoped_skipped_validation":
-            to_create = GroupList([])
+            to_create = GroupWriteList([])
             for item in items:
                 item.capabilities = [
                     capability
@@ -537,23 +541,32 @@ class AuthLoader(Loader[str, Group, Group, GroupList, GroupList]):
             return GroupList([])
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.iam.groups.list(all=True)
-        created = cast(GroupList, self.client.iam.groups.create(to_create))
+        old_group_by_names = {g.name: g for g in old_groups.as_write()}
+        changed = []
+        for item in to_create:
+            if (old := old_group_by_names.get(item.name)) and old == item:
+                # Ship unchanged groups
+                continue
+            changed.append(item)
+        if len(changed) == 0:
+            return GroupList([])
+        created = self.client.iam.groups.create(changed)
         created_names = {g.name for g in created}
         to_delete = [g.id for g in old_groups if g.name in created_names and g.id]
         self.client.iam.groups.delete(to_delete)
-        return cast(GroupList, created)
+        return created
 
 
 @final
-class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
+class DataSetsLoader(Loader[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
     support_drop = False
     support_upsert = True
     api_name = "data_sets"
     folder_name = "data_sets"
     resource_cls = DataSet
-    resource_write_cls = DataSet
+    resource_write_cls = DataSetWrite
     list_cls = DataSetList
-    list_write_cls = DataSetList
+    list_write_cls = DataSetWriteList
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -563,7 +576,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
         )
 
     @classmethod
-    def get_id(cls, item: DataSet) -> str:
+    def get_id(cls, item: DataSet | DataSetWrite) -> str:
         if item.external_id is None:
             raise ValueError("DataSet must have external_id set.")
         return item.external_id
@@ -585,7 +598,7 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
         local.last_updated_time = remote.last_updated_time
         return local
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> DataSetList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
 
         data_sets = [resource] if isinstance(resource, dict) else resource
@@ -594,9 +607,9 @@ class DataSetsLoader(Loader[str, DataSet, DataSet, DataSetList, DataSetList]):
             if data_set.get("metadata"):
                 for key, value in data_set["metadata"].items():
                     data_set["metadata"][key] = json.dumps(value)
-        return DataSetList.load(data_sets)
+        return DataSetWriteList.load(data_sets)
 
-    def create(self, items: DataSetList, drop: bool, filepath: Path) -> DataSetList:
+    def create(self, items: DataSetWriteList, drop: bool, filepath: Path) -> DataSetList:
         created = DataSetList([], cognite_client=self.client)
         # There is a bug in the data set API, so only one duplicated data set is returned at the time,
         # so we need to iterate.
@@ -686,13 +699,13 @@ class RawLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]
 
 
 @final
-class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeries, TimeSeriesList, TimeSeriesList]):
+class TimeSeriesLoader(Loader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     api_name = "time_series"
     folder_name = "timeseries"
     resource_cls = TimeSeries
-    resource_write_cls = TimeSeries
+    resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
-    list_write_cls = TimeSeriesList
+    list_write_cls = TimeSeriesWriteList
     dependencies = frozenset({DataSetsLoader})
 
     @classmethod
@@ -705,7 +718,7 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeries, TimeSeriesList, TimeS
         )
 
     @classmethod
-    def get_id(cls, item: TimeSeries) -> str:
+    def get_id(cls, item: TimeSeries | TimeSeriesWrite) -> str:
         if item.external_id is None:
             raise ValueError("TimeSeries must have external_id set.")
         return item.external_id
@@ -717,7 +730,7 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeries, TimeSeriesList, TimeS
         self.client.time_series.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=True)
         return len(ids)
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> TimeSeries | TimeSeriesList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> TimeSeriesWriteList:
         resources = load_yaml_inject_variables(filepath, {})
         if not isinstance(resources, list):
             resources = [resources]
@@ -725,20 +738,22 @@ class TimeSeriesLoader(Loader[str, TimeSeries, TimeSeries, TimeSeriesList, TimeS
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
-        return TimeSeriesList.load(resources)
+        return TimeSeriesWriteList.load(resources)
 
 
 @final
-class TransformationLoader(Loader[str, Transformation, Transformation, TransformationList, TransformationList]):
+class TransformationLoader(
+    Loader[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
+):
     api_name = "transformations"
     folder_name = "transformations"
     filename_pattern = (
         r"^(?:(?!\.schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
     )
     resource_cls = Transformation
-    resource_write_cls = Transformation
+    resource_write_cls = TransformationWrite
     list_cls = TransformationList
-    list_write_cls = TransformationList
+    list_write_cls = TransformationWriteList
     dependencies = frozenset({DataSetsLoader, RawLoader})
 
     @classmethod
@@ -754,12 +769,12 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
         )
 
     @classmethod
-    def get_id(cls, item: Transformation) -> str:
+    def get_id(cls, item: Transformation | TransformationWrite) -> str:
         if item.external_id is None:
             raise ValueError("Transformation must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> Transformation:
+    def load_resource(self, filepath: Path, dry_run: bool) -> TransformationWrite:
         raw = load_yaml_inject_variables(
             filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
         )
@@ -771,7 +786,7 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
             ds_external_id = raw.pop("dataSetExternalId")
             raw["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
 
-        transformation = Transformation.load(raw)
+        transformation = TransformationWrite.load(raw)
         transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
             source_oidc_credentials
         )
@@ -794,7 +809,7 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
         self.client.transformations.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=True)
         return len(ids)
 
-    def create(self, items: Sequence[Transformation], drop: bool, filepath: Path) -> TransformationList:
+    def create(self, items: Sequence[TransformationWrite], drop: bool, filepath: Path) -> TransformationList:
         try:
             created = self.client.transformations.create(items)
         except CogniteDuplicatedError as e:
@@ -808,20 +823,27 @@ class TransformationLoader(Loader[str, Transformation, Transformation, Transform
             print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
             self.ToolGlobals.failed = True
             return TransformationList([])
-        return cast(TransformationList, created)
+
+        return created
 
 
 @final
 class TransformationScheduleLoader(
-    Loader[str, TransformationSchedule, TransformationSchedule, TransformationScheduleList, TransformationScheduleList]
+    Loader[
+        str,
+        TransformationScheduleWrite,
+        TransformationSchedule,
+        TransformationScheduleWriteList,
+        TransformationScheduleList,
+    ]
 ):
     api_name = "transformations.schedules"
     folder_name = "transformations"
     filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
     resource_cls = TransformationSchedule
-    resource_write_cls = TransformationSchedule
+    resource_write_cls = TransformationScheduleWrite
     list_cls = TransformationScheduleList
-    list_write_cls = TransformationScheduleList
+    list_write_cls = TransformationScheduleWriteList
     dependencies = frozenset({TransformationLoader})
 
     @classmethod
@@ -837,16 +859,16 @@ class TransformationScheduleLoader(
         )
 
     @classmethod
-    def get_id(cls, item: TransformationSchedule) -> str:
+    def get_id(cls, item: TransformationSchedule | TransformationScheduleWrite) -> str:
         if item.external_id is None:
             raise ValueError("TransformationSchedule must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> TransformationSchedule:
+    def load_resource(self, filepath: Path, dry_run: bool) -> TransformationScheduleWrite:
         raw = load_yaml_inject_variables(
             filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
         )
-        return TransformationSchedule.load(raw)
+        return TransformationScheduleWrite.load(raw)
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         try:
@@ -855,9 +877,9 @@ class TransformationScheduleLoader(
         except CogniteNotFoundError as e:
             return len(ids) - len(e.not_found)
 
-    def create(self, items: TransformationScheduleList, drop: bool, filepath: Path) -> TransformationScheduleList:
+    def create(self, items: TransformationScheduleWriteList, drop: bool, filepath: Path) -> TransformationScheduleList:
         try:
-            return cast(TransformationScheduleList, self.client.transformations.schedules.create(items))
+            return self.client.transformations.schedules.create(list(items))
         except CogniteDuplicatedError as e:
             existing = {external_id for dup in e.duplicated if (external_id := dup.get("externalId", None))}
             print(
@@ -879,7 +901,7 @@ class TransformationScheduleLoader(
 
 
 @final
-class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesList]):  # type: ignore[type-var]
+class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesWriteList, TimeSeriesList]):  # type: ignore[type-var]
     support_drop = False
     filetypes = frozenset({"csv", "parquet"})
     api_name = "time_series.data"
@@ -931,16 +953,16 @@ class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesList, TimeSeriesL
 
 @final
 class ExtractionPipelineLoader(
-    Loader[str, ExtractionPipeline, ExtractionPipeline, ExtractionPipelineList, ExtractionPipelineList]
+    Loader[str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList]
 ):
     support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
     filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
     resource_cls = ExtractionPipeline
-    resource_write_cls = ExtractionPipeline
+    resource_write_cls = ExtractionPipelineWrite
     list_cls = ExtractionPipelineList
-    list_write_cls = ExtractionPipelineList
+    list_write_cls = ExtractionPipelineWriteList
     dependencies = frozenset({DataSetsLoader, RawLoader})
 
     @classmethod
@@ -951,7 +973,7 @@ class ExtractionPipelineLoader(
         )
 
     @classmethod
-    def get_id(cls, item: ExtractionPipeline) -> str:
+    def get_id(cls, item: ExtractionPipeline | ExtractionPipelineWrite) -> str:
         if item.external_id is None:
             raise ValueError("ExtractionPipeline must have external_id set.")
         return item.external_id
@@ -975,16 +997,16 @@ class ExtractionPipelineLoader(
                 return len(id_list)
             return 0
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipeline:
+    def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipelineWrite:
         resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
 
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
             resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
 
-        return ExtractionPipeline.load(resource)
+        return ExtractionPipelineWrite.load(resource)
 
-    def create(self, items: ExtractionPipelineList, drop: bool, filepath: Path) -> ExtractionPipelineList:
+    def create(self, items: ExtractionPipelineWriteList, drop: bool, filepath: Path) -> ExtractionPipelineList:
         try:
             return self.client.extraction_pipelines.create(items)
         except CogniteDuplicatedError as e:
@@ -1006,9 +1028,9 @@ class ExtractionPipelineLoader(
 class ExtractionPipelineConfigLoader(
     Loader[
         str,
+        ExtractionPipelineConfigWrite,
         ExtractionPipelineConfig,
-        ExtractionPipelineConfig,
-        ExtractionPipelineConfigList,
+        ExtractionPipelineConfigWriteList,
         ExtractionPipelineConfigList,
     ]
 ):
@@ -1017,9 +1039,9 @@ class ExtractionPipelineConfigLoader(
     folder_name = "extraction_pipelines"
     filename_pattern = r"^.*\.config$"
     resource_cls = ExtractionPipelineConfig
-    resource_write_cls = ExtractionPipelineConfig
+    resource_write_cls = ExtractionPipelineConfigWrite
     list_cls = ExtractionPipelineConfigList
-    list_write_cls = ExtractionPipelineConfigList
+    list_write_cls = ExtractionPipelineConfigWriteList
     dependencies = frozenset({ExtractionPipelineLoader})
 
     @classmethod
@@ -1030,12 +1052,12 @@ class ExtractionPipelineConfigLoader(
         )
 
     @classmethod
-    def get_id(cls, item: ExtractionPipelineConfig) -> str:
+    def get_id(cls, item: ExtractionPipelineConfig | ExtractionPipelineConfigWrite) -> str:
         if item.external_id is None:
             raise ValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipelineConfig:
+    def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipelineConfigWrite:
         resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
         try:
             resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
@@ -1044,9 +1066,11 @@ class ExtractionPipelineConfigLoader(
                 "[yellow]WARNING:[/] configuration could not be parsed as valid YAML, which is the recommended format.\n"
             )
             resource["config"] = resource.get("config", "")
-        return ExtractionPipelineConfig.load(resource)
+        return ExtractionPipelineConfigWrite.load(resource)
 
-    def create(self, items: ExtractionPipelineConfigList, drop: bool, filepath: Path) -> ExtractionPipelineConfigList:
+    def create(
+        self, items: ExtractionPipelineConfigWriteList, drop: bool, filepath: Path
+    ) -> ExtractionPipelineConfigList:
         try:
             return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
         except Exception as e:
@@ -1063,14 +1087,14 @@ class ExtractionPipelineConfigLoader(
 
 
 @final
-class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileMetadataList]):
+class FileLoader(Loader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
     api_name = "files"
     filetypes = frozenset({"yaml", "yml"})
     folder_name = "files"
     resource_cls = FileMetadata
-    resource_write_cls = FileMetadata
+    resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
-    list_write_cls = FileMetadataList
+    list_write_cls = FileMetadataWriteList
     dependencies = frozenset({DataSetsLoader})
 
     @classmethod
@@ -1084,7 +1108,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
         return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)
 
     @classmethod
-    def get_id(cls, item: FileMetadata) -> str:
+    def get_id(cls, item: FileMetadata | FileMetadataWrite) -> str:
         if item.external_id is None:
             raise ValueError("FileMetadata must have external_id set.")
         return item.external_id
@@ -1093,7 +1117,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
         self.client.files.delete(external_id=cast(Sequence, ids))
         return len(ids)
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> FileMetadata | FileMetadataList:
+    def load_resource(self, filepath: Path, dry_run: bool) -> FileMetadataWrite | FileMetadataWriteList:
         try:
             resource = load_yaml_inject_variables(
                 filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
@@ -1101,9 +1125,9 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
-            files_metadata = FileMetadataList([FileMetadata.load(resource)])
+            files_metadata = FileMetadataWriteList([FileMetadataWrite.load(resource)])
         except Exception:
-            files_metadata = FileMetadataList.load(
+            files_metadata = FileMetadataWriteList.load(
                 load_yaml_inject_variables(
                     filepath, self.ToolGlobals.environment_variables(), required_return_type="list"
                 )
@@ -1113,12 +1137,12 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
             # It is, so replace this file with all files in this folder using the same data
             file_data = files_metadata.data[0]
             ext_id_pattern = file_data.external_id
-            files_metadata = FileMetadataList([], cognite_client=self.client)
+            files_metadata = FileMetadataWriteList([], cognite_client=self.client)
             for file in filepath.parent.glob("*"):
                 if file.suffix[1:] in ["yaml", "yml"]:
                     continue
                 files_metadata.append(
-                    FileMetadata(
+                    FileMetadataWrite(
                         name=file.name,
                         external_id=re.sub(r"\$FILENAME", file.name, ext_id_pattern),
                         data_set_id=file_data.data_set_id,
@@ -1141,7 +1165,7 @@ class FileLoader(Loader[str, FileMetadata, FileMetadata, FileMetadataList, FileM
                 meta.data_set_id = self.ToolGlobals.verify_dataset(meta.data_set_id) if not dry_run else -1
         return files_metadata
 
-    def create(self, items: FileMetadataList, drop: bool, filepath: Path) -> FileMetadataList:
+    def create(self, items: FileMetadataWriteList, drop: bool, filepath: Path) -> FileMetadataList:
         created = FileMetadataList([])
         for meta in items:
             if meta.name is None:

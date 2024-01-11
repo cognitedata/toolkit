@@ -20,6 +20,7 @@ Changes are grouped as follows:
 ### Added
 
 - Support for custom environment variables injected into build files when calling the command `cdf-tk deploy`.
+- All resources that are unchanged are now skipped when running `cdf-tk deploy`.
 
 ### Fixed
 
