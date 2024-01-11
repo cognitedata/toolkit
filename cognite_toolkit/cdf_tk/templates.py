@@ -6,9 +6,9 @@ import itertools
 import os
 import re
 import shutil
-from collections import ChainMap, UserList, defaultdict
-from collections.abc import Iterable, Iterator, Mapping
-from dataclasses import dataclass
+from collections import ChainMap, UserDict, defaultdict
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, cast, overload
 
@@ -429,7 +429,7 @@ def build_config(
     elif is_populated:
         print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     else:
-        build_dir.mkdir()
+        build_dir.mkdir(exist_ok=True)
 
     build.validate_environment()
 
@@ -447,293 +447,287 @@ def build_config(
     return None
 
 
-def generate_config(
-    directory: Path, include_modules: set[str] | None = None, existing_config: str | None = None
-) -> tuple[str, ConfigEntries]:
-    """Generate a config dictionary from the default.config.yaml files in the given directories.
+@dataclass(frozen=True)
+class YAMLComment:
+    """This represents a comment in a YAML file. It can be either above or after a variable."""
 
-    You can specify a set of modules to include in the config. If you do not specify any modules, all modules will be included.
-
-    Args:
-        directory: A root directory to search for default.config.yaml files.
-        include_modules: A set of modules to include in the config. If None, all modules will be included.
-        existing_config: An existing config dictionary to
-
-    Returns:
-        A config dictionary.
-    """
-    if not directory.exists():
-        raise ValueError(f"Directory {directory} does not exist")
-    entries = ConfigEntries((existing_config and yaml.safe_load(existing_config)) or None)
-    if isinstance(directory, Path):
-        directories = [directory]
-    else:
-        directories = list(directory)
-    config = {}
-    comments: dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]] = {}
-    for dir_ in directories:
-        defaults = sorted(directory.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(dir_))
-
-        for default_config in defaults:
-            if include_modules is not None and default_config.parent.name not in include_modules:
-                continue
-            raw_file = default_config.read_text()
-
-            comments.update(
-                _extract_comments(raw_file, key_prefix=tuple(default_config.parent.relative_to(directory).parts))
-            )
-
-            file_data = yaml.safe_load(raw_file)
-            parts = default_config.relative_to(directory).parent.parts
-            if len(parts) == 0:
-                # This is a root config file
-                config.update(file_data)
-                entries.extend(
-                    [
-                        ConfigEntry(
-                            key=key,
-                            module="",
-                            path="",
-                            last_value=None,
-                            current_value=value,
-                        )
-                        for key, value in file_data.items()
-                    ]
-                )
-                continue
-            local_config = config
-            for key in parts:
-                if key not in local_config:
-                    local_config[key] = {}
-                local_config = local_config[key]
-
-            local_config.update(file_data)
-
-            entries.extend(
-                [
-                    ConfigEntry(
-                        key=key,
-                        module=default_config.parent.name,
-                        path=".".join(parts[:-1]),
-                        last_value=None,
-                        current_value=value,
-                    )
-                    for key, value in file_data.items()
-                ]
-            )
-
-    config = _reorder_config_yaml(config)
-    output_yaml = _dump_yaml_with_comments(config, comments)
-    return output_yaml, entries
-
-
-def _reorder_config_yaml(config: dict[str, Any]) -> dict[str, Any]:
-    """Reorder the config.yaml file to have the keys in alphabetical order
-    and the variables before the modules.
-    """
-    new_config = {}
-    for key in sorted([k for k in config.keys() if not isinstance(config[k], dict)]):
-        new_config[key] = config[key]
-    for key in sorted([k for k in config.keys() if isinstance(config[k], dict)]):
-        new_config[key] = _reorder_config_yaml(config[key])
-    return new_config
-
-
-def _extract_comments(
-    raw_file: str, key_prefix: tuple[str, ...] = tuple()
-) -> dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]]:
-    """Extract comments from a raw file and return a dictionary with the comments."""
-    comments: dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]] = defaultdict(
-        lambda: {"above": [], "after": []}
-    )
-    position: Literal["above", "after"]
-    variable: str | None = None
-    last_comment: str | None = None
-    for line in raw_file.splitlines():
-        if ":" in line:
-            variable = str(line.split(":", maxsplit=1)[0].strip())
-            if last_comment:
-                comments[(*key_prefix, variable)]["above"].append(last_comment)
-                last_comment = None
-        if "#" in line:
-            before, comment = str(line).rsplit("#", maxsplit=1)
-            position = "after" if ":" in before else "above"
-            if position == "after" and (before.count('"') % 2 == 1 or before.count("'") % 2 == 1):
-                # The comment is inside a string
-                continue
-            if position == "after" or variable is None:
-                key = (*key_prefix, *((variable and [variable]) or []))
-                comments[key][position].append(comment.strip())
-            else:
-                last_comment = comment.strip()
-    return dict(comments)
-
-
-def _dump_yaml_with_comments(
-    config: dict[str, Any],
-    comments: dict[tuple[str, ...], dict[Literal["above", "after"], list[str]]],
-    indent_size: int = 2,
-) -> str:
-    """Dump a config dictionary to a yaml string"""
-    dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
-    out_lines = []
-    if module_comment := comments.get(tuple()):
-        for comment in module_comment["above"]:
-            out_lines.append(f"# {comment}")
-    last_indent = 0
-    last_variable: str | None = None
-    path: tuple[str, ...] = tuple()
-    for line in dumped.splitlines():
-        indent = len(line) - len(line.lstrip())
-        if last_indent < indent:
-            if last_variable is None:
-                raise ValueError("Unexpected state of last_variable being None")
-            path = (*path, last_variable)
-        elif last_indent > indent:
-            # Adding some extra space between modules
-            out_lines.append("")
-            indent_reduction_steps = (last_indent - indent) // indent_size
-            path = path[:-indent_reduction_steps]
-
-        variable = line.split(":", maxsplit=1)[0].strip()
-        if local_comment := comments.get((*path, variable)):
-            for line_comment in local_comment["above"]:
-                out_lines.append(f"{' ' * indent}# {line_comment}")
-            if after := local_comment["after"]:
-                line = f"{line} # {after[0]}"
-
-        out_lines.append(line)
-        last_indent = indent
-        last_variable = variable
-    out_lines.append("")
-    return "\n".join(out_lines)
+    above: list[str] = field(default_factory=list)
+    after: list[str] = field(default_factory=list)
 
 
 @dataclass
-class ConfigEntries(UserList):
-    def __init__(self, entries: list[ConfigEntry] | dict | None = None):
-        if isinstance(entries, dict):
-            entries = self._initialize(entries)
-        super().__init__(entries or [])
-        self._lookup: dict[str, dict[str, ConfigEntry]] = {}
-        for entry in self:
-            self._lookup.setdefault(entry.module, {})[entry.key] = entry
+class ConfigEntry:
+    """This represents a single entry in a config.yaml file.
 
-    @staticmethod
-    def _initialize(entries: dict, path: str = "") -> list[ConfigEntry]:
-        results = []
-        if "." in path:
-            path_to, module = path.rsplit(".", maxsplit=1)
-        else:
-            module = path
-            path_to = ""
-        for key, value in entries.items():
-            if isinstance(value, dict):
-                results.extend(ConfigEntries._initialize(value, f"{path}.{key}" if path else key))
-            else:
-                results.append(
-                    ConfigEntry(
-                        key=key,
-                        module=module,
-                        path=path_to,
-                        last_value=value,
-                        current_value=None,
-                    )
-                )
-        return results
+    Note that an entry is
 
-    def append(self, item: ConfigEntry) -> None:
-        if item.module not in self._lookup:
-            self._lookup[item.module] = {}
-        if item.key not in self._lookup[item.module]:
-            self._lookup[item.module][item.key] = item
-            super().append(item)
-        else:
-            self._lookup[item.module][item.key].current_value = item.current_value
+    Args:
+        key_path: The path to the variable, e.g. ('cognite_modules', 'another_module', 'source_asset')
+        current_value: The current value of the variable
+        default_value: The default value of the variable
+        current_comment: The comment attached to the variable in the current config.yaml file
+        default_comment: The comment attached to the variable in the default.config.yaml files in the module directories.
 
-    def extend(self, items: Iterable[ConfigEntry]) -> None:
-        for item in items:
-            self.append(item)
+    """
+
+    key_path: tuple[str, ...]
+    current_value: float | int | str | bool | None = None
+    default_value: float | int | str | bool | None = None
+    current_comment: YAMLComment | None = None
+    default_comment: YAMLComment | None = None
 
     @property
-    def changed(self) -> list[ConfigEntry]:
-        return [entry for entry in self if entry.changed]
+    def value(self) -> float | int | str | bool:
+        if self.current_value is not None:
+            return self.current_value
+        elif self.default_value is not None:
+            return self.default_value
+        else:
+            raise ValueError("config.yaml has not been loaded correctly, both default and current values are None")
+
+    @property
+    def comment(self) -> YAMLComment | None:
+        return self.current_comment or self.default_comment
+
+    @property
+    def is_added(self) -> bool:
+        return self.current_value is None
+
+    @property
+    def is_removed(self) -> bool:
+        return self.default_value is None
+
+    @property
+    def is_unchanged(self) -> bool:
+        # Default and current value can be different. Changed means
+        # that the variable is either added or removed.
+        return self.current_value is not None and self.default_value is not None
+
+    def __str__(self) -> str:
+        if self.is_removed:
+            return f"{self.key} was removed"
+        elif self.is_added:
+            if len(self.key_path) < 2:
+                return f"{self.key!r} was added with value {self.value!r}"
+            variable = self.key_path[-1]
+            module = ".".join(self.key_path[:-1])
+            return f"{variable!r} was added to {module!r} with value {self.value!r}"
+        else:
+            return f"{self.key} is unchanged"
+
+    def __repr__(self) -> str:
+        return f"{self.key}={self.current_value!r}"
+
+    @property
+    def key(self) -> str:
+        return ".".join(self.key_path)
+
+
+@dataclass
+class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
+    """This represents the 'config.yaml' file in the root of the project.
+
+    The motivation for having a specialist data structure and not just a dictionary:
+
+    1. We want to be able to dump the config.yaml file with comments.
+    2. We want to track which variables are added, removed, or unchanged.
+    """
+
+    def __init__(self, entries: dict[tuple[str, ...], ConfigEntry] | None = None):
+        super().__init__(entries or [])
+
+    @classmethod
+    def load(cls, cognite_modules: Path, existing_config_yaml: str | None = None) -> ConfigYAML:
+        """Loads the config.yaml file 'cognite_modules' directory and optionally and existing config.yaml file.
+
+        Args:
+            cognite_modules: The directory with all the cognite modules
+            existing_config_yaml: The existing config.yaml file to compare against.
+
+        Returns:
+            A ConfigYAML object with all the entries in the config.yaml file.
+        """
+        directories = [cognite_modules]
+        if files := [dir_ for dir_ in directories if dir_.is_file()]:
+            raise ValueError(f"Expected directories, found files: {files}")
+
+        entries: dict[tuple[str, ...], ConfigEntry] = {}
+        if isinstance(existing_config_yaml, str):
+            raw_file = existing_config_yaml
+            comments = cls._extract_comments(raw_file)
+            config = yaml.safe_load(raw_file)
+            for key_path, value in flatten_dict(config).items():
+                entries[key_path] = ConfigEntry(
+                    key_path=key_path,
+                    current_value=value,
+                    current_comment=comments.get(key_path),
+                )
+
+        for dir_ in directories:
+            defaults = sorted(dir_.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(dir_))
+            for default_config in defaults:
+                parts = default_config.parent.relative_to(dir_).parts
+                raw_file = default_config.read_text()
+                file_comments = cls._extract_comments(raw_file, key_prefix=tuple(parts))
+                file_data = yaml.safe_load(raw_file)
+                for key, value in file_data.items():
+                    key_path = (*parts, key)
+                    if key_path in entries:
+                        entries[key_path].default_value = value
+                        entries[key_path].default_comment = file_comments.get(key_path)
+                    else:
+                        entries[key_path] = ConfigEntry(
+                            key_path=key_path,
+                            default_value=value,
+                            default_comment=file_comments.get(key_path),
+                        )
+
+        return cls(entries)
 
     @property
     def removed(self) -> list[ConfigEntry]:
-        return [entry for entry in self if entry.removed]
+        return [entry for entry in self.values() if entry.is_removed]
 
     @property
     def added(self) -> list[ConfigEntry]:
-        return [entry for entry in self if entry.added]
+        return [entry for entry in self.values() if entry.is_added]
 
     @property
     def unchanged(self) -> list[ConfigEntry]:
-        return [entry for entry in self if entry.unchanged]
+        return [entry for entry in self.values() if entry.is_unchanged]
+
+    def dump(self) -> dict[str, Any]:
+        config: dict[str, Any] = {}
+        for entry in self.values():
+            local_config = config
+            for key in entry.key_path[:-1]:
+                if key not in local_config:
+                    local_config[key] = {}
+                local_config = local_config[key]
+            local_config[entry.key_path[-1]] = entry.value
+        config = self._reorder_config_yaml(config)
+        return config
+
+    def dump_yaml_with_comments(self, indent_size: int = 2) -> str:
+        """Dump a config dictionary to a yaml string"""
+        config = self.dump()
+        dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
+        out_lines = []
+        if (entry := self.get(tuple())) and entry.comment:
+            for comment in entry.comment.above:
+                out_lines.append(f"# {comment}")
+        last_indent = 0
+        last_variable: str | None = None
+        path: tuple[str, ...] = tuple()
+        for line in dumped.splitlines():
+            indent = len(line) - len(line.lstrip())
+            if last_indent < indent:
+                if last_variable is None:
+                    raise ValueError("Unexpected state of last_variable being None")
+                path = (*path, last_variable)
+            elif last_indent > indent:
+                # Adding some extra space between modules
+                out_lines.append("")
+                indent_reduction_steps = (last_indent - indent) // indent_size
+                path = path[:-indent_reduction_steps]
+
+            variable = line.split(":", maxsplit=1)[0].strip()
+            if (entry := self.get((*path, variable))) and entry.comment:
+                for line_comment in entry.comment.above:
+                    out_lines.append(f"{' ' * indent}# {line_comment}")
+                if after := entry.comment.after:
+                    line = f"{line} # {after[0]}"
+
+            out_lines.append(line)
+            last_indent = indent
+            last_variable = variable
+        out_lines.append("")
+        return "\n".join(out_lines)
 
     def __str__(self) -> str:
         total_variables = len(self)
         lines = []
         if removed := self.removed:
-            lines.append(f"Removed {len(removed)} variables from config.yaml: {[str(r) for r in removed]}")
+            lines.append(f"Untracked {len(removed)} variables in config.yaml.")
         if added := self.added:
-            lines.append(f"Added {len(added)} variables to config.yaml: {[str(a) for a in added]}")
-        if changed := self.changed:
-            lines.append(f"Changed {len(changed)} variables in config.yaml: {[str(c) for c in changed]}")
+            lines.append(f"Added {len(added)} variables to config.yaml.")
         if total_variables == len(self.unchanged):
             lines.append("No variables in config.yaml were changed.")
         return "\n".join(lines)
 
+    @staticmethod
+    def _extract_comments(raw_file: str, key_prefix: tuple[str, ...] = tuple()) -> dict[tuple[str, ...], YAMLComment]:
+        """Extract comments from a raw file and return a dictionary with the comments."""
+        comments: dict[tuple[str, ...], YAMLComment] = defaultdict(YAMLComment)
+        position: Literal["above", "after"]
+        variable: str | None = None
+        last_comment: str | None = None
+        last_variable: str | None = None
+        last_leading_spaces = 0
+        parent_variables: list[str] = []
+        indent: int | None = None
+        for line in raw_file.splitlines():
+            if ":" in line:
+                # Is variable definition
+                leading_spaces = len(line) - len(line.lstrip())
+                variable = str(line.split(":", maxsplit=1)[0].strip())
+                if leading_spaces > last_leading_spaces and last_variable:
+                    parent_variables.append(last_variable)
+                    if indent is None:
+                        # Automatically indent based on the first variable
+                        indent = leading_spaces
+                elif leading_spaces < last_leading_spaces and parent_variables:
+                    parent_variables = parent_variables[: -((last_leading_spaces - leading_spaces) // (indent or 2))]
 
-@dataclass
-class ConfigEntry:
-    key: str
-    module: str
-    path: str
-    last_value: Any | None
-    current_value: Any | None
+                if last_comment:
+                    comments[(*key_prefix, *parent_variables, variable)].above.append(last_comment)
+                    last_comment = None
 
-    @property
-    def changed(self) -> bool:
-        return self.last_value is not None and self.current_value is not None and self.last_value != self.current_value
+                last_variable = variable
+                last_leading_spaces = leading_spaces
 
-    @property
-    def removed(self) -> bool:
-        return self.last_value is not None and self.current_value is None
+            if "#" in line:
+                # Potentially has comment.
+                before, comment = str(line).rsplit("#", maxsplit=1)
+                position = "after" if ":" in before else "above"
+                if position == "after" and (before.count('"') % 2 == 1 or before.count("'") % 2 == 1):
+                    # The comment is inside a string
+                    continue
+                # This is a new comment.
+                if position == "after" or variable is None:
+                    key = (*key_prefix, *parent_variables, *((variable and [variable]) or []))
+                    if position == "after":
+                        comments[key].after.append(comment.strip())
+                    else:
+                        comments[key].above.append(comment.strip())
+                else:
+                    last_comment = comment.strip()
 
-    @property
-    def added(self) -> bool:
-        return self.last_value is None and self.current_value is not None
+        return dict(comments)
 
-    @property
-    def unchanged(self) -> bool:
-        return self.last_value is not None and self.current_value is not None and self.last_value == self.current_value
+    @classmethod
+    def _reorder_config_yaml(cls, config: dict[str, Any]) -> dict[str, Any]:
+        """Reorder the config.yaml file to have the keys in alphabetical order
+        and the variables before the modules.
+        """
+        new_config = {}
+        for key in sorted([k for k in config.keys() if not isinstance(config[k], dict)]):
+            new_config[key] = config[key]
+        for key in sorted([k for k in config.keys() if isinstance(config[k], dict)]):
+            new_config[key] = cls._reorder_config_yaml(config[key])
+        return new_config
 
-    def __str__(self) -> str:
-        prefix = self._prefix()
-        if self.removed:
-            return f"{prefix}{self.key} was removed"
-        elif self.added:
-            return f"{prefix}{self.key} was added"
-        elif self.changed:
-            return f"{prefix}{self.key} changed from {self.last_value!r} to {self.current_value!r}"
+
+def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
+    """Flatten a dictionary to a list of tuples with the key path and value."""
+    items: dict[tuple[str, ...], Any] = {}
+    for key, value in dct.items():
+        if isinstance(value, dict):
+            for sub_key, sub_value in flatten_dict(value).items():
+                items[(key, *sub_key)] = sub_value
         else:
-            return f"{prefix}{self.key} is unchanged"
-
-    def __repr__(self) -> str:
-        prefix = self._prefix()
-        return f"{prefix}{self.key}={self.current_value!r}"
-
-    def _prefix(self) -> str:
-        parts = []
-        if self.path:
-            parts.append(self.path)
-        if self.module:
-            parts.append(self.module)
-        prefix = ""
-        if parts:
-            prefix = ".".join(parts) + "."
-        return prefix
+            items[(key,)] = value
+    return items
 
 
 def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
@@ -852,6 +846,6 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
 
 if __name__ == "__main__":
     target_dir = Path(__file__).resolve().parent.parent
-    config_str, differences = generate_config(target_dir, existing_config=(target_dir / CONFIG_FILE).read_text())
-    (target_dir / CONFIG_FILE).write_text(config_str)
-    print(str(differences))
+    config_str = ConfigYAML.load(target_dir, existing_config_yaml=(target_dir / CONFIG_FILE).read_text())
+    (target_dir / CONFIG_FILE).write_text(config_str.dump_yaml_with_comments())
+    print(str(config_str))

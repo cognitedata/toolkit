@@ -147,7 +147,7 @@ class CDFToolConfig:
             )
 
     def environment_variables(self) -> dict[str, str | None]:
-        return self._environ.copy()
+        return {**self._environ.copy(), **os.environ}
 
     def as_string(self) -> str:
         environment = self._environ.copy()
