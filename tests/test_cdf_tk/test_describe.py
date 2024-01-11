@@ -20,9 +20,12 @@ THIS_FOLDER = Path(__file__).resolve().parent
 
 DATA_FOLDER = THIS_FOLDER / "describe_data"
 SNAPSHOTS_DIR = THIS_FOLDER / "describe_data_snapshots"
+SNAPSHOTS_DIR.mkdir(exist_ok=True)
+SNAPSHOTS_DIR_CLEAN = THIS_FOLDER / "describe_data_snapshots_clean"
+SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
-def test_describe_datamodel(cognite_client_approval: ApprovalCogniteClient):
+def test_describe_datamodel(cognite_client_approval: ApprovalCogniteClient, data_regression):
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.client = cognite_client_approval.mock_client
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
@@ -75,3 +78,8 @@ def test_describe_datamodel(cognite_client_approval: ApprovalCogniteClient):
     cognite_client_approval.append(DataModel, data_models)
 
     describe_datamodel(cdf_tool, "test", "test")
+
+    dump = cognite_client_approval.dump()
+    assert dump == {}
+    calls = cognite_client_approval.retrieve_calls()
+    data_regression.check(calls, fullpath=SNAPSHOTS_DIR_CLEAN / "describe_datamodel.yaml")
