@@ -541,6 +541,8 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
             return GroupList([])
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.iam.groups.list(all=True)
+        # Bug in SDK not setting cognite_client
+        old_groups._cognite_client = self.client
         old_group_by_names = {g.name: g for g in old_groups.as_write()}
         changed = []
         for item in to_create:
