@@ -21,11 +21,13 @@ THIS_FOLDER = Path(__file__).resolve().parent
 DATA_FOLDER = THIS_FOLDER / "describe_data"
 SNAPSHOTS_DIR = THIS_FOLDER / "describe_data_snapshots"
 SNAPSHOTS_DIR.mkdir(exist_ok=True)
-SNAPSHOTS_DIR_CLEAN = THIS_FOLDER / "describe_data_snapshots_clean"
-SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
-def test_describe_datamodel(cognite_client_approval: ApprovalCogniteClient, data_regression):
+def test_describe_datamodel(
+    cognite_client_approval: ApprovalCogniteClient,
+    data_regression,
+    capfd,
+):
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.client = cognite_client_approval.mock_client
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
@@ -78,8 +80,18 @@ def test_describe_datamodel(cognite_client_approval: ApprovalCogniteClient, data
     cognite_client_approval.append(DataModel, data_models)
 
     describe_datamodel(cdf_tool, "test", "test")
+    out, _ = capfd.readouterr()
+    try:
+        snapshot = Path(SNAPSHOTS_DIR / "describe_datamodel.txt").read_text()
+        assert (
+            snapshot == out
+        ), f"Snapshot does not match output. Delete {SNAPSHOTS_DIR}/describe_datamodel.txt if you have changed output."
+    except FileNotFoundError:
+        with open(SNAPSHOTS_DIR / "describe_datamodel.txt", "w") as f:
+            f.write(out)
+        assert False, "Snapshot file not found. Created a new one."
 
     dump = cognite_client_approval.dump()
     assert dump == {}
     calls = cognite_client_approval.retrieve_calls()
-    data_regression.check(calls, fullpath=SNAPSHOTS_DIR_CLEAN / "describe_datamodel.yaml")
+    data_regression.check(calls, fullpath=SNAPSHOTS_DIR / "describe_datamodel.yaml")
