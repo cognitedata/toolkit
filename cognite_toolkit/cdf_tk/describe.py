@@ -8,6 +8,7 @@ from cognite.client.data_classes.data_modeling import (
     DirectRelationReference,
     MappedProperty,
     SingleHopConnectionDefinition,
+    SpaceList,
 )
 from rich import print
 from rich.table import Table
@@ -18,7 +19,10 @@ from .utils import CDFToolConfig
 def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: str | None) -> None:
     """Describe data model from CDF"""
 
-    print(f"Describing data model ({model_name}) in space ({space_name})...")
+    if model_name is None:
+        print(f"Describing first data model in space ({space_name})...")
+    else:
+        print(f"Describing data model ({model_name}) in space ({space_name})...")
     print("Verifying access rights...")
     client = ToolGlobals.verify_client(
         capabilities={
@@ -31,6 +35,8 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
     table.add_column("Value", justify="left", style="green")
     try:
         space = client.data_modeling.spaces.retrieve(space_name)
+        if isinstance(space, SpaceList):
+            space = space[0]
     except Exception as e:
         print(f"Failed to retrieve space {space_name}.")
         print(e)
