@@ -218,7 +218,9 @@ def build(
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
     sourced_environment_file = source_path / ENVIRONMENTS_FILE
-    environment_file = sourced_environment_file if sourced_environment_file.is_file() else Path.cwd() / ENVIRONMENTS_FILE
+    environment_file = (
+        sourced_environment_file if sourced_environment_file.is_file() else Path.cwd() / ENVIRONMENTS_FILE
+    )
     if not environment_file.is_file() and not (environment_file := source_path / ENVIRONMENTS_FILE).is_file():
         print(f"  [bold red]ERROR:[/] {environment_file} does not exist")
         exit(1)
