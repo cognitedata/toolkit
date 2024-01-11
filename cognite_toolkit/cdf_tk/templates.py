@@ -432,7 +432,7 @@ def build_config(
         print(f"  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
         pass
     else:
-        build_dir.mkdir()
+        build_dir.mkdir(exist_ok=True)
 
     build.validate_environment()
 

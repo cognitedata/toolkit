@@ -27,7 +27,7 @@ Datapoints:
   - pi_163582
   - pi_160781
   - pi_191092
-  dataframe: 6781493071503041081379672351630382077700758160187882705681228501573898851725
+  dataframe: 79727527026717646501089764226733539859120513138805835720018417467989011529987
   kwargs: {}
   name: pi_160696_pi_160702_pi_163657_pi_160633_pi_163582_pi_160781_pi_191092
 FileMetadata:
@@ -676,28 +676,27 @@ Transformation:
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_asset_oid_workmate_asset_hierarchy_example
   ignoreNullFields: true
   isPublic: true
   name: asset:oid:workmate:asset_hierarchy:example
-  ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`externalId`\
     \ as STRING) as name,\n  cast(`description` as STRING) as description,\n  cast(`sourceDb`\
     \ as STRING) as source,\n  cast(`parentExternalId` as STRING) as parentExternalId\n\
     from\n  `asset_oid_workmate`.`assets`;\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_asset_hierarchy_example
   interval: 7 * * * *

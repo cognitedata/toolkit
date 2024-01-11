@@ -7,6 +7,7 @@ Container:
         space: cdf_core
         type: container
   externalId: Pump
+  indexes: {}
   name: Pump
   properties:
     DesignPointFlowGPM:
@@ -80,28 +81,27 @@ Transformation:
     instanceSpace: sp_pump_instance_space
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_pump_model-populate-lift_station_pumps_edges
   ignoreNullFields: false
   isPublic: true
   name: pump_model-populate-lift_station_pumps_edges
-  ownerIsCurrentUser: true
   query: "select\n  concat(cast(`parent`.externalId as STRING), ':', cast(`externalId`\
     \ as STRING)) as externalId,\n  `parent` as startNode,\n  node_reference('sp_pump_instance_space',\
     \ cast(`externalId` as STRING)) as endNode\nfrom\n  cdf_data_models(\"sp_extended_source_data_models\"\
     , \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 - dataSetId: 42
   destination:
     dataModel:
@@ -113,17 +113,16 @@ Transformation:
     instanceSpace: sp_pump_instance_space
     type: instances
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_pump_model-populate-pump_container
   ignoreNullFields: false
   isPublic: true
   name: pump_model-populate-pump_container
-  ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(get_json_object(`metadata`,\
     \ '$.DesignPointHeadFT') as DOUBLE) as DesignPointHeadFT,\n  cast(get_json_object(`metadata`,\
     \ '$.LowHeadFT') as DOUBLE) as LowHeadFT,\n  cast(get_json_object(`metadata`,\
@@ -132,12 +131,12 @@ Transformation:
     sp_extended_source_data_models\", \"ExtendedSourceData\", \"1\", \"Asset\")\n\
     where\n  startswith(title, 'Pump')\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_pump_model-populate-lift_station_pumps_edges
   interval: 7 * * * *
@@ -165,7 +164,7 @@ View:
   name: LiftStation
   properties:
     pumps:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: pumps
       source:
