@@ -10,23 +10,23 @@ echo "Building image $IMAGE:$TAG"
 
 set +e
 if $PUBLISH -eq "true"; then
-  # building a poetry project, which provides `cdf-tk` as a command
-  # keeping `logs/*` in the image, so that the `cdf-tk` logging can write to it
+  IMAGE="cognite/cdf-tk"  # official name of the tool within Docker Hub
+  TAG=$(grep "^version" pyproject.toml | head -1 | awk -F '"' '{print $2}')  # Use the package version directly
+
   pack build "$IMAGE:$TAG" --buildpack paketo-buildpacks/python \
                           --builder paketobuildpacks/builder:base \
                           --buildpack paketo-buildpacks/source-removal \
                           --default-process=run \
-                          --env BP_INCLUDE_FILES='cognite_toolkit/*:cdf-tk' \
+                          --env BP_INCLUDE_FILES='cdf-tk:cognite_toolkit/cdf_tk/*:cognite_toolkit/*.py' \
                           --publish
 else
   pack build "$IMAGE:$TAG" --buildpack paketo-buildpacks/python \
                           --builder paketobuildpacks/builder:base \
                           --buildpack paketo-buildpacks/source-removal \
                           --default-process=run \
-                          --env BP_INCLUDE_FILES='cognite_toolkit/*:cdf-tk' \
-                          --env BP_LIVE_RELOAD_ENABLED=true
+                          --env BP_INCLUDE_FILES='cdf-tk:cognite_toolkit/cdf_tk/*:cognite_toolkit/*.py'
 fi
+RESULT=$?
 set -e
 
-RESULT=$?
 exit $RESULT
