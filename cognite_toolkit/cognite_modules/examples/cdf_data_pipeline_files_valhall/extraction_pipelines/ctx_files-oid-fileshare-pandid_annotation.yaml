@@ -1,5 +1,5 @@
-externalId: 'ep_ctx_files_{{location_name}}_pandid_annotation'
-name: 'ctx:files:{{location_name}}:pandid_annotation'
+externalId: 'ep_ctx_files_{{location_name}}_{{source_name}}_pandid_annotation'
+name: 'ctx:files:{{location_name}}:{{source_name}}:pandid_annotation'
 dataSetExternalId: 'ds_files_{{location_name}}'
 description: 'Annotation of P&ID documents from file source  {{location_name}}:{{source_name}}'
 

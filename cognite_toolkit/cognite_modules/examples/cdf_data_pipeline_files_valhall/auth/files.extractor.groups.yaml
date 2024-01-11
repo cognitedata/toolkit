@@ -19,3 +19,12 @@ capabilities:
         extractionPipelineScope: {
           ids: ['ep_src_files_{{location_name}}_{{source_name}}']
         }
+  - extractionRunsAcl: 
+      actions:      
+        - READ
+        - WRITE
+      scope: 
+        datasetScope: {
+            ids: ['ds_files_{{location_name}}']
+        }
+
