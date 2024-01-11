@@ -809,7 +809,7 @@ class TransformationLoader(
         self.client.transformations.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=True)
         return len(ids)
 
-    def create(self, items: Sequence[Transformation], drop: bool, filepath: Path) -> TransformationList:
+    def create(self, items: Sequence[TransformationWrite], drop: bool, filepath: Path) -> TransformationList:
         try:
             created = self.client.transformations.create(items)
         except CogniteDuplicatedError as e:
@@ -823,7 +823,8 @@ class TransformationLoader(
             print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
             self.ToolGlobals.failed = True
             return TransformationList([])
-        return cast(TransformationList, created)
+
+        return created
 
 
 @final
