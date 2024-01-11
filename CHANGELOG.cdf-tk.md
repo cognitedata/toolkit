@@ -26,10 +26,7 @@ Changes are grouped as follows:
 
 - Fixed bug when calling any command loading a `.env` file and the path is not relative to the current working
   directory. This is now fixed.
-
-### Fixed
-
-- Calling `cdf-tk init --upgrade` overwrites all variables and comments set in the `config.yaml` file. This is now
+- Calling `cdf-tk init --upgrade` overwrote all variables and comments set in the `config.yaml` file. This is now
   fixed.
 
 ## [0.1.0b4] - 2024-01-08
