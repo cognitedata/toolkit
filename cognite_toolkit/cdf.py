@@ -73,7 +73,6 @@ _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
 @dataclass
 class Common:
     override_env: bool
-    env_path: str
     verbose: bool
     cluster: Union[str, None]
     project: Union[str, None]
@@ -170,7 +169,6 @@ def common(
     ctx.obj = Common(
         verbose=verbose,
         override_env=override_env,
-        env_path=env_path,
         cluster=cluster,
         project=project,
         mockToolGlobals=None,
