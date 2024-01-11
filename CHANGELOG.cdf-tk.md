@@ -26,6 +26,8 @@ Changes are grouped as follows:
 
 - Fixed bug when calling any command loading a `.env` file and the path is not relative to the current working
   directory. This is now fixed.
+- Fixed all `YAML` files in `cognite_modules` to use `LF` line endings. This is to ensure that `cdf-tk init --upgrade`
+  do not result in diffs due to `CRLF` vs `LF` line endings.
 
 ## [0.1.0b4] - 2024-01-08
 
