@@ -478,10 +478,12 @@ class ConfigEntry:
 
     @property
     def value(self) -> float | int | str | bool:
-        values = self.current_value or self.default_value
-        if values is None:
+        if self.current_value is not None:
+            return self.current_value
+        elif self.default_value is not None:
+            return self.default_value
+        else:
             raise ValueError("config.yaml has not been loaded correctly, both default and current values are None")
-        return values
 
     @property
     def comment(self) -> YAMLComment | None:
