@@ -333,6 +333,9 @@ class Loader(
             return local_list
         # We make the remote into writable which removes all server-set properties
         # such that we can compare the local and remote resources
+        # Bug in SDK missing cognite client
+        remote._cognite_client = self.client
+
         remote_writable_by_id = {self.get_id(item): item for item in remote.as_write()}
 
         output = self.list_write_cls([])
