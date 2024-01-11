@@ -85,7 +85,7 @@ capabilities:
         - READ
         - OWNER
       scope:
-        idscope: { ids: ["site:001:b60:ds"] }
+        idScope: { ids: ["site:001:b60:ds"] }
             """
                 )
             },
