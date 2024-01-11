@@ -7,58 +7,131 @@ import pytest
 import yaml
 
 from cognite_toolkit.cdf_tk.templates import (
-    COGNITE_MODULES,
-    _dump_yaml_with_comments,
-    _extract_comments,
+    ConfigYAML,
+    YAMLComment,
     create_local_config,
-    generate_config,
+    flatten_dict,
     split_config,
 )
 
-BUILD_CONFIG = Path(__file__).parent / "project_configs"
-DATA = Path(__file__).parent / "data"
+PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
 
 
-def generate_config_test_cases():
-    expected = {
-        COGNITE_MODULES: {
-            "a_module": {
-                "readwrite_source_id": "<change_me>",
-                "readonly_source_id": "<change_me>",
-            },
-            "another_module": {
-                "default_location": "oid",
-                "source_asset": "workmate",
-                "source_workorder": "workmate",
-                "source_files": "fileshare",
-                "source_timeseries": "pi",
-            },
-            "top_variable": "<top_variable>",
-            "parent_module": {"child_module": {"child_variable": "<change_me>"}},
-        },
-    }
+def dict_keys(d: dict[str, Any]) -> set[str]:
+    keys = set()
+    for k, v in d.items():
+        keys.add(k)
+        if isinstance(v, dict):
+            keys.update(dict_keys(v))
+    return keys
 
-    yield pytest.param(expected, None, id="Include all")
 
-    only_a_module = {
-        COGNITE_MODULES: {
-            "a_module": {
-                "readwrite_source_id": "<change_me>",
-                "readonly_source_id": "<change_me>",
-            },
+@pytest.fixture(scope="session")
+def config_yaml() -> str:
+    return (PYTEST_PROJECT / "config.yaml").read_text()
+
+
+class TestConfigYAML:
+    def test_producing_correct_keys(self, config_yaml) -> None:
+        expected_keys = set(flatten_dict(yaml.safe_load(config_yaml)))
+        # Custom keys are not loaded from the module folder
+        expected_keys.remove(("custom_modules", "my_example_module", "transformation_is_paused"))
+
+        config = ConfigYAML.load(PYTEST_PROJECT)
+        actual_keys = set(config.keys())
+        missing = expected_keys - actual_keys
+        assert not missing, f"Missing keys: {missing}"
+        extra = actual_keys - expected_keys
+        assert not extra, f"Extra keys: {extra}"
+
+    def test_extract_extract_config_yaml_comments(self, config_yaml: str) -> None:
+        expected_comments = {
+            ("cognite_modules", "a_module", "readonly_source_id"): YAMLComment(
+                above=["This is a comment in the middle of the file"], after=[]
+            ),
+            ("cognite_modules", "another_module", "default_location"): YAMLComment(
+                above=["This is a comment at the beginning of the module."]
+            ),
+            ("cognite_modules", "another_module", "source_asset"): YAMLComment(
+                after=["This is an extra comment added to the config only 'lore ipsum'"]
+            ),
+            ("cognite_modules", "another_module", "source_files"): YAMLComment(
+                after=["This is a comment after a variable"]
+            ),
         }
-    }
-    yield pytest.param(only_a_module, {"a_module"}, id="Include one module")
+
+        actual_comments = ConfigYAML._extract_comments(config_yaml)
+
+        assert actual_comments == expected_comments
+
+    @pytest.mark.parametrize(
+        "raw_file, key_prefix, expected_comments",
+        [
+            pytest.param(
+                """# This is a module comment
+    variable: value # After variable comment
+    # Before variable comment
+    variable2: value2
+    variable3: 'value with #in it'
+    variable4: "value with #in it" # But a comment after
+    """,
+                tuple("super_module.module_a".split(".")),
+                {
+                    ("super_module", "module_a"): YAMLComment(above=["This is a module comment"]),
+                    ("super_module", "module_a", "variable"): YAMLComment(after=["After variable comment"]),
+                    ("super_module", "module_a", "variable2"): YAMLComment(above=["Before variable comment"]),
+                    ("super_module", "module_a", "variable4"): YAMLComment(after=["But a comment after"]),
+                },
+                id="module comments",
+            )
+        ],
+    )
+    def test_extract_default_config_comments(
+        self, raw_file: str, key_prefix: tuple[str, ...], expected_comments: dict[str, Any]
+    ):
+        actual_comments = ConfigYAML._extract_comments(raw_file, key_prefix)
+        assert actual_comments == expected_comments
+
+    def test_persist_variable_with_comment(self, config_yaml: str) -> None:
+        custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
+
+        config = ConfigYAML.load(PYTEST_PROJECT, existing_config_yaml=config_yaml)
+
+        dumped = config.dump_yaml_with_comments()
+        loaded = yaml.safe_load(dumped)
+        assert loaded["cognite_modules"]["another_module"]["source_asset"] == "my_new_workmate"
+        assert custom_comment in dumped
+
+    def test_added_and_removed_variables(self, config_yaml: str) -> None:
+        existing_config_yaml = yaml.safe_load(config_yaml)
+        # Added = Exists in the BUILD_CONFIG directory default.config.yaml files but not in config.yaml
+        existing_config_yaml["cognite_modules"]["another_module"].pop("source_asset")
+        # Removed = Exists in config.yaml but not in the BUILD_CONFIG directory default.config.yaml files
+        existing_config_yaml["cognite_modules"]["another_module"]["removed_variable"] = "old_value"
+
+        config = ConfigYAML.load(PYTEST_PROJECT, existing_config_yaml=yaml.safe_dump(existing_config_yaml))
+
+        removed = config.removed
+        # There is already a custom variable in the config.yaml file
+        assert len(removed) == 2
+        assert ("cognite_modules", "another_module", "removed_variable") in [v.key_path for v in removed]
+
+        added = config.added
+        assert len(added) == 1
+        assert added[0].key_path == ("cognite_modules", "another_module", "source_asset")
 
 
 @pytest.mark.parametrize(
-    "expected, include",
-    list(generate_config_test_cases()),
+    "input_, expected",
+    [
+        pytest.param({"a": {"b": 1, "c": 2}}, {("a", "b"): 1, ("a", "c"): 2}, id="Simple"),
+        pytest.param({"a": {"b": {"c": 1}}}, {("a", "b", "c"): 1}, id="Nested"),
+    ],
 )
-def test_generate_config(expected: str, include: set[str] | None) -> None:
-    actual, _ = generate_config(BUILD_CONFIG, include_modules=include)
+def test_flatten_dict(input_: dict[str, Any], expected: dict[str, Any]) -> None:
+    actual = flatten_dict(input_)
 
-    assert yaml.safe_load(actual) == expected
+    assert actual == expected
 
 
 @pytest.fixture()
@@ -93,69 +166,3 @@ def test_create_local_config(my_config: dict[str, Any]):
     local_config = create_local_config(configs, Path("parent/child/auth/"))
 
     assert dict(local_config.items()) == {"top_variable": "my_top_variable", "child_variable": "my_child_variable"}
-
-
-@pytest.mark.parametrize(
-    "raw_file, key_prefix, expected_comments",
-    [
-        pytest.param(
-            """# This is a module comment
-variable: value # After variable comment
-# Before variable comment
-variable2: value2
-variable3: 'value with #in it'
-variable4: "value with #in it" # But a comment after
-""",
-            tuple("super_module.module_a".split(".")),
-            {
-                ("super_module", "module_a"): {"above": ["This is a module comment"], "after": []},
-                ("super_module", "module_a", "variable"): {"above": [], "after": ["After variable comment"]},
-                ("super_module", "module_a", "variable2"): {"above": ["Before variable comment"], "after": []},
-                ("super_module", "module_a", "variable4"): {"above": [], "after": ["But a comment after"]},
-            },
-            id="module comments",
-        )
-    ],
-)
-def test_extract_comments(raw_file: str, key_prefix: tuple[str, ...], expected_comments: dict[str, Any]):
-    actual_comments = _extract_comments(raw_file, key_prefix)
-    assert actual_comments == expected_comments
-
-
-@pytest.mark.parametrize(
-    "config, comments, expected",
-    [
-        pytest.param(
-            {
-                "top_variable": "my_top_variable",
-                "module_a": {
-                    "readwrite_source_id": "my_readwrite_source_id",
-                    "readonly_source_id": "my_readonly_source_id",
-                },
-                "parent": {"child": {"child_variable": "my_child_variable"}},
-            },
-            {
-                tuple(): {"above": ["This is a module comment"], "after": []},
-                ("top_variable",): {"above": [], "after": ["After variable comment"]},
-                ("module_a",): {"above": ["Before variable comment"], "after": []},
-                ("parent", "child", "child_variable"): {"above": [], "after": ["With a comment after"]},
-            },
-            """# This is a module comment
-top_variable: my_top_variable # After variable comment
-# Before variable comment
-module_a:
-  readwrite_source_id: my_readwrite_source_id
-  readonly_source_id: my_readonly_source_id
-
-parent:
-  child:
-    child_variable: my_child_variable # With a comment after
-""",
-            id="Config with comments",
-        )
-    ],
-)
-def test_dump_yaml_with_comments(config: dict[str, Any], comments: dict[tuple[str, ...], Any], expected: str):
-    actual = _dump_yaml_with_comments(config, comments)
-
-    assert actual == expected

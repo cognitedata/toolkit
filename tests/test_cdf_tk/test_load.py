@@ -2,9 +2,12 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 from cognite.client.data_classes import DataSet
+from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf_tk.load import (
+    AuthLoader,
     DatapointsLoader,
     DataSetsLoader,
     FileLoader,
@@ -13,6 +16,7 @@ from cognite_toolkit.cdf_tk.load import (
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 from tests.approval_client import ApprovalCogniteClient
+from tests.utils import mock_read_yaml_file
 
 THIS_FOLDER = Path(__file__).resolve().parent
 
@@ -63,3 +67,31 @@ def test_upsert_data_set(cognite_client_approval: ApprovalCogniteClient):
     changed = loader.remove_unchanged(loaded)
 
     assert len(changed) == 1
+
+
+class TestAuthLoader:
+    def test_load_id_scoped_dataset_acl(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
+        loader = AuthLoader.create_loader(cdf_tool_config, "all")
+
+        mock_read_yaml_file(
+            {
+                "group_file.yaml": yaml.safe_load(
+                    """
+name: 'some_name'
+sourceId: '123'
+capabilities:
+  - datasetsAcl:
+      actions:
+        - READ
+        - OWNER
+      scope:
+        idScope: { ids: ["site:001:b60:ds"] }
+            """
+                )
+            },
+            monkeypatch,
+        )
+
+        loaded = loader.load_resource(Path("group_file.yaml"), dry_run=True)
+
+        assert loaded.name == "some_name"

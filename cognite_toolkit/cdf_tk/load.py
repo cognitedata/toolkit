@@ -333,6 +333,9 @@ class Loader(
             return local_list
         # We make the remote into writable which removes all server-set properties
         # such that we can compare the local and remote resources
+        # Bug in SDK missing cognite client
+        remote._cognite_client = self.client
+
         remote_writable_by_id = {self.get_id(item): item for item in remote.as_write()}
 
         output = self.list_write_cls([])
@@ -450,17 +453,18 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
         )
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
-                if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    if not dry_run and self.target_scopes not in [
-                        "all_skipped_validation",
-                        "all_scoped_skipped_validation",
-                    ]:
-                        values["scope"]["datasetScope"]["ids"] = [
-                            self.ToolGlobals.verify_dataset(ext_id)
-                            for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
-                        ]
-                    else:
-                        values["scope"]["datasetScope"]["ids"] = [-1]
+                for scope in ["datasetScope", "idScope"]:
+                    if len(ids := values.get("scope", {}).get(scope, {}).get("ids", [])) > 0:
+                        if not dry_run and self.target_scopes not in [
+                            "all_skipped_validation",
+                            "all_scoped_skipped_validation",
+                        ]:
+                            values["scope"][scope]["ids"] = [
+                                self.ToolGlobals.verify_dataset(ext_id) if isinstance(ext_id, str) else ext_id
+                                for ext_id in ids
+                            ]
+                        else:
+                            values["scope"][scope]["ids"] = [-1] * len(ids)
 
                 if len(values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
                     if not dry_run and self.target_scopes not in [
@@ -541,6 +545,8 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
             return GroupList([])
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.iam.groups.list(all=True)
+        # Bug in SDK not setting cognite_client
+        old_groups._cognite_client = self.client
         old_group_by_names = {g.name: g for g in old_groups.as_write()}
         changed = []
         for item in to_create:
