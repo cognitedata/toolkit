@@ -1002,9 +1002,6 @@ class ExtractionPipelineLoader(
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
             resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
-        # Bug in SDK requiring the optional field schedule.
-        if "schedule" not in resource:
-            resource["schedule"] = None
 
         return ExtractionPipelineWrite.load(resource)
 
