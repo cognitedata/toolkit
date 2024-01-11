@@ -57,7 +57,6 @@ Transformation:
   ignoreNullFields: false
   isPublic: true
   name: pump_asset_hierarchy-load-collections_pump
-  ownerIsCurrentUser: true
   query: "--- 1. asset root (defining all columns)\nSELECT\n    \"Lift Pump Stations\"\
     \ AS name,\n    dataset_id(\"src:lift_pump_stations\") AS dataSetId,\n    \"lift_pump_stations:root\"\
     \ AS externalId,\n    '' as parentExternalId,\n    \"An example pump dataset\"\

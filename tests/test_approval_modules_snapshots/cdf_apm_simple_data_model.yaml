@@ -1,5 +1,7 @@
 Container:
-- externalId: Asset
+- constraints: {}
+  externalId: Asset
+  indexes: {}
   name: Asset
   properties:
     areaId:
@@ -90,7 +92,9 @@ Container:
         type: timestamp
   space: sp_apm_simple
   usedFor: node
-- externalId: WorkItem
+- constraints: {}
+  externalId: WorkItem
+  indexes: {}
   name: WorkItem
   properties:
     criticality:
@@ -163,7 +167,9 @@ Container:
         type: direct
   space: sp_apm_simple
   usedFor: node
-- externalId: WorkOrder
+- constraints: {}
+  externalId: WorkOrder
+  indexes: {}
   name: WorkOrder
   properties:
     actualHours:
@@ -356,7 +362,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: asset:oid:workmate:apm_simple:load_asset2children
-  ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference('apm_simple',\
     \ `sourceExternalId`) as startNode,\n  node_reference('apm_simple', `targetExternalId`)\
     \ as endNode\nfrom\n  `asset_oid_workmate`.`asset2children`;\n"
@@ -389,7 +394,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: asset:oid:workmate:apm_simple:load_assets
-  ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`categoryId`\
     \ as INT) as categoryId,\n  cast(`isCriticalLine` as BOOLEAN) as isCriticalLine,\n\
     \  cast(`sourceDb` as STRING) as sourceDb,\n  cast(`updatedDate` as TIMESTAMP)\
@@ -425,7 +429,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: timeseries:oid:pi:apm_simple:load_timeseries2assets
-  ownerIsCurrentUser: true
   query: "select\n  cast(`asset` as STRING) as externalId,\n  array(timeseries) as\
     \ metrics\nfrom\n  `files_oid_pi`.`timeseries2assets`;\n"
   sourceOidcCredentials:
@@ -456,7 +459,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: workorder:oid:workmate:apm_simple:load_workitems
-  ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`description`\
     \ as STRING) as description,\n  node_reference('apm_simple', `workOrder`) as workOrder,\n\
     \  cast(`toBeDone` as BOOLEAN) as toBeDone,\n  cast(`itemInfo` as STRING) as itemInfo,\n\
@@ -491,7 +493,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: workorder:oid:workmate:apm_simple:load_workitems2assets
-  ownerIsCurrentUser: true
   query: "/* MAPPING_MODE_ENABLED: true */ /* {\"version\":1,\"sourceType\":\"raw\"\
     ,\"mappings\":[ {\"from\":\"externalId\",\"to\":\"externalId\",\"asType\":\"STRING\"\
     }, {\"from\":\"sourceExternalId\",\"to\":\"startNode\",\"asType\":\"STRUCT<`space`:STRING,\
@@ -529,7 +530,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: workorder:oid:workmate:apm_simple:load_workitems2workorders
-  ownerIsCurrentUser: true
   query: "/* MAPPING_MODE_ENABLED: true */ /* {\"version\":1,\"sourceType\":\"raw\"\
     ,\"mappings\":[ {\"from\":\"externalId\",\"to\":\"externalId\",\"asType\":\"STRING\"\
     }, {\"from\":\"sourceExternalId\",\"to\":\"startNode\",\"asType\":\"STRUCT<`space`:STRING,\
@@ -567,7 +567,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: workorder:oid:workmate:apm_simple:load_workorders
-  ownerIsCurrentUser: true
   query: "select \ncast(`externalId` as STRING) as externalId, \ncast(`isCompleted`\
     \ as BOOLEAN) as isCompleted, \ncast(`plannedStart` as TIMESTAMP) as plannedStart,\
     \ \ncast(`isSafetyCritical` as BOOLEAN) as isSafetyCritical, \ncast(`workPackageNumber`\
@@ -609,7 +608,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: workorder:oid:workmate:apm_simple:load_workorders2assets
-  ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference('apm_simple',\
     \ `sourceExternalId`) as startNode,\n  node_reference('apm_simple', `targetExternalId`)\
     \ as endNode\nfrom\n  `workorder_oid_workmate`.`workorder2assets`;\n"
@@ -647,6 +645,7 @@ TransformationSchedule:
   isPaused: true
 View:
 - externalId: Asset
+  implements: []
   name: Asset
   properties:
     areaId:
@@ -664,7 +663,7 @@ View:
       containerPropertyIdentifier: categoryId
       name: categoryId
     children:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: children
       source:
@@ -748,6 +747,7 @@ View:
   space: sp_apm_simple
   version: '1'
 - externalId: WorkItem
+  implements: []
   name: WorkItem
   properties:
     criticality:
@@ -786,7 +786,7 @@ View:
       containerPropertyIdentifier: itemName
       name: itemName
     linkedAssets:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: linkedAssets
       source:
@@ -828,6 +828,7 @@ View:
   space: sp_apm_simple
   version: '1'
 - externalId: WorkOrder
+  implements: []
   name: WorkOrder
   properties:
     actualHours:
@@ -901,7 +902,7 @@ View:
       containerPropertyIdentifier: isSafetyCritical
       name: isSafetyCritical
     linkedAssets:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: linkedAssets
       source:
@@ -962,7 +963,7 @@ View:
       containerPropertyIdentifier: title
       name: title
     workItems:
-      connectionType: multiEdgeConnection
+      connectionType: multi_edge_connection
       direction: outwards
       name: workItems
       source:
