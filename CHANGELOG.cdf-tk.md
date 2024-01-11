@@ -20,6 +20,12 @@ Changes are grouped as follows:
 ### Added
 
 - Support for custom environment variables injected into build files when calling the command `cdf-tk deploy`.
+- All resources that are unchanged are now skipped when running `cdf-tk deploy`.
+
+### Fixed
+
+- Fixed bug when calling any command loading a `.env` file and the path is not relative to the current working
+  directory. This is now fixed.
 
 ### Fixed
 

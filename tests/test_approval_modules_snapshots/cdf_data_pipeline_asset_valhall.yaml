@@ -142,7 +142,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: asset:oid:workmate:asset_hierarchy
-  ownerIsCurrentUser: true
   query: "--\n-- Create Asset Hierarchy using Transformation\n--\n-- Input data from\
     \ RAW DB table (using example data)\n--\n-- Root node has parentExternal id =\
     \ ''\n-- Transformation is connected to asset data set\n-- All metadata expect\

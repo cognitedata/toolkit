@@ -686,7 +686,6 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: asset:oid:workmate:asset_hierarchy:example
-  ownerIsCurrentUser: true
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`externalId`\
     \ as STRING) as name,\n  cast(`description` as STRING) as description,\n  cast(`sourceDb`\
     \ as STRING) as source,\n  cast(`parentExternalId` as STRING) as parentExternalId\n\

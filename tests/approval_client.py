@@ -14,27 +14,47 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     Database,
     DatabaseList,
+    DatabaseWrite,
+    DatabaseWriteList,
     Datapoints,
     DatapointsList,
     DataSet,
     DataSetList,
+    DataSetWrite,
+    DataSetWriteList,
     ExtractionPipeline,
     ExtractionPipelineConfig,
+    ExtractionPipelineConfigWrite,
+    ExtractionPipelineConfigWriteList,
     ExtractionPipelineList,
+    ExtractionPipelineWrite,
+    ExtractionPipelineWriteList,
     FileMetadata,
     FileMetadataList,
     Group,
     GroupList,
+    GroupWrite,
+    GroupWriteList,
     Row,
     RowList,
+    RowWrite,
+    RowWriteList,
     Table,
     TableList,
+    TableWrite,
+    TableWriteList,
     TimeSeries,
     TimeSeriesList,
+    TimeSeriesWrite,
+    TimeSeriesWriteList,
     Transformation,
     TransformationList,
     TransformationSchedule,
     TransformationScheduleList,
+    TransformationScheduleWrite,
+    TransformationScheduleWriteList,
+    TransformationWrite,
+    TransformationWriteList,
 )
 from cognite.client.data_classes._base import CogniteResource, CogniteResourceList, T_CogniteResource
 from cognite.client.data_classes.data_modeling import (
@@ -246,6 +266,7 @@ class ApprovalCogniteClient:
         write_resource_cls = resource.write_cls
         write_list_cls = resource.write_list_cls
         resource_cls = resource.resource_cls
+        resource_list_cls = resource.list_cls
 
         def create(*args, **kwargs) -> Any:
             created = []
@@ -257,7 +278,25 @@ class ApprovalCogniteClient:
                 elif isinstance(value, str) and issubclass(write_resource_cls, Database):
                     created.append(Database(name=value))
             created_resources[resource_cls.__name__].extend(created)
-            return write_list_cls(created)
+            if resource_cls is View:
+                return write_list_cls(created)
+            if resource_cls is ExtractionPipelineConfig:
+                print("stop")
+            return resource_list_cls.load(
+                [
+                    {
+                        "isGlobal": False,
+                        "lastUpdatedTime": 0,
+                        "createdTime": 0,
+                        "writable": True,
+                        "ignoreNullFields": False,
+                        "usedFor": "nodes",
+                        **c.dump(camel_case=True),
+                    }
+                    for c in created
+                ],
+                cognite_client=client,
+            )
 
         def insert_dataframe(*args, **kwargs) -> None:
             args = list(args)
@@ -341,9 +380,9 @@ class ApprovalCogniteClient:
                 edges=EdgeApplyResultList([]),
             )
 
-        def create_extraction_pipeline_config(config: ExtractionPipelineConfig) -> ExtractionPipelineConfig:
+        def create_extraction_pipeline_config(config: ExtractionPipelineConfigWrite) -> ExtractionPipelineConfig:
             created_resources[resource_cls.__name__].append(config)
-            return config
+            return ExtractionPipelineConfig.load(config.dump(camel_case=True))
 
         available_create_methods = {
             fn.__name__: fn
@@ -581,6 +620,8 @@ _API_RESOURCES = [
     APIResource(
         api_name="iam.groups",
         resource_cls=Group,
+        _write_cls=GroupWrite,
+        _write_list_cls=GroupWriteList,
         list_cls=GroupList,
         methods={
             "create": [Method(api_class_method="create", mock_name="create")],
@@ -591,6 +632,8 @@ _API_RESOURCES = [
     APIResource(
         api_name="data_sets",
         resource_cls=DataSet,
+        _write_cls=DataSetWrite,
+        _write_list_cls=DataSetWriteList,
         list_cls=DataSetList,
         methods={
             "create": [Method(api_class_method="create", mock_name="create")],
@@ -604,7 +647,9 @@ _API_RESOURCES = [
     APIResource(
         api_name="time_series",
         resource_cls=TimeSeries,
+        _write_cls=TimeSeriesWrite,
         list_cls=TimeSeriesList,
+        _write_list_cls=TimeSeriesWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_name="create")],
             "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
@@ -618,7 +663,9 @@ _API_RESOURCES = [
     APIResource(
         api_name="raw.databases",
         resource_cls=Database,
+        _write_cls=DatabaseWrite,
         list_cls=DatabaseList,
+        _write_list_cls=DatabaseWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_name="create")],
             "retrieve": [Method(api_class_method="list", mock_name="return_values")],
@@ -628,7 +675,9 @@ _API_RESOURCES = [
     APIResource(
         api_name="raw.tables",
         resource_cls=Table,
+        _write_cls=TableWrite,
         list_cls=TableList,
+        _write_list_cls=TableWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_name="create")],
             "retrieve": [Method(api_class_method="list", mock_name="return_values")],
@@ -638,7 +687,9 @@ _API_RESOURCES = [
     APIResource(
         api_name="raw.rows",
         resource_cls=Row,
+        _write_cls=RowWrite,
         list_cls=RowList,
+        _write_list_cls=RowWriteList,
         methods={
             "create": [Method(api_class_method="insert_dataframe", mock_name="insert_dataframe")],
             "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
@@ -651,7 +702,9 @@ _API_RESOURCES = [
     APIResource(
         api_name="transformations",
         resource_cls=Transformation,
+        _write_cls=TransformationWrite,
         list_cls=TransformationList,
+        _write_list_cls=TransformationWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_name="create")],
             "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
@@ -665,7 +718,9 @@ _API_RESOURCES = [
     APIResource(
         api_name="transformations.schedules",
         resource_cls=TransformationSchedule,
+        _write_cls=TransformationScheduleWrite,
         list_cls=TransformationScheduleList,
+        _write_list_cls=TransformationScheduleWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_name="create")],
             "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
@@ -679,7 +734,9 @@ _API_RESOURCES = [
     APIResource(
         api_name="extraction_pipelines",
         resource_cls=ExtractionPipeline,
+        _write_cls=ExtractionPipelineWrite,
         list_cls=ExtractionPipelineList,
+        _write_list_cls=ExtractionPipelineWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_name="create")],
             "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
@@ -693,7 +750,9 @@ _API_RESOURCES = [
     APIResource(
         api_name="extraction_pipelines.config",
         resource_cls=ExtractionPipelineConfig,
+        _write_cls=ExtractionPipelineConfigWrite,
         list_cls=ExtractionPipelineConfigList,
+        _write_list_cls=ExtractionPipelineConfigWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_name="create_extraction_pipeline_config")],
             "retrieve": [
