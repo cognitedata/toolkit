@@ -21,6 +21,9 @@ Changes are grouped as follows:
 
 - Support for custom environment variables injected into build files when calling the command `cdf-tk deploy`.
 - All resources that are unchanged are now skipped when running `cdf-tk deploy`.
+- Support for loading `Group` Capabilities with scope `idScope` of type string. This means you can now set the
+  `idScope` to the external id of a `dataSet` and it will be automatically replaced by the dataset id
+  `cdf-tk deploy`.
 
 ### Fixed
 
