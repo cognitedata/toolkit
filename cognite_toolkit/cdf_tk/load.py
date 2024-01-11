@@ -453,17 +453,18 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
         )
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
-                if len(values.get("scope", {}).get("datasetScope", {}).get("ids", [])) > 0:
-                    if not dry_run and self.target_scopes not in [
-                        "all_skipped_validation",
-                        "all_scoped_skipped_validation",
-                    ]:
-                        values["scope"]["datasetScope"]["ids"] = [
-                            self.ToolGlobals.verify_dataset(ext_id)
-                            for ext_id in values.get("scope", {}).get("datasetScope", {}).get("ids", [])
-                        ]
-                    else:
-                        values["scope"]["datasetScope"]["ids"] = [-1]
+                for scope in ["datasetScope", "idScope"]:
+                    if len(ids := values.get("scope", {}).get(scope, {}).get("ids", [])) > 0:
+                        if not dry_run and self.target_scopes not in [
+                            "all_skipped_validation",
+                            "all_scoped_skipped_validation",
+                        ]:
+                            values["scope"][scope]["ids"] = [
+                                self.ToolGlobals.verify_dataset(ext_id) if isinstance(ext_id, str) else ext_id
+                                for ext_id in ids
+                            ]
+                        else:
+                            values["scope"][scope]["ids"] = [-1] * len(ids)
 
                 if len(values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
                     if not dry_run and self.target_scopes not in [
