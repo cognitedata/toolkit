@@ -14,17 +14,17 @@ BUILD_DIR=$(mktemp -d -q $(pwd)/cdf-tk.XXXXXX)
 # Build Command
 set +e
 docker run \
-  -v $(realpath ./demo_project):/tmp/demo_project:ro \
+  -v $(realpath ./$1):/tmp/project:ro \
   -v $BUILD_DIR:/workspace/build_output \
   --entrypoint run \
   --rm \
   $IMAGE \
-  --env-path=/tmp/demo_project/.env \
+  --env-path=/tmp/project/.env \
   build \
   --build-dir=/workspace/build_output \
-  --env=demo \
+  --env=dev \
   --clean \
-  /tmp/demo_project
+  /tmp/project
 set -e
 
 # Check if build was successful
@@ -38,15 +38,15 @@ echo "Build successful, starting deployment."
 # Deploy Command
 set +e
 docker run \
-  -v $(realpath ./demo_project):/tmp/demo_project:ro \
+  -v $(realpath ./$1):/tmp/project:ro \
   -v $BUILD_DIR:/workspace/build_output:ro \
   --entrypoint run \
   --rm \
   $IMAGE \
-  --env-path=/tmp/demo_project/.env \
+  --env-path=/tmp/project/.env \
   deploy \
   --drop \
-  --env=demo \
+  --env=dev \
   --dry-run \
   /workspace/build_output
 set -e
