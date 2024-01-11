@@ -754,7 +754,6 @@ def main_init(
             current = config_filepath.read_text()
             config_yaml = ConfigYAML.load(target_dir, existing_config_yaml=current)
             config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-            print("  All default variables from the modules have been upgraded.")
             print(str(config_yaml))
             if ctx.obj.verbose:
                 for added in config_yaml.added:

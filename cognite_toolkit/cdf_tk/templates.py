@@ -505,7 +505,11 @@ class ConfigEntry:
         if self.is_removed:
             return f"{self.key} was removed"
         elif self.is_added:
-            return f"{self.key} was added with {self.value}"
+            if len(self.key_path) < 2:
+                return f"{self.key!r} was added with value {self.value!r}"
+            variable = self.key_path[-1]
+            module = ".".join(self.key_path[:-1])
+            return f"{variable!r} was added to {module!r} with value {self.value!r}"
         else:
             return f"{self.key} is unchanged"
 
