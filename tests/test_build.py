@@ -9,7 +9,7 @@ import yaml
 from packaging.version import Version
 
 from cognite_toolkit._version import __version__
-from cognite_toolkit.cdf_tk.templates import generate_config
+from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, generate_config
 from tests.constants import REPO_ROOT
 
 if sys.version_info >= (3, 11):
@@ -93,6 +93,23 @@ def test_environment_system_variables_updated() -> None:
     assert (
         system_variables["cdf_toolkit_version"] == __version__
     ), "The 'cdf_tk_version' system variable is not up to date."
+
+
+def test_all_yaml_files_have_LF_line_endings() -> None:
+    yaml_files = list((REPO_ROOT / "cognite_toolkit" / COGNITE_MODULES).glob("**/*.yaml"))
+
+    wrong_line_endings = []
+    for yaml_file in yaml_files:
+        with open(yaml_file, "rb") as f:
+            content = f.read()
+            if b"\r\n" in content or b"\r" in content:
+                wrong_line_endings.append(yaml_file)
+
+    assert (
+        not wrong_line_endings
+    ), "The following YAML files have CRLF line endings. Please change them to LF:\n" + "\n".join(
+        str(path) for path in wrong_line_endings
+    )
 
 
 def _parse_changelog(changelog: str) -> Iterator[Match[str]]:
