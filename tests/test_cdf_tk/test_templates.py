@@ -14,7 +14,7 @@ from cognite_toolkit.cdf_tk.templates import (
     split_config,
 )
 
-BUILD_CONFIG = Path(__file__).parent / "project_for_test"
+PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
 
 
 def dict_keys(d: dict[str, Any]) -> set[str]:
@@ -28,14 +28,16 @@ def dict_keys(d: dict[str, Any]) -> set[str]:
 
 @pytest.fixture(scope="session")
 def config_yaml() -> str:
-    return (BUILD_CONFIG / "config.yaml").read_text()
+    return (PYTEST_PROJECT / "config.yaml").read_text()
 
 
 class TestConfigYAML:
     def test_producing_correct_keys(self, config_yaml) -> None:
         expected_keys = set(flatten_dict(yaml.safe_load(config_yaml)))
+        # Custom keys are not loaded from the module folder
+        expected_keys.remove(("custom_modules", "my_example_module", "transformation_is_paused"))
 
-        config = ConfigYAML.load(BUILD_CONFIG)
+        config = ConfigYAML.load(PYTEST_PROJECT)
         actual_keys = set(config.keys())
         missing = expected_keys - actual_keys
         assert not missing, f"Missing keys: {missing}"
@@ -93,7 +95,7 @@ class TestConfigYAML:
     def test_persist_variable_with_comment(self, config_yaml: str) -> None:
         custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
 
-        config = ConfigYAML.load(BUILD_CONFIG, existing_config_yaml=config_yaml)
+        config = ConfigYAML.load(PYTEST_PROJECT, existing_config_yaml=config_yaml)
 
         dumped = config.dump_yaml_with_comments()
         loaded = yaml.safe_load(dumped)
@@ -107,11 +109,12 @@ class TestConfigYAML:
         # Removed = Exists in config.yaml but not in the BUILD_CONFIG directory default.config.yaml files
         existing_config_yaml["cognite_modules"]["another_module"]["removed_variable"] = "old_value"
 
-        config = ConfigYAML.load(BUILD_CONFIG, existing_config_yaml=yaml.safe_dump(existing_config_yaml))
+        config = ConfigYAML.load(PYTEST_PROJECT, existing_config_yaml=yaml.safe_dump(existing_config_yaml))
 
         removed = config.removed
-        assert len(removed) == 1
-        assert removed[0].key_path == ("cognite_modules", "another_module", "removed_variable")
+        # There is already a custom variable in the config.yaml file
+        assert len(removed) == 2
+        assert ("cognite_modules", "another_module", "removed_variable") in [v.key_path for v in removed]
 
         added = config.added
         assert len(added) == 1
