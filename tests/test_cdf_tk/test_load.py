@@ -53,7 +53,7 @@ def test_upsert_data_set(cognite_client_approval: ApprovalCogniteClient):
     cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
 
     loader = DataSetsLoader.create_loader(cdf_tool)
-    loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", dry_run=False)
+    loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", skip_validation=False)
     assert len(loaded) == 2
 
     first = DataSet.load(loaded[0].dump())
@@ -92,6 +92,6 @@ capabilities:
             monkeypatch,
         )
 
-        loaded = loader.load_resource(Path("group_file.yaml"), dry_run=True)
+        loaded = loader.load_resource(Path("group_file.yaml"), skip_validation=True)
 
         assert loaded.name == "some_name"

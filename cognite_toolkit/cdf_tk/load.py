@@ -320,6 +320,10 @@ class Loader(
         raise NotImplementedError
 
     @classmethod
+    def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource]) -> list[T_ID]:
+        return [cls.get_id(item) for item in items]
+
+    @classmethod
     def find_files(cls, dir_or_file: Path) -> list[Path]:
         """Find all files that are supported by this loader in the given directory or file.
 
@@ -346,7 +350,7 @@ class Loader(
             else:
                 return list(file_paths)
         else:
-            raise ValueError("Invalid path")
+            return []
 
     def remove_unchanged(self, local: T_WriteClass | Sequence[T_WriteClass]) -> T_CogniteResourceList:
         local_list = self.list_write_cls(local if isinstance(local, Sequence) else [local])
@@ -405,7 +409,7 @@ class Loader(
     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
         return self.api_class.retrieve(ids)
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> T_WriteClass | T_CogniteResourceList:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> T_WriteClass | T_CogniteResourceList:
         raw_yaml = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
@@ -476,7 +480,7 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
     def get_id(cls, item: GroupWrite | Group) -> str:
         return item.name
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> GroupWrite:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> GroupWrite:
         raw = load_yaml_inject_variables(
             filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
         )
@@ -484,7 +488,7 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
             for _, values in capability.items():
                 for scope in ["datasetScope", "idScope"]:
                     if len(ids := values.get("scope", {}).get(scope, {}).get("ids", [])) > 0:
-                        if not dry_run and self.target_scopes not in [
+                        if not skip_validation and self.target_scopes not in [
                             "all_skipped_validation",
                             "all_scoped_skipped_validation",
                         ]:
@@ -496,7 +500,7 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
                             values["scope"][scope]["ids"] = [-1] * len(ids)
 
                 if len(values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
-                    if not dry_run and self.target_scopes not in [
+                    if not skip_validation and self.target_scopes not in [
                         "all_skipped_validation",
                         "all_scoped_skipped_validation",
                     ]:
@@ -633,7 +637,7 @@ class DataSetsLoader(Loader[str, DataSetWrite, DataSet, DataSetWriteList, DataSe
         local.last_updated_time = remote.last_updated_time
         return local
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> DataSetWriteList:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
 
         data_sets = [resource] if isinstance(resource, dict) else resource
@@ -765,14 +769,14 @@ class TimeSeriesLoader(Loader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteL
         self.client.time_series.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=True)
         return len(ids)
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> TimeSeriesWriteList:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> TimeSeriesWriteList:
         resources = load_yaml_inject_variables(filepath, {})
         if not isinstance(resources, list):
             resources = [resources]
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
+                resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
         return TimeSeriesWriteList.load(resources)
 
 
@@ -809,7 +813,7 @@ class TransformationLoader(
             raise ValueError("Transformation must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> TransformationWrite:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> TransformationWrite:
         raw = load_yaml_inject_variables(
             filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
         )
@@ -819,7 +823,7 @@ class TransformationLoader(
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or None
         if raw.get("dataSetExternalId") is not None:
             ds_external_id = raw.pop("dataSetExternalId")
-            raw["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
+            raw["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
 
         transformation = TransformationWrite.load(raw)
         transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
@@ -899,7 +903,7 @@ class TransformationScheduleLoader(
             raise ValueError("TransformationSchedule must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> TransformationScheduleWrite:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> TransformationScheduleWrite:
         raw = load_yaml_inject_variables(
             filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
         )
@@ -957,7 +961,7 @@ class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesWriteList, TimeSe
             scope,
         )
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> Path:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> Path:
         return filepath
 
     @classmethod
@@ -1032,12 +1036,12 @@ class ExtractionPipelineLoader(
                 return len(id_list)
             return 0
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipelineWrite:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> ExtractionPipelineWrite:
         resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
 
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
-            resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
+            resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
 
         return ExtractionPipelineWrite.load(resource)
 
@@ -1092,7 +1096,7 @@ class ExtractionPipelineConfigLoader(
             raise ValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> ExtractionPipelineConfigWrite:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> ExtractionPipelineConfigWrite:
         resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
         try:
             resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
@@ -1152,14 +1156,14 @@ class FileLoader(Loader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteL
         self.client.files.delete(external_id=cast(Sequence, ids))
         return len(ids)
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> FileMetadataWrite | FileMetadataWriteList:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> FileMetadataWrite | FileMetadataWriteList:
         try:
             resource = load_yaml_inject_variables(
                 filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
             )
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not dry_run else -1
+                resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
             files_metadata = FileMetadataWriteList([FileMetadataWrite.load(resource)])
         except Exception:
             files_metadata = FileMetadataWriteList.load(
@@ -1197,7 +1201,7 @@ class FileLoader(Loader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteL
                 raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
             if isinstance(meta.data_set_id, str):
                 # Replace external_id with internal id
-                meta.data_set_id = self.ToolGlobals.verify_dataset(meta.data_set_id) if not dry_run else -1
+                meta.data_set_id = self.ToolGlobals.verify_dataset(meta.data_set_id) if not skip_validation else -1
         return files_metadata
 
     def create(self, items: FileMetadataWriteList, drop: bool, filepath: Path) -> FileMetadataList:
@@ -1386,7 +1390,7 @@ class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
     def get_id(cls, item: NodeApply | Node) -> NodeId:
         return item.as_id()
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> LoadableNodes:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> LoadableNodes:
         raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         if isinstance(raw, dict):
             return LoadableNodes._load(raw, cognite_client=self.client)
@@ -1441,7 +1445,7 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
     def get_id(cls, item: EdgeApply | Edge) -> EdgeId:
         return item.as_id()
 
-    def load_resource(self, filepath: Path, dry_run: bool) -> LoadableEdges:
+    def load_resource(self, filepath: Path, skip_validation: bool) -> LoadableEdges:
         raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
         if isinstance(raw, dict):
             return LoadableEdges._load(raw, cognite_client=self.client)
@@ -1474,10 +1478,16 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
 @dataclass
 class DeployResult:
     name: str
-    created: int
-    deleted: int
-    skipped: int
-    total: int
+    created: int = 0
+    deleted: int = 0
+    changed: int = 0
+    unchanged: int = 0
+    skipped: int = 0
+    total: int = 0
+
+    @property
+    def calculated_total(self) -> int:
+        return self.created + self.deleted + self.changed + self.unchanged + self.skipped
 
     def __lt__(self, other: object) -> bool:
         if isinstance(other, DeployResult):
@@ -1535,23 +1545,36 @@ def deploy_or_clean_resources(
         raise ValueError(f"Invalid action {action}")
 
     filepaths = loader.find_files(path)
-    if action == "clean":
-        # If we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-        items = [loader.load_resource(f, dry_run=True) for f in filepaths]
-    else:
-        items = [loader.load_resource(f, dry_run) for f in filepaths]
-    items = [item for item in items if item is not None]
-    nr_of_batches = len(items)
-    nr_of_items = sum(len(item) if isinstance(item, Sized) else 1 for item in items)
+
+    # If we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
+    skip_validation = dry_run or action == "clean"
+    batches = []
+    for filepath in filepaths:
+        try:
+            resource = loader.load_resource(filepath, skip_validation)
+        except KeyError as e:
+            # KeyError means that we are missing a required field in the yaml file.
+            print(
+                f"[bold red]ERROR:[/] Failed to load {filepath.name} with {loader.display_name}. Missing required field: {e}."
+            )
+            ToolGlobals.failed = True
+            return None
+        if resource is None:
+            print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
+            continue
+        batches.append(resource if isinstance(resource, Sequence) else [resource])
+
+    nr_of_batches = len(batches)
+    nr_of_items = sum(len(batch) for batch in batches)
     if nr_of_items == 0:
-        return DeployResult(name=loader.display_name, created=0, deleted=0, skipped=0, total=0)
+        return DeployResult(name=loader.display_name)
     if action == "deploy":
         action_word = "Loading" if dry_run else "Uploading"
         print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
     else:
         action_word = "Loading" if dry_run else "Cleaning"
         print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
-    batches = [item if isinstance(item, Sequence) else [item] for item in items]
+
     if drop and loader.support_drop and action == "deploy":
         if drop_data and (loader.api_name == "data_modeling.spaces" or loader.api_name == "data_modeling.containers"):
             print(
@@ -1564,26 +1587,26 @@ def deploy_or_clean_resources(
     nr_of_deleted = 0
     if (drop and loader.support_drop) or clean:
         for batch in batches:
-            drop_items = [loader.get_id(item) for item in batch]
+            batch_ids = loader.get_ids(batch)
             if dry_run:
-                nr_of_deleted += len(drop_items)
+                nr_of_deleted += len(batch_ids)
                 if verbose:
-                    print(f"  Would have deleted {len(drop_items)} {loader.display_name}.")
+                    print(f"  Would have deleted {len(batch_ids)} {loader.display_name}.")
             else:
                 try:
-                    nr_of_deleted += loader.delete(drop_items, drop_data)
+                    nr_of_deleted += loader.delete(batch_ids, drop_data)
                 except CogniteAPIError as e:
                     if e.code == 404:
-                        print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.display_name} do(es) not exist.")
+                        print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {loader.display_name} do(es) not exist.")
                 except CogniteNotFoundError:
-                    print(f"  [bold yellow]WARNING:[/] {len(drop_items)} {loader.display_name} do(es) not exist.")
+                    print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {loader.display_name} do(es) not exist.")
                 except Exception as e:
                     print(
-                        f"  [bold yellow]WARNING:[/] Failed to delete {len(drop_items)} {loader.display_name}. Error {e}."
+                        f"  [bold yellow]WARNING:[/] Failed to delete {len(batch_ids)} {loader.display_name}. Error {e}."
                     )
                 else:  # Delete succeeded
                     if verbose:
-                        print(f"  Deleted {len(drop_items)} {loader.display_name}.")
+                        print(f"  Deleted {len(batch_ids)} {loader.display_name}.")
         if dry_run and action == "clean" and verbose:
             # Only clean command prints this, if not we print it at the end
             print(f"  Would have deleted {nr_of_deleted} {loader.display_name} in total.")
@@ -1591,9 +1614,11 @@ def deploy_or_clean_resources(
     if action == "clean":
         # Clean Command, only delete.
         nr_of_items = nr_of_deleted
-        return DeployResult(name=loader.display_name, created=0, deleted=nr_of_deleted, skipped=0, total=nr_of_items)
+        return DeployResult(name=loader.display_name, deleted=nr_of_deleted, total=nr_of_items)
 
     nr_of_created = 0
+    nr_of_changed = 0
+    nr_of_unchanged = 0
     nr_of_skipped = 0
     for batch, filepath in zip(batches, filepaths):
         if not drop and loader.support_upsert:
@@ -1633,6 +1658,8 @@ def deploy_or_clean_resources(
         name=loader.display_name,
         created=nr_of_created,
         deleted=nr_of_deleted,
+        changed=nr_of_changed,
+        unchanged=nr_of_unchanged,
         skipped=nr_of_skipped,
         total=nr_of_items,
     )
