@@ -21,9 +21,9 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
     """Describe data model from CDF"""
 
     if model_name is None:
-        print(f"Describing first data model in space ({space_name})...")
+        print(f"Describing first data model in space {space_name} in project {ToolGlobals.project}...")
     else:
-        print(f"Describing data model ({model_name}) in space ({space_name})...")
+        print(f"Describing data model {model_name} in space {space_name} in project {ToolGlobals.project}...")
     print("Verifying access rights...")
     client = ToolGlobals.verify_client(
         capabilities={
