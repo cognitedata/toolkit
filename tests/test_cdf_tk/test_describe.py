@@ -26,6 +26,7 @@ SNAPSHOTS_DIR.mkdir(exist_ok=True)
 def test_describe_datamodel(
     cognite_client_approval: ApprovalCogniteClient,
     data_regression,
+    file_regression,
     capfd,
 ):
     cdf_tool = MagicMock(spec=CDFToolConfig)
@@ -64,7 +65,6 @@ def test_describe_datamodel(
             if re.compile(container_loader.filename_pattern).match(file.stem)
         ]
     ]
-    views = View.load(Path(DATA_FOLDER, "data_models", "4.Asset.view.yaml").read_text())
     views = [
         View.load(filepath.read_text())
         for filepath in [
@@ -81,15 +81,7 @@ def test_describe_datamodel(
 
     describe_datamodel(cdf_tool, "test", "test")
     out, _ = capfd.readouterr()
-    try:
-        snapshot = Path(SNAPSHOTS_DIR / "describe_datamodel.txt").read_text()
-        assert (
-            snapshot == out
-        ), f"Snapshot does not match output. Delete {SNAPSHOTS_DIR}/describe_datamodel.txt if you have changed output."
-    except FileNotFoundError:
-        with open(SNAPSHOTS_DIR / "describe_datamodel.txt", "w") as f:
-            f.write(out)
-        assert False, "Snapshot file not found. Created a new one."
+    file_regression.check(out, encoding="utf-8", fullpath=SNAPSHOTS_DIR / "describe_datamodel.txt")
 
     dump = cognite_client_approval.dump()
     assert dump == {}
