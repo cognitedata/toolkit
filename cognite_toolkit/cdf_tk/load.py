@@ -319,6 +319,35 @@ class Loader(
     def get_id(cls, item: T_WriteClass | T_WritableCogniteResource) -> T_ID:
         raise NotImplementedError
 
+    @classmethod
+    def find_files(cls, dir_or_file: Path) -> list[Path]:
+        """Find all files that are supported by this loader in the given directory or file.
+
+        Args:
+            dir_or_file (Path): The directory or file to search in.
+
+        Returns:
+            list[Path]: A list of all files that are supported by this loader.
+
+        """
+        if dir_or_file.is_file():
+            if dir_or_file.suffix not in cls.filetypes or not cls.filetypes:
+                raise ValueError("Invalid file type")
+            return [dir_or_file]
+        elif dir_or_file.is_dir():
+            if cls.filetypes:
+                file_paths = (file for type_ in cls.filetypes for file in dir_or_file.glob(f"**/*.{type_}"))
+            else:
+                file_paths = dir_or_file.glob("**/*")
+
+            if cls.filename_pattern:
+                pattern = re.compile(cls.filename_pattern)
+                return [file for file in file_paths if pattern.match(file.stem)]
+            else:
+                return list(file_paths)
+        else:
+            raise ValueError("Invalid path")
+
     def remove_unchanged(self, local: T_WriteClass | Sequence[T_WriteClass]) -> T_CogniteResourceList:
         local_list = self.list_write_cls(local if isinstance(local, Sequence) else [local])
         if len(local_list) == 0:
@@ -1505,20 +1534,7 @@ def deploy_or_clean_resources(
     if action not in ["deploy", "clean"]:
         raise ValueError(f"Invalid action {action}")
 
-    if path.is_file():
-        if path.suffix not in loader.filetypes or not loader.filetypes:
-            raise ValueError("Invalid file type")
-        filepaths = [path]
-    elif loader.filetypes:
-        filepaths = [file for type_ in loader.filetypes for file in path.glob(f"**/*.{type_}")]
-    else:
-        filepaths = [file for file in path.glob("**/*")]
-
-    if loader.filename_pattern:
-        # This is used by data modelings resources to filter out files that are not of the correct type
-        # as these resources share the same folder.
-        pattern = re.compile(loader.filename_pattern)
-        filepaths = [file for file in filepaths if pattern.match(file.stem)]
+    filepaths = loader.find_files(path)
     if action == "clean":
         # If we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
         items = [loader.load_resource(f, dry_run=True) for f in filepaths]
