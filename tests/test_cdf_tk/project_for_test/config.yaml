@@ -14,3 +14,7 @@ cognite_modules:
   parent_module:
     child_module:
       child_variable: <change_me>
+
+custom_modules:
+  my_example_module:
+    transformation_is_paused: False
