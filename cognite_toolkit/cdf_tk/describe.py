@@ -55,7 +55,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         print(f"Failed to retrieve containers for data model {model_name}.")
         print(e)
         return None
-    containers_str = "\n".join([c.external_id for c in containers])
+    containers_str = "\n".join(sorted([c.external_id for c in containers]))
     table.add_row(f"Containers ({len(containers)})", "".join(containers_str))
     print(table)
     try:
@@ -95,7 +95,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         view_list.append((view.space, view.external_id, view.version))
     views = client.data_modeling.views.retrieve(view_list)
     table.add_row("Number of views", str(len(views)))
-    view_names = "\n".join([v.external_id for v in views])
+    view_names = "\n".join(sorted([v.external_id for v in views]))
     table.add_row("List of views", "".join(view_names))
     print(table)
     model_edge_types: list[DirectRelationReference] = []
@@ -106,9 +106,9 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         table.add_row("Number of properties", str(len(view.properties)))
         table.add_row("Used for", str(view.used_for))
 
-        implements_str = "\n".join([i.external_id for i in view.implements or []])
+        implements_str = "\n".join(sorted([i.external_id for i in view.implements or []]))
         table.add_row("Implements", implements_str)
-        properties = "\n".join(view.properties.keys())
+        properties = "\n".join(sorted(view.properties.keys()))
         table.add_row("List of properties", "".join(properties))
         direct_relations = []
         edge_relations = []
@@ -127,8 +127,8 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
                 model_edge_types.append(edge_type.type)
         nr_of_direct_relations = len(direct_relations)
         nr_of_edge_relations = len(edge_relations)
-        table.add_row(f"Direct relations({nr_of_direct_relations})", "\n".join(direct_relations))
-        table.add_row(f"Edge relations({nr_of_edge_relations})", "\n".join(edge_relations))
+        table.add_row(f"Direct relations({nr_of_direct_relations})", "\n".join(sorted(direct_relations)))
+        table.add_row(f"Edge relations({nr_of_edge_relations})", "\n".join(sorted(edge_relations)))
         node_count = 0
         # Iterate over all the nodes in the view 1,000 at the time
         try:

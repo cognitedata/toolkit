@@ -9,8 +9,8 @@ Verifying access rights...
 │ Created time      │ 2024-01-11 13:46:19             │
 │ Last updated time │ 2024-01-11 13:46:19             │
 │ Containers (3)    │ Asset                           │
-│                   │ WorkOrder                       │
 │                   │ WorkItem                        │
+│                   │ WorkOrder                       │
 └───────────────────┴─────────────────────────────────┘
     Data model apm_simple in space test    
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
