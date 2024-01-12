@@ -430,7 +430,6 @@ def build_config(
         print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
     elif build_dir.exists():
         print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
-        pass
     else:
         build_dir.mkdir(exist_ok=True)
 
