@@ -284,6 +284,14 @@ class Loader(
         except AttributeError:
             raise AttributeError(f"Invalid api_name {self.api_name}.")
 
+    def get_matching_files(self, filepath: Path) -> list[Path]:
+        return [
+            file
+            for type_ in self.filetypes
+            for file in filepath.glob(f"**/*.{type_}")
+            if re.compile(self.filename_pattern).match(file.stem)
+        ]
+
     @property
     def display_name(self) -> str:
         if self._display_name:
