@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import inspect
 import io
 import itertools
 import json
@@ -352,35 +353,8 @@ class Loader(
         else:
             return []
 
-    def remove_unchanged(self, local: T_WriteClass | Sequence[T_WriteClass]) -> T_CogniteResourceList:
-        local_list = self.list_write_cls(local if isinstance(local, Sequence) else [local])
-        if len(local_list) == 0:
-            return local_list
-
-        try:
-            remote = self.retrieve([self.get_id(item) for item in local_list])
-        except CogniteNotFoundError:
-            return local_list
-
-        if len(remote) == 0:
-            return local_list
-        # We make the remote into writable which removes all server-set properties
-        # such that we can compare the local and remote resources
-        # Bug in SDK missing cognite client
-        remote._cognite_client = self.client
-
-        remote_writable_by_id = {self.get_id(item): item for item in remote.as_write()}
-
-        output = self.list_write_cls([])
-        for local_resource in local_list:
-            local_id = self.get_id(local_resource)
-            if local_id in remote_writable_by_id and local_resource == remote_writable_by_id[local_id]:
-                continue
-            output.append(local_resource)
-        return output
-
     # Default implementations that can be overridden
-    def create(self, items: T_CogniteResourceList, drop: bool, filepath: Path) -> Sized:
+    def create(self, items: Sequence[T_WriteClass], drop: bool, filepath: Path) -> Sized:
         try:
             created = self.api_class.create(items)
             return created
@@ -407,7 +381,10 @@ class Loader(
         return len(ids)
 
     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
-        return self.api_class.retrieve(ids)
+        if inspect.signature(self.api_class.retrieve).parameters.get("ignore_unknown_ids"):
+            return self.api_class.retrieve(ids, ignore_unknown_ids=True)
+        else:
+            return self.api_class.retrieve(ids)
 
     def load_resource(self, filepath: Path, skip_validation: bool) -> T_WriteClass | T_CogniteResourceList:
         raw_yaml = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
@@ -546,7 +523,7 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
         self.client.iam.groups.delete(found)
         return len(found)
 
-    def create(self, items: GroupWriteList, drop: bool, filepath: Path) -> GroupList:
+    def create(self, items: Sequence[GroupWrite], drop: bool, filepath: Path) -> GroupList:
         if self.target_scopes == "all":
             to_create = items
         elif self.target_scopes == "all_skipped_validation":
@@ -626,17 +603,6 @@ class DataSetsLoader(Loader[str, DataSetWrite, DataSet, DataSetWriteList, DataSe
     def retrieve(self, ids: SequenceNotStr[str]) -> DataSetList:
         return self.client.data_sets.retrieve_multiple(external_ids=cast(Sequence, ids))
 
-    @staticmethod
-    def fixup_resource(local: DataSet, remote: DataSet) -> DataSet:
-        """Sets the read-only properties, id, created_time, and last_updated_time, that are set on the server side.
-        This is needed to make the comparison work.
-        """
-
-        local.id = remote.id
-        local.created_time = remote.created_time
-        local.last_updated_time = remote.last_updated_time
-        return local
-
     def load_resource(self, filepath: Path, skip_validation: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
 
@@ -648,11 +614,12 @@ class DataSetsLoader(Loader[str, DataSetWrite, DataSet, DataSetWriteList, DataSe
                     data_set["metadata"][key] = json.dumps(value)
         return DataSetWriteList.load(data_sets)
 
-    def create(self, items: DataSetWriteList, drop: bool, filepath: Path) -> DataSetList:
+    def create(self, items: Sequence[DataSetWrite], drop: bool, filepath: Path) -> DataSetList:
+        items = list(items)
         created = DataSetList([], cognite_client=self.client)
         # There is a bug in the data set API, so only one duplicated data set is returned at the time,
         # so we need to iterate.
-        while len(items.data) > 0:
+        while len(items) > 0:
             try:
                 created.extend(DataSetList(self.client.data_sets.create(items)))
                 return created
@@ -664,7 +631,7 @@ class DataSetsLoader(Loader[str, DataSetWrite, DataSet, DataSetWriteList, DataSe
                             if item.external_id == ext_id:
                                 items.remove(item)
                 else:
-                    items.data = []
+                    items = []
             except Exception as e:
                 print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
                 self.ToolGlobals.failed = True
@@ -916,7 +883,9 @@ class TransformationScheduleLoader(
         except CogniteNotFoundError as e:
             return len(ids) - len(e.not_found)
 
-    def create(self, items: TransformationScheduleWriteList, drop: bool, filepath: Path) -> TransformationScheduleList:
+    def create(
+        self, items: Sequence[TransformationScheduleWrite], drop: bool, filepath: Path
+    ) -> TransformationScheduleList:
         try:
             return self.client.transformations.schedules.create(list(items))
         except CogniteDuplicatedError as e:
@@ -1045,7 +1014,8 @@ class ExtractionPipelineLoader(
 
         return ExtractionPipelineWrite.load(resource)
 
-    def create(self, items: ExtractionPipelineWriteList, drop: bool, filepath: Path) -> ExtractionPipelineList:
+    def create(self, items: Sequence[ExtractionPipelineWrite], drop: bool, filepath: Path) -> ExtractionPipelineList:
+        items = list(items)
         try:
             return self.client.extraction_pipelines.create(items)
         except CogniteDuplicatedError as e:
@@ -1108,7 +1078,7 @@ class ExtractionPipelineConfigLoader(
         return ExtractionPipelineConfigWrite.load(resource)
 
     def create(
-        self, items: ExtractionPipelineConfigWriteList, drop: bool, filepath: Path
+        self, items: Sequence[ExtractionPipelineConfigWrite], drop: bool, filepath: Path
     ) -> ExtractionPipelineConfigList:
         try:
             return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
@@ -1204,7 +1174,7 @@ class FileLoader(Loader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteL
                 meta.data_set_id = self.ToolGlobals.verify_dataset(meta.data_set_id) if not skip_validation else -1
         return files_metadata
 
-    def create(self, items: FileMetadataWriteList, drop: bool, filepath: Path) -> FileMetadataList:
+    def create(self, items: Sequence[FileMetadataWrite], drop: bool, filepath: Path) -> FileMetadataList:
         created = FileMetadataList([])
         for meta in items:
             if meta.name is None:
@@ -1332,7 +1302,7 @@ class ViewLoader(Loader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     def get_id(cls, item: ViewApply | View) -> ViewId:
         return item.as_id()
 
-    def create(self, items: ViewApplyList, drop: bool, filepath: Path) -> ViewList:
+    def create(self, items: Sequence[ViewApply], drop: bool, filepath: Path) -> ViewList:
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.views.apply(items)
 
@@ -1361,7 +1331,7 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModel, DataModelAp
     def get_id(cls, item: DataModelApply | DataModel) -> DataModelId:
         return item.as_id()
 
-    def create(self, items: DataModelApplyList, drop: bool, filepath: Path) -> DataModelList:
+    def create(self, items: Sequence[DataModelApply], drop: bool, filepath: Path) -> DataModelList:
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.data_models.apply(items)
 
@@ -1665,10 +1635,163 @@ def deploy_or_clean_resources(
     )
 
 
+def deploy_resources(
+    loader: Loader,
+    path: Path,
+    ToolGlobals: CDFToolConfig,
+    drop: bool = False,
+    clean: bool = False,
+    dry_run: bool = False,
+    drop_data: bool = False,
+    verbose: bool = False,
+) -> DeployResult | None:
+    filepaths = loader.find_files(path)
+
+    batches = _load_batches(loader, filepaths, skip_validation=dry_run)
+    if batches is None:
+        ToolGlobals.failed = True
+        return None
+
+    nr_of_batches = len(batches)
+    nr_of_items = sum(len(batch) for batch in batches)
+    if nr_of_items == 0:
+        return DeployResult(name=loader.display_name)
+
+    action_word = "Loading" if dry_run else "Uploading"
+    print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
+
+    if drop and loader.support_drop:
+        if drop_data and (loader.api_name in ["data_modeling.spaces", "data_modeling.containers"]):
+            print(
+                f"  --drop-data is specified, will delete existing nodes and edges before before deleting {loader.display_name}."
+            )
+        else:
+            print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
+
+    # Deleting resources.
+    nr_of_deleted = 0
+    if (drop and loader.support_drop) or clean:
+        nr_of_deleted = _delete_resources(loader, batches, drop_data, dry_run, verbose)
+
+    nr_of_created = 0
+    nr_of_changed = 0
+    nr_of_unchanged = 0
+    nr_of_skipped = 0
+    for batch_no, (batch, filepath) in enumerate(zip(batches, filepaths), 1):
+        batch_ids = loader.get_ids(batch)
+        cdf_resources = loader.retrieve(batch_ids).as_write()
+        cdf_resource_by_id = {loader.get_id(resource): resource for resource in cdf_resources}
+
+        to_create = []
+        to_update = []
+        for item in batch:
+            if cdf_resource := cdf_resource_by_id.get(loader.get_id(item)):
+                if item == cdf_resource:
+                    nr_of_unchanged += 1
+                else:
+                    to_update.append(item)
+            else:
+                to_create.append(item)
+
+        if dry_run:
+            nr_of_created += len(to_create)
+            nr_of_changed += len(to_update)
+            if verbose:
+                print(
+                    f" {batch_no}/{len(batch)} {loader.display_name} would have: Changed {nr_of_changed},"
+                    f" Created {nr_of_created}, and left {nr_of_unchanged} unchanged"
+                )
+            continue
+
+        try:
+            created = loader.create(to_create, drop, filepath)
+        except Exception as e:
+            print(f"  [bold yellow]WARNING:[/] Failed to upload {loader.display_name}. Error {e}.")
+            ToolGlobals.failed = True
+            return None
+        else:
+            newly_created = len(created) if created is not None else 0
+            nr_of_created += newly_created
+            nr_of_skipped += len(batch) - newly_created
+            # For timeseries.datapoints, we can load multiple timeseries in one file,
+            # so the number of created items can be larger than the number of items in the batch.
+            if nr_of_skipped < 0:
+                nr_of_items += -nr_of_skipped
+                nr_of_skipped = 0
+
+        try:
+            updated = loader.update(to_update, drop, filepath)
+        except Exception as e:
+            print(f"  [bold yellow]WARNING:[/] Failed to update {loader.display_name}. Error {e}.")
+            ToolGlobals.failed = True
+            return None
+        else:
+            nr_of_changed += len(updated)
+
+    if verbose:
+        print(
+            f"  Created {nr_of_created}, Deleted {nr_of_deleted}, Changed {nr_of_changed}, Unchanged {nr_of_unchanged}, Skipped {nr_of_skipped}, Total {nr_of_items}."
+        )
+    return DeployResult(
+        name=loader.display_name,
+        created=nr_of_created,
+        deleted=nr_of_deleted,
+        changed=nr_of_changed,
+        unchanged=nr_of_unchanged,
+        skipped=nr_of_skipped,
+        total=nr_of_items,
+    )
+
+
+def _load_batches(loader: Loader, filepaths: list[Path], skip_validation: bool) -> list[list[T_WriteClass]] | None:
+    batches: list[list[T_WriteClass]] = []
+    for filepath in filepaths:
+        try:
+            resource = loader.load_resource(filepath, skip_validation=skip_validation)
+        except KeyError as e:
+            # KeyError means that we are missing a required field in the yaml file.
+            print(
+                f"[bold red]ERROR:[/] Failed to load {filepath.name} with {loader.display_name}. Missing required field: {e}."
+            )
+            return None
+        if resource is None:
+            print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
+            continue
+        batches.append(list(resource) if isinstance(resource, Sequence) else [resource])
+    return batches
+
+
+def _delete_resources(
+    loader: Loader, batches: list[list[T_WriteClass]], drop_data: bool, dry_run: bool, verbose: bool
+) -> int:
+    nr_of_deleted = 0
+    for batch in batches:
+        batch_ids = loader.get_ids(batch)
+        if dry_run:
+            nr_of_deleted += len(batch_ids)
+            if verbose:
+                print(f"  Would have deleted {len(batch_ids)} {loader.display_name}.")
+            continue
+
+        try:
+            nr_of_deleted += loader.delete(batch_ids, drop_data)
+        except CogniteAPIError as e:
+            if e.code == 404:
+                print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {loader.display_name} do(es) not exist.")
+        except CogniteNotFoundError:
+            print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {loader.display_name} do(es) not exist.")
+        except Exception as e:
+            print(f"  [bold yellow]WARNING:[/] Failed to delete {len(batch_ids)} {loader.display_name}. Error {e}.")
+        else:  # Delete succeeded
+            if verbose:
+                print(f"  Deleted {len(batch_ids)} {loader.display_name}.")
+    return nr_of_deleted
+
+
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
-for loader in Loader.__subclasses__():
-    if loader.folder_name not in LOADER_BY_FOLDER_NAME:
-        LOADER_BY_FOLDER_NAME[loader.folder_name] = []
+for _loader in Loader.__subclasses__():
+    if _loader.folder_name not in LOADER_BY_FOLDER_NAME:
+        LOADER_BY_FOLDER_NAME[_loader.folder_name] = []
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    LOADER_BY_FOLDER_NAME[loader.folder_name].append(loader)  # type: ignore[type-abstract]
-del loader  # cleanup module namespace
+    LOADER_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[type-abstract]
+del _loader  # cleanup module namespace
