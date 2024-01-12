@@ -29,6 +29,7 @@ types-PyYAML = "^6"
 twine = "^4.0.2"
 tomli = { version = "^2.0.1", python = "<3.11" }
 toml = { version = "^0.10.2", python = ">=3.11" }
+pytest-freezegun = "^0.4.2"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit.cdf:app"

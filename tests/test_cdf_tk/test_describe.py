@@ -28,8 +28,10 @@ def test_describe_datamodel(
     data_regression,
     file_regression,
     capfd,
+    freezer,
 ):
     cdf_tool = MagicMock(spec=CDFToolConfig)
+    cdf_tool.project = "test"
     cdf_tool.client = cognite_client_approval.mock_client
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
     cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
