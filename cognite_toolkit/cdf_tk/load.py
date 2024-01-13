@@ -122,7 +122,11 @@ from cognite.client.data_classes.extractionpipelines import (
     ExtractionPipelineWriteList,
 )
 from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, GroupWriteList
-from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
+from cognite.client.exceptions import (
+    CogniteAPIError,
+    CogniteDuplicatedError,
+    CogniteNotFoundError,
+)
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.table import Table
@@ -130,6 +134,30 @@ from typing_extensions import Self
 
 from .delete import delete_instances
 from .utils import CDFToolConfig, load_yaml_inject_variables
+
+
+@dataclass
+class RawDatabase(WriteableCogniteResource):
+    db_name: str
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> RawDatabase:
+        return cls(db_name=resource["dbName"])
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        return {
+            "dbName" if camel_case else "db_name": self.db_name,
+        }
+
+    def as_write(self) -> RawDatabase:
+        return self
+
+
+class RawDatabaseList(WriteableCogniteResourceList[RawDatabase, RawDatabase]):
+    _RESOURCE = RawDatabase
+
+    def as_write(self) -> CogniteResourceList[RawDatabase]:
+        return self
 
 
 @dataclass
@@ -235,13 +263,31 @@ class LoadableEdges(EdgeApplyList):
         }
 
 
-T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawTable])
+T_ID = TypeVar(
+    "T_ID",
+    bound=Union[
+        str,
+        int,
+        DataModelingId,
+        InstanceId,
+        VersionedDataModelingId,
+        RawTable,
+        RawDatabase,
+    ],
+)
 
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 
 
 class Loader(
-    ABC, Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList]
+    ABC,
+    Generic[
+        T_ID,
+        T_WriteClass,
+        T_WritableCogniteResource,
+        T_CogniteResourceList,
+        T_WritableCogniteResourceList,
+    ],
 ):
     """
     This is the base class for all loaders. It defines the interface that all loaders must implement.
@@ -305,7 +351,7 @@ class Loader(
     @classmethod
     def create_loader(
         cls, ToolGlobals: CDFToolConfig
-    ) -> Loader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList]:
+    ) -> Loader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList,]:
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
         return cls(client, ToolGlobals)
 
@@ -411,7 +457,11 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
         client: CogniteClient,
         ToolGlobals: CDFToolConfig,
         target_scopes: Literal[
-            "all", "all_skipped_validation", "all_scoped_skipped_validation", "resource_scoped_only", "all_scoped_only"
+            "all",
+            "all_skipped_validation",
+            "all_scoped_skipped_validation",
+            "resource_scoped_only",
+            "all_scoped_only",
         ] = "all",
     ):
         super().__init__(client, ToolGlobals)
@@ -430,7 +480,11 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
         cls,
         ToolGlobals: CDFToolConfig,
         target_scopes: Literal[
-            "all", "all_skipped_validation", "all_scoped_skipped_validation", "resource_scoped_only", "all_scoped_only"
+            "all",
+            "all_skipped_validation",
+            "all_scoped_skipped_validation",
+            "resource_scoped_only",
+            "all_scoped_only",
         ] = "all",
     ) -> AuthLoader:
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
@@ -439,7 +493,12 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
         return GroupsAcl(
-            [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
+            [
+                GroupsAcl.Action.Read,
+                GroupsAcl.Action.List,
+                GroupsAcl.Action.Create,
+                GroupsAcl.Action.Delete,
+            ],
             GroupsAcl.Scope.All(),
         )
 
@@ -449,8 +508,13 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
 
     def load_resource(self, filepath: Path, dry_run: bool) -> GroupWrite:
         raw = load_yaml_inject_variables(
-            filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
+            filepath,
+            self.ToolGlobals.environment_variables(),
+            required_return_type="dict",
         )
+
+        print(f"auth: {raw=}")
+
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 for scope in ["datasetScope", "idScope"]:
@@ -640,15 +704,94 @@ class DataSetsLoader(Loader[str, DataSetWrite, DataSet, DataSetWriteList, DataSe
 
 
 @final
+class RawDatabaseLoader(Loader[RawDatabase, RawDatabase, RawDatabase, RawDatabaseList, RawDatabaseList]):
+    api_name = "raw.databases"
+    folder_name = "raw"
+    filename_pattern = r"^.*\.?(database)$"
+    resource_cls = RawDatabase
+    resource_write_cls = RawDatabase
+    list_write_cls = RawDatabaseList
+    list_cls = RawDatabaseList
+    _display_name = "database"
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
+
+    @classmethod
+    def get_id(cls, item: RawDatabase) -> RawDatabase:
+        return item
+
+    def delete(self, ids: SequenceNotStr[RawDatabase], drop_data: bool) -> int:
+        with suppress(CogniteAPIError):
+            self.client.raw.databases.delete([db.db_name for db in ids], recursive=drop_data)
+        return len(ids)
+
+    def create(self, items: Sequence[RawDatabase], drop: bool, filepath: Path) -> list[RawDatabase]:
+        # Raw datadabses do not have ignore_unknowns_ids, so we need to catch the error
+        with suppress(CogniteAPIError):
+            self.client.raw.databases.create([db.db_name for db in items])
+
+        # TODO: no sdk support for upsert, maybe due to missing update() method
+        # self.client.raw.databases._update_multiple(
+        #     item=[db.db_name for db in items],
+        #     list_cls=DatabaseList,
+        #     resource_cls=Database,
+        #     update_cls=DatabaseWrite,
+        #     input_resource_cls=Database,
+        #     mode="patch",
+        #     )
+        return list(items)
+
+
+@final
+class RawTableLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
+    api_name = "raw.tables"
+    folder_name = "raw"
+    filename_pattern = r"^.*\.?(table)$"
+    resource_cls = RawTable
+    resource_write_cls = RawTable
+    list_write_cls = RawTableList
+    list_cls = RawTableList
+    dependencies = frozenset({RawDatabaseLoader})
+    _display_name = "table"
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
+
+    @classmethod
+    def get_id(cls, item: RawTable) -> RawTable:
+        return item
+
+    def delete(self, ids: SequenceNotStr[RawTable], drop_data: bool) -> int:
+        with suppress(CogniteAPIError):
+            self.client.raw.databases.delete([db.db_name for db in ids], recursive=drop_data)
+        return len(ids)
+
+    def create(self, items: Sequence[RawTable], drop: bool, filepath: Path) -> list[RawTable]:
+        for db_name, raw_tables in itertools.groupby(sorted(items, key=lambda x: x.db_name), key=lambda x: x.db_name):
+            # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
+            with suppress(CogniteAPIError):
+                tables = [table.table_name for table in raw_tables]
+                self.client.raw.tables.create(db_name=db_name, name=tables)
+
+        return list(items)
+
+
+@final
 class RawLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
     api_name = "raw.rows"
     folder_name = "raw"
+    filename_pattern = r"^.*\.?(row)$"
     resource_cls = RawTable
     resource_write_cls = RawTable
     list_cls = RawTableList
     list_write_cls = RawTableList
     identifier_key = "table_name"
     data_file_types = frozenset({"csv", "parquet"})
+    dependencies = frozenset({RawDatabaseLoader, RawTableLoader})
+    _display_name = "rows"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -749,7 +892,13 @@ class TimeSeriesLoader(Loader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteL
 
 @final
 class TransformationLoader(
-    Loader[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
+    Loader[
+        str,
+        TransformationWrite,
+        Transformation,
+        TransformationWriteList,
+        TransformationList,
+    ]
 ):
     api_name = "transformations"
     folder_name = "transformations"
@@ -782,7 +931,9 @@ class TransformationLoader(
 
     def load_resource(self, filepath: Path, dry_run: bool) -> TransformationWrite:
         raw = load_yaml_inject_variables(
-            filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
+            filepath,
+            self.ToolGlobals.environment_variables(),
+            required_return_type="dict",
         )
         # The `authentication` key is custom for this template:
 
@@ -872,7 +1023,9 @@ class TransformationScheduleLoader(
 
     def load_resource(self, filepath: Path, dry_run: bool) -> TransformationScheduleWrite:
         raw = load_yaml_inject_variables(
-            filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
+            filepath,
+            self.ToolGlobals.environment_variables(),
+            required_return_type="dict",
         )
         return TransformationScheduleWrite.load(raw)
 
@@ -895,7 +1048,10 @@ class TransformationScheduleLoader(
             if len(new_items) == 0:
                 return TransformationScheduleList([])
             try:
-                return cast(TransformationScheduleList, self.client.transformations.schedules.create(new_items))
+                return cast(
+                    TransformationScheduleList,
+                    self.client.transformations.schedules.create(new_items),
+                )
             except CogniteAPIError as e:
                 print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
                 self.ToolGlobals.failed = True
@@ -959,7 +1115,13 @@ class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesWriteList, TimeSe
 
 @final
 class ExtractionPipelineLoader(
-    Loader[str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList]
+    Loader[
+        str,
+        ExtractionPipelineWrite,
+        ExtractionPipeline,
+        ExtractionPipelineWriteList,
+        ExtractionPipelineList,
+    ]
 ):
     support_drop = True
     api_name = "extraction_pipelines"
@@ -1126,7 +1288,9 @@ class FileLoader(Loader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteL
     def load_resource(self, filepath: Path, dry_run: bool) -> FileMetadataWrite | FileMetadataWriteList:
         try:
             resource = load_yaml_inject_variables(
-                filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
+                filepath,
+                self.ToolGlobals.environment_variables(),
+                required_return_type="dict",
             )
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
@@ -1135,7 +1299,9 @@ class FileLoader(Loader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteL
         except Exception:
             files_metadata = FileMetadataWriteList.load(
                 load_yaml_inject_variables(
-                    filepath, self.ToolGlobals.environment_variables(), required_return_type="list"
+                    filepath,
+                    self.ToolGlobals.environment_variables(),
+                    required_return_type="list",
                 )
             )
         # If we have a file with exact one file config, check to see if this is a pattern to expand
@@ -1179,7 +1345,11 @@ class FileLoader(Loader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteL
             datafile = filepath.parent / meta.name
             try:
                 created.append(
-                    self.client.files.upload(path=str(datafile), overwrite=drop, **meta.dump(camel_case=False))
+                    self.client.files.upload(
+                        path=str(datafile),
+                        overwrite=drop,
+                        **meta.dump(camel_case=False),
+                    )
                 )
             except CogniteAPIError as e:
                 if e.code == 409:
@@ -1464,7 +1634,12 @@ class DeployResult:
 
 
 class DeployResults(UserList):
-    def __init__(self, collection: Iterable[DeployResult], action: Literal["deploy", "clean"], dry_run: bool = False):
+    def __init__(
+        self,
+        collection: Iterable[DeployResult],
+        action: Literal["deploy", "clean"],
+        dry_run: bool = False,
+    ):
         super().__init__(collection)
         self.action = action
         self.dry_run = dry_run
@@ -1575,7 +1750,13 @@ def deploy_or_clean_resources(
     if action == "clean":
         # Clean Command, only delete.
         nr_of_items = nr_of_deleted
-        return DeployResult(name=loader.display_name, created=0, deleted=nr_of_deleted, skipped=0, total=nr_of_items)
+        return DeployResult(
+            name=loader.display_name,
+            created=0,
+            deleted=nr_of_deleted,
+            skipped=0,
+            total=nr_of_items,
+        )
 
     nr_of_created = 0
     nr_of_skipped = 0

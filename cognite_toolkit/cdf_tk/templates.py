@@ -18,7 +18,11 @@ from rich import print
 
 from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader
-from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
+from cognite_toolkit.cdf_tk.utils import (
+    validate_case_raw,
+    validate_config_yaml,
+    validate_data_set_is_set,
+)
 
 # This is the default config located locally in each module.
 DEFAULT_CONFIG_FILE = "default.config.yaml"
@@ -39,7 +43,20 @@ EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # Which suffixes to exclude when we create indexed files (i.e., they are bundled with their main config file)
 EXCL_INDEX_SUFFIX = frozenset([".sql", ".csv", ".parquet"])
 # Which suffixes to process for template variable replacement
-PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"])
+PROC_TMPL_VARS_SUFFIX = frozenset(
+    [
+        ".yaml",
+        ".yml",
+        ".sql",
+        ".csv",
+        ".parquet",
+        ".json",
+        ".txt",
+        ".md",
+        ".html",
+        ".py",
+    ]
+)
 
 
 @dataclass
@@ -52,7 +69,10 @@ class BuildEnvironment:
 
     @classmethod
     def load(
-        cls, environment_config: dict[str, Any], build_env: str, action: Literal["build", "deploy", "clean"]
+        cls,
+        environment_config: dict[str, Any],
+        build_env: str,
+        action: Literal["build", "deploy", "clean"],
     ) -> BuildEnvironment:
         if build_env is None:
             raise ValueError("build_env must be specified")
@@ -257,6 +277,11 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
     elif resource_type in ["data_sets", "timeseries", "files"] and isinstance(parsed, list):
         ext_id = ""
         ext_id_type = "multiple"
+    elif resource_type == "raw" and ".database." in filepath_src.name:
+        ext_id = f"{parsed.get('dbName')}"
+        if "None" in ext_id:
+            ext_id = None
+        ext_id_type = "dbName"
     elif resource_type == "raw":
         ext_id = f"{parsed.get('dbName')}.{parsed.get('tableName')}"
         if "None" in ext_id:
@@ -395,7 +420,12 @@ def process_config_files(
                 # if the file is a csv file and we have been instructed to.
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = pd.read_csv(io.StringIO(file_content), parse_dates=True, dayfirst=True, index_col=0)
+                data = pd.read_csv(
+                    io.StringIO(file_content),
+                    parse_dates=True,
+                    dayfirst=True,
+                    index_col=0,
+                )
                 if "timeshift_" in data.index.name:
                     print(
                         "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
@@ -564,7 +594,10 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                 )
 
         for dir_ in directories:
-            defaults = sorted(dir_.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(dir_))
+            defaults = sorted(
+                dir_.glob(f"**/{DEFAULT_CONFIG_FILE}"),
+                key=lambda f: f.relative_to(dir_),
+            )
             for default_config in defaults:
                 parts = default_config.parent.relative_to(dir_).parts
                 raw_file = default_config.read_text()
@@ -695,7 +728,11 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                     continue
                 # This is a new comment.
                 if position == "after" or variable is None:
-                    key = (*key_prefix, *parent_variables, *((variable and [variable]) or []))
+                    key = (
+                        *key_prefix,
+                        *parent_variables,
+                        *((variable and [variable]) or []),
+                    )
                     if position == "after":
                         comments[key].after.append(comment.strip())
                     else:
@@ -823,7 +860,10 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
         if len(loaders) == 1:
             loader = loaders[0]
         else:
-            loader = next((loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)), None)
+            loader = next(
+                (loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)),
+                None,
+            )
 
         if loader is None:
             print(
@@ -834,7 +874,10 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
 
         if loader:
             load_warnings = validate_case_raw(
-                parsed, loader.resource_cls, destination, identifier_key=loader.identifier_key
+                parsed,
+                loader.resource_cls,
+                destination,
+                identifier_key=loader.identifier_key,
             )
             if load_warnings:
                 print(f"  [bold yellow]WARNING:[/] Found potential snake_case issues: {load_warnings!s}")
