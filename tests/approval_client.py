@@ -306,9 +306,7 @@ class ApprovalCogniteClient:
             for arg in list(args):
                 if isinstance(arg, pd.DataFrame):
                     args.remove(arg)
-                    dataframe_hash = int(
-                        hashlib.sha256(pd.util.hash_pandas_object(arg, index=True).values).hexdigest(), 16
-                    )
+                    dataframe_hash = int(pd.util.hash_pandas_object(arg, index=True, encoding="utf8").sum())
                     dataframe_cols = list(arg.columns)
                     break
 
