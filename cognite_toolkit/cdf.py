@@ -766,7 +766,7 @@ def main_init(
 
 @describe_app.callback(invoke_without_command=True)
 def describe_main(ctx: typer.Context) -> None:
-    """Commands to describe and document configurations and CDF project state."""
+    """Commands to describe and document configurations and CDF project state, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
     if ctx.invoked_subcommand is None:
         print("Use [bold yellow]cdf-tk describe --help[/] for more information.")
     return None
@@ -809,7 +809,7 @@ def describe_datamodel_cmd(
 
 @run_app.callback(invoke_without_command=True)
 def run_main(ctx: typer.Context) -> None:
-    """Commands to execute processes in CDF."""
+    """Commands to execute processes in CDF, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
     if ctx.invoked_subcommand is None:
         print("Use [bold yellow]cdf-tk run --help[/] for more information.")
 

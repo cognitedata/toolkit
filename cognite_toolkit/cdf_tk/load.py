@@ -953,7 +953,7 @@ class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesWriteList, TimeSe
         if datafile.suffix == ".csv":
             # The replacement is used to ensure that we read exactly the same file on Windows and Linux
             file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-            data = pd.read_csv(io.StringIO(file_content), parse_dates=True, dayfirst=True, index_col=0)
+            data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
             data.index = pd.DatetimeIndex(data.index)
         elif datafile.suffix == ".parquet":
             data = pd.read_parquet(datafile, engine="pyarrow")
