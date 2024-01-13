@@ -402,7 +402,10 @@ class ApprovalCogniteClient:
             return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
 
         def return_value(*args, **kwargs):
-            return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)[0]
+            if value := existing_resources[resource_cls.__name__]:
+                return read_list_cls(value, cognite_client=client)[0]
+            else:
+                return None
 
         available_retrieve_methods = {
             fn.__name__: fn

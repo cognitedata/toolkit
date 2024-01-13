@@ -28,6 +28,7 @@ from cognite_toolkit.cdf_tk.load import (
     DataSetsLoader,
     DeployResults,
     deploy_or_clean_resources,
+    deploy_resources,
 )
 from cognite_toolkit.cdf_tk.run import run_transformation
 from cognite_toolkit.cdf_tk.templates import (
@@ -334,7 +335,6 @@ def deploy(
     arguments = dict(
         ToolGlobals=ToolGlobals,
         drop=drop,
-        action="deploy",
         dry_run=dry_run,
         drop_data=drop_data,
         verbose=ctx.obj.verbose,
@@ -343,7 +343,7 @@ def deploy(
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
         print("[bold]EVALUATING auth resources (groups) with ALL scope...[/]")
-        result = deploy_or_clean_resources(
+        result = deploy_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
             directory,
             **arguments,
@@ -356,7 +356,7 @@ def deploy(
     if len(resolved_list) > len(selected_loaders):
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
     for LoaderCls in resolved_list:
-        result = deploy_or_clean_resources(
+        result = deploy_resources(
             LoaderCls.create_loader(ToolGlobals),
             build_path / LoaderCls.folder_name,
             **arguments,
@@ -372,7 +372,7 @@ def deploy(
         # Last, we create the Groups again, but this time we do not filter out any capabilities
         # and we do not skip validation as the resources should now have been created.
         print("[bold]EVALUATING auth resources scoped to resources...[/]")
-        result = deploy_or_clean_resources(
+        result = deploy_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
             directory,
             **arguments,

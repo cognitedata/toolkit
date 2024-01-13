@@ -20,7 +20,7 @@ import json
 import re
 from abc import ABC, abstractmethod
 from collections import Counter, UserList
-from collections.abc import Iterable, Sequence, Sized
+from collections.abc import Collection, Iterable, Sequence, Sized
 from contextlib import suppress
 from dataclasses import dataclass
 from functools import total_ordering
@@ -133,7 +133,7 @@ from .delete import delete_instances
 from .utils import CDFToolConfig, load_yaml_inject_variables
 
 
-@dataclass
+@dataclass(frozen=True)
 class RawTable(WriteableCogniteResource):
     db_name: str
     table_name: str
@@ -160,7 +160,7 @@ class RawTableList(WriteableCogniteResourceList[RawTable, RawTable]):
 
 
 @dataclass
-class LoadableNodes(NodeApplyList, Sequence[NodeApply]):
+class LoadableNodes(NodeApplyList):
     """
     This is a helper class for nodes that contains arguments that are required for writing the
     nodes to CDF.
@@ -176,6 +176,15 @@ class LoadableNodes(NodeApplyList, Sequence[NodeApply]):
 
     def __len__(self) -> int:
         return len(self.data)
+
+    @classmethod
+    def create_empty_from(cls, other: LoadableNodes) -> LoadableNodes:
+        return cls(
+            auto_create_direct_relations=other.auto_create_direct_relations,
+            skip_on_version_conflict=other.skip_on_version_conflict,
+            replace=other.replace,
+            nodes=NodeApplyList([]),
+        )
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> LoadableNodes:  # type: ignore[override]
@@ -198,7 +207,7 @@ class LoadableNodes(NodeApplyList, Sequence[NodeApply]):
 
 
 @dataclass
-class LoadableEdges(EdgeApplyList, Sequence[EdgeApply]):
+class LoadableEdges(EdgeApplyList):
     """
     This is a helper class for edges that contains arguments that are required for writing the
     edges to CDF.
@@ -215,6 +224,16 @@ class LoadableEdges(EdgeApplyList, Sequence[EdgeApply]):
 
     def __len__(self) -> int:
         return len(self.data)
+
+    @classmethod
+    def create_empty_from(cls, other: LoadableEdges) -> LoadableEdges:
+        return cls(
+            auto_create_start_nodes=other.auto_create_start_nodes,
+            auto_create_end_nodes=other.auto_create_end_nodes,
+            skip_on_version_conflict=other.skip_on_version_conflict,
+            replace=other.replace,
+            edges=EdgeApplyList([]),
+        )
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:  # type: ignore[override]
@@ -235,9 +254,6 @@ class LoadableEdges(EdgeApplyList, Sequence[EdgeApply]):
             "edges": self.edges.dump(camel_case),
         }
 
-
-# Sequence.register(LoadableNodes)
-# Sequence.register(LoadableEdges)
 
 T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawTable])
 
@@ -386,12 +402,23 @@ class Loader(
             return self.list_cls([])
 
     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
-        if inspect.signature(self.api_class.retrieve).parameters.get("ignore_unknown_ids"):
-            return self.api_class.retrieve(ids, ignore_unknown_ids=True)
+        if hasattr(self.api_class, "retrieve_multiple"):
+            if inspect.signature(self.api_class.retrieve_multiple).parameters.get("ignore_unknown_ids"):
+                retrieved = self.api_class.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+            else:
+                retrieved = self.api_class.retrieve_multiple(external_ids=ids)
         else:
-            return self.api_class.retrieve(ids)
+            retrieved = self.api_class.retrieve(ids)
+        if retrieved is None:
+            return self.list_cls([])
+        elif isinstance(retrieved, self.list_cls):
+            return retrieved
+        elif isinstance(retrieved, Collection):
+            return self.list_cls(retrieved)
+        else:
+            return self.list_cls([retrieved])
 
-    def update(self, items: Sequence[T_WriteClass], filepath: Path) -> T_WritableCogniteResourceList:
+    def update(self, items: T_CogniteResourceList, filepath: Path) -> Sized:
         return self.api_class.update(items)
 
     def delete(self, ids: SequenceNotStr[T_ID], drop_data: bool) -> int:
@@ -699,6 +726,9 @@ class RawLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]
         )
         return [table]
 
+    def update(self, items: Sequence[RawTable], filepath: Path) -> RawTableList:
+        raise NotImplementedError("Raw tables do not support update.")
+
     def delete(self, ids: SequenceNotStr[RawTable], drop_data: bool) -> int:
         count = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
@@ -962,6 +992,9 @@ class DatapointsLoader(Loader[list[str], Path, Path, TimeSeriesWriteList, TimeSe
         self.client.time_series.data.insert_dataframe(data)
         external_ids = [col for col in data.columns if not pd.api.types.is_datetime64_any_dtype(data[col])]
         return TimeSeriesList([TimeSeries(external_id=external_id) for external_id in external_ids])
+
+    def update(self, items: Sequence[Path], filepath: Path) -> TimeSeriesList:
+        raise NotImplementedError("Datapoints do not support update.")
 
     def delete(self, ids: SequenceNotStr[list[str]], drop_data: bool) -> int:
         # Drop all datapoints?
@@ -1235,6 +1268,9 @@ class SpaceLoader(Loader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     def create(self, items: Sequence[SpaceApply], drop: bool, filepath: Path) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
 
+    def update(self, items: Sequence[SpaceApply], filepath: Path) -> SpaceList:
+        return self.client.data_modeling.spaces.apply(items)
+
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         if not drop_data:
             print("  [bold]INFO:[/] Skipping deletion of spaces as drop_data flag is not set...")
@@ -1279,6 +1315,9 @@ class ContainerLoader(Loader[ContainerId, ContainerApply, Container, ContainerAp
 
         return self.client.data_modeling.containers.apply(items)
 
+    def update(self, items: Sequence[ContainerApply], filepath: Path) -> ContainerList:
+        return self.create(items, drop=False, filepath=filepath)
+
     def delete(self, ids: SequenceNotStr[ContainerId], drop_data: bool) -> int:
         if not drop_data:
             print("  [bold]INFO:[/] Skipping deletion of containers as drop_data flag is not set...")
@@ -1315,6 +1354,9 @@ class ViewLoader(Loader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.views.apply(items)
 
+    def update(self, items: Sequence[ViewApply], filepath: Path) -> ViewList:
+        return self.create(items, drop=False, filepath=filepath)
+
 
 @final
 class DataModelLoader(Loader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
@@ -1343,6 +1385,9 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModel, DataModelAp
     def create(self, items: DataModelApplyList, drop: bool, filepath: Path) -> DataModelList:
         self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.data_models.apply(items)
+
+    def update(self, items: DataModelApplyList, filepath: Path) -> DataModelList:
+        return self.create(items, drop=False, filepath=filepath)
 
 
 @final
@@ -1388,6 +1433,9 @@ class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
             replace=item.replace,
         )
         return result.nodes
+
+    def update(self, items: LoadableNodes, filepath: Path) -> NodeApplyResultList:
+        return self.create(items, drop=False, filepath=filepath)
 
     def delete(self, ids: SequenceNotStr[NodeId], drop_data: bool) -> int:
         if not drop_data:
@@ -1444,6 +1492,9 @@ class EdgeLoader(Loader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
             replace=item.replace,
         )
         return result.edges
+
+    def update(self, items: LoadableEdges, filepath: Path) -> EdgeApplyResultList:
+        return self.create(items, drop=False, filepath=filepath)
 
     def delete(self, ids: SequenceNotStr[EdgeId], drop_data: bool) -> int:
         if not drop_data:
@@ -1656,7 +1707,7 @@ def deploy_resources(
 ) -> DeployResult | None:
     filepaths = loader.find_files(path)
 
-    batches: list[list[T_WriteClass]] | None = _load_batches(loader, filepaths, skip_validation=dry_run)
+    batches: list[T_CogniteResourceList] | None = _load_batches(loader, filepaths, skip_validation=dry_run)
     if batches is None:
         ToolGlobals.failed = True
         return None
@@ -1691,14 +1742,22 @@ def deploy_resources(
         cdf_resources = loader.retrieve(batch_ids).as_write()
         cdf_resource_by_id = {loader.get_id(resource): resource for resource in cdf_resources}
 
-        to_create = loader.list_write_cls([])
-        to_update = loader.list_write_cls([])
+        to_create: T_CogniteResourceList
+        to_update: T_CogniteResourceList
+        if isinstance(loader, (NodeLoader, EdgeLoader)):
+            # Special case for nodes and edges
+            to_create = loader.list_write_cls.create_empty_from(batch)  # type: ignore[attr-defined]
+            to_update = loader.list_write_cls.create_empty_from(batch)  # type: ignore[attr-defined]
+        else:
+            to_create = loader.list_write_cls([])
+            to_update = loader.list_write_cls([])
+
         for item in batch:
-            if cdf_resource := cdf_resource_by_id.get(loader.get_id(item)):
-                if item == cdf_resource:
-                    nr_of_unchanged += 1
-                else:
-                    to_update.append(item)
+            cdf_resource = cdf_resource_by_id.get(loader.get_id(item))
+            if cdf_resource and item == cdf_resource:
+                nr_of_unchanged += 1
+            elif cdf_resource:
+                to_update.append(item)
             else:
                 to_create.append(item)
 
@@ -1712,30 +1771,32 @@ def deploy_resources(
                 )
             continue
 
-        try:
-            created = loader.create(to_create, drop, filepath)
-        except Exception as e:
-            print(f"  [bold yellow]WARNING:[/] Failed to upload {loader.display_name}. Error {e}.")
-            ToolGlobals.failed = True
-            return None
-        else:
-            newly_created = len(created) if created is not None else 0
-            nr_of_created += newly_created
-            nr_of_skipped += len(batch) - newly_created
-            # For timeseries.datapoints, we can load multiple timeseries in one file,
-            # so the number of created items can be larger than the number of items in the batch.
-            if nr_of_skipped < 0:
-                nr_of_items += -nr_of_skipped
-                nr_of_skipped = 0
+        if to_create:
+            try:
+                created = loader.create(to_create, drop, filepath)
+            except Exception as e:
+                print(f"  [bold yellow]WARNING:[/] Failed to upload {loader.display_name}. Error {e}.")
+                ToolGlobals.failed = True
+                return None
+            else:
+                newly_created = len(created) if created is not None else 0
+                nr_of_created += newly_created
+                nr_of_skipped += len(batch) - newly_created
+                # For timeseries.datapoints, we can load multiple timeseries in one file,
+                # so the number of created items can be larger than the number of items in the batch.
+                if nr_of_skipped < 0:
+                    nr_of_items += -nr_of_skipped
+                    nr_of_skipped = 0
 
-        try:
-            updated = loader.update(to_update, filepath)
-        except Exception as e:
-            print(f"  [bold yellow]WARNING:[/] Failed to update {loader.display_name}. Error {e}.")
-            ToolGlobals.failed = True
-            return None
-        else:
-            nr_of_changed += len(updated)
+        if to_update:
+            try:
+                updated = loader.update(to_update, filepath)
+            except Exception as e:
+                print(f"  [bold yellow]WARNING:[/] Failed to update {loader.display_name}. Error {e}.")
+                ToolGlobals.failed = True
+                return None
+            else:
+                nr_of_changed += len(updated)
 
     if verbose:
         print(
@@ -1752,8 +1813,8 @@ def deploy_resources(
     )
 
 
-def _load_batches(loader: Loader, filepaths: list[Path], skip_validation: bool) -> list[list[T_WriteClass]] | None:
-    batches: list[list[T_WriteClass]] = []
+def _load_batches(loader: Loader, filepaths: list[Path], skip_validation: bool) -> list[T_CogniteResourceList] | None:
+    batches: list[T_CogniteResourceList] = []
     for filepath in filepaths:
         try:
             resource = loader.load_resource(filepath, skip_validation=skip_validation)
@@ -1766,12 +1827,12 @@ def _load_batches(loader: Loader, filepaths: list[Path], skip_validation: bool) 
         if resource is None:
             print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
             continue
-        batches.append(list(resource) if isinstance(resource, Sequence) else [resource])
+        batches.append(resource if isinstance(resource, Sequence) else loader.list_write_cls([resource]))
     return batches
 
 
 def _delete_resources(
-    loader: Loader, batches: list[list[T_WriteClass]], drop_data: bool, dry_run: bool, verbose: bool
+    loader: Loader, batches: list[T_CogniteResourceList], drop_data: bool, dry_run: bool, verbose: bool
 ) -> int:
     nr_of_deleted = 0
     for batch in batches:
