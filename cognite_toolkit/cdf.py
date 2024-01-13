@@ -27,7 +27,7 @@ from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
     DataSetsLoader,
     DeployResults,
-    deploy_or_clean_resources,
+    clean_resources,
     deploy_resources,
 )
 from cognite_toolkit.cdf_tk.run import run_transformation
@@ -469,14 +469,12 @@ def clean(
         if type(loader) is DataSetsLoader:
             print("[bold]WARNING:[/] Dataset cleaning is not supported, skipping...")
             continue
-        result = deploy_or_clean_resources(
+        result = clean_resources(
             loader,
             build_path / LoaderCls.folder_name,
             ToolGlobals,
-            drop=True,
-            action="clean",
-            drop_data=True,
             dry_run=dry_run,
+            drop_data=True,
             verbose=ctx.obj.verbose,
         )
         results.append(result)
@@ -486,13 +484,10 @@ def clean(
             print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
             exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        result = deploy_or_clean_resources(
+        result = clean_resources(
             AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
             directory,
             ToolGlobals,
-            drop=True,
-            clean=True,
-            action="clean",
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
         )

@@ -1546,6 +1546,8 @@ class DeployResults(UserList):
         table.add_column("Resource", justify="right")
         table.add_column(f"{prefix}Created", justify="right", style="green")
         table.add_column(f"{prefix}Deleted", justify="right", style="red")
+        table.add_column(f"{prefix}Changed", justify="right", style="magenta")
+        table.add_column("Unchanged", justify="right", style="cyan")
         table.add_column(f"{prefix}Skipped", justify="right", style="yellow")
         table.add_column("Total", justify="right")
         for item in sorted(entry for entry in self.data if entry is not None):
@@ -1553,6 +1555,8 @@ class DeployResults(UserList):
                 item.name,
                 str(item.created),
                 str(item.deleted),
+                str(item.changed),
+                str(item.unchanged),
                 str(item.skipped),
                 str(item.total),
             )
@@ -1560,139 +1564,34 @@ class DeployResults(UserList):
         return table
 
 
-def deploy_or_clean_resources(
-    loader: Loader,
+def clean_resources(
+    loader: Loader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     path: Path,
     ToolGlobals: CDFToolConfig,
-    drop: bool = False,
-    clean: bool = False,
-    action: Literal["deploy", "clean"] = "deploy",
     dry_run: bool = False,
     drop_data: bool = False,
     verbose: bool = False,
 ) -> DeployResult | None:
-    if action not in ["deploy", "clean"]:
-        raise ValueError(f"Invalid action {action}")
-
     filepaths = loader.find_files(path)
 
-    # If we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-    skip_validation = dry_run or action == "clean"
-    batches = []
-    for filepath in filepaths:
-        try:
-            resource = loader.load_resource(filepath, skip_validation)
-        except KeyError as e:
-            # KeyError means that we are missing a required field in the yaml file.
-            print(
-                f"[bold red]ERROR:[/] Failed to load {filepath.name} with {loader.display_name}. Missing required field: {e}."
-            )
-            ToolGlobals.failed = True
-            return None
-        if resource is None:
-            print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
-            continue
-        batches.append(resource if isinstance(resource, Sequence) else [resource])
+    # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
+    batches: list[T_CogniteResourceList] | None = _load_batches(loader, filepaths, skip_validation=dry_run)
+    if batches is None:
+        ToolGlobals.failed = True
+        return None
 
     nr_of_batches = len(batches)
     nr_of_items = sum(len(batch) for batch in batches)
     if nr_of_items == 0:
         return DeployResult(name=loader.display_name)
-    if action == "deploy":
-        action_word = "Loading" if dry_run else "Uploading"
-        print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
-    else:
-        action_word = "Loading" if dry_run else "Cleaning"
-        print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
 
-    if drop and loader.support_drop and action == "deploy":
-        if drop_data and (loader.api_name == "data_modeling.spaces" or loader.api_name == "data_modeling.containers"):
-            print(
-                f"  --drop-data is specified, will delete existing nodes and edges before before deleting {loader.display_name}."
-            )
-        else:
-            print(f"  --drop is specified, will delete existing {loader.display_name} before uploading.")
+    action_word = "Loading" if dry_run else "Cleaning"
+    print(f"[bold]{action_word} {nr_of_items} {loader.display_name} in {nr_of_batches} batches to CDF...[/]")
 
     # Deleting resources.
-    nr_of_deleted = 0
-    if (drop and loader.support_drop) or clean:
-        for batch in batches:
-            batch_ids = loader.get_ids(batch)
-            if dry_run:
-                nr_of_deleted += len(batch_ids)
-                if verbose:
-                    print(f"  Would have deleted {len(batch_ids)} {loader.display_name}.")
-            else:
-                try:
-                    nr_of_deleted += loader.delete(batch_ids, drop_data)
-                except CogniteAPIError as e:
-                    if e.code == 404:
-                        print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {loader.display_name} do(es) not exist.")
-                except CogniteNotFoundError:
-                    print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {loader.display_name} do(es) not exist.")
-                except Exception as e:
-                    print(
-                        f"  [bold yellow]WARNING:[/] Failed to delete {len(batch_ids)} {loader.display_name}. Error {e}."
-                    )
-                else:  # Delete succeeded
-                    if verbose:
-                        print(f"  Deleted {len(batch_ids)} {loader.display_name}.")
-        if dry_run and action == "clean" and verbose:
-            # Only clean command prints this, if not we print it at the end
-            print(f"  Would have deleted {nr_of_deleted} {loader.display_name} in total.")
+    nr_of_deleted = _delete_resources(loader, batches, drop_data, dry_run, verbose)
 
-    if action == "clean":
-        # Clean Command, only delete.
-        nr_of_items = nr_of_deleted
-        return DeployResult(name=loader.display_name, deleted=nr_of_deleted, total=nr_of_items)
-
-    nr_of_created = 0
-    nr_of_changed = 0
-    nr_of_unchanged = 0
-    nr_of_skipped = 0
-    for batch, filepath in zip(batches, filepaths):
-        if not drop and loader.support_upsert:
-            if verbose:
-                print(f"  Comparing {len(batch)} {loader.display_name} from {filepath}...")
-            batch = loader.remove_unchanged(batch)  # type: ignore[attr-defined]
-            if verbose:
-                print(f"    {len(batch)} {loader.display_name} to be deployed...")
-
-        if batch:
-            if dry_run:
-                nr_of_created += len(batch)
-            else:
-                try:
-                    created = loader.create(batch, drop, filepath)
-                except Exception as e:
-                    print(f"  [bold yellow]WARNING:[/] Failed to upload {loader.display_name}. Error {e}.")
-                    ToolGlobals.failed = True
-                    return None
-                else:
-                    newly_created = len(created) if created is not None else 0
-                    nr_of_created += newly_created
-                    nr_of_skipped += len(batch) - newly_created
-                    # For timeseries.datapoints, we can load multiple timeseries in one file,
-                    # so the number of created items can be larger than the number of items in the batch.
-                    if nr_of_skipped < 0:
-                        nr_of_items += -nr_of_skipped
-                        nr_of_skipped = 0
-                    if isinstance(loader, AuthLoader):
-                        nr_of_deleted += len(created)
-    if verbose:
-        prefix = "Would have" if dry_run else ""
-        print(
-            f"  {prefix} Created {nr_of_created}, Deleted {nr_of_deleted}, Skipped {nr_of_skipped}, Total {nr_of_items}."
-        )
-    return DeployResult(
-        name=loader.display_name,
-        created=nr_of_created,
-        deleted=nr_of_deleted,
-        changed=nr_of_changed,
-        unchanged=nr_of_unchanged,
-        skipped=nr_of_skipped,
-        total=nr_of_items,
-    )
+    return DeployResult(name=loader.display_name, deleted=nr_of_deleted, total=nr_of_items)
 
 
 def deploy_resources(
