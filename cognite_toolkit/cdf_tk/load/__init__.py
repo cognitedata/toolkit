@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from ._base_loaders import Loader
+from ._data_loaders import DatapointsLoader
 from ._functions import DeployResult, DeployResults, clean_resources, deploy_resources
 from ._resource_loaders import (
     AuthLoader,
@@ -58,4 +59,5 @@ __all__ = [
     "SpaceLoader",
     "ContainerLoader",
     "ViewLoader",
+    "DatapointsLoader",
 ]
