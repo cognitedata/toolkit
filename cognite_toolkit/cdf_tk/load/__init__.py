@@ -14,24 +14,19 @@
 import itertools
 
 from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
-from ._data_classes import DeployResult, DeployResults
 from ._data_loaders import DatapointsLoader
 from ._resource_loaders import (
     AuthLoader,
-    ContainerLoader,
     DataModelLoader,
     DataSetsLoader,
     ExtractionPipelineConfigLoader,
     ExtractionPipelineLoader,
-    FileLoader,
     NodeLoader,
-    RawLoader,
-    SpaceLoader,
-    TimeSeriesLoader,
     TransformationLoader,
     TransformationScheduleLoader,
     ViewLoader,
 )
+from .data_classes import DeployResult, DeployResults
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -52,15 +47,10 @@ __all__ = [
     "NodeLoader",
     "DataModelLoader",
     "DataSetsLoader",
-    "TimeSeriesLoader",
     "TransformationLoader",
     "TransformationScheduleLoader",
     "ExtractionPipelineLoader",
-    "RawLoader",
     "ExtractionPipelineConfigLoader",
-    "FileLoader",
-    "SpaceLoader",
-    "ContainerLoader",
     "ViewLoader",
     "DatapointsLoader",
     "ResourceLoader",

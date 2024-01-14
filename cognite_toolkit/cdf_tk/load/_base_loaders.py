@@ -24,7 +24,7 @@ from rich import print
 
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
-from ._data_classes import DeployResult, RawTable
+from .data_classes import DeployResult, RawTable
 
 T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawTable])
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)

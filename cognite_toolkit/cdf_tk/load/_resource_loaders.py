@@ -109,9 +109,10 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit.cdf_tk.load._base_loaders import ResourceLoader
-from cognite_toolkit.cdf_tk.load._data_classes import LoadableEdges, LoadableNodes, RawTable, RawTableList
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+
+from ._base_loaders import ResourceLoader
+from .data_classes import LoadableEdges, LoadableNodes, RawTable, RawTableList
 
 
 @final
