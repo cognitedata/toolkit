@@ -184,7 +184,7 @@ class ResourceLoader(
             return self.list_write_cls.load(raw_yaml)
         return self.resource_write_cls.load(raw_yaml)
 
-    def create(self, items: T_CogniteResourceList, drop: bool, filepath: Path) -> Sized:
+    def create(self, items: T_CogniteResourceList) -> Sized:
         return self.api_class.create(items)
 
     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
@@ -204,10 +204,10 @@ class ResourceLoader(
         else:
             return self.list_cls([retrieved])
 
-    def update(self, items: T_CogniteResourceList, filepath: Path) -> Sized:
+    def update(self, items: T_CogniteResourceList) -> Sized:
         return self.api_class.update(items)
 
-    def delete(self, ids: SequenceNotStr[T_ID], drop_data: bool) -> int:
+    def delete(self, ids: SequenceNotStr[T_ID]) -> int:
         self.api_class.delete(ids)
         return len(ids)
 
@@ -251,7 +251,7 @@ class ResourceLoader(
             nr_of_deleted = self._delete_resources(batches, drop_data, dry_run, verbose)
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
-        for batch_no, (batch, filepath) in enumerate(zip(batches, filepaths), 1):
+        for batch_no, batch in enumerate(batches, 1):
             to_create, to_update, unchanged = self._to_create_changed_unchanged_triple(batch)
 
             nr_of_unchanged += len(unchanged)
@@ -266,14 +266,14 @@ class ResourceLoader(
                 continue
 
             if to_create:
-                created = self._create_resources(to_create, drop, filepath)
+                created = self._create_resources(to_create)
                 if created is None:
                     ToolGlobals.failed = True
                     return None
                 nr_of_created += created
 
             if to_update:
-                updated = self._update_resources(to_update, filepath)
+                updated = self._update_resources(to_update)
                 if updated is None:
                     ToolGlobals.failed = True
                     return None
@@ -379,8 +379,14 @@ class ResourceLoader(
                     print(f"  Would have deleted {len(batch_ids)} {self.display_name}.")
                 continue
 
+            if isinstance(self, ResourceContainerLoader) and drop_data:
+                self.drop_data(batch_ids)
+            elif isinstance(self, ResourceContainerLoader):
+                print(f"  [bold]INFO:[/] Skipping deletion of {self.display_name} as drop_data flag is not set...")
+                continue
+
             try:
-                nr_of_deleted += self.delete(batch_ids, drop_data)
+                nr_of_deleted += self.delete(batch_ids)
             except CogniteAPIError as e:
                 if e.code == 404:
                     print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
@@ -393,9 +399,9 @@ class ResourceLoader(
                     print(f"  Deleted {len(batch_ids)} {self.display_name}.")
         return nr_of_deleted
 
-    def _create_resources(self, resources: T_CogniteResourceList, drop: bool, filepath: Path) -> int | None:
+    def _create_resources(self, resources: T_CogniteResourceList) -> int | None:
         try:
-            created = self.create(resources, drop, filepath)
+            created = self.create(resources)
         except CogniteAPIError as e:
             if e.code == 409:
                 print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
@@ -413,9 +419,9 @@ class ResourceLoader(
             return len(created) if created is not None else 0
         return 0
 
-    def _update_resources(self, resources: T_CogniteResourceList, filepath: Path) -> int | None:
+    def _update_resources(self, resources: T_CogniteResourceList) -> int | None:
         try:
-            updated = self.update(resources, filepath)
+            updated = self.update(resources)
         except Exception as e:
             print(f"  [bold yellow]Error:[/] Failed to update {self.display_name}. Error {e}.")
             return None
