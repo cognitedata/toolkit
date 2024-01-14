@@ -37,6 +37,7 @@ class Loader(ABC):
     folder_name: str
     filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
+    exclude_filetypes: frozenset[str] = frozenset()
 
     def __init__(self, client: CogniteClient):
         self.client = client
@@ -78,9 +79,12 @@ class Loader(ABC):
 
             if cls.filename_pattern:
                 pattern = re.compile(cls.filename_pattern)
-                return [file for file in file_paths if pattern.match(file.stem)]
-            else:
-                return list(file_paths)
+                file_paths = (file for file in file_paths if pattern.match(file.stem))
+
+            if cls.exclude_filetypes:
+                file_paths = (file for file in file_paths if file.suffix[1:] not in cls.exclude_filetypes)
+
+            return list(file_paths)
         else:
             return []
 

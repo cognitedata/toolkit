@@ -56,7 +56,7 @@ class DatapointsLoader(DataLoader):
 class FileLoader(DataLoader):
     folder_name = "files"
     filetypes = frozenset()
-    filename_pattern = "^(yaml|yml)$"
+    exclude_filetypes = frozenset({"yml", "yaml"})
     dependencies = frozenset({FileMetadataLoader})
 
     @classmethod
@@ -73,7 +73,7 @@ class FileLoader(DataLoader):
         if dry_run:
             return f"Would upload file {datafile.name}"
         else:
-            self.client.files.upload(str(datafile), name=datafile.name, overwrite=True)
+            self.client.files.upload(path=str(datafile), name=datafile.name, overwrite=False)
             return f"Uploaded file {datafile.name}"
 
 
