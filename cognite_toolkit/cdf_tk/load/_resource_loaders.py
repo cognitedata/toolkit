@@ -867,7 +867,7 @@ class SpaceLoader(ResourceLoader[str, SpaceApply, Space, SpaceApplyList, SpaceLi
             return 0
         print("[bold]Deleting existing data...[/]")
         for space in ids:
-            raise NotImplementedError()
+            ...
             # delete_instances(
             #     ToolGlobals=self.ToolGlobals,
             #     space_name=space,
