@@ -1086,7 +1086,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
 
 @final
-class NodeLoader(ResourceLoader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
+class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
@@ -1142,9 +1142,16 @@ class NodeLoader(ResourceLoader[NodeId, NodeApply, Node, LoadableNodes, NodeList
         deleted = self.client.data_modeling.instances.delete(nodes=cast(Sequence, ids))
         return len(deleted.nodes)
 
+    def count(self, ids: SequenceNotStr[NodeId]) -> int:
+        return len(ids)
+
+    def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
+        # Nodes will be deleted in .delete call.
+        return 0
+
 
 @final
-class EdgeLoader(ResourceLoader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
+class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(edge)$"
@@ -1203,3 +1210,10 @@ class EdgeLoader(ResourceLoader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList
     def delete(self, ids: SequenceNotStr[EdgeId]) -> int:
         deleted = self.client.data_modeling.instances.delete(edges=cast(Sequence, ids))
         return len(deleted.edges)
+
+    def count(self, ids: SequenceNotStr[EdgeId]) -> int:
+        return len(ids)
+
+    def drop_data(self, ids: SequenceNotStr[EdgeId]) -> int:
+        # Edges will be deleted in .delete call.
+        return 0
