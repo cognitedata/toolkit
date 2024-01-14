@@ -33,92 +33,103 @@ Datapoints:
 FileMetadata:
 - args: []
   kwargs:
-    external_id: fileshare_PH-25578-P-4110006-001.pdf
     name: PH-25578-P-4110006-001.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-25578-P-4110006-001.pdf
-    source: fileshare
   name: PH-25578-P-4110006-001.pdf
 - args: []
   kwargs:
-    external_id: fileshare_PH-25578-P-4110010-001.pdf
     name: PH-25578-P-4110010-001.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-25578-P-4110010-001.pdf
-    source: fileshare
   name: PH-25578-P-4110010-001.pdf
 - args: []
   kwargs:
-    external_id: fileshare_PH-25578-P-4110119-001.pdf
     name: PH-25578-P-4110119-001.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-25578-P-4110119-001.pdf
-    source: fileshare
   name: PH-25578-P-4110119-001.pdf
 - args: []
   kwargs:
-    external_id: fileshare_PH-ME-P-0003-001.pdf
     name: PH-ME-P-0003-001.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-ME-P-0003-001.pdf
-    source: fileshare
   name: PH-ME-P-0003-001.pdf
 - args: []
   kwargs:
-    external_id: fileshare_PH-ME-P-0004-001.pdf
     name: PH-ME-P-0004-001.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-ME-P-0004-001.pdf
-    source: fileshare
   name: PH-ME-P-0004-001.pdf
 - args: []
   kwargs:
-    external_id: fileshare_PH-ME-P-0151-001.pdf
     name: PH-ME-P-0151-001.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-ME-P-0151-001.pdf
-    source: fileshare
   name: PH-ME-P-0151-001.pdf
 - args: []
   kwargs:
-    external_id: fileshare_PH-ME-P-0152-001.pdf
     name: PH-ME-P-0152-001.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-ME-P-0152-001.pdf
-    source: fileshare
   name: PH-ME-P-0152-001.pdf
 - args: []
   kwargs:
-    external_id: fileshare_PH-ME-P-0153-001.pdf
     name: PH-ME-P-0153-001.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-ME-P-0153-001.pdf
-    source: fileshare
   name: PH-ME-P-0153-001.pdf
 - args: []
   kwargs:
-    external_id: fileshare_PH-ME-P-0156-001.pdf
     name: PH-ME-P-0156-001.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-ME-P-0156-001.pdf
-    source: fileshare
   name: PH-ME-P-0156-001.pdf
 - args: []
   kwargs:
-    external_id: fileshare_PH-ME-P-0156-002.pdf
     name: PH-ME-P-0156-002.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-ME-P-0156-002.pdf
-    source: fileshare
   name: PH-ME-P-0156-002.pdf
 - args: []
   kwargs:
-    external_id: fileshare_PH-ME-P-0160-001.pdf
     name: PH-ME-P-0160-001.pdf
-    overwrite: true
+    overwrite: false
     path: tmp/files/PH-ME-P-0160-001.pdf
-    source: fileshare
   name: PH-ME-P-0160-001.pdf
+- externalId: fileshare_PH-25578-P-4110006-001.pdf
+  name: PH-25578-P-4110006-001.pdf
+  source: fileshare
+- externalId: fileshare_PH-25578-P-4110010-001.pdf
+  name: PH-25578-P-4110010-001.pdf
+  source: fileshare
+- externalId: fileshare_PH-25578-P-4110119-001.pdf
+  name: PH-25578-P-4110119-001.pdf
+  source: fileshare
+- externalId: fileshare_PH-ME-P-0003-001.pdf
+  name: PH-ME-P-0003-001.pdf
+  source: fileshare
+- externalId: fileshare_PH-ME-P-0004-001.pdf
+  name: PH-ME-P-0004-001.pdf
+  source: fileshare
+- externalId: fileshare_PH-ME-P-0151-001.pdf
+  name: PH-ME-P-0151-001.pdf
+  source: fileshare
+- externalId: fileshare_PH-ME-P-0152-001.pdf
+  name: PH-ME-P-0152-001.pdf
+  source: fileshare
+- externalId: fileshare_PH-ME-P-0153-001.pdf
+  name: PH-ME-P-0153-001.pdf
+  source: fileshare
+- externalId: fileshare_PH-ME-P-0156-001.pdf
+  name: PH-ME-P-0156-001.pdf
+  source: fileshare
+- externalId: fileshare_PH-ME-P-0156-002.pdf
+  name: PH-ME-P-0156-002.pdf
+  source: fileshare
+- externalId: fileshare_PH-ME-P-0160-001.pdf
+  name: PH-ME-P-0160-001.pdf
+  source: fileshare
 Row:
 - args: []
   columns:
@@ -129,9 +140,9 @@ Row:
   dataframe: 65132422233352380667621271214779673075306803480403254987707392554277354984239
   kwargs:
     db_name: asset_oid_workmate
-    ensure_parent: true
+    ensure_parent: false
     table_name: asset2children
-  name: asset_oid_workmate_asset2children_True
+  name: asset_oid_workmate_asset2children_False
 - args: []
   columns:
   - key
@@ -149,9 +160,9 @@ Row:
   dataframe: 65815127938924911341463927013310295518042040000779863296043479085253660159587
   kwargs:
     db_name: asset_oid_workmate
-    ensure_parent: true
+    ensure_parent: false
     table_name: assets
-  name: asset_oid_workmate_assets_True
+  name: asset_oid_workmate_assets_False
 - args: []
   columns:
   - name
@@ -161,9 +172,9 @@ Row:
   dataframe: 106413615039181453833817321187105118424940236035918528976961900271395229527448
   kwargs:
     db_name: files_oid_fileshare
-    ensure_parent: true
+    ensure_parent: false
     table_name: files_metadata
-  name: files_oid_fileshare_files_metadata_True
+  name: files_oid_fileshare_files_metadata_False
 - args: []
   columns:
   - timeseries
@@ -171,9 +182,9 @@ Row:
   dataframe: 81916938698186419621268884252161897441572756900922299035269475907432573278780
   kwargs:
     db_name: timeseries_oid_fileshare
-    ensure_parent: true
+    ensure_parent: false
     table_name: timeseries2assets
-  name: timeseries_oid_fileshare_timeseries2assets_True
+  name: timeseries_oid_fileshare_timeseries2assets_False
 - args: []
   columns:
   - key
@@ -183,9 +194,9 @@ Row:
   dataframe: 24070397954107219076297784795815816611399974753013853614532722631741356308279
   kwargs:
     db_name: workorder_oid_workmate
-    ensure_parent: true
+    ensure_parent: false
     table_name: workitem2assets
-  name: workorder_oid_workmate_workitem2assets_True
+  name: workorder_oid_workmate_workitem2assets_False
 - args: []
   columns:
   - key
@@ -204,9 +215,9 @@ Row:
   dataframe: 98451278918469729644449612594080634250778954914953478861261393480112598819317
   kwargs:
     db_name: workorder_oid_workmate
-    ensure_parent: true
+    ensure_parent: false
     table_name: workitems
-  name: workorder_oid_workmate_workitems_True
+  name: workorder_oid_workmate_workitems_False
 - args: []
   columns:
   - key
@@ -216,9 +227,9 @@ Row:
   dataframe: 54872058878870172664438852077033356687520504688349312543905325490691467828016
   kwargs:
     db_name: workorder_oid_workmate
-    ensure_parent: true
+    ensure_parent: false
     table_name: workorder2assets
-  name: workorder_oid_workmate_workorder2assets_True
+  name: workorder_oid_workmate_workorder2assets_False
 - args: []
   columns:
   - key
@@ -228,9 +239,9 @@ Row:
   dataframe: 101951962313922334979646809996559791093296308400263159240134125152577689826887
   kwargs:
     db_name: workorder_oid_workmate
-    ensure_parent: true
+    ensure_parent: false
     table_name: workorder2items
-  name: workorder_oid_workmate_workorder2items_True
+  name: workorder_oid_workmate_workorder2items_False
 - args: []
   columns:
   - key
@@ -257,9 +268,9 @@ Row:
   dataframe: 66859470073126773920574516033204546280768004747619532114510037574815424440848
   kwargs:
     db_name: workorder_oid_workmate
-    ensure_parent: true
+    ensure_parent: false
     table_name: workorders
-  name: workorder_oid_workmate_workorders_True
+  name: workorder_oid_workmate_workorders_False
 TimeSeries:
 - dataSetId: 42
   description: PH 1st Stg Disch Gas Coolers
@@ -702,54 +713,6 @@ TransformationSchedule:
   interval: 7 * * * *
   isPaused: false
 deleted:
-  FileMetadata:
-  - externalId: fileshare_PH-25578-P-4110006-001.pdf
-  - externalId: fileshare_PH-25578-P-4110010-001.pdf
-  - externalId: fileshare_PH-25578-P-4110119-001.pdf
-  - externalId: fileshare_PH-ME-P-0003-001.pdf
-  - externalId: fileshare_PH-ME-P-0004-001.pdf
-  - externalId: fileshare_PH-ME-P-0151-001.pdf
-  - externalId: fileshare_PH-ME-P-0152-001.pdf
-  - externalId: fileshare_PH-ME-P-0153-001.pdf
-  - externalId: fileshare_PH-ME-P-0156-001.pdf
-  - externalId: fileshare_PH-ME-P-0156-002.pdf
-  - externalId: fileshare_PH-ME-P-0160-001.pdf
-  Table:
-  - db_name: asset_oid_workmate
-    name:
-    - asset2children
-  - db_name: asset_oid_workmate
-    name:
-    - assets
-  - db_name: files_oid_fileshare
-    name:
-    - files_metadata
-  - db_name: timeseries_oid_fileshare
-    name:
-    - timeseries2assets
-  - db_name: workorder_oid_workmate
-    name:
-    - workitem2assets
-  - db_name: workorder_oid_workmate
-    name:
-    - workitems
-  - db_name: workorder_oid_workmate
-    name:
-    - workorder2assets
-  - db_name: workorder_oid_workmate
-    name:
-    - workorder2items
-  - db_name: workorder_oid_workmate
-    name:
-    - workorders
-  TimeSeries:
-  - externalId: pi_160633
-  - externalId: pi_160696
-  - externalId: pi_160702
-  - externalId: pi_160781
-  - externalId: pi_163582
-  - externalId: pi_163657
-  - externalId: pi_191092
   Transformation:
   - externalId: tr_asset_oid_workmate_asset_hierarchy_example
   TransformationSchedule:

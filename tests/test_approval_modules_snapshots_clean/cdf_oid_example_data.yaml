@@ -17,10 +17,34 @@ deleted:
     - asset2children
   - db_name: asset_oid_workmate
     name:
+    - asset2children
+  - db_name: asset_oid_workmate
+    name:
+    - asset2children
+  - db_name: asset_oid_workmate
+    name:
+    - assets
+  - db_name: asset_oid_workmate
+    name:
+    - assets
+  - db_name: asset_oid_workmate
+    name:
     - assets
   - db_name: files_oid_fileshare
     name:
     - files_metadata
+  - db_name: files_oid_fileshare
+    name:
+    - files_metadata
+  - db_name: files_oid_fileshare
+    name:
+    - files_metadata
+  - db_name: timeseries_oid_fileshare
+    name:
+    - timeseries2assets
+  - db_name: timeseries_oid_fileshare
+    name:
+    - timeseries2assets
   - db_name: timeseries_oid_fileshare
     name:
     - timeseries2assets
@@ -29,13 +53,43 @@ deleted:
     - workitem2assets
   - db_name: workorder_oid_workmate
     name:
+    - workitem2assets
+  - db_name: workorder_oid_workmate
+    name:
+    - workitem2assets
+  - db_name: workorder_oid_workmate
+    name:
+    - workitems
+  - db_name: workorder_oid_workmate
+    name:
+    - workitems
+  - db_name: workorder_oid_workmate
+    name:
     - workitems
   - db_name: workorder_oid_workmate
     name:
     - workorder2assets
   - db_name: workorder_oid_workmate
     name:
+    - workorder2assets
+  - db_name: workorder_oid_workmate
+    name:
+    - workorder2assets
+  - db_name: workorder_oid_workmate
+    name:
     - workorder2items
+  - db_name: workorder_oid_workmate
+    name:
+    - workorder2items
+  - db_name: workorder_oid_workmate
+    name:
+    - workorder2items
+  - db_name: workorder_oid_workmate
+    name:
+    - workorders
+  - db_name: workorder_oid_workmate
+    name:
+    - workorders
   - db_name: workorder_oid_workmate
     name:
     - workorders
