@@ -411,7 +411,7 @@ class ResourceLoader(
 
 class ResourceContainerLoader(ResourceLoader):
     @abstractmethod
-    def datapoint_count(self, ids: SequenceNotStr[T_ID]) -> int:
+    def count(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
 
     @abstractmethod
