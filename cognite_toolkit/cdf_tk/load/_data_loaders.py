@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import re
 from pathlib import Path
 from typing import final
 
@@ -79,7 +80,6 @@ class FileLoader(DataLoader):
 @final
 class RawFileLoader(DataLoader):
     folder_name = "raw"
-    filename_pattern = "^(yaml|yml)$"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({RawDatabaseLoader, RawTableLoader})
 
@@ -88,10 +88,9 @@ class RawFileLoader(DataLoader):
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
 
     def upload(self, datafile: Path, dry_run: bool) -> str:
-        if any(
-            (metadata_file := datafile.parent / f"{datafile.stem}{file_ending}").exists()
-            for file_ending in [".yaml", ".yml"]
-        ):
+        pattern = re.compile(rf"(.*){datafile.stem}\.(yml|yaml)$")
+        metadata_file = next((filepath for filepath in datafile.parent.glob("*") if pattern.match(filepath.name)), None)
+        if metadata_file is not None:
             metadata = RawDatabaseTable.load(metadata_file.read_text())
         else:
             raise ValueError(f"Missing metadata file for {datafile.name}. It should be named {datafile.stem}.yaml")
@@ -111,5 +110,7 @@ class RawFileLoader(DataLoader):
 
         if metadata.table_name is None:
             raise ValueError(f"Missing table name for {datafile.name}")
-        self.client.raw.rows.insert_dataframe(metadata.db_name, metadata.table_name, data, ensure_parent=False)
+        self.client.raw.rows.insert_dataframe(
+            db_name=metadata.db_name, table_name=metadata.table_name, dataframe=data, ensure_parent=False
+        )
         return f"Inserted {len(data)}x{len(data.columns)} cells from {datafile.name}"

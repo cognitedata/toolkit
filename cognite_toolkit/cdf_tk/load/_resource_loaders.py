@@ -383,6 +383,11 @@ class RawDatabaseLoader(
         database_list = self.client.raw.databases.create(items.as_db_names())
         return RawTableList([RawDatabaseTable(db_name=db.name) for db in database_list])
 
+    def retrieve(self, ids: SequenceNotStr[RawDatabaseTable]) -> RawTableList:
+        database_list = self.client.raw.databases.list(limit=-1)
+        target_dbs = {db.db_name for db in ids}
+        return RawTableList([RawDatabaseTable(db_name=db.name) for db in database_list if db.name in target_dbs])
+
     def update(self, items: Sequence[RawDatabaseTable]) -> RawTableList:
         raise NotImplementedError("Raw tables do not support update.")
 
@@ -429,11 +434,25 @@ class RawTableLoader(
 
     def create(self, items: RawTableList) -> RawTableList:
         created = RawTableList([])
-        for db_name, raw_tables in itertools.groupby(sorted(items, key=lambda x: x.db_name), key=lambda x: x.db_name):
+        for db_name, raw_tables in itertools.groupby(sorted(items), key=lambda x: x.db_name):
             tables = [table.table_name for table in raw_tables]
             new_tables = self.client.raw.tables.create(db_name=db_name, name=tables)
             created.extend([RawDatabaseTable(db_name=db_name, table_name=table.name) for table in new_tables])
         return created
+
+    def retrieve(self, ids: SequenceNotStr[RawDatabaseTable]) -> RawTableList:
+        retrieved = RawTableList([])
+        for db_name, raw_tables in itertools.groupby(sorted(ids), key=lambda x: x.db_name):
+            expected_tables = {table.table_name for table in raw_tables}
+            tables = self.client.raw.tables.list(db_name=db_name, limit=-1)
+            retrieved.extend(
+                [
+                    RawDatabaseTable(db_name=db_name, table_name=table.name)
+                    for table in tables
+                    if table.name in expected_tables
+                ]
+            )
+        return retrieved
 
     def update(self, items: Sequence[RawDatabaseTable]) -> RawTableList:
         raise NotImplementedError("Raw tables do not support update.")
