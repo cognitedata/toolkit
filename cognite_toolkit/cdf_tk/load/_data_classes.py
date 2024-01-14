@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import UserList
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import total_ordering
 from typing import Any, Literal
 
@@ -149,6 +149,7 @@ class DeployResult:
     unchanged: int = 0
     skipped: int = 0
     total: int = 0
+    messages: list[str] = field(default_factory=list)
 
     @property
     def calculated_total(self) -> int:
@@ -186,6 +187,8 @@ class DeployResults(UserList):
         table.add_column(f"{prefix}Skipped", justify="right", style="yellow")
         table.add_column("Total", justify="right")
         for item in sorted(entry for entry in self.data if entry is not None):
+            if item.messages:
+                continue
             table.add_row(
                 item.name,
                 str(item.created),

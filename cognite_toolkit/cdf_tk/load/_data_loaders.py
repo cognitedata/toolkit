@@ -33,7 +33,7 @@ class DatapointsLoader(DataLoader):
             scope,
         )
 
-    def upload(self, datafile: Path) -> bool:
+    def upload(self, datafile: Path, dry_run: bool) -> str:
         if datafile.suffix == ".csv":
             # The replacement is used to ensure that we read exactly the same file on Windows and Linux
             file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
@@ -43,5 +43,8 @@ class DatapointsLoader(DataLoader):
             data = pd.read_parquet(datafile, engine="pyarrow")
         else:
             raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
-        self.client.time_series.data.insert_dataframe(data)
-        return True
+        if dry_run:
+            return f"Would insert {len(data)}x{len(data.columns)} datapoints from {datafile.name}"
+        else:
+            self.client.time_series.data.insert_dataframe(data)
+            return f"Inserted {len(data)}x{len(data.columns)} datapoints from {datafile.name}"

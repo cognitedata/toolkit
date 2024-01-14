@@ -35,6 +35,7 @@ class Loader(ABC):
 
     filetypes: frozenset[str]
     folder_name: str
+    filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
 
     def __init__(self, client: CogniteClient):
@@ -49,6 +50,39 @@ class Loader(ABC):
     @abstractmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
+
+    @property
+    def display_name(self) -> str:
+        return self.folder_name
+
+    @classmethod
+    def find_files(cls, dir_or_file: Path) -> list[Path]:
+        """Find all files that are supported by this loader in the given directory or file.
+
+        Args:
+            dir_or_file (Path): The directory or file to search in.
+
+        Returns:
+            list[Path]: A list of all files that are supported by this loader.
+
+        """
+        if dir_or_file.is_file():
+            if dir_or_file.suffix not in cls.filetypes or not cls.filetypes:
+                raise ValueError("Invalid file type")
+            return [dir_or_file]
+        elif dir_or_file.is_dir():
+            if cls.filetypes:
+                file_paths = (file for type_ in cls.filetypes for file in dir_or_file.glob(f"**/*.{type_}"))
+            else:
+                file_paths = dir_or_file.glob("**/*")
+
+            if cls.filename_pattern:
+                pattern = re.compile(cls.filename_pattern)
+                return [file for file in file_paths if pattern.match(file.stem)]
+            else:
+                return list(file_paths)
+        else:
+            return []
 
     @abstractmethod
     def deploy_resources(
@@ -101,7 +135,6 @@ class ResourceLoader(
     # Optional to set in the subclass
     support_drop = True
     filetypes = frozenset({"yaml", "yml"})
-    filename_pattern = ""
     identifier_key: str = "externalId"
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     _display_name: str = ""
@@ -137,35 +170,6 @@ class ResourceLoader(
     @classmethod
     def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource]) -> list[T_ID]:
         return [cls.get_id(item) for item in items]
-
-    @classmethod
-    def find_files(cls, dir_or_file: Path) -> list[Path]:
-        """Find all files that are supported by this loader in the given directory or file.
-
-        Args:
-            dir_or_file (Path): The directory or file to search in.
-
-        Returns:
-            list[Path]: A list of all files that are supported by this loader.
-
-        """
-        if dir_or_file.is_file():
-            if dir_or_file.suffix not in cls.filetypes or not cls.filetypes:
-                raise ValueError("Invalid file type")
-            return [dir_or_file]
-        elif dir_or_file.is_dir():
-            if cls.filetypes:
-                file_paths = (file for type_ in cls.filetypes for file in dir_or_file.glob(f"**/*.{type_}"))
-            else:
-                file_paths = dir_or_file.glob("**/*")
-
-            if cls.filename_pattern:
-                pattern = re.compile(cls.filename_pattern)
-                return [file for file in file_paths if pattern.match(file.stem)]
-            else:
-                return list(file_paths)
-        else:
-            return []
 
     # Default implementations that can be overridden
     def load_resource(
@@ -417,7 +421,7 @@ class ResourceContainerLoader(ResourceLoader):
 
 class DataLoader(Loader, ABC):
     @abstractmethod
-    def upload(self, datafile: Path) -> bool:
+    def upload(self, datafile: Path, dry_run: bool) -> str:
         raise NotImplementedError
 
     def deploy_resources(
@@ -430,4 +434,18 @@ class DataLoader(Loader, ABC):
         drop_data: bool = False,
         verbose: bool = False,
     ) -> DeployResult | None:
-        raise NotImplementedError()
+        filepaths = self.find_files(path)
+
+        print(f"[bold]Uploading {len(filepaths)} data {self.display_name} files to CDF...[/]")
+        results = []
+        for filepath in filepaths:
+            try:
+                result = self.upload(filepath, dry_run)
+            except Exception as e:
+                print(f"  [bold red]Error:[/] Failed to upload {filepath.name}. Error {e}.")
+                ToolGlobals.failed = True
+                return None
+            if verbose:
+                print(result)
+            results.append(result)
+        return DeployResult(self.display_name, messages=results)
