@@ -2,15 +2,13 @@ import re
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from cognite.client.data_classes.data_modeling import Container, DataModel, Space, View
+
 from cognite_toolkit.cdf_tk.describe import describe_datamodel
 from cognite_toolkit.cdf_tk.load import (
-    Container,
     ContainerLoader,
-    DataModel,
     DataModelLoader,
-    Space,
     SpaceLoader,
-    View,
     ViewLoader,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig

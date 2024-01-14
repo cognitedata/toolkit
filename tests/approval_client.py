@@ -88,9 +88,8 @@ from cognite.client.data_classes.data_modeling import (
     ViewList,
 )
 from cognite.client.data_classes.data_modeling.ids import InstanceId
+from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.testing import CogniteClientMock
-
-from cognite_toolkit.cdf_tk.load import ExtractionPipelineConfigList
 
 TEST_FOLDER = Path(__file__).resolve().parent
 
