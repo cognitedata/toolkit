@@ -250,10 +250,7 @@ class ResourceLoader(
         if (drop and self.support_drop) or clean:
             nr_of_deleted = self._delete_resources(batches, drop_data, dry_run, verbose)
 
-        nr_of_created = 0
-        nr_of_changed = 0
-        nr_of_unchanged = 0
-        nr_of_skipped = 0
+        nr_of_created = nr_of_changed = nr_of_unchanged = 0
         for batch_no, (batch, filepath) in enumerate(zip(batches, filepaths), 1):
             to_create, to_update, unchanged = self._to_create_changed_unchanged_triple(batch)
 
@@ -284,7 +281,7 @@ class ResourceLoader(
 
         if verbose:
             print(
-                f"  Created {nr_of_created}, Deleted {nr_of_deleted}, Changed {nr_of_changed}, Unchanged {nr_of_unchanged}, Skipped {nr_of_skipped}, Total {nr_of_items}."
+                f"  Created {nr_of_created}, Deleted {nr_of_deleted}, Changed {nr_of_changed}, Unchanged {nr_of_unchanged}, Total {nr_of_items}."
             )
         return DeployResult(
             name=self.display_name,
@@ -292,7 +289,6 @@ class ResourceLoader(
             deleted=nr_of_deleted,
             changed=nr_of_changed,
             unchanged=nr_of_unchanged,
-            skipped=nr_of_skipped,
             total=nr_of_items,
         )
 

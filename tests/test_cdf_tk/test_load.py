@@ -50,7 +50,7 @@ def test_upsert_data_set(cognite_client_approval: ApprovalCogniteClient):
     cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
 
     loader = DataSetsLoader.create_loader(cdf_tool)
-    loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", skip_validation=False)
+    loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", cdf_tool, skip_validation=False)
     assert len(loaded) == 2
 
     first = DataSet.load(loaded[0].dump())
@@ -61,9 +61,11 @@ def test_upsert_data_set(cognite_client_approval: ApprovalCogniteClient):
     # Simulate that the data set is already in CDF
     cognite_client_approval.append(DataSet, first)
 
-    changed = loader.remove_unchanged(loaded)
+    to_create, to_change, unchanged = loader._to_create_changed_unchanged_triple(loaded)
 
-    assert len(changed) == 1
+    assert len(to_create) == 1
+    assert len(to_change) == 0
+    assert len(unchanged) == 1
 
 
 class TestAuthLoader:
