@@ -935,7 +935,9 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
             yield instances.as_ids()
 
 
-class ContainerLoader(ResourceLoader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
+class ContainerLoader(
+    ResourceContainerLoader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]
+):
     api_name = "data_modeling.containers"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(container)$"
@@ -980,6 +982,37 @@ class ContainerLoader(ResourceLoader[ContainerId, ContainerApply, Container, Con
             return 0
         deleted = self.client.data_modeling.containers.delete(cast(Sequence, ids))
         return len(deleted)
+
+    def count(self, ids: SequenceNotStr[ContainerId]) -> int:
+        # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
+        # When this bug is fixed, it will be much faster to use aggregate.
+        return sum(len(batch) for batch in self._iterate_over_nodes(ids)) + sum(
+            len(batch) for batch in self._iterate_over_edges(ids)
+        )
+
+    def drop_data(self, ids: SequenceNotStr[ContainerId]) -> int:
+        nr_of_deleted = 0
+        for node_ids in self._iterate_over_nodes(ids):
+            self.client.data_modeling.instances.delete(nodes=node_ids)
+            nr_of_deleted += len(node_ids)
+        for edge_ids in self._iterate_over_edges(ids):
+            self.client.data_modeling.instances.delete(edges=edge_ids)
+            nr_of_deleted += len(edge_ids)
+        return nr_of_deleted
+
+    def _iterate_over_nodes(self, ids: SequenceNotStr[ContainerId]) -> Iterable[list[NodeId]]:
+        is_container = filters.HasData(containers=list(ids))
+        for instances in self.client.data_modeling.instances(
+            chunk_size=1000, instance_type="node", filter=is_container, limit=-1
+        ):
+            yield instances.as_ids()
+
+    def _iterate_over_edges(self, ids: SequenceNotStr[ContainerId]) -> Iterable[list[EdgeId]]:
+        is_container = filters.HasData(containers=list(ids))
+        for instances in self.client.data_modeling.instances(
+            chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
+        ):
+            yield instances.as_ids()
 
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
