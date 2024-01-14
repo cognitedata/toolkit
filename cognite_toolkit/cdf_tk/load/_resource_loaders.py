@@ -1028,6 +1028,10 @@ class NodeLoader(ResourceLoader[NodeId, NodeApply, Node, LoadableNodes, NodeList
     def get_id(cls, item: NodeApply | Node) -> NodeId:
         return item.as_id()
 
+    @classmethod
+    def create_empty_of(cls, items: LoadableNodes) -> LoadableNodes:
+        return cls.list_write_cls.create_empty_from(items)
+
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadableNodes:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw, dict):
@@ -1087,6 +1091,10 @@ class EdgeLoader(ResourceLoader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList
     @classmethod
     def get_id(cls, item: EdgeApply | Edge) -> EdgeId:
         return item.as_id()
+
+    @classmethod
+    def create_empty_of(cls, items: LoadableEdges) -> LoadableEdges:
+        return cls.list_write_cls.create_empty_from(items)
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadableEdges:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())

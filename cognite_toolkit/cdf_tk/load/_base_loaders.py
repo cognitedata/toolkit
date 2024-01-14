@@ -172,6 +172,10 @@ class ResourceLoader(
         return [cls.get_id(item) for item in items]
 
     # Default implementations that can be overridden
+    @classmethod
+    def create_empty_of(cls, items: T_CogniteResourceList) -> T_CogniteResourceList:
+        return cls.list_write_cls([])
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> T_WriteClass | T_CogniteResourceList:
@@ -218,9 +222,6 @@ class ResourceLoader(
         drop_data: bool = False,
         verbose: bool = False,
     ) -> DeployResult | None:
-        # To avoid circular imports
-        from ._resource_loaders import EdgeLoader, NodeLoader
-
         filepaths = self.find_files(path)
 
         batches = self._load_batches(filepaths, ToolGlobals, skip_validation=dry_run)
@@ -254,71 +255,32 @@ class ResourceLoader(
         nr_of_unchanged = 0
         nr_of_skipped = 0
         for batch_no, (batch, filepath) in enumerate(zip(batches, filepaths), 1):
-            batch_ids = self.get_ids(batch)
-            cdf_resources = self.retrieve(batch_ids).as_write()
-            cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources}
+            to_create, to_update, unchanged = self._to_create_changed_unchanged_triple(batch)
 
-            to_create: T_CogniteResourceList
-            to_update: T_CogniteResourceList
-            if isinstance(self, (NodeLoader, EdgeLoader)):
-                # Special case for nodes and edges
-                to_create = self.list_write_cls.create_empty_from(batch)  # type: ignore[attr-defined]
-                to_update = self.list_write_cls.create_empty_from(batch)  # type: ignore[attr-defined]
-            else:
-                to_create = self.list_write_cls([])
-                to_update = self.list_write_cls([])
-
-            for item in batch:
-                cdf_resource = cdf_resource_by_id.get(self.get_id(item))
-                if cdf_resource and item == cdf_resource:
-                    nr_of_unchanged += 1
-                elif cdf_resource:
-                    to_update.append(item)
-                else:
-                    to_create.append(item)
-
+            nr_of_unchanged += len(unchanged)
             if dry_run:
                 nr_of_created += len(to_create)
                 nr_of_changed += len(to_update)
                 if verbose:
                     print(
                         f" {batch_no}/{len(batch)} {self.display_name} would have: Changed {nr_of_changed},"
-                        f" Created {nr_of_created}, and left {nr_of_unchanged} unchanged"
+                        f" Created {nr_of_created}, and left {len(unchanged)} unchanged"
                     )
                 continue
 
             if to_create:
-                try:
-                    created = self.create(to_create, drop, filepath)
-                except CogniteAPIError as e:
-                    if e.code == 409:
-                        print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
-                    else:
-                        print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-                        ToolGlobals.failed = True
-                        return None
-                except CogniteDuplicatedError as e:
-                    print(
-                        f"  [bold yellow]WARNING:[/] {len(e.duplicated)} out of {len(batch)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
-                    )
-                except Exception as e:
-                    print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+                created = self._create_resources(to_create, drop, filepath)
+                if created is None:
                     ToolGlobals.failed = True
                     return None
-                else:
-                    newly_created = len(created) if created is not None else 0
-                    nr_of_created += newly_created
-                    nr_of_skipped += len(batch) - newly_created
+                nr_of_created += created
 
             if to_update:
-                try:
-                    updated = self.update(to_update, filepath)
-                except Exception as e:
-                    print(f"  [bold yellow]WARNING:[/] Failed to update {self.display_name}. Error {e}.")
+                updated = self._update_resources(to_update, filepath)
+                if updated is None:
                     ToolGlobals.failed = True
                     return None
-                else:
-                    nr_of_changed += len(updated)
+                nr_of_changed += updated
 
         if verbose:
             print(
@@ -333,6 +295,33 @@ class ResourceLoader(
             skipped=nr_of_skipped,
             total=nr_of_items,
         )
+
+    def _to_create_changed_unchanged_triple(
+        self, batch: T_CogniteResourceList
+    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList]:
+        batch_ids = self.get_ids(batch)
+        to_create, to_update, unchanged = (
+            self.create_empty_of(batch),
+            self.create_empty_of(batch),
+            self.create_empty_of(batch),
+        )
+        try:
+            cdf_resources = self.retrieve(batch_ids)
+        except Exception:
+            print(f"  [bold yellow]WARNING:[/] Failed to retrieve {len(batch_ids)} of {self.display_name}.")
+            return to_create, to_update, unchanged
+
+        cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources.as_write()}
+
+        for item in batch:
+            cdf_resource = cdf_resource_by_id.get(self.get_id(item))
+            if cdf_resource and item == cdf_resource:
+                unchanged.append(item)
+            elif cdf_resource:
+                to_update.append(item)
+            else:
+                to_create.append(item)
+        return to_create, to_update, unchanged
 
     def clean_resources(
         self,
@@ -407,6 +396,35 @@ class ResourceLoader(
                 if verbose:
                     print(f"  Deleted {len(batch_ids)} {self.display_name}.")
         return nr_of_deleted
+
+    def _create_resources(self, resources: T_CogniteResourceList, drop: bool, filepath: Path) -> int | None:
+        try:
+            created = self.create(resources, drop, filepath)
+        except CogniteAPIError as e:
+            if e.code == 409:
+                print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
+            else:
+                print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+                return None
+        except CogniteDuplicatedError as e:
+            print(
+                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} out of {len(resources)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
+            )
+        except Exception as e:
+            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+            return None
+        else:
+            return len(created) if created is not None else 0
+        return 0
+
+    def _update_resources(self, resources: T_CogniteResourceList, filepath: Path) -> int | None:
+        try:
+            updated = self.update(resources, filepath)
+        except Exception as e:
+            print(f"  [bold yellow]Error:[/] Failed to update {self.display_name}. Error {e}.")
+            return None
+        else:
+            return len(updated)
 
 
 class ResourceContainerLoader(ResourceLoader):
