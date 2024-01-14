@@ -13,16 +13,13 @@
 # limitations under the License.
 from __future__ import annotations
 
-import io
 import itertools
 import json
 import re
 from collections.abc import Iterable, Sequence
-from contextlib import suppress
 from pathlib import Path
 from typing import Literal, cast, final
 
-import pandas as pd
 import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
@@ -36,6 +33,7 @@ from cognite.client.data_classes import (
     ExtractionPipelineList,
     FileMetadata,
     FileMetadataList,
+    FileMetadataUpdate,
     FileMetadataWrite,
     FileMetadataWriteList,
     OidcCredentials,
@@ -114,7 +112,7 @@ from rich import print
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
-from .data_classes import LoadableEdges, LoadableNodes, RawTable, RawTableList
+from .data_classes import LoadableEdges, LoadableNodes, RawDatabaseTable, RawTableList
 
 _MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
@@ -362,70 +360,106 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 
 
 @final
-class RawLoader(ResourceLoader[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
-    api_name = "raw.rows"
+class RawDatabaseLoader(
+    ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
+):
+    api_name = "raw.databases"
     folder_name = "raw"
-    resource_cls = RawTable
-    resource_write_cls = RawTable
+    resource_cls = RawDatabaseTable
+    resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
     identifier_key = "table_name"
-    data_file_types = frozenset({"csv", "parquet"})
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
 
     @classmethod
-    def get_id(cls, item: RawTable) -> RawTable:
+    def get_id(cls, item: RawDatabaseTable) -> RawDatabaseTable:
         return item
 
-    def create(self, items: Sequence[RawTable]) -> list[RawTable]:
-        if len(items) != 1:
-            raise ValueError("Raw tables must be loaded one at a time.")
-        table = items[0]
-        datafile = next(
-            (
-                file
-                for file_type in self.data_file_types
-                if (file := filepath.parent / f"{table.table_name}.{file_type}").exists()
-            ),
-            None,
-        )
-        if datafile is None:
-            raise ValueError(f"Failed to find data file for {table.table_name} in {filepath.parent}")
-        elif datafile.suffix == ".csv":
-            # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-            file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-            data = pd.read_csv(io.StringIO(file_content), dtype=str)
-            data.fillna("", inplace=True)
-        elif datafile.suffix == ".parquet":
-            data = pd.read_parquet(filepath)
-        else:
-            raise NotImplementedError(f"Unsupported file type {datafile.suffix} for {table.table_name}")
+    def create(self, items: RawTableList) -> RawTableList:
+        database_list = self.client.raw.databases.create(items.as_db_names())
+        return RawTableList([RawDatabaseTable(db_name=db.name) for db in database_list])
 
-        self.client.raw.rows.insert_dataframe(
-            db_name=table.db_name,
-            table_name=table.table_name,
-            dataframe=data,
-            ensure_parent=True,
-        )
-        return [table]
-
-    def update(self, items: Sequence[RawTable]) -> RawTableList:
+    def update(self, items: Sequence[RawDatabaseTable]) -> RawTableList:
         raise NotImplementedError("Raw tables do not support update.")
 
-    def delete(self, ids: SequenceNotStr[RawTable]) -> int:
+    def delete(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+        self.client.raw.databases.delete(name=[table.db_name for table in ids])
+        return len(ids)
+
+    def count(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+        nr_of_tables = 0
+        for db_name, raw_tables in itertools.groupby(sorted(ids), key=lambda x: x.db_name):
+            tables = self.client.raw.tables.list(db_name=db_name, limit=-1)
+            nr_of_tables += len(tables.data)
+        return nr_of_tables
+
+    def drop_data(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+        nr_of_tables = 0
+        for db_name, raw_tables in itertools.groupby(sorted(ids), key=lambda x: x.db_name):
+            tables = [table.table_name for table in raw_tables if table.table_name]
+            if tables:
+                self.client.raw.tables.delete(db_name=db_name, name=tables)
+                nr_of_tables += len(tables)
+        return nr_of_tables
+
+
+@final
+class RawTableLoader(
+    ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
+):
+    api_name = "raw.tables"
+    folder_name = "raw"
+    resource_cls = RawDatabaseTable
+    resource_write_cls = RawDatabaseTable
+    list_cls = RawTableList
+    list_write_cls = RawTableList
+    identifier_key = "table_name"
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
+
+    @classmethod
+    def get_id(cls, item: RawDatabaseTable) -> RawDatabaseTable:
+        return item
+
+    def create(self, items: RawTableList) -> RawTableList:
+        created = RawTableList([])
+        for db_name, raw_tables in itertools.groupby(sorted(items, key=lambda x: x.db_name), key=lambda x: x.db_name):
+            tables = [table.table_name for table in raw_tables]
+            new_tables = self.client.raw.tables.create(db_name=db_name, name=tables)
+            created.extend([RawDatabaseTable(db_name=db_name, table_name=table.name) for table in new_tables])
+        return created
+
+    def update(self, items: Sequence[RawDatabaseTable]) -> RawTableList:
+        raise NotImplementedError("Raw tables do not support update.")
+
+    def delete(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
         count = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
-            # Raw tables do not have ignore_unknowns_ids, so we need to catch the error
-            with suppress(CogniteAPIError):
-                tables = [table.table_name for table in raw_tables]
+            tables = [table.table_name for table in raw_tables if table.table_name]
+            if tables:
                 self.client.raw.tables.delete(db_name=db_name, name=tables)
                 count += len(tables)
-            if len(self.client.raw.tables.list(db_name=db_name, limit=-1).data) == 0:
-                with suppress(CogniteAPIError):
-                    self.client.raw.databases.delete(name=db_name)
+        return count
+
+    def count(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+        print(
+            "  [bold yellow]WARNING:[/] Raw rows do not support count (there is no aggregation method). Counting tables instead"
+        )
+        return len(ids)
+
+    def drop_data(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+        count = 0
+        for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
+            tables = [table.table_name for table in raw_tables if table.table_name]
+            if tables:
+                self.client.raw.tables.delete(db_name=db_name, name=tables)
+                count += len(tables)
         return count
 
 
@@ -505,7 +539,7 @@ class TransformationLoader(
     resource_write_cls = TransformationWrite
     list_cls = TransformationList
     list_write_cls = TransformationWriteList
-    dependencies = frozenset({DataSetsLoader, RawLoader})
+    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader})
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -635,7 +669,7 @@ class ExtractionPipelineLoader(
     resource_write_cls = ExtractionPipelineWrite
     list_cls = ExtractionPipelineList
     list_write_cls = ExtractionPipelineWriteList
-    dependencies = frozenset({DataSetsLoader, RawLoader})
+    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader})
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -754,7 +788,9 @@ class ExtractionPipelineConfigLoader(
 
 
 @final
-class FileLoader(ResourceLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
+class FileMetadataLoader(
+    ResourceContainerLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
+):
     api_name = "files"
     filetypes = frozenset({"yaml", "yml"})
     folder_name = "files"
@@ -795,14 +831,18 @@ class FileLoader(ResourceLoader[str, FileMetadataWrite, FileMetadata, FileMetada
             files_metadata = FileMetadataWriteList.load(
                 load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="list")
             )
+
         # If we have a file with exact one file config, check to see if this is a pattern to expand
         if len(files_metadata) == 1 and ("$FILENAME" in (files_metadata[0].external_id or "")):
             # It is, so replace this file with all files in this folder using the same data
+            print(
+                f"  [bold yellow]Info:[/] File pattern detected in {filepath.name}, expanding to all files in folder."
+            )
             file_data = files_metadata.data[0]
             ext_id_pattern = file_data.external_id
             files_metadata = FileMetadataWriteList([], cognite_client=self.client)
             for file in filepath.parent.glob("*"):
-                if file.suffix[1:] in ["yaml", "yml"]:
+                if file.suffix in [".yaml", ".yml"]:
                     continue
                 files_metadata.append(
                     FileMetadataWrite(
@@ -828,16 +868,11 @@ class FileLoader(ResourceLoader[str, FileMetadataWrite, FileMetadata, FileMetada
                 meta.data_set_id = ToolGlobals.verify_dataset(meta.data_set_id) if not skip_validation else -1
         return files_metadata
 
-    def create(self, items: Sequence[FileMetadataWrite]) -> FileMetadataList:
+    def create(self, items: FileMetadataWriteList) -> FileMetadataList:
         created = FileMetadataList([])
         for meta in items:
-            if meta.name is None:
-                raise ValueError(f"File {meta.external_id} has no name.")
-            datafile = filepath.parent / meta.name
             try:
-                created.append(
-                    self.client.files.upload(path=str(datafile), overwrite=drop, **meta.dump(camel_case=False))
-                )
+                created.append(self.client.files.create(meta))
             except CogniteAPIError as e:
                 if e.code == 409:
                     print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
@@ -846,6 +881,14 @@ class FileLoader(ResourceLoader[str, FileMetadataWrite, FileMetadata, FileMetada
     def delete(self, ids: SequenceNotStr[str]) -> int:
         self.client.files.delete(external_id=cast(Sequence, ids))
         return len(ids)
+
+    def count(self, ids: SequenceNotStr[str]) -> int:
+        return sum(1 for meta in self.client.files.retrieve_multiple(external_ids=list(ids)) if meta.uploaded)
+
+    def drop_data(self, ids: SequenceNotStr[str]) -> int:
+        updates = [FileMetadataUpdate(external_id=external_id).source.set(None) for external_id in ids]
+        updated = self.client.files.update(updates)
+        return sum(1 for meta in updated if not meta.uploaded)
 
 
 @final

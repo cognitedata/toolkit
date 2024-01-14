@@ -10,7 +10,7 @@ from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
     DatapointsLoader,
     DataSetsLoader,
-    FileLoader,
+    FileMetadataLoader,
     ResourceLoader,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -26,7 +26,7 @@ SNAPSHOTS_DIR = THIS_FOLDER / "load_data_snapshots"
 @pytest.mark.parametrize(
     "loader_cls, directory",
     [
-        (FileLoader, DATA_FOLDER / "files"),
+        (FileMetadataLoader, DATA_FOLDER / "files"),
         (DatapointsLoader, DATA_FOLDER / "timeseries_datapoints"),
     ],
 )

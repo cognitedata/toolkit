@@ -14,7 +14,7 @@
 import itertools
 
 from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
-from ._data_loaders import DatapointsLoader
+from ._data_loaders import DatapointsLoader, FileLoader
 from ._resource_loaders import (
     AuthLoader,
     ContainerLoader,
@@ -22,9 +22,10 @@ from ._resource_loaders import (
     DataSetsLoader,
     ExtractionPipelineConfigLoader,
     ExtractionPipelineLoader,
-    FileLoader,
+    FileMetadataLoader,
     NodeLoader,
-    RawLoader,
+    RawDatabaseLoader,
+    RawTableLoader,
     SpaceLoader,
     TimeSeriesLoader,
     TransformationLoader,
@@ -54,9 +55,11 @@ __all__ = [
     "DataSetsLoader",
     "SpaceLoader",
     "ContainerLoader",
+    "FileMetadataLoader",
     "FileLoader",
     "TimeSeriesLoader",
-    "RawLoader",
+    "RawDatabaseLoader",
+    "RawTableLoader",
     "TransformationLoader",
     "TransformationScheduleLoader",
     "ExtractionPipelineLoader",

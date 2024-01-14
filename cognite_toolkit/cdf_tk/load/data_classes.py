@@ -17,30 +17,51 @@ from rich.table import Table
 from typing_extensions import Self
 
 
+@total_ordering
 @dataclass(frozen=True)
-class RawTable(WriteableCogniteResource):
+class RawDatabaseTable(WriteableCogniteResource):
     db_name: str
-    table_name: str
+    table_name: str | None = None
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> RawTable:
-        return cls(db_name=resource["dbName"], table_name=resource["tableName"])
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> RawDatabaseTable:
+        return cls(db_name=resource["dbName"], table_name=resource.get("tableName"))
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        return {
+        dumped = {
             "dbName" if camel_case else "db_name": self.db_name,
-            "tableName" if camel_case else "table_name": self.table_name,
         }
+        if self.table_name is not None:
+            dumped["tableName" if camel_case else "table_name"] = self.table_name
+        return dumped
 
-    def as_write(self) -> RawTable:
+    def as_write(self) -> RawDatabaseTable:
         return self
 
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, RawDatabaseTable):
+            if self.db_name == other.db_name:
+                return (self.table_name or "") < (other.table_name or "")
+            else:
+                return self.db_name < other.db_name
+        else:
+            return NotImplemented
 
-class RawTableList(WriteableCogniteResourceList[RawTable, RawTable]):
-    _RESOURCE = RawTable
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, RawDatabaseTable):
+            return self.db_name == other.db_name and self.table_name == other.table_name
+        else:
+            return NotImplemented
 
-    def as_write(self) -> CogniteResourceList[RawTable]:
+
+class RawTableList(WriteableCogniteResourceList[RawDatabaseTable, RawDatabaseTable]):
+    _RESOURCE = RawDatabaseTable
+
+    def as_write(self) -> CogniteResourceList[RawDatabaseTable]:
         return self
+
+    def as_db_names(self) -> list[str]:
+        return [table.db_name for table in self.data]
 
 
 @dataclass
