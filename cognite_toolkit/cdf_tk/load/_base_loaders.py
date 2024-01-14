@@ -92,21 +92,22 @@ class ResourceLoader(
             api_name is used.
     """
 
-    support_drop = True
-    filetypes = frozenset({"yaml", "yml"})
-    filename_pattern = ""
+    # Must be set in the subclass
     api_name: str
     resource_write_cls: type[T_WriteClass]
     resource_cls: type[T_WritableCogniteResource]
     list_cls: type[T_WritableCogniteResourceList]
     list_write_cls: type[T_CogniteResourceList]
+    # Optional to set in the subclass
+    support_drop = True
+    filetypes = frozenset({"yaml", "yml"})
+    filename_pattern = ""
     identifier_key: str = "externalId"
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     _display_name: str = ""
 
-    def __init__(self, client: CogniteClient, ToolGlobals: CDFToolConfig):
+    def __init__(self, client: CogniteClient):
         super().__init__(client)
-        self.ToolGlobals = ToolGlobals
         try:
             self.api_class = self._get_api_class(client, self.api_name)
         except AttributeError:
@@ -114,9 +115,7 @@ class ResourceLoader(
 
     @property
     def display_name(self) -> str:
-        if self._display_name:
-            return self._display_name
-        return self.api_name
+        return self._display_name or self.api_name
 
     @staticmethod
     def _get_api_class(client: CogniteClient, api_name: str) -> Any:
@@ -169,33 +168,16 @@ class ResourceLoader(
             return []
 
     # Default implementations that can be overridden
-    def load_resource(self, filepath: Path, skip_validation: bool) -> T_WriteClass | T_CogniteResourceList:
-        raw_yaml = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> T_WriteClass | T_CogniteResourceList:
+        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
         return self.resource_write_cls.load(raw_yaml)
 
     def create(self, items: T_CogniteResourceList, drop: bool, filepath: Path) -> Sized:
-        try:
-            created = self.api_class.create(items)
-            return created
-        except CogniteAPIError as e:
-            if e.code == 409:
-                print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
-                return self.list_cls([])
-            else:
-                print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-                self.ToolGlobals.failed = True
-                return self.list_cls([])
-        except CogniteDuplicatedError as e:
-            print(
-                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} out of {len(items)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
-            )
-            return self.list_cls([])
-        except Exception as e:
-            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-            self.ToolGlobals.failed = True
-            return self.list_cls([])
+        return self.api_class.create(items)
 
     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
         if hasattr(self.api_class, "retrieve_multiple"):
@@ -237,7 +219,7 @@ class ResourceLoader(
 
         filepaths = self.find_files(path)
 
-        batches = self._load_batches(filepaths, skip_validation=dry_run)
+        batches = self._load_batches(filepaths, ToolGlobals, skip_validation=dry_run)
         if batches is None:
             ToolGlobals.failed = True
             return None
@@ -304,8 +286,19 @@ class ResourceLoader(
             if to_create:
                 try:
                     created = self.create(to_create, drop, filepath)
+                except CogniteAPIError as e:
+                    if e.code == 409:
+                        print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
+                    else:
+                        print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+                        ToolGlobals.failed = True
+                        return None
+                except CogniteDuplicatedError as e:
+                    print(
+                        f"  [bold yellow]WARNING:[/] {len(e.duplicated)} out of {len(batch)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
+                    )
                 except Exception as e:
-                    print(f"  [bold yellow]WARNING:[/] Failed to upload {self.display_name}. Error {e}.")
+                    print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
                     ToolGlobals.failed = True
                     return None
                 else:
@@ -348,7 +341,7 @@ class ResourceLoader(
         filepaths = self.find_files(path)
 
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-        batches = self._load_batches(filepaths, skip_validation=dry_run)
+        batches = self._load_batches(filepaths, ToolGlobals, skip_validation=dry_run)
         if batches is None:
             ToolGlobals.failed = True
             return None
@@ -366,11 +359,13 @@ class ResourceLoader(
 
         return DeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
 
-    def _load_batches(self, filepaths: list[Path], skip_validation: bool) -> list[T_CogniteResourceList] | None:
+    def _load_batches(
+        self, filepaths: list[Path], ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> list[T_CogniteResourceList] | None:
         batches: list[T_CogniteResourceList] = []
         for filepath in filepaths:
             try:
-                resource = self.load_resource(filepath, skip_validation=skip_validation)
+                resource = self.load_resource(filepath, ToolGlobals, skip_validation)
             except KeyError as e:
                 # KeyError means that we are missing a required field in the yaml file.
                 print(

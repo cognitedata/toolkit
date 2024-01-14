@@ -89,6 +89,6 @@ capabilities:
             monkeypatch,
         )
 
-        loaded = loader.load_resource(Path("group_file.yaml"), skip_validation=True)
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
 
         assert loaded.name == "some_name"

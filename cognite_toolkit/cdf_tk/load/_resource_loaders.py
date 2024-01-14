@@ -109,7 +109,6 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit.cdf_tk.delete import delete_instances
 from cognite_toolkit.cdf_tk.load._base_loaders import ResourceLoader
 from cognite_toolkit.cdf_tk.load._data_classes import LoadableEdges, LoadableNodes, RawTable, RawTableList
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
@@ -141,12 +140,11 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     def __init__(
         self,
         client: CogniteClient,
-        ToolGlobals: CDFToolConfig,
         target_scopes: Literal[
             "all", "all_skipped_validation", "all_scoped_skipped_validation", "resource_scoped_only", "all_scoped_only"
         ] = "all",
     ):
-        super().__init__(client, ToolGlobals)
+        super().__init__(client)
         self.target_scopes = target_scopes
 
     @property
@@ -166,7 +164,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         ] = "all",
     ) -> AuthLoader:
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return AuthLoader(client, ToolGlobals, target_scopes)
+        return AuthLoader(client, target_scopes)
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
@@ -179,10 +177,8 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     def get_id(cls, item: GroupWrite | Group) -> str:
         return item.name
 
-    def load_resource(self, filepath: Path, skip_validation: bool) -> GroupWrite:
-        raw = load_yaml_inject_variables(
-            filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
-        )
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> GroupWrite:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
                 for scope in ["datasetScope", "idScope"]:
@@ -192,7 +188,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                             "all_scoped_skipped_validation",
                         ]:
                             values["scope"][scope]["ids"] = [
-                                self.ToolGlobals.verify_dataset(ext_id) if isinstance(ext_id, str) else ext_id
+                                ToolGlobals.verify_dataset(ext_id) if isinstance(ext_id, str) else ext_id
                                 for ext_id in ids
                             ]
                         else:
@@ -204,7 +200,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                         "all_scoped_skipped_validation",
                     ]:
                         values["scope"]["extractionPipelineScope"]["ids"] = [
-                            self.ToolGlobals.verify_extraction_pipeline(ext_id)
+                            ToolGlobals.verify_extraction_pipeline(ext_id)
                             for ext_id in values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])
                         ]
                     else:
@@ -321,7 +317,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
             raise ValueError("DataSet must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, skip_validation: bool) -> DataSetWriteList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
 
         data_sets = [resource] if isinstance(resource, dict) else resource
@@ -350,10 +346,6 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
                                 items.remove(item)
                 else:
                     items = []
-            except Exception as e:
-                print(f"[bold red]ERROR:[/] Failed to create data sets.\n{e}")
-                self.ToolGlobals.failed = True
-                return DataSetList([])
         return created
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DataSetList:
@@ -456,14 +448,14 @@ class TimeSeriesLoader(ResourceLoader[str, TimeSeriesWrite, TimeSeries, TimeSeri
             raise ValueError("TimeSeries must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, skip_validation: bool) -> TimeSeriesWriteList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TimeSeriesWriteList:
         resources = load_yaml_inject_variables(filepath, {})
         if not isinstance(resources, list):
             resources = [resources]
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
         return TimeSeriesWriteList.load(resources)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
@@ -507,17 +499,15 @@ class TransformationLoader(
             raise ValueError("Transformation must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, skip_validation: bool) -> TransformationWrite:
-        raw = load_yaml_inject_variables(
-            filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
-        )
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TransformationWrite:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
         # The `authentication` key is custom for this template:
 
         source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or None
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or None
         if raw.get("dataSetExternalId") is not None:
             ds_external_id = raw.pop("dataSetExternalId")
-            raw["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+            raw["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
 
         transformation = TransformationWrite.load(raw)
         transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
@@ -537,23 +527,6 @@ class TransformationLoader(
                 )
         transformation.query = sql_file.read_text()
         return transformation
-
-    def create(self, items: Sequence[TransformationWrite], drop: bool, filepath: Path) -> TransformationList:
-        try:
-            created = self.client.transformations.create(items)
-        except CogniteDuplicatedError as e:
-            print(
-                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation(s) out of {len(items)} transformation(s) already exist(s):"
-            )
-            for dup in e.duplicated:
-                print(f"           {dup.get('externalId', 'N/A')}")
-            return TransformationList([])
-        except Exception as e:
-            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-            self.ToolGlobals.failed = True
-            return TransformationList([])
-
-        return created
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         self.client.transformations.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=True)
@@ -597,10 +570,10 @@ class TransformationScheduleLoader(
             raise ValueError("TransformationSchedule must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, skip_validation: bool) -> TransformationScheduleWrite:
-        raw = load_yaml_inject_variables(
-            filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
-        )
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> TransformationScheduleWrite:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
         return TransformationScheduleWrite.load(raw)
 
     def create(
@@ -614,18 +587,7 @@ class TransformationScheduleLoader(
                 f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation schedules already exist(s): {existing}"
             )
             new_items = [item for item in items if item.external_id not in existing]
-            if len(new_items) == 0:
-                return TransformationScheduleList([])
-            try:
-                return cast(TransformationScheduleList, self.client.transformations.schedules.create(new_items))
-            except CogniteAPIError as e:
-                print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-                self.ToolGlobals.failed = True
-                return TransformationScheduleList([])
-        except CogniteAPIError as e:
-            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-            self.ToolGlobals.failed = True
-            return TransformationScheduleList([])
+            return self.client.transformations.schedules.create(new_items)
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         try:
@@ -664,12 +626,14 @@ class ExtractionPipelineLoader(
             raise ValueError("ExtractionPipeline must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, skip_validation: bool) -> ExtractionPipelineWrite:
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> ExtractionPipelineWrite:
         resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
 
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
-            resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
 
         return ExtractionPipelineWrite.load(resource)
 
@@ -684,11 +648,8 @@ class ExtractionPipelineLoader(
                     for item in items:
                         if item.external_id == ext_id:
                             items.remove(item)
-                try:
-                    return self.client.extraction_pipelines.create(items)
-                except Exception as e:
-                    print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
-                    self.ToolGlobals.failed = True
+
+                return self.client.extraction_pipelines.create(items)
         return ExtractionPipelineList([])
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
@@ -744,7 +705,9 @@ class ExtractionPipelineConfigLoader(
             raise ValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, skip_validation: bool) -> ExtractionPipelineConfigWrite:
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> ExtractionPipelineConfigWrite:
         resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
         try:
             resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
@@ -758,12 +721,7 @@ class ExtractionPipelineConfigLoader(
     def create(
         self, items: Sequence[ExtractionPipelineConfigWrite], drop: bool, filepath: Path
     ) -> ExtractionPipelineConfigList:
-        try:
-            return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
-        except Exception as e:
-            print(f"[bold red]ERROR:[/] Failed to create extraction pipelines.\n{e}")
-            self.ToolGlobals.failed = True
-            return ExtractionPipelineConfigList([])
+        return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         count = 0
@@ -800,20 +758,20 @@ class FileLoader(ResourceLoader[str, FileMetadataWrite, FileMetadata, FileMetada
             raise ValueError("FileMetadata must have external_id set.")
         return item.external_id
 
-    def load_resource(self, filepath: Path, skip_validation: bool) -> FileMetadataWrite | FileMetadataWriteList:
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> FileMetadataWrite | FileMetadataWriteList:
         try:
             resource = load_yaml_inject_variables(
-                filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
+                filepath, ToolGlobals.environment_variables(), required_return_type="dict"
             )
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = self.ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
             files_metadata = FileMetadataWriteList([FileMetadataWrite.load(resource)])
         except Exception:
             files_metadata = FileMetadataWriteList.load(
-                load_yaml_inject_variables(
-                    filepath, self.ToolGlobals.environment_variables(), required_return_type="list"
-                )
+                load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="list")
             )
         # If we have a file with exact one file config, check to see if this is a pattern to expand
         if len(files_metadata) == 1 and ("$FILENAME" in (files_metadata[0].external_id or "")):
@@ -845,7 +803,7 @@ class FileLoader(ResourceLoader[str, FileMetadataWrite, FileMetadata, FileMetada
                 raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
             if isinstance(meta.data_set_id, str):
                 # Replace external_id with internal id
-                meta.data_set_id = self.ToolGlobals.verify_dataset(meta.data_set_id) if not skip_validation else -1
+                meta.data_set_id = ToolGlobals.verify_dataset(meta.data_set_id) if not skip_validation else -1
         return files_metadata
 
     def create(self, items: Sequence[FileMetadataWrite], drop: bool, filepath: Path) -> FileMetadataList:
@@ -861,10 +819,6 @@ class FileLoader(ResourceLoader[str, FileMetadataWrite, FileMetadata, FileMetada
             except CogniteAPIError as e:
                 if e.code == 409:
                     print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
-            except Exception as e:
-                print(f"[bold red]ERROR:[/] Failed to upload file {datafile.name}.\n{e}")
-                self.ToolGlobals.failed = True
-                return created
         return created
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
@@ -913,10 +867,11 @@ class SpaceLoader(ResourceLoader[str, SpaceApply, Space, SpaceApplyList, SpaceLi
             return 0
         print("[bold]Deleting existing data...[/]")
         for space in ids:
-            delete_instances(
-                ToolGlobals=self.ToolGlobals,
-                space_name=space,
-            )
+            raise NotImplementedError()
+            # delete_instances(
+            #     ToolGlobals=self.ToolGlobals,
+            #     space_name=space,
+            # )
 
         deleted = self.client.data_modeling.spaces.delete(ids)
         return len(deleted)
@@ -946,9 +901,16 @@ class ContainerLoader(ResourceLoader[ContainerId, ContainerApply, Container, Con
     def get_id(cls, item: ContainerApply | Container) -> ContainerId:
         return item.as_id()
 
-    def create(self, items: Sequence[ContainerApply], drop: bool, filepath: Path) -> ContainerList:
-        self.ToolGlobals.verify_spaces(list({item.space for item in items}))
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> ContainerApply | ContainerApplyList:
+        loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
+        if not skip_validation:
+            items = loaded if isinstance(loaded, ContainerApplyList) else [loaded]
+            ToolGlobals.verify_spaces(list({item.space for item in items}))
+        return loaded
 
+    def create(self, items: Sequence[ContainerApply], drop: bool, filepath: Path) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)
 
     def update(self, items: Sequence[ContainerApply], filepath: Path) -> ContainerList:
@@ -986,8 +948,16 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     def get_id(cls, item: ViewApply | View) -> ViewId:
         return item.as_id()
 
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> ViewApply | ViewApplyList:
+        loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
+        if not skip_validation:
+            items = loaded if isinstance(loaded, ViewApplyList) else [loaded]
+            ToolGlobals.verify_spaces(list({item.space for item in items}))
+        return loaded
+
     def create(self, items: Sequence[ViewApply], drop: bool, filepath: Path) -> ViewList:
-        self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.views.apply(items)
 
     def update(self, items: Sequence[ViewApply], filepath: Path) -> ViewList:
@@ -1018,8 +988,16 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     def get_id(cls, item: DataModelApply | DataModel) -> DataModelId:
         return item.as_id()
 
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> DataModelApply | DataModelApplyList:
+        loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
+        if not skip_validation:
+            items = loaded if isinstance(loaded, DataModelApplyList) else [loaded]
+            ToolGlobals.verify_spaces(list({item.space for item in items}))
+        return loaded
+
     def create(self, items: DataModelApplyList, drop: bool, filepath: Path) -> DataModelList:
-        self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         return self.client.data_modeling.data_models.apply(items)
 
     def update(self, items: DataModelApplyList, filepath: Path) -> DataModelList:
@@ -1050,17 +1028,19 @@ class NodeLoader(ResourceLoader[NodeId, NodeApply, Node, LoadableNodes, NodeList
     def get_id(cls, item: NodeApply | Node) -> NodeId:
         return item.as_id()
 
-    def load_resource(self, filepath: Path, skip_validation: bool) -> LoadableNodes:
-        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadableNodes:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw, dict):
-            return LoadableNodes._load(raw, cognite_client=self.client)
+            loaded = LoadableNodes._load(raw, cognite_client=self.client)
         else:
             raise ValueError(f"Unexpected node yaml file format {filepath.name}")
+        if not skip_validation:
+            ToolGlobals.verify_spaces(list({item.space for item in loaded}))
+        return loaded
 
     def create(self, items: LoadableNodes, drop: bool, filepath: Path) -> NodeApplyResultList:
         if not isinstance(items, LoadableNodes):
             raise ValueError("Unexpected node format file format")
-        self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         item = items
         result = self.client.data_modeling.instances.apply(
             nodes=item.nodes,
@@ -1108,17 +1088,19 @@ class EdgeLoader(ResourceLoader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList
     def get_id(cls, item: EdgeApply | Edge) -> EdgeId:
         return item.as_id()
 
-    def load_resource(self, filepath: Path, skip_validation: bool) -> LoadableEdges:
-        raw = load_yaml_inject_variables(filepath, self.ToolGlobals.environment_variables())
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadableEdges:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw, dict):
-            return LoadableEdges._load(raw, cognite_client=self.client)
+            loaded = LoadableEdges._load(raw, cognite_client=self.client)
         else:
             raise ValueError(f"Unexpected edge yaml file format {filepath.name}")
+        if not skip_validation:
+            ToolGlobals.verify_spaces(list({item.space for item in loaded}))
+        return loaded
 
     def create(self, items: LoadableEdges, drop: bool, filepath: Path) -> EdgeApplyResultList:
         if not isinstance(items, LoadableEdges):
             raise ValueError("Unexpected edge format file format")
-        self.ToolGlobals.verify_spaces(list({item.space for item in items}))
         item = items
         result = self.client.data_modeling.instances.apply(
             edges=item.edges,
