@@ -31,6 +31,8 @@ from cognite.client.data_classes import (
     ExtractionPipelineWriteList,
     FileMetadata,
     FileMetadataList,
+    FileMetadataWrite,
+    FileMetadataWriteList,
     Group,
     GroupList,
     GroupWrite,
@@ -844,8 +846,13 @@ _API_RESOURCES = [
         api_name="files",
         resource_cls=FileMetadata,
         list_cls=FileMetadataList,
+        _write_cls=FileMetadataWrite,
+        _write_list_cls=FileMetadataWriteList,
         methods={
-            "create": [Method(api_class_method="upload", mock_name="upload")],
+            "create": [
+                Method(api_class_method="upload", mock_name="upload"),
+                Method(api_class_method="create", mock_name="create"),
+            ],
             "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
