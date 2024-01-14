@@ -17,7 +17,7 @@ import io
 import itertools
 import json
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from contextlib import suppress
 from pathlib import Path
 from typing import Literal, cast, final
@@ -26,6 +26,7 @@ import pandas as pd
 import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
+    DatapointsList,
     DataSet,
     DataSetList,
     DataSetWrite,
@@ -51,6 +52,7 @@ from cognite.client.data_classes import (
     TransformationWrite,
     TransformationWriteList,
     capabilities,
+    filters,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -111,8 +113,11 @@ from rich import print
 
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
-from ._base_loaders import ResourceLoader
+from ._base_loaders import ResourceContainerLoader, ResourceLoader
 from .data_classes import LoadableEdges, LoadableNodes, RawTable, RawTableList
+
+_MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
+_MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 
 
 @final
@@ -425,7 +430,7 @@ class RawLoader(ResourceLoader[RawTable, RawTable, RawTable, RawTableList, RawTa
 
 
 @final
-class TimeSeriesLoader(ResourceLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
+class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     api_name = "time_series"
     folder_name = "timeseries"
     resource_cls = TimeSeries
@@ -464,6 +469,26 @@ class TimeSeriesLoader(ResourceLoader[str, TimeSeriesWrite, TimeSeries, TimeSeri
 
     def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
         self.client.time_series.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=True)
+        return len(ids)
+
+    def count(self, ids: SequenceNotStr[str]) -> int:
+        datapoints = cast(
+            DatapointsList,
+            self.client.time_series.data.retrieve(
+                external_id=cast(Sequence, ids),
+                start=_MIN_TIMESTAMP_MS,
+                end=_MAX_TIMESTAMP_MS + 1,
+                aggregates="count",
+                granularity="1000d",
+            ),
+        )
+        return sum(sum(data.count or []) for data in datapoints)
+
+    def drop_data(self, ids: SequenceNotStr[str]) -> int:
+        for external_id in ids:
+            self.client.time_series.data.delete_range(
+                external_id=external_id, start=_MIN_TIMESTAMP_MS, end=_MAX_TIMESTAMP_MS + 1
+            )
         return len(ids)
 
 
@@ -828,7 +853,7 @@ class FileLoader(ResourceLoader[str, FileMetadataWrite, FileMetadata, FileMetada
 
 
 @final
-class SpaceLoader(ResourceLoader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
+class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     api_name = "data_modeling.spaces"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(space)$"
@@ -866,16 +891,48 @@ class SpaceLoader(ResourceLoader[str, SpaceApply, Space, SpaceApplyList, SpaceLi
         if not drop_data:
             print("  [bold]INFO:[/] Skipping deletion of spaces as drop_data flag is not set...")
             return 0
-        print("[bold]Deleting existing data...[/]")
-        for space in ids:
-            ...
-            # delete_instances(
-            #     ToolGlobals=self.ToolGlobals,
-            #     space_name=space,
-            # )
-
         deleted = self.client.data_modeling.spaces.delete(ids)
         return len(deleted)
+
+    def count(self, ids: SequenceNotStr[str]) -> int:
+        # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
+        # When this bug is fixed, it will be much faster to use aggregate.
+        return sum(len(batch) for batch in self._iterate_over_nodes(ids)) + sum(
+            len(batch) for batch in self._iterate_over_edges(ids)
+        )
+
+    def drop_data(self, ids: SequenceNotStr[str]) -> int:
+        print(f"[bold]Deleting existing data in spaces {ids}...[/]")
+        nr_of_deleted = 0
+        for node_ids in self._iterate_over_nodes(ids):
+            self.client.data_modeling.instances.delete(nodes=node_ids)
+            nr_of_deleted += len(node_ids)
+        for edge_ids in self._iterate_over_edges(ids):
+            self.client.data_modeling.instances.delete(edges=edge_ids)
+            nr_of_deleted += len(edge_ids)
+        return nr_of_deleted
+
+    def _iterate_over_nodes(self, ids: SequenceNotStr[str]) -> Iterable[list[NodeId]]:
+        is_space: filters.Filter
+        if len(ids) == 1:
+            is_space = filters.Equals(["node", "space"], ids[0])
+        else:
+            is_space = filters.In(["node", "space"], list(ids))
+        for instances in self.client.data_modeling.instances(
+            chunk_size=1000, instance_type="node", filter=is_space, limit=-1
+        ):
+            yield instances.as_ids()
+
+    def _iterate_over_edges(self, ids: SequenceNotStr[str]) -> Iterable[list[EdgeId]]:
+        is_space: filters.Filter
+        if len(ids) == 1:
+            is_space = filters.Equals(["edge", "space"], ids[0])
+        else:
+            is_space = filters.In(["edge", "space"], list(ids))
+        for instances in self.client.data_modeling.instances(
+            chunk_size=1000, instance_type="edge", limit=-1, filter=is_space
+        ):
+            yield instances.as_ids()
 
 
 class ContainerLoader(ResourceLoader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):

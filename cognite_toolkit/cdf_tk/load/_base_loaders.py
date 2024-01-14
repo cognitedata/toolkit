@@ -423,7 +423,10 @@ class ResourceLoader(
             return len(updated)
 
 
-class ResourceContainerLoader(ResourceLoader):
+class ResourceContainerLoader(
+    ResourceLoader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
+    ABC,
+):
     @abstractmethod
     def count(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
