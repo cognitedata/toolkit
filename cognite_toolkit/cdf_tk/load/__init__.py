@@ -11,9 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from ._base_loaders import ResourceLoader
+import itertools
+
+from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
+from ._data_classes import DeployResult, DeployResults
 from ._data_loaders import DatapointsLoader
-from ._functions import DeployResult, DeployResults, clean_resources, deploy_resources
 from ._resource_loaders import (
     AuthLoader,
     ContainerLoader,
@@ -31,12 +33,17 @@ from ._resource_loaders import (
     ViewLoader,
 )
 
-LOADER_BY_FOLDER_NAME: dict[str, list[type[ResourceLoader]]] = {}
-for _loader in ResourceLoader.__subclasses__():
-    if _loader.folder_name not in LOADER_BY_FOLDER_NAME:
-        LOADER_BY_FOLDER_NAME[_loader.folder_name] = []
+LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
+for _loader in itertools.chain(
+    ResourceLoader.__subclasses__(), ResourceContainerLoader.__subclasses__(), DataLoader.__subclasses__()
+):
+    if _loader in [ResourceLoader, ResourceContainerLoader, DataLoader]:
+        # Skipping base classes
+        continue
+    if _loader.folder_name not in LOADER_BY_FOLDER_NAME:  # type: ignore[attr-defined]
+        LOADER_BY_FOLDER_NAME[_loader.folder_name] = []  # type: ignore[attr-defined]
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    LOADER_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[type-abstract]
+    LOADER_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[type-abstract, attr-defined, arg-type]
 del _loader  # cleanup module namespace
 
 __all__ = [
@@ -46,10 +53,6 @@ __all__ = [
     "DataModelLoader",
     "DataSetsLoader",
     "TimeSeriesLoader",
-    "deploy_resources",
-    "clean_resources",
-    "DeployResult",
-    "DeployResults",
     "TransformationLoader",
     "TransformationScheduleLoader",
     "ExtractionPipelineLoader",
@@ -60,4 +63,9 @@ __all__ = [
     "ContainerLoader",
     "ViewLoader",
     "DatapointsLoader",
+    "ResourceLoader",
+    "ResourceContainerLoader",
+    "DataLoader",
+    "DeployResult",
+    "DeployResults",
 ]

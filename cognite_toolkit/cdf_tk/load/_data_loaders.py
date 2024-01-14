@@ -16,6 +16,7 @@ from ._resource_loaders import TimeSeriesLoader
 
 @final
 class DatapointsLoader(DataLoader):
+    folder_name = "timeseries_datapoints"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({TimeSeriesLoader})
 

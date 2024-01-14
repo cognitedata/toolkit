@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections import UserList
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any
+from functools import total_ordering
+from typing import Any, Literal
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
@@ -10,6 +13,7 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResourceList,
 )
 from cognite.client.data_classes.data_modeling import EdgeApplyList, NodeApplyList
+from rich.table import Table
 from typing_extensions import Self
 
 
@@ -133,3 +137,63 @@ class LoadableEdges(EdgeApplyList):
             "replace": self.replace,
             "edges": self.edges.dump(camel_case),
         }
+
+
+@total_ordering
+@dataclass
+class DeployResult:
+    name: str
+    created: int = 0
+    deleted: int = 0
+    changed: int = 0
+    unchanged: int = 0
+    skipped: int = 0
+    total: int = 0
+
+    @property
+    def calculated_total(self) -> int:
+        return self.created + self.deleted + self.changed + self.unchanged + self.skipped
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, DeployResult):
+            return self.name < other.name
+        else:
+            return NotImplemented
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, DeployResult):
+            return self.name == other.name
+        else:
+            return NotImplemented
+
+
+class DeployResults(UserList):
+    def __init__(self, collection: Iterable[DeployResult], action: Literal["deploy", "clean"], dry_run: bool = False):
+        super().__init__(collection)
+        self.action = action
+        self.dry_run = dry_run
+
+    def create_rich_table(self) -> Table:
+        table = Table(title=f"Summary of {self.action} command:")
+        prefix = ""
+        if self.dry_run:
+            prefix = "Would have "
+        table.add_column("Resource", justify="right")
+        table.add_column(f"{prefix}Created", justify="right", style="green")
+        table.add_column(f"{prefix}Deleted", justify="right", style="red")
+        table.add_column(f"{prefix}Changed", justify="right", style="magenta")
+        table.add_column("Unchanged", justify="right", style="cyan")
+        table.add_column(f"{prefix}Skipped", justify="right", style="yellow")
+        table.add_column("Total", justify="right")
+        for item in sorted(entry for entry in self.data if entry is not None):
+            table.add_row(
+                item.name,
+                str(item.created),
+                str(item.deleted),
+                str(item.changed),
+                str(item.unchanged),
+                str(item.skipped),
+                str(item.total),
+            )
+
+        return table

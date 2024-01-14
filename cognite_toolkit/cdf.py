@@ -27,8 +27,7 @@ from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
     DataSetsLoader,
     DeployResults,
-    clean_resources,
-    deploy_resources,
+    ResourceLoader,
 )
 from cognite_toolkit.cdf_tk.run import run_transformation
 from cognite_toolkit.cdf_tk.templates import (
@@ -343,8 +342,7 @@ def deploy(
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
         print("[bold]EVALUATING auth resources (groups) with ALL scope...[/]")
-        result = deploy_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
+        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation").deploy_resources(
             directory,
             **arguments,
         )
@@ -356,8 +354,7 @@ def deploy(
     if len(resolved_list) > len(selected_loaders):
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
     for LoaderCls in resolved_list:
-        result = deploy_resources(
-            LoaderCls.create_loader(ToolGlobals),
+        result = LoaderCls.create_loader(ToolGlobals).deploy_resources(
             build_path / LoaderCls.folder_name,
             **arguments,
         )
@@ -372,8 +369,8 @@ def deploy(
         # Last, we create the Groups again, but this time we do not filter out any capabilities
         # and we do not skip validation as the resources should now have been created.
         print("[bold]EVALUATING auth resources scoped to resources...[/]")
-        result = deploy_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
+        loader = AuthLoader.create_loader(ToolGlobals, target_scopes="all")
+        result = loader.deploy_resources(
             directory,
             **arguments,
         )
@@ -465,12 +462,13 @@ def clean(
     if len(resolved_list) > len(selected_loaders):
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
     for LoaderCls in reversed(resolved_list):
+        if not issubclass(LoaderCls, ResourceLoader):
+            continue
         loader = LoaderCls.create_loader(ToolGlobals)
         if type(loader) is DataSetsLoader:
             print("[bold]WARNING:[/] Dataset cleaning is not supported, skipping...")
             continue
-        result = clean_resources(
-            loader,
+        result = loader.clean_resources(
             build_path / LoaderCls.folder_name,
             ToolGlobals,
             dry_run=dry_run,
@@ -484,8 +482,7 @@ def clean(
             print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
             exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        result = clean_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
+        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
             directory,
             ToolGlobals,
             dry_run=dry_run,

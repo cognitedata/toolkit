@@ -18,12 +18,13 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling import DataModelingId, VersionedDataModelingId
 from cognite.client.data_classes.data_modeling.ids import InstanceId
-from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
+from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit.cdf_tk.load._data_classes import RawTable
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+
+from ._data_classes import DeployResult, RawTable
 
 T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawTable])
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
@@ -33,15 +34,37 @@ class Loader(ABC):
     """This is the base class for all loaders"""
 
     filetypes: frozenset[str]
+    folder_name: str
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
 
     def __init__(self, client: CogniteClient):
         self.client = client
 
     @classmethod
+    def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig) -> T_Loader:
+        client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
+        return cls(client)
+
+    @classmethod
     @abstractmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
+
+    @abstractmethod
+    def deploy_resources(
+        self,
+        path: Path,
+        ToolGlobals: CDFToolConfig,
+        drop: bool = False,
+        clean: bool = False,
+        dry_run: bool = False,
+        drop_data: bool = False,
+        verbose: bool = False,
+    ) -> DeployResult | None:
+        raise NotImplementedError
+
+
+T_Loader = TypeVar("T_Loader", bound=Loader)
 
 
 class ResourceLoader(
@@ -73,7 +96,6 @@ class ResourceLoader(
     filetypes = frozenset({"yaml", "yml"})
     filename_pattern = ""
     api_name: str
-    folder_name: str
     resource_write_cls: type[T_WriteClass]
     resource_cls: type[T_WritableCogniteResource]
     list_cls: type[T_WritableCogniteResourceList]
@@ -107,15 +129,6 @@ class ResourceLoader(
         else:
             raise AttributeError(f"Invalid api_name {api_name}.")
         return getattr(parent, api_name)
-
-    @classmethod
-    def create_loader(
-        cls, ToolGlobals: CDFToolConfig
-    ) -> ResourceLoader[
-        T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-    ]:
-        client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client, ToolGlobals)
 
     @classmethod
     @abstractmethod
@@ -208,8 +221,218 @@ class ResourceLoader(
         self.api_class.delete(ids)
         return len(ids)
 
+    # Abstract methods that must be implemented
+    def deploy_resources(
+        self,
+        path: Path,
+        ToolGlobals: CDFToolConfig,
+        drop: bool = False,
+        clean: bool = False,
+        dry_run: bool = False,
+        drop_data: bool = False,
+        verbose: bool = False,
+    ) -> DeployResult | None:
+        # To avoid circular imports
+        from ._resource_loaders import EdgeLoader, NodeLoader
+
+        filepaths = self.find_files(path)
+
+        batches = self._load_batches(filepaths, skip_validation=dry_run)
+        if batches is None:
+            ToolGlobals.failed = True
+            return None
+
+        nr_of_batches = len(batches)
+        nr_of_items = sum(len(batch) for batch in batches)
+        if nr_of_items == 0:
+            return DeployResult(name=self.display_name)
+
+        action_word = "Loading" if dry_run else "Uploading"
+        print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
+
+        if drop and self.support_drop:
+            if drop_data and (self.api_name in ["data_modeling.spaces", "data_modeling.containers"]):
+                print(
+                    f"  --drop-data is specified, will delete existing nodes and edges before before deleting {self.display_name}."
+                )
+            else:
+                print(f"  --drop is specified, will delete existing {self.display_name} before uploading.")
+
+        # Deleting resources.
+        nr_of_deleted = 0
+        if (drop and self.support_drop) or clean:
+            nr_of_deleted = self._delete_resources(batches, drop_data, dry_run, verbose)
+
+        nr_of_created = 0
+        nr_of_changed = 0
+        nr_of_unchanged = 0
+        nr_of_skipped = 0
+        for batch_no, (batch, filepath) in enumerate(zip(batches, filepaths), 1):
+            batch_ids = self.get_ids(batch)
+            cdf_resources = self.retrieve(batch_ids).as_write()
+            cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources}
+
+            to_create: T_CogniteResourceList
+            to_update: T_CogniteResourceList
+            if isinstance(self, (NodeLoader, EdgeLoader)):
+                # Special case for nodes and edges
+                to_create = self.list_write_cls.create_empty_from(batch)  # type: ignore[attr-defined]
+                to_update = self.list_write_cls.create_empty_from(batch)  # type: ignore[attr-defined]
+            else:
+                to_create = self.list_write_cls([])
+                to_update = self.list_write_cls([])
+
+            for item in batch:
+                cdf_resource = cdf_resource_by_id.get(self.get_id(item))
+                if cdf_resource and item == cdf_resource:
+                    nr_of_unchanged += 1
+                elif cdf_resource:
+                    to_update.append(item)
+                else:
+                    to_create.append(item)
+
+            if dry_run:
+                nr_of_created += len(to_create)
+                nr_of_changed += len(to_update)
+                if verbose:
+                    print(
+                        f" {batch_no}/{len(batch)} {self.display_name} would have: Changed {nr_of_changed},"
+                        f" Created {nr_of_created}, and left {nr_of_unchanged} unchanged"
+                    )
+                continue
+
+            if to_create:
+                try:
+                    created = self.create(to_create, drop, filepath)
+                except Exception as e:
+                    print(f"  [bold yellow]WARNING:[/] Failed to upload {self.display_name}. Error {e}.")
+                    ToolGlobals.failed = True
+                    return None
+                else:
+                    newly_created = len(created) if created is not None else 0
+                    nr_of_created += newly_created
+                    nr_of_skipped += len(batch) - newly_created
+
+            if to_update:
+                try:
+                    updated = self.update(to_update, filepath)
+                except Exception as e:
+                    print(f"  [bold yellow]WARNING:[/] Failed to update {self.display_name}. Error {e}.")
+                    ToolGlobals.failed = True
+                    return None
+                else:
+                    nr_of_changed += len(updated)
+
+        if verbose:
+            print(
+                f"  Created {nr_of_created}, Deleted {nr_of_deleted}, Changed {nr_of_changed}, Unchanged {nr_of_unchanged}, Skipped {nr_of_skipped}, Total {nr_of_items}."
+            )
+        return DeployResult(
+            name=self.display_name,
+            created=nr_of_created,
+            deleted=nr_of_deleted,
+            changed=nr_of_changed,
+            unchanged=nr_of_unchanged,
+            skipped=nr_of_skipped,
+            total=nr_of_items,
+        )
+
+    def clean_resources(
+        self,
+        path: Path,
+        ToolGlobals: CDFToolConfig,
+        dry_run: bool = False,
+        drop_data: bool = False,
+        verbose: bool = False,
+    ) -> DeployResult | None:
+        filepaths = self.find_files(path)
+
+        # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
+        batches = self._load_batches(filepaths, skip_validation=dry_run)
+        if batches is None:
+            ToolGlobals.failed = True
+            return None
+
+        nr_of_batches = len(batches)
+        nr_of_items = sum(len(batch) for batch in batches)
+        if nr_of_items == 0:
+            return DeployResult(name=self.display_name)
+
+        action_word = "Loading" if dry_run else "Cleaning"
+        print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
+
+        # Deleting resources.
+        nr_of_deleted = self._delete_resources(batches, drop_data, dry_run, verbose)
+
+        return DeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
+
+    def _load_batches(self, filepaths: list[Path], skip_validation: bool) -> list[T_CogniteResourceList] | None:
+        batches: list[T_CogniteResourceList] = []
+        for filepath in filepaths:
+            try:
+                resource = self.load_resource(filepath, skip_validation=skip_validation)
+            except KeyError as e:
+                # KeyError means that we are missing a required field in the yaml file.
+                print(
+                    f"[bold red]ERROR:[/] Failed to load {filepath.name} with {self.display_name}. Missing required field: {e}."
+                )
+                return None
+            if resource is None:
+                print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
+                continue
+            batches.append(resource if isinstance(resource, self.list_write_cls) else self.list_write_cls([resource]))
+        return batches
+
+    def _delete_resources(
+        self, batches: list[T_CogniteResourceList], drop_data: bool, dry_run: bool, verbose: bool
+    ) -> int:
+        nr_of_deleted = 0
+        for batch in batches:
+            batch_ids = self.get_ids(batch)
+            if dry_run:
+                nr_of_deleted += len(batch_ids)
+                if verbose:
+                    print(f"  Would have deleted {len(batch_ids)} {self.display_name}.")
+                continue
+
+            try:
+                nr_of_deleted += self.delete(batch_ids, drop_data)
+            except CogniteAPIError as e:
+                if e.code == 404:
+                    print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
+            except CogniteNotFoundError:
+                print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
+            except Exception as e:
+                print(f"  [bold yellow]WARNING:[/] Failed to delete {len(batch_ids)} {self.display_name}. Error {e}.")
+            else:  # Delete succeeded
+                if verbose:
+                    print(f"  Deleted {len(batch_ids)} {self.display_name}.")
+        return nr_of_deleted
+
+
+class ResourceContainerLoader(ResourceLoader):
+    @abstractmethod
+    def datapoint_count(self, ids: SequenceNotStr[T_ID]) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def drop_data(self, ids: SequenceNotStr[T_ID]) -> int:
+        raise NotImplementedError
+
 
 class DataLoader(Loader, ABC):
     @abstractmethod
     def upload(self, datafile: Path) -> bool:
         raise NotImplementedError
+
+    def deploy_resources(
+        self,
+        path: Path,
+        ToolGlobals: CDFToolConfig,
+        drop: bool = False,
+        clean: bool = False,
+        dry_run: bool = False,
+        drop_data: bool = False,
+        verbose: bool = False,
+    ) -> DeployResult | None:
+        raise NotImplementedError()

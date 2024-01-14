@@ -17,7 +17,7 @@ import yaml
 from rich import print
 
 from cognite_toolkit import _version
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, ResourceLoader
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, ResourceLoader, Loader
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
 
 # This is the default config located locally in each module.
