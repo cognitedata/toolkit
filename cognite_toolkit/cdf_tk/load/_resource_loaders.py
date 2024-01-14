@@ -110,13 +110,13 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit.cdf_tk.delete import delete_instances
-from cognite_toolkit.cdf_tk.load._base_loaders import Loader
+from cognite_toolkit.cdf_tk.load._base_loaders import ResourceLoader
 from cognite_toolkit.cdf_tk.load._data_classes import LoadableEdges, LoadableNodes, RawTable, RawTableList
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 
 @final
-class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
+class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
     support_drop = False
     support_upsert = True
     api_name = "iam.groups"
@@ -299,9 +299,8 @@ class AuthLoader(Loader[str, GroupWrite, Group, GroupWriteList, GroupList]):
 
 
 @final
-class DataSetsLoader(Loader[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
+class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
     support_drop = False
-    support_upsert = True
     api_name = "data_sets"
     folder_name = "data_sets"
     resource_cls = DataSet
@@ -365,7 +364,7 @@ class DataSetsLoader(Loader[str, DataSetWrite, DataSet, DataSetWriteList, DataSe
 
 
 @final
-class RawLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
+class RawLoader(ResourceLoader[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
     api_name = "raw.rows"
     folder_name = "raw"
     resource_cls = RawTable
@@ -433,7 +432,7 @@ class RawLoader(Loader[RawTable, RawTable, RawTable, RawTableList, RawTableList]
 
 
 @final
-class TimeSeriesLoader(Loader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
+class TimeSeriesLoader(ResourceLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     api_name = "time_series"
     folder_name = "timeseries"
     resource_cls = TimeSeries
@@ -477,7 +476,7 @@ class TimeSeriesLoader(Loader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteL
 
 @final
 class TransformationLoader(
-    Loader[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
+    ResourceLoader[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
 ):
     api_name = "transformations"
     folder_name = "transformations"
@@ -563,7 +562,7 @@ class TransformationLoader(
 
 @final
 class TransformationScheduleLoader(
-    Loader[
+    ResourceLoader[
         str,
         TransformationScheduleWrite,
         TransformationSchedule,
@@ -638,7 +637,9 @@ class TransformationScheduleLoader(
 
 @final
 class ExtractionPipelineLoader(
-    Loader[str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList]
+    ResourceLoader[
+        str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList
+    ]
 ):
     support_drop = True
     api_name = "extraction_pipelines"
@@ -712,7 +713,7 @@ class ExtractionPipelineLoader(
 
 @final
 class ExtractionPipelineConfigLoader(
-    Loader[
+    ResourceLoader[
         str,
         ExtractionPipelineConfigWrite,
         ExtractionPipelineConfig,
@@ -773,7 +774,7 @@ class ExtractionPipelineConfigLoader(
 
 
 @final
-class FileLoader(Loader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
+class FileLoader(ResourceLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]):
     api_name = "files"
     filetypes = frozenset({"yaml", "yml"})
     folder_name = "files"
@@ -872,7 +873,7 @@ class FileLoader(Loader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteL
 
 
 @final
-class SpaceLoader(Loader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
+class SpaceLoader(ResourceLoader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     api_name = "data_modeling.spaces"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(space)$"
@@ -921,7 +922,7 @@ class SpaceLoader(Loader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
         return len(deleted)
 
 
-class ContainerLoader(Loader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
+class ContainerLoader(ResourceLoader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]):
     api_name = "data_modeling.containers"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(container)$"
@@ -961,7 +962,7 @@ class ContainerLoader(Loader[ContainerId, ContainerApply, Container, ContainerAp
         return len(deleted)
 
 
-class ViewLoader(Loader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
+class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     api_name = "data_modeling.views"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(view)$"
@@ -994,7 +995,7 @@ class ViewLoader(Loader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
 
 
 @final
-class DataModelLoader(Loader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
+class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
     api_name = "data_modeling.data_models"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(datamodel)$"
@@ -1026,7 +1027,7 @@ class DataModelLoader(Loader[DataModelId, DataModelApply, DataModel, DataModelAp
 
 
 @final
-class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
+class NodeLoader(ResourceLoader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
@@ -1081,7 +1082,7 @@ class NodeLoader(Loader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
 
 
 @final
-class EdgeLoader(Loader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
+class EdgeLoader(ResourceLoader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(edge)$"

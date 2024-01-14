@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from ._base_loaders import Loader
+from ._base_loaders import ResourceLoader
 from ._data_loaders import DatapointsLoader
 from ._functions import DeployResult, DeployResults, clean_resources, deploy_resources
 from ._resource_loaders import (
@@ -31,8 +31,8 @@ from ._resource_loaders import (
     ViewLoader,
 )
 
-LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
-for _loader in Loader.__subclasses__():
+LOADER_BY_FOLDER_NAME: dict[str, list[type[ResourceLoader]]] = {}
+for _loader in ResourceLoader.__subclasses__():
     if _loader.folder_name not in LOADER_BY_FOLDER_NAME:
         LOADER_BY_FOLDER_NAME[_loader.folder_name] = []
     # MyPy bug: https://github.com/python/mypy/issues/4717

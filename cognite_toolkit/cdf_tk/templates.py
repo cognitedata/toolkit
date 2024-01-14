@@ -17,7 +17,7 @@ import yaml
 from rich import print
 
 from cognite_toolkit import _version
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, ResourceLoader
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
 
 # This is the default config located locally in each module.
@@ -819,7 +819,7 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
             ):
                 exit(1)
         loaders = LOADER_BY_FOLDER_NAME.get(destination.parent.name, [])
-        loader: type[Loader] | None = None
+        loader: type[ResourceLoader] | None = None
         if len(loaders) == 1:
             loader = loaders[0]
         else:

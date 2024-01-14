@@ -29,13 +29,31 @@ T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, Version
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 
 
-class Loader(
-    ABC, Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList]
-):
-    """
-    This is the base class for all loaders. It defines the interface that all loaders must implement.
+class Loader(ABC):
+    """This is the base class for all loaders"""
 
-    A loader is a class that describes how a resource is loaded from a file and uploaded to CDF.
+    filetypes: frozenset[str]
+    dependencies: frozenset[type[ResourceLoader]] = frozenset()
+
+    def __init__(self, client: CogniteClient):
+        self.client = client
+
+    @classmethod
+    @abstractmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
+        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
+
+
+class ResourceLoader(
+    Loader,
+    ABC,
+    Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
+):
+    """This is the base class for all resource loaders.
+
+    A resource loader is a standardized interface for loading resources from YAML files and uploading them to CDF.
+
+    It consists of the four data classes and the CRUD methods that are used to interact with the CDF API.
 
     All resources supported by the cognite_toolkit should implement a loader.
 
@@ -45,14 +63,13 @@ class Loader(
         api_name: The name of the api that is in the cognite_client that is used to interact with the CDF API.
         folder_name: The name of the folder in the build directory where the files are located.
         resource_cls: The class of the resource that is loaded.
-        list_cls: The list version of the resource class.
+        list_cls: The read list format for this resource.
         dependencies: A set of loaders that must be loaded before this loader.
         _display_name: The name of the resource that is used when printing messages. If this is not set the
             api_name is used.
     """
 
     support_drop = True
-    support_upsert = False
     filetypes = frozenset({"yaml", "yml"})
     filename_pattern = ""
     api_name: str
@@ -62,11 +79,11 @@ class Loader(
     list_cls: type[T_WritableCogniteResourceList]
     list_write_cls: type[T_CogniteResourceList]
     identifier_key: str = "externalId"
-    dependencies: frozenset[type[Loader]] = frozenset()
+    dependencies: frozenset[type[ResourceLoader]] = frozenset()
     _display_name: str = ""
 
     def __init__(self, client: CogniteClient, ToolGlobals: CDFToolConfig):
-        self.client = client
+        super().__init__(client)
         self.ToolGlobals = ToolGlobals
         try:
             self.api_class = self._get_api_class(client, self.api_name)
@@ -94,14 +111,11 @@ class Loader(
     @classmethod
     def create_loader(
         cls, ToolGlobals: CDFToolConfig
-    ) -> Loader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList]:
+    ) -> ResourceLoader[
+        T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+    ]:
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
         return cls(client, ToolGlobals)
-
-    @classmethod
-    @abstractmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
-        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
     @classmethod
     @abstractmethod
@@ -193,3 +207,9 @@ class Loader(
     def delete(self, ids: SequenceNotStr[T_ID], drop_data: bool) -> int:
         self.api_class.delete(ids)
         return len(ids)
+
+
+class DataLoader(Loader, ABC):
+    @abstractmethod
+    def upload(self, datafile: Path) -> bool:
+        raise NotImplementedError

@@ -11,7 +11,7 @@ from cognite_toolkit.cdf_tk.load import (
     DatapointsLoader,
     DataSetsLoader,
     FileLoader,
-    Loader,
+    ResourceLoader,
     deploy_resources,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -32,7 +32,7 @@ SNAPSHOTS_DIR = THIS_FOLDER / "load_data_snapshots"
     ],
 )
 def test_loader_class(
-    loader_cls: type[Loader], directory: Path, cognite_client_approval: ApprovalCogniteClient, data_regression
+    loader_cls: type[ResourceLoader], directory: Path, cognite_client_approval: ApprovalCogniteClient, data_regression
 ):
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client

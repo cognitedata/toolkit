@@ -12,7 +12,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from rich import print
 from rich.table import Table
 
-from cognite_toolkit.cdf_tk.load._base_loaders import T_ID, Loader, T_WritableCogniteResourceList
+from cognite_toolkit.cdf_tk.load._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
 from cognite_toolkit.cdf_tk.load._resource_loaders import EdgeLoader, NodeLoader
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 
@@ -78,7 +78,9 @@ class DeployResults(UserList):
 
 
 def clean_resources(
-    loader: Loader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
+    loader: ResourceLoader[
+        T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+    ],
     path: Path,
     ToolGlobals: CDFToolConfig,
     dry_run: bool = False,
@@ -108,7 +110,9 @@ def clean_resources(
 
 
 def deploy_resources(
-    loader: Loader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
+    loader: ResourceLoader[
+        T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+    ],
     path: Path,
     ToolGlobals: CDFToolConfig,
     drop: bool = False,
@@ -225,7 +229,9 @@ def deploy_resources(
     )
 
 
-def _load_batches(loader: Loader, filepaths: list[Path], skip_validation: bool) -> list[T_CogniteResourceList] | None:
+def _load_batches(
+    loader: ResourceLoader, filepaths: list[Path], skip_validation: bool
+) -> list[T_CogniteResourceList] | None:
     batches: list[T_CogniteResourceList] = []
     for filepath in filepaths:
         try:
@@ -244,7 +250,7 @@ def _load_batches(loader: Loader, filepaths: list[Path], skip_validation: bool) 
 
 
 def _delete_resources(
-    loader: Loader, batches: list[T_CogniteResourceList], drop_data: bool, dry_run: bool, verbose: bool
+    loader: ResourceLoader, batches: list[T_CogniteResourceList], drop_data: bool, dry_run: bool, verbose: bool
 ) -> int:
     nr_of_deleted = 0
     for batch in batches:
