@@ -70,10 +70,7 @@ class TestAuthLoader:
     def test_load_id_scoped_dataset_acl(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
 
-        mock_read_yaml_file(
-            {
-                "group_file.yaml": yaml.safe_load(
-                    """
+        file_content = """
 name: 'some_name'
 sourceId: '123'
 capabilities:
@@ -83,11 +80,9 @@ capabilities:
         - OWNER
       scope:
         idScope: { ids: ["site:001:b60:ds"] }
-            """
-                )
-            },
-            monkeypatch,
-        )
+"""
+
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(file_content)}, monkeypatch)
 
         loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
 
