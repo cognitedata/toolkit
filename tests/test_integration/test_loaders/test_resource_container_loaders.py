@@ -1,8 +1,20 @@
 import pandas as pd
+import pytest
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import TimeSeriesWrite, TimeSeriesWriteList
 
-from cognite_toolkit.cdf_tk.load import TimeSeriesLoader
+from cognite_toolkit.cdf_tk.load import ContainerLoader, TimeSeriesLoader
+
+
+@pytest.fixture(scope="session")
+def integration_space(cognite_client: CogniteClient) -> dm.Space:
+    space = dm.SpaceApply(
+        space="integration_test_cdf_tk",
+        name="CDF Toolkit Test Space",
+        description="Space used for running integration test",
+    )
+    return cognite_client.data_modeling.spaces.apply(space)
 
 
 class TestTimeSeriesLoader:
@@ -33,3 +45,46 @@ class TestTimeSeriesLoader:
             assert not loader.retrieve(ts_ids)
         finally:
             cognite_client.time_series.delete(external_id=timeseries.external_id, ignore_unknown_ids=True)
+
+
+@pytest.fixture(scope="function")
+def integration_container(cognite_client: CogniteClient, integration_space: dm.Space) -> dm.Container:
+    container = dm.ContainerApply(
+        space=integration_space.space,
+        external_id="test_create_populate_count_drop_data",
+        name="Test Container",
+        description="Container used for running integration test",
+        used_for="node",
+        properties={"name": dm.ContainerProperty(dm.Text())},
+    )
+    return cognite_client.data_modeling.containers.apply(container)
+
+
+class TestContainerLoader:
+    def test_populate_count_drop_data(self, cognite_client: CogniteClient, integration_container: dm.Container) -> None:
+        node = dm.NodeApply(
+            space=integration_container.space,
+            external_id="test_create_populate_count_drop_data",
+            sources=[dm.NodeOrEdgeData(source=integration_container.as_id(), properties={"name": "Anders"})],
+        )
+        container_id = [integration_container.as_id()]
+
+        loader = ContainerLoader(client=cognite_client)
+
+        try:
+            assert loader.count(container_id) == 0
+
+            cognite_client.data_modeling.instances.apply(nodes=[node])
+
+            assert loader.count(container_id) == 1
+
+            loader.drop_data(container_id)
+            assert loader.count(container_id) == 0
+
+            write_container = integration_container.as_write()
+            write_container.description = "Updated description"
+            updated = loader.update(dm.ContainerApplyList([write_container]))
+            assert len(updated) == 1
+            assert updated[0].description == write_container.description
+        finally:
+            loader.drop_data(container_id)
