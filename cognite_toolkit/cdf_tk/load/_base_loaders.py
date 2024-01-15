@@ -37,7 +37,19 @@ T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=W
 
 
 class Loader(ABC):
-    """This is the base class for all loaders"""
+    """This is the base class for all loaders
+
+    Args:
+        client (CogniteClient): The client to use for interacting with the CDF API.
+
+    Class attributes:
+        filetypes: The filetypes that are supported by this loader. This should be set in all subclasses.
+        folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
+        filename_pattern: A regex pattern that is used to filter the files that are supported by this loader. This is used
+            when two loaders have the same folder name to differentiate between them. If not set, all files are supported.
+        dependencies: A set of loaders that must be loaded before this loader.
+        exclude_filetypes: A set of filetypes that should be excluded from the supported filetypes.
+    """
 
     filetypes: frozenset[str]
     folder_name: str
@@ -118,21 +130,25 @@ class ResourceLoader(
 ):
     """This is the base class for all resource loaders.
 
-    A resource loader is a standardized interface for loading resources from YAML files and uploading them to CDF.
-
-    It consists of the four data classes and the CRUD methods that are used to interact with the CDF API.
+    A resource loader consists of the following
+        - A CRUD (Create, Retrieve, Update, Delete) interface for interacting with the CDF API.
+        - A read and write data class with list for the resource.
+        - Must use the file-format YAML to store the local version of the resource.
 
     All resources supported by the cognite_toolkit should implement a loader.
 
     Class attributes:
-        support_drop: Whether the resource supports the drop flag.
-        filetypes: The filetypes that are supported by this loader. If empty, all files are supported.
         api_name: The name of the api that is in the cognite_client that is used to interact with the CDF API.
-        folder_name: The name of the folder in the build directory where the files are located.
-        resource_cls: The class of the resource that is loaded.
+        resource_write_cls: The write data class for the resource.
+        resource_cls: The read data class for the resource.
         list_cls: The read list format for this resource.
+        list_write_cls: The write list format for this resource.
+        support_drop: Whether the resource supports the drop flag.
+        filetypes: The filetypes that are supported by this loader. This should not be set in the subclass, it
+            should always be yaml and yml.
+        identifier_key: The key that is used to identify the resource. This should be set in the subclass.
         dependencies: A set of loaders that must be loaded before this loader.
-        _display_name: The name of the resource that is used when printing messages. If this is not set the
+        _display_name: The name of the resource that is used when printing messages. If this is not set, the
             api_name is used.
     """
 
@@ -443,6 +459,17 @@ class ResourceContainerLoader(
     ResourceLoader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
+    """This is the base class for all loaders resource containers.
+
+    A resource container is a resource that containes data. For example, Timeseries contains datapoints, and another
+    example is spaces and containers in data modeling that contains instances.
+
+    In addition to the methods that are required for a resource loader, a resource container loader must implement
+    the following methods:
+        - count: Counts the number of items in the resource container.
+        - drop_data: Deletes the data in the resource container.
+    """
+
     @abstractmethod
     def count(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
@@ -453,6 +480,17 @@ class ResourceContainerLoader(
 
 
 class DataLoader(Loader, ABC):
+    """This is the base class for all data loaders.
+
+    A data loader is a loader that uploads data to CDF. It will typically depend on a
+    resource container that stores the data. For example, the datapoints loader depends
+    on the timeseries loader.
+
+    It has only one required method:
+        - upload: Uploads the data to CDF.
+
+    """
+
     @abstractmethod
     def upload(self, datafile: Path, dry_run: bool) -> tuple[str, int]:
         raise NotImplementedError
