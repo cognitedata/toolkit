@@ -461,7 +461,7 @@ class ResourceContainerLoader(
 ):
     """This is the base class for all loaders resource containers.
 
-    A resource container is a resource that containes data. For example, Timeseries contains datapoints, and another
+    A resource container is a resource that contains data. For example, Timeseries contains datapoints, and another
     example is spaces and containers in data modeling that contains instances.
 
     In addition to the methods that are required for a resource loader, a resource container loader must implement
