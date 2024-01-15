@@ -220,10 +220,8 @@ class DeployResults(UserList):
         return any(isinstance(entry, UploadDeployResult) for entry in self.data)
 
     def counts_table(self) -> Table:
-        table = Table(title=f"Summary of {self.action.title()} Command Resources:")
-        prefix = ""
-        if self.dry_run:
-            prefix = "Would have "
+        table = Table(title=f"Summary of Resources {self.action.title()} operation:")
+        prefix = "Would have " if self.dry_run else ""
         table.add_column("Resource", justify="right")
         table.add_column(f"{prefix}Created", justify="right", style="green")
         table.add_column(f"{prefix}Deleted", justify="right", style="red")
@@ -245,10 +243,8 @@ class DeployResults(UserList):
         return table
 
     def uploads_table(self) -> Table:
-        table = Table(title=f"Summary of {self.action.title()} Command Data:")
-        prefix = ""
-        if self.dry_run:
-            prefix = "Would have "
+        table = Table(title=f"Summary of Data {self.action.title()} operation:")
+        prefix = "Would have " if self.dry_run else ""
         table.add_column("Resource", justify="right")
         table.add_column(f"{prefix}Uploaded", justify="right", style="green")
         table.add_column("Datapoints", justify="right", style="cyan")
