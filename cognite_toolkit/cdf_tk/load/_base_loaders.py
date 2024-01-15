@@ -390,7 +390,11 @@ class ResourceLoader(
             if resource is None:
                 print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
                 continue
-            batches.append(resource if isinstance(resource, self.list_write_cls) else self.list_write_cls([resource]))
+            batch = resource if isinstance(resource, self.list_write_cls) else self.list_write_cls([resource])
+            if not batch:
+                print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
+                continue
+            batches.append(batch)
         return batches
 
     def _delete_resources(

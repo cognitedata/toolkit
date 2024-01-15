@@ -185,30 +185,23 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
-                for scope in ["datasetScope", "idScope"]:
+                do_validation = not skip_validation and self.target_scopes not in [
+                    "all_skipped_validation",
+                    "all_scoped_skipped_validation",
+                ]
+
+                for scope, verify_method in [
+                    ("datasetScope", ToolGlobals.verify_dataset),
+                    ("idScope", ToolGlobals.verify_dataset),
+                    ("extractionPipelineScope", ToolGlobals.verify_extraction_pipeline),
+                ]:
                     if len(ids := values.get("scope", {}).get(scope, {}).get("ids", [])) > 0:
-                        if not skip_validation and self.target_scopes not in [
-                            "all_skipped_validation",
-                            "all_scoped_skipped_validation",
-                        ]:
+                        if do_validation:
                             values["scope"][scope]["ids"] = [
-                                ToolGlobals.verify_dataset(ext_id) if isinstance(ext_id, str) else ext_id
-                                for ext_id in ids
+                                verify_method(ext_id) if isinstance(ext_id, str) else ext_id for ext_id in ids
                             ]
                         else:
                             values["scope"][scope]["ids"] = [-1] * len(ids)
-
-                if len(values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])) > 0:
-                    if not skip_validation and self.target_scopes not in [
-                        "all_skipped_validation",
-                        "all_scoped_skipped_validation",
-                    ]:
-                        values["scope"]["extractionPipelineScope"]["ids"] = [
-                            ToolGlobals.verify_extraction_pipeline(ext_id)
-                            for ext_id in values.get("scope", {}).get("extractionPipelineScope", {}).get("ids", [])
-                        ]
-                    else:
-                        values["scope"]["extractionPipelineScope"]["ids"] = [-1]
         return GroupWrite.load(raw)
 
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
@@ -330,6 +323,10 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
             if data_set.get("metadata"):
                 for key, value in data_set["metadata"].items():
                     data_set["metadata"][key] = json.dumps(value)
+            if data_set.get("writeProtected") is None:
+                # Setting missing default value, bug in SDK.
+                data_set["writeProtected"] = False
+
         return DataSetWriteList.load(data_sets)
 
     def create(self, items: Sequence[DataSetWrite]) -> DataSetList:
