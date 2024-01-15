@@ -35,7 +35,7 @@ class DatapointsLoader(DataLoader):
             scope,
         )
 
-    def upload(self, datafile: Path, dry_run: bool) -> str:
+    def upload(self, datafile: Path, dry_run: bool) -> tuple[str, int]:
         if datafile.suffix == ".csv":
             # The replacement is used to ensure that we read exactly the same file on Windows and Linux
             file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
@@ -46,10 +46,14 @@ class DatapointsLoader(DataLoader):
         else:
             raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
         if dry_run:
-            return f"Would insert {len(data)}x{len(data.columns)} datapoints from {datafile.name}"
+            return f"Would insert {len(data)}x{len(data.columns)} datapoints from {datafile.name}", len(data) * len(
+                data.columns
+            )
         else:
             self.client.time_series.data.insert_dataframe(data)
-            return f"Inserted {len(data)}x{len(data.columns)} datapoints from {datafile.name}"
+            return f"Inserted {len(data)}x{len(data.columns)} datapoints from {datafile.name}", len(data) * len(
+                data.columns
+            )
 
 
 @final
@@ -69,12 +73,12 @@ class FileLoader(DataLoader):
 
         return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)
 
-    def upload(self, datafile: Path, dry_run: bool) -> str:
+    def upload(self, datafile: Path, dry_run: bool) -> tuple[str, int]:
         if dry_run:
-            return f"Would upload file {datafile.name}"
+            return f"Would upload file {datafile.name}", 0
         else:
             self.client.files.upload(path=str(datafile), name=datafile.name, overwrite=False)
-            return f"Uploaded file {datafile.name}"
+            return f"Uploaded file {datafile.name}", 0
 
 
 @final
@@ -87,7 +91,7 @@ class RawFileLoader(DataLoader):
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
 
-    def upload(self, datafile: Path, dry_run: bool) -> str:
+    def upload(self, datafile: Path, dry_run: bool) -> tuple[str, int]:
         pattern = re.compile(rf"(.*){datafile.stem}\.(yml|yaml)$")
         metadata_file = next((filepath for filepath in datafile.parent.glob("*") if pattern.match(filepath.name)), None)
         if metadata_file is not None:
@@ -106,11 +110,13 @@ class RawFileLoader(DataLoader):
             raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
 
         if dry_run:
-            return f"Would insert {len(data)}x{len(data.columns)} cells from {datafile.name}"
+            return f"Would insert {len(data)}x{len(data.columns)} cells from {datafile.name}", len(data) * len(
+                data.columns
+            )
 
         if metadata.table_name is None:
             raise ValueError(f"Missing table name for {datafile.name}")
         self.client.raw.rows.insert_dataframe(
             db_name=metadata.db_name, table_name=metadata.table_name, dataframe=data, ensure_parent=False
         )
-        return f"Inserted {len(data)}x{len(data.columns)} cells from {datafile.name}"
+        return f"Inserted {len(data)}x{len(data.columns)} cells from {datafile.name}", len(data) * len(data.columns)

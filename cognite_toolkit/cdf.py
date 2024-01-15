@@ -346,24 +346,26 @@ def deploy(
             directory,
             **arguments,
         )
-        results.append(result)
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth (groups) with ALL scope as expected.")
             exit(1)
+        results.append(result)
     resolved_list = list(TopologicalSorter(selected_loaders).static_order())
     if len(resolved_list) > len(selected_loaders):
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
     for LoaderCls in resolved_list:
-        result = LoaderCls.create_loader(ToolGlobals).deploy_resources(
+        result = LoaderCls.create_loader(ToolGlobals).deploy_resources(  # type: ignore[assignment]
             build_path / LoaderCls.folder_name,
             **arguments,
         )
-        results.append(result)
         if ToolGlobals.failed:
-            if results:
-                print(results.create_rich_table())
+            if results and results.has_counts:
+                print(results.counts_table())
+            if results and results.has_uploads:
+                print(results.uploads_table())
             print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
             exit(1)
+        results.append(result)
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we create the Groups again, but this time we do not filter out any capabilities
@@ -375,7 +377,10 @@ def deploy(
             **arguments,
         )
         results.append(result)
-    print(results.create_rich_table())
+    if results.has_counts:
+        print(results.counts_table())
+    if results.has_uploads:
+        print(results.uploads_table())
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to deploy auth (groups) scoped to resources as expected.")
         exit(1)
@@ -477,8 +482,10 @@ def clean(
         )
         results.append(result)
         if ToolGlobals.failed:
-            if results:
-                print(results.create_rich_table())
+            if results and results.has_counts:
+                print(results.counts_table())
+            if results and results.has_uploads:
+                print(results.uploads_table())
             print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
             exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
@@ -489,7 +496,10 @@ def clean(
             verbose=ctx.obj.verbose,
         )
         results.append(result)
-    print(results.create_rich_table())
+    if results.has_counts:
+        print(results.counts_table())
+    if results.has_uploads:
+        print(results.uploads_table())
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to clean auth as expected.")
         exit(1)

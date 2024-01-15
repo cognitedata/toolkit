@@ -24,7 +24,13 @@ from rich import print
 
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
-from .data_classes import DeployResult, RawDatabaseTable
+from .data_classes import (
+    DatapointDeployResult,
+    DeployResult,
+    RawDatabaseTable,
+    ResourceDeployResult,
+    UploadDeployResult,
+)
 
 T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawDatabaseTable])
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
@@ -225,7 +231,7 @@ class ResourceLoader(
         dry_run: bool = False,
         drop_data: bool = False,
         verbose: bool = False,
-    ) -> DeployResult | None:
+    ) -> ResourceDeployResult | None:
         filepaths = self.find_files(path)
 
         batches = self._load_batches(filepaths, ToolGlobals, skip_validation=dry_run)
@@ -236,7 +242,7 @@ class ResourceLoader(
         nr_of_batches = len(batches)
         nr_of_items = sum(len(batch) for batch in batches)
         if nr_of_items == 0:
-            return DeployResult(name=self.display_name)
+            return ResourceDeployResult(name=self.display_name)
 
         action_word = "Loading" if dry_run else "Uploading"
         print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
@@ -287,7 +293,7 @@ class ResourceLoader(
             print(
                 f"  Created {nr_of_created}, Deleted {nr_of_deleted}, Changed {nr_of_changed}, Unchanged {nr_of_unchanged}, Total {nr_of_items}."
             )
-        return DeployResult(
+        return ResourceDeployResult(
             name=self.display_name,
             created=nr_of_created,
             deleted=nr_of_deleted,
@@ -330,7 +336,7 @@ class ResourceLoader(
         dry_run: bool = False,
         drop_data: bool = False,
         verbose: bool = False,
-    ) -> DeployResult | None:
+    ) -> ResourceDeployResult | None:
         filepaths = self.find_files(path)
 
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
@@ -342,7 +348,7 @@ class ResourceLoader(
         nr_of_batches = len(batches)
         nr_of_items = sum(len(batch) for batch in batches)
         if nr_of_items == 0:
-            return DeployResult(name=self.display_name)
+            return ResourceDeployResult(name=self.display_name)
 
         action_word = "Loading" if dry_run else "Cleaning"
         print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
@@ -350,7 +356,7 @@ class ResourceLoader(
         # Deleting resources.
         nr_of_deleted = self._delete_resources(batches, drop_data, dry_run, verbose)
 
-        return DeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
+        return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
 
     def _load_batches(
         self, filepaths: list[Path], ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -448,7 +454,7 @@ class ResourceContainerLoader(
 
 class DataLoader(Loader, ABC):
     @abstractmethod
-    def upload(self, datafile: Path, dry_run: bool) -> str:
+    def upload(self, datafile: Path, dry_run: bool) -> tuple[str, int]:
         raise NotImplementedError
 
     def deploy_resources(
@@ -460,19 +466,22 @@ class DataLoader(Loader, ABC):
         dry_run: bool = False,
         drop_data: bool = False,
         verbose: bool = False,
-    ) -> DeployResult | None:
+    ) -> UploadDeployResult | None:
         filepaths = self.find_files(path)
 
         print(f"[bold]Uploading {len(filepaths)} data {self.display_name} files to CDF...[/]")
-        results = []
+        datapoints = 0
         for filepath in filepaths:
             try:
-                result = self.upload(filepath, dry_run)
+                message, file_datapoints = self.upload(filepath, dry_run)
             except Exception as e:
                 print(f"  [bold red]Error:[/] Failed to upload {filepath.name}. Error {e}.")
                 ToolGlobals.failed = True
                 return None
             if verbose:
-                print(result)
-            results.append(result)
-        return DeployResult(self.display_name, messages=results)
+                print(message)
+            datapoints += file_datapoints
+        if datapoints != 0:
+            return DatapointDeployResult(self.display_name, cells=datapoints, uploaded=len(filepaths))
+        else:
+            return UploadDeployResult(self.display_name, uploaded=len(filepaths))

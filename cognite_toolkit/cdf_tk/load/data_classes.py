@@ -1,8 +1,11 @@
+"""These are helper data classes for the load module."""
+
 from __future__ import annotations
 
+from abc import ABC
 from collections import UserList
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import total_ordering
 from typing import Any, Literal
 
@@ -162,19 +165,8 @@ class LoadableEdges(EdgeApplyList):
 
 @total_ordering
 @dataclass
-class DeployResult:
+class DeployResult(ABC):
     name: str
-    created: int = 0
-    deleted: int = 0
-    changed: int = 0
-    unchanged: int = 0
-    skipped: int = 0
-    total: int = 0
-    messages: list[str] = field(default_factory=list)
-
-    @property
-    def calculated_total(self) -> int:
-        return self.created + self.deleted + self.changed + self.unchanged + self.skipped
 
     def __lt__(self, other: object) -> bool:
         if isinstance(other, DeployResult):
@@ -189,14 +181,46 @@ class DeployResult:
             return NotImplemented
 
 
+@dataclass
+class ResourceDeployResult(DeployResult):
+    created: int = 0
+    deleted: int = 0
+    changed: int = 0
+    unchanged: int = 0
+    skipped: int = 0
+    total: int = 0
+
+    @property
+    def calculated_total(self) -> int:
+        return self.created + self.deleted + self.changed + self.unchanged + self.skipped
+
+
+@dataclass
+class UploadDeployResult(DeployResult):
+    uploaded: int = 0
+
+
+@dataclass
+class DatapointDeployResult(UploadDeployResult):
+    cells: int = 0
+
+
 class DeployResults(UserList):
     def __init__(self, collection: Iterable[DeployResult], action: Literal["deploy", "clean"], dry_run: bool = False):
         super().__init__(collection)
         self.action = action
         self.dry_run = dry_run
 
-    def create_rich_table(self) -> Table:
-        table = Table(title=f"Summary of {self.action} command:")
+    @property
+    def has_counts(self) -> bool:
+        return any(isinstance(entry, ResourceDeployResult) for entry in self.data)
+
+    @property
+    def has_uploads(self) -> bool:
+        return any(isinstance(entry, UploadDeployResult) for entry in self.data)
+
+    def counts_table(self) -> Table:
+        table = Table(title=f"Summary of {self.action.title()} Command Resources:")
         prefix = ""
         if self.dry_run:
             prefix = "Would have "
@@ -205,19 +229,38 @@ class DeployResults(UserList):
         table.add_column(f"{prefix}Deleted", justify="right", style="red")
         table.add_column(f"{prefix}Changed", justify="right", style="magenta")
         table.add_column("Unchanged", justify="right", style="cyan")
-        table.add_column(f"{prefix}Skipped", justify="right", style="yellow")
         table.add_column("Total", justify="right")
-        for item in sorted(entry for entry in self.data if entry is not None):
-            if item.messages:
-                continue
+        for item in sorted(
+            entry for entry in self.data if entry is not None and isinstance(entry, ResourceDeployResult)
+        ):
             table.add_row(
                 item.name,
                 str(item.created),
                 str(item.deleted),
                 str(item.changed),
                 str(item.unchanged),
-                str(item.skipped),
                 str(item.total),
+            )
+
+        return table
+
+    def uploads_table(self) -> Table:
+        table = Table(title=f"Summary of {self.action.title()} Command Data:")
+        prefix = ""
+        if self.dry_run:
+            prefix = "Would have "
+        table.add_column("Resource", justify="right")
+        table.add_column(f"{prefix}Uploaded", justify="right", style="green")
+        table.add_column("Datapoints", justify="right", style="cyan")
+        for item in sorted(entry for entry in self.data if entry is not None and isinstance(entry, UploadDeployResult)):
+            if isinstance(item, DatapointDeployResult):
+                datapoints = str(item.cells)
+            else:
+                datapoints = "-"
+            table.add_row(
+                item.name,
+                str(item.uploaded),
+                datapoints,
             )
 
         return table
