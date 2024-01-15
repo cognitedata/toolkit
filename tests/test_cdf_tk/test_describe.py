@@ -1,3 +1,4 @@
+import platform
 import re
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -83,7 +84,12 @@ def test_describe_datamodel(
 
     describe_datamodel(cdf_tool, "test", "test")
     out, _ = capfd.readouterr()
-    file_regression.check(out, encoding="utf-8", fullpath=SNAPSHOTS_DIR / "describe_datamodel.txt")
+    if platform.system() == "Windows":
+        # Windows console use different characters for tables in rich.
+        fullpath = SNAPSHOTS_DIR / "describe_datamodel_windows.txt"
+    else:
+        fullpath = SNAPSHOTS_DIR / "describe_datamodel.txt"
+    file_regression.check(out, encoding="utf-8", fullpath=fullpath)
 
     dump = cognite_client_approval.dump()
     assert dump == {}
