@@ -277,7 +277,7 @@ class ResourceLoader(
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
         for batch_no, batch in enumerate(batches, 1):
-            to_create, to_update, unchanged = self._to_create_changed_unchanged_triple(batch)
+            to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(batch)
 
             nr_of_unchanged += len(unchanged)
             if dry_run:
@@ -346,9 +346,10 @@ class ResourceLoader(
 
         return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
 
-    def _to_create_changed_unchanged_triple(
+    def to_create_changed_unchanged_triple(
         self, batch: T_CogniteResourceList
     ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList]:
+        """Returns a triple of lists of resources that should be created, updated, and are unchanged."""
         batch_ids = self.get_ids(batch)
         to_create, to_update, unchanged = (
             self.create_empty_of(batch),

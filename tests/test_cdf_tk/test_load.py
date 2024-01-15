@@ -61,7 +61,7 @@ def test_upsert_data_set(cognite_client_approval: ApprovalCogniteClient):
     # Simulate that the data set is already in CDF
     cognite_client_approval.append(DataSet, first)
 
-    to_create, to_change, unchanged = loader._to_create_changed_unchanged_triple(loaded)
+    to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(loaded)
 
     assert len(to_create) == 1
     assert len(to_change) == 0
