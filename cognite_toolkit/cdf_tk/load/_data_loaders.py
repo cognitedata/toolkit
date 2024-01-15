@@ -92,7 +92,7 @@ class RawFileLoader(DataLoader):
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
 
     def upload(self, datafile: Path, dry_run: bool) -> tuple[str, int]:
-        pattern = re.compile(rf"(.*){datafile.stem}\.(yml|yaml)$")
+        pattern = re.compile(rf"^(\d+\.)?{datafile.stem}\.(yml|yaml)$")
         metadata_file = next((filepath for filepath in datafile.parent.glob("*") if pattern.match(filepath.name)), None)
         if metadata_file is not None:
             metadata = RawDatabaseTable.load(metadata_file.read_text())
