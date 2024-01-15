@@ -1,4 +1,17 @@
-"""These are helper data classes for the load module."""
+"""These are helper data classes for the load module.
+
+There are three types of classes in this module made with different motivations:
+
+* RawDatabaseTable and RawTableList are CogniteResources following the pattern
+  from the cognite-sdk for RAW databases and tables. They are missing from the cognite-sdk,
+  and are needed to load YAML.
+* LoadableNodes and LoadableEdges are extensions of NodeApplyList and EdgeApplyList
+  to also contain the arguments of the 'client.data_modeling.instances.apply()' method. This enables
+  the user to specify these arguments in the YAML file.
+* DeployResult and DeployResults are storing the output of the .deploy_resources and .clean_resources,
+  which then shows a summary of the operation in the terminal. The DeployResults class is a UserList
+  of DeployResult objects, and is used to print the summary in a table.
+"""
 
 from __future__ import annotations
 
