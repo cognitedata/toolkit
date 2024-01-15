@@ -237,7 +237,6 @@ class ResourceLoader(
         self.api_class.delete(ids)
         return len(ids)
 
-    # Abstract methods that must be implemented
     def deploy_resources(
         self,
         path: Path,
@@ -318,33 +317,6 @@ class ResourceLoader(
             total=nr_of_items,
         )
 
-    def _to_create_changed_unchanged_triple(
-        self, batch: T_CogniteResourceList
-    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList]:
-        batch_ids = self.get_ids(batch)
-        to_create, to_update, unchanged = (
-            self.create_empty_of(batch),
-            self.create_empty_of(batch),
-            self.create_empty_of(batch),
-        )
-        try:
-            cdf_resources = self.retrieve(batch_ids)
-        except Exception:
-            print(f"  [bold yellow]WARNING:[/] Failed to retrieve {len(batch_ids)} of {self.display_name}.")
-            cdf_resource_by_id = {}
-        else:
-            cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources.as_write()}
-
-        for item in batch:
-            cdf_resource = cdf_resource_by_id.get(self.get_id(item))
-            if cdf_resource and item == cdf_resource:
-                unchanged.append(item)
-            elif cdf_resource:
-                to_update.append(item)
-            else:
-                to_create.append(item)
-        return to_create, to_update, unchanged
-
     def clean_resources(
         self,
         path: Path,
@@ -373,6 +345,33 @@ class ResourceLoader(
         nr_of_deleted = self._delete_resources(batches, drop_data, dry_run, verbose)
 
         return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
+
+    def _to_create_changed_unchanged_triple(
+        self, batch: T_CogniteResourceList
+    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList]:
+        batch_ids = self.get_ids(batch)
+        to_create, to_update, unchanged = (
+            self.create_empty_of(batch),
+            self.create_empty_of(batch),
+            self.create_empty_of(batch),
+        )
+        try:
+            cdf_resources = self.retrieve(batch_ids)
+        except Exception:
+            print(f"  [bold yellow]WARNING:[/] Failed to retrieve {len(batch_ids)} of {self.display_name}.")
+            cdf_resource_by_id = {}
+        else:
+            cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources.as_write()}
+
+        for item in batch:
+            cdf_resource = cdf_resource_by_id.get(self.get_id(item))
+            if cdf_resource and item == cdf_resource:
+                unchanged.append(item)
+            elif cdf_resource:
+                to_update.append(item)
+            else:
+                to_create.append(item)
+        return to_create, to_update, unchanged
 
     def _load_batches(
         self, filepaths: list[Path], ToolGlobals: CDFToolConfig, skip_validation: bool
