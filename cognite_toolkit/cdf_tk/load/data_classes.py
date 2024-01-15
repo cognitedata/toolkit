@@ -254,12 +254,12 @@ class DeployResults(UserList):
         table.add_column("Datapoints", justify="right", style="cyan")
         for item in sorted(entry for entry in self.data if entry is not None and isinstance(entry, UploadDeployResult)):
             if isinstance(item, DatapointDeployResult):
-                datapoints = str(item.cells)
+                datapoints = f"{item.cells:,}"
             else:
                 datapoints = "-"
             table.add_row(
                 item.name,
-                str(item.uploaded),
+                f"{item.uploaded} files",
                 datapoints,
             )
 
