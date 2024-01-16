@@ -649,7 +649,7 @@ _API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_name="create")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_value"),
                 Method(api_class_method="retrieve_multiple", mock_name="return_values"),
             ],
         },

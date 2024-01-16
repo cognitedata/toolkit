@@ -107,25 +107,30 @@ description: PH 1stStgSuctCool Gas Out
 """
 
     def test_load_skip_validation_no_preexisting_dataset(
-        self, cognite_client_approval: ApprovalCogniteClient, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TimeSeriesLoader(cognite_client_approval.mock_client)
         mock_read_yaml_file({"timeseries.yaml": yaml.safe_load(self.timeseries_yaml)}, monkeypatch)
-
-        loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_config_real, skip_validation=True)
 
         assert len(loaded) == 1
         assert loaded[0].data_set_id == -1
 
     def test_load_skip_validation_with_preexisting_dataset(
-        self, cognite_client_approval: ApprovalCogniteClient, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
     ) -> None:
         cognite_client_approval.append(DataSet, DataSet(id=12345, external_id="ds_timeseries_oid"))
         loader = TimeSeriesLoader(cognite_client_approval.mock_client)
 
         mock_read_yaml_file({"timeseries.yaml": yaml.safe_load(self.timeseries_yaml)}, monkeypatch)
 
-        loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_config_real, skip_validation=True)
 
         assert len(loaded) == 1
         assert loaded[0].data_set_id == 12345

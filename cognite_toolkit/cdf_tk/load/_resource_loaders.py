@@ -201,13 +201,10 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                     ("extractionPipelineScope", ToolGlobals.verify_extraction_pipeline),
                 ]:
                     if ids := scope.get(scope_name, {}).get("ids", []):
-                        if skip_validation:
-                            scoped_ids = [-1] * len(ids)
-                        else:
-                            scoped_ids = [
-                                verify_method(ext_id) if isinstance(ext_id, str) else ext_id for ext_id in ids
-                            ]
-                        values["scope"][scope_name]["ids"] = scoped_ids
+                        values["scope"][scope_name]["ids"] = [
+                            verify_method(ext_id, skip_validation) if isinstance(ext_id, str) else ext_id
+                            for ext_id in ids
+                        ]
 
         if not is_resource_scoped and self.target_scopes == "resource_scoped_only":
             # If a group has no resource scoped capabilities, we skip it.
@@ -509,7 +506,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
             if resource.get("securityCategories") is None:
                 # Bug in SDK, the read version sets security categories to an empty list.
                 resource["securityCategories"] = []
@@ -591,7 +588,7 @@ class TransformationLoader(
         destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or None
         if raw.get("dataSetExternalId") is not None:
             ds_external_id = raw.pop("dataSetExternalId")
-            raw["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+            raw["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
         if raw.get("conflictMode") is None:
             # Todo; Bug SDK missing default value
             raw["conflictMode"] = "upsert"
@@ -719,7 +716,7 @@ class ExtractionPipelineLoader(
 
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
-            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
         if resource.get("createdBy") is None:
             # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
             resource["createdBy"] = "unknown"
@@ -856,7 +853,7 @@ class FileMetadataLoader(
             )
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
             files_metadata = FileMetadataWriteList([FileMetadataWrite.load(resource)])
         except Exception:
             files_metadata = FileMetadataWriteList.load(
@@ -896,7 +893,7 @@ class FileMetadataLoader(
                 raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
             if isinstance(meta.data_set_id, str):
                 # Replace external_id with internal id
-                meta.data_set_id = ToolGlobals.verify_dataset(meta.data_set_id) if not skip_validation else -1
+                meta.data_set_id = ToolGlobals.verify_dataset(meta.data_set_id, skip_validation)
         return files_metadata
 
     def create(self, items: FileMetadataWriteList) -> FileMetadataList:
