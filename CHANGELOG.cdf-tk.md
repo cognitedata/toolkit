@@ -15,6 +15,44 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- In `raw` resources, a RAW database or tables can be specified without data. Example, of a single database
+
+ ```yaml
+dbName: RawDatabase
+```
+
+or a database with table, no need to also specify a `.csv` or `.parquet` file for the table as was necessary before.
+
+```yaml
+dbName: myRawRawDatabase
+tables: myRawTable
+```
+
+### Changed
+
+- Update is implemented for all resources. This means that if a resource already exists, it will be updated instead of
+  deleted and recreated.
+- The `cdf-tk deploy` `--drop-data` is now independent of the `--drop` flag. This means that you can now drop data
+  without dropping the resource itself.
+- The output of the `cdf-tk deploy` command has been improved. Instead of created, deleted, and skipped resources
+  being printed in a table at the end of the command, the resources are now printed as they are created, deleted, changed,
+  and unchanged. In addition, an extra table is printed below with the datapoints that have been uploaded and dropped.
+- The output of the `cdf-tk clean` command has also been changed in the same way as the `cdf-tk deploy` command.
+- The `files` resource has been split into two resources, `FileMetadata` and `Files` to separate the metadata from
+  the data (the file).
+- The default values of resources are set when loading from file if they are missing. This is to ensure the comparison
+  of resources is correct which is used to display the resources that are created, deleted, changed, and unchanged.
+
+### Fixed
+
+- Bug in `auth` resource, this caused  groups with `all` and `resource` scoped capabilities to be written in two steps
+  first with only `all` scoped capabilities and then all capabilities. This is now fixed by deploying groups in
+  a single step.
+
 ## [0.1.0b5] - 2024-01-11
 
 ### Added
