@@ -58,7 +58,8 @@ class BuildEnvironment:
             raise ValueError("build_env must be specified")
         environment = environment_config.get(build_env)
         if environment is None:
-            raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
+            print(f"  [bold red]ERROR:[/] Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
+            exit(1)
         system = SystemVariables.load(environment_config, action)
         try:
             return BuildEnvironment(
