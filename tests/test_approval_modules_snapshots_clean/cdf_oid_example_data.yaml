@@ -1,4 +1,9 @@
 deleted:
+  Database:
+  - db_name: asset_oid_workmate
+  - db_name: files_oid_fileshare
+  - db_name: timeseries_oid_fileshare
+  - db_name: workorder_oid_workmate
   FileMetadata:
   - externalId: fileshare_PH-25578-P-4110006-001.pdf
   - externalId: fileshare_PH-25578-P-4110010-001.pdf

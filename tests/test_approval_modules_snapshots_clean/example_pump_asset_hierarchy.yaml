@@ -1,4 +1,6 @@
 deleted:
+  Database:
+  - db_name: pump_assets
   Table:
   - db_name: pump_assets
     name:
