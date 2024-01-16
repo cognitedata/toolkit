@@ -217,6 +217,7 @@ class ResourceContainerDeployResult(ResourceDeployResult):
 @dataclass
 class UploadDeployResult(DeployResult):
     uploaded: int = 0
+    item_name: str = ""
 
 
 @dataclass
@@ -265,17 +266,20 @@ class DeployResults(UserList):
         table = Table(title=f"Summary of Data {self.action.title()} operation:")
         prefix = "Would have " if self.dry_run else ""
         table.add_column("Resource", justify="right")
+        table.add_column("Item", justify="right")
         table.add_column(f"{prefix}Uploaded", justify="right", style="green")
-        table.add_column("Datapoints", justify="right", style="cyan")
-        for item in sorted(entry for entry in self.data if entry is not None and isinstance(entry, UploadDeployResult)):
-            if isinstance(item, DatapointDeployResult):
-                datapoints = f"{item.cells:,}"
-            else:
-                datapoints = "-"
-            table.add_row(
-                item.name,
-                f"{item.uploaded} files",
-                datapoints,
-            )
+        table.add_column(f"{prefix}Uploaded Data", justify="right", style="cyan")
+        table.add_column(f"{prefix}Dropped Data", justify="right", style="red")
+        for item in sorted(
+            entry for entry in self.data if isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult))
+        ):
+            if isinstance(item, UploadDeployResult):
+                if isinstance(item, DatapointDeployResult):
+                    datapoints = f"{item.cells:,}"
+                else:
+                    datapoints = "-"
+                table.add_row(item.name, item.item_name, f"{item.uploaded} files", datapoints, "-")
+            elif isinstance(item, ResourceContainerDeployResult):
+                table.add_row(item.name, item.item_name, "-", "-", f"{item.dropped_datapoints:,}")
 
         return table

@@ -18,6 +18,7 @@ from .data_classes import RawDatabaseTable
 
 @final
 class DatapointsLoader(DataLoader):
+    item_name = "datapoints"
     folder_name = "timeseries_datapoints"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({TimeSeriesLoader})
@@ -58,6 +59,7 @@ class DatapointsLoader(DataLoader):
 
 @final
 class FileLoader(DataLoader):
+    item_name = "files"
     folder_name = "files"
     filetypes = frozenset()
     exclude_filetypes = frozenset({"yml", "yaml"})
@@ -75,14 +77,15 @@ class FileLoader(DataLoader):
 
     def upload(self, datafile: Path, dry_run: bool) -> tuple[str, int]:
         if dry_run:
-            return f"Would upload file {datafile.name}", 0
+            return f"Would upload file {datafile.name}", 1
         else:
             self.client.files.upload(path=str(datafile), name=datafile.name, overwrite=False)
-            return f"Uploaded file {datafile.name}", 0
+            return f"Uploaded file {datafile.name}", 1
 
 
 @final
 class RawFileLoader(DataLoader):
+    item_name = "cells"
     folder_name = "raw"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({RawDatabaseLoader, RawTableLoader})

@@ -567,7 +567,13 @@ class DataLoader(Loader, ABC):
     It has only one required method:
         - upload: Uploads the data to CDF.
 
+    class attributes:
+        item_name: The name of the item that is stored in the resource container. This should be set in the subclass.
+            It is used to display messages when running operations.
+
     """
+
+    item_name: str
 
     @abstractmethod
     def upload(self, datafile: Path, dry_run: bool) -> tuple[str, int]:
@@ -597,6 +603,8 @@ class DataLoader(Loader, ABC):
                 print(message)
             datapoints += file_datapoints
         if datapoints != 0:
-            return DatapointDeployResult(self.display_name, cells=datapoints, uploaded=len(filepaths))
+            return DatapointDeployResult(
+                self.display_name, cells=datapoints, uploaded=len(filepaths), item_name=self.item_name
+            )
         else:
-            return UploadDeployResult(self.display_name, uploaded=len(filepaths))
+            return UploadDeployResult(self.display_name, uploaded=len(filepaths), item_name=self.item_name)
