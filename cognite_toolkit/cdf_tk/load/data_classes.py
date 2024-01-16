@@ -237,7 +237,7 @@ class DeployResults(UserList):
 
     @property
     def has_uploads(self) -> bool:
-        return any(isinstance(entry, UploadDeployResult) for entry in self.data)
+        return any(isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult)) for entry in self.data)
 
     def counts_table(self) -> Table:
         table = Table(title=f"Summary of Resources {self.action.title()} operation:")

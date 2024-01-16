@@ -570,6 +570,12 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(external_ids=cast(Sequence, ids), ignore_unknown_ids=True)
 
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        existing = self.retrieve(ids).as_external_ids()
+        if existing:
+            self.client.time_series.delete(external_id=existing, ignore_unknown_ids=True)
+        return len(existing)
+
     def count(self, ids: SequenceNotStr[str]) -> int:
         datapoints = cast(
             DatapointsList,
@@ -584,6 +590,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         return sum(sum(data.count or []) for data in datapoints)
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
+        count = self.count(ids)
         existing = self.client.time_series.retrieve_multiple(
             external_ids=cast(Sequence, ids), ignore_unknown_ids=True
         ).as_external_ids()
@@ -591,7 +598,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             self.client.time_series.data.delete_range(
                 external_id=external_id, start=_MIN_TIMESTAMP_MS, end=_MAX_TIMESTAMP_MS + 1
             )
-        return len(ids)
+        return count
 
 
 @final
@@ -666,6 +673,12 @@ class TransformationLoader(
         transformation.query = sql_file.read_text()
 
         return transformation
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        existing = self.retrieve(ids).as_external_ids()
+        if existing:
+            self.client.transformations.delete(external_id=existing, ignore_unknown_ids=True)
+        return len(existing)
 
 
 @final

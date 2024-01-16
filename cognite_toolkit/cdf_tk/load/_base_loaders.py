@@ -463,6 +463,7 @@ class ResourceLoader(
                     print(f"  [bold]INFO:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
             except Exception as e:
                 print(f"  [bold yellow]WARNING:[/] Failed to delete {len(batch_ids)} {self.display_name}. Error {e}.")
+                self.delete(batch_ids)
             else:  # Delete succeeded
                 if verbose:
                     print(f"  Deleted {len(batch_ids)} {self.display_name}.")
