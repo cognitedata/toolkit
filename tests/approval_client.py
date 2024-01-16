@@ -72,6 +72,7 @@ from cognite.client.data_classes.data_modeling import (
     EdgeApplyResultList,
     EdgeId,
     InstancesApplyResult,
+    InstancesDeleteResult,
     Node,
     NodeApply,
     NodeApplyList,
@@ -199,7 +200,7 @@ class ApprovalCogniteClient:
         def delete_instances(
             nodes: NodeId | Sequence[NodeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
             edges: EdgeId | Sequence[EdgeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
-        ) -> list:
+        ) -> InstancesDeleteResult:
             deleted = []
             if isinstance(nodes, NodeId):
                 deleted.append(nodes.dump(camel_case=True, include_instance_type=True))
@@ -226,7 +227,13 @@ class ApprovalCogniteClient:
 
             if deleted:
                 deleted_resources[resource_cls.__name__].extend(deleted)
-            return deleted
+
+            if nodes:
+                return InstancesDeleteResult(nodes=deleted, edges=[])
+            elif edges:
+                return InstancesDeleteResult(nodes=[], edges=deleted)
+            else:
+                return InstancesDeleteResult(nodes=[], edges=[])
 
         def delete_space(spaces: str | Sequence[str]) -> list:
             deleted = []
@@ -238,8 +245,11 @@ class ApprovalCogniteClient:
                 deleted_resources[resource_cls.__name__].extend(deleted)
             return deleted
 
-        def delete_raw(db_name: str, name: str | Sequence[str]) -> list:
-            deleted = [{"db_name": db_name, "name": name if isinstance(name, str) else sorted(name)}]
+        def delete_raw(db_name: str | Sequence[str], name: str | Sequence[str] | None = None) -> list:
+            if name:
+                deleted = [{"db_name": db_name, "name": name if isinstance(name, str) else sorted(name)}]
+            else:
+                deleted = [{"db_name": name} for name in (db_name if isinstance(db_name, Sequence) else [db_name])]
             deleted_resources[resource_cls.__name__].extend(deleted)
             return deleted
 

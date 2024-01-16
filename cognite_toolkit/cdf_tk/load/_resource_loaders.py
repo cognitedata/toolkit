@@ -394,11 +394,11 @@ class RawDatabaseLoader(
     def delete(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
         db_names = [table.db_name for table in ids]
         try:
-            self.client.raw.databases.delete(name=db_names)
+            self.client.raw.databases.delete(db_names)
         except CogniteAPIError as e:
             # Bug in API, missing is returned as failed
             if e.failed and (db_names := [name for name in db_names if name not in e.failed]):
-                self.client.raw.databases.delete(name=db_names)
+                self.client.raw.databases.delete(db_names)
             else:
                 raise e
         return len(db_names)
