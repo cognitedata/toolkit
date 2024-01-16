@@ -276,6 +276,8 @@ class ResourceLoader(
         elif self.support_drop and drop:
             print(f"  --drop is specified, will delete existing {self.display_name} before re-deploying.")
             nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
+        elif not self.support_drop and (drop or drop_data):
+            print(f"  [bold]INFO:[/] Skipping deletion of {self.display_name} as it does not support drop.")
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
         for batch_no, batch in enumerate(batches, 1):
