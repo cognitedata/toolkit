@@ -342,7 +342,7 @@ def deploy(
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
         print("[bold]EVALUATING auth resources (groups) with ALL scope...[/]")
-        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation").deploy_resources(
+        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_only").deploy_resources(
             directory,
             **arguments,
         )

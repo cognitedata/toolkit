@@ -121,7 +121,6 @@ _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 @final
 class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
     support_drop = False
-    support_upsert = True
     api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
@@ -140,12 +139,15 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
             capabilities.IDScopeLowerCase,
         }
     )
+    resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})  # type: ignore[attr-defined]
 
     def __init__(
         self,
         client: CogniteClient,
         target_scopes: Literal[
-            "all", "all_skipped_validation", "all_scoped_skipped_validation", "resource_scoped_only", "all_scoped_only"
+            "all",
+            "all_scoped_only",
+            "resource_scoped_only",
         ] = "all",
     ):
         super().__init__(client)
@@ -153,18 +155,16 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
     @property
     def display_name(self) -> str:
-        if self.target_scopes.startswith("all"):
-            scope = "all"
-        else:
-            scope = "resource scoped"
-        return f"{self.api_name}({scope})"
+        return f"{self.api_name}({self.target_scopes})"
 
     @classmethod
     def create_loader(
         cls,
         ToolGlobals: CDFToolConfig,
         target_scopes: Literal[
-            "all", "all_skipped_validation", "all_scoped_skipped_validation", "resource_scoped_only", "all_scoped_only"
+            "all",
+            "all_scoped_only",
+            "resource_scoped_only",
         ] = "all",
     ) -> AuthLoader:
         client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
@@ -181,66 +181,46 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     def get_id(cls, item: GroupWrite | Group) -> str:
         return item.name
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> GroupWrite:
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> GroupWrite | GroupWriteList:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
+        is_resource_scoped = False
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
-                do_validation = not skip_validation and self.target_scopes not in [
-                    "all_skipped_validation",
-                    "all_scoped_skipped_validation",
-                ]
+                is_resource_scoped = any(scope in values.get("scope") for scope in self.resource_scope_names)
+                if self.target_scopes == "all_scoped_only" and is_resource_scoped:
+                    # If a group has a single capability with a resource scope, we skip it.
+                    return GroupWriteList([])
 
                 for scope, verify_method in [
                     ("datasetScope", ToolGlobals.verify_dataset),
                     ("idScope", ToolGlobals.verify_dataset),
                     ("extractionPipelineScope", ToolGlobals.verify_extraction_pipeline),
                 ]:
-                    if len(ids := values.get("scope", {}).get(scope, {}).get("ids", [])) > 0:
-                        if do_validation:
-                            values["scope"][scope]["ids"] = [
+                    if ids := values.get("scope", {}).get(scope, {}).get("ids", []):
+                        if not skip_validation:
+                            scoped_ids = [-1] * len(ids)
+                        else:
+                            scoped_ids = [
                                 verify_method(ext_id) if isinstance(ext_id, str) else ext_id for ext_id in ids
                             ]
-                        else:
-                            values["scope"][scope]["ids"] = [-1] * len(ids)
+                        values["scope"][scope]["ids"] = scoped_ids
+
+        if not is_resource_scoped and self.target_scopes == "resource_scoped_only":
+            # If a group has no resource scoped capabilities, we skip it.
+            return GroupWriteList([])
+
         return GroupWrite.load(raw)
 
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
-        if self.target_scopes == "all":
-            to_create = items
-        elif self.target_scopes == "all_skipped_validation":
-            raise ValueError("all_skipped_validation is not supported for group creation as scopes would be wrong.")
-        elif self.target_scopes == "resource_scoped_only":
-            to_create = GroupWriteList([])
-            for item in items:
-                item.capabilities = [
-                    capability
-                    for capability in item.capabilities or []
-                    if type(capability.scope) in self.resource_scopes
-                ]
-                if item.capabilities:
-                    to_create.append(item)
-        elif self.target_scopes == "all_scoped_only" or self.target_scopes == "all_scoped_skipped_validation":
-            to_create = GroupWriteList([])
-            for item in items:
-                item.capabilities = [
-                    capability
-                    for capability in item.capabilities or []
-                    if type(capability.scope) not in self.resource_scopes
-                ]
-                if item.capabilities:
-                    to_create.append(item)
-        else:
-            raise ValueError(f"Invalid load value {self.target_scopes}")
-
-        if len(to_create) == 0:
+        if len(items) == 0:
             return GroupList([])
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.iam.groups.list(all=True)
-        # Bug in SDK not setting cognite_client
-        old_groups._cognite_client = self.client
         old_group_by_names = {g.name: g for g in old_groups.as_write()}
         changed = []
-        for item in to_create:
+        for item in items:
             if (old := old_group_by_names.get(item.name)) and old == item:
                 # Ship unchanged groups
                 continue
