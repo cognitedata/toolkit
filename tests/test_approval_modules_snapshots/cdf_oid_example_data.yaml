@@ -732,7 +732,5 @@ TransformationSchedule:
   interval: 7 * * * *
   isPaused: false
 deleted:
-  Transformation:
-  - externalId: tr_asset_oid_workmate_asset_hierarchy_example
   TransformationSchedule:
   - externalId: tr_asset_oid_workmate_asset_hierarchy_example

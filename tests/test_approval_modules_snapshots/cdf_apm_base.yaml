@@ -667,30 +667,3 @@ View:
       description: Brief title or summary of the specified operation.
   space: APM_SourceData
   version: '1'
-deleted:
-  DataModel:
-  - externalId: APM_Config
-    space: APM_Config
-    type: datamodel
-    version: '1'
-  - externalId: APM_SourceData
-    space: APM_SourceData
-    type: datamodel
-    version: '1'
-  View:
-  - externalId: APM_Activity
-    space: APM_SourceData
-    type: view
-    version: '1'
-  - externalId: APM_Config
-    space: APM_Config
-    type: view
-    version: '1'
-  - externalId: APM_Notification
-    space: APM_SourceData
-    type: view
-    version: '1'
-  - externalId: APM_Operation
-    space: APM_SourceData
-    type: view
-    version: '1'
