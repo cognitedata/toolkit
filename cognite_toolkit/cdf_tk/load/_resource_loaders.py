@@ -33,7 +33,6 @@ from cognite.client.data_classes import (
     ExtractionPipelineList,
     FileMetadata,
     FileMetadataList,
-    FileMetadataUpdate,
     FileMetadataWrite,
     FileMetadataWriteList,
     OidcCredentials,
@@ -971,9 +970,11 @@ class FileMetadataLoader(
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
         existing = self.client.files.retrieve_multiple(external_ids=list(ids), ignore_unknown_ids=True)
-        updates = [FileMetadataUpdate(external_id=meta.external_id).source.set(None) for meta in existing]
-        updated = self.client.files.update(updates)
-        return sum(1 for meta in updated if not meta.uploaded)
+        # File and FileMetadata is tightly coupled, so we need to delete the metadata and recreate it
+        # without the source set to delete the file.
+        deleted_files = self.delete(existing.as_external_ids())
+        self.create(existing.as_write())
+        return deleted_files
 
 
 @final
