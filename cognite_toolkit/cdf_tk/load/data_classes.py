@@ -209,6 +209,12 @@ class ResourceDeployResult(DeployResult):
 
 
 @dataclass
+class ResourceContainerDeployResult(ResourceDeployResult):
+    item_name: str = ""
+    dropped_datapoints: int = 0
+
+
+@dataclass
 class UploadDeployResult(DeployResult):
     uploaded: int = 0
 

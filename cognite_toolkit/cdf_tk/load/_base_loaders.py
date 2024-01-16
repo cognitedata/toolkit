@@ -28,6 +28,7 @@ from .data_classes import (
     DatapointDeployResult,
     DeployResult,
     RawDatabaseTable,
+    ResourceContainerDeployResult,
     ResourceDeployResult,
     UploadDeployResult,
 )
@@ -112,7 +113,6 @@ class Loader(ABC):
         path: Path,
         ToolGlobals: CDFToolConfig,
         drop: bool = False,
-        clean: bool = False,
         dry_run: bool = False,
         drop_data: bool = False,
         verbose: bool = False,
@@ -244,7 +244,6 @@ class ResourceLoader(
         path: Path,
         ToolGlobals: CDFToolConfig,
         drop: bool = False,
-        clean: bool = False,
         dry_run: bool = False,
         drop_data: bool = False,
         verbose: bool = False,
@@ -264,24 +263,30 @@ class ResourceLoader(
         action_word = "Loading" if dry_run else "Deploying"
         print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
 
-        if drop and self.support_drop:
-            if drop_data and (self.api_name in ["data_modeling.spaces", "data_modeling.containers"]):
-                print(
-                    f"  --drop-data is specified, will delete existing nodes and edges before before deleting {self.display_name}."
-                )
-            else:
-                print(f"  --drop is specified, will delete existing {self.display_name} before uploading.")
-
-        # Deleting resources.
         nr_of_deleted = 0
-        if (drop and self.support_drop) or clean:
-            nr_of_deleted = self._delete_resources(batches, drop_data, dry_run, verbose)
+        nr_of_dropped_datapoints = 0
+        if self.support_drop and drop and isinstance(self, ResourceContainerLoader):
+            if drop_data:
+                print(
+                    f"  --drop-data is specified, will delete existing {self.item_name} from {self.display_name} before before uploading new ones."
+                )
+                nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
+            else:
+                print(f"  [bold]INFO:[/] Skipping deletion of {self.display_name} as --drop-data flag is not set...")
+        elif self.support_drop and drop:
+            print(f"  --drop is specified, will delete existing {self.display_name} before re-deploying.")
+            nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
         for batch_no, batch in enumerate(batches, 1):
             to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(batch)
 
-            nr_of_unchanged += len(unchanged)
+            if dry_run and self.support_drop and drop and (not isinstance(self, ResourceContainerLoader) or drop_data):
+                # Means the resources will be deleted and not left unchanged
+                nr_of_created += len(unchanged)
+            else:
+                nr_of_unchanged += len(unchanged)
+
             if dry_run:
                 nr_of_created += len(to_create)
                 nr_of_changed += len(to_update)
@@ -310,14 +315,26 @@ class ResourceLoader(
             print(
                 f"  Created {nr_of_created}, Deleted {nr_of_deleted}, Changed {nr_of_changed}, Unchanged {nr_of_unchanged}, Total {nr_of_items}."
             )
-        return ResourceDeployResult(
-            name=self.display_name,
-            created=nr_of_created,
-            deleted=nr_of_deleted,
-            changed=nr_of_changed,
-            unchanged=nr_of_unchanged,
-            total=nr_of_items,
-        )
+        if isinstance(self, ResourceContainerLoader):
+            return ResourceContainerDeployResult(
+                name=self.display_name,
+                created=nr_of_created,
+                deleted=nr_of_deleted,
+                changed=nr_of_changed,
+                unchanged=nr_of_unchanged,
+                total=nr_of_items,
+                dropped_datapoints=nr_of_dropped_datapoints,
+                item_name=self.item_name,
+            )
+        else:
+            return ResourceDeployResult(
+                name=self.display_name,
+                created=nr_of_created,
+                deleted=nr_of_deleted,
+                changed=nr_of_changed,
+                unchanged=nr_of_unchanged,
+                total=nr_of_items,
+            )
 
     def clean_resources(
         self,
@@ -344,9 +361,24 @@ class ResourceLoader(
         print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
 
         # Deleting resources.
-        nr_of_deleted = self._delete_resources(batches, drop_data, dry_run, verbose)
-
-        return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
+        if isinstance(self, ResourceContainerLoader):
+            if drop_data:
+                nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
+                nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
+            else:
+                print(f"  [bold]INFO:[/] Skipping deletion of {self.display_name} as drop_data flag is not set...")
+                nr_of_dropped_datapoints = 0
+                nr_of_deleted = 0
+            return ResourceContainerDeployResult(
+                name=self.display_name,
+                deleted=nr_of_deleted,
+                total=nr_of_items,
+                dropped_datapoints=nr_of_dropped_datapoints,
+                item_name=self.item_name,
+            )
+        else:
+            nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
+            return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
 
     def to_create_changed_unchanged_triple(
         self, batch: T_CogniteResourceList
@@ -409,9 +441,7 @@ class ResourceLoader(
             batches.append(batch)
         return batches
 
-    def _delete_resources(
-        self, batches: list[T_CogniteResourceList], drop_data: bool, dry_run: bool, verbose: bool
-    ) -> int:
+    def _delete_resources(self, batches: list[T_CogniteResourceList], dry_run: bool, verbose: bool) -> int:
         nr_of_deleted = 0
         for batch in batches:
             batch_ids = self.get_ids(batch)
@@ -419,12 +449,6 @@ class ResourceLoader(
                 nr_of_deleted += len(batch_ids)
                 if verbose:
                     print(f"  Would have deleted {len(batch_ids)} {self.display_name}.")
-                continue
-
-            if isinstance(self, ResourceContainerLoader) and drop_data:
-                self.drop_data(batch_ids)
-            elif isinstance(self, ResourceContainerLoader):
-                print(f"  [bold]INFO:[/] Skipping deletion of {self.display_name} as drop_data flag is not set...")
                 continue
 
             try:
@@ -485,7 +509,13 @@ class ResourceContainerLoader(
     the following methods:
         - count: Counts the number of items in the resource container.
         - drop_data: Deletes the data in the resource container.
+
+    class attributes:
+        item_name: The name of the item that is stored in the resource container. This should be set in the subclass.
+            It is used to display messages when running operations.
     """
+
+    item_name: str
 
     @abstractmethod
     def count(self, ids: SequenceNotStr[T_ID]) -> int:
@@ -494,6 +524,35 @@ class ResourceContainerLoader(
     @abstractmethod
     def drop_data(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
+
+    def _drop_data(self, batches: list[T_CogniteResourceList], dry_run: bool, verbose: bool) -> int:
+        nr_of_dropped = 0
+        for batch in batches:
+            batch_ids = self.get_ids(batch)
+            if dry_run:
+                batch_count = self.count(batch_ids)
+                nr_of_dropped += batch_count
+                if verbose:
+                    print(f"  Would have dropped {batch_count} {self.item_name} from {self.display_name}.")
+                continue
+
+            try:
+                batch_count = self.drop_data(batch_ids)
+                nr_of_dropped += batch_count
+            except CogniteAPIError as e:
+                if e.code == 404 and verbose:
+                    print(f"  [bold]INFO:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
+            except CogniteNotFoundError:
+                if verbose:
+                    print(f"  [bold]INFO:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
+            except Exception as e:
+                print(
+                    f"  [bold yellow]WARNING:[/] Failed to drop {self.item_name} from {len(batch_ids)} {self.display_name}. Error {e}."
+                )
+            else:  # Delete succeeded
+                if verbose:
+                    print(f"  Dropped {batch_count} {self.item_name} from {self.display_name}.")
+        return nr_of_dropped
 
 
 class DataLoader(Loader, ABC):
@@ -517,7 +576,6 @@ class DataLoader(Loader, ABC):
         path: Path,
         ToolGlobals: CDFToolConfig,
         drop: bool = False,
-        clean: bool = False,
         dry_run: bool = False,
         drop_data: bool = False,
         verbose: bool = False,

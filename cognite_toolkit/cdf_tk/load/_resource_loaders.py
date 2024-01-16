@@ -343,6 +343,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 class RawDatabaseLoader(
     ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
 ):
+    item_name = "raw tables"
     api_name = "raw.databases"
     folder_name = "raw"
     resource_cls = RawDatabaseTable
@@ -435,6 +436,7 @@ class RawDatabaseLoader(
 class RawTableLoader(
     ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
 ):
+    item_name = "raw cells"
     api_name = "raw.tables"
     folder_name = "raw"
     resource_cls = RawDatabaseTable
@@ -522,6 +524,7 @@ class RawTableLoader(
 
 @final
 class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
+    item_name = "datapoints"
     api_name = "time_series"
     folder_name = "timeseries"
     resource_cls = TimeSeries
@@ -727,7 +730,6 @@ class ExtractionPipelineLoader(
         str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList
     ]
 ):
-    support_drop = True
     api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
     filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
@@ -800,7 +802,6 @@ class ExtractionPipelineConfigLoader(
         ExtractionPipelineConfigList,
     ]
 ):
-    support_drop = True
     api_name = "extraction_pipelines.config"
     folder_name = "extraction_pipelines"
     filename_pattern = r"^.*\.config$"
@@ -851,14 +852,18 @@ class ExtractionPipelineConfigLoader(
 class FileMetadataLoader(
     ResourceContainerLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
 ):
+    item_name = "files"
     api_name = "files"
-    filetypes = frozenset({"yaml", "yml"})
     folder_name = "files"
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
     dependencies = frozenset({DataSetsLoader})
+
+    @property
+    def display_name(self) -> str:
+        return "file_metadata"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -954,6 +959,7 @@ class FileMetadataLoader(
 
 @final
 class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
+    item_name = "nodes and edges"
     api_name = "data_modeling.spaces"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(space)$"
@@ -1044,6 +1050,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
 class ContainerLoader(
     ResourceContainerLoader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]
 ):
+    item_name = "nodes and edges"
     api_name = "data_modeling.containers"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(container)$"
@@ -1219,6 +1226,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
 @final
 class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
+    item_name = "nodes"
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
@@ -1311,6 +1319,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
 
 @final
 class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
+    item_name = "edges"
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(edge)$"
