@@ -48,7 +48,7 @@ class TestTimeSeriesLoader:
 
 
 @pytest.fixture(scope="function")
-def integration_container(cognite_client: CogniteClient, integration_space: dm.Space) -> dm.Container:
+def node_container(cognite_client: CogniteClient, integration_space: dm.Space) -> dm.Container:
     container = dm.ContainerApply(
         space=integration_space.space,
         external_id="test_create_populate_count_drop_data",
@@ -60,14 +60,29 @@ def integration_container(cognite_client: CogniteClient, integration_space: dm.S
     return cognite_client.data_modeling.containers.apply(container)
 
 
+@pytest.fixture(scope="function")
+def edge_container(cognite_client: CogniteClient, integration_space: dm.Space) -> dm.Container:
+    container = dm.ContainerApply(
+        space=integration_space.space,
+        external_id="test_create_populate_count_drop_data_edge",
+        name="Test Container Edge",
+        description="Container used for running integration test",
+        used_for="edge",
+        properties={"name": dm.ContainerProperty(dm.Text())},
+    )
+    return cognite_client.data_modeling.containers.apply(container)
+
+
 class TestContainerLoader:
-    def test_populate_count_drop_data(self, cognite_client: CogniteClient, integration_container: dm.Container) -> None:
+    def test_populate_count_drop_data_node_container(
+        self, node_container: dm.Container, cognite_client: CogniteClient
+    ) -> None:
         node = dm.NodeApply(
-            space=integration_container.space,
+            space=node_container.space,
             external_id="test_create_populate_count_drop_data",
-            sources=[dm.NodeOrEdgeData(source=integration_container.as_id(), properties={"name": "Anders"})],
+            sources=[dm.NodeOrEdgeData(source=node_container.as_id(), properties={"name": "Anders"})],
         )
-        container_id = [integration_container.as_id()]
+        container_id = [node_container.as_id()]
 
         loader = ContainerLoader(client=cognite_client)
 
@@ -81,10 +96,58 @@ class TestContainerLoader:
             loader.drop_data(container_id)
             assert loader.count(container_id) == 0
 
-            write_container = integration_container.as_write()
+            write_container = node_container.as_write()
             write_container.description = "Updated description"
             updated = loader.update(dm.ContainerApplyList([write_container]))
             assert len(updated) == 1
             assert updated[0].description == write_container.description
         finally:
             loader.drop_data(container_id)
+
+    def test_populate_count_drop_data_edge_container(
+        self, edge_container: dm.Container, cognite_client: CogniteClient
+    ) -> None:
+        space = edge_container.space
+        nodes = dm.NodeApplyList(
+            [
+                dm.NodeApply(
+                    space=space,
+                    external_id="test_create_populate_count_drop_data:start",
+                    sources=None,
+                ),
+                dm.NodeApply(
+                    space=space,
+                    external_id="test_create_populate_count_drop_data:end",
+                    sources=None,
+                ),
+            ]
+        )
+        edge = dm.EdgeApply(
+            space=space,
+            external_id="test_populate_count_drop_data_edge_container",
+            type=dm.DirectRelationReference(space, "test_edge_type"),
+            start_node=(nodes[0].space, nodes[0].external_id),
+            end_node=(nodes[1].space, nodes[1].external_id),
+            sources=[dm.NodeOrEdgeData(source=edge_container.as_id(), properties={"name": "Anders"})],
+        )
+        container_id = [edge_container.as_id()]
+
+        loader = ContainerLoader(client=cognite_client)
+
+        try:
+            assert loader.count(container_id) == 0
+
+            cognite_client.data_modeling.instances.apply(edges=[edge], nodes=nodes)
+
+            assert loader.count(container_id) == 1
+
+            loader.drop_data(container_id)
+            assert loader.count(container_id) == 0
+
+            write_container = edge_container.as_write()
+            write_container.description = "Updated description"
+            updated = loader.update(dm.ContainerApplyList([write_container]))
+            assert len(updated) == 1
+            assert updated[0].description == write_container.description
+        finally:
+            cognite_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())

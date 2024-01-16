@@ -1059,19 +1059,39 @@ class ContainerLoader(
     def count(self, ids: SequenceNotStr[ContainerId]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
         # When this bug is fixed, it will be much faster to use aggregate.
-        return sum(len(batch) for batch in self._iterate_over_nodes(ids))
+        existing_containers = self.client.data_modeling.containers.retrieve(cast(Sequence, ids))
+        return sum(len(batch) for batch in self._iterate_over_nodes(existing_containers)) + sum(
+            len(batch) for batch in self._iterate_over_edges(existing_containers)
+        )
 
     def drop_data(self, ids: SequenceNotStr[ContainerId]) -> int:
         nr_of_deleted = 0
-        for node_ids in self._iterate_over_nodes(ids):
+        existing_containers = self.client.data_modeling.containers.retrieve(cast(Sequence, ids))
+        for node_ids in self._iterate_over_nodes(existing_containers):
             self.client.data_modeling.instances.delete(nodes=node_ids)
             nr_of_deleted += len(node_ids)
+        for edge_ids in self._iterate_over_edges(existing_containers):
+            self.client.data_modeling.instances.delete(edges=edge_ids)
+            nr_of_deleted += len(edge_ids)
         return nr_of_deleted
 
-    def _iterate_over_nodes(self, ids: SequenceNotStr[ContainerId]) -> Iterable[list[NodeId]]:
-        is_container = filters.HasData(containers=list(ids))
+    def _iterate_over_nodes(self, containers: ContainerList) -> Iterable[list[NodeId]]:
+        container_ids = [container.as_id() for container in containers if container.used_for in ["node", "all"]]
+        if not container_ids:
+            return
+        is_container = filters.HasData(containers=container_ids)
         for instances in self.client.data_modeling.instances(
             chunk_size=1000, instance_type="node", filter=is_container, limit=-1
+        ):
+            yield instances.as_ids()
+
+    def _iterate_over_edges(self, containers: ContainerList) -> Iterable[list[EdgeId]]:
+        container_ids = [container.as_id() for container in containers if container.used_for in ["edge", "all"]]
+        if not container_ids:
+            return
+        is_container = filters.HasData(containers=container_ids)
+        for instances in self.client.data_modeling.instances(
+            chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
         ):
             yield instances.as_ids()
 

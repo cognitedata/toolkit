@@ -328,7 +328,7 @@ class ResourceLoader(
         filepaths = self.find_files(path)
 
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-        batches = self._load_batches(filepaths, ToolGlobals, skip_validation=dry_run)
+        batches = self._load_batches(filepaths, ToolGlobals, skip_validation=True)
         if batches is None:
             ToolGlobals.failed = True
             return None
