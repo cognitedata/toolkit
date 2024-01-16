@@ -445,6 +445,10 @@ class RawTableLoader(
     list_write_cls = RawTableList
     identifier_key = "table_name"
 
+    def __init__(self, client: CogniteClient):
+        super().__init__(client)
+        self._printed_warning = False
+
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
@@ -503,7 +507,9 @@ class RawTableLoader(
         return count
 
     def count(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
-        print("  [bold yellow]WARNING:[/] Raw rows do not support count (there is no aggregation method).")
+        if not self._printed_warning:
+            print("  [bold]Info:[/] Raw rows do not support count (there is no aggregation method).")
+            self._printed_warning = True
         return 0
 
     def drop_data(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
