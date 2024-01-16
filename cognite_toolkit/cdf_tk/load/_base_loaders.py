@@ -366,8 +366,8 @@ class ResourceLoader(
 
         for item in batch:
             cdf_resource = cdf_resource_by_id.get(self.get_id(item))
-            # The custom compare is needed for Transformations which have OIDC credentials that will not
-            # be returned by the retrieve method.
+            # The custom compare is needed when the regular == does not work. For example, TransformationWrite
+            # have OIDC credentials that will not be returned by the retrieve method, and thus need special handling.
             if cdf_resource and (item == cdf_resource.as_write() or self._is_equal_custom(item, cdf_resource)):
                 unchanged.append(item)
             elif cdf_resource:

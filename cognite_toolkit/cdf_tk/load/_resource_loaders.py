@@ -1184,6 +1184,30 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
     def create_empty_of(cls, items: LoadableNodes) -> LoadableNodes:
         return cls.list_write_cls.create_empty_from(items)
 
+    def _is_equal_custom(self, local: NodeApply, cdf_resource: Node) -> bool:
+        """Comparison for nodes to include properties in the comparison
+
+        Note this is an expensive operation as we to an extra retrieve to fetch the properties.
+        Thus, the cdf-tk should not be used to upload nodes that are data only nodes used for configuration.
+        """
+        # Note reading from a container is not supported.
+        sources = [
+            source_prop_pair.source
+            for source_prop_pair in local.sources or []
+            if isinstance(source_prop_pair.source, ViewId)
+        ]
+        cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
+            nodes=cdf_resource.as_id(), sources=sources
+        ).nodes[0]
+        cdf_resource_dumped = cdf_resource_with_properties.as_write().dump()
+        local_dumped = local.dump()
+        if "existingVersion" not in local_dumped:
+            # Existing version is typically not set when creating nodes, but we get it back
+            # when we retrieve the node from the server.
+            local_dumped["existingVersion"] = cdf_resource_dumped.get("existingVersion", None)
+
+        return local_dumped == cdf_resource_dumped
+
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadableNodes:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw, dict):
