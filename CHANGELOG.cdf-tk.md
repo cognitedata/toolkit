@@ -29,7 +29,7 @@ or a database with table, no need to also specify a `.csv` or `.parquet` file fo
 
 ```yaml
 dbName: myRawRawDatabase
-tables: myRawTable
+tableName: myRawTable
 ```
 
 ### Changed
