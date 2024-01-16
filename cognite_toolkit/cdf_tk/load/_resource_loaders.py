@@ -962,38 +962,41 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     def count(self, ids: SequenceNotStr[str]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
         # When this bug is fixed, it will be much faster to use aggregate.
-        return sum(len(batch) for batch in self._iterate_over_nodes(ids)) + sum(
-            len(batch) for batch in self._iterate_over_edges(ids)
+        existing = self.client.data_modeling.spaces.retrieve(ids)
+
+        return sum(len(batch) for batch in self._iterate_over_nodes(existing)) + sum(
+            len(batch) for batch in self._iterate_over_edges(existing)
         )
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
         print(f"[bold]Deleting existing data in spaces {ids}...[/]")
+        existing = self.client.data_modeling.spaces.retrieve(ids)
         nr_of_deleted = 0
-        for node_ids in self._iterate_over_nodes(ids):
-            self.client.data_modeling.instances.delete(nodes=node_ids)
-            nr_of_deleted += len(node_ids)
-        for edge_ids in self._iterate_over_edges(ids):
+        for edge_ids in self._iterate_over_edges(existing):
             self.client.data_modeling.instances.delete(edges=edge_ids)
             nr_of_deleted += len(edge_ids)
+        for node_ids in self._iterate_over_nodes(existing):
+            self.client.data_modeling.instances.delete(nodes=node_ids)
+            nr_of_deleted += len(node_ids)
         return nr_of_deleted
 
-    def _iterate_over_nodes(self, ids: SequenceNotStr[str]) -> Iterable[list[NodeId]]:
+    def _iterate_over_nodes(self, spaces: SpaceList) -> Iterable[list[NodeId]]:
         is_space: filters.Filter
-        if len(ids) == 1:
-            is_space = filters.Equals(["node", "space"], ids[0])
+        if len(spaces) == 1:
+            is_space = filters.Equals(["node", "space"], spaces[0].as_id())
         else:
-            is_space = filters.In(["node", "space"], list(ids))
+            is_space = filters.In(["node", "space"], spaces.as_ids())
         for instances in self.client.data_modeling.instances(
             chunk_size=1000, instance_type="node", filter=is_space, limit=-1
         ):
             yield instances.as_ids()
 
-    def _iterate_over_edges(self, ids: SequenceNotStr[str]) -> Iterable[list[EdgeId]]:
+    def _iterate_over_edges(self, spaces: SpaceList) -> Iterable[list[EdgeId]]:
         is_space: filters.Filter
-        if len(ids) == 1:
-            is_space = filters.Equals(["edge", "space"], ids[0])
+        if len(spaces) == 1:
+            is_space = filters.Equals(["edge", "space"], spaces[0].as_id())
         else:
-            is_space = filters.In(["edge", "space"], list(ids))
+            is_space = filters.In(["edge", "space"], spaces.as_ids())
         for instances in self.client.data_modeling.instances(
             chunk_size=1000, instance_type="edge", limit=-1, filter=is_space
         ):
