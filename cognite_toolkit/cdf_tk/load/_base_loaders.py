@@ -362,11 +362,11 @@ class ResourceLoader(
             print(f"  [bold yellow]WARNING:[/] Failed to retrieve {len(batch_ids)} of {self.display_name}.")
             cdf_resource_by_id = {}
         else:
-            cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources.as_write()}
+            cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources}
 
         for item in batch:
             cdf_resource = cdf_resource_by_id.get(self.get_id(item))
-            if cdf_resource and item == cdf_resource:
+            if cdf_resource and item == cdf_resource.as_write():
                 unchanged.append(item)
             elif cdf_resource:
                 to_update.append(item)

@@ -356,6 +356,19 @@ class RawDatabaseLoader(
     def get_id(cls, item: RawDatabaseTable) -> RawDatabaseTable:
         return item
 
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> RawDatabaseTable | RawTableList:
+        resource = super().load_resource(filepath, ToolGlobals, skip_validation)
+        # This loader is only used for the raw databases, so we need to remove the table names
+        # such that the comparison will work correctly.
+        if isinstance(resource, RawTableList):
+            db_names = set(resource.as_db_names())
+            return RawTableList([RawDatabaseTable(db_name=db_name) for db_name in db_names])
+        elif isinstance(resource, RawDatabaseTable):
+            return RawDatabaseTable(db_name=resource.db_name)
+        raise ValueError("Unexpected resource type.")
+
     def create(self, items: RawTableList) -> RawTableList:
         database_list = self.client.raw.databases.create(items.as_db_names())
         return RawTableList([RawDatabaseTable(db_name=db.name) for db in database_list])
@@ -492,6 +505,9 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+            if resource.get("securityCategories") is None:
+                # Bug in SDK, the read version sets security categories to an empty list.
+                resource["securityCategories"] = []
         return TimeSeriesWriteList.load(resources)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
