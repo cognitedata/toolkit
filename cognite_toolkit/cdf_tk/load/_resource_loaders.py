@@ -784,20 +784,11 @@ class ExtractionPipelineLoader(
         id_list = list(ids)
         try:
             self.client.extraction_pipelines.delete(external_id=id_list)
-            return len(id_list)
         except CogniteNotFoundError as e:
-            print(
-                f"  [bold yellow]WARNING:[/] {len(e.not_found)} out of {len(ids)} extraction pipelines do(es) not exist."
-            )
-
-            for dup in e.not_found:
-                ext_id = dup.get("externalId", None)
-                id_list.remove(ext_id)
-
-            if len(id_list) > 0:
+            not_existing = {external_id for dup in e.not_found if (external_id := dup.get("externalId", None))}
+            if id_list := [id_ for id_ in id_list if id_ not in not_existing]:
                 self.client.extraction_pipelines.delete(external_id=id_list)
-                return len(id_list)
-            return 0
+        return len(id_list)
 
 
 @final

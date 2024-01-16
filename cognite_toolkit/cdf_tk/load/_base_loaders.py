@@ -428,10 +428,11 @@ class ResourceLoader(
             try:
                 nr_of_deleted += self.delete(batch_ids)
             except CogniteAPIError as e:
-                if e.code == 404:
-                    print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
+                if e.code == 404 and verbose:
+                    print(f"  [bold]INFO:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
             except CogniteNotFoundError:
-                print(f"  [bold yellow]WARNING:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
+                if verbose:
+                    print(f"  [bold]INFO:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
             except Exception as e:
                 print(f"  [bold yellow]WARNING:[/] Failed to delete {len(batch_ids)} {self.display_name}. Error {e}.")
             else:  # Delete succeeded

@@ -471,7 +471,7 @@ def clean(
             continue
         loader = LoaderCls.create_loader(ToolGlobals)
         if type(loader) is DataSetsLoader:
-            print("[bold]WARNING:[/] Dataset cleaning is not supported, skipping...")
+            print("[bold yellow]WARNING:[/] Dataset cleaning is not supported, skipping...")
             continue
         result = loader.clean_resources(
             build_path / LoaderCls.folder_name,
