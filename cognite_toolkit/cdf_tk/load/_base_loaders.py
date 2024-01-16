@@ -204,7 +204,7 @@ class ResourceLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> T_WriteClass | T_CogniteResourceList:
+    ) -> T_WriteClass | T_CogniteResourceList | None:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
@@ -398,7 +398,7 @@ class ResourceLoader(
                 )
                 return None
             if resource is None:
-                print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
+                # This is intentional. It is, for example, used by the AuthLoader to skip groups with resource scopes.
                 continue
             batch = resource if isinstance(resource, self.list_write_cls) else self.list_write_cls([resource])
             if not batch:

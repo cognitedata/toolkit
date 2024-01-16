@@ -156,7 +156,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
     @property
     def display_name(self) -> str:
-        return f"{self.api_name}({self.target_scopes})"
+        return f"{self.api_name}({self.target_scopes.removesuffix('_only')})"
 
     @classmethod
     def create_loader(
@@ -184,7 +184,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> GroupWrite | GroupWriteList:
+    ) -> GroupWrite | GroupWriteList | None:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
         is_resource_scoped = False
         for capability in raw.get("capabilities", []):
@@ -193,7 +193,8 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                 is_resource_scoped = any(scope_name in scope for scope_name in self.resource_scope_names)
                 if self.target_scopes == "all_scoped_only" and is_resource_scoped:
                     # If a group has a single capability with a resource scope, we skip it.
-                    return GroupWriteList([])
+                    # None indicates skip
+                    return None
 
                 for scope_name, verify_method in [
                     ("datasetScope", ToolGlobals.verify_dataset),
@@ -208,7 +209,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
         if not is_resource_scoped and self.target_scopes == "resource_scoped_only":
             # If a group has no resource scoped capabilities, we skip it.
-            return GroupWriteList([])
+            return None
 
         return GroupWrite.load(raw)
 
@@ -1027,8 +1028,10 @@ class ContainerLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ContainerApply | ContainerApplyList:
+    ) -> ContainerApply | ContainerApplyList | None:
         loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
+        if loaded is None:
+            return None
         items = loaded if isinstance(loaded, ContainerApplyList) else [loaded]
         if not skip_validation:
             ToolGlobals.verify_spaces(list({item.space for item in items}))
@@ -1099,7 +1102,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ViewApply | ViewApplyList:
+    ) -> ViewApply | ViewApplyList | None:
         loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
         if not skip_validation:
             items = loaded if isinstance(loaded, ViewApplyList) else [loaded]
@@ -1139,7 +1142,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> DataModelApply | DataModelApplyList:
+    ) -> DataModelApply | DataModelApplyList | None:
         loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
         if not skip_validation:
             items = loaded if isinstance(loaded, DataModelApplyList) else [loaded]
