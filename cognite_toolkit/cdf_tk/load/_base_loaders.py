@@ -366,13 +366,23 @@ class ResourceLoader(
 
         for item in batch:
             cdf_resource = cdf_resource_by_id.get(self.get_id(item))
-            if cdf_resource and item == cdf_resource.as_write():
+            # The custom compare is needed for Transformations which have OIDC credentials that will not
+            # be returned by the retrieve method.
+            if cdf_resource and (item == cdf_resource.as_write() or self._is_equal_custom(item, cdf_resource)):
                 unchanged.append(item)
             elif cdf_resource:
                 to_update.append(item)
             else:
                 to_create.append(item)
         return to_create, to_update, unchanged
+
+    def _is_equal_custom(self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource) -> bool:
+        """This method is used to compare the local and cdf resource when the default comparison fails.
+
+        This is needed for resources that have fields that are not returned by the retrieve method, like
+        for example, the OIDC credentials in Transformations.
+        """
+        return False
 
     def _load_batches(
         self, filepaths: list[Path], ToolGlobals: CDFToolConfig, skip_validation: bool

@@ -69,6 +69,7 @@ from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     ContainerApplyList,
     ContainerList,
+    ContainerProperty,
     DataModel,
     DataModelApply,
     DataModelApplyList,
@@ -188,24 +189,25 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         is_resource_scoped = False
         for capability in raw.get("capabilities", []):
             for _, values in capability.items():
-                is_resource_scoped = any(scope in values.get("scope") for scope in self.resource_scope_names)
+                scope = values.get("scope", {})
+                is_resource_scoped = any(scope_name in scope for scope_name in self.resource_scope_names)
                 if self.target_scopes == "all_scoped_only" and is_resource_scoped:
                     # If a group has a single capability with a resource scope, we skip it.
                     return GroupWriteList([])
 
-                for scope, verify_method in [
+                for scope_name, verify_method in [
                     ("datasetScope", ToolGlobals.verify_dataset),
                     ("idScope", ToolGlobals.verify_dataset),
                     ("extractionPipelineScope", ToolGlobals.verify_extraction_pipeline),
                 ]:
-                    if ids := values.get("scope", {}).get(scope, {}).get("ids", []):
-                        if not skip_validation:
+                    if ids := scope.get(scope_name, {}).get("ids", []):
+                        if skip_validation:
                             scoped_ids = [-1] * len(ids)
                         else:
                             scoped_ids = [
                                 verify_method(ext_id) if isinstance(ext_id, str) else ext_id for ext_id in ids
                             ]
-                        values["scope"][scope]["ids"] = scoped_ids
+                        values["scope"][scope_name]["ids"] = scoped_ids
 
         if not is_resource_scoped and self.target_scopes == "resource_scoped_only":
             # If a group has no resource scoped capabilities, we skip it.
@@ -304,8 +306,11 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
                 for key, value in data_set["metadata"].items():
                     data_set["metadata"][key] = json.dumps(value)
             if data_set.get("writeProtected") is None:
-                # Setting missing default value, bug in SDK.
+                # Todo: Setting missing default value, bug in SDK.
                 data_set["writeProtected"] = False
+            if data_set.get("metadata") is None:
+                # Todo: Wrongly set to empty dict, bug in SDK.
+                data_set["metadata"] = {}
 
         return DataSetWriteList.load(data_sets)
 
@@ -571,6 +576,13 @@ class TransformationLoader(
             raise ValueError("Transformation must have external_id set.")
         return item.external_id
 
+    def _is_equal_custom(self, local: TransformationWrite, cdf_resource: Transformation) -> bool:
+        local_dumped = local.dump()
+        local_dumped.pop("destinationOidcCredentials", None)
+        local_dumped.pop("sourceOidcCredentials", None)
+
+        return local_dumped == cdf_resource.as_write().dump()
+
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TransformationWrite:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
         # The `authentication` key is custom for this template:
@@ -580,6 +592,9 @@ class TransformationLoader(
         if raw.get("dataSetExternalId") is not None:
             ds_external_id = raw.pop("dataSetExternalId")
             raw["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+        if raw.get("conflictMode") is None:
+            # Todo; Bug SDK missing default value
+            raw["conflictMode"] = "upsert"
 
         transformation = TransformationWrite.load(raw)
         transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
@@ -598,6 +613,7 @@ class TransformationLoader(
                     f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
                 )
         transformation.query = sql_file.read_text()
+
         return transformation
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -704,6 +720,9 @@ class ExtractionPipelineLoader(
         if resource.get("dataSetExternalId") is not None:
             ds_external_id = resource.pop("dataSetExternalId")
             resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id) if not skip_validation else -1
+        if resource.get("createdBy") is None:
+            # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
+            resource["createdBy"] = "unknown"
 
         return ExtractionPipelineWrite.load(resource)
 
@@ -1013,9 +1032,18 @@ class ContainerLoader(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ContainerApply | ContainerApplyList:
         loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
+        items = loaded if isinstance(loaded, ContainerApplyList) else [loaded]
         if not skip_validation:
-            items = loaded if isinstance(loaded, ContainerApplyList) else [loaded]
             ToolGlobals.verify_spaces(list({item.space for item in items}))
+        for item in items:
+            # Todo Bug in SDK, not setting defaults on load
+            for prop_name in item.properties.keys():
+                prop_dumped = item.properties[prop_name].dump()
+                if prop_dumped.get("nullable") is None:
+                    prop_dumped["nullable"] = False
+                if prop_dumped.get("autoIncrement") is None:
+                    prop_dumped["autoIncrement"] = False
+                item.properties[prop_name] = ContainerProperty.load(prop_dumped)
         return loaded
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
@@ -1178,6 +1206,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
         )
         return result.nodes
 
+    def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
+        return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).nodes
+
     def update(self, items: LoadableNodes) -> NodeApplyResultList:
         return self.create(items)
 
@@ -1246,6 +1277,9 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, LoadableEdges,
             replace=item.replace,
         )
         return result.edges
+
+    def retrieve(self, ids: SequenceNotStr[EdgeId]) -> EdgeList:
+        return self.client.data_modeling.instances.retrieve(edges=cast(Sequence, ids)).edges
 
     def update(self, items: LoadableEdges) -> EdgeApplyResultList:
         return self.create(items)
