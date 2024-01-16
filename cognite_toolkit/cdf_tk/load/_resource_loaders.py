@@ -554,10 +554,6 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(external_ids=cast(Sequence, ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        self.client.time_series.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=True)
-        return len(ids)
-
     def count(self, ids: SequenceNotStr[str]) -> int:
         datapoints = cast(
             DatapointsList,
@@ -654,10 +650,6 @@ class TransformationLoader(
         transformation.query = sql_file.read_text()
 
         return transformation
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        self.client.transformations.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=True)
-        return len(ids)
 
 
 @final
@@ -1002,8 +994,10 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         )
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
-        print(f"[bold]Deleting existing data in spaces {ids}...[/]")
         existing = self.client.data_modeling.spaces.retrieve(ids)
+        if not existing:
+            return 0
+        print(f"[bold]Deleting existing data in spaces {ids}...[/]")
         nr_of_deleted = 0
         for edge_ids in self._iterate_over_edges(existing):
             self.client.data_modeling.instances.delete(edges=edge_ids)

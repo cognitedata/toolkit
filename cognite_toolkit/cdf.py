@@ -448,7 +448,6 @@ def clean(
         exit(1)
 
     include = _process_include(include, interactive)
-    print(ToolGlobals.as_string())
 
     # The 'auth' loader is excluded, as it is run at the end.
     selected_loaders = {
