@@ -234,8 +234,10 @@ class ResourceLoader(
         return self.api_class.update(items)
 
     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
-        self.api_class.delete(ids)
-        return len(ids)
+        existing = self.retrieve(ids)
+        if existing:
+            self.api_class.delete(ids)
+        return len(existing)
 
     def deploy_resources(
         self,
