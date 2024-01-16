@@ -351,6 +351,10 @@ class RawDatabaseLoader(
     list_write_cls = RawTableList
     identifier_key = "table_name"
 
+    def __init__(self, client: CogniteClient):
+        super().__init__(client)
+        self._loaded_db_names: set[str] = set()
+
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
@@ -361,16 +365,19 @@ class RawDatabaseLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> RawDatabaseTable | RawTableList:
+    ) -> RawDatabaseTable | RawTableList | None:
         resource = super().load_resource(filepath, ToolGlobals, skip_validation)
+        if resource is None:
+            return None
+        dbs = resource if isinstance(resource, RawTableList) else RawTableList([resource])
         # This loader is only used for the raw databases, so we need to remove the table names
         # such that the comparison will work correctly.
-        if isinstance(resource, RawTableList):
-            db_names = set(resource.as_db_names())
-            return RawTableList([RawDatabaseTable(db_name=db_name) for db_name in db_names])
-        elif isinstance(resource, RawDatabaseTable):
-            return RawDatabaseTable(db_name=resource.db_name)
-        raise ValueError("Unexpected resource type.")
+        db_names = set(dbs.as_db_names()) - self._loaded_db_names
+        if not db_names:
+            # All databases already loaded
+            return None
+        self._loaded_db_names.update(db_names)
+        return RawTableList([RawDatabaseTable(db_name=db_name) for db_name in db_names])
 
     def create(self, items: RawTableList) -> RawTableList:
         database_list = self.client.raw.databases.create(items.as_db_names())

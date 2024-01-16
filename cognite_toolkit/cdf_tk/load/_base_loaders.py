@@ -261,7 +261,7 @@ class ResourceLoader(
         if nr_of_items == 0:
             return ResourceDeployResult(name=self.display_name)
 
-        action_word = "Loading" if dry_run else "Uploading"
+        action_word = "Loading" if dry_run else "Deploying"
         print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
 
         if drop and self.support_drop:
