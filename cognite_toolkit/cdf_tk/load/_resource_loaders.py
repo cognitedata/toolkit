@@ -385,20 +385,39 @@ class RawDatabaseLoader(
         raise NotImplementedError("Raw tables do not support update.")
 
     def delete(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
-        self.client.raw.databases.delete(name=[table.db_name for table in ids])
-        return len(ids)
+        db_names = [table.db_name for table in ids]
+        try:
+            self.client.raw.databases.delete(name=db_names)
+        except CogniteAPIError as e:
+            # Bug in API, missing is returned as failed
+            if e.failed and (db_names := [name for name in db_names if name not in e.failed]):
+                self.client.raw.databases.delete(name=db_names)
+            else:
+                raise e
+        return len(db_names)
 
     def count(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids), key=lambda x: x.db_name):
-            tables = self.client.raw.tables.list(db_name=db_name, limit=-1)
+            try:
+                tables = self.client.raw.tables.list(db_name=db_name, limit=-1)
+            except CogniteAPIError as e:
+                if db_name in {item.get("name") for item in e.missing or []}:
+                    continue
+                raise e
             nr_of_tables += len(tables.data)
         return nr_of_tables
 
     def drop_data(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids), key=lambda x: x.db_name):
-            tables = [table.table_name for table in raw_tables if table.table_name]
+            try:
+                existing = set(self.client.raw.tables.list(db_name=db_name, limit=-1).as_names())
+            except CogniteAPIError as e:
+                if db_name in {item.get("name") for item in e.missing or []}:
+                    continue
+                raise e
+            tables = [table.table_name for table in raw_tables if table.table_name in existing]
             if tables:
                 self.client.raw.tables.delete(db_name=db_name, name=tables)
                 nr_of_tables += len(tables)
@@ -437,7 +456,12 @@ class RawTableLoader(
         retrieved = RawTableList([])
         for db_name, raw_tables in itertools.groupby(sorted(ids), key=lambda x: x.db_name):
             expected_tables = {table.table_name for table in raw_tables}
-            tables = self.client.raw.tables.list(db_name=db_name, limit=-1)
+            try:
+                tables = self.client.raw.tables.list(db_name=db_name, limit=-1)
+            except CogniteAPIError as e:
+                if db_name in {item.get("name") for item in e.missing or []}:
+                    continue
+                raise e
             retrieved.extend(
                 [
                     RawDatabaseTable(db_name=db_name, table_name=table.name)
@@ -455,20 +479,34 @@ class RawTableLoader(
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             tables = [table.table_name for table in raw_tables if table.table_name]
             if tables:
-                self.client.raw.tables.delete(db_name=db_name, name=tables)
+                try:
+                    self.client.raw.tables.delete(db_name=db_name, name=tables)
+                except CogniteAPIError as e:
+                    if re.match(r"^Database named (.*)+ not found$", e.message):
+                        continue
+                    elif tables := [
+                        name for name in tables if name not in {item.get("name") for item in e.missing or []}
+                    ]:
+                        self.client.raw.tables.delete(db_name=db_name, name=tables)
+                    else:
+                        raise e
                 count += len(tables)
         return count
 
     def count(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
-        print(
-            "  [bold yellow]WARNING:[/] Raw rows do not support count (there is no aggregation method). Counting tables instead"
-        )
-        return len(ids)
+        print("  [bold yellow]WARNING:[/] Raw rows do not support count (there is no aggregation method).")
+        return 0
 
     def drop_data(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
         count = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
-            tables = [table.table_name for table in raw_tables if table.table_name]
+            try:
+                existing = set(self.client.raw.tables.list(db_name=db_name, limit=-1).as_names())
+            except CogniteAPIError as e:
+                if db_name in {item.get("name") for item in e.missing or []}:
+                    continue
+                raise e
+            tables = [table.table_name for table in raw_tables if table.table_name in existing]
             if tables:
                 self.client.raw.tables.delete(db_name=db_name, name=tables)
                 count += len(tables)
@@ -534,7 +572,10 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         return sum(sum(data.count or []) for data in datapoints)
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
-        for external_id in ids:
+        existing = self.client.time_series.retrieve_multiple(
+            external_ids=cast(Sequence, ids), ignore_unknown_ids=True
+        ).as_external_ids()
+        for external_id in existing:
             self.client.time_series.data.delete_range(
                 external_id=external_id, start=_MIN_TIMESTAMP_MS, end=_MAX_TIMESTAMP_MS + 1
             )
@@ -915,7 +956,8 @@ class FileMetadataLoader(
         return sum(1 for meta in self.client.files.retrieve_multiple(external_ids=list(ids)) if meta.uploaded)
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
-        updates = [FileMetadataUpdate(external_id=external_id).source.set(None) for external_id in ids]
+        existing = self.client.files.retrieve_multiple(external_ids=list(ids), ignore_unknown_ids=True)
+        updates = [FileMetadataUpdate(external_id=meta.external_id).source.set(None) for meta in existing]
         updated = self.client.files.update(updates)
         return sum(1 for meta in updated if not meta.uploaded)
 
@@ -982,7 +1024,9 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
 
     def _iterate_over_nodes(self, spaces: SpaceList) -> Iterable[list[NodeId]]:
         is_space: filters.Filter
-        if len(spaces) == 1:
+        if len(spaces) == 0:
+            return
+        elif len(spaces) == 1:
             is_space = filters.Equals(["node", "space"], spaces[0].as_id())
         else:
             is_space = filters.In(["node", "space"], spaces.as_ids())
@@ -993,7 +1037,9 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
 
     def _iterate_over_edges(self, spaces: SpaceList) -> Iterable[list[EdgeId]]:
         is_space: filters.Filter
-        if len(spaces) == 1:
+        if len(spaces) == 0:
+            return
+        elif len(spaces) == 1:
             is_space = filters.Equals(["edge", "space"], spaces[0].as_id())
         else:
             is_space = filters.In(["edge", "space"], spaces.as_ids())
