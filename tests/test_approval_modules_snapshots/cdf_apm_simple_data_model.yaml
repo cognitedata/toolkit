@@ -335,13 +335,16 @@ DataModel:
 DataSet:
 - description: This dataset contains transformations data for the oid location.
   externalId: ds_transformations_oid
+  metadata: {}
   name: transformations:oid
+  writeProtected: false
 Space:
 - description: Space for APM simple data model
   name: sp_apm_simple
   space: sp_apm_simple
 Transformation:
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: children
@@ -408,7 +411,8 @@ Transformation:
     clientSecret: dummy
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: null
@@ -438,7 +442,8 @@ Transformation:
     clientSecret: dummy
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: null
@@ -472,7 +477,8 @@ Transformation:
     clientSecret: dummy
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: linkedAssets
@@ -509,7 +515,8 @@ Transformation:
     clientSecret: dummy
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: workItems
@@ -546,7 +553,8 @@ Transformation:
     clientSecret: dummy
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: null
@@ -587,7 +595,8 @@ Transformation:
     clientSecret: dummy
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: linkedAssets

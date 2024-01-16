@@ -7,8 +7,10 @@ DataSet:
     transformations: '[{"externalId": "tr_asset_oid_workmate_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
+  writeProtected: false
 ExtractionPipeline:
-- dataSetId: 42
+- createdBy: unknown
+  dataSetId: 42
   description: Asset source extraction pipeline with configuration for DB extractor
     reading data from oid:workmate
   documentation: "The DB Extractor is a general database extractor that connects to\
@@ -60,24 +62,6 @@ Group:
   metadata:
     origin: cdf-project-templates
   name: gp_asset_oid_extractor
-  sourceId: <change_me>
-- capabilities:
-  - transformationsAcl:
-      actions:
-      - READ
-      - WRITE
-      scope:
-        all: {}
-  - sessionsAcl:
-      actions:
-      - LIST
-      - CREATE
-      - DELETE
-      scope:
-        all: {}
-  metadata:
-    origin: cdf-project-templates
-  name: gp_asset_oid_processing
   sourceId: <change_me>
 - capabilities:
   - rawAcl:

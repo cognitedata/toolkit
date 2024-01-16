@@ -27,7 +27,9 @@ DataModel:
 DataSet:
 - description: This dataset contains the example asset source data.
   externalId: ds_example_asset_source_data
+  metadata: {}
   name: Example Asset Source Data
+  writeProtected: false
 Space:
 - description: Space for the instances in the ExtendedSourceData data model
   name: sp_cdf_template_instances
@@ -36,7 +38,8 @@ Space:
   name: sp_extended_source_data_models
   space: sp_extended_source_data_models
 Transformation:
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: null

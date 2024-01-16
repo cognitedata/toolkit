@@ -61,7 +61,9 @@ DataModel:
 DataSet:
 - description: This dataset contains the example pump data.
   externalId: ds_example_pump_data
+  metadata: {}
   name: Example Pump Data
+  writeProtected: false
 Space:
 - description: Space for the instances.
   name: sp_pump_instance_space
@@ -70,7 +72,8 @@ Space:
   name: sp_pump_model_space
   space: sp_pump_model_space
 Transformation:
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: pumps
@@ -102,7 +105,8 @@ Transformation:
     clientSecret: dummy
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     dataModel:
       destinationRelationshipFromType: null

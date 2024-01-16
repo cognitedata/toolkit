@@ -1,22 +1,34 @@
 DataSet:
 - description: This dataset contains 3D data for the oid location.
   externalId: ds_3d_oid
+  metadata: {}
   name: 3d:oid
+  writeProtected: false
 - description: This dataset contains asset data for the oid location.
   externalId: ds_asset_oid
+  metadata: {}
   name: asset:oid
+  writeProtected: false
 - description: This dataset contains files for the oid location.
   externalId: ds_files_oid
+  metadata: {}
   name: files:oid
+  writeProtected: false
 - description: This dataset contains relationships data for the oid location.
   externalId: ds_relationships_oid
+  metadata: {}
   name: relationships:oid
+  writeProtected: false
 - description: This dataset contains timeseries for the oid location.
   externalId: ds_timeseries_oid
+  metadata: {}
   name: timeseries:oid
+  writeProtected: false
 - description: This dataset contains transformations data for the oid location.
   externalId: ds_transformations_oid
+  metadata: {}
   name: transformations:oid
+  writeProtected: false
 Datapoints:
 - args: []
   columns:
@@ -330,6 +342,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-PDT-92602:X.Value
+  securityCategories: []
 - dataSetId: 42
   description: PH 1stStgSuctCool Gas Out
   externalId: pi_160696
@@ -388,6 +401,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-PT-92504:X.Value
+  securityCategories: []
 - dataSetId: 42
   description: PH 1stStgComp Discharge
   externalId: pi_160702
@@ -446,6 +460,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-PT-92536:X.Value
+  securityCategories: []
   unit: bar
 - dataSetId: 42
   description: PH 1stStgSuctCool Gas Out Measured Value
@@ -505,6 +520,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-TIC-92504:Z.X.Value
+  securityCategories: []
   unit: degC
 - dataSetId: 42
   description: PH 1stStgDiscCool CM Out
@@ -564,6 +580,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_45-PT-92608:X.Value
+  securityCategories: []
 - dataSetId: 42
   description: PH 1stStgDiscClr CoolMed Sply
   externalId: pi_163657
@@ -622,6 +639,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_45-TT-92606:X.Value
+  securityCategories: []
 - dataSetId: 42
   description: PH 1stStgDiscCool Gas Out Output
   externalId: pi_191092
@@ -680,6 +698,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-TT-92604A:X.Value
+  securityCategories: []
   unit: degC
 Transformation:
 - conflictMode: upsert
