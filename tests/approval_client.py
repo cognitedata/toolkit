@@ -466,6 +466,8 @@ class ApprovalCogniteClient:
                         return x["externalId"]
                     if "db_name" in x and "name" in x and isinstance(x["name"], list):
                         return x["db_name"] + "/" + x["name"][0]
+                    if "db_name" in x:
+                        return x["db_name"]
                     return "missing"
 
                 if values:

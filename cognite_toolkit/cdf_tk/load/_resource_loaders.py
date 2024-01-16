@@ -966,7 +966,11 @@ class FileMetadataLoader(
         return len(ids)
 
     def count(self, ids: SequenceNotStr[str]) -> int:
-        return sum(1 for meta in self.client.files.retrieve_multiple(external_ids=list(ids)) if meta.uploaded)
+        return sum(
+            1
+            for meta in self.client.files.retrieve_multiple(external_ids=list(ids), ignore_unknown_ids=True)
+            if meta.uploaded
+        )
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
         existing = self.client.files.retrieve_multiple(external_ids=list(ids), ignore_unknown_ids=True)
