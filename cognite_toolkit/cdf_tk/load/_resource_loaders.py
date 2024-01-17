@@ -869,6 +869,21 @@ class ExtractionPipelineConfigLoader(
     def create(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
 
+    def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:
+        retrieved = ExtractionPipelineConfigList([])
+        for external_id in ids:
+            try:
+                config_retrieved = self.client.extraction_pipelines.config.retrieve(external_id=external_id)
+            except CogniteAPIError as e:
+                if e.code == 404 and e.message.startswith(
+                    "There is no config stored for the extraction pipeline with external id"
+                ):
+                    continue
+                raise e
+            if config_retrieved:
+                retrieved.append(config_retrieved)
+        return retrieved
+
     def delete(self, ids: SequenceNotStr[str]) -> int:
         count = 0
         for id_ in ids:
