@@ -456,6 +456,17 @@ class RawTableLoader(
     def get_id(cls, item: RawDatabaseTable) -> RawDatabaseTable:
         return item
 
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> RawTableList | None:
+        resource = super().load_resource(filepath, ToolGlobals, skip_validation)
+        if resource is None:
+            return None
+        raw_tables = resource if isinstance(resource, RawTableList) else RawTableList([resource])
+        raw_tables = RawTableList([table for table in raw_tables if table.table_name])
+        if not raw_tables:
+            # These are configs for Raw Databases only
+            return None
+        return raw_tables
+
     def create(self, items: RawTableList) -> RawTableList:
         created = RawTableList([])
         for db_name, raw_tables in itertools.groupby(sorted(items), key=lambda x: x.db_name):
