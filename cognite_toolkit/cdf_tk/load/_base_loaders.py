@@ -260,7 +260,7 @@ class ResourceLoader(
         # Duplicates should be handled on the build step,
         # but in case any of them slip through, we do it here as well to
         # avoid an error.
-        batches = self._remove_duplicates(batches)
+        batches, duplicates = self._remove_duplicates(batches)
 
         nr_of_batches = len(batches)
         nr_of_items = sum(len(batch) for batch in batches)
@@ -269,6 +269,8 @@ class ResourceLoader(
 
         action_word = "Loading" if dry_run else "Deploying"
         print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
+        for duplicate in duplicates:
+            print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
 
         nr_of_deleted = 0
         nr_of_dropped_datapoints = 0
@@ -378,7 +380,7 @@ class ResourceLoader(
         # Duplicates should be handled on the build step,
         # but in case any of them slip through, we do it here as well to
         # avoid an error.
-        batches = self._remove_duplicates(batches)
+        batches, duplicates = self._remove_duplicates(batches)
 
         nr_of_batches = len(batches)
         nr_of_items = sum(len(batch) for batch in batches)
@@ -387,6 +389,8 @@ class ResourceLoader(
 
         action_word = "Loading" if dry_run else "Cleaning"
         print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
+        for duplicate in duplicates:
+            print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
 
         # Deleting resources.
         if isinstance(self, ResourceContainerLoader):
@@ -476,9 +480,12 @@ class ResourceLoader(
             batches.append(batch)
         return batches
 
-    def _remove_duplicates(self, batches: list[T_CogniteResourceList]) -> list[T_CogniteResourceList]:
+    def _remove_duplicates(
+        self, batches: list[T_CogniteResourceList]
+    ) -> tuple[list[T_CogniteResourceList], list[T_ID]]:
         seen: set[T_ID] = set()
         output: list[T_CogniteResourceList] = []
+        duplicates: list[T_ID] = []
         for batch in batches:
             no_duplicates = self.create_empty_of(batch)
             for item in batch:
@@ -487,10 +494,10 @@ class ResourceLoader(
                     no_duplicates.append(item)
                     seen.add(identifier)
                 else:
-                    print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {identifier}.")
+                    duplicates.append(identifier)
             if no_duplicates:
                 output.append(no_duplicates)
-        return output
+        return output, duplicates
 
     def _delete_resources(self, batches: list[T_CogniteResourceList], dry_run: bool, verbose: bool) -> int:
         nr_of_deleted = 0
