@@ -323,7 +323,16 @@ class ResourceLoader(
                 if updated is None:
                     ToolGlobals.failed = True
                     return None
-                nr_of_changed += updated
+                if (
+                    dry_run
+                    and self.support_drop
+                    and drop
+                    and (not isinstance(self, ResourceContainerLoader) or drop_data)
+                ):
+                    # Means the resources will be deleted and not left to be changed
+                    nr_of_created += updated
+                else:
+                    nr_of_changed += updated
 
         if verbose:
             print(
