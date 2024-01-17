@@ -248,15 +248,16 @@ class DeployResults(UserList):
         table.add_column(f"{prefix}Changed", justify="right", style="magenta")
         table.add_column("Unchanged", justify="right", style="cyan")
         table.add_column("Total", justify="right")
+        is_deploy = self.action == "deploy"
         for item in sorted(
             entry for entry in self.data if entry is not None and isinstance(entry, ResourceDeployResult)
         ):
             table.add_row(
                 item.name,
-                str(item.created),
+                str(item.created) if is_deploy else "-",
                 str(item.deleted),
-                str(item.changed),
-                str(item.unchanged),
+                str(item.changed) if is_deploy else "-",
+                str(item.unchanged) if is_deploy else "-",
                 str(item.total),
             )
 
@@ -273,6 +274,11 @@ class DeployResults(UserList):
         for item in sorted(
             entry for entry in self.data if isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult))
         ):
+            if item.name == "raw.tables":
+                # We skip this as we cannot count the number of datapoints in a raw table
+                # and all we can do is to print a misleading 0 for deleted datapoints.
+                continue
+
             if isinstance(item, UploadDeployResult):
                 if isinstance(item, DatapointDeployResult):
                     datapoints = f"{item.cells:,}"
