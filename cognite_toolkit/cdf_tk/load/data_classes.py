@@ -269,7 +269,7 @@ class DeployResults(UserList):
         table.add_column("Item", justify="right")
         table.add_column(f"{prefix}Uploaded", justify="right", style="green")
         table.add_column(f"{prefix}Uploaded Data", justify="right", style="cyan")
-        table.add_column(f"{prefix}Dropped Data", justify="right", style="red")
+        table.add_column(f"{prefix}Deleted Data", justify="right", style="red")
         for item in sorted(
             entry for entry in self.data if isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult))
         ):
