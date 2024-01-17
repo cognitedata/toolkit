@@ -442,6 +442,7 @@ class RawTableLoader(
     list_cls = RawTableList
     list_write_cls = RawTableList
     identifier_key = "table_name"
+    dependencies = frozenset({RawDatabaseLoader})
 
     def __init__(self, client: CogniteClient):
         super().__init__(client)
