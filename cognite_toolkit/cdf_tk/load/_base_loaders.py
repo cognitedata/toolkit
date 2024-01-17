@@ -275,10 +275,12 @@ class ResourceLoader(
         nr_of_deleted = 0
         nr_of_dropped_datapoints = 0
         if self.support_drop and drop and drop_data and isinstance(self, ResourceContainerLoader):
-            print(
-                f"  --drop is specified, will delete existing {self.display_name} before re-deploying. This will also delete {nr_of_dropped_datapoints} {self.item_name} from {self.display_name}."
-            )
             nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
+            print(
+                f"  --drop is specified, will delete existing {self.display_name} before re-deploying. "
+                f"This has also deleted {nr_of_dropped_datapoints} {self.item_name} from {self.display_name}."
+            )
+
             nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
         elif self.support_drop and drop and not drop_data and isinstance(self, ResourceContainerLoader):
             print(f"  [bold]INFO:[/] Skipping deletion of {self.display_name} as --drop-data flag is not set...")
