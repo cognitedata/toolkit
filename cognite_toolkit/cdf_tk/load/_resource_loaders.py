@@ -418,15 +418,14 @@ class RawDatabaseLoader(
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids), key=lambda x: x.db_name):
             try:
-                existing = set(self.client.raw.tables.list(db_name=db_name, limit=-1).as_names())
+                existing = self.client.raw.tables.list(db_name=db_name, limit=-1).as_names()
             except CogniteAPIError as e:
                 if db_name in {item.get("name") for item in e.missing or []}:
                     continue
                 raise e
-            tables = [table.table_name for table in raw_tables if table.table_name in existing]
-            if tables:
-                self.client.raw.tables.delete(db_name=db_name, name=tables)
-                nr_of_tables += len(tables)
+            if existing:
+                self.client.raw.tables.delete(db_name=db_name, name=existing)
+                nr_of_tables += len(existing)
         return nr_of_tables
 
 
@@ -766,7 +765,7 @@ class ExtractionPipelineLoader(
     resource_write_cls = ExtractionPipelineWrite
     list_cls = ExtractionPipelineList
     list_write_cls = ExtractionPipelineWriteList
-    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader})
+    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader})
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
