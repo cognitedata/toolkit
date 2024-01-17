@@ -1043,7 +1043,14 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         return self.client.data_modeling.spaces.apply(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
-        deleted = self.client.data_modeling.spaces.delete(ids)
+        existing = self.client.data_modeling.spaces.retrieve(ids)
+        is_global = {space.space for space in existing if space.is_global}
+        if is_global:
+            print(
+                f"  [bold yellow]WARNING:[/] Spaces {list(is_global)} are global and cannot be deleted, skipping delete, for these."
+            )
+        to_delete = [space for space in ids if space not in is_global]
+        deleted = self.client.data_modeling.spaces.delete(to_delete)
         return len(deleted)
 
     def count(self, ids: SequenceNotStr[str]) -> int:
