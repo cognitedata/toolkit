@@ -34,18 +34,20 @@ tableName: myRawTable
 
 ### Changed
 
-- Update is implemented for all resources. This means that if a resource already exists, it will be updated instead of
-  deleted and recreated.
+- Update is implemented for all resources. This means that if a resource already exists and is exactly the same as
+  the one to be deployed, it will be updated instead of deleted and recreated.
 - The `cdf-tk deploy` `--drop-data` is now independent of the `--drop` flag. This means that you can now drop data
-  without dropping the resource itself.
+  without dropping the resource itself. The reverse is not true, if you specify `--drop` without `--drop-data`, only
+  resources that can be deleted without dropping data will be deleted.
 - The output of the `cdf-tk deploy` command has been improved. Instead of created, deleted, and skipped resources
   being printed in a table at the end of the command, the resources are now printed as they are created, deleted, changed,
   and unchanged. In addition, an extra table is printed below with the datapoints that have been uploaded and dropped.
 - The output of the `cdf-tk clean` command has also been changed in the same way as the `cdf-tk deploy` command.
 - The `files` resource has been split into two resources, `FileMetadata` and `Files` to separate the metadata from
   the data (the file).
-- The default values of resources are set when loading from file if they are missing. This is to ensure the comparison
-  of resources is correct which is used to display the resources that are created, deleted, changed, and unchanged.
+- To ensure comparison of resources and be able to determine whether they need to be updated, any resource
+  defined in a YAML file will be augmented with default values (as defined by the CDF API) if they are missing before
+  they are deployed.
 
 ### Fixed
 
