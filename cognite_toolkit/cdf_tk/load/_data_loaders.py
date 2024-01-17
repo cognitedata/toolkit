@@ -48,12 +48,12 @@ class DatapointsLoader(DataLoader):
         else:
             raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
         if dry_run:
-            return f"Would insert {len(data)}x{len(data.columns)} datapoints from {datafile.name}", len(data) * len(
+            return f"Would insert {len(data)}x{len(data.columns)} datapoints from '{datafile!s}'", len(data) * len(
                 data.columns
             )
         else:
             self.client.time_series.data.insert_dataframe(data)
-            return f"Inserted {len(data)}x{len(data.columns)} datapoints from {datafile.name}", len(data) * len(
+            return f"Inserted {len(data)}x{len(data.columns)} datapoints from '{datafile!s}'", len(data) * len(
                 data.columns
             )
 
@@ -78,10 +78,10 @@ class FileLoader(DataLoader):
 
     def upload(self, datafile: Path, dry_run: bool) -> tuple[str, int]:
         if dry_run:
-            return f"Would upload file {datafile.name}", 1
+            return f"Would upload file '{datafile!s}'", 1
         else:
             self.client.files.upload(path=str(datafile), name=datafile.name, overwrite=False)
-            return f"Uploaded file {datafile.name}", 1
+            return f"Uploaded file '{datafile!s}'", 1
 
 
 @final
@@ -120,11 +120,11 @@ class RawFileLoader(DataLoader):
             raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
 
         if dry_run:
-            return f"Would insert {len(data)}x{len(data.columns)} rows from {datafile.name}", len(data)
+            return f"Would insert {len(data)}x{len(data.columns)} rows from '{datafile!s}'", len(data)
 
         if metadata.table_name is None:
             raise ValueError(f"Missing table name for {datafile.name}")
         self.client.raw.rows.insert_dataframe(
             db_name=metadata.db_name, table_name=metadata.table_name, dataframe=data, ensure_parent=False
         )
-        return f"Inserted {len(data)}x{len(data.columns)} cells from {datafile.name}", len(data)
+        return f"Inserted {len(data)}x{len(data.columns)} rows from '{datafile!s}'", len(data)
