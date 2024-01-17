@@ -257,6 +257,11 @@ class ResourceLoader(
             ToolGlobals.failed = True
             return None
 
+        # Duplicates should be handled on the build step,
+        # but in case any of them slip through, we do it here as well to
+        # avoid an error.
+        batches = self._remove_duplicates(batches)
+
         nr_of_batches = len(batches)
         nr_of_items = sum(len(batch) for batch in batches)
         if nr_of_items == 0:
@@ -361,6 +366,11 @@ class ResourceLoader(
             ToolGlobals.failed = True
             return None
 
+        # Duplicates should be handled on the build step,
+        # but in case any of them slip through, we do it here as well to
+        # avoid an error.
+        batches = self._remove_duplicates(batches)
+
         nr_of_batches = len(batches)
         nr_of_items = sum(len(batch) for batch in batches)
         if nr_of_items == 0:
@@ -456,6 +466,22 @@ class ResourceLoader(
                 continue
             batches.append(batch)
         return batches
+
+    def _remove_duplicates(self, batches: list[T_CogniteResourceList]) -> list[T_CogniteResourceList]:
+        seen: set[T_ID] = set()
+        output: list[T_CogniteResourceList] = []
+        for batch in batches:
+            no_duplicates = self.create_empty_of(batch)
+            for item in batch:
+                identifier = self.get_id(item)
+                if identifier not in seen:
+                    no_duplicates.append(item)
+                    seen.add(identifier)
+                else:
+                    print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {identifier}.")
+            if no_duplicates:
+                output.append(no_duplicates)
+        return output
 
     def _delete_resources(self, batches: list[T_CogniteResourceList], dry_run: bool, verbose: bool) -> int:
         nr_of_deleted = 0
