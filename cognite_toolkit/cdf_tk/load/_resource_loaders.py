@@ -120,7 +120,6 @@ _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 
 @final
 class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
-    support_drop = False
     api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
