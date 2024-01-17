@@ -18,6 +18,7 @@ import json
 import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from time import sleep
 from typing import Literal, cast, final
 
 import yaml
@@ -1240,6 +1241,22 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
 
     def update(self, items: Sequence[ViewApply]) -> ViewList:
         return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[ViewId]) -> int:
+        to_delete = list(ids)
+        nr_of_deleted = 0
+        attempt_count = 5
+        for attempt_no in range(attempt_count):
+            deleted = self.client.data_modeling.views.delete(to_delete)
+            nr_of_deleted += len(deleted)
+            sleep(2)
+            existing = self.client.data_modeling.views.retrieve(to_delete).as_ids()
+            if not existing:
+                return nr_of_deleted
+            to_delete = existing
+        else:
+            print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
+        return nr_of_deleted
 
 
 @final
