@@ -504,11 +504,13 @@ class RawTableLoader(
                 try:
                     self.client.raw.tables.delete(db_name=db_name, name=tables)
                 except CogniteAPIError as e:
+                    if e.code != 404:
+                        raise e
+                    # Missing is returned as failed
+                    missing = {item.get("name") for item in (e.missing or [])}.union(set(e.failed or []))
                     if re.match(r"^Database named (.*)+ not found$", e.message):
                         continue
-                    elif tables := [
-                        name for name in tables if name not in {item.get("name") for item in e.missing or []}
-                    ]:
+                    elif tables := [name for name in tables if name not in missing]:
                         self.client.raw.tables.delete(db_name=db_name, name=tables)
                     else:
                         raise e
