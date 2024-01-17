@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ import yaml
 from cognite_toolkit.cdf_tk.templates import (
     ConfigYAML,
     YAMLComment,
+    check_yaml_semantics,
     create_local_config,
     flatten_dict,
     split_config,
@@ -166,3 +168,62 @@ def test_create_local_config(my_config: dict[str, Any]):
     local_config = create_local_config(configs, Path("parent/child/auth/"))
 
     assert dict(local_config.items()) == {"top_variable": "my_top_variable", "child_variable": "my_child_variable"}
+
+
+def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:
+    yield pytest.param(
+        yaml.safe_load(
+            """
+- dbName: src:005:test:rawdb:state
+- dbName: src:002:weather:rawdb:state
+- dbName: uc:001:demand:rawdb:state
+- dbName: in:all:rawdb:state
+- dbName: src:001:sap:rawdb
+"""
+        ),
+        Path("build/raw/raw.yaml"),
+        id="Multiple Raw Databases",
+    )
+
+    yield pytest.param(
+        yaml.safe_load(
+            """
+dbName: src:005:test:rawdb:state
+"""
+        ),
+        Path("build/raw/raw.yaml"),
+        id="Single Raw Database",
+    )
+
+    yield pytest.param(
+        yaml.safe_load(
+            """
+dbName: src:005:test:rawdb:state
+tableName: myTable
+"""
+        ),
+        Path("build/raw/raw.yaml"),
+        id="Single Raw Database with table",
+    )
+
+    yield pytest.param(
+        yaml.safe_load(
+            """
+- dbName: src:005:test:rawdb:state
+  tableName: myTable
+- dbName: src:002:weather:rawdb:state
+  tableName: myOtherTable
+"""
+        ),
+        Path("build/raw/raw.yaml"),
+        id="Multiple Raw Databases with table",
+    )
+
+
+class TestCheckYamlSemantics:
+    @pytest.mark.parametrize("raw_yaml, source_path", list(valid_yaml_semantics_test_cases()))
+    def test_valid_yaml(self, raw_yaml: dict | list, source_path: Path):
+        # The build path is unused in the function
+        # not sure why it is there
+        build_path = Path("does_not_matter")
+        assert check_yaml_semantics(raw_yaml, source_path, build_path)
