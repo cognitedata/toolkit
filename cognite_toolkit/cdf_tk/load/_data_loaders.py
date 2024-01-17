@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import final
 
 import pandas as pd
+import yaml
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability, FilesAcl, RawAcl, TimeSeriesAcl
 
@@ -98,7 +99,13 @@ class RawFileLoader(DataLoader):
         pattern = re.compile(rf"^(\d+\.)?{datafile.stem}\.(yml|yaml)$")
         metadata_file = next((filepath for filepath in datafile.parent.glob("*") if pattern.match(filepath.name)), None)
         if metadata_file is not None:
-            metadata = RawDatabaseTable.load(metadata_file.read_text())
+            raw = yaml.safe_load(metadata_file.read_text())
+            if isinstance(raw, dict):
+                metadata = RawDatabaseTable.load(raw)
+            elif isinstance(raw, list):
+                raise ValueError(f"Array/list format currently not supported for uploading {self.display_name}.")
+            else:
+                raise ValueError(f"Invalid format on metadata for {datafile.name}")
         else:
             raise ValueError(f"Missing metadata file for {datafile.name}. It should be named {datafile.stem}.yaml")
 
