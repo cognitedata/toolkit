@@ -434,7 +434,7 @@ class RawDatabaseLoader(
 class RawTableLoader(
     ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
 ):
-    item_name = "raw cells"
+    item_name = "raw rows"
     api_name = "raw.tables"
     folder_name = "raw"
     resource_cls = RawDatabaseTable

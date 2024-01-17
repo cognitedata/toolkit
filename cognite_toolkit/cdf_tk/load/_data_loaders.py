@@ -86,7 +86,7 @@ class FileLoader(DataLoader):
 
 @final
 class RawFileLoader(DataLoader):
-    item_name = "cells"
+    item_name = "rows"
     folder_name = "raw"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({RawDatabaseLoader, RawTableLoader})
@@ -120,13 +120,11 @@ class RawFileLoader(DataLoader):
             raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
 
         if dry_run:
-            return f"Would insert {len(data)}x{len(data.columns)} cells from {datafile.name}", len(data) * len(
-                data.columns
-            )
+            return f"Would insert {len(data)}x{len(data.columns)} cells from {datafile.name}", len(data)
 
         if metadata.table_name is None:
             raise ValueError(f"Missing table name for {datafile.name}")
         self.client.raw.rows.insert_dataframe(
             db_name=metadata.db_name, table_name=metadata.table_name, dataframe=data, ensure_parent=False
         )
-        return f"Inserted {len(data)}x{len(data.columns)} cells from {datafile.name}", len(data) * len(data.columns)
+        return f"Inserted {len(data)}x{len(data.columns)} cells from {datafile.name}", len(data)
