@@ -120,7 +120,7 @@ class RawFileLoader(DataLoader):
             raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
 
         if dry_run:
-            return f"Would insert {len(data)}x{len(data.columns)} cells from {datafile.name}", len(data)
+            return f"Would insert {len(data)}x{len(data.columns)} rows from {datafile.name}", len(data)
 
         if metadata.table_name is None:
             raise ValueError(f"Missing table name for {datafile.name}")

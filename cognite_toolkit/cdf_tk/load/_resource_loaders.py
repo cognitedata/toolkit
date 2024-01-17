@@ -513,6 +513,9 @@ class RawTableLoader(
                         continue
                     elif tables := [name for name in tables if name not in missing]:
                         self.client.raw.tables.delete(db_name=db_name, name=tables)
+                    elif not tables:
+                        # Table does not exist.
+                        continue
                     else:
                         raise e
                 count += len(tables)
