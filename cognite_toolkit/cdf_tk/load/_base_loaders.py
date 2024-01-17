@@ -277,16 +277,17 @@ class ResourceLoader(
         if self.support_drop and drop and drop_data and isinstance(self, ResourceContainerLoader):
             nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
             print(
-                f"  --drop is specified, will delete existing {self.display_name} before re-deploying. "
-                f"This has also deleted {nr_of_dropped_datapoints} {self.item_name} from {self.display_name}."
+                f"  --drop and --drop-data are specified, will delete existing {self.display_name} and "
+                f"deleted {nr_of_dropped_datapoints} {self.item_name} before re-deploying and uploading local data. "
             )
-
             nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
         elif self.support_drop and drop and not drop_data and isinstance(self, ResourceContainerLoader):
-            print(f"  [bold]INFO:[/] Skipping deletion of {self.display_name} as --drop-data flag is not set...")
+            print(
+                f"  [bold]INFO:[/] Skipping deletion of {self.display_name} as this requires the --drop-data flag to be set..."
+            )
         elif self.support_drop and drop_data and isinstance(self, ResourceContainerLoader):
             print(
-                f"  --drop-data is specified, will delete existing {self.item_name} from {self.display_name} before before uploading new ones."
+                f"  --drop-data is specified, will delete existing {self.item_name} from {self.display_name} before re-deploying."
             )
             nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
         elif self.support_drop and drop:
@@ -636,8 +637,7 @@ class ResourceContainerLoader(
                 if e.code == 404 and verbose:
                     print(f"  [bold]INFO:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
             except CogniteNotFoundError:
-                if verbose:
-                    print(f"  [bold]INFO:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
+                continue
             except Exception as e:
                 print(
                     f"  [bold yellow]WARNING:[/] Failed to drop {self.item_name} from {len(batch_ids)} {self.display_name}. Error {e}."
@@ -646,7 +646,11 @@ class ResourceContainerLoader(
                     print(Panel(traceback.format_exc()))
             else:  # Delete succeeded
                 if verbose:
-                    print(f"  Dropped {batch_count} {self.item_name} from {self.display_name}.")
+                    if self.display_name == "raw.tables":
+                        # special case since we cannot count the rows in a RAW table
+                        print(f" Dropped all {self.item_name} from {self.display_name}.")
+                    else:
+                        print(f"  Dropped {batch_count} {self.item_name} from {self.display_name}.")
         return nr_of_dropped
 
 
