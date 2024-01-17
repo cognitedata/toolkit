@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import re
+import traceback
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Collection, Sequence, Sized
@@ -21,6 +22,7 @@ from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.panel import Panel
 
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
@@ -399,8 +401,11 @@ class ResourceLoader(
         )
         try:
             cdf_resources = self.retrieve(batch_ids)
-        except Exception:
-            print(f"  [bold yellow]WARNING:[/] Failed to retrieve {len(batch_ids)} of {self.display_name}.")
+        except Exception as e:
+            print(
+                f"  [bold yellow]WARNING:[/] Failed to retrieve {len(batch_ids)} of {self.display_name}. Proceeding assuming not data in CDF. Error {e}."
+            )
+            print(Panel(traceback.format_exc()))
             cdf_resource_by_id = {}
         else:
             cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources}
@@ -438,6 +443,10 @@ class ResourceLoader(
                     f"[bold red]ERROR:[/] Failed to load {filepath.name} with {self.display_name}. Missing required field: {e}."
                 )
                 return None
+            except Exception as e:
+                print(f"[bold red]ERROR:[/] Failed to load {filepath.name} with {self.display_name}. Error: {e!r}.")
+                print(Panel(traceback.format_exc()))
+                return None
             if resource is None:
                 # This is intentional. It is, for example, used by the AuthLoader to skip groups with resource scopes.
                 continue
@@ -468,7 +477,7 @@ class ResourceLoader(
                     print(f"  [bold]INFO:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
             except Exception as e:
                 print(f"  [bold yellow]WARNING:[/] Failed to delete {len(batch_ids)} {self.display_name}. Error {e}.")
-                self.delete(batch_ids)
+                print(Panel(traceback.format_exc()))
             else:  # Delete succeeded
                 if verbose:
                     print(f"  Deleted {len(batch_ids)} {self.display_name}.")
@@ -489,6 +498,7 @@ class ResourceLoader(
             )
         except Exception as e:
             print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+            print(Panel(traceback.format_exc()))
             return None
         else:
             return len(created) if created is not None else 0
@@ -499,6 +509,7 @@ class ResourceLoader(
             updated = self.update(resources)
         except Exception as e:
             print(f"  [bold yellow]Error:[/] Failed to update {self.display_name}. Error {e}.")
+            print(Panel(traceback.format_exc()))
             return None
         else:
             return len(updated)
@@ -557,6 +568,7 @@ class ResourceContainerLoader(
                 print(
                     f"  [bold yellow]WARNING:[/] Failed to drop {self.item_name} from {len(batch_ids)} {self.display_name}. Error {e}."
                 )
+                print(Panel(traceback.format_exc()))
             else:  # Delete succeeded
                 if verbose:
                     print(f"  Dropped {batch_count} {self.item_name} from {self.display_name}.")
@@ -602,7 +614,8 @@ class DataLoader(Loader, ABC):
             try:
                 message, file_datapoints = self.upload(filepath, dry_run)
             except Exception as e:
-                print(f"  [bold red]Error:[/] Failed to upload {filepath.name}. Error {e}.")
+                print(f"  [bold red]Error:[/] Failed to upload {filepath.name}. Error: {e!r}.")
+                print(Panel(traceback.format_exc()))
                 ToolGlobals.failed = True
                 return None
             if verbose:
