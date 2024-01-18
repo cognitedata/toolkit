@@ -399,6 +399,8 @@ class RawDatabaseLoader(
             # Bug in API, missing is returned as failed
             if e.failed and (db_names := [name for name in db_names if name not in e.failed]):
                 self.client.raw.databases.delete(db_names)
+            elif e.code == 404 and "not found" in e.message and "database" in e.message:
+                return 0
             else:
                 raise e
         return len(db_names)
@@ -509,7 +511,7 @@ class RawTableLoader(
                         raise e
                     # Missing is returned as failed
                     missing = {item.get("name") for item in (e.missing or [])}.union(set(e.failed or []))
-                    if re.match(r"^Database named (.*)+ not found$", e.message):
+                    if "not found" in e.message and "database" in e.message:
                         continue
                     elif tables := [name for name in tables if name not in missing]:
                         self.client.raw.tables.delete(db_name=db_name, name=tables)
@@ -823,6 +825,9 @@ class ExtractionPipelineLoader(
             not_existing = {external_id for dup in e.not_found if (external_id := dup.get("externalId", None))}
             if id_list := [id_ for id_ in id_list if id_ not in not_existing]:
                 self.client.extraction_pipelines.delete(external_id=id_list)
+        except CogniteAPIError as e:
+            if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
+                return 0
         return len(id_list)
 
 
@@ -894,8 +899,13 @@ class ExtractionPipelineConfigLoader(
     def delete(self, ids: SequenceNotStr[str]) -> int:
         count = 0
         for id_ in ids:
-            result = self.client.extraction_pipelines.config.list(external_id=id_)
-            count += len(result)
+            try:
+                result = self.client.extraction_pipelines.config.list(external_id=id_)
+            except CogniteAPIError as e:
+                if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
+                    continue
+            else:
+                count += len(result)
         return count
 
 
@@ -1390,7 +1400,12 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[NodeId]) -> int:
-        deleted = self.client.data_modeling.instances.delete(nodes=cast(Sequence, ids))
+        try:
+            deleted = self.client.data_modeling.instances.delete(nodes=cast(Sequence, ids))
+        except CogniteAPIError as e:
+            if "not exist" in e.message and "space" in e.message.lower():
+                return 0
+            raise e
         return len(deleted.nodes)
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
