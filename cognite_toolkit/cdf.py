@@ -366,11 +366,12 @@ def deploy(
                 print("[bold red]ERROR: [/] Failure to clean auth as expected.")
                 exit(1)
 
-        print("[bold]Cleaning Complete[/]")
+        print("[bold]...Cleaning Complete[/]")
     arguments = dict(
         ToolGlobals=ToolGlobals,
         dry_run=dry_run,
         drop_data=drop_data,
+        has_done_drop=drop,
         verbose=ctx.obj.verbose,
     )
     if drop:
