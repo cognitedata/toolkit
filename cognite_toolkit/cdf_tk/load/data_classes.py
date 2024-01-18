@@ -16,7 +16,7 @@ There are three types of classes in this module made with different motivations:
 from __future__ import annotations
 
 from abc import ABC
-from collections import UserList
+from collections import UserDict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import total_ordering
@@ -207,11 +207,27 @@ class ResourceDeployResult(DeployResult):
     def calculated_total(self) -> int:
         return self.created + self.deleted + self.changed + self.unchanged + self.skipped
 
+    def __iadd__(self, other: ResourceDeployResult) -> None:
+        if self.name != other.name:
+            raise ValueError("Cannot add two DeployResult objects with different names")
+        self.created += other.created
+        self.deleted += other.deleted
+        self.changed += other.changed
+        self.unchanged += other.unchanged
+        self.skipped += other.skipped
+        self.total += other.total
+
 
 @dataclass
 class ResourceContainerDeployResult(ResourceDeployResult):
     item_name: str = ""
     dropped_datapoints: int = 0
+
+    def __iadd__(self, other: ResourceDeployResult) -> None:
+        if not isinstance(other, ResourceContainerDeployResult) or self.name != other.name:
+            raise ValueError("Cannot add two ResourceContainerDeployResult objects with different names")
+        super().__iadd__(other)
+        self.dropped_datapoints += other.dropped_datapoints
 
 
 @dataclass
@@ -219,25 +235,38 @@ class UploadDeployResult(DeployResult):
     uploaded: int = 0
     item_name: str = ""
 
+    def __iadd__(self, other: UploadDeployResult) -> None:
+        if self.name != other.name:
+            raise ValueError("Cannot add two DeployResult objects with different names")
+        self.uploaded += other.uploaded
+
 
 @dataclass
 class DatapointDeployResult(UploadDeployResult):
-    cells: int = 0
+    points: int = 0
+
+    def __iadd__(self, other: UploadDeployResult) -> None:
+        if not isinstance(other, DatapointDeployResult) or self.name != other.name:
+            raise ValueError("Cannot add two DeployResult objects with different names")
+        super().__iadd__(other)
+        self.points += other.points
 
 
-class DeployResults(UserList):
+class DeployResults(UserDict):
     def __init__(self, collection: Iterable[DeployResult], action: Literal["deploy", "clean"], dry_run: bool = False):
-        super().__init__(collection)
+        super().__init__({entry.name: entry for entry in collection})
         self.action = action
         self.dry_run = dry_run
 
     @property
     def has_counts(self) -> bool:
-        return any(isinstance(entry, ResourceDeployResult) for entry in self.data)
+        return any(isinstance(entry, ResourceDeployResult) for entry in self.data.values())
 
     @property
     def has_uploads(self) -> bool:
-        return any(isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult)) for entry in self.data)
+        return any(
+            isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult)) for entry in self.data.values()
+        )
 
     def counts_table(self) -> Table:
         table = Table(title=f"Summary of Resources {self.action.title()} operation:")
@@ -250,7 +279,7 @@ class DeployResults(UserList):
         table.add_column("Total", justify="right")
         is_deploy = self.action == "deploy"
         for item in sorted(
-            entry for entry in self.data if entry is not None and isinstance(entry, ResourceDeployResult)
+            entry for entry in self.data.values() if entry is not None and isinstance(entry, ResourceDeployResult)
         ):
             table.add_row(
                 item.name,
@@ -272,7 +301,9 @@ class DeployResults(UserList):
         table.add_column(f"{prefix}Uploaded Data", justify="right", style="cyan")
         table.add_column(f"{prefix}Deleted Data", justify="right", style="red")
         for item in sorted(
-            entry for entry in self.data if isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult))
+            entry
+            for entry in self.data.values()
+            if isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult))
         ):
             if item.name == "raw.tables":
                 # We skip this as we cannot count the number of datapoints in a raw table
@@ -281,7 +312,7 @@ class DeployResults(UserList):
 
             if isinstance(item, UploadDeployResult):
                 if isinstance(item, DatapointDeployResult):
-                    datapoints = f"{item.cells:,}"
+                    datapoints = f"{item.points:,}"
                 else:
                     datapoints = "-"
                 table.add_row(item.name, item.item_name, f"{item.uploaded} files", datapoints, "-")
@@ -289,3 +320,12 @@ class DeployResults(UserList):
                 table.add_row(item.name, item.item_name, "-", "-", f"{item.dropped_datapoints:,}")
 
         return table
+
+    def __getitem__(self, item: str) -> DeployResult:
+        return self.data[item]
+
+    def __setitem__(self, key: str, value: DeployResult) -> None:
+        if key not in self.data:
+            self.data[key] = value
+        else:
+            self.data[key] += value

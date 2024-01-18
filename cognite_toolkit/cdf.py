@@ -323,22 +323,56 @@ def deploy(
     print(ToolGlobals.as_string())
 
     # The 'auth' loader is excluded, as it is run twice,
-    # once with all_scoped_skipped_validation and once with resource_scoped_only
+    # once with all_scoped_only and once with resource_scoped_only
     selected_loaders = {
         LoaderCls: LoaderCls.dependencies
         for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
         if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
         for LoaderCls in loader_classes
     }
+    results = DeployResults([], "deploy", dry_run=dry_run)
+    ordered_loaders = list(TopologicalSorter(selected_loaders).static_order())
+    if len(ordered_loaders) > len(selected_loaders):
+        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
+    if drop:
+        # Drop has to be done in the reverse order of deploy.
+        print("[bold] --drop passed, cleaning resources...[/]")
+        for LoaderCls in reversed(ordered_loaders):
+            if not issubclass(LoaderCls, ResourceLoader):
+                continue
+            loader = LoaderCls.create_loader(ToolGlobals)
+            result = loader.clean_resources(
+                build_path / LoaderCls.folder_name,
+                ToolGlobals,
+                dry_run=dry_run,
+                drop_data=drop_data,
+                verbose=ctx.obj.verbose,
+            )
+            if result:
+                results[result.name] = result
+            if ToolGlobals.failed:
+                print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
+                exit(1)
+        if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+            result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
+                directory,
+                ToolGlobals,
+                dry_run=dry_run,
+                verbose=ctx.obj.verbose,
+            )
+            if result:
+                results[result.name] = result
+            if ToolGlobals.failed:
+                print("[bold red]ERROR: [/] Failure to clean auth as expected.")
+                exit(1)
 
     arguments = dict(
         ToolGlobals=ToolGlobals,
-        drop=drop,
         dry_run=dry_run,
         drop_data=drop_data,
         verbose=ctx.obj.verbose,
     )
-    results = DeployResults([], "deploy", dry_run=dry_run)
+
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
         print("[bold]EVALUATING auth resources (groups) with ALL scope...[/]")
@@ -349,11 +383,9 @@ def deploy(
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth (groups) with ALL scope as expected.")
             exit(1)
-        results.append(result)
-    resolved_list = list(TopologicalSorter(selected_loaders).static_order())
-    if len(resolved_list) > len(selected_loaders):
-        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
-    for LoaderCls in resolved_list:
+        if result:
+            results[result.name] = result
+    for LoaderCls in ordered_loaders:
         result = LoaderCls.create_loader(ToolGlobals).deploy_resources(  # type: ignore[assignment]
             build_path / LoaderCls.folder_name,
             **arguments,
@@ -365,7 +397,8 @@ def deploy(
                 print(results.uploads_table())
             print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
             exit(1)
-        results.append(result)
+        if result:
+            results[result.name] = result
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we create the Groups again, but this time we do not filter out any capabilities
@@ -376,7 +409,11 @@ def deploy(
             directory,
             **arguments,
         )
-        results.append(result)
+        if ToolGlobals.failed:
+            print("[bold red]ERROR: [/] Failure to deploy auth (groups) scoped to resources as expected.")
+            exit(1)
+        if result:
+            results[result.name] = result
     if results.has_counts:
         print(results.counts_table())
     if results.has_uploads:
@@ -479,7 +516,8 @@ def clean(
             drop_data=True,
             verbose=ctx.obj.verbose,
         )
-        results.append(result)
+        if result:
+            results[result.name] = result
         if ToolGlobals.failed:
             if results and results.has_counts:
                 print(results.counts_table())
@@ -494,7 +532,11 @@ def clean(
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
         )
-        results.append(result)
+        if ToolGlobals.failed:
+            print("[bold red]ERROR: [/] Failure to clean auth as expected.")
+            exit(1)
+        if result:
+            results[result.name] = result
     if results.has_counts:
         print(results.counts_table())
     if results.has_uploads:
