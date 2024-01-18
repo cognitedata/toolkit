@@ -214,8 +214,8 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
 
 def check_auth(
     ToolGlobals: CDFToolConfig,
+    group_file: str,
     auth_vars: AuthVariables | None = None,
-    group_file: str | None = None,
     update_group: int = 0,
     create_group: str | None = None,
     interactive: bool = False,
@@ -321,9 +321,11 @@ def check_auth(
         print("  [bold red]ERROR[/]: Unable to retrieve CDF groups.")
         ToolGlobals.failed = True
         return None
-    read_write = Group.load(
-        Path(f"{Path(__file__).parent.parent.as_posix()}{group_file}").read_text(),
-    )
+    if Path(group_file).exists():
+        file_text = Path(group_file).read_text()
+    else:
+        file_text = Path(f"{Path(__file__).parent.parent.as_posix()}{group_file}").read_text()
+    read_write = Group.load(file_text)
     tbl = Table(title="CDF Group ids, Names, and Source Ids")
     tbl.add_column("Id", justify="left")
     tbl.add_column("Name", justify="left")
@@ -384,7 +386,7 @@ def check_auth(
     else:
         print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
     # Flatten out into a list of acls in the existing project
-    existing_cap_list = [c.capability for c in resp.capabilities.data]
+    existing_cap_list = [c.capability for c in resp.capabilities]
     if len(groups) > 1:
         print(
             "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
