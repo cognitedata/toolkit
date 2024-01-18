@@ -349,8 +349,14 @@ class ResourceLoader(
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
         if not self.support_drop:
-            print(f"  [bold]INFO:[/] {self.display_name} cleaning is not supported, skipping...")
+            print(f"  [bold]INFO:[/] {self.display_name!r} cleaning is not supported, skipping...")
             return ResourceDeployResult(name=self.display_name)
+        elif isinstance(self, ResourceContainerLoader) and not drop_data:
+            print(
+                f"  [bold]INFO:[/] Skipping deletion of as {self.display_name!r} is a resource container and "
+                "requires the --drop-data flag to be set for deletion..."
+            )
+            return ResourceContainerDeployResult(name=self.display_name, item_name=self.item_name)
 
         filepaths = self.find_files(path)
 
@@ -377,13 +383,8 @@ class ResourceLoader(
 
         # Deleting resources.
         if isinstance(self, ResourceContainerLoader):
-            if drop_data:
-                nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
-                nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
-            else:
-                print(f"  [bold]INFO:[/] Skipping deletion of {self.display_name} as --drop-data flag is not set...")
-                nr_of_dropped_datapoints = 0
-                nr_of_deleted = 0
+            nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
+            nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
             return ResourceContainerDeployResult(
                 name=self.display_name,
                 deleted=nr_of_deleted,

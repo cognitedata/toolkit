@@ -336,7 +336,7 @@ def deploy(
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
     if drop:
         # Drop has to be done in the reverse order of deploy.
-        print("[bold] --drop passed, cleaning resources...[/]")
+        print(Panel("[bold] Cleaning resources as --drop passed is passed[/]"))
         for LoaderCls in reversed(ordered_loaders):
             if not issubclass(LoaderCls, ResourceLoader):
                 continue
@@ -366,16 +366,17 @@ def deploy(
                 print("[bold red]ERROR: [/] Failure to clean auth as expected.")
                 exit(1)
 
+        print("[bold]Cleaning Complete[/]")
     arguments = dict(
         ToolGlobals=ToolGlobals,
         dry_run=dry_run,
         drop_data=drop_data,
         verbose=ctx.obj.verbose,
     )
-
+    if drop:
+        print(Panel("[bold]DEPLOYING resources...[/]"))
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
-        print("[bold]EVALUATING auth resources (groups) with ALL scope...[/]")
         result = AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_only").deploy_resources(
             directory,
             **arguments,
