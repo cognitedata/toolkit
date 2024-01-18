@@ -1009,3 +1009,16 @@ deleted:
   - externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2workorders
   - externalId: tr_workorder_oid_workmate_apm_simple_load_workorders
   - externalId: tr_workorder_oid_workmate_apm_simple_load_workorders2assets
+  View:
+  - externalId: Asset
+    space: sp_apm_simple
+    type: view
+    version: '1'
+  - externalId: WorkItem
+    space: sp_apm_simple
+    type: view
+    version: '1'
+  - externalId: WorkOrder
+    space: sp_apm_simple
+    type: view
+    version: '1'

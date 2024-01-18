@@ -15,3 +15,20 @@ deleted:
   Space:
   - APM_Config
   - APM_SourceData
+  View:
+  - externalId: APM_Activity
+    space: APM_SourceData
+    type: view
+    version: '1'
+  - externalId: APM_Config
+    space: APM_Config
+    type: view
+    version: '1'
+  - externalId: APM_Notification
+    space: APM_SourceData
+    type: view
+    version: '1'
+  - externalId: APM_Operation
+    space: APM_SourceData
+    type: view
+    version: '1'

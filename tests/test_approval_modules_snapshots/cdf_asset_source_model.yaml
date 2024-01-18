@@ -116,3 +116,8 @@ View:
 deleted:
   TransformationSchedule:
   - externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
+  View:
+  - externalId: Asset
+    space: sp_extended_source_data_models
+    type: view
+    version: '1'

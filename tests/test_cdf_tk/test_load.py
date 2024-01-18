@@ -39,7 +39,7 @@ def test_loader_class(
     cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
     cdf_tool.data_set_id = 999
 
-    loader_cls.create_loader(cdf_tool).deploy_resources(directory, cdf_tool, drop=False, dry_run=False)
+    loader_cls.create_loader(cdf_tool).deploy_resources(directory, cdf_tool, dry_run=False)
 
     dump = cognite_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{directory.name}.yaml")
