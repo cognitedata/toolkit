@@ -880,8 +880,10 @@ class ExtractionPipelineConfigLoader(
             try:
                 config_retrieved = self.client.extraction_pipelines.config.retrieve(external_id=external_id)
             except CogniteAPIError as e:
-                if e.code == 404 and e.message.startswith(
-                    "There is no config stored for the extraction pipeline with external id"
+                if (
+                    e.code == 404
+                    and e.message.startswith("There is no config stored for the extraction pipeline with external id")
+                    or e.message.startswith("Extraction pipeline not found")
                 ):
                     continue
                 raise e
@@ -1343,9 +1345,13 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
             for source_prop_pair in local.sources or []
             if isinstance(source_prop_pair.source, ViewId)
         ]
-        cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
-            nodes=cdf_resource.as_id(), sources=sources
-        ).nodes[0]
+        try:
+            cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
+                nodes=cdf_resource.as_id(), sources=sources
+            ).nodes[0]
+        except CogniteAPIError:
+            # View does not exist, so node does not exist.
+            return False
         cdf_resource_dumped = cdf_resource_with_properties.as_write().dump()
         local_dumped = local.dump()
         if "existingVersion" not in local_dumped:

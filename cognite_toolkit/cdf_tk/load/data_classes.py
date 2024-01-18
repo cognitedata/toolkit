@@ -207,7 +207,7 @@ class ResourceDeployResult(DeployResult):
     def calculated_total(self) -> int:
         return self.created + self.deleted + self.changed + self.unchanged + self.skipped
 
-    def __iadd__(self, other: ResourceDeployResult) -> None:
+    def __iadd__(self, other: ResourceDeployResult) -> ResourceDeployResult:
         if self.name != other.name:
             raise ValueError("Cannot add two DeployResult objects with different names")
         self.created += other.created
@@ -217,17 +217,34 @@ class ResourceDeployResult(DeployResult):
         self.skipped += other.skipped
         self.total += other.total
 
+        if isinstance(other, ResourceContainerDeployResult):
+            return ResourceContainerDeployResult(
+                name=self.name,
+                created=self.created,
+                deleted=self.deleted,
+                changed=self.changed,
+                unchanged=self.unchanged,
+                skipped=self.skipped,
+                total=self.total,
+                item_name=other.item_name,
+                dropped_datapoints=other.dropped_datapoints,
+            )
+        else:
+            return self
+
 
 @dataclass
 class ResourceContainerDeployResult(ResourceDeployResult):
     item_name: str = ""
     dropped_datapoints: int = 0
 
-    def __iadd__(self, other: ResourceDeployResult) -> None:
-        if not isinstance(other, ResourceContainerDeployResult) or self.name != other.name:
+    def __iadd__(self, other: ResourceDeployResult) -> ResourceContainerDeployResult:
+        if self.name != other.name:
             raise ValueError("Cannot add two ResourceContainerDeployResult objects with different names")
         super().__iadd__(other)
-        self.dropped_datapoints += other.dropped_datapoints
+        if isinstance(other, ResourceContainerDeployResult):
+            self.dropped_datapoints += other.dropped_datapoints
+        return self
 
 
 @dataclass
@@ -235,21 +252,30 @@ class UploadDeployResult(DeployResult):
     uploaded: int = 0
     item_name: str = ""
 
-    def __iadd__(self, other: UploadDeployResult) -> None:
+    def __iadd__(self, other: UploadDeployResult) -> UploadDeployResult:
         if self.name != other.name:
             raise ValueError("Cannot add two DeployResult objects with different names")
         self.uploaded += other.uploaded
+
+        if isinstance(other, DatapointDeployResult):
+            return DatapointDeployResult(
+                name=self.name, uploaded=self.uploaded, item_name=other.item_name, points=other.points
+            )
+        else:
+            return self
 
 
 @dataclass
 class DatapointDeployResult(UploadDeployResult):
     points: int = 0
 
-    def __iadd__(self, other: UploadDeployResult) -> None:
-        if not isinstance(other, DatapointDeployResult) or self.name != other.name:
+    def __iadd__(self, other: UploadDeployResult) -> UploadDeployResult:
+        if self.name != other.name:
             raise ValueError("Cannot add two DeployResult objects with different names")
         super().__iadd__(other)
-        self.points += other.points
+        if isinstance(other, DatapointDeployResult):
+            self.points += other.points
+        return self
 
 
 class DeployResults(UserDict):
