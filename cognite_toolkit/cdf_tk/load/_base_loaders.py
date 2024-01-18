@@ -282,8 +282,6 @@ class ResourceLoader(
         for batch_no, batch in enumerate(batches, 1):
             to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(batch)
 
-            nr_of_unchanged += len(unchanged)
-
             if dry_run:
                 if self.support_drop and has_done_drop and (not isinstance(self, ResourceContainerLoader) or drop_data):
                     # Means the resources will be deleted and not left unchanged or changed
@@ -295,10 +293,13 @@ class ResourceLoader(
                     unchanged.clear()
                     to_update.clear()
 
+                nr_of_unchanged += len(unchanged)
                 nr_of_created += len(to_create)
                 if verbose:
                     self._verbose_batch_print(batch_no, len(batches), to_create, to_update, unchanged)
                 continue
+
+            nr_of_unchanged += len(unchanged)
 
             if to_create:
                 created = self._create_resources(to_create, verbose)
