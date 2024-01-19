@@ -212,12 +212,11 @@ class ResourceDeployResult(DeployResult):
     deleted: int = 0
     changed: int = 0
     unchanged: int = 0
-    skipped: int = 0
     total: int = 0
 
     @property
     def calculated_total(self) -> int:
-        return self.created + self.deleted + self.changed + self.unchanged + self.skipped
+        return self.created + self.deleted + self.changed + self.unchanged
 
     def __iadd__(self, other: ResourceDeployResult) -> ResourceDeployResult:
         if self.name != other.name:
@@ -226,7 +225,6 @@ class ResourceDeployResult(DeployResult):
         self.deleted += other.deleted
         self.changed += other.changed
         self.unchanged += other.unchanged
-        self.skipped += other.skipped
         self.total += other.total
 
         if isinstance(other, ResourceContainerDeployResult):
@@ -236,7 +234,6 @@ class ResourceDeployResult(DeployResult):
                 deleted=self.deleted,
                 changed=self.changed,
                 unchanged=self.unchanged,
-                skipped=self.skipped,
                 total=self.total,
                 item_name=other.item_name,
                 dropped_datapoints=other.dropped_datapoints,
@@ -331,7 +328,7 @@ class DeployResults(UserDict):
         return table
 
     def uploads_table(self) -> Table:
-        table = Table(title=f"Summary of Data {self.action.title()} operation:")
+        table = Table(title=f"Summary of Data {self.action.title()} operation" " (data is always uploaded):")
         prefix = "Would have " if self.dry_run else ""
         table.add_column("Resource", justify="right")
         table.add_column(f"{prefix}Uploaded Data", justify="right", style="cyan")

@@ -398,6 +398,8 @@ class ResourceLoader(
                 nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
             else:
                 nr_of_deleted = 0
+            if verbose:
+                print("")
             return ResourceContainerDeployResult(
                 name=self.display_name,
                 deleted=nr_of_deleted,
@@ -407,6 +409,8 @@ class ResourceLoader(
             )
         elif not isinstance(self, ResourceContainerLoader) and drop:
             nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
+            if verbose:
+                print("")
             return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
         else:
             return ResourceDeployResult(name=self.display_name)
@@ -695,7 +699,7 @@ class DataLoader(Loader, ABC):
     item_name: str
 
     @abstractmethod
-    def upload(self, datafile: Path, dry_run: bool) -> tuple[str, int]:
+    def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
         raise NotImplementedError
 
     def deploy_resources(
@@ -714,7 +718,7 @@ class DataLoader(Loader, ABC):
         datapoints = 0
         for filepath in filepaths:
             try:
-                message, file_datapoints = self.upload(filepath, dry_run)
+                message, file_datapoints = self.upload(filepath, ToolGlobals, dry_run)
             except Exception as e:
                 print(f"  [bold red]Error:[/] Failed to upload {filepath.name}. Error: {e!r}.")
                 print(Panel(traceback.format_exc()))

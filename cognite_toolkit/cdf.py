@@ -359,9 +359,6 @@ def deploy(
             if ToolGlobals.failed:
                 print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
                 exit(1)
-            if ctx.obj.verbose:
-                # Extra newline
-                print("")
         if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
             result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
                 directory,
@@ -375,9 +372,6 @@ def deploy(
             if ToolGlobals.failed:
                 print("[bold red]ERROR: [/] Failure to clean auth as expected.")
                 exit(1)
-            if ctx.obj.verbose:
-                # Extra newline
-                print("")
 
         print("[bold]...Cleaning Complete[/]")
     arguments = dict(
