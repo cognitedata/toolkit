@@ -2,6 +2,7 @@ import json
 import platform
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -39,7 +40,7 @@ class CDFDataFixture:
     #
     # approval_client.append(TokenInspection, modified_inspect_result)
     # approval_client.append(Group, modified_group_list)
-    data: dict[CogniteResource, CogniteResource | CogniteResourceList] = None
+    data: dict[CogniteResource, Union[CogniteResource, CogniteResourceList]] = None
 
 
 @pytest.fixture
