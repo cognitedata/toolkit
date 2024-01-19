@@ -47,6 +47,22 @@ jobs:
           poetry install
       - name: Run pytest
         run: pytest tests
+  coverage:
+    needs: test
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+      - uses: snok/install-poetry@v1
+        with:
+          version: 1.6.1
+          virtualenvs-create: false
+      - name: Install core dependencies
+        run: |
+          poetry install
       - name: Create test coverage report
         run: pytest --cov=cognite_toolkit/ --cov-report=xml:coverage.xml tests/
       - name: Push coverage report to PR
