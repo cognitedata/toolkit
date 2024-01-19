@@ -31,6 +31,8 @@ from cognite.client.data_classes import (
     ExtractionPipelineWriteList,
     FileMetadata,
     FileMetadataList,
+    FileMetadataWrite,
+    FileMetadataWriteList,
     Group,
     GroupList,
     GroupWrite,
@@ -70,6 +72,7 @@ from cognite.client.data_classes.data_modeling import (
     EdgeApplyResultList,
     EdgeId,
     InstancesApplyResult,
+    InstancesDeleteResult,
     Node,
     NodeApply,
     NodeApplyList,
@@ -88,9 +91,8 @@ from cognite.client.data_classes.data_modeling import (
     ViewList,
 )
 from cognite.client.data_classes.data_modeling.ids import InstanceId
+from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.testing import CogniteClientMock
-
-from cognite_toolkit.cdf_tk.load import ExtractionPipelineConfigList
 
 TEST_FOLDER = Path(__file__).resolve().parent
 
@@ -198,7 +200,7 @@ class ApprovalCogniteClient:
         def delete_instances(
             nodes: NodeId | Sequence[NodeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
             edges: EdgeId | Sequence[EdgeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
-        ) -> list:
+        ) -> InstancesDeleteResult:
             deleted = []
             if isinstance(nodes, NodeId):
                 deleted.append(nodes.dump(camel_case=True, include_instance_type=True))
@@ -225,7 +227,13 @@ class ApprovalCogniteClient:
 
             if deleted:
                 deleted_resources[resource_cls.__name__].extend(deleted)
-            return deleted
+
+            if nodes:
+                return InstancesDeleteResult(nodes=deleted, edges=[])
+            elif edges:
+                return InstancesDeleteResult(nodes=[], edges=deleted)
+            else:
+                return InstancesDeleteResult(nodes=[], edges=[])
 
         def delete_space(spaces: str | Sequence[str]) -> list:
             deleted = []
@@ -237,8 +245,11 @@ class ApprovalCogniteClient:
                 deleted_resources[resource_cls.__name__].extend(deleted)
             return deleted
 
-        def delete_raw(db_name: str, name: str | Sequence[str]) -> list:
-            deleted = [{"db_name": db_name, "name": name if isinstance(name, str) else sorted(name)}]
+        def delete_raw(db_name: str | Sequence[str], name: str | Sequence[str] | None = None) -> list:
+            if name:
+                deleted = [{"db_name": db_name, "name": name if isinstance(name, str) else sorted(name)}]
+            else:
+                deleted = [{"db_name": name} for name in (db_name if isinstance(db_name, Sequence) else [db_name])]
             deleted_resources[resource_cls.__name__].extend(deleted)
             return deleted
 
@@ -410,7 +421,10 @@ class ApprovalCogniteClient:
             return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
 
         def return_value(*args, **kwargs):
-            return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)[0]
+            if value := existing_resources[resource_cls.__name__]:
+                return read_list_cls(value, cognite_client=client)[0]
+            else:
+                return None
 
         available_retrieve_methods = {
             fn.__name__: fn
@@ -452,6 +466,8 @@ class ApprovalCogniteClient:
                         return x["externalId"]
                     if "db_name" in x and "name" in x and isinstance(x["name"], list):
                         return x["db_name"] + "/" + x["name"][0]
+                    if "db_name" in x:
+                        return x["db_name"]
                     return "missing"
 
                 if values:
@@ -645,7 +661,7 @@ _API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_name="create")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_value"),
                 Method(api_class_method="retrieve_multiple", mock_name="return_values"),
             ],
         },
@@ -842,8 +858,13 @@ _API_RESOURCES = [
         api_name="files",
         resource_cls=FileMetadata,
         list_cls=FileMetadataList,
+        _write_cls=FileMetadataWrite,
+        _write_list_cls=FileMetadataWriteList,
         methods={
-            "create": [Method(api_class_method="upload", mock_name="upload")],
+            "create": [
+                Method(api_class_method="upload", mock_name="upload"),
+                Method(api_class_method="create", mock_name="create"),
+            ],
             "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),

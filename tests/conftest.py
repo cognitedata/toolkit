@@ -79,6 +79,17 @@ def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch:
 
 
 @pytest.fixture
+def cdf_tool_config_real(cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
+    monkeypatch.setenv("CDF_PROJECT", "pytest-project")
+    monkeypatch.setenv("CDF_CLUSTER", "bluefield")
+    monkeypatch.setenv("IDP_TOKEN_URL", "dummy")
+    monkeypatch.setenv("IDP_CLIENT_ID", "dummy")
+    monkeypatch.setenv("IDP_CLIENT_SECRET", "dummy")
+
+    return CDFToolConfig(cluster="bluefield", project="pytest-project")
+
+
+@pytest.fixture
 def typer_context(cdf_tool_config: CDFToolConfig) -> typer.Context:
     context = MagicMock(spec=typer.Context)
     context.obj = Common(
