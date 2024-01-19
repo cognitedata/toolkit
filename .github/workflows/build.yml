@@ -47,6 +47,13 @@ jobs:
           poetry install
       - name: Run pytest
         run: pytest tests
+      - name: Create test coverage report
+        run: pytest --cov-report xml:./coverage.xml
+      - name: Push coverage report to PR
+        uses: orgoro/coverage@v3.1
+        with:
+            coverageFile: ./coverage.xml
+            token: ${{ secrets.GITHUB_TOKEN }}
   dry-run-demo:
     runs-on: ubuntu-latest
     environment: dev
