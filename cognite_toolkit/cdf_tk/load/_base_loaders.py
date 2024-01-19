@@ -647,13 +647,13 @@ class ResourceContainerLoader(
         if drop_count > 0:
             print(
                 f"  {prefix} {drop_count} {self.item_name} from {self.display_name}: "
-                f"{self._print_ids_or_length(batch_ids)}.."
+                f"{self._print_ids_or_length(batch_ids)}."
             )
         elif drop_count == 0:
             verb = "is" if len(batch_ids) == 1 else "are"
             print(
                 f"  The {self.display_name}: {self._print_ids_or_length(batch_ids)} {verb} empty, "
-                f"thus no {self.item_name} will be {'untouched' if dry_run else 'dropped'}."
+                f"thus no {self.item_name} will be {'touched' if dry_run else 'dropped'}."
             )
         else:
             # Count is not supported
