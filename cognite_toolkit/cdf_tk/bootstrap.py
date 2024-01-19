@@ -381,8 +381,11 @@ def check_auth(
         project=auth_vars.project,
     )
     if len(diff) > 0:
+        diff_list: list[str] = []
         for d in diff:
-            print(f"  [bold yellow]WARNING[/]: The capability {d} is not present in the CDF project.")
+            diff_list.append(str(d))
+        for s in sorted(diff_list):
+            print(f"  [bold yellow]WARNING[/]: The capability {s} is not present in the CDF project.")
     else:
         print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
     # Flatten out into a list of acls in the existing project
