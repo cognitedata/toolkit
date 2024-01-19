@@ -405,7 +405,6 @@ def deploy(
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we create the Groups again, but this time we do not filter out any capabilities
         # and we do not skip validation as the resources should now have been created.
-        print("[bold]EVALUATING auth resources scoped to resources...[/]")
         loader = AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only")
         result = loader.deploy_resources(
             directory,

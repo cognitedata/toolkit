@@ -69,6 +69,12 @@ class RawDatabaseTable(WriteableCogniteResource):
         else:
             return NotImplemented
 
+    def __str__(self) -> str:
+        if self.table_name is None:
+            return self.db_name
+        else:
+            return super().__str__()
+
 
 class RawTableList(WriteableCogniteResourceList[RawDatabaseTable, RawDatabaseTable]):
     _RESOURCE = RawDatabaseTable
