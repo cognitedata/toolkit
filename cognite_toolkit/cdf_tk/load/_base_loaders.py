@@ -115,8 +115,8 @@ class Loader(ABC):
         path: Path,
         ToolGlobals: CDFToolConfig,
         dry_run: bool = False,
-        drop_data: bool = False,
         has_done_drop: bool = False,
+        has_dropped_data: bool = False,
         verbose: bool = False,
     ) -> DeployResult | None:
         raise NotImplementedError
@@ -246,8 +246,8 @@ class ResourceLoader(
         path: Path,
         ToolGlobals: CDFToolConfig,
         dry_run: bool = False,
-        drop_data: bool = False,
         has_done_drop: bool = False,
+        has_dropped_data: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
         filepaths = self.find_files(path)
@@ -269,21 +269,26 @@ class ResourceLoader(
 
         prefix = "Would deploy" if dry_run else "Deploying"
         print(f"[bold]{prefix} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
+        # Moved here to avoid printing before the above message.
         for duplicate in duplicates:
             print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
 
-        nr_of_dropped_datapoints = 0
-        if self.support_drop and drop_data and isinstance(self, ResourceContainerLoader) and not has_done_drop:
-            # Is has_done_drop and drop_data, then the data has already been dropped.
-            print(f"  --drop-data is specified, will delete {self.item_name} from {self.display_name}")
-            nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
+        # nr_of_dropped_datapoints = 0
+        # if self.support_drop and drop_data and isinstance(self, ResourceContainerLoader) and not has_done_drop:
+        #     # Is has_done_drop and drop_data, then the data has already been dropped.
+        #     print(f"  --drop-data is specified, will delete {self.item_name} from {self.display_name}")
+        #     nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
         for batch_no, batch in enumerate(batches, 1):
             to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(batch)
 
             if dry_run:
-                if self.support_drop and has_done_drop and (not isinstance(self, ResourceContainerLoader) or drop_data):
+                if (
+                    self.support_drop
+                    and has_done_drop
+                    and (not isinstance(self, ResourceContainerLoader) or has_dropped_data)
+                ):
                     # Means the resources will be deleted and not left unchanged or changed
                     for item in unchanged:
                         # We cannot use extents as LoadableNodes cannot be extended.
@@ -329,7 +334,6 @@ class ResourceLoader(
                 changed=nr_of_changed,
                 unchanged=nr_of_unchanged,
                 total=nr_of_items,
-                dropped_datapoints=nr_of_dropped_datapoints,
                 item_name=self.item_name,
             )
         else:
@@ -346,6 +350,7 @@ class ResourceLoader(
         path: Path,
         ToolGlobals: CDFToolConfig,
         dry_run: bool = False,
+        drop: bool = True,
         drop_data: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
@@ -354,10 +359,14 @@ class ResourceLoader(
             return ResourceDeployResult(name=self.display_name)
         elif isinstance(self, ResourceContainerLoader) and not drop_data:
             print(
-                f"  [bold]INFO:[/] Skipping cleaning of {self.display_name!r}. This is a resource container and "
+                f"  [bold]INFO:[/] Skipping cleaning of {self.display_name!r}. This is a data resource (it contains"
+                f"data and is not only configuration/metadata) and therefore"
                 "requires the --drop-data flag to be set to perform cleaning..."
             )
             return ResourceContainerDeployResult(name=self.display_name, item_name=self.item_name)
+        elif not isinstance(self, ResourceContainerLoader) and not drop:
+            # Skipping silently as this, we will not drop data or delete this resource
+            return ResourceDeployResult(name=self.display_name)
 
         filepaths = self.find_files(path)
 
@@ -383,9 +392,12 @@ class ResourceLoader(
             print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
 
         # Deleting resources.
-        if isinstance(self, ResourceContainerLoader):
+        if isinstance(self, ResourceContainerLoader) and drop_data:
             nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
-            nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
+            if drop:
+                nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
+            else:
+                nr_of_deleted = 0
             return ResourceContainerDeployResult(
                 name=self.display_name,
                 deleted=nr_of_deleted,
@@ -393,9 +405,11 @@ class ResourceLoader(
                 dropped_datapoints=nr_of_dropped_datapoints,
                 item_name=self.item_name,
             )
-        else:
+        elif not isinstance(self, ResourceContainerLoader) and drop:
             nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
             return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
+        else:
+            return ResourceDeployResult(name=self.display_name)
 
     def to_create_changed_unchanged_triple(
         self, batch: T_CogniteResourceList
@@ -689,8 +703,8 @@ class DataLoader(Loader, ABC):
         path: Path,
         ToolGlobals: CDFToolConfig,
         dry_run: bool = False,
-        drop_data: bool = False,
         has_done_drop: bool = False,
+        has_dropped_data: bool = False,
         verbose: bool = False,
     ) -> UploadDeployResult | None:
         filepaths = self.find_files(path)

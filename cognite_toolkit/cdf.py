@@ -334,9 +334,14 @@ def deploy(
     ordered_loaders = list(TopologicalSorter(selected_loaders).static_order())
     if len(ordered_loaders) > len(selected_loaders):
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
-    if drop:
+    if drop or drop_data:
         # Drop has to be done in the reverse order of deploy.
-        print(Panel("[bold] Cleaning resources as --drop is passed[/]"))
+        if drop and drop_data:
+            print(Panel("[bold] Cleaning resources as --drop and --drop-data are passed[/]"))
+        elif drop:
+            print(Panel("[bold] Cleaning resources as --drop is passed[/]"))
+        elif drop_data:
+            print(Panel("[bold] Cleaning resources as --drop-data is passed[/]"))
         for LoaderCls in reversed(ordered_loaders):
             if not issubclass(LoaderCls, ResourceLoader):
                 continue
@@ -344,6 +349,7 @@ def deploy(
             result = loader.clean_resources(
                 build_path / LoaderCls.folder_name,
                 ToolGlobals,
+                drop=drop,
                 dry_run=dry_run,
                 drop_data=drop_data,
                 verbose=ctx.obj.verbose,
@@ -357,6 +363,7 @@ def deploy(
             result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
                 directory,
                 ToolGlobals,
+                drop=True,
                 dry_run=dry_run,
                 verbose=ctx.obj.verbose,
             )
@@ -370,8 +377,8 @@ def deploy(
     arguments = dict(
         ToolGlobals=ToolGlobals,
         dry_run=dry_run,
-        drop_data=drop_data,
         has_done_drop=drop,
+        has_dropped_data=drop_data,
         verbose=ctx.obj.verbose,
     )
     if drop:
@@ -513,6 +520,7 @@ def clean(
         result = loader.clean_resources(
             build_path / LoaderCls.folder_name,
             ToolGlobals,
+            drop=True,
             dry_run=dry_run,
             drop_data=True,
             verbose=ctx.obj.verbose,
@@ -530,6 +538,7 @@ def clean(
         result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
             directory,
             ToolGlobals,
+            drop=True,
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
         )
