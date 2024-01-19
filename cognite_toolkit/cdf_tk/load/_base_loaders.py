@@ -319,9 +319,6 @@ class ResourceLoader(
             if verbose:
                 self._verbose_batch_print(batch_no, len(batches), to_create, to_update, unchanged, dry_run)
 
-        if verbose:
-            print("\n")
-
         if isinstance(self, ResourceContainerLoader):
             return ResourceContainerDeployResult(
                 name=self.display_name,
@@ -726,8 +723,6 @@ class DataLoader(Loader, ABC):
             if verbose:
                 print(message)
             datapoints += file_datapoints
-        if verbose:
-            print("\n")
         if datapoints != 0:
             return DatapointDeployResult(
                 self.display_name, points=datapoints, uploaded=len(filepaths), item_name=self.item_name

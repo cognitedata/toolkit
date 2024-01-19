@@ -359,6 +359,9 @@ def deploy(
             if ToolGlobals.failed:
                 print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
                 exit(1)
+            if ctx.obj.verbose:
+                # Extra newline
+                print("")
         if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
             result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
                 directory,
@@ -372,6 +375,9 @@ def deploy(
             if ToolGlobals.failed:
                 print("[bold red]ERROR: [/] Failure to clean auth as expected.")
                 exit(1)
+            if ctx.obj.verbose:
+                # Extra newline
+                print("")
 
         print("[bold]...Cleaning Complete[/]")
     arguments = dict(
@@ -394,6 +400,9 @@ def deploy(
             exit(1)
         if result:
             results[result.name] = result
+        if ctx.obj.verbose:
+            # Extra newline
+            print("")
     for LoaderCls in ordered_loaders:
         result = LoaderCls.create_loader(ToolGlobals).deploy_resources(  # type: ignore[assignment]
             build_path / LoaderCls.folder_name,
@@ -408,6 +417,9 @@ def deploy(
             exit(1)
         if result:
             results[result.name] = result
+        if ctx.obj.verbose:
+            # Extra newline
+            print("")
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we create the Groups again, but this time we do not filter out any capabilities
