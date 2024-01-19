@@ -11,13 +11,14 @@ jobs:
         steps:
           - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
           - uses: actions/setup-python@v5
+            with:
+                python-version: 3.11
           - uses: snok/install-poetry@v1
             with:
               version: 1.6.1
-              virtualenvs-create: false
+              virtualenvs-create: true
           - name: Install core dependencies
-            run: |
-              poetry install
+            run: poetry install
           - name: Create report
             run: pytest --cov-report xml:./coverage.xml
           - name: Push report to PR
