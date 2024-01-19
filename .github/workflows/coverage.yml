@@ -20,10 +20,7 @@ jobs:
               poetry install
           - name: Create report
             run: pytest --cov-report xml:./coverage.xml
-    coverage:
-        runs-on: ubuntu-latest
-        steps:
-          - name: Get report
+          - name: Push report to PR
             uses: orgoro/coverage@v3.1
             with:
                 coverageFile: ./coverage.xml
