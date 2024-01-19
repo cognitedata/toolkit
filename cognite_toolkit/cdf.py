@@ -336,7 +336,7 @@ def deploy(
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
     if drop:
         # Drop has to be done in the reverse order of deploy.
-        print(Panel("[bold] Cleaning resources as --drop passed is passed[/]"))
+        print(Panel("[bold] Cleaning resources as --drop is passed[/]"))
         for LoaderCls in reversed(ordered_loaders):
             if not issubclass(LoaderCls, ResourceLoader):
                 continue

@@ -60,11 +60,15 @@ class DatapointsLoader(DataLoader):
 
 @final
 class FileLoader(DataLoader):
-    item_name = "files"
+    item_name = "file contents"
     folder_name = "files"
     filetypes = frozenset()
     exclude_filetypes = frozenset({"yml", "yaml"})
     dependencies = frozenset({FileMetadataLoader})
+
+    @property
+    def display_name(self) -> str:
+        return "file contents"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:

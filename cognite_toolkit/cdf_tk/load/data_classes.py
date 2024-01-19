@@ -307,7 +307,7 @@ class DeployResults(UserDict):
         table.add_column(f"{prefix}Created", justify="right", style="green")
         table.add_column(f"{prefix}Deleted", justify="right", style="red")
         table.add_column(f"{prefix}Changed", justify="right", style="magenta")
-        table.add_column("Unchanged", justify="right", style="cyan")
+        table.add_column("Untouched" if self.dry_run else "Unchanged", justify="right", style="cyan")
         table.add_column("Total", justify="right")
         is_deploy = self.action == "deploy"
         for item in sorted(

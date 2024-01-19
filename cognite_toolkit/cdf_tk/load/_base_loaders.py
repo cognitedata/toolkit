@@ -267,8 +267,8 @@ class ResourceLoader(
         if nr_of_items == 0:
             return ResourceDeployResult(name=self.display_name)
 
-        action_word = "Loading" if dry_run else "Deploying"
-        print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
+        prefix = "Would deploy" if dry_run else "Deploying"
+        print(f"[bold]{prefix} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
         for duplicate in duplicates:
             print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
 
