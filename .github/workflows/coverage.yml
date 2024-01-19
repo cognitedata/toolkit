@@ -16,7 +16,7 @@ jobs:
           - uses: snok/install-poetry@v1
             with:
               version: 1.6.1
-              virtualenvs-create: true
+              virtualenvs-create: false
           - name: Install core dependencies
             run: poetry install
           - name: Create report
