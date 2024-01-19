@@ -328,9 +328,9 @@ class DeployResults(UserDict):
         table = Table(title=f"Summary of Data {self.action.title()} operation:")
         prefix = "Would have " if self.dry_run else ""
         table.add_column("Resource", justify="right")
-        table.add_column("Item", justify="right")
-        table.add_column(f"{prefix}Uploaded", justify="right", style="green")
         table.add_column(f"{prefix}Uploaded Data", justify="right", style="cyan")
+        table.add_column("Item Type", justify="right")
+        table.add_column("From files", justify="right", style="green")
         table.add_column(f"{prefix}Deleted Data", justify="right", style="red")
         for item in sorted(
             entry
@@ -347,9 +347,9 @@ class DeployResults(UserDict):
                     datapoints = f"{item.points:,}"
                 else:
                     datapoints = "-"
-                table.add_row(item.name, item.item_name, f"{item.uploaded} files", datapoints, "-")
+                table.add_row(item.name, datapoints, item.item_name, str(item.uploaded), "-")
             elif isinstance(item, ResourceContainerDeployResult):
-                table.add_row(item.name, item.item_name, "-", "-", f"{item.dropped_datapoints:,}")
+                table.add_row(item.name, "-", item.name, "-", f"{item.dropped_datapoints:,}")
 
         return table
 
