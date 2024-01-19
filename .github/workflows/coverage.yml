@@ -5,11 +5,26 @@ on:
             - master
             - main
 jobs:
+    report:
+        name: Create coverage report
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+          - uses: actions/setup-python@v5
+          - uses: snok/install-poetry@v1
+            with:
+              version: 1.6.1
+              virtualenvs-create: false
+          - name: Install core dependencies
+            run: |
+              poetry install
+          - name: Create report
+            run: pytest --cov-report xml:./coverage.xml
     coverage:
         runs-on: ubuntu-latest
         steps:
-          - name: Get Cover 
+          - name: Get report
             uses: orgoro/coverage@v3.1
             with:
-                coverageFile: coverage.xml
+                coverageFile: ./coverage.xml
                 token: ${{ secrets.GITHUB_TOKEN }}
