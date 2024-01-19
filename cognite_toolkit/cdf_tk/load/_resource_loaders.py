@@ -525,12 +525,11 @@ class RawTableLoader(
 
     def count(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
         if not self._printed_warning:
-            print("  [bold]Info:[/] Raw rows do not support count (there is no aggregation method).")
+            print("  [bold green]INFO:[/] Raw rows do not support count (there is no aggregation method).")
             self._printed_warning = True
-        return 0
+        return -1
 
     def drop_data(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
-        count = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             try:
                 existing = set(self.client.raw.tables.list(db_name=db_name, limit=-1).as_names())
@@ -541,8 +540,7 @@ class RawTableLoader(
             tables = [table.table_name for table in raw_tables if table.table_name in existing]
             if tables:
                 self.client.raw.tables.delete(db_name=db_name, name=tables)
-                count += len(tables)
-        return count
+        return -1
 
 
 @final

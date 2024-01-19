@@ -620,7 +620,22 @@ class ResourceContainerLoader(
                 batch_count = self.count(batch_ids)
                 nr_of_dropped += batch_count
                 if verbose:
-                    print(f"  Would have dropped {batch_count} {self.item_name} from {self.display_name}.")
+                    if batch_count > 0:
+                        print(
+                            f"  Would have dropped {batch_count} {self.item_name} from {self.display_name}: "
+                            f"{self._print_ids_or_length(batch_ids)}.."
+                        )
+                    elif batch_count == 0:
+                        print(
+                            f"  The {self.display_name}: {self._print_ids_or_length(batch_ids)} is/are empty, "
+                            f"thus no {self.item_name} will be dropped"
+                        )
+                    else:
+                        # Count is not supported
+                        print(
+                            f" Would have dropped all {self.item_name} from {self.display_name}: "
+                            f"{self._print_ids_or_length(batch_ids)}."
+                        )
                 continue
 
             try:
