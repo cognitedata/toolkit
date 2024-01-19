@@ -911,7 +911,7 @@ class ExtractionPipelineConfigLoader(
 class FileMetadataLoader(
     ResourceContainerLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
 ):
-    item_name = "files"
+    item_name = "file contents"
     api_name = "files"
     folder_name = "files"
     resource_cls = FileMetadata
@@ -959,9 +959,7 @@ class FileMetadataLoader(
         # If we have a file with exact one file config, check to see if this is a pattern to expand
         if len(files_metadata) == 1 and ("$FILENAME" in (files_metadata[0].external_id or "")):
             # It is, so replace this file with all files in this folder using the same data
-            print(
-                f"  [bold yellow]Info:[/] File pattern detected in {filepath.name}, expanding to all files in folder."
-            )
+            print(f"  [bold green]INFO:[/] File pattern detected in {filepath.name}, expanding to all files in folder.")
             file_data = files_metadata.data[0]
             ext_id_pattern = file_data.external_id
             files_metadata = FileMetadataWriteList([], cognite_client=self.client)

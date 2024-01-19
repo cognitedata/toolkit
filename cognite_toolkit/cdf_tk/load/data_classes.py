@@ -75,6 +75,12 @@ class RawDatabaseTable(WriteableCogniteResource):
         else:
             return super().__str__()
 
+    def __repr__(self) -> str:
+        if self.table_name is None:
+            return f"{type(self).__name__}(db_name='{self.db_name}')"
+        else:
+            return f"{type(self).__name__}(db_name='{self.db_name}', table_name='{self.table_name}')"
+
 
 class RawTableList(WriteableCogniteResourceList[RawDatabaseTable, RawDatabaseTable]):
     _RESOURCE = RawDatabaseTable
@@ -349,7 +355,7 @@ class DeployResults(UserDict):
                     datapoints = "-"
                 table.add_row(item.name, datapoints, item.item_name, str(item.uploaded), "-")
             elif isinstance(item, ResourceContainerDeployResult):
-                table.add_row(item.name, "-", item.name, "-", f"{item.dropped_datapoints:,}")
+                table.add_row(item.name, "-", item.item_name, "-", f"{item.dropped_datapoints:,}")
 
         return table
 

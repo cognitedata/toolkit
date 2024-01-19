@@ -350,12 +350,12 @@ class ResourceLoader(
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
         if not self.support_drop:
-            print(f"  [bold]INFO:[/] {self.display_name!r} cleaning is not supported, skipping...")
+            print(f"  [bold green]INFO:[/] {self.display_name!r} cleaning is not supported, skipping...")
             return ResourceDeployResult(name=self.display_name)
         elif isinstance(self, ResourceContainerLoader) and not drop_data:
             print(
-                f"  [bold]INFO:[/] Skipping deletion of as {self.display_name!r} is a resource container and "
-                "requires the --drop-data flag to be set for deletion..."
+                f"  [bold]INFO:[/] Skipping cleaning of {self.display_name!r}. This is a resource container and "
+                "requires the --drop-data flag to be set to perform cleaning..."
             )
             return ResourceContainerDeployResult(name=self.display_name, item_name=self.item_name)
 
@@ -377,8 +377,8 @@ class ResourceLoader(
         if nr_of_items == 0:
             return ResourceDeployResult(name=self.display_name)
 
-        action_word = "Loading" if dry_run else "Cleaning"
-        print(f"[bold]{action_word} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
+        prefix = "Would clean" if dry_run else "Cleaning"
+        print(f"[bold]{prefix} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
         for duplicate in duplicates:
             print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
 
@@ -617,30 +617,15 @@ class ResourceContainerLoader(
         for batch in batches:
             batch_ids = self.get_ids(batch)
             if dry_run:
-                batch_count = self.count(batch_ids)
-                nr_of_dropped += batch_count
+                batch_drop_count = self.count(batch_ids)
+                nr_of_dropped += batch_drop_count
                 if verbose:
-                    if batch_count > 0:
-                        print(
-                            f"  Would have dropped {batch_count} {self.item_name} from {self.display_name}: "
-                            f"{self._print_ids_or_length(batch_ids)}.."
-                        )
-                    elif batch_count == 0:
-                        print(
-                            f"  The {self.display_name}: {self._print_ids_or_length(batch_ids)} is/are empty, "
-                            f"thus no {self.item_name} will be dropped"
-                        )
-                    else:
-                        # Count is not supported
-                        print(
-                            f" Would have dropped all {self.item_name} from {self.display_name}: "
-                            f"{self._print_ids_or_length(batch_ids)}."
-                        )
+                    self._verbose_batch_print_drop(batch_drop_count, batch_ids, dry_run)
                 continue
 
             try:
-                batch_count = self.drop_data(batch_ids)
-                nr_of_dropped += batch_count
+                batch_drop_count = self.drop_data(batch_ids)
+                nr_of_dropped += batch_drop_count
             except CogniteAPIError as e:
                 if e.code == 404 and verbose:
                     print(f"  [bold]INFO:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
@@ -654,12 +639,27 @@ class ResourceContainerLoader(
                     print(Panel(traceback.format_exc()))
             else:  # Delete succeeded
                 if verbose:
-                    if self.display_name == "raw.tables":
-                        # special case since we cannot count the rows in a RAW table
-                        print(f" Dropped all {self.item_name} from {self.display_name}.")
-                    else:
-                        print(f"  Dropped {batch_count} {self.item_name} from {self.display_name}.")
+                    self._verbose_batch_print_drop(batch_drop_count, batch_ids, dry_run)
         return nr_of_dropped
+
+    def _verbose_batch_print_drop(self, drop_count: int, batch_ids: SequenceNotStr[T_ID], dry_run: bool) -> None:
+        prefix = "Would have dropped" if dry_run else "Dropped"
+        if drop_count > 0:
+            print(
+                f"  {prefix} {drop_count} {self.item_name} from {self.display_name}: "
+                f"{self._print_ids_or_length(batch_ids)}.."
+            )
+        elif drop_count == 0:
+            verb = "is" if len(batch_ids) == 1 else "are"
+            print(
+                f"  The {self.display_name}: {self._print_ids_or_length(batch_ids)} {verb} empty, "
+                f"thus no {self.item_name} will be {'untouched' if dry_run else 'dropped'}."
+            )
+        else:
+            # Count is not supported
+            print(
+                f" {prefix} all {self.item_name} from {self.display_name}: " f"{self._print_ids_or_length(batch_ids)}."
+            )
 
 
 class DataLoader(Loader, ABC):
@@ -695,7 +695,8 @@ class DataLoader(Loader, ABC):
     ) -> UploadDeployResult | None:
         filepaths = self.find_files(path)
 
-        print(f"[bold]Uploading {len(filepaths)} data {self.display_name} files to CDF...[/]")
+        prefix = "Would upload" if dry_run else "Uploading"
+        print(f"[bold]{prefix} {len(filepaths)} data {self.display_name} files to CDF...[/]")
         datapoints = 0
         for filepath in filepaths:
             try:
