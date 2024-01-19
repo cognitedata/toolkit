@@ -363,7 +363,7 @@ def deploy(
             result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
                 directory,
                 ToolGlobals,
-                drop=True,
+                drop=drop,
                 dry_run=dry_run,
                 verbose=ctx.obj.verbose,
             )
@@ -381,7 +381,7 @@ def deploy(
         has_dropped_data=drop_data,
         verbose=ctx.obj.verbose,
     )
-    if drop:
+    if drop or drop_data:
         print(Panel("[bold]DEPLOYING resources...[/]"))
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.

@@ -268,16 +268,11 @@ class ResourceLoader(
             return ResourceDeployResult(name=self.display_name)
 
         prefix = "Would deploy" if dry_run else "Deploying"
-        print(f"[bold]{prefix} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
+        plural = "es" if nr_of_batches > 1 else ""
+        print(f"[bold]{prefix} {nr_of_items} {self.display_name} in {nr_of_batches} batch{plural} to CDF...[/]")
         # Moved here to avoid printing before the above message.
         for duplicate in duplicates:
             print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
-
-        # nr_of_dropped_datapoints = 0
-        # if self.support_drop and drop_data and isinstance(self, ResourceContainerLoader) and not has_done_drop:
-        #     # Is has_done_drop and drop_data, then the data has already been dropped.
-        #     print(f"  --drop-data is specified, will delete {self.item_name} from {self.display_name}")
-        #     nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
         for batch_no, batch in enumerate(batches, 1):
@@ -354,19 +349,19 @@ class ResourceLoader(
         drop_data: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
+        if not isinstance(self, ResourceContainerLoader) and not drop:
+            # Skipping silently as this, we will not drop data or delete this resource
+            return ResourceDeployResult(name=self.display_name)
         if not self.support_drop:
             print(f"  [bold green]INFO:[/] {self.display_name!r} cleaning is not supported, skipping...")
             return ResourceDeployResult(name=self.display_name)
         elif isinstance(self, ResourceContainerLoader) and not drop_data:
             print(
-                f"  [bold]INFO:[/] Skipping cleaning of {self.display_name!r}. This is a data resource (it contains"
-                f"data and is not only configuration/metadata) and therefore"
+                f"  [bold]INFO:[/] Skipping cleaning of {self.display_name!r}. This is a data resource (it contains "
+                f"data and is not only configuration/metadata) and therefore "
                 "requires the --drop-data flag to be set to perform cleaning..."
             )
             return ResourceContainerDeployResult(name=self.display_name, item_name=self.item_name)
-        elif not isinstance(self, ResourceContainerLoader) and not drop:
-            # Skipping silently as this, we will not drop data or delete this resource
-            return ResourceDeployResult(name=self.display_name)
 
         filepaths = self.find_files(path)
 
@@ -386,8 +381,16 @@ class ResourceLoader(
         if nr_of_items == 0:
             return ResourceDeployResult(name=self.display_name)
 
-        prefix = "Would clean" if dry_run else "Cleaning"
-        print(f"[bold]{prefix} {nr_of_items} {self.display_name} in {nr_of_batches} batches to CDF...[/]")
+        if drop:
+            prefix = "Would clean" if dry_run else "Cleaning"
+            with_data = "with data " if isinstance(self, ResourceContainerLoader) else ""
+        else:
+            prefix = "Would drop data from" if dry_run else "Dropping data from"
+            with_data = ""
+        plural = "es" if nr_of_batches > 1 else ""
+        print(
+            f"[bold]{prefix} {nr_of_items} {self.display_name} {with_data}in {nr_of_batches} batch{plural} to CDF...[/]"
+        )
         for duplicate in duplicates:
             print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
 
@@ -660,7 +663,7 @@ class ResourceContainerLoader(
         prefix = "Would have dropped" if dry_run else "Dropped"
         if drop_count > 0:
             print(
-                f"  {prefix} {drop_count} {self.item_name} from {self.display_name}: "
+                f"  {prefix} {drop_count:,} {self.item_name} from {self.display_name}: "
                 f"{self._print_ids_or_length(batch_ids)}."
             )
         elif drop_count == 0:
