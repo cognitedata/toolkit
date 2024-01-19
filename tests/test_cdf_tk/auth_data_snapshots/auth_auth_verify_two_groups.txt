@@ -34,9 +34,7 @@ is member of one group in the identity provider.
   This group's id should be configured as the readwrite_source_id for the 
 common/cdf_auth_readwrite_all module.
 
-Checking CDF groups access right against capabilities in 
-/Users/wedel/src/cdf-project-templates/tests/test_cdf_tk/auth_data/rw-group.yaml
-...
+Checking CDF groups access right against capabilities in rw-group.yaml ...
   OK - All capabilities are present in the CDF project.
   WARNING: This service principal/application gets its access rights from more 
 than one CDF group.

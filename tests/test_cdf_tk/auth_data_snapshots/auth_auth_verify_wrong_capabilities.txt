@@ -23,9 +23,7 @@ Checking CDF group memberships for the current client configured...
   OK - Only one group is used for this service principal/application.
 ---------------------
 
-Checking CDF groups access right against capabilities in 
-/Users/wedel/src/cdf-project-templates/tests/test_cdf_tk/auth_data/rw-group.yaml
-...
+Checking CDF groups access right against capabilities in rw-group.yaml ...
   WARNING: The capability GeospatialAcl(actions=[<GeospatialAcl Action.Read: 
 'READ'>], scope=AllScope()) is not present in the CDF project.
   WARNING: The capability GeospatialAcl(actions=[<GeospatialAcl Action.Write: 

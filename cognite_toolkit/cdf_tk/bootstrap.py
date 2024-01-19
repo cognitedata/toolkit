@@ -373,7 +373,7 @@ def check_auth(
         print(
             "  This group's id should be configured as the [italic]readwrite_source_id[/] for the common/cdf_auth_readwrite_all module."
         )
-    print(f"\nChecking CDF groups access right against capabilities in {group_file} ...")
+    print(f"\nChecking CDF groups access right against capabilities in {Path(group_file).name} ...")
 
     diff = ToolGlobals.client.iam.compare_capabilities(
         resp.capabilities,
