@@ -296,7 +296,7 @@ class ResourceLoader(
                 nr_of_unchanged += len(unchanged)
                 nr_of_created += len(to_create)
                 if verbose:
-                    self._verbose_batch_print(batch_no, len(batches), to_create, to_update, unchanged)
+                    self._verbose_batch_print(batch_no, len(batches), to_create, to_update, unchanged, dry_run)
                 continue
 
             nr_of_unchanged += len(unchanged)
@@ -317,7 +317,7 @@ class ResourceLoader(
                 nr_of_changed += updated
 
             if verbose:
-                self._verbose_batch_print(batch_no, len(batches), to_create, to_update, unchanged)
+                self._verbose_batch_print(batch_no, len(batches), to_create, to_update, unchanged, dry_run)
 
         if verbose:
             print("\n")
@@ -437,14 +437,18 @@ class ResourceLoader(
         to_create: T_CogniteResourceList,
         to_update: T_CogniteResourceList,
         unchanged: T_CogniteResourceList,
+        dry_run: bool,
     ) -> None:
         print_outs = []
+        prefix = "Would have " if dry_run else ""
         if to_create:
-            print_outs.append(f"Created {self._print_ids_or_length(self.get_ids(to_create))}")
+            print_outs.append(f"{prefix}Created {self._print_ids_or_length(self.get_ids(to_create))}")
         if to_update:
-            print_outs.append(f"Updated {self._print_ids_or_length(self.get_ids(to_update))}")
+            print_outs.append(f"{prefix}Updated {self._print_ids_or_length(self.get_ids(to_update))}")
         if unchanged:
-            print_outs.append(f"Unchanged {self._print_ids_or_length(self.get_ids(unchanged))}")
+            print_outs.append(
+                f"{'Untouched' if dry_run else 'Unchanged'} {self._print_ids_or_length(self.get_ids(unchanged))}"
+            )
         prefix_message = f" Batch {batch_no}/{total_batches} of {self.display_name}: "
         if len(print_outs) == 1:
             print(f"{prefix_message}{print_outs[0]}")
