@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 from cognite.client import CogniteClient
+from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import (
     Database,
     DatabaseList,
@@ -92,6 +93,7 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
+from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.testing import CogniteClientMock
 
 TEST_FOLDER = Path(__file__).resolve().parent
@@ -119,6 +121,10 @@ class ApprovalCogniteClient:
         self._delete_methods: dict[str, list[MagicMock]] = defaultdict(list)
         self._create_methods: dict[str, list[MagicMock]] = defaultdict(list)
         self._retrieve_methods: dict[str, list[MagicMock]] = defaultdict(list)
+        self._inspect_methods: dict[str, list[MagicMock]] = defaultdict(list)
+
+        # Set the side effect of the MagicMock to the real method
+        self.mock_client.iam.compare_capabilities.side_effect = IAMAPI.compare_capabilities
 
         # Setup all mock methods
         for resource in _API_RESOURCES:
@@ -133,11 +139,13 @@ class ApprovalCogniteClient:
                     "create": self._create_create_method,
                     "delete": self._create_delete_method,
                     "retrieve": self._create_retrieve_method,
+                    "inspect": self._create_inspect_method,
                 }[method_type]
                 method_dict = {
                     "create": self._create_methods,
                     "delete": self._delete_methods,
                     "retrieve": self._retrieve_methods,
+                    "inspect": self._inspect_methods,
                 }[method_type]
                 for mock_method in methods:
                     if not hasattr(mock_api, mock_method.api_class_method):
@@ -440,6 +448,26 @@ class ApprovalCogniteClient:
         method = available_retrieve_methods[mock_method]
         return method
 
+    def _create_inspect_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+        existing_resources = self._existing_resources
+        resource_cls = resource.resource_cls
+
+        def return_value(*args, **kwargs):
+            return existing_resources[resource_cls.__name__][0]
+
+        available_inspect_methods = {
+            fn.__name__: fn
+            for fn in [
+                return_value,
+            ]
+        }
+        if mock_method not in available_inspect_methods:
+            raise ValueError(
+                f"Invalid mock retrieve method {mock_method} for resource {resource_cls.__name__}. Supported {available_inspect_methods.keys()}"
+            )
+        method = available_inspect_methods[mock_method]
+        return method
+
     def dump(self) -> dict[str, Any]:
         """This returns a dictionary with all the resources that have been created and deleted.
 
@@ -510,6 +538,14 @@ class ApprovalCogniteClient:
         return {
             key: call_count
             for key, methods in self._retrieve_methods.items()
+            if (call_count := sum(method.call_count for method in methods))
+        }
+
+    def inspect_calls(self) -> dict[str, int]:
+        """This returns all the calls that have been made to the mock client to the inspect method."""
+        return {
+            key: call_count
+            for key, methods in self._inspect_methods.items()
             if (call_count := sum(method.call_count for method in methods))
         }
 
@@ -649,6 +685,14 @@ _API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_name="create")],
             "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
             "retrieve": [Method(api_class_method="list", mock_name="return_values")],
+        },
+    ),
+    APIResource(
+        api_name="iam.token",
+        resource_cls=TokenInspection,
+        list_cls=list[TokenInspection],
+        methods={
+            "inspect": [Method(api_class_method="inspect", mock_name="return_value")],
         },
     ),
     APIResource(

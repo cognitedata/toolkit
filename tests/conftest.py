@@ -64,6 +64,7 @@ def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch:
     monkeypatch.setenv("IDP_TOKEN_URL", "dummy")
     monkeypatch.setenv("IDP_CLIENT_ID", "dummy")
     monkeypatch.setenv("IDP_CLIENT_SECRET", "dummy")
+    monkeypatch.setenv("IDP_TENANT_ID", "dummy")
 
     with chdir(REPO_ROOT):
         real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")

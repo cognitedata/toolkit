@@ -19,7 +19,7 @@ import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from time import sleep
-from typing import Literal, cast, final
+from typing import Any, Literal, cast, final
 
 import yaml
 from cognite.client import CogniteClient
@@ -332,7 +332,9 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         return created
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DataSetList:
-        return self.client.data_sets.retrieve_multiple(external_ids=cast(Sequence, ids), ignore_unknown_ids=True)
+        return self.client.data_sets.retrieve_multiple(
+            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
+        )
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
@@ -583,7 +585,9 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         return TimeSeriesWriteList.load(resources)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
-        return self.client.time_series.retrieve_multiple(external_ids=cast(Sequence, ids), ignore_unknown_ids=True)
+        return self.client.time_series.retrieve_multiple(
+            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
+        )
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
@@ -591,11 +595,11 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             self.client.time_series.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
 
-    def count(self, ids: SequenceNotStr[str]) -> int:
+    def count(self, ids: str | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
         datapoints = cast(
             DatapointsList,
             self.client.time_series.data.retrieve(
-                external_id=cast(Sequence, ids),
+                external_id=cast(SequenceNotStr[str], ids),
                 start=_MIN_TIMESTAMP_MS,
                 end=_MAX_TIMESTAMP_MS + 1,
                 aggregates="count",
@@ -604,10 +608,10 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         )
         return sum(sum(data.count or []) for data in datapoints)
 
-    def drop_data(self, ids: SequenceNotStr[str]) -> int:
+    def drop_data(self, ids: SequenceNotStr[str] | None) -> int:
         count = self.count(ids)
         existing = self.client.time_series.retrieve_multiple(
-            external_ids=cast(Sequence, ids), ignore_unknown_ids=True
+            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
         ).as_external_ids()
         for external_id in existing:
             self.client.time_series.data.delete_range(
@@ -750,12 +754,14 @@ class TransformationScheduleLoader(
             new_items = [item for item in items if item.external_id not in existing]
             return self.client.transformations.schedules.create(new_items)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
         try:
-            self.client.transformations.schedules.delete(external_id=cast(Sequence, ids), ignore_unknown_ids=False)
-            return len(ids)
+            self.client.transformations.schedules.delete(
+                external_id=cast(SequenceNotStr[str], ids), ignore_unknown_ids=False
+            )
+            return len(cast(SequenceNotStr[str], ids))
         except CogniteNotFoundError as e:
-            return len(ids) - len(e.not_found)
+            return len(cast(SequenceNotStr[str], ids)) - len(e.not_found)
 
 
 @final
@@ -1000,9 +1006,9 @@ class FileMetadataLoader(
                     print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
         return created
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        self.client.files.delete(external_id=cast(Sequence, ids))
-        return len(ids)
+    def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
+        self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
+        return len(cast(SequenceNotStr[str], ids))
 
     def count(self, ids: SequenceNotStr[str]) -> int:
         return sum(

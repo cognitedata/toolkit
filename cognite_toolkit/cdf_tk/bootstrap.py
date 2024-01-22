@@ -214,8 +214,8 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
 
 def check_auth(
     ToolGlobals: CDFToolConfig,
+    group_file: Path,
     auth_vars: AuthVariables | None = None,
-    group_file: str | None = None,
     update_group: int = 0,
     create_group: str | None = None,
     interactive: bool = False,
@@ -321,9 +321,11 @@ def check_auth(
         print("  [bold red]ERROR[/]: Unable to retrieve CDF groups.")
         ToolGlobals.failed = True
         return None
-    read_write = Group.load(
-        Path(f"{Path(__file__).parent.parent.as_posix()}{group_file}").read_text(),
-    )
+    if group_file.exists():
+        file_text = group_file.read_text()
+    else:
+        raise FileNotFoundError(f"Group config file does not exist: {group_file.as_posix()}")
+    read_write = Group.load(file_text)
     tbl = Table(title="CDF Group ids, Names, and Source Ids")
     tbl.add_column("Id", justify="left")
     tbl.add_column("Name", justify="left")
@@ -371,7 +373,7 @@ def check_auth(
         print(
             "  This group's id should be configured as the [italic]readwrite_source_id[/] for the common/cdf_auth_readwrite_all module."
         )
-    print(f"\nChecking CDF groups access right against capabilities in {group_file} ...")
+    print(f"\nChecking CDF groups access right against capabilities in {group_file.name} ...")
 
     diff = ToolGlobals.client.iam.compare_capabilities(
         resp.capabilities,
@@ -379,12 +381,15 @@ def check_auth(
         project=auth_vars.project,
     )
     if len(diff) > 0:
+        diff_list: list[str] = []
         for d in diff:
-            print(f"  [bold yellow]WARNING[/]: The capability {d} is not present in the CDF project.")
+            diff_list.append(str(d))
+        for s in sorted(diff_list):
+            print(f"  [bold yellow]WARNING[/]: The capability {s} is not present in the CDF project.")
     else:
         print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
     # Flatten out into a list of acls in the existing project
-    existing_cap_list = [c.capability for c in resp.capabilities.data]
+    existing_cap_list = [c.capability for c in resp.capabilities]
     if len(groups) > 1:
         print(
             "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
@@ -424,7 +429,7 @@ def check_auth(
     print("---------------------")
     if interactive and matched_group_id != 0:
         push_group = Confirm.ask(
-            f"Do you want to update the group with id {matched_group_id} and name {read_write.name} with the capabilities from {group_file} ?",
+            f"Do you want to update the group with id {matched_group_id} and name {read_write.name} with the capabilities from {group_file.as_posix()} ?",
             choices=["y", "n"],
         )
         if push_group:
@@ -457,7 +462,7 @@ def check_auth(
             read_write.source_id = group.source_id
             read_write.metadata = group.metadata
         else:
-            print(f"Creating new group based on {group_file}...")
+            print(f"Creating new group based on {group_file.as_posix()}...")
             read_write.source_id = create_group
         try:
             if not dry_run:
