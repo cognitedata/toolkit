@@ -71,7 +71,7 @@ jobs:
         run: |
           poetry install
       - name: Create test coverage report
-        run: pytest --cov=cognite_toolkit/ --cov-report=xml:coverage.xml tests/
+        run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/
       - name: Push coverage report to PR
         uses: orgoro/coverage@v3.1
         with:

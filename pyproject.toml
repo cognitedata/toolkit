@@ -35,6 +35,10 @@ pytest-cov = "^4.1.0"
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit.cdf:app"
 
+[tool.coverage.report]
+fail_under = 60
+show_missing = true
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
