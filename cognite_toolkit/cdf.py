@@ -712,6 +712,8 @@ def main_init(
     """Initialize or upgrade a new CDF project with templates."""
     target_dir = Path.cwd() / f"{init_dir}"
 
+    target_dir_display = f"'{target_dir.relative_to(Path.cwd())!s}'"
+
     template_source = Path(resources.files("cognite_toolkit"))  # type: ignore[arg-type]
     if upgrade and git_branch is not None:
         template_source = _download_templates(git_branch, dry_run)
@@ -728,17 +730,17 @@ def main_init(
 
     if target_dir.exists():
         if upgrade:
-            print(f"[bold]Upgrading directory {target_dir}...[/b]")
+            print(f"[bold]Upgrading directory {target_dir_display}...[/b]")
         elif clean and dry_run:
-            print(f"Would clean out directory {target_dir}...")
+            print(f"Would clean out directory {target_dir_display}...")
         elif clean:
-            print(f"Cleaning out directory {target_dir}...")
+            print(f"Cleaning out directory {target_dir_display}...")
             shutil.rmtree(target_dir)
         else:
-            print(f"Directory {target_dir} already exists.")
+            print(f"Directory {target_dir_display} already exists.")
             exit(1)
     elif not target_dir.exists() and upgrade:
-        print(f"Found no directory {target_dir} to upgrade.")
+        print(f"Found no directory {target_dir_display} to upgrade.")
         exit(1)
 
     if not dry_run and not upgrade:
@@ -747,27 +749,29 @@ def main_init(
     if upgrade:
         print("  Will upgrade modules and files in place.")
 
-    copy_prefix = "Would copy" if dry_run else "Will copy"
-    print(f"{copy_prefix} these files to {target_dir}:")
+    copy_prefix = "Would" if dry_run else "Will"
+    print(f"{copy_prefix} copy these files to {target_dir_display}:")
     print(files_to_copy)
-    modules_by_root: dict[str, list[Path]] = {}
+    modules_by_root: dict[str, list[str]] = {}
     for module_root in module_root_dirs:
-        modules_by_root[module_root] = [module for module, _ in iterate_modules(template_source / module_root)]
+        modules_by_root[module_root] = [
+            f"{module.relative_to(template_source)!s}" for module, _ in iterate_modules(template_source / module_root)
+        ]
 
-        print(f"{copy_prefix} copy these modules to {target_dir} from {module_root}:")
+        print(f"{copy_prefix} copy these modules to {target_dir_display} from {module_root}:")
         print(modules_by_root[module_root])
 
     copy_prefix = "Would copy" if dry_run else "Copying"
     for filename in files_to_copy:
         if ctx.obj.verbose:
-            print(f"{copy_prefix} file {filename} to {target_dir}")
+            print(f"{copy_prefix} file {filename} to {target_dir_display}")
         if not dry_run:
             shutil.copyfile(template_source / filename, target_dir / filename)
 
     if upgrade and not no_backup:
         prefix = "Would have backed up" if dry_run else "Backing up"
         if ctx.obj.verbose:
-            print(f"{prefix} {target_dir}")
+            print(f"{prefix} {target_dir_display}")
         if not dry_run:
             backup_dir = tempfile.mkdtemp(prefix=f"{target_dir.name}.", suffix=".bck", dir=Path.cwd())
             shutil.copytree(target_dir, Path(backup_dir), dirs_exist_ok=True)
@@ -778,7 +782,7 @@ def main_init(
 
     for module_root in module_root_dirs:
         if ctx.obj.verbose:
-            print(f"{copy_prefix} the following modules from  {module_root} to {target_dir}")
+            print(f"{copy_prefix} the following modules from  {module_root} to {target_dir_display}")
             print(modules_by_root[module_root])
         if not dry_run:
             (Path(target_dir) / module_root).mkdir(exist_ok=True)
@@ -791,9 +795,9 @@ def main_init(
             )
 
     if not dry_run and upgrade:
-        print(f"You project in {target_dir} was upgraded.")
+        print(f"You project in {target_dir_display} was upgraded.")
     elif not dry_run:
-        print(f"A new project was created in {target_dir}.")
+        print(f"A new project was created in {target_dir_display}.")
 
     # Create the config.yaml
     config_filepath = target_dir / "config.yaml"
@@ -801,7 +805,7 @@ def main_init(
         if clean or not config_filepath.exists():
             config_yaml = ConfigYAML.load(target_dir)
             config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-            print(f"Created your config.yaml file in {target_dir}.")
+            print(f"Created your config.yaml file in {target_dir_display}.")
         else:
             current = config_filepath.read_text()
             config_yaml = ConfigYAML.load(target_dir, existing_config_yaml=current)
