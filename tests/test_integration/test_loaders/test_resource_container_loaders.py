@@ -5,6 +5,7 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import TimeSeriesWrite, TimeSeriesWriteList
 
 from cognite_toolkit.cdf_tk.load import ContainerLoader, TimeSeriesLoader
+from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
 @pytest.fixture(scope="session")
@@ -19,7 +20,9 @@ def integration_space(cognite_client: CogniteClient) -> dm.Space:
 
 class TestTimeSeriesLoader:
     def test_create_populate_count_drop_data(self, cognite_client: CogniteClient) -> None:
-        timeseries = TimeSeriesWrite(external_id="test_create_populate_count_drop_data", is_string=False)
+        timeseries = TimeSeriesWrite(
+            external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}", is_string=False
+        )
         datapoints = pd.DataFrame(
             [{"timestamp": 0, timeseries.external_id: 0}, {"timestamp": 1, timeseries.external_id: 1}]
         ).set_index("timestamp")
@@ -51,7 +54,7 @@ class TestTimeSeriesLoader:
 def node_container(cognite_client: CogniteClient, integration_space: dm.Space) -> dm.Container:
     container = dm.ContainerApply(
         space=integration_space.space,
-        external_id="test_create_populate_count_drop_data",
+        external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}",
         name="Test Container",
         description="Container used for running integration test",
         used_for="node",
@@ -64,7 +67,7 @@ def node_container(cognite_client: CogniteClient, integration_space: dm.Space) -
 def edge_container(cognite_client: CogniteClient, integration_space: dm.Space) -> dm.Container:
     container = dm.ContainerApply(
         space=integration_space.space,
-        external_id="test_create_populate_count_drop_data_edge",
+        external_id=f"test_create_populate_count_drop_data_edge{RUN_UNIQUE_ID}",
         name="Test Container Edge",
         description="Container used for running integration test",
         used_for="edge",
@@ -79,7 +82,7 @@ class TestContainerLoader:
     ) -> None:
         node = dm.NodeApply(
             space=node_container.space,
-            external_id="test_create_populate_count_drop_data",
+            external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}",
             sources=[dm.NodeOrEdgeData(source=node_container.as_id(), properties={"name": "Anders"})],
         )
         container_id = [node_container.as_id()]
@@ -112,19 +115,19 @@ class TestContainerLoader:
             [
                 dm.NodeApply(
                     space=space,
-                    external_id="test_create_populate_count_drop_data:start",
+                    external_id=f"test_create_populate_count_drop_data:start{RUN_UNIQUE_ID}",
                     sources=None,
                 ),
                 dm.NodeApply(
                     space=space,
-                    external_id="test_create_populate_count_drop_data:end",
+                    external_id=f"test_create_populate_count_drop_data:end{RUN_UNIQUE_ID}",
                     sources=None,
                 ),
             ]
         )
         edge = dm.EdgeApply(
             space=space,
-            external_id="test_populate_count_drop_data_edge_container",
+            external_id=f"test_populate_count_drop_data_edge_container{RUN_UNIQUE_ID}",
             type=dm.DirectRelationReference(space, "test_edge_type"),
             start_node=(nodes[0].space, nodes[0].external_id),
             end_node=(nodes[1].space, nodes[1].external_id),
