@@ -590,13 +590,13 @@ def auth_verify(
         ),
     ] = False,
     group_file: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--group-file",
             "-f",
             help="Path to group yaml configuration file to use for group verification. Defaults to readwrite.all.group.yaml from the cdf_auth_readwrite_all common module.",
         ),
-    ] = f"/{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
+    ] = None,
     update_group: Annotated[
         int,
         typer.Option(
@@ -635,9 +635,16 @@ def auth_verify(
         ToolGlobals = ctx.obj.mockToolGlobals
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    if group_file is None:
+        template_dir = cast(Path, resources.files("cognite_toolkit"))
+        group_path = template_dir.joinpath(
+            Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml")
+        )
+    else:
+        group_path = Path(group_file)
     bootstrap.check_auth(
         ToolGlobals,
-        group_file=Path(group_file),
+        group_file=group_path,
         update_group=update_group,
         create_group=create_group,
         interactive=interactive,
