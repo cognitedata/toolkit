@@ -89,22 +89,3 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: twine upload --verbose dist/*
-
-  container:
-    environment: main
-    runs-on: ubuntu-latest
-    needs: [lint, test, build]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Docker login
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USER }}
-          password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
-
-      - uses: buildpacks/github-actions/setup-pack@v5.5.1
-
-      - run: pack/build.sh
-        env:
-          PUBLISH: true
