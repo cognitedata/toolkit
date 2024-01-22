@@ -17,14 +17,13 @@ from cognite_toolkit import _version
 from cognite_toolkit.cdf import build, clean, deploy, main_init
 from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, iterate_modules
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.utils import mock_read_yaml_file
 
-REPO_ROOT = Path(__file__).parent.parent
-
-SNAPSHOTS_DIR = REPO_ROOT / "tests_unit" / "test_approval_modules_snapshots"
+SNAPSHOTS_DIR = REPO_ROOT / "tests" / "tests_unit" / "test_approval_modules_snapshots"
 SNAPSHOTS_DIR.mkdir(exist_ok=True)
-SNAPSHOTS_DIR_CLEAN = REPO_ROOT / "tests_unit" / "test_approval_modules_snapshots_clean"
+SNAPSHOTS_DIR_CLEAN = REPO_ROOT / "tests" / "tests_unit" / "test_approval_modules_snapshots_clean"
 SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
