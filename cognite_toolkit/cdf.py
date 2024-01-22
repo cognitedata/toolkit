@@ -215,18 +215,22 @@ def build(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    environment_file = Path.cwd() / ENVIRONMENTS_FILE
+    sourced_environment_file = source_path / ENVIRONMENTS_FILE
+    environment_file = (
+        sourced_environment_file if sourced_environment_file.is_file() else Path.cwd() / ENVIRONMENTS_FILE
+    )
     if not environment_file.is_file() and not (environment_file := source_path / ENVIRONMENTS_FILE).is_file():
         print(f"  [bold red]ERROR:[/] {environment_file} does not exist")
         exit(1)
-    config_file = Path.cwd() / Path(CONFIG_FILE)
+    sourced_config_file = source_path / CONFIG_FILE
+    config_file = sourced_config_file if sourced_config_file.is_file() else Path.cwd() / Path(CONFIG_FILE)
     if not config_file.is_file() and not (config_file := source_path / Path(CONFIG_FILE)).is_file():
         print(f"  [bold red]ERROR:[/] {config_file} does not exist")
         exit(1)
     print(
         Panel(
             f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_path!s} as sources...[/bold]"
-            f"\n[bold]Environment file:[/] {environment_file.absolute().relative_to(Path.cwd())!s} and [bold]config file:[/] {config_file.absolute().relative_to(Path.cwd())!s}"
+            f"\n[bold]Environment file:[/] {environment_file.absolute()!s} and [bold]config file:[/] {config_file.absolute()!s}"
         )
     )
     print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
