@@ -1,0 +1,95 @@
+import platform
+import re
+from pathlib import Path
+from unittest.mock import MagicMock
+
+from cognite.client.data_classes.data_modeling import Container, DataModel, Space, View
+
+from cognite_toolkit.cdf_tk.describe import describe_datamodel
+from cognite_toolkit.cdf_tk.load import (
+    ContainerLoader,
+    DataModelLoader,
+    SpaceLoader,
+    ViewLoader,
+)
+from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from tests.tests_unit.conftest import ApprovalCogniteClient
+
+THIS_FOLDER = Path(__file__).resolve().parent
+
+DATA_FOLDER = THIS_FOLDER / "describe_data"
+SNAPSHOTS_DIR = THIS_FOLDER / "describe_data_snapshots"
+SNAPSHOTS_DIR.mkdir(exist_ok=True)
+
+
+def test_describe_datamodel(
+    cognite_client_approval: ApprovalCogniteClient,
+    data_regression,
+    file_regression,
+    capfd,
+    freezer,
+):
+    cdf_tool = MagicMock(spec=CDFToolConfig)
+    cdf_tool.project = "test"
+    cdf_tool.client = cognite_client_approval.mock_client
+    cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+    cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+
+    space_loader = SpaceLoader.create_loader(cdf_tool)
+    data_model_loader = DataModelLoader.create_loader(cdf_tool)
+    container_loader = ContainerLoader.create_loader(cdf_tool)
+    view_loader = ViewLoader.create_loader(cdf_tool)
+    spaces = [
+        Space.load(filepath.read_text())
+        for filepath in [
+            file
+            for type_ in space_loader.filetypes
+            for file in Path(DATA_FOLDER, "data_models").glob(f"**/*.{type_}")
+            if re.compile(space_loader.filename_pattern).match(file.stem)
+        ]
+    ]
+    data_models = [
+        DataModel.load(filepath.read_text())
+        for filepath in [
+            file
+            for type_ in data_model_loader.filetypes
+            for file in Path(DATA_FOLDER, "data_models").glob(f"**/*.{type_}")
+            if re.compile(data_model_loader.filename_pattern).match(file.stem)
+        ]
+    ]
+    containers = [
+        Container.load(filepath.read_text())
+        for filepath in [
+            file
+            for type_ in container_loader.filetypes
+            for file in Path(DATA_FOLDER, "data_models").glob(f"**/*.{type_}")
+            if re.compile(container_loader.filename_pattern).match(file.stem)
+        ]
+    ]
+    views = [
+        View.load(filepath.read_text())
+        for filepath in [
+            file
+            for type_ in view_loader.filetypes
+            for file in Path(DATA_FOLDER, "data_models").glob(f"**/*.{type_}")
+            if re.compile(view_loader.filename_pattern).match(file.stem)
+        ]
+    ]
+    cognite_client_approval.append(Space, spaces)
+    cognite_client_approval.append(Container, containers)
+    cognite_client_approval.append(View, views)
+    cognite_client_approval.append(DataModel, data_models)
+
+    describe_datamodel(cdf_tool, "test", "test")
+    out, _ = capfd.readouterr()
+    if platform.system() == "Windows":
+        # Windows console use different characters for tables in rich.
+        fullpath = SNAPSHOTS_DIR / "describe_datamodel_windows.txt"
+    else:
+        fullpath = SNAPSHOTS_DIR / "describe_datamodel.txt"
+    file_regression.check(out, encoding="utf-8", fullpath=fullpath)
+
+    dump = cognite_client_approval.dump()
+    assert dump == {}
+    calls = cognite_client_approval.retrieve_calls()
+    data_regression.check(calls, fullpath=SNAPSHOTS_DIR / "describe_datamodel.yaml")
