@@ -61,6 +61,10 @@ jobs:
     environment: dev
     env:
       CDF_CLUSTER: ${{ secrets.CDF_CLUSTER }}
+      CDF_PROJECT: ${{ secrets.CDF_PROJECT }}
+      IDP_CLIENT_ID: ${{ secrets.IDP_CLIENT_ID }}
+      IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
+      IDP_TOKEN_URL: ${{ secrets.IDP_TOKEN_URL }}
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
       - uses: actions/setup-python@v5
