@@ -332,7 +332,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         return created
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DataSetList:
-        return self.client.data_sets.retrieve_multiple(external_ids=cast(Sequence, ids), ignore_unknown_ids=True)
+        return self.client.data_sets.retrieve_multiple(external_ids=cast(Sequence[str], ids), ignore_unknown_ids=True)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
