@@ -578,7 +578,7 @@ def auth_verify(
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
     bootstrap.check_auth(
         ToolGlobals,
-        group_file=group_file,
+        group_file=Path(group_file),
         update_group=update_group,
         create_group=create_group,
         interactive=interactive,

@@ -214,7 +214,7 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
 
 def check_auth(
     ToolGlobals: CDFToolConfig,
-    group_file: str,
+    group_file: Path,
     auth_vars: AuthVariables | None = None,
     update_group: int = 0,
     create_group: str | None = None,
@@ -321,10 +321,10 @@ def check_auth(
         print("  [bold red]ERROR[/]: Unable to retrieve CDF groups.")
         ToolGlobals.failed = True
         return None
-    if Path(group_file).exists():
-        file_text = Path(group_file).read_text()
+    if group_file.exists():
+        file_text = group_file.read_text()
     else:
-        file_text = Path(f"{Path(__file__).parent.parent.as_posix()}{group_file}").read_text()
+        raise FileNotFoundError(f"Group config file does not exist: {group_file.as_posix()}")
     read_write = Group.load(file_text)
     tbl = Table(title="CDF Group ids, Names, and Source Ids")
     tbl.add_column("Id", justify="left")
@@ -373,7 +373,7 @@ def check_auth(
         print(
             "  This group's id should be configured as the [italic]readwrite_source_id[/] for the common/cdf_auth_readwrite_all module."
         )
-    print(f"\nChecking CDF groups access right against capabilities in {Path(group_file).name} ...")
+    print(f"\nChecking CDF groups access right against capabilities in {group_file.name} ...")
 
     diff = ToolGlobals.client.iam.compare_capabilities(
         resp.capabilities,
@@ -429,7 +429,7 @@ def check_auth(
     print("---------------------")
     if interactive and matched_group_id != 0:
         push_group = Confirm.ask(
-            f"Do you want to update the group with id {matched_group_id} and name {read_write.name} with the capabilities from {group_file} ?",
+            f"Do you want to update the group with id {matched_group_id} and name {read_write.name} with the capabilities from {group_file.as_posix()} ?",
             choices=["y", "n"],
         )
         if push_group:
@@ -462,7 +462,7 @@ def check_auth(
             read_write.source_id = group.source_id
             read_write.metadata = group.metadata
         else:
-            print(f"Creating new group based on {group_file}...")
+            print(f"Creating new group based on {group_file.as_posix()}...")
             read_write.source_id = create_group
         try:
             if not dry_run:

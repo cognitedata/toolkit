@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 from cognite.client import CogniteClient
+from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import (
     Database,
     DatabaseList,
@@ -119,6 +120,9 @@ class ApprovalCogniteClient:
         self._create_methods: dict[str, list[MagicMock]] = defaultdict(list)
         self._retrieve_methods: dict[str, list[MagicMock]] = defaultdict(list)
         self._inspect_methods: dict[str, list[MagicMock]] = defaultdict(list)
+
+        # Set the side effect of the MagicMock to the real method
+        self.mock_client.iam.compare_capabilities.side_effect = IAMAPI.compare_capabilities
 
         # Setup all mock methods
         for resource in _API_RESOURCES:
