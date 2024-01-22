@@ -27,7 +27,7 @@ from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
     DataSetsLoader,
     DeployResults,
-    deploy_or_clean_resources,
+    ResourceLoader,
 )
 from cognite_toolkit.cdf_tk.run import run_transformation
 from cognite_toolkit.cdf_tk.templates import (
@@ -327,62 +327,115 @@ def deploy(
     print(ToolGlobals.as_string())
 
     # The 'auth' loader is excluded, as it is run twice,
-    # once with all_scoped_skipped_validation and once with resource_scoped_only
+    # once with all_scoped_only and once with resource_scoped_only
     selected_loaders = {
         LoaderCls: LoaderCls.dependencies
         for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
         if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
         for LoaderCls in loader_classes
     }
+    results = DeployResults([], "deploy", dry_run=dry_run)
+    ordered_loaders = list(TopologicalSorter(selected_loaders).static_order())
+    if len(ordered_loaders) > len(selected_loaders):
+        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
+    if drop or drop_data:
+        # Drop has to be done in the reverse order of deploy.
+        if drop and drop_data:
+            print(Panel("[bold] Cleaning resources as --drop and --drop-data are passed[/]"))
+        elif drop:
+            print(Panel("[bold] Cleaning resources as --drop is passed[/]"))
+        elif drop_data:
+            print(Panel("[bold] Cleaning resources as --drop-data is passed[/]"))
+        for LoaderCls in reversed(ordered_loaders):
+            if not issubclass(LoaderCls, ResourceLoader):
+                continue
+            loader = LoaderCls.create_loader(ToolGlobals)
+            result = loader.clean_resources(
+                build_path / LoaderCls.folder_name,
+                ToolGlobals,
+                drop=drop,
+                dry_run=dry_run,
+                drop_data=drop_data,
+                verbose=ctx.obj.verbose,
+            )
+            if result:
+                results[result.name] = result
+            if ToolGlobals.failed:
+                print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
+                exit(1)
+        if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+            result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
+                directory,
+                ToolGlobals,
+                drop=drop,
+                dry_run=dry_run,
+                verbose=ctx.obj.verbose,
+            )
+            if result:
+                results[result.name] = result
+            if ToolGlobals.failed:
+                print("[bold red]ERROR: [/] Failure to clean auth as expected.")
+                exit(1)
 
+        print("[bold]...Cleaning Complete[/]")
     arguments = dict(
         ToolGlobals=ToolGlobals,
-        drop=drop,
-        action="deploy",
         dry_run=dry_run,
-        drop_data=drop_data,
+        has_done_drop=drop,
+        has_dropped_data=drop_data,
         verbose=ctx.obj.verbose,
     )
-    results = DeployResults([], "deploy", dry_run=dry_run)
+    if drop or drop_data:
+        print(Panel("[bold]DEPLOYING resources...[/]"))
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
-        print("[bold]EVALUATING auth resources (groups) with ALL scope...[/]")
-        result = deploy_or_clean_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
+        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_only").deploy_resources(
             directory,
             **arguments,
         )
-        results.append(result)
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth (groups) with ALL scope as expected.")
             exit(1)
-    resolved_list = list(TopologicalSorter(selected_loaders).static_order())
-    if len(resolved_list) > len(selected_loaders):
-        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
-    for LoaderCls in resolved_list:
-        result = deploy_or_clean_resources(
-            LoaderCls.create_loader(ToolGlobals),
+        if result:
+            results[result.name] = result
+        if ctx.obj.verbose:
+            # Extra newline
+            print("")
+    for LoaderCls in ordered_loaders:
+        result = LoaderCls.create_loader(ToolGlobals).deploy_resources(  # type: ignore[assignment]
             build_path / LoaderCls.folder_name,
             **arguments,
         )
-        results.append(result)
         if ToolGlobals.failed:
-            if results:
-                print(results.create_rich_table())
+            if results and results.has_counts:
+                print(results.counts_table())
+            if results and results.has_uploads:
+                print(results.uploads_table())
             print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
             exit(1)
+        if result:
+            results[result.name] = result
+        if ctx.obj.verbose:
+            # Extra newline
+            print("")
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we create the Groups again, but this time we do not filter out any capabilities
         # and we do not skip validation as the resources should now have been created.
-        print("[bold]EVALUATING auth resources scoped to resources...[/]")
-        result = deploy_or_clean_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
+        loader = AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only")
+        result = loader.deploy_resources(
             directory,
             **arguments,
         )
-        results.append(result)
-    print(results.create_rich_table())
+        if ToolGlobals.failed:
+            print("[bold red]ERROR: [/] Failure to deploy auth (groups) scoped to resources as expected.")
+            exit(1)
+        if result:
+            results[result.name] = result
+    if results.has_counts:
+        print(results.counts_table())
+    if results.has_uploads:
+        print(results.uploads_table())
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to deploy auth (groups) scoped to resources as expected.")
         exit(1)
@@ -450,7 +503,6 @@ def clean(
         exit(1)
 
     include = _process_include(include, interactive)
-    print(ToolGlobals.as_string())
 
     # The 'auth' loader is excluded, as it is run at the end.
     selected_loaders = {
@@ -469,39 +521,46 @@ def clean(
     if len(resolved_list) > len(selected_loaders):
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
     for LoaderCls in reversed(resolved_list):
+        if not issubclass(LoaderCls, ResourceLoader):
+            continue
         loader = LoaderCls.create_loader(ToolGlobals)
         if type(loader) is DataSetsLoader:
-            print("[bold]WARNING:[/] Dataset cleaning is not supported, skipping...")
+            print("[bold yellow]WARNING:[/] Dataset cleaning is not supported, skipping...")
             continue
-        result = deploy_or_clean_resources(
-            loader,
+        result = loader.clean_resources(
             build_path / LoaderCls.folder_name,
             ToolGlobals,
             drop=True,
-            action="clean",
-            drop_data=True,
             dry_run=dry_run,
+            drop_data=True,
             verbose=ctx.obj.verbose,
         )
-        results.append(result)
+        if result:
+            results[result.name] = result
         if ToolGlobals.failed:
-            if results:
-                print(results.create_rich_table())
+            if results and results.has_counts:
+                print(results.counts_table())
+            if results and results.has_uploads:
+                print(results.uploads_table())
             print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
             exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        result = deploy_or_clean_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
+        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
             directory,
             ToolGlobals,
             drop=True,
-            clean=True,
-            action="clean",
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
         )
-        results.append(result)
-    print(results.create_rich_table())
+        if ToolGlobals.failed:
+            print("[bold red]ERROR: [/] Failure to clean auth as expected.")
+            exit(1)
+        if result:
+            results[result.name] = result
+    if results.has_counts:
+        print(results.counts_table())
+    if results.has_uploads:
+        print(results.uploads_table())
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to clean auth as expected.")
         exit(1)
@@ -770,7 +829,7 @@ def main_init(
 
 @describe_app.callback(invoke_without_command=True)
 def describe_main(ctx: typer.Context) -> None:
-    """Commands to describe and document configurations and CDF project state."""
+    """Commands to describe and document configurations and CDF project state, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
     if ctx.invoked_subcommand is None:
         print("Use [bold yellow]cdf-tk describe --help[/] for more information.")
     return None
@@ -813,7 +872,7 @@ def describe_datamodel_cmd(
 
 @run_app.callback(invoke_without_command=True)
 def run_main(ctx: typer.Context) -> None:
-    """Commands to execute processes in CDF."""
+    """Commands to execute processes in CDF, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
     if ctx.invoked_subcommand is None:
         print("Use [bold yellow]cdf-tk run --help[/] for more information.")
 

@@ -1,7 +1,9 @@
 DataSet:
 - description: This dataset contains the lift pump stations.
   externalId: src:lift_pump_stations
+  metadata: {}
   name: Lift Pump Stations
+  writeProtected: false
 Row:
 - args: []
   columns:
@@ -36,14 +38,15 @@ Row:
   - last_edited_user
   - last_edited_date
   - Shape__Length
-  dataframe: 51381405308506810800203083644429693369666914970992597363396926518830320871555
+  dataframe: 111723683859798203337034217255461424396450076952230764551633478671599285878367
   kwargs:
     db_name: pump_assets
-    ensure_parent: true
+    ensure_parent: false
     table_name: collections_pump
-  name: pump_assets_collections_pump_True
+  name: pump_assets_collections_pump_False
 Transformation:
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:
@@ -87,11 +90,5 @@ TransformationSchedule:
   interval: 7 * * * *
   isPaused: true
 deleted:
-  Table:
-  - db_name: pump_assets
-    name:
-    - collections_pump
-  Transformation:
-  - externalId: tr_pump_asset_hierarchy-load-collections_pump
   TransformationSchedule:
   - externalId: tr_pump_asset_hierarchy-load-collections_pump

@@ -1,8 +1,3 @@
 FileMetadata:
-- args: []
-  kwargs:
-    external_id: my_file
-    name: my_file.txt
-    overwrite: false
-    path: test_cdf_tk/load_data/files/my_file.txt
+- externalId: my_file
   name: my_file.txt

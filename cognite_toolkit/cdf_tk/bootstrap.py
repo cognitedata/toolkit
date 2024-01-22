@@ -135,7 +135,7 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
                 print("  Keeping existing token.")
         if token:
             azure = Confirm.ask(
-                "Do you have Azure Entra/ActiveDirectory as your identity provider ?", choices=["y", "n"]
+                "Do you have Microsoft Entra ID/ActiveDirectory as your identity provider ?", choices=["y", "n"]
             )
             name_of_principal = "Service principal/application"
             if azure:
@@ -304,7 +304,7 @@ def check_auth(
     tenant_id = None
     if "https://login.windows.net" in oidc.get("tokenUrl"):
         tenant_id = oidc.get("tokenUrl").split("/")[-3]
-        print(f"  [bold green]OK[/]: Azure Entra (aka ActiveDirectory) with tenant id ({tenant_id}).")
+        print(f"  [bold green]OK[/]: Microsoft Entra ID (aka ActiveDirectory) with tenant id ({tenant_id}).")
     elif "auth0.com" in oidc.get("tokenUrl"):
         tenant_id = oidc.get("tokenUrl").split("/")[2].split(".")[0]
         print(f"  [bold green]OK[/] - Auth0 with tenant id ({tenant_id}).")
@@ -346,7 +346,9 @@ def check_auth(
         print(
             "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
         )
-        print("           This is not recommended. The group matching the group config file is marked in bold above.")
+        print(
+            "           This is not recommended. The group matching the group config file is marked in bold above if it is present."
+        )
         if update_group == 1:
             print(
                 "  [bold red]ERROR[/]: You have specified --update-group=1.\n"

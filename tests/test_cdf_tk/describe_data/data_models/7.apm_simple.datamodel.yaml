@@ -1,0 +1,20 @@
+externalId: apm_simple
+name: apm_simple
+space: test
+version: 1
+isGlobal: false
+lastUpdatedTime: 1704980779000
+createdTime: 1704980779000
+views:
+- externalId: Asset
+  space: test
+  type: view
+  version: 1
+- externalId: WorkOrder
+  space: test
+  type: view
+  version: 1
+- externalId: WorkItem
+  space: test
+  type: view
+  version: 1

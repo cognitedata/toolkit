@@ -212,13 +212,13 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cognite-sdk"
-version = "7.13.2"
+version = "7.13.4"
 description = "Cognite Python SDK"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "cognite_sdk-7.13.2-py3-none-any.whl", hash = "sha256:b4c9588bf0a413ca5f205bfa904463d8b43e8a456366e48c8f8525972df6033d"},
-    {file = "cognite_sdk-7.13.2.tar.gz", hash = "sha256:3a89828f110abcc7fdc07d5815ee1219876ac6d60486a55cd912d00ac1c1d9bf"},
+    {file = "cognite_sdk-7.13.4-py3-none-any.whl", hash = "sha256:dbf27ca89b56a00d6f85d24d15c8dcc417a67ddfffd8ec93120c2c15d946174a"},
+    {file = "cognite_sdk-7.13.4.tar.gz", hash = "sha256:465fbe5751df65ba8f5965dbb20657415ae8a6ff38c4a810e35f254a94664b69"},
 ]
 
 [package.dependencies]
@@ -363,6 +363,20 @@ files = [
 mccabe = ">=0.7.0,<0.8.0"
 pycodestyle = ">=2.11.0,<2.12.0"
 pyflakes = ">=3.2.0,<3.3.0"
+
+[[package]]
+name = "freezegun"
+version = "1.4.0"
+description = "Let your Python tests travel through time"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "freezegun-1.4.0-py3-none-any.whl", hash = "sha256:55e0fc3c84ebf0a96a5aa23ff8b53d70246479e9a68863f1fcac5a3e52f19dd6"},
+    {file = "freezegun-1.4.0.tar.gz", hash = "sha256:10939b0ba0ff5adaecf3b06a5c2f73071d9678e507c5eaedb23c761d56ac774b"},
+]
+
+[package.dependencies]
+python-dateutil = ">=2.7"
 
 [[package]]
 name = "icdiff"
@@ -990,6 +1004,21 @@ files = [
 pytest = ">=5.0"
 
 [[package]]
+name = "pytest-freezegun"
+version = "0.4.2"
+description = "Wrap tests with fixtures in freeze_time"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pytest-freezegun-0.4.2.zip", hash = "sha256:19c82d5633751bf3ec92caa481fb5cffaac1787bd485f0df6436fd6242176949"},
+    {file = "pytest_freezegun-0.4.2-py2.py3-none-any.whl", hash = "sha256:5318a6bfb8ba4b709c8471c94d0033113877b3ee02da5bfcd917c1889cde99a7"},
+]
+
+[package.dependencies]
+freezegun = ">0.3"
+pytest = ">=3.0.0"
+
+[[package]]
 name = "pytest-icdiff"
 version = "0.9"
 description = "use icdiff for better error messages in pytest assertions"
@@ -1483,4 +1512,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "13cbd8e617d00a1e76ce8fe8daf824fdcadb42f63dd42ab43ec0a2277b9a8df6"
+content-hash = "c1984e382063063acf704a4957b88bc4d13965c5c176c3d151ab69b79d8cd65e"

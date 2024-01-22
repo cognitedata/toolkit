@@ -11,7 +11,7 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = ">=7.13.2, <7.14", extras = ["pandas"]}
+cognite-sdk = {version = ">=7.13.4, <7.14", extras = ["pandas"]}
 pandas = "^2.1.1"
 pyyaml = "^6.0.1"
 chardet = "^5.1.0"
@@ -29,6 +29,7 @@ types-PyYAML = "^6"
 twine = "^4.0.2"
 tomli = { version = "^2.0.1", python = "<3.11" }
 toml = { version = "^0.10.2", python = ">=3.11" }
+pytest-freezegun = "^0.4.2"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit.cdf:app"
