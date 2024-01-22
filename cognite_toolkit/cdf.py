@@ -715,7 +715,6 @@ def main_init(
     if not upgrade:
         files_to_copy.extend(
             [
-                "environments.yaml",
                 "README.md",
                 ".gitignore",
                 ".env.tmpl",
@@ -747,6 +746,7 @@ def main_init(
         target_dir.mkdir(exist_ok=True)
     if upgrade:
         print("  Will upgrade modules and files in place.")
+
     print(f"Will copy these files to {target_dir}:")
     print(files_to_copy)
     print(f"Will copy these module directories to {target_dir}:")
