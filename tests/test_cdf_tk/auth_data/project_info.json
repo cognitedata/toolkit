@@ -1,0 +1,38 @@
+{
+    "name": "pytest-project",
+    "urlName": "pytest-project",
+    "oidcConfiguration": {
+        "jwksUrl": "https://login.windows.net/common/discovery/keys",
+        "issuer": "https://sts.windows.net/dummy/",
+        "audience": "https://bluefield.cognitedata.com",
+        "accessClaims": [
+            {
+                "claimName": "groups"
+            },
+            {
+                "claimName": "roles"
+            }
+        ],
+        "scopeClaims": [
+            {
+                "claimName": "scp"
+            }
+        ],
+        "logClaims": [
+            {
+                "claimName": "appid"
+            },
+            {
+                "claimName": "sub"
+            }
+        ],
+        "tokenUrl": "https://login.windows.net/dummy/oauth2/token",
+        "skewMs": 0,
+        "identityProviderScope": null,
+        "isGroupCallbackEnabled": true
+    },
+    "userProfilesConfiguration": {
+        "enabled": true
+    },
+    "cogIdpBetaOptIn": true
+}

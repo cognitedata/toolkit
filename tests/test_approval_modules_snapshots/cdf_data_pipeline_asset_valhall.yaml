@@ -7,8 +7,10 @@ DataSet:
     transformations: '[{"externalId": "tr_asset_oid_workmate_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
+  writeProtected: false
 ExtractionPipeline:
-- dataSetId: 42
+- createdBy: unknown
+  dataSetId: 42
   description: Asset source extraction pipeline with configuration for DB extractor
     reading data from oid:workmate
   documentation: "The DB Extractor is a general database extractor that connects to\
@@ -60,24 +62,6 @@ Group:
   metadata:
     origin: cdf-project-templates
   name: gp_asset_oid_extractor
-  sourceId: <change_me>
-- capabilities:
-  - transformationsAcl:
-      actions:
-      - READ
-      - WRITE
-      scope:
-        all: {}
-  - sessionsAcl:
-      actions:
-      - LIST
-      - CREATE
-      - DELETE
-      scope:
-        all: {}
-  metadata:
-    origin: cdf-project-templates
-  name: gp_asset_oid_processing
   sourceId: <change_me>
 - capabilities:
   - rawAcl:
@@ -132,17 +116,16 @@ Transformation:
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_asset_oid_workmate_asset_hierarchy
   ignoreNullFields: true
   isPublic: true
   name: asset:oid:workmate:asset_hierarchy
-  ownerIsCurrentUser: true
   query: "--\n-- Create Asset Hierarchy using Transformation\n--\n-- Input data from\
     \ RAW DB table (using example data)\n--\n-- Root node has parentExternal id =\
     \ ''\n-- Transformation is connected to asset data set\n-- All metadata expect\
@@ -154,12 +137,12 @@ Transformation:
     , \"description\"), *) \n                                  as metadata\nFROM \n\
     \  `asset_oid_workmate`.`assets`\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_asset_hierarchy
   interval: 7 * * * *
@@ -167,7 +150,5 @@ TransformationSchedule:
 deleted:
   ExtractionPipeline:
   - externalId: ep_src_asset_oid_workmate
-  Transformation:
-  - externalId: tr_asset_oid_workmate_asset_hierarchy
   TransformationSchedule:
   - externalId: tr_asset_oid_workmate_asset_hierarchy

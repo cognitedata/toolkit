@@ -1,0 +1,267 @@
+externalId: WorkOrder
+name: WorkOrder
+space: test
+version: 1
+isGlobal: false
+lastUpdatedTime: 1704980779000
+createdTime: 1704980779000
+writable: true
+usedFor: node
+properties:
+  actualHours:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: actualHours
+    name: actualHours
+    type:
+      list: false
+      type: int32
+    nullable: true
+    autoIncrement: false
+  createdDate:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: createdDate
+    name: createdDate
+    type:
+      list: false
+      type: timestamp
+    nullable: true
+    autoIncrement: false
+  description:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: description
+    name: description
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+    nullable: true
+    autoIncrement: false
+  dueDate:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: dueDate
+    name: dueDate
+    type:
+      list: false
+      type: timestamp
+    nullable: true
+    autoIncrement: false
+  durationHours:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: durationHours
+    name: durationHours
+    type:
+      list: false
+      type: int32
+    nullable: true
+    autoIncrement: false
+  endTime:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: endTime
+    name: endTime
+    type:
+      list: false
+      type: timestamp
+    nullable: true
+    autoIncrement: false
+  isActive:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: isActive
+    name: isActive
+    type:
+      list: false
+      type: boolean
+    nullable: true
+    autoIncrement: false
+  isCancelled:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: isCancelled
+    name: isCancelled
+    type:
+      list: false
+      type: boolean
+    nullable: true
+    autoIncrement: false
+  isCompleted:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: isCompleted
+    name: isCompleted
+    type:
+      list: false
+      type: boolean
+    nullable: true
+    autoIncrement: false
+  isSafetyCritical:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: isSafetyCritical
+    name: isSafetyCritical
+    type:
+      list: false
+      type: boolean
+    nullable: true
+    autoIncrement: false
+  linkedAssets:
+    direction: outwards
+    connectionType: multiEdgeConnection
+    name: linkedAssets
+    source:
+      externalId: Asset
+      space: test
+      type: view
+      version: 8069f1498c7f9a
+    type:
+      externalId: WorkOrder.linkedAssets
+      space: test
+  percentageProgress:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: percentageProgress
+    name: percentageProgress
+    type:
+      list: false
+      type: int32
+    nullable: true
+    autoIncrement: false
+  plannedStart:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: plannedStart
+    name: plannedStart
+    type:
+      list: false
+      type: timestamp
+    nullable: true
+    autoIncrement: false
+  priorityDescription:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: priorityDescription
+    name: priorityDescription
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+    autoIncrement: false
+  programNumber:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: programNumber
+    name: programNumber
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+    autoIncrement: false
+  startTime:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: startTime
+    name: startTime
+    type:
+      list: false
+      type: timestamp
+    nullable: true
+    autoIncrement: false
+  status:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: status
+    name: status
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+    autoIncrement: false
+  title:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: title
+    name: title
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+    autoIncrement: false
+  workItems:
+    connectionType: multiEdgeConnection
+    direction: outwards
+    name: workItems
+    source:
+      externalId: WorkItem
+      space: test
+      type: view
+      version: 94d2b7121128a2
+    type:
+      externalId: WorkOrder.workItems
+      space: test
+  workOrderNumber:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: workOrderNumber
+    name: workOrderNumber
+    type:
+      list: false
+      type: int32
+    nullable: true
+    autoIncrement: false
+  workPackageNumber:
+    container:
+      externalId: WorkOrder
+      space: test
+      type: container
+    containerPropertyIdentifier: workPackageNumber
+    name: workPackageNumber
+    type:
+      list: false
+      type: int32
+    nullable: true
+    autoIncrement: false
