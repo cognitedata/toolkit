@@ -723,7 +723,7 @@ def main_init(
         ".gitignore",
         ".env.tmpl",
     ]
-    module_root_dirs: list[str] = [
+    root_modules: list[str] = [
         COGNITE_MODULES,
         CUSTOM_MODULES,
     ]
@@ -753,13 +753,13 @@ def main_init(
     print(f"{copy_prefix} copy these files to {target_dir_display}:")
     print(files_to_copy)
     modules_by_root: dict[str, list[str]] = {}
-    for module_root in module_root_dirs:
-        modules_by_root[module_root] = [
-            f"{module.relative_to(template_source)!s}" for module, _ in iterate_modules(template_source / module_root)
+    for root_module in root_modules:
+        modules_by_root[root_module] = [
+            f"{module.relative_to(template_source)!s}" for module, _ in iterate_modules(template_source / root_module)
         ]
 
-        print(f"{copy_prefix} copy these modules to {target_dir_display} from {module_root}:")
-        print(modules_by_root[module_root])
+        print(f"{copy_prefix} copy these modules to {target_dir_display} from {root_module}:")
+        print(modules_by_root[root_module])
 
     copy_prefix = "Would copy" if dry_run else "Copying"
     for filename in files_to_copy:
@@ -780,16 +780,16 @@ def main_init(
             f"[bold yellow]WARNING:[/] --no-backup is specified, no backup {'would have been' if dry_run else 'will be'} be."
         )
 
-    for module_root in module_root_dirs:
+    for root_module in root_modules:
         if ctx.obj.verbose:
-            print(f"{copy_prefix} the following modules from  {module_root} to {target_dir_display}")
-            print(modules_by_root[module_root])
+            print(f"{copy_prefix} the following modules from  {root_module} to {target_dir_display}")
+            print(modules_by_root[root_module])
         if not dry_run:
-            (Path(target_dir) / module_root).mkdir(exist_ok=True)
+            (Path(target_dir) / root_module).mkdir(exist_ok=True)
             # Default files are not copied, as they are only used to setup the config.yaml.
             shutil.copytree(
-                template_source / module_root,
-                target_dir / module_root,
+                template_source / root_module,
+                target_dir / root_module,
                 dirs_exist_ok=True,
                 ignore=shutil.ignore_patterns("default.*"),
             )
