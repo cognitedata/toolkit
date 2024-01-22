@@ -27,7 +27,7 @@ from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
     DataSetsLoader,
     DeployResults,
-    deploy_or_clean_resources,
+    ResourceLoader,
 )
 from cognite_toolkit.cdf_tk.run import run_transformation
 from cognite_toolkit.cdf_tk.templates import (
@@ -37,8 +37,8 @@ from cognite_toolkit.cdf_tk.templates import (
     CUSTOM_MODULES,
     ENVIRONMENTS_FILE,
     BuildEnvironment,
+    ConfigYAML,
     build_config,
-    generate_config,
     read_yaml_file,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -159,7 +159,11 @@ def common(
 
     if dotenv_file.is_file():
         if verbose:
-            print(f"Loading .env file: {dotenv_file.relative_to(Path.cwd())!s}")
+            try:
+                path_str = dotenv_file.relative_to(Path.cwd())
+            except ValueError:
+                path_str = dotenv_file.absolute()
+            print(f"Loading .env file: {path_str!s}")
         load_dotenv(dotenv_file, override=override_env)
 
     ctx.obj = Common(
@@ -211,18 +215,22 @@ def build(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    environment_file = Path.cwd() / ENVIRONMENTS_FILE
+    sourced_environment_file = source_path / ENVIRONMENTS_FILE
+    environment_file = (
+        sourced_environment_file if sourced_environment_file.is_file() else Path.cwd() / ENVIRONMENTS_FILE
+    )
     if not environment_file.is_file() and not (environment_file := source_path / ENVIRONMENTS_FILE).is_file():
         print(f"  [bold red]ERROR:[/] {environment_file} does not exist")
         exit(1)
-    config_file = Path.cwd() / Path(CONFIG_FILE)
+    sourced_config_file = source_path / CONFIG_FILE
+    config_file = sourced_config_file if sourced_config_file.is_file() else Path.cwd() / Path(CONFIG_FILE)
     if not config_file.is_file() and not (config_file := source_path / Path(CONFIG_FILE)).is_file():
         print(f"  [bold red]ERROR:[/] {config_file} does not exist")
         exit(1)
     print(
         Panel(
             f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_path!s} as sources...[/bold]"
-            f"\n[bold]Environment file:[/] {environment_file.absolute().relative_to(Path.cwd())!s} and [bold]config file:[/] {config_file.absolute().relative_to(Path.cwd())!s}"
+            f"\n[bold]Environment file:[/] {environment_file.absolute()!s} and [bold]config file:[/] {config_file.absolute()!s}"
         )
     )
     print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
@@ -319,62 +327,115 @@ def deploy(
     print(ToolGlobals.as_string())
 
     # The 'auth' loader is excluded, as it is run twice,
-    # once with all_scoped_skipped_validation and once with resource_scoped_only
+    # once with all_scoped_only and once with resource_scoped_only
     selected_loaders = {
         LoaderCls: LoaderCls.dependencies
         for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
         if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
         for LoaderCls in loader_classes
     }
+    results = DeployResults([], "deploy", dry_run=dry_run)
+    ordered_loaders = list(TopologicalSorter(selected_loaders).static_order())
+    if len(ordered_loaders) > len(selected_loaders):
+        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
+    if drop or drop_data:
+        # Drop has to be done in the reverse order of deploy.
+        if drop and drop_data:
+            print(Panel("[bold] Cleaning resources as --drop and --drop-data are passed[/]"))
+        elif drop:
+            print(Panel("[bold] Cleaning resources as --drop is passed[/]"))
+        elif drop_data:
+            print(Panel("[bold] Cleaning resources as --drop-data is passed[/]"))
+        for LoaderCls in reversed(ordered_loaders):
+            if not issubclass(LoaderCls, ResourceLoader):
+                continue
+            loader = LoaderCls.create_loader(ToolGlobals)
+            result = loader.clean_resources(
+                build_path / LoaderCls.folder_name,
+                ToolGlobals,
+                drop=drop,
+                dry_run=dry_run,
+                drop_data=drop_data,
+                verbose=ctx.obj.verbose,
+            )
+            if result:
+                results[result.name] = result
+            if ToolGlobals.failed:
+                print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
+                exit(1)
+        if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+            result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
+                directory,
+                ToolGlobals,
+                drop=drop,
+                dry_run=dry_run,
+                verbose=ctx.obj.verbose,
+            )
+            if result:
+                results[result.name] = result
+            if ToolGlobals.failed:
+                print("[bold red]ERROR: [/] Failure to clean auth as expected.")
+                exit(1)
 
+        print("[bold]...Cleaning Complete[/]")
     arguments = dict(
         ToolGlobals=ToolGlobals,
-        drop=drop,
-        action="deploy",
         dry_run=dry_run,
-        drop_data=drop_data,
+        has_done_drop=drop,
+        has_dropped_data=drop_data,
         verbose=ctx.obj.verbose,
     )
-    results = DeployResults([], "deploy", dry_run=dry_run)
+    if drop or drop_data:
+        print(Panel("[bold]DEPLOYING resources...[/]"))
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
-        print("[bold]EVALUATING auth resources (groups) with ALL scope...[/]")
-        result = deploy_or_clean_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_skipped_validation"),
+        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_only").deploy_resources(
             directory,
             **arguments,
         )
-        results.append(result)
         if ToolGlobals.failed:
             print("[bold red]ERROR: [/] Failure to deploy auth (groups) with ALL scope as expected.")
             exit(1)
-    resolved_list = list(TopologicalSorter(selected_loaders).static_order())
-    if len(resolved_list) > len(selected_loaders):
-        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
-    for LoaderCls in resolved_list:
-        result = deploy_or_clean_resources(
-            LoaderCls.create_loader(ToolGlobals),
+        if result:
+            results[result.name] = result
+        if ctx.obj.verbose:
+            # Extra newline
+            print("")
+    for LoaderCls in ordered_loaders:
+        result = LoaderCls.create_loader(ToolGlobals).deploy_resources(  # type: ignore[assignment]
             build_path / LoaderCls.folder_name,
             **arguments,
         )
-        results.append(result)
         if ToolGlobals.failed:
-            if results:
-                print(results.create_rich_table())
+            if results and results.has_counts:
+                print(results.counts_table())
+            if results and results.has_uploads:
+                print(results.uploads_table())
             print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
             exit(1)
+        if result:
+            results[result.name] = result
+        if ctx.obj.verbose:
+            # Extra newline
+            print("")
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we create the Groups again, but this time we do not filter out any capabilities
         # and we do not skip validation as the resources should now have been created.
-        print("[bold]EVALUATING auth resources scoped to resources...[/]")
-        result = deploy_or_clean_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
+        loader = AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only")
+        result = loader.deploy_resources(
             directory,
             **arguments,
         )
-        results.append(result)
-    print(results.create_rich_table())
+        if ToolGlobals.failed:
+            print("[bold red]ERROR: [/] Failure to deploy auth (groups) scoped to resources as expected.")
+            exit(1)
+        if result:
+            results[result.name] = result
+    if results.has_counts:
+        print(results.counts_table())
+    if results.has_uploads:
+        print(results.uploads_table())
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to deploy auth (groups) scoped to resources as expected.")
         exit(1)
@@ -442,7 +503,6 @@ def clean(
         exit(1)
 
     include = _process_include(include, interactive)
-    print(ToolGlobals.as_string())
 
     # The 'auth' loader is excluded, as it is run at the end.
     selected_loaders = {
@@ -461,39 +521,46 @@ def clean(
     if len(resolved_list) > len(selected_loaders):
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
     for LoaderCls in reversed(resolved_list):
+        if not issubclass(LoaderCls, ResourceLoader):
+            continue
         loader = LoaderCls.create_loader(ToolGlobals)
         if type(loader) is DataSetsLoader:
-            print("[bold]WARNING:[/] Dataset cleaning is not supported, skipping...")
+            print("[bold yellow]WARNING:[/] Dataset cleaning is not supported, skipping...")
             continue
-        result = deploy_or_clean_resources(
-            loader,
+        result = loader.clean_resources(
             build_path / LoaderCls.folder_name,
             ToolGlobals,
             drop=True,
-            action="clean",
-            drop_data=True,
             dry_run=dry_run,
+            drop_data=True,
             verbose=ctx.obj.verbose,
         )
-        results.append(result)
+        if result:
+            results[result.name] = result
         if ToolGlobals.failed:
-            if results:
-                print(results.create_rich_table())
+            if results and results.has_counts:
+                print(results.counts_table())
+            if results and results.has_uploads:
+                print(results.uploads_table())
             print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
             exit(1)
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        result = deploy_or_clean_resources(
-            AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
+        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
             directory,
             ToolGlobals,
             drop=True,
-            clean=True,
-            action="clean",
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
         )
-        results.append(result)
-    print(results.create_rich_table())
+        if ToolGlobals.failed:
+            print("[bold red]ERROR: [/] Failure to clean auth as expected.")
+            exit(1)
+        if result:
+            results[result.name] = result
+    if results.has_counts:
+        print(results.counts_table())
+    if results.has_uploads:
+        print(results.uploads_table())
     if ToolGlobals.failed:
         print("[bold red]ERROR: [/] Failure to clean auth as expected.")
         exit(1)
@@ -527,13 +594,13 @@ def auth_verify(
         ),
     ] = False,
     group_file: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--group-file",
             "-f",
             help="Path to group yaml configuration file to use for group verification. Defaults to readwrite.all.group.yaml from the cdf_auth_readwrite_all common module.",
         ),
-    ] = f"/{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml",
+    ] = None,
     update_group: Annotated[
         int,
         typer.Option(
@@ -572,9 +639,16 @@ def auth_verify(
         ToolGlobals = ctx.obj.mockToolGlobals
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    if group_file is None:
+        template_dir = cast(Path, resources.files("cognite_toolkit"))
+        group_path = template_dir.joinpath(
+            Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml")
+        )
+    else:
+        group_path = Path(group_file)
     bootstrap.check_auth(
         ToolGlobals,
-        group_file=group_file,
+        group_file=group_path,
         update_group=update_group,
         create_group=create_group,
         interactive=interactive,
@@ -672,7 +746,7 @@ def main_init(
     if not dry_run and not upgrade:
         target_dir.mkdir(exist_ok=True)
     if upgrade:
-        print("  Will upgrade modules and files in place, config.yaml files will not be touched.")
+        print("  Will upgrade modules and files in place.")
     print(f"Will copy these files to {target_dir}:")
     print(files_to_copy)
     print(f"Will copy these module directories to {target_dir}:")
@@ -744,26 +818,25 @@ def main_init(
             print(f"You project in {target_dir} was upgraded.")
         else:
             print(f"A new project was created in {target_dir}.")
-        if upgrade:
-            print("  All default variables from the modules have been upgraded.")
-            print("  Please check you config.yaml file for new default variables that may need to be changed.")
-
     config_filepath = target_dir / "config.yaml"
     if not dry_run:
         if clean or not config_filepath.exists():
-            config_str, _ = generate_config(target_dir)
-            config_filepath.write_text(config_str)
+            config_yaml = ConfigYAML.load(target_dir)
+            config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
             print(f"Created your config.yaml file in {target_dir}.")
         else:
             current = config_filepath.read_text()
-            config_str, difference = generate_config(target_dir, existing_config=current)
-            config_filepath.write_text(config_str)
-            print(str(difference))
+            config_yaml = ConfigYAML.load(target_dir, existing_config_yaml=current)
+            config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
+            print(str(config_yaml))
+            if ctx.obj.verbose:
+                for added in config_yaml.added:
+                    print(f"  [bold green]ADDED:[/] {added}")
 
 
 @describe_app.callback(invoke_without_command=True)
 def describe_main(ctx: typer.Context) -> None:
-    """Commands to describe and document configurations and CDF project state."""
+    """Commands to describe and document configurations and CDF project state, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
     if ctx.invoked_subcommand is None:
         print("Use [bold yellow]cdf-tk describe --help[/] for more information.")
     return None
@@ -806,7 +879,7 @@ def describe_datamodel_cmd(
 
 @run_app.callback(invoke_without_command=True)
 def run_main(ctx: typer.Context) -> None:
-    """Commands to execute processes in CDF."""
+    """Commands to execute processes in CDF, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
     if ctx.invoked_subcommand is None:
         print("Use [bold yellow]cdf-tk run --help[/] for more information.")
 

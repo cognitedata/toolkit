@@ -1,0 +1,341 @@
+{
+    "items": [
+        {
+            "id": 1671401515106175,
+            "isDeleted": false,
+            "deletedTime": -1,
+            "sourceId": "<change_me>",
+            "name": "gp_cicd_all_read_write",
+            "capabilities": [
+                {
+                    "projectsAcl": {
+                        "actions": [
+                            "LIST",
+                            "READ"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "groupsAcl": {
+                        "actions": [
+                            "LIST",
+                            "READ",
+                            "CREATE",
+                            "UPDATE",
+                            "DELETE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "threedAcl": {
+                        "actions": [
+                            "READ",
+                            "CREATE",
+                            "UPDATE",
+                            "DELETE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "assetsAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "eventsAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "filesAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "rawAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE",
+                            "LIST"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "relationshipsAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "timeSeriesAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "dataModelsAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "dataModelInstancesAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "datasetsAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE",
+                            "OWNER"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "extractionPipelinesAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "extractionRunsAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "extractionConfigsAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "functionsAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "sessionsAcl": {
+                        "actions": [
+                            "LIST",
+                            "CREATE",
+                            "DELETE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "transformationsAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "entitymatchingAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "documentPipelinesAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "filePipelinesAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "annotationsAcl": {
+                        "actions": [
+                            "WRITE",
+                            "READ",
+                            "SUGGEST",
+                            "REVIEW"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "documentFeedbackAcl": {
+                        "actions": [
+                            "CREATE",
+                            "READ",
+                            "DELETE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "securityCategoriesAcl": {
+                        "actions": [
+                            "MEMBEROF",
+                            "LIST",
+                            "CREATE",
+                            "UPDATE",
+                            "DELETE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "hostedExtractorsAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "visionModelAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "roboticsAcl": {
+                        "actions": [
+                            "READ",
+                            "CREATE",
+                            "UPDATE",
+                            "DELETE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                },
+                {
+                    "geospatialAcl": {
+                        "actions": [
+                            "READ",
+                            "WRITE"
+                        ],
+                        "scope": {
+                            "all": {}
+                        }
+                    }
+                }
+            ],
+            "metadata": {
+                "origin": "cdf-project-templates"
+            }
+        }
+    ]
+
+}

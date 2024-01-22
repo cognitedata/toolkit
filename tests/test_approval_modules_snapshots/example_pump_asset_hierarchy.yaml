@@ -1,7 +1,9 @@
 DataSet:
 - description: This dataset contains the lift pump stations.
   externalId: src:lift_pump_stations
+  metadata: {}
   name: Lift Pump Stations
+  writeProtected: false
 Row:
 - args: []
   columns:
@@ -36,28 +38,28 @@ Row:
   - last_edited_user
   - last_edited_date
   - Shape__Length
-  dataframe: 51381405308506810800203083644429693369666914970992597363396926518830320871555
+  dataframe: 111723683859798203337034217255461424396450076952230764551633478671599285878367
   kwargs:
     db_name: pump_assets
-    ensure_parent: true
+    ensure_parent: false
     table_name: collections_pump
-  name: pump_assets_collections_pump_True
+  name: pump_assets_collections_pump_False
 Transformation:
-- dataSetId: 42
+- conflictMode: upsert
+  dataSetId: 42
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
   externalId: tr_pump_asset_hierarchy-load-collections_pump
   ignoreNullFields: false
   isPublic: true
   name: pump_asset_hierarchy-load-collections_pump
-  ownerIsCurrentUser: true
   query: "--- 1. asset root (defining all columns)\nSELECT\n    \"Lift Pump Stations\"\
     \ AS name,\n    dataset_id(\"src:lift_pump_stations\") AS dataSetId,\n    \"lift_pump_stations:root\"\
     \ AS externalId,\n    '' as parentExternalId,\n    \"An example pump dataset\"\
@@ -77,22 +79,16 @@ Transformation:
     \  Enabled,\n  DesignPointHeadFT,\n  LowHeadFT,\n  FacilityID,\n  InstallDate,\n\
     \  LifeCycleStatus,\n  LocationDescription\n  ) as metadata\nfrom `pump_assets`.`collections_pump`\n"
   sourceOidcCredentials:
-    audience: ${IDP_AUDIENCE}
-    cdfProjectName: ${CDF_PROJECT}
-    clientId: ${IDP_CLIENT_ID}
-    clientSecret: ${IDP_CLIENT_SECRET}
-    scopes: ${IDP_SCOPES}
-    tokenUri: ${IDP_TOKEN_URL}
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_pump_asset_hierarchy-load-collections_pump
   interval: 7 * * * *
   isPaused: true
 deleted:
-  Table:
-  - db_name: pump_assets
-    name:
-    - collections_pump
-  Transformation:
-  - externalId: tr_pump_asset_hierarchy-load-collections_pump
   TransformationSchedule:
   - externalId: tr_pump_asset_hierarchy-load-collections_pump
