@@ -17,7 +17,7 @@ import yaml
 from rich import print
 
 from cognite_toolkit import _version
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader, ResourceLoader
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
 
 # This is the default config located locally in each module.
@@ -58,7 +58,8 @@ class BuildEnvironment:
             raise ValueError("build_env must be specified")
         environment = environment_config.get(build_env)
         if environment is None:
-            raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
+            print(f"  [bold red]ERROR:[/] Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
+            exit(1)
         system = SystemVariables.load(environment_config, action)
         try:
             return BuildEnvironment(
@@ -226,7 +227,7 @@ def read_yaml_file(
     return config_data
 
 
-def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
+def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
     """Check the yaml file for semantic errors
 
     parsed: the parsed yaml file
@@ -235,12 +236,22 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
     """
     if parsed is None or filepath_src is None or filepath_build is None:
         return False
-    resource_type = filepath_src.parts[-2]
+    resource_type = filepath_src.parent.name
     ext_id = None
     if resource_type == "data_models" and ".space." in filepath_src.name:
-        ext_id = parsed.get("space")
+        if isinstance(parsed, list):
+            print(f"      [bold red]:[/] Multiple spaces in one file {filepath_src} is not supported .")
+            exit(1)
+        elif isinstance(parsed, dict):
+            ext_id = parsed.get("space")
+        else:
+            print(f"      [bold red]:[/] Space file {filepath_src} has invalid dataformat.")
+            exit(1)
         ext_id_type = "space"
     elif resource_type == "data_models" and ".node." in filepath_src.name:
+        if isinstance(parsed, list):
+            print(f"      [bold red]:[/] Nodes YAML must be an object file {filepath_src} is not supported .")
+            exit(1)
         try:
             ext_ids = {source["source"]["externalId"] for node in parsed["nodes"] for source in node["sources"]}
         except KeyError:
@@ -252,17 +263,31 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
         ext_id = ext_ids.pop()
         ext_id_type = "view.externalId"
     elif resource_type == "auth":
+        if isinstance(parsed, list):
+            print(f"      [bold red]:[/] Multiple Groups in one file {filepath_src} is not supported .")
+            exit(1)
         ext_id = parsed.get("name")
         ext_id_type = "name"
     elif resource_type in ["data_sets", "timeseries", "files"] and isinstance(parsed, list):
         ext_id = ""
         ext_id_type = "multiple"
     elif resource_type == "raw":
-        ext_id = f"{parsed.get('dbName')}.{parsed.get('tableName')}"
-        if "None" in ext_id:
-            ext_id = None
-        ext_id_type = "dbName and/or tableName"
+        if isinstance(parsed, list):
+            ext_id = ""
+            ext_id_type = "multiple"
+        elif isinstance(parsed, dict):
+            ext_id = parsed.get("dbName")
+            ext_id_type = "dbName"
+            if "tableName" in parsed:
+                ext_id = f"{ext_id}.{parsed.get('tableName')}"
+                ext_id_type = "dbName and tableName"
+        else:
+            print(f"      [bold red]:[/] Raw file {filepath_src} has invalid dataformat.")
+            exit(1)
     else:
+        if isinstance(parsed, list):
+            print(f"      [bold red]:[/] Multiple {resource_type} in one file {filepath_src} is not supported .")
+            exit(1)
         ext_id = parsed.get("externalId") or parsed.get("external_id")
         ext_id_type = "externalId"
 
@@ -271,6 +296,7 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
             f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} is missing the {ext_id_type} field(s)."
         )
         return False
+
     if resource_type == "auth":
         parts = ext_id.split("_")
         if len(parts) < 2:
@@ -832,7 +858,7 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
             print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
             return
 
-        if loader:
+        if isinstance(loader, ResourceLoader):
             load_warnings = validate_case_raw(
                 parsed, loader.resource_cls, destination, identifier_key=loader.identifier_key
             )

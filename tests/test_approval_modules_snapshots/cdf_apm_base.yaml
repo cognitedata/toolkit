@@ -4,76 +4,89 @@ Container:
   indexes: {}
   properties:
     assetExternalId:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     assignedTo:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: true
         type: text
     cloneOf:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     description:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     endTime:
+      autoIncrement: false
       nullable: true
       type:
         list: false
         type: timestamp
     id:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     resource:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     rootLocation:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     source:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     startTime:
+      autoIncrement: false
       nullable: true
       type:
         list: false
         type: timestamp
     status:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     title:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     type:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
@@ -86,35 +99,41 @@ Container:
   indexes: {}
   properties:
     appDataSpaceId:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     appDataSpaceVersion:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     customerDataSpaceId:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     customerDataSpaceVersion:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     featureConfiguration:
+      autoIncrement: false
       nullable: true
       type:
         list: false
         type: json
     name:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
@@ -127,59 +146,69 @@ Container:
   indexes: {}
   properties:
     assetExternalId:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     createdDate:
+      autoIncrement: false
       nullable: true
       type:
         list: false
         type: timestamp
     description:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     priority:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     rootLocationExternalId:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     source:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     sourceId:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     status:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     title:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     type:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
@@ -192,57 +221,67 @@ Container:
   indexes: {}
   properties:
     assetExternalId:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     cloneOf:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     description:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     endTime:
+      autoIncrement: false
       nullable: true
       type:
         list: false
         type: timestamp
     id:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     order:
+      autoIncrement: false
       nullable: true
       type:
         list: false
         type: int32
     parentActivityId:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     source:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
         list: false
         type: text
     startTime:
+      autoIncrement: false
       nullable: true
       type:
         list: false
         type: timestamp
     title:
+      autoIncrement: false
       nullable: true
       type:
         collation: ucs_basic
@@ -629,15 +668,6 @@ View:
   space: APM_SourceData
   version: '1'
 deleted:
-  DataModel:
-  - externalId: APM_Config
-    space: APM_Config
-    type: datamodel
-    version: '1'
-  - externalId: APM_SourceData
-    space: APM_SourceData
-    type: datamodel
-    version: '1'
   View:
   - externalId: APM_Activity
     space: APM_SourceData
