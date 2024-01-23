@@ -38,6 +38,8 @@ CUSTOM_MODULES = "custom_modules"
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # Which suffixes to exclude when we create indexed files (i.e., they are bundled with their main config file)
 EXCL_INDEX_SUFFIX = frozenset([".sql", ".csv", ".parquet"])
+# Files to search for variables.
+SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 # Which suffixes to process for template variable replacement
 PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"])
 
@@ -638,9 +640,32 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         Returns:
             self
         """
-        # First, find all variables with path.
-        # Look for duplicates, and if found, move up to the first shared parent.
-        raise NotImplementedError()
+        for directory in directories:
+            variable_by_paren_key: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+            for filepath in directory.glob("**/*"):
+                if filepath.suffix.lower() not in SEARCH_VARIABLES_SUFFIX:
+                    continue
+                if filepath.name.startswith("default"):
+                    continue
+                content = filepath.read_text()
+                key_parent = filepath.parent.relative_to(directory).parts
+                if key_parent and key_parent[-1] in LOADER_BY_FOLDER_NAME:
+                    key_parent = key_parent[:-1]
+
+                for match in re.findall(r"{{\s*([a-zA-Z0-9_]+)\s*}}", content):
+                    variable_by_paren_key[match].add(key_parent)
+
+            for variable, key_parents in variable_by_paren_key.items():
+                if len(key_parents) == 1:
+                    key_parent = next(iter(key_parents))
+                else:
+                    key_parent = self._find_common_parent(list(key_parents))
+                key_path = (*key_parent, variable)
+                if key_path in self:
+                    self[key_path].is_active = True
+                else:
+                    self[key_path] = ConfigEntry(key_path=key_path, is_active=True, current_value="<Not set>")
+        return self
 
     @property
     def removed(self) -> list[ConfigEntry]:
@@ -774,6 +799,19 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         for key in sorted([k for k in config.keys() if isinstance(config[k], dict)]):
             new_config[key] = cls._reorder_config_yaml(config[key])
         return new_config
+
+    @staticmethod
+    def _find_common_parent(key_parents: list[tuple[str, ...]]) -> tuple[str, ...]:
+        """Find the common parent for a list of key parents."""
+        if len(key_parents) == 1:
+            return key_parents[0]
+        common_parent = []
+        for i in range(len(key_parents[0])):
+            if len({key_parent[i] if i < len(key_parent) else None for key_parent in key_parents}) == 1:
+                common_parent.append(key_parents[0][i])
+            else:
+                break
+        return tuple(common_parent)
 
 
 class ConfigYAMLs(UserDict[str, ConfigYAML]):
