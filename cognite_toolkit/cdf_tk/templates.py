@@ -670,7 +670,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                 )
         return self
 
-    def load_variables(self, directories: Sequence[Path]) -> ConfigYAML:
+    def load_variables(self, directories: Sequence[Path], propagate_reused_variables: bool = False) -> ConfigYAML:
         """This scans the content the files in the given directories and finds the variables.
         The motivation is to find the variables that are used in the templates, as well
         as picking up variables that are used in custom modules.
@@ -679,6 +679,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
 
         Args:
             directories: The directories to scan for variables.
+            propagate_reused_variables: Whether to move variables with the same name to a shared parent.
 
         Returns:
             self
@@ -699,15 +700,15 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                     variable_by_paren_key[match].add(key_parent)
 
             for variable, key_parents in variable_by_paren_key.items():
-                if len(key_parents) == 1:
-                    key_parent = next(iter(key_parents))
-                else:
-                    key_parent = self._find_common_parent(list(key_parents))
-                key_path = (self._modules, *key_parent, variable)
-                if key_path in self:
-                    self[key_path].is_active = True
-                else:
-                    self[key_path] = ConfigEntry(key_path=key_path, is_active=True, current_value="<Not Set>")
+                if len(key_parents) > 1 and propagate_reused_variables:
+                    key_parents = {self._find_common_parent(list(key_parents))}
+
+                for key_parent in key_parents:
+                    key_path = (self._modules, *key_parent, variable)
+                    if key_path in self:
+                        self[key_path].is_active = True
+                    else:
+                        self[key_path] = ConfigEntry(key_path=key_path, is_active=True, current_value="<Not Set>")
         return self
 
     @property
@@ -716,13 +717,13 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
 
     @property
     def added(self) -> list[ConfigEntry]:
-        return [entry for entry in self.values() if entry.is_added and entry.is_active]
+        return [entry for entry in self.values() if entry.is_added]
 
     @property
     def unchanged(self) -> list[ConfigEntry]:
         return [entry for entry in self.values() if entry.is_unchanged]
 
-    def dump(self, active: tuple[bool,] = (True,)) -> dict[str, Any]:
+    def dump(self, active: tuple[bool, ...] = (True,)) -> dict[str, Any]:
         config: dict[str, Any] = {}
         for entry in self.values():
             if entry.is_active not in active:
@@ -739,7 +740,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
             **config,
         }
 
-    def dump_yaml_with_comments(self, indent_size: int = 2, active: tuple[bool,] = (True,)) -> str:
+    def dump_yaml_with_comments(self, indent_size: int = 2, active: tuple[bool, ...] = (True,)) -> str:
         """Dump a config dictionary to a yaml string"""
         config = self.dump(active)
         dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
