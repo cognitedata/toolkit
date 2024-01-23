@@ -216,7 +216,7 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
 
 
 def process_config_files(
-    source_module_dir: Path,
+    project_config_dir: Path,
     selected_modules: list[str],
     build_dir: Path,
     config: dict[str, Any],
@@ -225,7 +225,7 @@ def process_config_files(
     configs = split_config(config)
     number_by_resource_type: dict[str, int] = defaultdict(int)
 
-    for module_dir, filepaths in iterate_modules(source_module_dir):
+    for module_dir, filepaths in iterate_modules(project_config_dir):
         if module_dir.name not in selected_modules:
             continue
         if verbose:

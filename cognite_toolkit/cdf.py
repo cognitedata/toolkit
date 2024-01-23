@@ -218,7 +218,7 @@ def build(
     print(
         Panel(
             f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_path!s} as sources...[/bold]"
-            f"\n[bold]Config file:[/] {config.filepath.absolute()!s} and [bold]Global config file:[/] {global_config.filepath.absolute()!s}"
+            f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}' \n[bold]Global config file:[/] '{global_config.filepath.absolute()!s}'"
         )
     )
     config.set_environment_variables()

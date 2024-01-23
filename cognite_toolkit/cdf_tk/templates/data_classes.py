@@ -30,6 +30,7 @@ class BuildConfig(ABC):
     filepath: Path
 
     @classmethod
+    @abstractmethod
     def _file_name(cls, build_env: str) -> str:
         raise NotImplementedError
 
@@ -89,13 +90,12 @@ class GlobalConfig(BuildConfig):
     packages: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> GlobalConfig:
-        try:
-            system = SystemVariables.load(data["__system"], "build")
-        except KeyError:
-            print(f"  [bold red]ERROR:[/] Global config is missing required field '__system' in {cls.file_name!s}")
-            exit(1)
+    def _file_name(cls, build_env: str) -> str:
+        return cls.file_name
 
+    @classmethod
+    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> GlobalConfig:
+        system = SystemVariables.load(data, "build")
         packages = data.get("packages", {})
         if not packages:
             print(f"  [bold yellow]Warning:[/] No packages defined in {cls.file_name}.")
