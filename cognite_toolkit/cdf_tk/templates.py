@@ -594,6 +594,10 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
     2. We want to track which variables are added, removed, or unchanged.
     """
 
+    # Top level keys
+    _environment = "environment"
+    _modules = "modules"
+
     def __init__(
         self, entries: dict[tuple[str, ...], ConfigEntry] | None = None, environment: Environment | None = None
     ):
@@ -616,7 +620,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
             cognite_root_module.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(cognite_root_module)
         )
         for default_config in defaults:
-            parts = default_config.parent.relative_to(cognite_root_module).parts
+            parts = (self._modules, *default_config.parent.relative_to(cognite_root_module).parts)
             raw_file = default_config.read_text()
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
             file_data = yaml.safe_load(raw_file)
@@ -649,19 +653,20 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         raw_file = existing_config_yaml
         comments = self._extract_comments(raw_file)
         config = yaml.safe_load(raw_file)
-        if "environment" in config:
-            self.environment = Environment.load(config["environment"])
+        if self._environment in config:
+            self.environment = Environment.load(config[self._environment])
 
-        modules = config["modules"] if "modules" in config else config
+        modules = config[self._modules] if self._modules in config else config
         for key_path, value in flatten_dict(modules).items():
-            if key_path in self:
-                self[key_path].current_value = value
-                self[key_path].current_comment = comments.get(key_path)
+            full_key_path = (self._modules, *key_path)
+            if full_key_path in self:
+                self[full_key_path].current_value = value
+                self[full_key_path].current_comment = comments.get(full_key_path)
             else:
-                self[key_path] = ConfigEntry(
-                    key_path=key_path,
+                self[full_key_path] = ConfigEntry(
+                    key_path=full_key_path,
                     current_value=value,
-                    current_comment=comments.get(key_path),
+                    current_comment=comments.get(full_key_path),
                 )
         return self
 
@@ -698,11 +703,11 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                     key_parent = next(iter(key_parents))
                 else:
                     key_parent = self._find_common_parent(list(key_parents))
-                key_path = (*key_parent, variable)
+                key_path = (self._modules, *key_parent, variable)
                 if key_path in self:
                     self[key_path].is_active = True
                 else:
-                    self[key_path] = ConfigEntry(key_path=key_path, is_active=True, current_value="<Not set>")
+                    self[key_path] = ConfigEntry(key_path=key_path, is_active=True, current_value="<Not Set>")
         return self
 
     @property
@@ -711,7 +716,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
 
     @property
     def added(self) -> list[ConfigEntry]:
-        return [entry for entry in self.values() if entry.is_added]
+        return [entry for entry in self.values() if entry.is_added and entry.is_active]
 
     @property
     def unchanged(self) -> list[ConfigEntry]:
@@ -730,8 +735,8 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
             local_config[entry.key_path[-1]] = entry.value
         config = self._reorder_config_yaml(config)
         return {
-            "environment": self.environment.dump(),
-            "modules": config,
+            self._environment: self.environment.dump(),
+            **config,
         }
 
     def dump_yaml_with_comments(self, indent_size: int = 2, active: tuple[bool,] = (True,)) -> str:

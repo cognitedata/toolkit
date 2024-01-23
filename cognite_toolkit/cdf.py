@@ -822,7 +822,7 @@ def main_init(
         config_yamls.load_default_variables(template_source / COGNITE_MODULES)
     config_yamls.load_variables([target_dir / root_module for root_module in root_modules])
 
-    print(f"  Loaded variables from {len(config_yamls)} environments: {list(config_yamls.keys())}")
+    print(f"Loaded variables from {len(config_yamls)} environments: {list(config_yamls.keys())}")
 
     for environment, config_yaml in config_yamls.items():
         config_filepath = target_dir / f"{environment}.config.yaml"

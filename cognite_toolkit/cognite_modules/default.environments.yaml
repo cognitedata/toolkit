@@ -1,4 +1,5 @@
 dev:
+  name: dev
   project: <customer-dev>
   type: dev
   deploy:
@@ -6,6 +7,7 @@ dev:
     - cdf_oid_example_data
 
 prod:
+  name: prod
   project: <customer-prod>
   type: prod
   deploy:
