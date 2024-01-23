@@ -15,7 +15,6 @@ from typing import Annotated, Optional, Union, cast
 
 import sentry_sdk
 import typer
-import yaml
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
@@ -798,9 +797,9 @@ def main_init(
             config_yamls = ConfigYAMLs.load_existing_environments(existing_environments)
         else:
             print("  [bold yellow]WARNING:[/] No existing [env].config.yaml files found, creating from the defaults.")
-            config_yamls = ConfigYAMLs.load_default_environments(yaml.safe_load(environment_default.read_text()))
+            config_yamls = ConfigYAMLs.load_default_environments(read_yaml_file(environment_default))
     else:
-        config_yamls = ConfigYAMLs.load_default_environments(yaml.safe_load(environment_default.read_text()))
+        config_yamls = ConfigYAMLs.load_default_environments(read_yaml_file(environment_default))
 
     if not upgrade:
         config_yamls.load_default_variables(template_source)

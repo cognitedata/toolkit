@@ -9,7 +9,7 @@ import yaml
 from packaging.version import Version
 
 from cognite_toolkit._version import __version__
-from cognite_toolkit.cdf_tk.templates import ConfigYAML
+from cognite_toolkit.cdf_tk.templates.data_classes import ConfigYAML
 from tests.constants import REPO_ROOT
 
 if sys.version_info >= (3, 11):

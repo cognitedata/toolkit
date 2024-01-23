@@ -8,13 +8,12 @@ import pytest
 import yaml
 
 from cognite_toolkit.cdf_tk.templates import (
-    ConfigYAML,
-    YAMLComment,
     check_yaml_semantics,
     create_local_config,
     flatten_dict,
     split_config,
 )
+from cognite_toolkit.cdf_tk.templates.data_classes import ConfigYAML, YAMLComment
 
 PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
 
