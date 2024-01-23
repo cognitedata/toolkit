@@ -74,17 +74,19 @@ class TestConfigYAML:
         "raw_file, key_prefix, expected_comments",
         [
             pytest.param(
-                """# This is a module comment
-    variable: value # After variable comment
-    # Before variable comment
-    variable2: value2
-    variable3: 'value with #in it'
-    variable4: "value with #in it" # But a comment after
-    """,
+                """---
+# This is a module comment
+variable: value # After variable comment
+# Before variable comment
+variable2: value2
+variable3: 'value with #in it'
+variable4: "value with #in it" # But a comment after
+""",
                 tuple("super_module.module_a".split(".")),
                 {
-                    ("super_module", "module_a"): YAMLComment(above=["This is a module comment"]),
-                    ("super_module", "module_a", "variable"): YAMLComment(after=["After variable comment"]),
+                    ("super_module", "module_a", "variable"): YAMLComment(
+                        after=["After variable comment"], above=["This is a module comment"]
+                    ),
                     ("super_module", "module_a", "variable2"): YAMLComment(above=["Before variable comment"]),
                     ("super_module", "module_a", "variable4"): YAMLComment(after=["But a comment after"]),
                 },

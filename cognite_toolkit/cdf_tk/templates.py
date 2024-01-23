@@ -620,20 +620,21 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
             cognite_root_module.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(cognite_root_module)
         )
         for default_config in defaults:
-            parts = (self._modules, *default_config.parent.relative_to(cognite_root_module).parts)
+            parts = default_config.parent.relative_to(cognite_root_module).parts
             raw_file = default_config.read_text()
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
             file_data = yaml.safe_load(raw_file)
             for key, value in file_data.items():
-                key_path = (*parts, key)
+                key_path = (self._modules, *parts, key)
+                local_file_path = (*parts, key)
                 if key_path in self:
                     self[key_path].default_value = value
-                    self[key_path].default_comment = file_comments.get(key_path)
+                    self[key_path].default_comment = file_comments.get(local_file_path)
                 else:
                     self[key_path] = ConfigEntry(
                         key_path=key_path,
                         default_value=value,
-                        default_comment=file_comments.get(key_path),
+                        default_comment=file_comments.get(local_file_path),
                     )
 
         return self
@@ -780,11 +781,11 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         total_variables = len(self)
         lines = []
         if removed := self.removed:
-            lines.append(f"Untracked {len(removed)} variables in config.yaml.")
+            lines.append(f"Untracked {len(removed)} variables in {self.environment.name}.config.yaml.")
         if added := self.added:
-            lines.append(f"Added {len(added)} variables to config.yaml.")
+            lines.append(f"Added {len(added)} variables to {self.environment.name}.config.yaml.")
         if total_variables == len(self.unchanged):
-            lines.append("No variables in config.yaml were changed.")
+            lines.append(f"No variables in {self.environment.name}.config.yaml were changed.")
         return "\n".join(lines)
 
     @staticmethod
@@ -792,8 +793,9 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         """Extract comments from a raw file and return a dictionary with the comments."""
         comments: dict[tuple[str, ...], YAMLComment] = defaultdict(YAMLComment)
         position: Literal["above", "after"]
-        variable: str | None = None
-        last_comment: str | None = None
+        init_value: object = object()
+        variable: str | None | object = init_value
+        last_comments: list[str] = []
         last_variable: str | None = None
         last_leading_spaces = 0
         parent_variables: list[str] = []
@@ -811,9 +813,9 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                 elif leading_spaces < last_leading_spaces and parent_variables:
                     parent_variables = parent_variables[: -((last_leading_spaces - leading_spaces) // (indent or 2))]
 
-                if last_comment:
-                    comments[(*key_prefix, *parent_variables, variable)].above.append(last_comment)
-                    last_comment = None
+                if last_comments:
+                    comments[(*key_prefix, *parent_variables, variable)].above.extend(last_comments)
+                    last_comments.clear()
 
                 last_variable = variable
                 last_leading_spaces = leading_spaces
@@ -826,14 +828,14 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                     # The comment is inside a string
                     continue
                 # This is a new comment.
-                if position == "after" or variable is None:
-                    key = (*key_prefix, *parent_variables, *((variable and [variable]) or []))
+                if (position == "after" or variable is None) and variable is not init_value:
+                    key = (*key_prefix, *parent_variables, *((variable and [variable]) or []))  # type: ignore[misc]
                     if position == "after":
                         comments[key].after.append(comment.strip())
                     else:
                         comments[key].above.append(comment.strip())
                 else:
-                    last_comment = comment.strip()
+                    last_comments.append(comment.strip())
 
         return dict(comments)
 
