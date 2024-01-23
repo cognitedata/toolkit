@@ -34,16 +34,12 @@ from cognite_toolkit.cdf_tk.run import run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
-    CONFIG_FILE,
     CUSTOM_MODULES,
-    ENVIRONMENTS_FILE,
-    BuildEnvironment,
-    ConfigYAMLs,
     build_config,
     iterate_modules,
-    read_yaml_file,
 )
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from cognite_toolkit.cdf_tk.templates.data_classes import BuildEnvironment, ConfigYAMLs, EnvironmentConfig, GlobalConfig
+from cognite_toolkit.cdf_tk.utils import CDFToolConfig, read_yaml_file
 
 if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
     sentry_sdk.init(
@@ -217,33 +213,21 @@ def build(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    sourced_environment_file = source_path / ENVIRONMENTS_FILE
-    environment_file = (
-        sourced_environment_file if sourced_environment_file.is_file() else Path.cwd() / ENVIRONMENTS_FILE
-    )
-    if not environment_file.is_file() and not (environment_file := source_path / ENVIRONMENTS_FILE).is_file():
-        print(f"  [bold red]ERROR:[/] {environment_file} does not exist")
-        exit(1)
-    sourced_config_file = source_path / CONFIG_FILE
-    config_file = sourced_config_file if sourced_config_file.is_file() else Path.cwd() / Path(CONFIG_FILE)
-    if not config_file.is_file() and not (config_file := source_path / Path(CONFIG_FILE)).is_file():
-        print(f"  [bold red]ERROR:[/] {config_file} does not exist")
-        exit(1)
+    global_config = GlobalConfig.load_from_directory(source_path, build_env)
+    config = EnvironmentConfig.load_from_directory(source_path, build_env)
     print(
         Panel(
             f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_path!s} as sources...[/bold]"
-            f"\n[bold]Environment file:[/] {environment_file.absolute()!s} and [bold]config file:[/] {config_file.absolute()!s}"
+            f"\n[bold]Config file:[/] {config.filepath.absolute()!s} and [bold]Global config file:[/] {global_config.filepath.absolute()!s}"
         )
     )
-    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
-    build_ = BuildEnvironment.load(read_yaml_file(environment_file), build_env, "build")
-    build_.set_environment_variables()
+    config.set_environment_variables()
 
     build_config(
         build_dir=Path(build_dir),
         source_dir=source_path,
-        config_file=config_file,
-        build=build_,
+        config=config,
+        global_config=global_config,
         clean=clean,
         verbose=ctx.obj.verbose,
     )
