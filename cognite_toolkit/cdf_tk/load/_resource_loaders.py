@@ -36,6 +36,10 @@ from cognite.client.data_classes import (
     FileMetadataList,
     FileMetadataWrite,
     FileMetadataWriteList,
+    Function,
+    FunctionList,
+    FunctionSchedule,
+    FunctionSchedulesList,
     OidcCredentials,
     TimeSeries,
     TimeSeriesList,
@@ -59,6 +63,7 @@ from cognite.client.data_classes.capabilities import (
     DataSetsAcl,
     ExtractionPipelinesAcl,
     FilesAcl,
+    FunctionsAcl,
     GroupsAcl,
     RawAcl,
     TimeSeriesAcl,
@@ -110,7 +115,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, resolve_relative_path
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
 from .data_classes import LoadableEdges, LoadableNodes, RawDatabaseTable, RawTableList
@@ -338,6 +343,88 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
+
+
+@final
+class FunctionLoader(ResourceLoader[str, Function, Function, FunctionList, FunctionList]):
+    api_name = "functions"
+    folder_name = "functions"
+    filename_pattern = (
+        r"^(?:(?!schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
+    )
+    resource_cls = Function
+    list_cls = FunctionList
+    dependencies = frozenset({DataSetsLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+        return [
+            FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
+            FilesAcl(
+                [FilesAcl.Action.Read, FilesAcl.Action.Write], FilesAcl.Scope.All()
+            ),  # Needed for uploading function artifacts
+        ]
+
+    @classmethod
+    def get_id(cls, item: Function) -> str:
+        if item.external_id is None:
+            raise ValueError("Function must have external_id set.")
+        return item.external_id
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> Function:
+        raw = load_yaml_inject_variables(
+            filepath, self.ToolGlobals.environment_variables(), required_return_type="dict"
+        )
+        # check how we provide the code in the raw config
+        if common_path := raw.get("commonFolder"):
+            common_folder = resolve_relative_path(common_path, filepath)
+
+        # path_to_build_folder = build_function()
+
+        Function().load(raw)
+
+        raise NotImplementedError
+
+    def create(self, items: Sequence[Function], drop: bool, filepath: Path) -> FunctionList:
+        raise NotImplementedError
+
+    def delete(self, ids: SequenceNotStr[str], drop_data: bool) -> int:
+        self.client.functions.delete(external_id=cast(Sequence, ids))
+        return len(ids)
+
+
+class FunctionScheduleLoader(
+    ResourceLoader[int, FunctionSchedule, FunctionSchedule, FunctionSchedulesList, FunctionSchedulesList]
+):
+    api_name = "functions.schedules"
+    folder_name = "functions"
+    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule.
+    resource_cls = FunctionSchedule
+    list_cls = FunctionSchedulesList
+    dependencies = frozenset({FunctionLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+        return FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All())
+
+    @classmethod
+    def get_id(cls, item: FunctionSchedule) -> int:
+        return item.id
+
+    def load_resource(self, filepath: Path, dry_run: bool) -> FunctionSchedule:
+        raise NotImplementedError
+
+    def create(self, items: Sequence[Function], drop: bool, filepath: Path) -> FunctionSchedulesList:
+        raise NotImplementedError
+
+    def delete(self, ids: SequenceNotStr[int], drop_data: bool) -> int:
+        # Need to list schedules using the function id or xid (xid is optional!)
+
+        # self.client.functions.schedules.list(function_id=)
+
+        # self.client.functions.schedules.delete(id=)
+        # return 0
+        raise NotImplementedError
 
 
 @final

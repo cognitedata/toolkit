@@ -1,11 +1,11 @@
 from cognite.client import CogniteClient
 
 
-def handle(client: CogniteClient, data: dict, secrets: dict, info: dict) -> dict:
+def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info: dict) -> dict:
     return {
         "data": data,
         "secrets": mask_secrets(secrets),
-        "functionInfo": info,
+        "functionInfo": function_call_info,
     }
 
 

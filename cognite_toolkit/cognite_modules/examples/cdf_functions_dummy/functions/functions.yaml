@@ -1,0 +1,30 @@
+# The dire with the function code should have the same name
+# and externalId as the function itself as defined below.
+- name: 'example:repeater'
+  externalId: 'fn_example_repeater'
+  fileId: will_be_generated
+  owner: 'Anonymous'
+  description: 'Returns the input data, secrets, and function info.'
+  metadata:
+    release: '2024-01-01'
+    version: '1.0.0'
+  secrets:
+    mysecret: '{{example_secret}}'
+  envVars:
+    # The below two environment variables are set by the Toolkit
+    ENV_TYPE: '${CDF_BUILD_TYPE}'
+    CDF_ENV: '${CDF_ENVIRON}'
+  # Number of cores, not available in Azure
+  #cpu: 0.25
+  # Not available in Azure
+  #memory: 1
+  runtime: 'py311'
+  functionPath: './src/handler.py'
+  # The configurations below are used when building and deploying the function, but does not have an API
+  # corresponding support like the main config file.
+  skip_folder_validation: False
+  data_set_id: 'ds_{{example_data_set_id}}'
+- name: 'test2'
+  externalId: 'test2'
+  fileId: will_be_generated
+  functionPath: './handler.py'
