@@ -123,6 +123,22 @@ class TestConfigYAML:
         assert len(added) == 1
         assert added[0].key_path == ("cognite_modules", "another_module", "source_asset")
 
+    def test_load_variables(self) -> None:
+        expected = {
+            ("cognite_modules", "a_module", "readonly_source_id"),
+            # default_location is used in two modules and is moved to the top level
+            ("cognite_modules", "default_location"),
+            ("cognite_modules", "another_module", "source_files"),
+            ("cognite_modules", "parent_module", "child_module", "source_asset"),
+        }
+
+        config = ConfigYAML().load_variables([PYTEST_PROJECT])
+
+        missing = expected - set(config.keys())
+        assert not missing, f"Missing keys: {missing}"
+        extra = set(config.keys()) - expected
+        assert not extra, f"Extra keys: {extra}"
+
 
 @pytest.mark.parametrize(
     "input_, expected",

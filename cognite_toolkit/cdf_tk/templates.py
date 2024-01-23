@@ -552,7 +552,6 @@ class ConfigEntry:
         return ".".join(self.key_path)
 
 
-@dataclass
 class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
     """This represents the 'config.yaml' file in the root of the project.
 
@@ -628,6 +627,8 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
 
     def load_variables(self, directories: list[Path]) -> ConfigYAML:
         """This scans the content the files in the given directories and finds the variables.
+        The motivation is to find the variables that are used in the templates, as well
+        as picking up variables that are used in custom modules.
 
         Variables are marked with a {{ variable }} syntax.
 
@@ -637,6 +638,8 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         Returns:
             self
         """
+        # First, find all variables with path.
+        # Look for duplicates, and if found, move up to the first shared parent.
         raise NotImplementedError()
 
     @property
