@@ -17,7 +17,7 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf_tk.bootstrap import check_auth
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
-from tests.conftest import ApprovalCogniteClient
+from tests.tests_unit.conftest import ApprovalCogniteClient
 
 THIS_FOLDER = Path(__file__).resolve().parent
 

@@ -5,7 +5,7 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import TimeSeriesWrite, TimeSeriesWriteList
 
 from cognite_toolkit.cdf_tk.load import ContainerLoader, TimeSeriesLoader
-from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.tests_integration.constants import RUN_UNIQUE_ID
 
 
 @pytest.fixture(scope="session")

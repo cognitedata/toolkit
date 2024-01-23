@@ -8,8 +8,8 @@ from pytest import MonkeyPatch
 from cognite_toolkit import _version
 from cognite_toolkit.cdf import build, deploy
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
-from tests.approval_client import ApprovalCogniteClient
-from tests.utils import mock_read_yaml_file
+from tests.tests_unit.approval_client import ApprovalCogniteClient
+from tests.tests_unit.utils import mock_read_yaml_file
 
 
 def test_inject_custom_environmental_variables(

@@ -5,7 +5,7 @@ from requests import Response
 
 from cognite_toolkit.cdf_tk.run import get_oneshot_session, run_transformation
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
-from tests.approval_client import ApprovalCogniteClient
+from tests.tests_unit.approval_client import ApprovalCogniteClient
 
 
 def test_get_oneshot_session(cognite_client_approval: ApprovalCogniteClient):
