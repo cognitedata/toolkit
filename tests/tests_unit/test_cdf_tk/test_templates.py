@@ -34,12 +34,13 @@ def config_yaml() -> str:
 
 
 class TestConfigYAML:
-    def test_producing_correct_keys(self, config_yaml) -> None:
+    def test_producing_correct_keys(self, config_yaml: str) -> None:
         expected_keys = set(flatten_dict(yaml.safe_load(config_yaml)))
         # Custom keys are not loaded from the module folder
         expected_keys.remove(("custom_modules", "my_example_module", "transformation_is_paused"))
 
-        config = ConfigYAML.load(PYTEST_PROJECT)
+        config = ConfigYAML().load_defaults(PYTEST_PROJECT)
+
         actual_keys = set(config.keys())
         missing = expected_keys - actual_keys
         assert not missing, f"Missing keys: {missing}"
@@ -97,7 +98,7 @@ class TestConfigYAML:
     def test_persist_variable_with_comment(self, config_yaml: str) -> None:
         custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
 
-        config = ConfigYAML.load(PYTEST_PROJECT, existing_config_yaml=config_yaml)
+        config = ConfigYAML().load_defaults(PYTEST_PROJECT).load_existing(config_yaml)
 
         dumped = config.dump_yaml_with_comments()
         loaded = yaml.safe_load(dumped)
@@ -111,7 +112,7 @@ class TestConfigYAML:
         # Removed = Exists in config.yaml but not in the BUILD_CONFIG directory default.config.yaml files
         existing_config_yaml["cognite_modules"]["another_module"]["removed_variable"] = "old_value"
 
-        config = ConfigYAML.load(PYTEST_PROJECT, existing_config_yaml=yaml.safe_dump(existing_config_yaml))
+        config = ConfigYAML().load_defaults(PYTEST_PROJECT).load_existing(yaml.safe_dump(existing_config_yaml))
 
         removed = config.removed
         # There is already a custom variable in the config.yaml file

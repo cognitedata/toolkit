@@ -565,62 +565,79 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
     def __init__(self, entries: dict[tuple[str, ...], ConfigEntry] | None = None):
         super().__init__(entries or [])
 
-    @classmethod
-    def load(cls, cognite_modules: Path, existing_config_yaml: str | None = None) -> ConfigYAML:
-        """Loads the config.yaml file 'cognite_modules' directory and optionally and existing config.yaml file.
+    def load_defaults(self, cognite_root_module: Path) -> ConfigYAML:
+        """Loads all default.config.yaml files in the cognite root module.
+
+        This extracts the default values from the default.config.yaml files and
+        adds them to the config.yaml file.
 
         Args:
-            cognite_modules: The directory with all the cognite modules
-            existing_config_yaml: The existing config.yaml file to compare against.
+            cognite_root_module: The root module for all cognite modules.
 
         Returns:
-            A ConfigYAML object with all the entries in the config.yaml file.
+            self
         """
-        directories = [cognite_modules]
-        if files := [dir_ for dir_ in directories if dir_.is_file()]:
-            raise ValueError(f"Expected directories, found files: {files}")
+        defaults = sorted(
+            cognite_root_module.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(cognite_root_module)
+        )
+        for default_config in defaults:
+            parts = default_config.parent.relative_to(cognite_root_module).parts
+            raw_file = default_config.read_text()
+            file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
+            file_data = yaml.safe_load(raw_file)
+            for key, value in file_data.items():
+                key_path = (*parts, key)
+                if key_path in self:
+                    self[key_path].default_value = value
+                    self[key_path].default_comment = file_comments.get(key_path)
+                else:
+                    self[key_path] = ConfigEntry(
+                        key_path=key_path,
+                        default_value=value,
+                        default_comment=file_comments.get(key_path),
+                    )
 
-        entries: dict[tuple[str, ...], ConfigEntry] = {}
-        if isinstance(existing_config_yaml, str):
-            raw_file = existing_config_yaml
-            comments = cls._extract_comments(raw_file)
-            config = yaml.safe_load(raw_file)
-            for key_path, value in flatten_dict(config).items():
-                entries[key_path] = ConfigEntry(
+        return self
+
+    def load_existing(self, existing_config_yaml: str) -> ConfigYAML:
+        """Loads an existing config.yaml file.
+
+        This does a yaml.safe_load, in addition to extracting comments from the file.
+
+        Args:
+            existing_config_yaml: The existing config.yaml file.
+
+        Returns:
+            self
+
+        """
+        raw_file = existing_config_yaml
+        comments = self._extract_comments(raw_file)
+        config = yaml.safe_load(raw_file)
+        for key_path, value in flatten_dict(config).items():
+            if key_path in self:
+                self[key_path].current_value = value
+                self[key_path].current_comment = comments.get(key_path)
+            else:
+                self[key_path] = ConfigEntry(
                     key_path=key_path,
                     current_value=value,
                     current_comment=comments.get(key_path),
                 )
+        return self
 
-        for dir_ in directories:
-            defaults = sorted(dir_.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(dir_))
-            for default_config in defaults:
-                parts = default_config.parent.relative_to(dir_).parts
-                raw_file = default_config.read_text()
-                file_comments = cls._extract_comments(raw_file, key_prefix=tuple(parts))
-                file_data = yaml.safe_load(raw_file)
-                for key, value in file_data.items():
-                    key_path = (*parts, key)
-                    if key_path in entries:
-                        entries[key_path].default_value = value
-                        entries[key_path].default_comment = file_comments.get(key_path)
-                    else:
-                        entries[key_path] = ConfigEntry(
-                            key_path=key_path,
-                            default_value=value,
-                            default_comment=file_comments.get(key_path),
-                        )
+    def load_variables(self, directories: list[Path]) -> ConfigYAML:
+        """This scans the content the files in the given directories and finds the variables.
 
-        return cls(entries)
+        Variables are marked with a {{ variable }} syntax.
 
-    def load_defaults(self, cognite_root_module: Path) -> None:
-        ...
+        Args:
+            directories: The directories to scan for variables.
 
-    def load_existing(self, existing_config_yaml: str) -> None:
-        ...
-
-    def load_variables(self, directories: list[Path]) -> None:
-        ...
+        Returns:
+            self
+        """
+        raise NotImplementedError()
 
     @property
     def removed(self) -> list[ConfigEntry]:
@@ -900,6 +917,6 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
 
 if __name__ == "__main__":
     target_dir = Path(__file__).resolve().parent.parent
-    config_str = ConfigYAML.load(target_dir, existing_config_yaml=(target_dir / CONFIG_FILE).read_text())
-    (target_dir / CONFIG_FILE).write_text(config_str.dump_yaml_with_comments())
-    print(str(config_str))
+    c = ConfigYAML().load_existing((target_dir / CONFIG_FILE).read_text()).load_defaults(target_dir)
+    (target_dir / CONFIG_FILE).write_text(c.dump_yaml_with_comments())
+    print(str(c))
