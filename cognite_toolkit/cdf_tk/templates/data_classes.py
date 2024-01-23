@@ -421,6 +421,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
 
         Args:
             existing_config_yaml: The existing config.yaml file.
+            build_env: The build environment.
 
         Returns:
             self
@@ -446,12 +447,12 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                 )
         # Activate all top level variables
         for key_path in self:
-            if len(key_path) == 2:
+            if len(key_path) <= 3:
                 self[key_path].is_active = True
 
         return self
 
-    def load_variables(self, directories: Sequence[Path], propagate_reused_variables: bool = False) -> ConfigYAML:
+    def load_variables(self, project_dir: Path, propagate_reused_variables: bool = False) -> ConfigYAML:
         """This scans the content the files in the given directories and finds the variables.
         The motivation is to find the variables that are used in the templates, as well
         as picking up variables that are used in custom modules.
@@ -459,44 +460,43 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         Variables are marked with a {{ variable }} syntax.
 
         Args:
-            directories: The directories to scan for variables.
+            project_dir: The directory with all project configurations.
             propagate_reused_variables: Whether to move variables with the same name to a shared parent.
 
         Returns:
             self
         """
-        for directory in directories:
-            variable_by_paren_key: dict[str, set[tuple[str, ...]]] = defaultdict(set)
-            for filepath in directory.glob("**/*"):
-                if filepath.suffix.lower() not in SEARCH_VARIABLES_SUFFIX:
-                    continue
-                if filepath.name.startswith("default"):
-                    continue
-                content = filepath.read_text()
-                key_parent = filepath.parent.relative_to(directory).parts
-                if key_parent and key_parent[-1] in LOADER_BY_FOLDER_NAME:
-                    key_parent = key_parent[:-1]
+        variable_by_paren_key: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+        for filepath in project_dir.glob("**/*"):
+            if filepath.suffix.lower() not in SEARCH_VARIABLES_SUFFIX:
+                continue
+            if filepath.name.startswith("default"):
+                continue
+            content = filepath.read_text()
+            key_parent = filepath.parent.relative_to(project_dir).parts
+            if key_parent and key_parent[-1] in LOADER_BY_FOLDER_NAME:
+                key_parent = key_parent[:-1]
 
-                for match in re.findall(r"{{\s*([a-zA-Z0-9_]+)\s*}}", content):
-                    variable_by_paren_key[match].add(key_parent)
+            for match in re.findall(r"{{\s*([a-zA-Z0-9_]+)\s*}}", content):
+                variable_by_paren_key[match].add(key_parent)
 
-            for variable, key_parents in variable_by_paren_key.items():
-                if len(key_parents) > 1 and propagate_reused_variables:
-                    key_parents = {self._find_common_parent(list(key_parents))}
+        for variable, key_parents in variable_by_paren_key.items():
+            if len(key_parents) > 1 and propagate_reused_variables:
+                key_parents = {self._find_common_parent(list(key_parents))}
 
-                for key_parent in key_parents:
-                    key_path = (self._modules, *key_parent, variable)
-                    if key_path in self:
-                        self[key_path].is_active = True
+            for key_parent in key_parents:
+                key_path = (self._modules, *key_parent, variable)
+                if key_path in self:
+                    self[key_path].is_active = True
+                else:
+                    # Search for the first parent that match.
+                    for i in range(len(key_parents) - 1, -1, -1):
+                        alt_key_path = (self._modules, key_parent[0], *key_parent[i - 1 : len(key_parents)], variable)
+                        if alt_key_path in self:
+                            self[alt_key_path].is_active = True
+                            break
                     else:
-                        # Search for the first parent that match.
-                        for i in range(len(key_parents), -1, -1):
-                            alt_key_path = (self._modules, *key_parent[i : len(key_parents)], variable)
-                            if alt_key_path in self:
-                                self[alt_key_path].is_active = True
-                                break
-                        else:
-                            self[key_path] = ConfigEntry(key_path=key_path, is_active=True, current_value="<Not Set>")
+                        self[key_path] = ConfigEntry(key_path=key_path, is_active=True, current_value="<Not Set>")
         return self
 
     @property
@@ -675,7 +675,7 @@ class ConfigYAMLs(UserDict[str, ConfigYAML]):
         for config_yaml in self.values():
             config_yaml.load_defaults(cognite_module)
 
-    def load_variables(self, directories: Sequence[Path]) -> None:
+    def load_variables(self, project_dir: Path) -> None:
         # Can be optimized, but not a priority
         for config_yaml in self.values():
-            config_yaml.load_variables(directories)
+            config_yaml.load_variables(project_dir)

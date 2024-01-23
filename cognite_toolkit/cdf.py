@@ -695,9 +695,9 @@ def main_init(
     ] = "new_project",
 ) -> None:
     """Initialize or upgrade a new CDF project with templates."""
-    target_dir = Path.cwd() / f"{init_dir}"
+    project_dir = Path.cwd() / f"{init_dir}"
 
-    target_dir_display = f"'{target_dir.relative_to(Path.cwd())!s}'"
+    target_dir_display = f"'{project_dir.relative_to(Path.cwd())!s}'"
 
     template_source = Path(resources.files("cognite_toolkit"))  # type: ignore[arg-type]
     if upgrade and git_branch is not None:
@@ -713,23 +713,23 @@ def main_init(
         CUSTOM_MODULES,
     ]
 
-    if target_dir.exists():
+    if project_dir.exists():
         if upgrade:
             print(f"[bold]Upgrading directory {target_dir_display}...[/b]")
         elif clean and dry_run:
             print(f"Would clean out directory {target_dir_display}...")
         elif clean:
             print(f"Cleaning out directory {target_dir_display}...")
-            shutil.rmtree(target_dir)
+            shutil.rmtree(project_dir)
         else:
             print(f"Directory {target_dir_display} already exists.")
             exit(1)
-    elif not target_dir.exists() and upgrade:
+    elif not project_dir.exists() and upgrade:
         print(f"Found no directory {target_dir_display} to upgrade.")
         exit(1)
 
     if not dry_run and not upgrade:
-        target_dir.mkdir(exist_ok=True)
+        project_dir.mkdir(exist_ok=True)
 
     if upgrade:
         print("  Will upgrade modules and files in place.")
@@ -751,15 +751,15 @@ def main_init(
         if ctx.obj.verbose:
             print(f"{copy_prefix} file {filename} to {target_dir_display}")
         if not dry_run:
-            shutil.copyfile(template_source / filename, target_dir / filename)
+            shutil.copyfile(template_source / filename, project_dir / filename)
 
     if upgrade and not no_backup:
         prefix = "Would have backed up" if dry_run else "Backing up"
         if ctx.obj.verbose:
             print(f"{prefix} {target_dir_display}")
         if not dry_run:
-            backup_dir = tempfile.mkdtemp(prefix=f"{target_dir.name}.", suffix=".bck", dir=Path.cwd())
-            shutil.copytree(target_dir, Path(backup_dir), dirs_exist_ok=True)
+            backup_dir = tempfile.mkdtemp(prefix=f"{project_dir.name}.", suffix=".bck", dir=Path.cwd())
+            shutil.copytree(project_dir, Path(backup_dir), dirs_exist_ok=True)
     elif upgrade:
         print(
             f"[bold yellow]WARNING:[/] --no-backup is specified, no backup {'would have been' if dry_run else 'will be'} be."
@@ -770,11 +770,11 @@ def main_init(
             print(f"{copy_prefix} the following modules from  {root_module} to {target_dir_display}")
             print(modules_by_root[root_module])
         if not dry_run:
-            (Path(target_dir) / root_module).mkdir(exist_ok=True)
+            (Path(project_dir) / root_module).mkdir(exist_ok=True)
             # Default files are not copied, as they are only used to setup the config.yaml.
             shutil.copytree(
                 template_source / root_module,
-                target_dir / root_module,
+                project_dir / root_module,
                 dirs_exist_ok=True,
                 ignore=shutil.ignore_patterns("default.*"),
             )
@@ -793,7 +793,7 @@ def main_init(
         )
         exit(1)
     if upgrade and not clean:
-        existing_environments = list(target_dir.glob("*.config.yaml"))
+        existing_environments = list(project_dir.glob("*.config.yaml"))
         if len(existing_environments) >= 1:
             config_yamls = ConfigYAMLs.load_existing_environments(existing_environments)
         else:
@@ -803,13 +803,14 @@ def main_init(
         config_yamls = ConfigYAMLs.load_default_environments(yaml.safe_load(environment_default.read_text()))
 
     if not upgrade:
-        config_yamls.load_default_variables(template_source / COGNITE_MODULES)
-    config_yamls.load_variables([target_dir / root_module for root_module in root_modules])
+        config_yamls.load_default_variables(template_source)
+
+    config_yamls.load_variables(project_dir)
 
     print(f"Loaded variables from {len(config_yamls)} environments: {list(config_yamls.keys())}")
 
     for environment, config_yaml in config_yamls.items():
-        config_filepath = target_dir / f"{environment}.config.yaml"
+        config_filepath = project_dir / f"{environment}.config.yaml"
         print(f"Loaded config for environment {environment}:")
         print(str(config_yaml))
         if ctx.obj.verbose and upgrade:
@@ -832,7 +833,7 @@ def main_init(
             )
             exit(1)
 
-        global_config = target_dir / "global.yaml"
+        global_config = project_dir / "global.yaml"
         prefix = "Would write" if dry_run else "Writing"
         print(f"{prefix} global.yaml to {target_dir_display}")
         if not dry_run:
