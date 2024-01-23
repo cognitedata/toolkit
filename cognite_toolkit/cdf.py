@@ -820,14 +820,16 @@ def main_init(
 
     if not upgrade:
         config_yamls.load_default_variables(template_source / COGNITE_MODULES)
+    config_yamls.load_variables([target_dir / root_module for root_module in root_modules])
 
-    config_yamls.load_variables(target_dir)
+    print(f"  Loaded variables from {len(config_yamls)} environments: {list(config_yamls.keys())}")
 
     for environment, config_yaml in config_yamls.items():
         config_filepath = target_dir / f"{environment}.config.yaml"
         print(f"Loaded config for environment {environment}:")
         print(str(config_yaml))
-        if ctx.obj.verbose:
+        if ctx.obj.verbose and upgrade:
+            # If we are not upgrading, all variables are added.
             for added in config_yaml.added:
                 print(f"  [bold green]ADDED:[/] {added}")
 

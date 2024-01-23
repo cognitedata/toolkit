@@ -477,6 +477,37 @@ def build_config(
     return None
 
 
+@dataclass
+class Environment:
+    name: str = "dev"
+    project: str = "<customer-dev>"
+    type: str = "dev"
+    deploy: list[str] = field(default_factory=list)
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> Environment:
+        try:
+            return Environment(
+                name=data["name"],
+                project=data["project"],
+                type=data["type"],
+                deploy=data["deploy"],
+            )
+        except KeyError:
+            print(
+                f"  [bold red]ERROR:[/] Environment is missing required fields 'name', 'project', 'type', or 'deploy' in {ENVIRONMENTS_FILE!s}"
+            )
+            exit(1)
+
+    def dump(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "project": self.project,
+            "type": self.type,
+            "deploy": self.deploy,
+        }
+
+
 @dataclass(frozen=True)
 class YAMLComment:
     """This represents a comment in a YAML file. It can be either above or after a variable."""
@@ -563,8 +594,11 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
     2. We want to track which variables are added, removed, or unchanged.
     """
 
-    def __init__(self, entries: dict[tuple[str, ...], ConfigEntry] | None = None):
-        super().__init__(entries or [])
+    def __init__(
+        self, entries: dict[tuple[str, ...], ConfigEntry] | None = None, environment: Environment | None = None
+    ):
+        super().__init__(entries or {})
+        self.environment = environment or Environment()
 
     def load_defaults(self, cognite_root_module: Path) -> ConfigYAML:
         """Loads all default.config.yaml files in the cognite root module.
@@ -615,7 +649,11 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         raw_file = existing_config_yaml
         comments = self._extract_comments(raw_file)
         config = yaml.safe_load(raw_file)
-        for key_path, value in flatten_dict(config).items():
+        if "environment" in config:
+            self.environment = Environment.load(config["environment"])
+
+        modules = config["modules"] if "modules" in config else config
+        for key_path, value in flatten_dict(modules).items():
             if key_path in self:
                 self[key_path].current_value = value
                 self[key_path].current_comment = comments.get(key_path)
@@ -627,7 +665,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                 )
         return self
 
-    def load_variables(self, directories: list[Path]) -> ConfigYAML:
+    def load_variables(self, directories: Sequence[Path]) -> ConfigYAML:
         """This scans the content the files in the given directories and finds the variables.
         The motivation is to find the variables that are used in the templates, as well
         as picking up variables that are used in custom modules.
@@ -679,9 +717,11 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
     def unchanged(self) -> list[ConfigEntry]:
         return [entry for entry in self.values() if entry.is_unchanged]
 
-    def dump(self) -> dict[str, Any]:
+    def dump(self, active: tuple[bool,] = (True,)) -> dict[str, Any]:
         config: dict[str, Any] = {}
         for entry in self.values():
+            if entry.is_active not in active:
+                continue
             local_config = config
             for key in entry.key_path[:-1]:
                 if key not in local_config:
@@ -689,11 +729,14 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                 local_config = local_config[key]
             local_config[entry.key_path[-1]] = entry.value
         config = self._reorder_config_yaml(config)
-        return config
+        return {
+            "environment": self.environment.dump(),
+            "modules": config,
+        }
 
-    def dump_yaml_with_comments(self, indent_size: int = 2) -> str:
+    def dump_yaml_with_comments(self, indent_size: int = 2, active: tuple[bool,] = (True,)) -> str:
         """Dump a config dictionary to a yaml string"""
-        config = self.dump()
+        config = self.dump(active)
         dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
         out_lines = []
         if (entry := self.get(tuple())) and entry.comment:
@@ -815,19 +858,34 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
 
 
 class ConfigYAMLs(UserDict[str, ConfigYAML]):
+    def __init__(self, entries: dict[str, ConfigYAML] | None = None):
+        super().__init__(entries or {})
+
     @classmethod
     def load_default_environments(cls, default: dict[str, Any]) -> ConfigYAMLs:
-        raise NotImplementedError
+        instance = cls()
+        for environment_name, environment_config in default.items():
+            environment = Environment.load(environment_config)
+            instance[environment.name] = ConfigYAML(environment=environment)
+        return instance
 
     @classmethod
-    def load_existing_environments(cls, existing_config_yaml: Sequence[Path]) -> ConfigYAMLs:
-        raise NotImplementedError()
+    def load_existing_environments(cls, existing_config_yamls: Sequence[Path]) -> ConfigYAMLs:
+        instance = cls()
+        for config_yaml in existing_config_yamls:
+            config = ConfigYAML().load_existing(config_yaml.read_text())
+            instance[config.environment.name] = config
+        return instance
 
     def load_default_variables(self, cognite_module: Path) -> None:
-        raise NotImplementedError()
+        # Can be optimized, but not a priority
+        for config_yaml in self.values():
+            config_yaml.load_defaults(cognite_module)
 
-    def load_variables(self, directory: Path) -> None:
-        ...
+    def load_variables(self, directories: Sequence[Path]) -> None:
+        # Can be optimized, but not a priority
+        for config_yaml in self.values():
+            config_yaml.load_variables(directories)
 
 
 def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
