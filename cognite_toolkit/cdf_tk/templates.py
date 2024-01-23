@@ -14,18 +14,18 @@ from typing import Any, Literal, cast, overload
 
 import pandas as pd
 import yaml
+from cognite.client.data_classes.functions import FunctionList
+from cognite.client.exceptions import CogniteAPIError
 from rich import print
 
-from cognite.client.exceptions import CogniteAPIError
 from cognite_toolkit import _version
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader, ResourceLoader, FunctionLoader
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from cognite_toolkit.cdf_tk.utils import (
+    CDFToolConfig,
     validate_case_raw,
     validate_config_yaml,
     validate_data_set_is_set,
-    CDFToolConfig,
 )
-from cognite.client.data_classes.functions import FunctionList
 
 # This is the default config located locally in each module.
 DEFAULT_CONFIG_FILE = "default.config.yaml"
@@ -278,9 +278,20 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
     elif resource_type in ["data_sets", "timeseries", "files"] and isinstance(parsed, list):
         ext_id = ""
         ext_id_type = "multiple"
+    elif resource_type in ["functions"] and "schedule" in filepath_src.stem:
+        if isinstance(parsed, list):
+            ext_id = ""
+            ext_id_type = "multiple"
+        elif isinstance(parsed, dict):
+            ext_id = parsed.get("functionExternalId") or parsed.get("function_external_id")
+            ext_id_type = "functionExternalId"
     elif resource_type in ["functions"]:
-        ext_id = parsed.get("externalId") or parsed.get("external_id")
-        ext_id_type = "externalId"
+        if isinstance(parsed, list):
+            ext_id = ""
+            ext_id_type = "multiple"
+        elif isinstance(parsed, dict):
+            ext_id = parsed.get("externalId") or parsed.get("external_id")
+            ext_id_type = "externalId"
     elif resource_type == "raw":
         if isinstance(parsed, list):
             ext_id = ""
@@ -480,9 +491,9 @@ def process_config_files(
                                         external_id=func.external_id,
                                         function_path=func.function_path,
                                     )
-                                except CogniteAPIError as e:
+                                except CogniteAPIError:
                                     pass
-                                except Exception as e:
+                                except Exception:
                                     print(
                                         f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {dir}, python module is not loadable."
                                     )
