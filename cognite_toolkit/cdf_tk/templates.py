@@ -619,6 +619,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         defaults = sorted(
             cognite_root_module.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(cognite_root_module)
         )
+        module_names = {module_path.name for module_path, _ in iterate_modules(cognite_root_module)}
         for default_config in defaults:
             parts = default_config.parent.relative_to(cognite_root_module).parts
             raw_file = default_config.read_text()
@@ -635,6 +636,8 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                         key_path=key_path,
                         default_value=value,
                         default_comment=file_comments.get(local_file_path),
+                        # All variables set at the root level are active by default.
+                        is_active=not parts or parts[-1] not in module_names,
                     )
 
         return self
@@ -709,7 +712,14 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                     if key_path in self:
                         self[key_path].is_active = True
                     else:
-                        self[key_path] = ConfigEntry(key_path=key_path, is_active=True, current_value="<Not Set>")
+                        # Search for the first parent that match.
+                        for i in range(len(key_parents), -1, -1):
+                            alt_key_path = (self._modules, *key_parent[i : len(key_parents)], variable)
+                            if alt_key_path in self:
+                                self[alt_key_path].is_active = True
+                                break
+                        else:
+                            self[key_path] = ConfigEntry(key_path=key_path, is_active=True, current_value="<Not Set>")
         return self
 
     @property
@@ -841,13 +851,11 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
 
     @classmethod
     def _reorder_config_yaml(cls, config: dict[str, Any]) -> dict[str, Any]:
-        """Reorder the config.yaml file to have the keys in alphabetical order
-        and the variables before the modules.
-        """
+        """Reorder the config.yaml the variables before the modules."""
         new_config = {}
-        for key in sorted([k for k in config.keys() if not isinstance(config[k], dict)]):
+        for key in [k for k in config.keys() if not isinstance(config[k], dict)]:
             new_config[key] = config[key]
-        for key in sorted([k for k in config.keys() if isinstance(config[k], dict)]):
+        for key in [k for k in config.keys() if isinstance(config[k], dict)]:
             new_config[key] = cls._reorder_config_yaml(config[key])
         return new_config
 
