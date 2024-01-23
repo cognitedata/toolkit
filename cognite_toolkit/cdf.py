@@ -15,6 +15,7 @@ from typing import Annotated, Optional, Union, cast
 
 import sentry_sdk
 import typer
+import yaml
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
@@ -37,7 +38,7 @@ from cognite_toolkit.cdf_tk.templates import (
     CUSTOM_MODULES,
     ENVIRONMENTS_FILE,
     BuildEnvironment,
-    ConfigYAML,
+    ConfigYAMLs,
     build_config,
     iterate_modules,
     read_yaml_file,
@@ -799,21 +800,42 @@ def main_init(
     elif not dry_run:
         print(f"A new project was created in {target_dir_display}.")
 
-    # Create the config.yaml
-    config_filepath = target_dir / "config.yaml"
-    if not dry_run:
-        if clean or not config_filepath.exists():
-            config_yaml = ConfigYAML.load(target_dir)
-            config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-            print(f"Created your config.yaml file in {target_dir_display}.")
+    # Creating the [environment].config.yaml files
+    environment_default = template_source / COGNITE_MODULES / "default.environments.yaml"
+    if not environment_default.is_file():
+        print(
+            f"  [bold red]ERROR:[/] Could not find default.environments.yaml in {environment_default.parent.relative_to(Path.cwd())!s}. "
+            f"There is something wrong with your installation, try to reinstall `cognite-tk`, and if the problem persists, please contact support."
+        )
+        exit(1)
+    if upgrade and not clean:
+        existing_environments = list(target_dir.glob("*.config.yaml"))
+        if len(existing_environments) >= 1:
+            config_yamls = ConfigYAMLs.load_existing_environments(existing_environments)
         else:
-            current = config_filepath.read_text()
-            config_yaml = ConfigYAML.load(target_dir, existing_config_yaml=current)
+            print("  [bold yellow]WARNING:[/] No existing [env].config.yaml files found, creating from the defaults.")
+            config_yamls = ConfigYAMLs.load_default_environments(yaml.safe_load(environment_default.read_text()))
+    else:
+        config_yamls = ConfigYAMLs.load_default_environments(yaml.safe_load(environment_default.read_text()))
+
+    if not upgrade:
+        config_yamls.load_default_variables(template_source / COGNITE_MODULES)
+
+    config_yamls.load_variables(target_dir)
+
+    for environment, config_yaml in config_yamls.items():
+        config_filepath = target_dir / f"{environment}.config.yaml"
+        print(f"Loaded config for environment {environment}:")
+        print(str(config_yaml))
+        if ctx.obj.verbose:
+            for added in config_yaml.added:
+                print(f"  [bold green]ADDED:[/] {added}")
+
+        if dry_run:
+            print(f"Would write {config_filepath.name} to {target_dir_display}")
+        else:
             config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-            print(str(config_yaml))
-            if ctx.obj.verbose:
-                for added in config_yaml.added:
-                    print(f"  [bold green]ADDED:[/] {added}")
+            print(f"Wrote {config_filepath.name} file to {target_dir_display}")
 
 
 @describe_app.callback(invoke_without_command=True)

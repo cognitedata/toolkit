@@ -7,7 +7,7 @@ import os
 import re
 import shutil
 from collections import ChainMap, UserDict, defaultdict
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, cast, overload
@@ -495,7 +495,7 @@ class ConfigEntry:
         default_value: The default value of the variable
         current_comment: The comment attached to the variable in the current config.yaml file
         default_comment: The comment attached to the variable in the default.config.yaml files in the module directories.
-
+        is_active: Whether the variable is in the project config. If False, the variable is not in the project config.
     """
 
     key_path: tuple[str, ...]
@@ -503,6 +503,7 @@ class ConfigEntry:
     default_value: float | int | str | bool | None = None
     current_comment: YAMLComment | None = None
     default_comment: YAMLComment | None = None
+    is_active: bool = False
 
     @property
     def value(self) -> float | int | str | bool:
@@ -611,6 +612,15 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                         )
 
         return cls(entries)
+
+    def load_defaults(self, cognite_root_module: Path) -> None:
+        ...
+
+    def load_existing(self, existing_config_yaml: str) -> None:
+        ...
+
+    def load_variables(self, directories: list[Path]) -> None:
+        ...
 
     @property
     def removed(self) -> list[ConfigEntry]:
@@ -744,6 +754,22 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         for key in sorted([k for k in config.keys() if isinstance(config[k], dict)]):
             new_config[key] = cls._reorder_config_yaml(config[key])
         return new_config
+
+
+class ConfigYAMLs(UserDict[str, ConfigYAML]):
+    @classmethod
+    def load_default_environments(cls, default: dict[str, Any]) -> ConfigYAMLs:
+        raise NotImplementedError
+
+    @classmethod
+    def load_existing_environments(cls, existing_config_yaml: Sequence[Path]) -> ConfigYAMLs:
+        raise NotImplementedError()
+
+    def load_default_variables(self, cognite_module: Path) -> None:
+        raise NotImplementedError()
+
+    def load_variables(self, directory: Path) -> None:
+        ...
 
 
 def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
