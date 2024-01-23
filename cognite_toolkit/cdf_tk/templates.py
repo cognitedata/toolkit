@@ -553,11 +553,11 @@ class ConfigEntry:
 
     @property
     def is_added(self) -> bool:
-        return self.current_value is None
+        return self.current_value is None and self.default_value is not None
 
     @property
     def is_removed(self) -> bool:
-        return self.default_value is None
+        return not self.is_active
 
     @property
     def is_unchanged(self) -> bool:
@@ -672,6 +672,11 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
                     current_value=value,
                     current_comment=comments.get(full_key_path),
                 )
+        # Activate all top level variables
+        for key_path in self:
+            if len(key_path) == 2:
+                self[key_path].is_active = True
+
         return self
 
     def load_variables(self, directories: Sequence[Path], propagate_reused_variables: bool = False) -> ConfigYAML:

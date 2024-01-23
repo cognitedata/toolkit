@@ -839,6 +839,21 @@ def main_init(
             config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
             print(f"Wrote {config_filepath.name} file to {target_dir_display}")
 
+    if not upgrade or clean:
+        global_default = template_source / COGNITE_MODULES / "default.global.yaml"
+        if not global_default.is_file():
+            print(
+                f"  [bold red]ERROR:[/] Could not find default.global.yaml in {global_default.parent.relative_to(Path.cwd())!s}. "
+                f"There is something wrong with your installation, try to reinstall `cognite-tk`, and if the problem persists, please contact support."
+            )
+            exit(1)
+
+        global_config = target_dir / "global.yaml"
+        prefix = "Would write" if dry_run else "Writing"
+        print(f"{prefix} global.yaml to {target_dir_display}")
+        if not dry_run:
+            shutil.copyfile(global_default, global_config)
+
 
 @describe_app.callback(invoke_without_command=True)
 def describe_main(ctx: typer.Context) -> None:
