@@ -17,7 +17,8 @@ def mock_read_yaml_file(
         if file_content := file_content_by_name.get(filepath.name):
             if modify:
                 source = read_yaml_file(filepath, expected_output)
-                file_content = source.update(file_content)
+                source.update(file_content)
+                file_content = source
             return file_content
         return read_yaml_file(filepath, expected_output)
 
@@ -27,11 +28,13 @@ def mock_read_yaml_file(
         if file_content := file_content_by_name.get(filepath.name):
             if modify:
                 source = load_yaml_inject_variables(filepath, variables, required_return_type)
-                file_content = source.update(file_content)
+                source.update(file_content)
+                file_content = source
             return file_content
         return load_yaml_inject_variables(filepath, variables, required_return_type)
 
     monkeypatch.setattr("cognite_toolkit.cdf_tk.utils.read_yaml_file", fake_read_yaml_file)
+    monkeypatch.setattr("cognite_toolkit.cdf_tk.templates.data_classes.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr("cognite_toolkit.cdf.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr("cognite_toolkit.cdf_tk.utils.load_yaml_inject_variables", fake_load_yaml_inject_variables)
     monkeypatch.setattr(

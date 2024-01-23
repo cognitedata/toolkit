@@ -34,11 +34,12 @@ def find_all_modules() -> Iterator[Path]:
 def mock_environments_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> None:
     return mock_read_yaml_file(
         {
-            "default.environments.yaml": {
-                "dev": {"environment": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]}},
+            "dev.config.yaml": {
+                "environment": {"name": "dev", "project": "pytest-project", "type": "dev", "deploy": [module_path.name]}
             }
         },
         monkeypatch,
+        modify=True,
     )
 
 
@@ -142,7 +143,7 @@ def test_clean_module_approval(
         typer_context,
         dry_run=False,
         upgrade=False,
-        git=None,
+        git_branch=None,
         init_dir=str(local_tmp_project_path),
         no_backup=True,
         clean=True,

@@ -243,15 +243,20 @@ class BuildEnvironment:
             raise ValueError("build_env must be specified")
         environment = data.get("name")
         if environment is None:
+            environment = build_env
+            load_data = cast(dict[str, Any], data.get(build_env))
+        else:
+            load_data = data
+        if environment is None:
             print(f"  [bold red]ERROR:[/] Environment {build_env} not found in {BUILD_ENVIRONMENT_FILE!s}")
             exit(1)
         system = SystemVariables.load(data, action)
         try:
             return BuildEnvironment(
                 name=cast(Literal["dev", "local", "demo", "staging", "prod"], build_env),
-                project=data["project"],
-                build_type=data["type"],
-                deploy=data["deploy"],
+                project=load_data["project"],
+                build_type=load_data["type"],
+                deploy=load_data["deploy"],
                 system=system,
             )
         except KeyError:
