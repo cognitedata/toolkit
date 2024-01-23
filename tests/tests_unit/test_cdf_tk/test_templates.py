@@ -118,12 +118,12 @@ variable4: "value with #in it" # But a comment after
 
         config = ConfigYAML().load_defaults(PYTEST_PROJECT).load_existing(yaml.safe_dump(existing_config_yaml))
 
-        removed = config.removed
+        removed = [v for v in config.values() if v.default_value is None]
         # There is already a custom variable in the config.yaml file
         assert len(removed) == 2
         assert ("modules", "cognite_modules", "another_module", "removed_variable") in [v.key_path for v in removed]
 
-        added = config.added
+        added = [v for v in config.values() if v.current_value is None]
         assert len(added) == 1
         assert added[0].key_path == ("modules", "cognite_modules", "another_module", "source_asset")
 
@@ -136,7 +136,7 @@ variable4: "value with #in it" # But a comment after
             ("modules", "cognite_modules", "parent_module", "child_module", "source_asset"),
         }
 
-        config = ConfigYAML().load_variables([PYTEST_PROJECT], propagate_reused_variables=True)
+        config = ConfigYAML().load_variables(PYTEST_PROJECT, propagate_reused_variables=True)
 
         missing = expected - set(config.keys())
         assert not missing, f"Missing keys: {missing}"
