@@ -503,6 +503,10 @@ def process_config_files(
                                     print(f"        [bold yellow]ERROR:[/] Function {func.external_id} is duplicated.")
                                     exit(1)
                                 shutil.copytree(dir, destination)
+                                for subdir in destination.iterdir():
+                                    if subdir.is_dir():
+                                        shutil.rmtree(subdir / "__pycache__", ignore_errors=True)
+                                shutil.rmtree(destination / "__pycache__", ignore_errors=True)
                     if not found:
                         print(
                             f"        [bold red]ERROR:[/] Function directory not found for externalId {func.external_id} defined in {filepath}."
