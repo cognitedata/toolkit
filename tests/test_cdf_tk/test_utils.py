@@ -159,6 +159,11 @@ def test_calculate_hash_on_folder():
     hash1 = calculate_directory_hash(folder)
     hash2 = calculate_directory_hash(folder)
 
+    print(hash1)
+
+    assert (
+        hash1 == "4f8d111764625a3fbb9ec07e6c4ffae20d4578cabc9fdccedaf6e52b1cca53ff"
+    ), f"The hash should not change as long as content in {folder} is not changed."
     assert hash1 == hash2
     tempdir = Path(tempfile.mkdtemp())
     shutil.rmtree(tempdir)
