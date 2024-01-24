@@ -34,6 +34,10 @@ from cognite.client.data_classes import (
     FileMetadataList,
     FileMetadataWrite,
     FileMetadataWriteList,
+    Function,
+    FunctionList,
+    FunctionWrite,
+    FunctionWriteList,
     Group,
     GroupList,
     GroupWrite,
@@ -762,6 +766,22 @@ _API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
                 Method(api_class_method="retrieve", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="functions",
+        resource_cls=Function,
+        _write_cls=FunctionWrite,
+        list_cls=FunctionList,
+        _write_list_cls=FunctionWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_value"),
+                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
             ],
         },
     ),
