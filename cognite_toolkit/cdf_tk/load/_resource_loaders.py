@@ -21,6 +21,7 @@ from numbers import Number
 from pathlib import Path
 from time import sleep
 from typing import Any, Literal, cast, final
+from zipfile import ZipFile
 
 import yaml
 from cognite.client import CogniteClient
@@ -120,7 +121,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit.cdf_tk.utils import CDFToolConfig, calculate_directory_hash, load_yaml_inject_variables
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
 from .data_classes import LoadableEdges, LoadableNodes, RawDatabaseTable, RawTableList
@@ -352,6 +353,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 
 @final
 class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
+    support_drop = True
     api_name = "functions"
     folder_name = "functions"
     filename_pattern = (
@@ -378,6 +380,31 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             raise ValueError("Function must have external_id set.")
         return item.external_id
 
+    def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
+        function_rootdir = Path(self.build_path / (local.external_id or ""))
+        if local.metadata is None:
+            local.metadata = {}
+        local.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
+
+        # Is changed as part of deploy to the API
+        local.file_id = cdf_resource.file_id
+        cdf_resource.secrets = local.secrets
+        # Set empty values for local
+        attrs = [
+            attr for attr in dir(cdf_resource) if not callable(getattr(cdf_resource, attr)) and not attr.startswith("_")
+        ]
+        # Remove server-side attributes
+        attrs.remove("created_time")
+        attrs.remove("error")
+        attrs.remove("id")
+        attrs.remove("runtime_version")
+        attrs.remove("status")
+        # Set empty values for local that have default values server-side
+        for attribute in attrs:
+            if getattr(local, attribute) is None:
+                setattr(local, attribute, getattr(cdf_resource, attribute))
+        return local.dump() == cdf_resource.as_write().dump()
+
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
         ret = self.client.functions.retrieve_multiple(
             external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
@@ -392,6 +419,28 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     def update(self, items: FunctionWriteList) -> FunctionList:
         self.delete([item.external_id for item in items])
         return self.create(items)
+
+    def _zip_and_upload_folder(
+        self,
+        root_dir: Path,
+        external_id: str,
+        data_set_id: int | None = None,
+    ) -> int:
+        zip_path = Path(root_dir.parent / f"{external_id}.zip")
+        root_length = len(root_dir.parts)
+        with ZipFile(zip_path, "w") as zipfile:
+            for file in root_dir.rglob("*"):
+                if file.is_file():
+                    zipfile.write(file, "/".join(file.parts[root_length - 1 : -1]) + f"/{file.name}")
+        file_info = self.client.files.upload_bytes(
+            zip_path.read_bytes(),
+            name=f"{external_id}.zip",
+            external_id=external_id,
+            overwrite=True,
+            data_set_id=data_set_id,
+        )
+        zip_path.unlink()
+        return cast(int, file_info.id)
 
     def create(self, items: Sequence[FunctionWrite]) -> FunctionList:
         items = list(items)
@@ -408,13 +457,22 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 self.client.functions.activate()
                 return FunctionList([])
         for item in items:
+            function_rootdir = Path(self.build_path / (item.external_id or ""))
+            if item.metadata is None:
+                item.metadata = {}
+            item.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
             try:
+                file_id = self._zip_and_upload_folder(
+                    root_dir=function_rootdir,
+                    external_id=item.external_id or item.name,
+                    data_set_id=None,  # TODO: support data_set for function upload
+                )
                 created.append(
                     self.client.functions.create(
                         name=item.name,
-                        external_id=item.external_id,
+                        external_id=item.external_id or item.name,
                         # data_set_id=item.data_set_id,
-                        folder=Path(self.build_path / (item.external_id or "")).as_posix(),
+                        file_id=file_id,
                         function_path=item.function_path or "./handler.py",
                         description=item.description,
                         owner=item.owner,
