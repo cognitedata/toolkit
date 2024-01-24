@@ -1,8 +1,0 @@
-DataModel:
-- args:
-  - - test_space
-    - test_model
-    - '1'
-  description: Data model for test_model
-  dml: "type MyType {\n    myField: String\n    myOtherField: Int\n}\n"
-  name: test_model

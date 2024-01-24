@@ -280,5 +280,5 @@ local.yaml
 config.yaml
 !demo/config.yaml
 demo_project/
-tests/pytest-project/
+tests/tests_unit/pytest-project/
 my_project/

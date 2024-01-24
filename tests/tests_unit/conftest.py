@@ -13,10 +13,10 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf import Common, main_init
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
-from tests.approval_client import ApprovalCogniteClient
+from tests.constants import REPO_ROOT
+from tests.tests_unit.approval_client import ApprovalCogniteClient
 
 THIS_FOLDER = Path(__file__).resolve().parent
-REPO_ROOT = THIS_FOLDER.parent
 
 
 @contextlib.contextmanager
