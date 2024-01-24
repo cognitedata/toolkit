@@ -15,6 +15,10 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+- Added a new module `cognite_modules/example/cdf_functions_dummy` that shows how to create a function and deploy it.
+
 ## [0.1.0b5] - 2024-01-11
 
 No changes to templates.
