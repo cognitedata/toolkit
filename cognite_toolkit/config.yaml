@@ -64,6 +64,11 @@ cognite_modules:
       # spesify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
       source_name: workmate
 
+    cdf_functions_dummy:
+      example_data_set_id: example_functions
+      example_secret: mysecret
+      version: 0.0.1
+
     # Only valid for this module, loads template variables from environment
     # 
     # In the example below we are setting up a project based on the Open Industry Data (OID),

@@ -22,6 +22,7 @@ demo:
     - cdf_demo_infield
     - cdf_oid_example_data
     - cdf_data_pipeline_asset_valhall
+    - cdf_functions_dummy
 
 # DO NOT EDIT THE LINES BELOW!
 # This part is used by cdf-toolkit to keep track of the version and help you upgrade.
