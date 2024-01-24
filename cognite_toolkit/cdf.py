@@ -29,7 +29,7 @@ from cognite_toolkit.cdf_tk.load import (
     DeployResults,
     ResourceLoader,
 )
-from cognite_toolkit.cdf_tk.run import run_transformation
+from cognite_toolkit.cdf_tk.run import run_function, run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
@@ -904,6 +904,44 @@ def run_transformation_cmd(
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
     external_id = cast(str, external_id).strip()
     run_transformation(ToolGlobals, external_id)
+
+
+@run_app.command("function")
+def run_function_cmd(
+    ctx: typer.Context,
+    external_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--external_id",
+            "-e",
+            prompt=True,
+            help="External id of the function to run.",
+        ),
+    ] = None,
+    payload: Annotated[
+        Optional[str],
+        typer.Option(
+            "--payload",
+            "-p",
+            help='Payload to send to the function, remember to escape " with \\.',
+        ),
+    ] = None,
+    follow: Annotated[
+        bool,
+        typer.Option(
+            "--follow",
+            "-f",
+            help="Use follow to wait for results of function.",
+        ),
+    ] = False,
+) -> None:
+    """This command will run the specified function using a one-time session."""
+    if ctx.obj.mockToolGlobals is not None:
+        ToolGlobals = ctx.obj.mockToolGlobals
+    else:
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    external_id = cast(str, external_id).strip()
+    run_function(ToolGlobals, external_id=external_id, payload=payload or "", follow=follow)
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
