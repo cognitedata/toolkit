@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import abc
 import collections
+import hashlib
 import inspect
 import itertools
 import json
@@ -758,3 +759,18 @@ def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
         base_path = base_path.parent
 
     return (base_path / path).resolve()
+
+
+def calculate_directory_hash(directory: Path) -> str:
+    sha256_hash = hashlib.sha256()
+
+    # Walk through each file in the directory
+    for dirpath, _, filenames in os.walk(directory):
+        for filename in filenames:
+            filepath = os.path.join(dirpath, filename)
+            # Open each file and update the hash
+            with open(filepath, "rb") as file:
+                while chunk := file.read(8192):
+                    sha256_hash.update(chunk)
+
+    return sha256_hash.hexdigest()
