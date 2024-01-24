@@ -14,14 +14,13 @@ from typing import Any, Literal, cast, overload
 
 import pandas as pd
 import yaml
+from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes.functions import FunctionList
-from cognite.client.exceptions import CogniteAPIError
 from rich import print
 
 from cognite_toolkit import _version
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from cognite_toolkit.cdf_tk.utils import (
-    CDFToolConfig,
     validate_case_raw,
     validate_config_yaml,
     validate_data_set_is_set,
@@ -485,17 +484,14 @@ def process_config_files(
                                         f"        [bold yellow]WARNING:[/] Function {func.external_id} in {filepath} has set a file_id. Expects 'will_be_generated' and this will be ignored."
                                     )
                                 try:
-                                    CDFToolConfig(token="dummy").client.functions.create(
-                                        name=func.name,
-                                        folder=dir.as_posix(),
-                                        external_id=func.external_id,
+                                    validate_function_folder(
+                                        root_path=dir.as_posix(),
                                         function_path=func.function_path,
+                                        skip_folder_validation=False,
                                     )
-                                except CogniteAPIError:
-                                    pass
-                                except Exception:
+                                except Exception as e:
                                     print(
-                                        f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {dir}, python module is not loadable."
+                                        f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {dir}, python module is not loadable:\n{e}"
                                     )
                                     exit(1)
                                 destination = destination = build_dir / "functions" / f"{func.external_id}"
