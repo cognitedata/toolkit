@@ -40,10 +40,6 @@ from cognite.client.data_classes import (
     FileMetadataWriteList,
     Function,
     FunctionList,
-    FunctionSchedule,
-    FunctionSchedulesList,
-    FunctionScheduleWrite,
-    FunctionScheduleWriteList,
     FunctionWrite,
     FunctionWriteList,
     OidcCredentials,
@@ -493,41 +489,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     def delete(self, ids: SequenceNotStr[str]) -> int:
         self.client.functions.delete(external_id=cast(SequenceNotStr[str], ids))
         return len(ids)
-
-
-class FunctionScheduleLoader(
-    ResourceLoader[str, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList]
-):
-    api_name = "functions.schedules"
-    folder_name = "functions"
-    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule.
-    resource_cls = FunctionSchedule
-    resource_write_cls = FunctionScheduleWrite
-    list_cls = FunctionSchedulesList
-    list_write_cls = FunctionScheduleWriteList
-    dependencies = frozenset({FunctionLoader})
-
-    @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        return FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All())
-
-    @classmethod
-    def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule) -> str:
-        if item.function_external_id is None:
-            raise ValueError("FunctionSchedule must have function_external_id set.")
-        return item.function_external_id
-
-    def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
-        raise NotImplementedError
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        # Need to list schedules using the function id or xid (xid is optional!)
-
-        # self.client.functions.schedules.list(function_id=)
-
-        # self.client.functions.schedules.delete(id=)
-        # return 0
-        raise NotImplementedError
 
 
 @final

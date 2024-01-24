@@ -24,7 +24,6 @@ from ._resource_loaders import (
     ExtractionPipelineLoader,
     FileMetadataLoader,
     FunctionLoader,
-    FunctionScheduleLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
