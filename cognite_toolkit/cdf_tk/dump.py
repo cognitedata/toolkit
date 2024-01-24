@@ -3,13 +3,13 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from collections.abc import Sequence
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes.data_modeling import (
     DataModelList,
     ViewList,
 )
+from cognite.client.utils.useful_types import SequenceNotStr
 
 from .utils import CDFToolConfig
 
@@ -154,7 +154,7 @@ def dump_datamodel(
 
 def dump_transformations(
     ToolGlobals: CDFToolConfig,
-    external_ids: Sequence[str] | None = None,
+    external_ids: SequenceNotStr[str] | None = None,
     target_dir: str | None = None,
     ignore_unknown_ids: bool = True,
 ) -> None:

@@ -15,6 +15,63 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- In `raw` resources, a RAW database or tables can be specified without data. Example, of a single database
+
+ ```yaml
+dbName: RawDatabase
+```
+
+or a database with table, no need to also specify a `.csv` or `.parquet` file for the table as was necessary before.
+
+```yaml
+dbName: myRawRawDatabase
+tableName: myRawTable
+```
+
+### Changed
+
+- Update is implemented for all resources. This means that if a resource already exists and is exactly the same as
+  the one to be deployed, it will be updated instead of deleted and recreated.
+- The `cdf-tk deploy` `--drop-data` is now independent of the `--drop` flag. This means that you can now drop data
+  without dropping the resource itself. The reverse is not true, if you specify `--drop` without `--drop-data`, only
+  resources that can be deleted without dropping data will be deleted.
+- The output of the `cdf-tk deploy` command has been improved. Instead of created, deleted, and skipped resources
+  being printed in a table at the end of the command, the resources are now printed as they are created, deleted, changed,
+  and unchanged. In addition, an extra table is printed below with the datapoints that have been uploaded and dropped.
+- The output of the `cdf-tk clean` command has also been changed in the same way as the `cdf-tk deploy` command.
+- The `files` resource has been split into two resources, `FileMetadata` and `Files` to separate the metadata from
+  the data (the file).
+- To ensure comparison of resources and be able to determine whether they need to be updated, any resource
+  defined in a YAML file will be augmented with default values (as defined by the CDF API) if they are missing before
+  they are deployed.
+
+### Fixed
+
+- Bug in `auth` resource, this caused  groups with `all` and `resource` scoped capabilities to be written in two steps
+  first with only `all` scoped capabilities and then all capabilities. This is now fixed by deploying groups in
+  a single step.
+
+## [0.1.0b5] - 2024-01-11
+
+### Added
+
+- Support for custom environment variables injected into build files when calling the command `cdf-tk deploy`.
+- All resources that are unchanged are now skipped when running `cdf-tk deploy`.
+- Support for loading `Group` Capabilities with scope `idScope` of type string. This means you can now set the
+  `idScope` to the external id of a `dataSet` and it will be automatically replaced by the dataset id
+  `cdf-tk deploy`.
+
+### Fixed
+
+- Fixed bug when calling any command loading a `.env` file and the path is not relative to the current working
+  directory. This is now fixed.
+- Calling `cdf-tk init --upgrade` overwrote all variables and comments set in the `config.yaml` file. This is now
+  fixed.
+
 ## [0.1.0b4] - 2024-01-08
 
 ### Added

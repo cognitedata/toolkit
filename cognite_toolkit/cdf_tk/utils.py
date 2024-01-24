@@ -147,7 +147,7 @@ class CDFToolConfig:
             )
 
     def environment_variables(self) -> dict[str, str | None]:
-        return self._environ.copy()
+        return {**self._environ.copy(), **os.environ}
 
     def as_string(self) -> str:
         environment = self._environ.copy()
@@ -317,11 +317,14 @@ class CDFToolConfig:
             raise CogniteAuthError(f"Missing capabilities: {missing_capabilities}")
         return self._client
 
-    def verify_dataset(self, data_set_external_id: str) -> int:
+    def verify_dataset(self, data_set_external_id: str, skip_validation: bool = False) -> int:
         """Verify that the configured data set exists and is accessible
 
         Args:
             data_set_external_id (str): External_id of the data set to verify
+            skip_validation (bool): Skip validation of the data set. If this is set, the function will
+                not check for access rights to the data set and return -1 if the dataset does not exist
+                or you don't have access rights to it. Defaults to False.
         Returns:
             data_set_id (int)
             Re-raises underlying SDK exception
@@ -329,41 +332,60 @@ class CDFToolConfig:
         if data_set_external_id in self._data_set_id_by_external_id:
             return self._data_set_id_by_external_id[data_set_external_id]
 
-        self.verify_client(capabilities={"datasetsAcl": ["READ"]})
+        if not skip_validation:
+            self.verify_client(capabilities={"datasetsAcl": ["READ"]})
         try:
             data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
         except CogniteAPIError as e:
+            if skip_validation:
+                return -1
             raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on datasetsAcl.") from e
+        except Exception as e:
+            if skip_validation:
+                return -1
+            raise e
         if data_set is not None and data_set.id is not None:
             self._data_set_id_by_external_id[data_set_external_id] = data_set.id
             return data_set.id
+        if skip_validation:
+            return -1
         raise ValueError(
             f"Data set {data_set_external_id} does not exist, you need to create it first. Do this by adding a config file to the data_sets folder."
         )
 
-    def verify_extraction_pipeline(self, external_id: str) -> int:
+    def verify_extraction_pipeline(self, external_id: str, skip_validation: bool = False) -> int:
         """Verify that the configured extraction pipeline exists and is accessible
 
         Args:
             external_id (str): External id of the extraction pipeline to verify
+            skip_validation (bool): Skip validation of the extraction pipeline. If this is set, the function will
+                not check for access rights to the extraction pipeline and return -1 if the extraction pipeline does not exist
+                or you don't have access rights to it. Defaults to False.
         Yields:
             extraction pipeline id (int)
             Re-raises underlying SDK exception
         """
-
-        self.verify_client(capabilities={"extractionPipelinesAcl": ["READ"]})
+        if not skip_validation:
+            self.verify_client(capabilities={"extractionPipelinesAcl": ["READ"]})
         try:
             pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
         except CogniteAPIError as e:
+            if skip_validation:
+                return -1
             raise CogniteAuthError("Don't have correct access rights. Need READ on extractionPipelinesAcl.") from e
+        except Exception as e:
+            if skip_validation:
+                return -1
+            raise e
 
         if pipeline is not None and pipeline.id is not None:
             return pipeline.id
-        else:
+
+        if not skip_validation:
             print(
                 f"  [bold yellow]WARNING[/] Extraction pipeline {external_id} does not exist. It may have been deleted, or not been part of the module."
             )
-            return -1
+        return -1
 
     def verify_spaces(self, space: str | list[str]) -> list[str]:
         """Verify that the configured space exists and is accessible

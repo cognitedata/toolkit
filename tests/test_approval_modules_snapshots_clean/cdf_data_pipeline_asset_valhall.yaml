@@ -1,7 +1,0 @@
-deleted:
-  ExtractionPipeline:
-  - externalId: ep_src_asset_oid_workmate
-  Transformation:
-  - externalId: tr_asset_oid_workmate_asset_hierarchy
-  TransformationSchedule:
-  - externalId: tr_asset_oid_workmate_asset_hierarchy

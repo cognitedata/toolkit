@@ -1,0 +1,168 @@
+externalId: Asset
+name: Asset
+space: test
+version: 1
+isGlobal: false
+lastUpdatedTime: 1704980779000
+createdTime: 1704980779000
+writable: true
+usedFor: node
+properties:
+  areaId:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: areaId
+    name: areaId
+    type:
+      list: false
+      type: int32
+    nullable: true
+    autoIncrement: false
+  categoryId:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: categoryId
+    name: categoryId
+    type:
+      list: false
+      type: int32
+    nullable: true
+    autoIncrement: false
+  children:
+    direction: outwards
+    connectionType: multiEdgeConnection
+    name: children
+    source:
+      externalId: Asset
+      space: test
+      type: view
+      version: 1
+    type:
+      externalId: Asset.children
+      space: test
+  createdDate:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: createdDate
+    name: createdDate
+    type:
+      list: false
+      type: timestamp
+    nullable: true
+    autoIncrement: false
+  description:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: description
+    name: description
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+    nullable: true
+    autoIncrement: false
+  documents:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: documents
+    name: documents
+    type:
+      list: true
+      type: file
+    nullable: true
+    autoIncrement: false
+  isActive:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: isActive
+    name: isActive
+    type:
+      list: false
+      type: boolean
+    nullable: true
+    autoIncrement: false
+  isCriticalLine:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: isCriticalLine
+    name: isCriticalLine
+    type:
+      list: false
+      type: boolean
+    nullable: true
+    autoIncrement: false
+  metrics:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: metrics
+    name: metrics
+    type:
+      list: true
+      type: timeseries
+    nullable: true
+    autoIncrement: false
+  parent:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: parent
+    name: parent
+    type:
+      type: direct
+    nullable: true
+    autoIncrement: false
+  sourceDb:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: sourceDb
+    name: sourceDb
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+    nullable: true
+    autoIncrement: false
+  tag:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: tag
+    name: tag
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+    nullable: true
+    autoIncrement: false
+  updatedDate:
+    container:
+      externalId: Asset
+      space: test
+      type: container
+    containerPropertyIdentifier: updatedDate
+    name: updatedDate
+    type:
+      list: false
+      type: timestamp
+    nullable: true
+    autoIncrement: false

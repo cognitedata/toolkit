@@ -1,0 +1,12 @@
+externalId: WorkItem
+name: WorkItem
+space: 'aSpace'
+version: '1'
+properties:
+  criticality:
+    container:
+      externalId: WorkItem
+      space: 'aSpace'
+      type: container
+    container_property_identifier: criticality
+    name: criticality

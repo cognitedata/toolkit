@@ -1,0 +1,26 @@
+Group:
+- capabilities:
+  - groupsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        currentuserscope: {}
+  - threedAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  metadata:
+    origin: cdf-project-templates
+  name: applications-configuration
+  sourceId: <change_me>
+Space:
+- description: Space for Infield App Data
+  name: cognite_app_data
+  space: cognite_app_data
