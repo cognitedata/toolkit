@@ -52,6 +52,7 @@ class Loader(ABC):
             when two loaders have the same folder name to differentiate between them. If not set, all files are supported.
         dependencies: A set of loaders that must be loaded before this loader.
         exclude_filetypes: A set of filetypes that should be excluded from the supported filetypes.
+        build_path: The path to the build directory for this particular loader.
     """
 
     filetypes: frozenset[str]
@@ -59,6 +60,7 @@ class Loader(ABC):
     filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
+    build_path: Path
 
     def __init__(self, client: CogniteClient):
         self.client = client
@@ -250,6 +252,7 @@ class ResourceLoader(
         has_dropped_data: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
+        self.build_path = path
         filepaths = self.find_files(path)
 
         batches = self._load_batches(filepaths, ToolGlobals, skip_validation=dry_run, verbose=verbose)
