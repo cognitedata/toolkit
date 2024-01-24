@@ -298,6 +298,7 @@ class ResourceLoader(
 
                 nr_of_unchanged += len(unchanged)
                 nr_of_created += len(to_create)
+                nr_of_changed += len(to_update)
                 if verbose:
                     self._verbose_batch_print(batch_no, len(batches), to_create, to_update, unchanged, dry_run)
                 continue
