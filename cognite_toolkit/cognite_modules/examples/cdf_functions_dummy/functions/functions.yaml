@@ -6,8 +6,7 @@
   owner: 'Anonymous'
   description: 'Returns the input data, secrets, and function info.'
   metadata:
-    release: '2024-01-01'
-    version: '1.0.0'
+    version: '{{version}}'
   secrets:
     mysecret: '{{example_secret}}'
   envVars:

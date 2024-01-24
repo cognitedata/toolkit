@@ -17,6 +17,7 @@ import itertools
 import json
 import re
 from collections.abc import Iterable, Sequence
+from numbers import Number
 from pathlib import Path
 from time import sleep
 from typing import Any, Literal, cast, final
@@ -377,8 +378,59 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             raise ValueError("Function must have external_id set.")
         return item.external_id
 
-    def create(self, items: Sequence[Function]) -> FunctionList:
-        raise NotImplementedError
+    def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
+        ret = self.client.functions.retrieve_multiple(
+            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
+        )
+        if ret is None:
+            return FunctionList([])
+        if isinstance(ret, Function):
+            return FunctionList([ret])
+        else:
+            return ret
+
+    def update(self, items: FunctionWriteList) -> FunctionList:
+        self.delete([item.external_id for item in items])
+        return self.create(items)
+
+    def create(self, items: Sequence[FunctionWrite]) -> FunctionList:
+        items = list(items)
+        created = FunctionList([], cognite_client=self.client)
+        status = self.client.functions.status()
+        if status.status != "activated":
+            if status.status == "requested":
+                print("  [bold yellow]WARNING:[/] Function service activation is in progress, skipping functions.")
+                return FunctionList([])
+            else:
+                print(
+                    "  [bold yellow]WARNING:[/] Function service is not activated, activating and skipping functions..."
+                )
+                self.client.functions.activate()
+                return FunctionList([])
+        for item in items:
+            try:
+                created.append(
+                    self.client.functions.create(
+                        name=item.name,
+                        external_id=item.external_id,
+                        # data_set_id=item.data_set_id,
+                        folder=Path(self.build_path / (item.external_id or "")).as_posix(),
+                        function_path=item.function_path or "./handler.py",
+                        description=item.description,
+                        owner=item.owner,
+                        secrets=item.secrets,
+                        env_vars=item.env_vars,
+                        cpu=cast(Number, item.cpu),
+                        memory=cast(Number, item.memory),
+                        runtime=item.runtime,
+                        metadata=item.metadata,
+                        index_url=item.index_url,
+                        extra_index_urls=item.extra_index_urls,
+                    )
+                )
+            except Exception:
+                pass
+        return created
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         self.client.functions.delete(external_id=cast(SequenceNotStr[str], ids))
