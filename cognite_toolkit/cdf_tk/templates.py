@@ -389,6 +389,10 @@ def process_config_files(
     verbose: bool = False,
 ) -> None:
     configs = split_config(config)
+    modules_by_variables = defaultdict(list)
+    for module_path, variables in configs.items():
+        for variable in variables:
+            modules_by_variables[variable].append(module_path)
     number_by_resource_type: dict[str, int] = defaultdict(int)
 
     for module_dir, filepaths in iterate_modules(source_module_dir):
@@ -436,7 +440,7 @@ def process_config_files(
             else:
                 destination.write_text(content)
 
-            validate(content, destination, filepath)
+            validate(content, destination, filepath, modules_by_variables)
 
 
 def build_config(
@@ -824,9 +828,21 @@ def replace_variables(content: str, local_config: Mapping[str, str], build_env: 
     return content
 
 
-def validate(content: str, destination: Path, source_path: Path) -> None:
+def validate(content: str, destination: Path, source_path: Path, modules_by_variable: dict[str, list[str]]) -> None:
+    this_module = ".".join(source_path.parts[1:-2])
+
     for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
         print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {destination!s}")
+        variable = unmatched[2:-2]
+        if modules := modules_by_variable.get(variable):
+            module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
+            print(
+                f"    [bold green]Hint:[/] The variables in 'config.yaml' are defined in a tree structure, i.e., "
+                "variables defined at a higher level can be used in lower levels."
+                f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str} "
+                f"\n    need{'' if len(modules) > 1 else 's'} to be moved up in the config structure to be used "
+                f"in {this_module!r}."
+            )
 
     if destination.suffix in {".yaml", ".yml"}:
         try:
