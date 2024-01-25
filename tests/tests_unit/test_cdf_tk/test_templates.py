@@ -13,7 +13,7 @@ from cognite_toolkit.cdf_tk.templates import (
     flatten_dict,
     split_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import InitConfigYAML, YAMLComment
+from cognite_toolkit.cdf_tk.templates.data_classes import Environment, InitConfigYAML, YAMLComment
 
 PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
 
@@ -32,8 +32,13 @@ def config_yaml() -> str:
     return (PYTEST_PROJECT / "config.dev.yaml").read_text()
 
 
+@pytest.fixture(scope="session")
+def dummy_environment() -> Environment:
+    return Environment(name="dev", project="my_project", build_type="dev", selected_modules_and_packages=["none"])
+
+
 class TestConfigYAML:
-    def test_producing_correct_keys(self, config_yaml: str) -> None:
+    def test_producing_correct_keys(self, config_yaml: str, dummy_environment: Environment) -> None:
         expected_keys = set(flatten_dict(yaml.safe_load(config_yaml)))
         # Custom keys are not loaded from the module folder.
         # This custom key is added o the dev.config.yaml for other tests.
@@ -41,7 +46,7 @@ class TestConfigYAML:
         # Skip all environment variables
         expected_keys = {k for k in expected_keys if not k[0] == "environment"}
 
-        config = InitConfigYAML().load_defaults(PYTEST_PROJECT)
+        config = InitConfigYAML(dummy_environment).load_defaults(PYTEST_PROJECT)
 
         actual_keys = set(config.keys())
         missing = expected_keys - actual_keys
@@ -102,7 +107,7 @@ variable4: "value with #in it" # But a comment after
     def test_persist_variable_with_comment(self, config_yaml: str) -> None:
         custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
 
-        config = InitConfigYAML.load_defaults(PYTEST_PROJECT).load_existing(config_yaml)
+        config = InitConfigYAML.load_existing(config_yaml).load_defaults(PYTEST_PROJECT)
 
         dumped = config.dump_yaml_with_comments(active=(True, False))
         loaded = yaml.safe_load(dumped)
@@ -127,7 +132,7 @@ variable4: "value with #in it" # But a comment after
         assert len(added) == 1
         assert added[0].key_path == ("modules", "cognite_modules", "another_module", "source_asset")
 
-    def test_load_variables(self) -> None:
+    def test_load_variables(self, dummy_environment: Environment) -> None:
         expected = {
             ("modules", "cognite_modules", "a_module", "readonly_source_id"),
             # default_location is used in two modules and is moved to the top level
@@ -136,7 +141,7 @@ variable4: "value with #in it" # But a comment after
             ("modules", "cognite_modules", "parent_module", "child_module", "source_asset"),
         }
 
-        config = InitConfigYAML().load_variables(PYTEST_PROJECT, propagate_reused_variables=True)
+        config = InitConfigYAML(dummy_environment).load_variables(PYTEST_PROJECT, propagate_reused_variables=True)
 
         missing = expected - set(config.keys())
         assert not missing, f"Missing keys: {missing}"
