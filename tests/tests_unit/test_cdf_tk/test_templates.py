@@ -109,7 +109,7 @@ variable4: "value with #in it" # But a comment after
 
         config = InitConfigYAML.load_existing(config_yaml).load_defaults(PYTEST_PROJECT)
 
-        dumped = config.dump_yaml_with_comments(active=(True, False))
+        dumped = config.dump_yaml_with_comments()
         loaded = yaml.safe_load(dumped)
         assert loaded["modules"]["cognite_modules"]["another_module"]["source_asset"] == "my_new_workmate"
         assert custom_comment in dumped
