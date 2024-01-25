@@ -1,3 +1,34 @@
+FileMetadata:
+- content_hash: 194006640979066199884991914424801437313793944793077055100928900214337409193
+  data_set_id: null
+  external_id: fn_example_repeater
+  name: fn_example_repeater.zip
+  overwrite: true
+- content_hash: 23953591228950749819560321786173641278260912897512956102672188824568528995290
+  data_set_id: null
+  external_id: test2
+  name: test2.zip
+  overwrite: true
+Function:
+- description: Returns the input data, secrets, and function info.
+  envVars:
+    CDF_ENV: dev
+    ENV_TYPE: dev
+  externalId: fn_example_repeater
+  functionPath: ./src/handler.py
+  metadata:
+    cdf-toolkit-function-hash: 5f0d3c8c6833bf5b351e0c87e372dd21ef14379184e7034dee4a2133e22e4a68
+    version: 0.0.1
+  name: example:repeater
+  owner: Anonymous
+  runtime: py311
+  secrets:
+    mysecret: mysecret
+- externalId: test2
+  functionPath: ./handler.py
+  metadata:
+    cdf-toolkit-function-hash: 5f0d3c8c6833bf5b351e0c87e372dd21ef14379184e7034dee4a2133e22e4a68
+  name: test2
 deleted:
   Function:
   - externalId: fn_example_repeater
