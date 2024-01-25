@@ -490,5 +490,17 @@ def check_auth(
                 print(f"  [bold red]ERROR[/]: Unable to delete old group {update_group}.\n{e}")
                 ToolGlobals.failed = True
                 return None
-
+    print("Checking function service status...")
+    function_status = ToolGlobals.client.functions.status()
+    if function_status.status != "activated":
+        if function_status.status == "requested":
+            print("  [bold yellow]INFO:[/] Function service activation is in progress...")
+        else:
+            if not dry_run:
+                print("  [bold yellow]INFO:[/] Function service is not activated, activating...")
+                ToolGlobals.client.functions.activate()
+            else:
+                print("  [bold yellow]INFO:[/] Function service is not activated, would have activated...")
+    else:
+        print("  [bold green]OK[/] - Function service is activated.")
     return None
