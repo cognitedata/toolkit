@@ -50,7 +50,7 @@ def build_config(
 
     warnings = validate_modules_variables(config.modules, config.filepath)
     if warnings:
-        print("  [bold yellow]WARNING:[/] Found the following warnings in config.yaml:")
+        print(f"  [bold yellow]WARNING:[/] Found the following warnings in config.{config.environment.name}.yaml:")
         for warning in warnings:
             print(f"    {warning}")
 
