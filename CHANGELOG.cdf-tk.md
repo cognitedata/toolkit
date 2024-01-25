@@ -72,6 +72,11 @@ tableName: myRawTable
 - Calling `cdf-tk init --upgrade` overwrote all variables and comments set in the `config.yaml` file. This is now
   fixed.
 
+### Improved
+
+- Improved error message when missing a variable in `config.yaml` and a variable with the same name is defined
+  for another module.
+
 ## [0.1.0b4] - 2024-01-08
 
 ### Added
