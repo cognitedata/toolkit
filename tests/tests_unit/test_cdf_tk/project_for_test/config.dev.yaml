@@ -2,7 +2,7 @@ environment:
   name: dev
   project: <customer-dev>
   type: dev
-  deploy:
+  selected_modules_and_packages:
     - cdf_demo_infield
     - cdf_oid_example_data
 

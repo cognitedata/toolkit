@@ -29,7 +29,7 @@ def dict_keys(d: dict[str, Any]) -> set[str]:
 
 @pytest.fixture(scope="session")
 def config_yaml() -> str:
-    return (PYTEST_PROJECT / "dev.config.yaml").read_text()
+    return (PYTEST_PROJECT / "config.dev.yaml").read_text()
 
 
 class TestConfigYAML:
