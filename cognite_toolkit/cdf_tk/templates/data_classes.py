@@ -120,7 +120,7 @@ class Environment:
     name: str = "dev"
     project: str = "<customer-dev>"
     build_type: str = "dev"
-    deploy: list[str] = field(default_factory=list)
+    selected_modules_and_packages: list[str] = field(default_factory=list)
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str) -> Environment:
@@ -129,12 +129,12 @@ class Environment:
                 name=data["name"],
                 project=data["project"],
                 build_type=data["type"],
-                deploy=data["deploy"],
+                selected_modules_and_packages=data["selected_modules_and_packages"],
             )
         except KeyError:
             print(
                 f"  [bold red]ERROR:[/] Environment is missing "
-                f"required fields 'name', 'project', 'type', or 'deploy' in {EnvironmentConfig._file_name(build_env)!s}"
+                f"required fields 'name', 'project', 'type', or 'selected_modules_and_packages' in {EnvironmentConfig._file_name(build_env)!s}"
             )
             exit(1)
 
@@ -143,7 +143,7 @@ class Environment:
             "name": self.name,
             "project": self.project,
             "type": self.build_type,
-            "deploy": self.deploy,
+            "selected_modules_and_packages": self.selected_modules_and_packages,
         }
 
 
@@ -192,20 +192,24 @@ class EnvironmentConfig(BuildConfig):
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
             build_type=self.environment.build_type,
-            deploy=self.environment.deploy,
+            selected_modules_and_packages=self.environment.selected_modules_and_packages,
             system=system_variables,
         )
 
     def get_selected_modules(
         self, modules_by_package: dict[str, list[str]], available_modules: set[str], verbose: bool
     ) -> list[str]:
-        selected_packages = [package for package in self.environment.deploy if package in modules_by_package]
+        selected_packages = [
+            package for package in self.environment.selected_modules_and_packages if package in modules_by_package
+        ]
         if verbose:
             print("  [bold green]INFO:[/] Selected packages:")
             for package in selected_packages:
                 print(f"    {package}")
 
-        selected_modules = [module for module in self.environment.deploy if module not in modules_by_package]
+        selected_modules = [
+            module for module in self.environment.selected_modules_and_packages if module not in modules_by_package
+        ]
         missing = set(selected_modules) - available_modules
         if missing:
             print(f"  [bold red]ERROR:[/] The following selected modules are missing: {missing}")
@@ -232,7 +236,7 @@ class BuildEnvironment:
     name: Literal["dev", "local", "demo", "staging", "prod"]
     project: str
     build_type: str
-    deploy: list[str]
+    selected_modules_and_packages: list[str]
     system: SystemVariables
 
     @classmethod
@@ -256,12 +260,12 @@ class BuildEnvironment:
                 name=cast(Literal["dev", "local", "demo", "staging", "prod"], build_env),
                 project=load_data["project"],
                 build_type=load_data["type"],
-                deploy=load_data["deploy"],
+                selected_modules_and_packages=load_data["selected_modules_and_packages"],
                 system=system,
             )
         except KeyError:
             print(
-                f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', or 'deploy' in {BUILD_ENVIRONMENT_FILE!s}"
+                f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', or 'selected_modules_and_packages' in {BUILD_ENVIRONMENT_FILE!s}"
             )
             exit(1)
 
@@ -270,7 +274,7 @@ class BuildEnvironment:
             self.name: {
                 "project": self.project,
                 "type": self.build_type,
-                "deploy": self.deploy,
+                "selected_modules_and_packages": self.selected_modules_and_packages,
             },
             "__system": {
                 "cdf_toolkit_version": self.system.cdf_toolkit_version,
