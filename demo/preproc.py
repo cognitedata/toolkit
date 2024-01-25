@@ -11,7 +11,7 @@ def run() -> None:
     print("Running copy commands to prep deployment of demo...")
     os.makedirs(DEMO_PROJECT, exist_ok=True)
     print("Copying my demo.config.yaml to root of repo...")
-    shutil.copy(THIS_FOLDER / "demo.config.yaml", DEMO_PROJECT / "demo.config.yaml")
+    shutil.copy(THIS_FOLDER / "config.demo.yaml", DEMO_PROJECT / "config.demo.yaml")
 
 
 if __name__ == "__main__":
