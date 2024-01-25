@@ -804,8 +804,6 @@ def main_init(
     if not upgrade:
         config_yamls.load_default_variables(template_source)
 
-    config_yamls.load_variables(project_dir)
-
     print(f"Loaded variables from {len(config_yamls)} environments: {list(config_yamls.keys())}")
 
     for environment, config_yaml in config_yamls.items():

@@ -18,7 +18,7 @@ from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit.cdf_tk.utils import read_yaml_file
 
 from ._constants import BUILD_ENVIRONMENT_FILE, DEFAULT_CONFIG_FILE, SEARCH_VARIABLES_SUFFIX
-from ._utils import flatten_dict, iterate_modules
+from ._utils import flatten_dict
 
 __all__ = ["SystemConfig", "BuildConfigYAML", "InitConfigYAML", "ConfigYAMLs", "BuildEnvironment"]
 
@@ -276,7 +276,6 @@ class ConfigEntry:
         default_value: The default value of the variable
         current_comment: The comment attached to the variable in the current config.yaml file
         default_comment: The comment attached to the variable in the default.config.yaml files in the module directories.
-        is_active: Whether the variable is in the project config. If False, the variable is not in the project config.
     """
 
     key_path: tuple[str, ...]
@@ -284,7 +283,6 @@ class ConfigEntry:
     default_value: float | int | str | bool | None = None
     current_comment: YAMLComment | None = None
     default_comment: YAMLComment | None = None
-    is_active: bool = False
 
     @property
     def value(self) -> float | int | str | bool:
@@ -305,7 +303,7 @@ class ConfigEntry:
 
     @property
     def is_removed(self) -> bool:
-        return not self.is_active
+        return self.current_value is not None and self.default_value is None
 
     @property
     def is_unchanged(self) -> bool:
@@ -367,7 +365,6 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
         defaults = sorted(
             cognite_root_module.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(cognite_root_module)
         )
-        module_names = {module_path.name for module_path, _ in iterate_modules(cognite_root_module)}
         for default_config in defaults:
             parts = default_config.parent.relative_to(cognite_root_module).parts
             raw_file = default_config.read_text()
@@ -384,8 +381,6 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
                         key_path=key_path,
                         default_value=value,
                         default_comment=file_comments.get(local_file_path),
-                        # All variables set at the root level are active by default.
-                        is_active=not parts or parts[-1] not in module_names,
                     )
 
         return self
@@ -425,10 +420,6 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
                     current_value=value,
                     current_comment=comments.get(full_key_path),
                 )
-        # Activate all top level variables
-        for key_path in entries:
-            if len(key_path) <= 3:
-                entries[key_path].is_active = True
 
         return cls(
             environment=environment,
@@ -470,16 +461,14 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
             for key_parent in key_parents:
                 key_path = (self._modules, *key_parent, variable)
                 if key_path in self:
-                    self[key_path].is_active = True
+                    continue
+                # Search for the first parent that match.
+                for i in range(len(key_parents) - 1, -1, -1):
+                    alt_key_path = (self._modules, key_parent[0], *key_parent[i - 1 : len(key_parents)], variable)
+                    if alt_key_path in self:
+                        break
                 else:
-                    # Search for the first parent that match.
-                    for i in range(len(key_parents) - 1, -1, -1):
-                        alt_key_path = (self._modules, key_parent[0], *key_parent[i - 1 : len(key_parents)], variable)
-                        if alt_key_path in self:
-                            self[alt_key_path].is_active = True
-                            break
-                    else:
-                        self[key_path] = ConfigEntry(key_path=key_path, is_active=True, current_value="<Not Set>")
+                    self[key_path] = ConfigEntry(key_path=key_path, current_value="<Not Set>")
         return self
 
     @property
@@ -494,11 +483,9 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
     def unchanged(self) -> list[ConfigEntry]:
         return [entry for entry in self.values() if entry.is_unchanged]
 
-    def dump(self, active: tuple[bool, ...] = (True,)) -> dict[str, Any]:
+    def dump(self) -> dict[str, Any]:
         config: dict[str, Any] = {}
         for entry in self.values():
-            if entry.is_active not in active:
-                continue
             local_config = config
             for key in entry.key_path[:-1]:
                 if key not in local_config:
@@ -511,9 +498,9 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
             **config,
         }
 
-    def dump_yaml_with_comments(self, indent_size: int = 2, active: tuple[bool, ...] = (True,)) -> str:
+    def dump_yaml_with_comments(self, indent_size: int = 2) -> str:
         """Dump a config dictionary to a yaml string"""
-        config = self.dump(active)
+        config = self.dump()
         dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
         out_lines = []
         if (entry := self.get(tuple())) and entry.comment:
