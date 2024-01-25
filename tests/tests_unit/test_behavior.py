@@ -26,7 +26,7 @@ def test_inject_custom_environmental_variables(
     config_yaml["environment"]["project"] = "pytest"
     mock_read_yaml_file(
         {
-            "config.config.yaml": config_yaml,
+            "config.dev.yaml": config_yaml,
         },
         monkeypatch,
     )
