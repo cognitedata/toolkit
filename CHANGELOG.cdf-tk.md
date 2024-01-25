@@ -15,6 +15,26 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+## Changed
+
+- The cdf-toolkit now requires one `config.yaml` per environment, for example, `config.dev.yaml` and `config.prod.yaml`.
+- The file `environments.yaml` has been merged into `config.[env].yaml`. This means that the `environments.yaml` file
+  is no longer used and the `config.[env].yaml` file now contains all the information needed to deploy to
+  that environment.
+- The module `cognite_modules` is no longer considered to be a black box governed by the toolkit, but should instead
+  be controlled by the user. There are two main changes to the `cognite_modules` folder:
+  - All `default.config.yaml` are removed from `cognite_modules` and only used when running `cdf-tk init`to generate
+    `config.[env].yaml` files.
+  - The file `default.packages.yaml` has been renamed `_system.yaml` and extended to include the `cdf-tk` version.
+    This should not be changed by the user and is used to store package information for the toolkit itself and
+    version.
+
+## Fixed
+
+- In the generation of the `config.[env].yaml` multiline comments were lost. This is now fixed.
+
 ## [0.1.0b6] - 2024-01-25
 
 ### Added
