@@ -19,7 +19,7 @@ def test_inject_custom_environmental_variables(
     typer_context: typer.Context,
     init_project: Path,
 ) -> None:
-    config_yaml = yaml.safe_load((init_project / "dev.config.yaml").read_text())
+    config_yaml = yaml.safe_load((init_project / "config.dev.yaml").read_text())
     config_yaml["modules"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting a module with a transformation that uses the cicd_clientId variable
     config_yaml["environment"]["selected_modules_and_packages"] = ["cdf_infield_location"]
