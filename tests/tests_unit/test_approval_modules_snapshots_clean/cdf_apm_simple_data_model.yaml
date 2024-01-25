@@ -1,0 +1,35 @@
+deleted:
+  Container:
+  - externalId: Asset
+    space: sp_apm_simple
+    type: container
+  - externalId: WorkItem
+    space: sp_apm_simple
+    type: container
+  - externalId: WorkOrder
+    space: sp_apm_simple
+    type: container
+  Space:
+  - sp_apm_simple
+  TransformationSchedule:
+  - externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
+  - externalId: tr_asset_oid_workmate_apm_simple_load_assets
+  - externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets
+  - externalId: tr_workorder_oid_workmate_apm_simple_load_workitems
+  - externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2assets
+  - externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2workorders
+  - externalId: tr_workorder_oid_workmate_apm_simple_load_workorders
+  - externalId: tr_workorder_oid_workmate_apm_simple_load_workorders2assets
+  View:
+  - externalId: Asset
+    space: sp_apm_simple
+    type: view
+    version: '1'
+  - externalId: WorkItem
+    space: sp_apm_simple
+    type: view
+    version: '1'
+  - externalId: WorkOrder
+    space: sp_apm_simple
+    type: view
+    version: '1'

@@ -58,8 +58,10 @@
             "request": "launch",
             "program": "./cdf-tk-dev.py",
             "args": [
-                "clean",
-                "-r"
+                //"--project=TEST",
+                "describe",
+                "datamodel",
+                "--space=cdf_apm",
             ],
             "console": "integratedTerminal",
             "justMyCode": false

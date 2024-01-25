@@ -17,7 +17,7 @@ import yaml
 from rich import print
 
 from cognite_toolkit import _version
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader, ResourceLoader
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
 
 # This is the default config located locally in each module.
@@ -58,7 +58,8 @@ class BuildEnvironment:
             raise ValueError("build_env must be specified")
         environment = environment_config.get(build_env)
         if environment is None:
-            raise ValueError(f"Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
+            print(f"  [bold red]ERROR:[/] Environment {build_env} not found in {ENVIRONMENTS_FILE!s}")
+            exit(1)
         system = SystemVariables.load(environment_config, action)
         try:
             return BuildEnvironment(
@@ -226,7 +227,7 @@ def read_yaml_file(
     return config_data
 
 
-def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
+def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
     """Check the yaml file for semantic errors
 
     parsed: the parsed yaml file
@@ -235,12 +236,22 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
     """
     if parsed is None or filepath_src is None or filepath_build is None:
         return False
-    resource_type = filepath_src.parts[-2]
+    resource_type = filepath_src.parent.name
     ext_id = None
     if resource_type == "data_models" and ".space." in filepath_src.name:
-        ext_id = parsed.get("space")
+        if isinstance(parsed, list):
+            print(f"      [bold red]:[/] Multiple spaces in one file {filepath_src} is not supported .")
+            exit(1)
+        elif isinstance(parsed, dict):
+            ext_id = parsed.get("space")
+        else:
+            print(f"      [bold red]:[/] Space file {filepath_src} has invalid dataformat.")
+            exit(1)
         ext_id_type = "space"
     elif resource_type == "data_models" and ".node." in filepath_src.name:
+        if isinstance(parsed, list):
+            print(f"      [bold red]:[/] Nodes YAML must be an object file {filepath_src} is not supported .")
+            exit(1)
         try:
             ext_ids = {source["source"]["externalId"] for node in parsed["nodes"] for source in node["sources"]}
         except KeyError:
@@ -252,17 +263,31 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
         ext_id = ext_ids.pop()
         ext_id_type = "view.externalId"
     elif resource_type == "auth":
+        if isinstance(parsed, list):
+            print(f"      [bold red]:[/] Multiple Groups in one file {filepath_src} is not supported .")
+            exit(1)
         ext_id = parsed.get("name")
         ext_id_type = "name"
     elif resource_type in ["data_sets", "timeseries", "files"] and isinstance(parsed, list):
         ext_id = ""
         ext_id_type = "multiple"
     elif resource_type == "raw":
-        ext_id = f"{parsed.get('dbName')}.{parsed.get('tableName')}"
-        if "None" in ext_id:
-            ext_id = None
-        ext_id_type = "dbName and/or tableName"
+        if isinstance(parsed, list):
+            ext_id = ""
+            ext_id_type = "multiple"
+        elif isinstance(parsed, dict):
+            ext_id = parsed.get("dbName")
+            ext_id_type = "dbName"
+            if "tableName" in parsed:
+                ext_id = f"{ext_id}.{parsed.get('tableName')}"
+                ext_id_type = "dbName and tableName"
+        else:
+            print(f"      [bold red]:[/] Raw file {filepath_src} has invalid dataformat.")
+            exit(1)
     else:
+        if isinstance(parsed, list):
+            print(f"      [bold red]:[/] Multiple {resource_type} in one file {filepath_src} is not supported .")
+            exit(1)
         ext_id = parsed.get("externalId") or parsed.get("external_id")
         ext_id_type = "externalId"
 
@@ -271,6 +296,7 @@ def check_yaml_semantics(parsed: Any, filepath_src: Path, filepath_build: Path, 
             f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} is missing the {ext_id_type} field(s)."
         )
         return False
+
     if resource_type == "auth":
         parts = ext_id.split("_")
         if len(parts) < 2:
@@ -363,6 +389,10 @@ def process_config_files(
     verbose: bool = False,
 ) -> None:
     configs = split_config(config)
+    modules_by_variables = defaultdict(list)
+    for module_path, variables in configs.items():
+        for variable in variables:
+            modules_by_variables[variable].append(module_path)
     number_by_resource_type: dict[str, int] = defaultdict(int)
 
     for module_dir, filepaths in iterate_modules(source_module_dir):
@@ -395,7 +425,7 @@ def process_config_files(
                 # if the file is a csv file and we have been instructed to.
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = pd.read_csv(io.StringIO(file_content), parse_dates=True, dayfirst=True, index_col=0)
+                data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
                 if "timeshift_" in data.index.name:
                     print(
                         "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
@@ -410,7 +440,7 @@ def process_config_files(
             else:
                 destination.write_text(content)
 
-            validate(content, destination, filepath)
+            validate(content, destination, filepath, modules_by_variables)
 
 
 def build_config(
@@ -428,6 +458,8 @@ def build_config(
         print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
     elif is_populated:
         print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
+    elif build_dir.exists():
+        print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
     else:
         build_dir.mkdir(exist_ok=True)
 
@@ -796,9 +828,21 @@ def replace_variables(content: str, local_config: Mapping[str, str], build_env: 
     return content
 
 
-def validate(content: str, destination: Path, source_path: Path) -> None:
+def validate(content: str, destination: Path, source_path: Path, modules_by_variable: dict[str, list[str]]) -> None:
+    this_module = ".".join(source_path.parts[1:-2])
+
     for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
         print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {destination!s}")
+        variable = unmatched[2:-2]
+        if modules := modules_by_variable.get(variable):
+            module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
+            print(
+                f"    [bold green]Hint:[/] The variables in 'config.yaml' are defined in a tree structure, i.e., "
+                "variables defined at a higher level can be used in lower levels."
+                f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str} "
+                f"\n    need{'' if len(modules) > 1 else 's'} to be moved up in the config structure to be used "
+                f"in {this_module!r}."
+            )
 
     if destination.suffix in {".yaml", ".yml"}:
         try:
@@ -832,7 +876,7 @@ def validate(content: str, destination: Path, source_path: Path) -> None:
             print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
             return
 
-        if loader:
+        if isinstance(loader, ResourceLoader):
             load_warnings = validate_case_raw(
                 parsed, loader.resource_cls, destination, identifier_key=loader.identifier_key
             )
