@@ -6,7 +6,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Literal, cast
+from typing import Any, BinaryIO, Callable, Literal, TextIO, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -97,8 +97,10 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
+from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.testing import CogniteClientMock
+from cognite.client.utils._text import to_camel_case
 
 TEST_FOLDER = Path(__file__).resolve().parent
 
@@ -129,6 +131,8 @@ class ApprovalCogniteClient:
 
         # Set the side effect of the MagicMock to the real method
         self.mock_client.iam.compare_capabilities.side_effect = IAMAPI.compare_capabilities
+        # Set functions to be activated
+        self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
 
         # Setup all mock methods
         for resource in _API_RESOURCES:
@@ -413,9 +417,37 @@ class ApprovalCogniteClient:
             created_resources[resource_cls.__name__].append(config)
             return ExtractionPipelineConfig.load(config.dump(camel_case=True))
 
+        def upload_bytes_files_api(content: str | bytes | TextIO | BinaryIO, **kwargs) -> FileMetadata:
+            if not isinstance(content, bytes):
+                raise NotImplementedError("Only bytes content is supported")
+            content_hash = int(hashlib.sha256(content).hexdigest(), 16)
+
+            created_resources[resource_cls.__name__].append(
+                {
+                    **kwargs,
+                    "content_hash": content_hash,
+                }
+            )
+            return FileMetadata.load({to_camel_case(k): v for k, v in kwargs.items()})
+
+        def create_function_api(**kwargs) -> Function:
+            # Function API does not follow the same pattern as the other APIs
+            # So needs special handling
+            created = FunctionWrite.load({to_camel_case(k): v for k, v in kwargs.items()})
+            created_resources[resource_cls.__name__].append(created)
+            return Function.load(created.dump(camel_case=True))
+
         available_create_methods = {
             fn.__name__: fn
-            for fn in [create, insert_dataframe, upload, create_instances, create_extraction_pipeline_config]
+            for fn in [
+                create,
+                insert_dataframe,
+                upload,
+                create_instances,
+                create_extraction_pipeline_config,
+                upload_bytes_files_api,
+                create_function_api,
+            ]
         }
         if mock_method not in available_create_methods:
             raise ValueError(
@@ -776,7 +808,7 @@ _API_RESOURCES = [
         list_cls=FunctionList,
         _write_list_cls=FunctionWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
+            "create": [Method(api_class_method="create", mock_name="create_function_api")],
             "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
@@ -928,6 +960,8 @@ _API_RESOURCES = [
             "create": [
                 Method(api_class_method="upload", mock_name="upload"),
                 Method(api_class_method="create", mock_name="create"),
+                # This is used by functions to upload the file used for deployment.
+                Method(api_class_method="upload_bytes", mock_name="upload_bytes_files_api"),
             ],
             "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
             "retrieve": [
