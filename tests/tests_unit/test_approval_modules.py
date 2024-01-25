@@ -34,8 +34,13 @@ def find_all_modules() -> Iterator[Path]:
 def mock_environments_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> None:
     return mock_read_yaml_file(
         {
-            "dev.config.yaml": {
-                "environment": {"name": "dev", "project": "pytest-project", "type": "dev", "deploy": [module_path.name]}
+            "config.dev.yaml": {
+                "environment": {
+                    "name": "dev",
+                    "project": "pytest-project",
+                    "type": "dev",
+                    "selected_modules_and_packages": [module_path.name],
+                }
             }
         },
         monkeypatch,
