@@ -20,7 +20,7 @@ from cognite_toolkit.cdf_tk.utils import read_yaml_file
 from ._constants import BUILD_ENVIRONMENT_FILE, DEFAULT_CONFIG_FILE, SEARCH_VARIABLES_SUFFIX
 from ._utils import flatten_dict, iterate_modules
 
-__all__ = ["GlobalConfig", "EnvironmentConfig", "ConfigYAML", "ConfigYAMLs", "BuildEnvironment"]
+__all__ = ["SystemConfig", "EnvironmentConfig", "ConfigYAML", "ConfigYAMLs", "BuildEnvironment"]
 
 
 @dataclass
@@ -59,7 +59,7 @@ class SystemVariables:
 
     @classmethod
     def load(cls, data: dict[str, Any], action: Literal["build", "deploy", "clean"]) -> SystemVariables:
-        file_name = BUILD_ENVIRONMENT_FILE if action in {"deploy", "clean"} else GlobalConfig.file_name
+        file_name = BUILD_ENVIRONMENT_FILE if action in {"deploy", "clean"} else SystemConfig.file_name
         try:
             system = SystemVariables(cdf_toolkit_version=data["__system"]["cdf_toolkit_version"])
         except KeyError:
@@ -84,8 +84,8 @@ class SystemVariables:
 
 
 @dataclass
-class GlobalConfig(BuildConfig):
-    file_name: ClassVar[str] = "global.yaml"
+class SystemConfig(BuildConfig):
+    file_name: ClassVar[str] = "_system.yaml"
     system: SystemVariables
     packages: dict[str, list[str]] = field(default_factory=dict)
 
@@ -94,7 +94,7 @@ class GlobalConfig(BuildConfig):
         return cls.file_name
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> GlobalConfig:
+    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> SystemConfig:
         system = SystemVariables.load(data, "build")
         packages = data.get("packages", {})
         if not packages:

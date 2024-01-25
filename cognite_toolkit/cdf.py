@@ -37,7 +37,7 @@ from cognite_toolkit.cdf_tk.templates import (
     build_config,
     iterate_modules,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import BuildEnvironment, ConfigYAMLs, EnvironmentConfig, GlobalConfig
+from cognite_toolkit.cdf_tk.templates.data_classes import BuildEnvironment, ConfigYAMLs, EnvironmentConfig, SystemConfig
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, read_yaml_file
 
 if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
@@ -212,7 +212,7 @@ def build(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    global_config = GlobalConfig.load_from_directory(source_path, build_env)
+    global_config = SystemConfig.load_from_directory(source_path, build_env)
     config = EnvironmentConfig.load_from_directory(source_path, build_env)
     print(
         Panel(

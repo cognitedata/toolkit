@@ -18,14 +18,14 @@ from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_data_set_is
 
 from ._constants import COGNITE_MODULES, CUSTOM_MODULES, EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX
 from ._utils import iterate_modules
-from .data_classes import EnvironmentConfig, GlobalConfig
+from .data_classes import EnvironmentConfig, SystemConfig
 
 
 def build_config(
     build_dir: Path,
     source_dir: Path,
     config: EnvironmentConfig,
-    global_config: GlobalConfig,
+    global_config: SystemConfig,
     clean: bool = False,
     verbose: bool = False,
 ) -> None:
