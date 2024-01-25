@@ -783,7 +783,7 @@ def main_init(
     elif not dry_run:
         print(f"A new project was created in {target_dir_display}.")
 
-    # Creating the [environment].config.yaml files
+    # Creating the config.[environment].yaml files
     environment_default = template_source / COGNITE_MODULES / "default.environments.yaml"
     if not environment_default.is_file():
         print(
@@ -792,11 +792,11 @@ def main_init(
         )
         exit(1)
     if upgrade and not clean:
-        existing_environments = list(project_dir.glob("*.config.yaml"))
+        existing_environments = list(project_dir.glob("config.*.yaml"))
         if len(existing_environments) >= 1:
             config_yamls = ConfigYAMLs.load_existing_environments(existing_environments)
         else:
-            print("  [bold yellow]WARNING:[/] No existing [env].config.yaml files found, creating from the defaults.")
+            print("  [bold yellow]WARNING:[/] No existing config.[env].yaml files found, creating from the defaults.")
             config_yamls = ConfigYAMLs.load_default_environments(read_yaml_file(environment_default))
     else:
         config_yamls = ConfigYAMLs.load_default_environments(read_yaml_file(environment_default))
@@ -809,7 +809,7 @@ def main_init(
     print(f"Loaded variables from {len(config_yamls)} environments: {list(config_yamls.keys())}")
 
     for environment, config_yaml in config_yamls.items():
-        config_filepath = project_dir / f"{environment}.config.yaml"
+        config_filepath = project_dir / f"config.{environment}.yaml"
         print(f"Loaded config for environment {environment}:")
         print(str(config_yaml))
         if ctx.obj.verbose and upgrade:

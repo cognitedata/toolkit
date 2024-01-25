@@ -154,7 +154,7 @@ class EnvironmentConfig(BuildConfig):
 
     @classmethod
     def _file_name(cls, build_env: str) -> str:
-        return f"{build_env}.config.yaml"
+        return f"config.{build_env}.yaml"
 
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.environment.name
