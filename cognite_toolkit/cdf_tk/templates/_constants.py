@@ -1,7 +1,7 @@
 # This is the default config located locally in each module.
 DEFAULT_CONFIG_FILE = "default.config.yaml"
 # The environment file:
-BUILD_ENVIRONMENT_FILE = "build_environment.yaml"
+BUILD_ENVIRONMENT_FILE = "_build_environment.yaml"
 # The local config file:
 CONFIG_FILE_SUFFIX = "config.yaml"
 # The global config file

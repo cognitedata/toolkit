@@ -18,14 +18,14 @@ from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_data_set_is
 
 from ._constants import COGNITE_MODULES, CUSTOM_MODULES, EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX
 from ._utils import iterate_modules
-from .data_classes import EnvironmentConfig, SystemConfig
+from .data_classes import BuildConfigYAML, SystemConfig
 
 
 def build_config(
     build_dir: Path,
     source_dir: Path,
-    config: EnvironmentConfig,
-    global_config: SystemConfig,
+    config: BuildConfigYAML,
+    system_config: SystemConfig,
     clean: bool = False,
     verbose: bool = False,
 ) -> None:
@@ -44,9 +44,9 @@ def build_config(
     config.validate_environment()
 
     available_modules = {module.name for module, _ in iterate_modules(source_dir)}
-    global_config.validate_modules(available_modules)
+    system_config.validate_modules(available_modules)
 
-    selected_modules = config.get_selected_modules(global_config.packages, available_modules, verbose)
+    selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
 
     warnings = validate_modules_variables(config.modules, config.filepath)
     if warnings:
@@ -56,7 +56,7 @@ def build_config(
 
     process_config_files(source_dir, selected_modules, build_dir, config.modules, verbose)
 
-    build_environment = config.create_build_environment(global_config.system)
+    build_environment = config.create_build_environment(system_config)
     build_environment.dump_to_file(build_dir)
     print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
     return None

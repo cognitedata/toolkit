@@ -20,11 +20,11 @@ from cognite_toolkit.cdf_tk.utils import read_yaml_file
 from ._constants import BUILD_ENVIRONMENT_FILE, DEFAULT_CONFIG_FILE, SEARCH_VARIABLES_SUFFIX
 from ._utils import flatten_dict, iterate_modules
 
-__all__ = ["SystemConfig", "EnvironmentConfig", "ConfigYAML", "ConfigYAMLs", "BuildEnvironment"]
+__all__ = ["SystemConfig", "BuildConfigYAML", "InitConfigYAML", "ConfigYAMLs", "BuildEnvironment"]
 
 
 @dataclass
-class BuildConfig(ABC):
+class ConfigCore(ABC):
     """Base class for the two build config files (global.yaml and [env].config.yaml)"""
 
     filepath: Path
@@ -50,43 +50,13 @@ class BuildConfig(ABC):
         raise NotImplementedError
 
 
-T_BuildConfig = TypeVar("T_BuildConfig", bound=BuildConfig)
+T_BuildConfig = TypeVar("T_BuildConfig", bound=ConfigCore)
 
 
 @dataclass
-class SystemVariables:
-    cdf_toolkit_version: str
-
-    @classmethod
-    def load(cls, data: dict[str, Any], action: Literal["build", "deploy", "clean"]) -> SystemVariables:
-        file_name = BUILD_ENVIRONMENT_FILE if action in {"deploy", "clean"} else SystemConfig.file_name
-        try:
-            system = SystemVariables(cdf_toolkit_version=data["__system"]["cdf_toolkit_version"])
-        except KeyError:
-            print(
-                f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {file_name!s}"
-            )
-            if action in {"deploy", "clean"}:
-                print(f"  rerun `cdf-tk build` to build the templates again and create `{file_name!s}` correctly.")
-            elif action == "build":
-                print(
-                    f"  run `cdf-tk init --upgrade` to initialize the templates again and create a correct `{file_name!s}` file."
-                )
-            exit(1)
-        if system.cdf_toolkit_version != _version.__version__:
-            print(
-                f"  [bold red]Error:[/] The version of the templates ({system.cdf_toolkit_version}) does not match the version of the installed package ({_version.__version__})."
-            )
-            print("  Please either run `cdf-tk init --upgrade` to upgrade the templates OR")
-            print(f"  run `pip install cognite-toolkit==={system.cdf_toolkit_version}` to downgrade cdf-tk.")
-            exit(1)
-        return system
-
-
-@dataclass
-class SystemConfig(BuildConfig):
+class SystemConfig(ConfigCore):
     file_name: ClassVar[str] = "_system.yaml"
-    system: SystemVariables
+    cdf_toolkit_version: str
     packages: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
@@ -95,13 +65,13 @@ class SystemConfig(BuildConfig):
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> SystemConfig:
-        system = SystemVariables.load(data, "build")
+        version = _load_version_variable(data, filepath.name)
         packages = data.get("packages", {})
         if not packages:
             print(f"  [bold yellow]Warning:[/] No packages defined in {cls.file_name}.")
         return cls(
             filepath=filepath,
-            system=system,
+            cdf_toolkit_version=version,
             packages=packages,
         )
 
@@ -117,10 +87,10 @@ class SystemConfig(BuildConfig):
 
 @dataclass
 class Environment:
-    name: str = "dev"
-    project: str = "<customer-dev>"
-    build_type: str = "dev"
-    selected_modules_and_packages: list[str] = field(default_factory=list)
+    name: str
+    project: str
+    build_type: str
+    selected_modules_and_packages: list[str]
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str) -> Environment:
@@ -134,7 +104,7 @@ class Environment:
         except KeyError:
             print(
                 f"  [bold red]ERROR:[/] Environment is missing "
-                f"required fields 'name', 'project', 'type', or 'selected_modules_and_packages' in {EnvironmentConfig._file_name(build_env)!s}"
+                f"required fields 'name', 'project', 'type', or 'selected_modules_and_packages' in {BuildConfigYAML._file_name(build_env)!s}"
             )
             exit(1)
 
@@ -148,8 +118,14 @@ class Environment:
 
 
 @dataclass
-class EnvironmentConfig(BuildConfig):
+class ConfigYAMLCore(ABC):
     environment: Environment
+
+
+@dataclass
+class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
+    """This is the config.[env].yaml file used in the cdf-tk build command."""
+
     modules: dict[str, Any]
 
     @classmethod
@@ -178,7 +154,7 @@ class EnvironmentConfig(BuildConfig):
         return None
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> EnvironmentConfig:
+    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildConfigYAML:
         try:
             environment = Environment.load(data["environment"], build_env)
             modules = data["modules"]
@@ -187,13 +163,13 @@ class EnvironmentConfig(BuildConfig):
             exit(1)
         return cls(environment=environment, modules=modules, filepath=filepath)
 
-    def create_build_environment(self, system_variables: SystemVariables) -> BuildEnvironment:
+    def create_build_environment(self, system_config: SystemConfig) -> BuildEnvironment:
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
             build_type=self.environment.build_type,
             selected_modules_and_packages=self.environment.selected_modules_and_packages,
-            system=system_variables,
+            cdf_toolkit_version=system_config.cdf_toolkit_version,
         )
 
     def get_selected_modules(
@@ -232,16 +208,12 @@ class EnvironmentConfig(BuildConfig):
 
 
 @dataclass
-class BuildEnvironment:
-    name: Literal["dev", "local", "demo", "staging", "prod"]
-    project: str
-    build_type: str
-    selected_modules_and_packages: list[str]
-    system: SystemVariables
+class BuildEnvironment(Environment):
+    cdf_toolkit_version: str
 
     @classmethod
     def load(
-        cls, data: dict[str, Any], build_env: str, action: Literal["build", "deploy", "clean"]
+        cls, data: dict[str, Any], build_env: str, action: Literal["build", "deploy", "clean"] = "build"
     ) -> BuildEnvironment:
         if build_env is None:
             raise ValueError("build_env must be specified")
@@ -254,14 +226,14 @@ class BuildEnvironment:
         if environment is None:
             print(f"  [bold red]ERROR:[/] Environment {build_env} not found in {BUILD_ENVIRONMENT_FILE!s}")
             exit(1)
-        system = SystemVariables.load(data, action)
+        version = _load_version_variable(load_data, BUILD_ENVIRONMENT_FILE)
         try:
             return BuildEnvironment(
                 name=cast(Literal["dev", "local", "demo", "staging", "prod"], build_env),
                 project=load_data["project"],
                 build_type=load_data["type"],
                 selected_modules_and_packages=load_data["selected_modules_and_packages"],
-                system=system,
+                cdf_toolkit_version=version,
             )
         except KeyError:
             print(
@@ -270,19 +242,14 @@ class BuildEnvironment:
             exit(1)
 
     def dump(self) -> dict[str, Any]:
-        return {
-            self.name: {
-                "project": self.project,
-                "type": self.build_type,
-                "selected_modules_and_packages": self.selected_modules_and_packages,
-            },
-            "__system": {
-                "cdf_toolkit_version": self.system.cdf_toolkit_version,
-            },
-        }
+        output = super().dump()
+        output["cdf_toolkit_version"] = self.cdf_toolkit_version
+        return output
 
     def dump_to_file(self, build_dir: Path) -> None:
-        (build_dir / BUILD_ENVIRONMENT_FILE).write_text(yaml.dump(self.dump(), sort_keys=False, indent=2))
+        (build_dir / BUILD_ENVIRONMENT_FILE).write_text(
+            "# # DO NOT EDIT THIS FILE!\n" + yaml.dump(self.dump(), sort_keys=False, indent=2)
+        )
 
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.name
@@ -366,8 +333,9 @@ class ConfigEntry:
         return ".".join(self.key_path)
 
 
-class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
-    """This represents the 'config.yaml' file in the root of the project.
+class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
+    """This represents the 'config.[env].yaml' file in the root of the project.
+    It is used in the init command.
 
     The motivation for having a specialist data structure and not just a dictionary:
 
@@ -383,9 +351,8 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         self, entries: dict[tuple[str, ...], ConfigEntry] | None = None, environment: Environment | None = None
     ):
         super().__init__(entries or {})
-        self.environment = environment or Environment()
 
-    def load_defaults(self, cognite_root_module: Path) -> ConfigYAML:
+    def load_defaults(self, cognite_root_module: Path) -> InitConfigYAML:
         """Loads all default.config.yaml files in the cognite root module.
 
         This extracts the default values from the default.config.yaml files and
@@ -423,7 +390,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
 
         return self
 
-    def load_existing(self, existing_config_yaml: str, build_env: str = "dev") -> ConfigYAML:
+    def load_existing(self, existing_config_yaml: str, build_env: str = "dev") -> InitConfigYAML:
         """Loads an existing config.yaml file.
 
         This does a yaml.safe_load, in addition to extracting comments from the file.
@@ -461,7 +428,7 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
 
         return self
 
-    def load_variables(self, project_dir: Path, propagate_reused_variables: bool = False) -> ConfigYAML:
+    def load_variables(self, project_dir: Path, propagate_reused_variables: bool = False) -> InitConfigYAML:
         """This scans the content the files in the given directories and finds the variables.
         The motivation is to find the variables that are used in the templates, as well
         as picking up variables that are used in custom modules.
@@ -659,8 +626,8 @@ class ConfigYAML(UserDict[tuple[str, ...], ConfigEntry]):
         return tuple(common_parent)
 
 
-class ConfigYAMLs(UserDict[str, ConfigYAML]):
-    def __init__(self, entries: dict[str, ConfigYAML] | None = None):
+class ConfigYAMLs(UserDict[str, InitConfigYAML]):
+    def __init__(self, entries: dict[str, InitConfigYAML] | None = None):
         super().__init__(entries or {})
 
     @classmethod
@@ -668,14 +635,14 @@ class ConfigYAMLs(UserDict[str, ConfigYAML]):
         instance = cls()
         for environment_name, environment_config in default.items():
             environment = Environment.load(environment_config, environment_name)
-            instance[environment.name] = ConfigYAML(environment=environment)
+            instance[environment.name] = InitConfigYAML(environment=environment)
         return instance
 
     @classmethod
     def load_existing_environments(cls, existing_config_yamls: Sequence[Path]) -> ConfigYAMLs:
         instance = cls()
         for config_yaml in existing_config_yamls:
-            config = ConfigYAML().load_existing(config_yaml.read_text(), config_yaml.name.split(".")[0])
+            config = InitConfigYAML().load_existing(config_yaml.read_text(), config_yaml.name.split(".")[0])
             instance[config.environment.name] = config
         return instance
 
@@ -688,3 +655,27 @@ class ConfigYAMLs(UserDict[str, ConfigYAML]):
         # Can be optimized, but not a priority
         for config_yaml in self.values():
             config_yaml.load_variables(project_dir)
+
+
+def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
+    try:
+        cdf_tk_version = data["cdf_toolkit_version"]
+    except KeyError:
+        print(
+            f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {file_name!s}"
+        )
+        if file_name == BUILD_ENVIRONMENT_FILE:
+            print(f"  rerun `cdf-tk build` to build the templates again and create `{file_name!s}` correctly.")
+        else:
+            print(
+                f"  run `cdf-tk init --upgrade` to initialize the templates again and create a correct `{file_name!s}` file."
+            )
+        exit(1)
+    if cdf_tk_version.cdf_toolkit_version != _version.__version__:
+        print(
+            f"  [bold red]Error:[/] The version of the templates ({cdf_tk_version.cdf_toolkit_version}) does not match the version of the installed package ({_version.__version__})."
+        )
+        print("  Please either run `cdf-tk init --upgrade` to upgrade the templates OR")
+        print(f"  run `pip install cognite-toolkit==={cdf_tk_version.cdf_toolkit_version}` to downgrade cdf-tk.")
+        exit(1)
+    return cdf_tk_version

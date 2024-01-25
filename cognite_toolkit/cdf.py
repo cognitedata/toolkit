@@ -37,7 +37,7 @@ from cognite_toolkit.cdf_tk.templates import (
     build_config,
     iterate_modules,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import BuildEnvironment, ConfigYAMLs, EnvironmentConfig, SystemConfig
+from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, BuildEnvironment, ConfigYAMLs, SystemConfig
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, read_yaml_file
 
 if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
@@ -212,12 +212,12 @@ def build(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    global_config = SystemConfig.load_from_directory(source_path, build_env)
-    config = EnvironmentConfig.load_from_directory(source_path, build_env)
+    system_config = SystemConfig.load_from_directory(source_path / COGNITE_MODULES, build_env)
+    config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(
         Panel(
             f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_path!s} as sources...[/bold]"
-            f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}' \n[bold]Global config file:[/] '{global_config.filepath.absolute()!s}'"
+            f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}'"
         )
     )
     config.set_environment_variables()
@@ -226,7 +226,7 @@ def build(
         build_dir=Path(build_dir),
         source_dir=source_path,
         config=config,
-        global_config=global_config,
+        system_config=system_config,
         clean=clean,
         verbose=ctx.obj.verbose,
     )

@@ -13,7 +13,7 @@ from cognite_toolkit.cdf_tk.templates import (
     flatten_dict,
     split_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import ConfigYAML, YAMLComment
+from cognite_toolkit.cdf_tk.templates.data_classes import InitConfigYAML, YAMLComment
 
 PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
 
@@ -41,7 +41,7 @@ class TestConfigYAML:
         # Skip all environment variables
         expected_keys = {k for k in expected_keys if not k[0] == "environment"}
 
-        config = ConfigYAML().load_defaults(PYTEST_PROJECT)
+        config = InitConfigYAML().load_defaults(PYTEST_PROJECT)
 
         actual_keys = set(config.keys())
         missing = expected_keys - actual_keys
@@ -65,7 +65,7 @@ class TestConfigYAML:
             ),
         }
 
-        actual_comments = ConfigYAML._extract_comments(config_yaml)
+        actual_comments = InitConfigYAML._extract_comments(config_yaml)
 
         assert actual_comments == expected_comments
 
@@ -96,13 +96,13 @@ variable4: "value with #in it" # But a comment after
     def test_extract_default_config_comments(
         self, raw_file: str, key_prefix: tuple[str, ...], expected_comments: dict[str, Any]
     ):
-        actual_comments = ConfigYAML._extract_comments(raw_file, key_prefix)
+        actual_comments = InitConfigYAML._extract_comments(raw_file, key_prefix)
         assert actual_comments == expected_comments
 
     def test_persist_variable_with_comment(self, config_yaml: str) -> None:
         custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
 
-        config = ConfigYAML().load_defaults(PYTEST_PROJECT).load_existing(config_yaml)
+        config = InitConfigYAML().load_defaults(PYTEST_PROJECT).load_existing(config_yaml)
 
         dumped = config.dump_yaml_with_comments(active=(True, False))
         loaded = yaml.safe_load(dumped)
@@ -116,7 +116,7 @@ variable4: "value with #in it" # But a comment after
         # Removed = Exists in config.yaml but not in the BUILD_CONFIG directory default.config.yaml files
         existing_config_yaml["modules"]["cognite_modules"]["another_module"]["removed_variable"] = "old_value"
 
-        config = ConfigYAML().load_defaults(PYTEST_PROJECT).load_existing(yaml.safe_dump(existing_config_yaml))
+        config = InitConfigYAML().load_defaults(PYTEST_PROJECT).load_existing(yaml.safe_dump(existing_config_yaml))
 
         removed = [v for v in config.values() if v.default_value is None]
         # There is already a custom variable in the config.yaml file
@@ -136,7 +136,7 @@ variable4: "value with #in it" # But a comment after
             ("modules", "cognite_modules", "parent_module", "child_module", "source_asset"),
         }
 
-        config = ConfigYAML().load_variables(PYTEST_PROJECT, propagate_reused_variables=True)
+        config = InitConfigYAML().load_variables(PYTEST_PROJECT, propagate_reused_variables=True)
 
         missing = expected - set(config.keys())
         assert not missing, f"Missing keys: {missing}"
