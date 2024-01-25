@@ -102,7 +102,7 @@ variable4: "value with #in it" # But a comment after
     def test_persist_variable_with_comment(self, config_yaml: str) -> None:
         custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
 
-        config = InitConfigYAML().load_defaults(PYTEST_PROJECT).load_existing(config_yaml)
+        config = InitConfigYAML.load_defaults(PYTEST_PROJECT).load_existing(config_yaml)
 
         dumped = config.dump_yaml_with_comments(active=(True, False))
         loaded = yaml.safe_load(dumped)
@@ -116,7 +116,7 @@ variable4: "value with #in it" # But a comment after
         # Removed = Exists in config.yaml but not in the BUILD_CONFIG directory default.config.yaml files
         existing_config_yaml["modules"]["cognite_modules"]["another_module"]["removed_variable"] = "old_value"
 
-        config = InitConfigYAML().load_defaults(PYTEST_PROJECT).load_existing(yaml.safe_dump(existing_config_yaml))
+        config = InitConfigYAML.load_existing(yaml.safe_dump(existing_config_yaml)).load_defaults(PYTEST_PROJECT)
 
         removed = [v for v in config.values() if v.default_value is None]
         # There is already a custom variable in the config.yaml file

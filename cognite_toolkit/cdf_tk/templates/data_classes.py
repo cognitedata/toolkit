@@ -333,6 +333,7 @@ class ConfigEntry:
         return ".".join(self.key_path)
 
 
+@dataclass
 class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
     """This represents the 'config.[env].yaml' file in the root of the project.
     It is used in the init command.
@@ -347,9 +348,8 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
     _environment = "environment"
     _modules = "modules"
 
-    def __init__(
-        self, entries: dict[tuple[str, ...], ConfigEntry] | None = None, environment: Environment | None = None
-    ):
+    def __init__(self, environment: Environment, entries: dict[tuple[str, ...], ConfigEntry] | None = None):
+        self.environment = environment
         super().__init__(entries or {})
 
     def load_defaults(self, cognite_root_module: Path) -> InitConfigYAML:
@@ -390,7 +390,8 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
 
         return self
 
-    def load_existing(self, existing_config_yaml: str, build_env: str = "dev") -> InitConfigYAML:
+    @classmethod
+    def load_existing(cls, existing_config_yaml: str, build_env: str = "dev") -> InitConfigYAML:
         """Loads an existing config.yaml file.
 
         This does a yaml.safe_load, in addition to extracting comments from the file.
@@ -404,29 +405,35 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
 
         """
         raw_file = existing_config_yaml
-        comments = self._extract_comments(raw_file)
+        comments = cls._extract_comments(raw_file)
         config = yaml.safe_load(raw_file)
-        if self._environment in config:
-            self.environment = Environment.load(config[self._environment], build_env)
+        if cls._environment in config:
+            environment = Environment.load(config[cls._environment], build_env)
+        else:
+            raise ValueError(f"Missing environment in {existing_config_yaml!s}")
 
-        modules = config[self._modules] if self._modules in config else config
+        modules = config[cls._modules] if cls._modules in config else config
+        entries: dict[tuple[str, ...], ConfigEntry] = {}
         for key_path, value in flatten_dict(modules).items():
-            full_key_path = (self._modules, *key_path)
-            if full_key_path in self:
-                self[full_key_path].current_value = value
-                self[full_key_path].current_comment = comments.get(full_key_path)
+            full_key_path = (cls._modules, *key_path)
+            if full_key_path in entries:
+                entries[full_key_path].current_value = value
+                entries[full_key_path].current_comment = comments.get(full_key_path)
             else:
-                self[full_key_path] = ConfigEntry(
+                entries[full_key_path] = ConfigEntry(
                     key_path=full_key_path,
                     current_value=value,
                     current_comment=comments.get(full_key_path),
                 )
         # Activate all top level variables
-        for key_path in self:
+        for key_path in entries:
             if len(key_path) <= 3:
-                self[key_path].is_active = True
+                entries[key_path].is_active = True
 
-        return self
+        return cls(
+            environment=environment,
+            entries=entries,
+        )
 
     def load_variables(self, project_dir: Path, propagate_reused_variables: bool = False) -> InitConfigYAML:
         """This scans the content the files in the given directories and finds the variables.
@@ -635,14 +642,14 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
         instance = cls()
         for environment_name, environment_config in default.items():
             environment = Environment.load(environment_config, environment_name)
-            instance[environment.name] = InitConfigYAML(environment=environment)
+            instance[environment.name] = InitConfigYAML(environment)
         return instance
 
     @classmethod
     def load_existing_environments(cls, existing_config_yamls: Sequence[Path]) -> ConfigYAMLs:
         instance = cls()
         for config_yaml in existing_config_yamls:
-            config = InitConfigYAML().load_existing(config_yaml.read_text(), config_yaml.name.split(".")[0])
+            config = InitConfigYAML.load_existing(config_yaml.read_text(), config_yaml.name.split(".")[0])
             instance[config.environment.name] = config
         return instance
 
@@ -659,7 +666,7 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
 
 def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
     try:
-        cdf_tk_version = data["cdf_toolkit_version"]
+        cdf_tk_version: str = data["cdf_toolkit_version"]
     except KeyError:
         print(
             f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {file_name!s}"
@@ -671,11 +678,11 @@ def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
                 f"  run `cdf-tk init --upgrade` to initialize the templates again and create a correct `{file_name!s}` file."
             )
         exit(1)
-    if cdf_tk_version.cdf_toolkit_version != _version.__version__:
+    if cdf_tk_version != _version.__version__:
         print(
-            f"  [bold red]Error:[/] The version of the templates ({cdf_tk_version.cdf_toolkit_version}) does not match the version of the installed package ({_version.__version__})."
+            f"  [bold red]Error:[/] The version of the templates ({cdf_tk_version}) does not match the version of the installed package ({_version.__version__})."
         )
         print("  Please either run `cdf-tk init --upgrade` to upgrade the templates OR")
-        print(f"  run `pip install cognite-toolkit==={cdf_tk_version.cdf_toolkit_version}` to downgrade cdf-tk.")
+        print(f"  run `pip install cognite-toolkit==={cdf_tk_version}` to downgrade cdf-tk.")
         exit(1)
     return cdf_tk_version
