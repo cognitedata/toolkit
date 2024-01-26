@@ -21,7 +21,7 @@ Function:
   owner: Anonymous
   runtime: py311
   secrets:
-    mysecret: mysecret
+    mysecret: ${MY_SECRET}
 - externalId: test2
   functionPath: ./handler.py
   metadata:
