@@ -404,6 +404,19 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         return local.dump() == cdf_resource.as_write().dump()
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
+        status = self.client.functions.status()
+        if status.status != "activated":
+            if status.status == "requested":
+                print(
+                    "  [bold yellow]WARNING:[/] Function service activation is in progress, cannot retrieve functions."
+                )
+                return FunctionList([])
+            else:
+                print(
+                    "  [bold yellow]WARNING:[/] Function service has not been activated, activating now, this may take up to 2 hours..."
+                )
+                self.client.functions.activate()
+                return FunctionList([])
         ret = self.client.functions.retrieve_multiple(
             external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
         )

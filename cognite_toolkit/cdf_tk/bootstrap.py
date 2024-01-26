@@ -494,13 +494,17 @@ def check_auth(
     function_status = ToolGlobals.client.functions.status()
     if function_status.status != "activated":
         if function_status.status == "requested":
-            print("  [bold yellow]INFO:[/] Function service activation is in progress...")
+            print("  [bold yellow]INFO:[/] Function service activation is in progress (may take up to 2 hours)...")
         else:
             if not dry_run:
-                print("  [bold yellow]INFO:[/] Function service is not activated, activating...")
+                print(
+                    "  [bold yellow]INFO:[/] Function service has not been activated, activating now, this may take up to 2 hours..."
+                )
                 ToolGlobals.client.functions.activate()
             else:
-                print("  [bold yellow]INFO:[/] Function service is not activated, would have activated...")
+                print(
+                    "  [bold yellow]INFO:[/] Function service has not been activated, would have activated (will take up to 2 hours)..."
+                )
     else:
-        print("  [bold green]OK[/] - Function service is activated.")
+        print("  [bold green]OK[/] - Function service has been activated.")
     return None
