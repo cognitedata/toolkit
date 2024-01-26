@@ -52,7 +52,6 @@ class Loader(ABC):
             when two loaders have the same folder name to differentiate between them. If not set, all files are supported.
         dependencies: A set of loaders that must be loaded before this loader.
         exclude_filetypes: A set of filetypes that should be excluded from the supported filetypes.
-        build_path: The path to the build directory for this particular loader.
     """
 
     filetypes: frozenset[str]
@@ -60,10 +59,10 @@ class Loader(ABC):
     filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
-    build_path: Path
 
-    def __init__(self, client: CogniteClient):
+    def __init__(self, client: CogniteClient, build_path: Path | None = None):
         self.client = client
+        self.build_path = build_path
 
     @classmethod
     def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig) -> T_Loader:

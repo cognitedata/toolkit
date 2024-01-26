@@ -377,7 +377,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         return item.external_id
 
     def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
-        function_rootdir = Path(self.build_path / (local.external_id or ""))
+        if self.build_path is None:
+            raise ValueError("build_path must be set to compare functions as function code must be compared.")
+        function_rootdir = Path(self.build_path / f"{local.external_id}")
         if local.metadata is None:
             local.metadata = {}
         local.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
@@ -452,38 +454,37 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 )
                 self.client.functions.activate()
                 return FunctionList([])
+        if self.build_path is None:
+            raise ValueError("build_path must be set to compare functions as function code must be compared.")
         for item in items:
             function_rootdir = Path(self.build_path / (item.external_id or ""))
             if item.metadata is None:
                 item.metadata = {}
             item.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
-            try:
-                file_id = self._zip_and_upload_folder(
-                    root_dir=function_rootdir,
+            file_id = self._zip_and_upload_folder(
+                root_dir=function_rootdir,
+                external_id=item.external_id or item.name,
+                data_set_id=None,  # TODO: support data_set for function upload
+            )
+            created.append(
+                self.client.functions.create(
+                    name=item.name,
                     external_id=item.external_id or item.name,
-                    data_set_id=None,  # TODO: support data_set for function upload
+                    # data_set_id=item.data_set_id,
+                    file_id=file_id,
+                    function_path=item.function_path or "./handler.py",
+                    description=item.description,
+                    owner=item.owner,
+                    secrets=item.secrets,
+                    env_vars=item.env_vars,
+                    cpu=cast(Number, item.cpu),
+                    memory=cast(Number, item.memory),
+                    runtime=item.runtime,
+                    metadata=item.metadata,
+                    index_url=item.index_url,
+                    extra_index_urls=item.extra_index_urls,
                 )
-                created.append(
-                    self.client.functions.create(
-                        name=item.name,
-                        external_id=item.external_id or item.name,
-                        # data_set_id=item.data_set_id,
-                        file_id=file_id,
-                        function_path=item.function_path or "./handler.py",
-                        description=item.description,
-                        owner=item.owner,
-                        secrets=item.secrets,
-                        env_vars=item.env_vars,
-                        cpu=cast(Number, item.cpu),
-                        memory=cast(Number, item.memory),
-                        runtime=item.runtime,
-                        metadata=item.metadata,
-                        index_url=item.index_url,
-                        extra_index_urls=item.extra_index_urls,
-                    )
-                )
-            except Exception:
-                pass
+            )
         return created
 
     def delete(self, ids: SequenceNotStr[str]) -> int:

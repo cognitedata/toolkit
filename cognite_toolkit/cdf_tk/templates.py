@@ -494,7 +494,7 @@ def process_config_files(
                                         f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {dir}, python module is not loadable:\n{e}"
                                     )
                                     exit(1)
-                                destination = destination = build_dir / "functions" / f"{func.external_id}"
+                                destination = build_dir / "functions" / f"{func.external_id}"
                                 if destination.exists():
                                     print(f"        [bold yellow]ERROR:[/] Function {func.external_id} is duplicated.")
                                     exit(1)
