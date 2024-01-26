@@ -80,22 +80,24 @@ def run_function(ToolGlobals: CDFToolConfig, external_id: str, payload: str, fol
         if call_result is None:
             print("[bold red]ERROR:[/] Could not run function.")
             return False
-        table = Table(title=f"Function {external_id}, id {function.id}")
-        table.add_column("Info", justify="left")
-        table.add_column("Value", justify="left", style="green")
-        table.add_row("Call id", str(call_result.id))
-        table.add_row("Status", str(call_result.status))
-        table.add_row("Created time", str(datetime.datetime.fromtimestamp((call_result.start_time or 1000) / 1000)))
-        print(table)
     except Exception as e:
         print("[bold red]ERROR:[/] Could not run function.")
         print(e)
         return False
+    table = Table(title=f"Function {external_id}, id {function.id}")
+    table.add_column("Info", justify="left")
+    table.add_column("Value", justify="left", style="green")
+    table.add_row("Call id", str(call_result.id))
+    table.add_row("Status", str(call_result.status))
+    table.add_row("Created time", str(datetime.datetime.fromtimestamp((call_result.start_time or 1000) / 1000)))
+    print(table)
 
     if follow:
         print("Awaiting results from function call...")
         sleep_time = 1
-        while True:
+        total_time = 0
+        while True and total_time < 540:  # 9 minutes timeout in Azure
+            total_time += sleep_time
             time.sleep(sleep_time)
             sleep_time = min(sleep_time * 2, 60)
             call_result = ToolGlobals.client.functions.calls.retrieve(
