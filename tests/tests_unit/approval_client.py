@@ -420,12 +420,10 @@ class ApprovalCogniteClient:
         def upload_bytes_files_api(content: str | bytes | TextIO | BinaryIO, **kwargs) -> FileMetadata:
             if not isinstance(content, bytes):
                 raise NotImplementedError("Only bytes content is supported")
-            content_hash = int(hashlib.sha256(content).hexdigest(), 16)
 
             created_resources[resource_cls.__name__].append(
                 {
                     **kwargs,
-                    "content_hash": content_hash,
                 }
             )
             return FileMetadata.load({to_camel_case(k): v for k, v in kwargs.items()})

@@ -1,11 +1,9 @@
 FileMetadata:
-- content_hash: 22111171698259793178163799854648162677672601621519447341820395433496408966153
-  data_set_id: null
+- data_set_id: null
   external_id: fn_example_repeater
   name: fn_example_repeater.zip
   overwrite: true
-- content_hash: 22680258670567964474066165168328947158553118256166692253832004797823963921440
-  data_set_id: null
+- data_set_id: null
   external_id: test2
   name: test2.zip
   overwrite: true
