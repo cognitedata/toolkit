@@ -1,12 +1,11 @@
-Checking current service principal/application and environment 
-configurations...
+Checking current service principal/application and environment configurations...
   OK
 Checking basic project configuration...
   OK
 Checking projects that the service principal/application has access to...
   - pytest-project
 Focusing on current project pytest-project only from here on.
-Checking basic project and group manipulation access rights (projectsAcl: LIST,
+Checking basic project and group manipulation access rights (projectsAcl: LIST, 
 READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)...
   OK
 Checking identity provider settings...
@@ -16,15 +15,15 @@ identity provider: ['groups', 'roles']
 Checking CDF group memberships for the current client configured...
 CDF Group ids, Names, and Source
               Ids               
-┌──────┬───────────┬───────────┐
-│ Id   │ Name      │ Source Id │
-├──────┼───────────┼───────────┤
+┏━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Id   ┃ Name      ┃ Source Id ┃
+┡━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━┩
 │ None │ gp_test   │ source-id │
 │ None │ 2nd group │ source-id │
 └──────┴───────────┴───────────┘
   WARNING: This service principal/application gets its access rights from more 
 than one CDF group.
-           This is not recommended. The group matching the group config file is
+           This is not recommended. The group matching the group config file is 
 marked in bold above if it is present.
 ---------------------
 RECOMMENDATION:
@@ -44,3 +43,5 @@ Checking group config file against capabilities across ALL groups...
   OK - All capabilities from the CDF project are also present in the group 
 config file.
 ---------------------
+Checking function service status...
+  OK - Function service is activated.

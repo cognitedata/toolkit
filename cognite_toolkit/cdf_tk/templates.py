@@ -14,11 +14,17 @@ from typing import Any, Literal, cast, overload
 
 import pandas as pd
 import yaml
+from cognite.client._api.functions import validate_function_folder
+from cognite.client.data_classes.functions import FunctionList
 from rich import print
 
 from cognite_toolkit import _version
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader, ResourceLoader
-from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_config_yaml, validate_data_set_is_set
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
+from cognite_toolkit.cdf_tk.utils import (
+    validate_case_raw,
+    validate_config_yaml,
+    validate_data_set_is_set,
+)
 
 # This is the default config located locally in each module.
 DEFAULT_CONFIG_FILE = "default.config.yaml"
@@ -271,6 +277,20 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
     elif resource_type in ["data_sets", "timeseries", "files"] and isinstance(parsed, list):
         ext_id = ""
         ext_id_type = "multiple"
+    elif resource_type in ["functions"] and "schedule" in filepath_src.stem:
+        if isinstance(parsed, list):
+            ext_id = ""
+            ext_id_type = "multiple"
+        elif isinstance(parsed, dict):
+            ext_id = parsed.get("functionExternalId") or parsed.get("function_external_id")
+            ext_id_type = "functionExternalId"
+    elif resource_type in ["functions"]:
+        if isinstance(parsed, list):
+            ext_id = ""
+            ext_id_type = "multiple"
+        elif isinstance(parsed, dict):
+            ext_id = parsed.get("externalId") or parsed.get("external_id")
+            ext_id_type = "externalId"
     elif resource_type == "raw":
         if isinstance(parsed, list):
             ext_id = ""
@@ -441,6 +461,57 @@ def process_config_files(
                 destination.write_text(content)
 
             validate(content, destination, filepath, modules_by_variables)
+
+            # If we have a functions definition, we want to process the directory.
+            if (
+                "functions" in filepath.parent.name
+                and filepath.suffix.lower() == ".yaml"
+                and re.match(FunctionLoader.filename_pattern, filepath.stem)
+            ):
+                try:
+                    functions = FunctionList.load(yaml.safe_load(destination.read_text()))
+                except KeyError as e:
+                    print(f"      [bold red]ERROR:[/] Failed to load function file {filepath}, error in key: {e}")
+                    exit(1)
+                except Exception as e:
+                    print(f"      [bold red]ERROR:[/] Failed to load function file {filepath}, error:\n{e}")
+                    exit(1)
+                for func in functions:
+                    found = False
+                    for function_subdirs in iterate_functions(module_dir):
+                        for dir in function_subdirs:
+                            if func.external_id == dir.name:
+                                found = True
+                                print(f"      [bold green]INFO:[/] Found function {func.external_id}")
+                                if func.file_id != "will_be_generated":
+                                    print(
+                                        f"        [bold yellow]WARNING:[/] Function {func.external_id} in {filepath} has set a file_id. Expects 'will_be_generated' and this will be ignored."
+                                    )
+                                try:
+                                    validate_function_folder(
+                                        root_path=dir.as_posix(),
+                                        function_path=func.function_path,
+                                        skip_folder_validation=False,
+                                    )
+                                except Exception as e:
+                                    print(
+                                        f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {dir}, python module is not loadable:\n{e}"
+                                    )
+                                    exit(1)
+                                destination = build_dir / "functions" / f"{func.external_id}"
+                                if destination.exists():
+                                    print(f"        [bold yellow]ERROR:[/] Function {func.external_id} is duplicated.")
+                                    exit(1)
+                                shutil.copytree(dir, destination)
+                                for subdir in destination.iterdir():
+                                    if subdir.is_dir():
+                                        shutil.rmtree(subdir / "__pycache__", ignore_errors=True)
+                                shutil.rmtree(destination / "__pycache__", ignore_errors=True)
+                    if not found:
+                        print(
+                            f"        [bold red]ERROR:[/] Function directory not found for externalId {func.external_id} defined in {filepath}."
+                        )
+                        exit(1)
 
 
 def build_config(
@@ -773,7 +844,18 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
                 path
                 for path in module_dir.rglob("*")
                 if path.is_file() and path.name not in EXCL_FILES and path.parent != module_dir
+                # Exclude files that are found in subdirs of functions dir (i.e. function code)
+                and "functions" not in path.parent.parent.parts
             ]
+
+
+def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
+    for function_dir in module_dir.glob("**/functions"):
+        if not function_dir.is_dir():
+            continue
+        function_directories = [path for path in function_dir.iterdir() if path.is_dir()]
+        if function_directories:
+            yield function_directories
 
 
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
@@ -867,7 +949,12 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
         if len(loaders) == 1:
             loader = loaders[0]
         else:
-            loader = next((loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)), None)
+            try:
+                loader = next(
+                    (loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)), None
+                )
+            except Exception as e:
+                raise NotImplementedError(f"Loader not found for {source_path}\n{e}")
 
         if loader is None:
             print(
