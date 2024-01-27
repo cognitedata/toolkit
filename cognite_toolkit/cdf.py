@@ -809,22 +809,15 @@ def main_init(
         config_yamls.load_default_variables(template_source)
         config_yamls.load_variables(template_source)
 
-    print(f"Loaded variables from {len(config_yamls)} environments: {list(config_yamls.keys())}")
-
     for environment, config_yaml in config_yamls.items():
         config_filepath = project_dir / f"config.{environment}.yaml"
-        print(f"Loaded config for environment {environment}:")
-        print(str(config_yaml))
-        if ctx.obj.verbose and upgrade:
-            # If we are not upgrading, all variables are added.
-            for added in config_yaml.added:
-                print(f"  [bold green]ADDED:[/] {added}")
-
+        if not upgrade:
+            print(f"Created config for {environment!r} environment.")
         if dry_run:
-            print(f"Would write {config_filepath.name} to {target_dir_display}")
+            print(f"Would write {config_filepath.name!r} to {target_dir_display}")
         else:
             config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-            print(f"Wrote {config_filepath.name} file to {target_dir_display}")
+            print(f"Wrote {config_filepath.name!r} file to {target_dir_display}")
 
 
 @describe_app.callback(invoke_without_command=True)
