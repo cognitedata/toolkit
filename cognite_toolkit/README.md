@@ -1,6 +1,6 @@
 # <MY_PROJECT>
 
-This directory contains the configuration files for <MY_PROJECT> CDF project.
+This directory contains the configuration files for CDF project <MY_PROJECT>.
 
 Check all the files in this directory into Git.
 

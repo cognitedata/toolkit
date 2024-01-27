@@ -750,7 +750,11 @@ def main_init(
         if ctx.obj.verbose:
             print(f"{copy_prefix} file {filename} to {target_dir_display}")
         if not dry_run:
-            shutil.copyfile(template_source / filename, project_dir / filename)
+            if filename == "README.md":
+                content = (template_source / filename).read_text().replace("<MY_PROJECT>", init_dir)
+                (project_dir / filename).write_text(content)
+            else:
+                shutil.copyfile(template_source / filename, project_dir / filename)
 
     if upgrade and not no_backup:
         prefix = "Would have backed up" if dry_run else "Backing up"
