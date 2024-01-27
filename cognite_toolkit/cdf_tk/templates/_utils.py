@@ -33,4 +33,15 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
                 path
                 for path in module_dir.rglob("*")
                 if path.is_file() and path.name not in EXCL_FILES and path.parent != module_dir
+                # Exclude files that are found in subdirs of functions dir (i.e. function code)
+                and "functions" not in path.parent.parent.parts
             ]
+
+
+def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
+    for function_dir in module_dir.glob("**/functions"):
+        if not function_dir.is_dir():
+            continue
+        function_directories = [path for path in function_dir.iterdir() if path.is_dir()]
+        if function_directories:
+            yield function_directories
