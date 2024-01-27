@@ -5,7 +5,6 @@ import yaml
 from cognite.client.data_classes import Transformation
 from pytest import MonkeyPatch
 
-from cognite_toolkit import _version
 from cognite_toolkit.cdf import build, deploy
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
@@ -20,20 +19,14 @@ def test_inject_custom_environmental_variables(
     typer_context: typer.Context,
     init_project: Path,
 ) -> None:
-    config_yaml = yaml.safe_load((init_project / "config.yaml").read_text())
-    config_yaml["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
+    config_yaml = yaml.safe_load((init_project / "config.dev.yaml").read_text())
+    config_yaml["modules"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
+    # Selecting a module with a transformation that uses the cicd_clientId variable
+    config_yaml["environment"]["selected_modules_and_packages"] = ["cdf_infield_location"]
+    config_yaml["environment"]["project"] = "pytest"
     mock_read_yaml_file(
         {
-            "environments.yaml": {
-                "dev": {
-                    "project": "pytest",
-                    "type": "dev",
-                    # Selecting a module with a transformation that uses the cicd_clientId variable
-                    "deploy": ["cdf_infield_location"],
-                },
-                "__system": {"cdf_toolkit_version": _version.__version__},
-            },
-            "config.yaml": config_yaml,
+            "config.dev.yaml": config_yaml,
         },
         monkeypatch,
     )

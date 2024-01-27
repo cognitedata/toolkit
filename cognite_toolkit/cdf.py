@@ -33,15 +33,12 @@ from cognite_toolkit.cdf_tk.run import run_function, run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
-    CONFIG_FILE,
     CUSTOM_MODULES,
-    ENVIRONMENTS_FILE,
-    BuildEnvironment,
-    ConfigYAML,
     build_config,
-    read_yaml_file,
+    iterate_modules,
 )
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, BuildEnvironment, ConfigYAMLs, SystemConfig
+from cognite_toolkit.cdf_tk.utils import CDFToolConfig, read_yaml_file
 
 if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
     sentry_sdk.init(
@@ -215,33 +212,21 @@ def build(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    sourced_environment_file = source_path / ENVIRONMENTS_FILE
-    environment_file = (
-        sourced_environment_file if sourced_environment_file.is_file() else Path.cwd() / ENVIRONMENTS_FILE
-    )
-    if not environment_file.is_file() and not (environment_file := source_path / ENVIRONMENTS_FILE).is_file():
-        print(f"  [bold red]ERROR:[/] {environment_file} does not exist")
-        exit(1)
-    sourced_config_file = source_path / CONFIG_FILE
-    config_file = sourced_config_file if sourced_config_file.is_file() else Path.cwd() / Path(CONFIG_FILE)
-    if not config_file.is_file() and not (config_file := source_path / Path(CONFIG_FILE)).is_file():
-        print(f"  [bold red]ERROR:[/] {config_file} does not exist")
-        exit(1)
+    system_config = SystemConfig.load_from_directory(source_path / COGNITE_MODULES, build_env)
+    config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(
         Panel(
             f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_path!s} as sources...[/bold]"
-            f"\n[bold]Environment file:[/] {environment_file.absolute()!s} and [bold]config file:[/] {config_file.absolute()!s}"
+            f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}'"
         )
     )
-    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
-    build_ = BuildEnvironment.load(read_yaml_file(environment_file), build_env, "build")
-    build_.set_environment_variables()
+    config.set_environment_variables()
 
     build_config(
         build_dir=Path(build_dir),
         source_dir=source_path,
-        config_file=config_file,
-        build=build_,
+        config=config,
+        system_config=system_config,
         clean=clean,
         verbose=ctx.obj.verbose,
     )
@@ -679,7 +664,7 @@ def main_init(
             help="Will upgrade templates in place without overwriting existing config.yaml and other files.",
         ),
     ] = False,
-    git: Annotated[
+    git_branch: Annotated[
         Optional[str],
         typer.Option(
             "--git",
@@ -709,129 +694,130 @@ def main_init(
     ] = "new_project",
 ) -> None:
     """Initialize or upgrade a new CDF project with templates."""
+    project_dir = Path.cwd() / f"{init_dir}"
 
-    files_to_copy: list[str] = []
-    dirs_to_copy: list[str] = []
-    if not upgrade:
-        files_to_copy.extend(
-            [
-                "environments.yaml",
-                "README.md",
-                ".gitignore",
-                ".env.tmpl",
-            ]
-        )
-        dirs_to_copy.append(CUSTOM_MODULES)
-    module_dirs_to_copy = [
-        COGNITE_MODULES,
+    target_dir_display = f"'{project_dir.relative_to(Path.cwd())!s}'"
+
+    template_source = Path(resources.files("cognite_toolkit"))  # type: ignore[arg-type]
+    if upgrade and git_branch is not None:
+        template_source = _download_templates(git_branch, dry_run)
+
+    files_to_copy: list[str] = [
+        "README.md",
+        ".gitignore",
+        ".env.tmpl",
     ]
-    template_dir = cast(Path, resources.files("cognite_toolkit"))
-    target_dir = Path.cwd() / f"{init_dir}"
-    if target_dir.exists():
-        if not upgrade:
-            if clean:
-                if dry_run:
-                    print(f"Would clean out directory {target_dir}...")
-                else:
-                    print(f"Cleaning out directory {target_dir}...")
-                    shutil.rmtree(target_dir)
-            else:
-                print(f"Directory {target_dir} already exists.")
-                exit(1)
+    root_modules: list[str] = [
+        COGNITE_MODULES,
+        CUSTOM_MODULES,
+    ]
+
+    if project_dir.exists():
+        if upgrade:
+            print(f"[bold]Upgrading directory {target_dir_display}...[/b]")
+        elif clean and dry_run:
+            print(f"Would clean out directory {target_dir_display}...")
+        elif clean:
+            print(f"Cleaning out directory {target_dir_display}...")
+            shutil.rmtree(project_dir)
         else:
-            print(f"[bold]Upgrading directory {target_dir}...[/b]")
-    elif upgrade:
-        print(f"Found no directory {target_dir} to upgrade.")
+            print(f"Directory {target_dir_display} already exists.")
+            exit(1)
+    elif not project_dir.exists() and upgrade:
+        print(f"Found no directory {target_dir_display} to upgrade.")
         exit(1)
+
     if not dry_run and not upgrade:
-        target_dir.mkdir(exist_ok=True)
+        project_dir.mkdir(exist_ok=True)
+
     if upgrade:
         print("  Will upgrade modules and files in place.")
-    print(f"Will copy these files to {target_dir}:")
+
+    copy_prefix = "Would" if dry_run else "Will"
+    print(f"{copy_prefix} copy these files to {target_dir_display}:")
     print(files_to_copy)
-    print(f"Will copy these module directories to {target_dir}:")
-    print(module_dirs_to_copy)
-    print(f"Will copy these directories to {target_dir}:")
-    print(dirs_to_copy)
-    extract_dir = None
-    if upgrade and git is not None:
-        toolkit_github_url = f"https://github.com/cognitedata/cdf-project-templates/archive/refs/heads/{git}.zip"
-        extract_dir = tempfile.mkdtemp(prefix="git.", suffix=".tmp", dir=Path.cwd())
-        print(f"Upgrading templates from https://github.com/cognitedata/cdf-project-templates, branch {git}...")
-        print(
-            "  [bold yellow]WARNING:[/] You are only upgrading templates, not the cdf-tk tool. Your current version may not support the new templates."
-        )
-        if not dry_run:
-            try:
-                zip_path, _ = urllib.request.urlretrieve(toolkit_github_url)
-                with zipfile.ZipFile(zip_path, "r") as f:
-                    f.extractall(extract_dir)
-            except Exception:
-                print(
-                    f"Failed to download templates. Are you sure that the branch {git} exists in"
-                    + "the https://github.com/cognitedata/cdf-project-templatesrepository?\n{e}"
-                )
-                exit(1)
-        template_dir = Path(extract_dir) / f"cdf-project-templates-{git}" / "cognite_toolkit"
-    for filepath in files_to_copy:
-        if dry_run and ctx.obj.verbose:
-            print("Would copy file", filepath, "to", target_dir)
-        elif not dry_run:
-            if ctx.obj.verbose:
-                print("Copying file", filepath, "to", target_dir)
-            shutil.copyfile(Path(template_dir) / filepath, target_dir / filepath)
-    for d in dirs_to_copy:
-        if dry_run and ctx.obj.verbose:
-            if upgrade:
-                print("Would copy and overwrite directory", d, "to", target_dir)
-            else:
-                print("Would copy directory", d, "to", target_dir)
-        elif not dry_run:
-            if ctx.obj.verbose:
-                print("Copying directory", d, "to", target_dir)
-            shutil.copytree(Path(template_dir) / d, target_dir / d, dirs_exist_ok=True)
-    if upgrade and not no_backup:
-        if dry_run:
-            if ctx.obj.verbose:
-                print(f"Would have backed up {target_dir}")
-        else:
-            backup_dir = tempfile.mkdtemp(prefix=f"{target_dir.name}.", suffix=".bck", dir=Path.cwd())
-            if ctx.obj.verbose:
-                print(f"Backing up {target_dir} to {backup_dir}...")
-            shutil.copytree(Path(target_dir), Path(backup_dir), dirs_exist_ok=True)
-    elif upgrade:
-        print("[bold yellow]WARNING:[/] --no-backup is specified, no backup will be made.")
-    for d in module_dirs_to_copy:
-        if not dry_run:
-            (Path(target_dir) / d).mkdir(exist_ok=True)
+    modules_by_root: dict[str, list[str]] = {}
+    for root_module in root_modules:
+        modules_by_root[root_module] = [
+            f"{module.relative_to(template_source)!s}" for module, _ in iterate_modules(template_source / root_module)
+        ]
+
+        print(f"{copy_prefix} copy these modules to {target_dir_display} from {root_module}:")
+        print(modules_by_root[root_module])
+
+    copy_prefix = "Would copy" if dry_run else "Copying"
+    for filename in files_to_copy:
         if ctx.obj.verbose:
-            if dry_run:
-                print(f"Would have copied modules in {d}")
-            else:
-                print(f"Copying modules in {d}...")
+            print(f"{copy_prefix} file {filename} to {target_dir_display}")
         if not dry_run:
-            shutil.copytree(Path(template_dir / d), target_dir / d, dirs_exist_ok=True)
-    if extract_dir is not None:
-        shutil.rmtree(extract_dir)
-    if not dry_run:
-        if upgrade:
-            print(f"You project in {target_dir} was upgraded.")
+            if filename == "README.md":
+                content = (template_source / filename).read_text().replace("<MY_PROJECT>", init_dir)
+                (project_dir / filename).write_text(content)
+            else:
+                shutil.copyfile(template_source / filename, project_dir / filename)
+
+    if upgrade and not no_backup:
+        prefix = "Would have backed up" if dry_run else "Backing up"
+        if ctx.obj.verbose:
+            print(f"{prefix} {target_dir_display}")
+        if not dry_run:
+            backup_dir = tempfile.mkdtemp(prefix=f"{project_dir.name}.", suffix=".bck", dir=Path.cwd())
+            shutil.copytree(project_dir, Path(backup_dir), dirs_exist_ok=True)
+    elif upgrade:
+        print(
+            f"[bold yellow]WARNING:[/] --no-backup is specified, no backup {'would have been' if dry_run else 'will be'} be."
+        )
+
+    for root_module in root_modules:
+        if ctx.obj.verbose:
+            print(f"{copy_prefix} the following modules from  {root_module} to {target_dir_display}")
+            print(modules_by_root[root_module])
+        if not dry_run:
+            (Path(project_dir) / root_module).mkdir(exist_ok=True)
+            # Default files are not copied, as they are only used to setup the config.yaml.
+            shutil.copytree(
+                template_source / root_module,
+                project_dir / root_module,
+                dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns("default.*"),
+            )
+
+    if not dry_run and upgrade:
+        print(f"You project in {target_dir_display} was upgraded.")
+    elif not dry_run:
+        print(f"A new project was created in {target_dir_display}.")
+
+    # Creating the config.[environment].yaml files
+    environment_default = template_source / COGNITE_MODULES / "default.environments.yaml"
+    if not environment_default.is_file():
+        print(
+            f"  [bold red]ERROR:[/] Could not find default.environments.yaml in {environment_default.parent.relative_to(Path.cwd())!s}. "
+            f"There is something wrong with your installation, try to reinstall `cognite-tk`, and if the problem persists, please contact support."
+        )
+        exit(1)
+    if upgrade and not clean:
+        existing_environments = list(project_dir.glob("config.*.yaml"))
+        if len(existing_environments) >= 1:
+            config_yamls = ConfigYAMLs.load_existing_environments(existing_environments)
         else:
-            print(f"A new project was created in {target_dir}.")
-    config_filepath = target_dir / "config.yaml"
-    if not dry_run:
-        if clean or not config_filepath.exists():
-            config_yaml = ConfigYAML.load(target_dir)
-            config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-            print(f"Created your config.yaml file in {target_dir}.")
+            print("  [bold yellow]WARNING:[/] No existing config.[env].yaml files found, creating from the defaults.")
+            config_yamls = ConfigYAMLs.load_default_environments(read_yaml_file(environment_default))
+    else:
+        config_yamls = ConfigYAMLs.load_default_environments(read_yaml_file(environment_default))
+
+    if not upgrade:
+        config_yamls.load_default_variables(template_source)
+        config_yamls.load_variables(template_source)
+
+    for environment, config_yaml in config_yamls.items():
+        config_filepath = project_dir / f"config.{environment}.yaml"
+        if not upgrade:
+            print(f"Created config for {environment!r} environment.")
+        if dry_run:
+            print(f"Would write {config_filepath.name!r} to {target_dir_display}")
         else:
-            current = config_filepath.read_text()
-            config_yaml = ConfigYAML.load(target_dir, existing_config_yaml=current)
             config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-            print(str(config_yaml))
-            if ctx.obj.verbose:
-                for added in config_yaml.added:
-                    print(f"  [bold green]ADDED:[/] {added}")
+            print(f"Wrote {config_filepath.name!r} file to {target_dir_display}")
 
 
 @describe_app.callback(invoke_without_command=True)
@@ -974,6 +960,29 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
         except ValueError:
             print(f"Invalid selection: {answer}")
             exit(1)
+
+
+def _download_templates(git_branch: str, dry_run: bool) -> Path:
+    toolkit_github_url = f"https://github.com/cognitedata/cdf-project-templates/archive/refs/heads/{git_branch}.zip"
+    extract_dir = tempfile.mkdtemp(prefix="git.", suffix=".tmp", dir=Path.cwd())
+    prefix = "Would download" if dry_run else "Downloading"
+    print(f"{prefix} templates from https://github.com/cognitedata/cdf-project-templates, branch {git_branch}...")
+    print(
+        "  [bold yellow]WARNING:[/] You are only upgrading templates, not the cdf-tk tool. "
+        "Your current version may not support the new templates."
+    )
+    if not dry_run:
+        try:
+            zip_path, _ = urllib.request.urlretrieve(toolkit_github_url)
+            with zipfile.ZipFile(zip_path, "r") as f:
+                f.extractall(extract_dir)
+        except Exception:
+            print(
+                f"Failed to download templates. Are you sure that the branch {git_branch} exists in"
+                + "the https://github.com/cognitedata/cdf-project-templatesrepository?\n{e}"
+            )
+            exit(1)
+    return Path(extract_dir) / f"cdf-project-templates-{git_branch}" / "cognite_toolkit"
 
 
 if __name__ == "__main__":

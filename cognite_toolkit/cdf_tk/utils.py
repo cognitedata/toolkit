@@ -464,6 +464,37 @@ def load_yaml_inject_variables(
         raise ValueError(f"Unknown required_return_type {required_return_type}")
 
 
+@overload
+def read_yaml_file(filepath: Path, expected_output: Literal["dict"] = "dict") -> dict[str, Any]:
+    ...
+
+
+@overload
+def read_yaml_file(filepath: Path, expected_output: Literal["list"]) -> list[dict[str, Any]]:
+    ...
+
+
+def read_yaml_file(
+    filepath: Path, expected_output: Literal["list", "dict"] = "dict"
+) -> dict[str, Any] | list[dict[str, Any]]:
+    """Read a YAML file and return a dictionary
+
+    filepath: path to the YAML file
+    """
+    try:
+        config_data = yaml.safe_load(filepath.read_text())
+    except yaml.YAMLError as e:
+        print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
+        return {}
+    if expected_output == "list" and isinstance(config_data, dict):
+        print(f"  [bold red]ERROR:[/] {filepath} is not a list")
+        exit(1)
+    elif expected_output == "dict" and isinstance(config_data, list):
+        print(f"  [bold red]ERROR:[/] {filepath} is not a dict")
+        exit(1)
+    return config_data
+
+
 @dataclass(frozen=True)
 class LoadWarning:
     _type: ClassVar[str]
@@ -698,7 +729,7 @@ def _validate_case_raw(
     return warnings
 
 
-def validate_config_yaml(config: dict[str, Any], filepath: Path, path: str = "") -> TemplateVariableWarningList:
+def validate_modules_variables(config: dict[str, Any], filepath: Path, path: str = "") -> TemplateVariableWarningList:
     """Checks whether the config file has any issues.
 
     Currently, this checks for:
@@ -717,7 +748,7 @@ def validate_config_yaml(config: dict[str, Any], filepath: Path, path: str = "")
         elif isinstance(value, dict):
             if path:
                 path += "."
-            warnings.extend(validate_config_yaml(value, filepath, f"{path}{key}"))
+            warnings.extend(validate_modules_variables(value, filepath, f"{path}{key}"))
     return warnings
 
 
