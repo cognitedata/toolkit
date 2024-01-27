@@ -81,7 +81,7 @@ def test_deploy_module_approval(
     not_mocked = cognite_client_approval.not_mocked_calls()
     assert not not_mocked, (
         f"The following APIs have been called without being mocked: {not_mocked}, "
-        "Please update the list _API_RESOURCES in tests/conftest.py"
+        "Please update the list _API_RESOURCES in tests/approval_client.py"
     )
 
     dump = cognite_client_approval.dump()
@@ -173,7 +173,7 @@ def test_clean_module_approval(
     not_mocked = cognite_client_approval.not_mocked_calls()
     assert not not_mocked, (
         f"The following APIs have been called without being mocked: {not_mocked}, "
-        "Please update the list _API_RESOURCES in tests/conftest.py"
+        "Please update the list _API_RESOURCES in tests/approval_client.py"
     )
     dump = cognite_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR_CLEAN / f"{module_path.name}.yaml")

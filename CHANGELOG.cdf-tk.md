@@ -52,6 +52,10 @@ dbName: myRawRawDatabase
 tableName: myRawTable
 ```
 
+- Added support for loading functions. Example of a function can be found in `cognite_modules/example/cdf_functions_dummy`.
+- Added support for new command, `run function` that runs a function with a one-shot session created using currently
+  configured credentials for cdf-tk.
+
 ### Changed
 
 - Update is implemented for all resources. This means that if a resource already exists and is exactly the same as
