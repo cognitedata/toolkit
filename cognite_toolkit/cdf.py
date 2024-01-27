@@ -807,6 +807,7 @@ def main_init(
 
     if not upgrade:
         config_yamls.load_default_variables(template_source)
+        config_yamls.load_variables(template_source)
 
     print(f"Loaded variables from {len(config_yamls)} environments: {list(config_yamls.keys())}")
 
