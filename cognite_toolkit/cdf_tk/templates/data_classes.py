@@ -75,8 +75,14 @@ class SystemConfig(ConfigCore):
             packages=packages,
         )
 
-    def validate_modules(self, available_modules: set[str]) -> None:
+    def validate_modules(self, available_modules: set[str], selected_modules_and_packages: list[str]) -> None:
+        selected_packages = {package for package in selected_modules_and_packages if package in self.packages}
         for package, modules in self.packages.items():
+            if package not in selected_packages:
+                # We do not check packages that are not selected.
+                # Typically, the user will delete the modules that are irrelevant for them,
+                # thus we only check the selected packages.
+                continue
             if missing := set(modules) - available_modules:
                 print(
                     f"  [bold red]ERROR:[/] Package {package} defined in {self.filepath.name!s} is referring "

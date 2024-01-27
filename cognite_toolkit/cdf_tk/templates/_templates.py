@@ -46,7 +46,7 @@ def build_config(
     config.validate_environment()
 
     available_modules = {module.name for module, _ in iterate_modules(source_dir)}
-    system_config.validate_modules(available_modules)
+    system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
 
