@@ -1,5 +1,5 @@
 from datetime import datetime
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 from cognite.client.data_classes.functions import Function
 from cognite.client.data_classes.transformations import Transformation
@@ -14,9 +14,7 @@ def test_get_oneshot_session(cognite_client_approval: ApprovalCogniteClient):
     cdf_tool.client = cognite_client_approval.mock_client
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
     cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
-    cdf_tool.oauth_credentials = Mock()
-    cdf_tool.oauth_credentials.authorization_header.return_value = ("Bearer", "123")
-    session = get_oneshot_session(ToolGlobals=cdf_tool)
+    session = get_oneshot_session(cdf_tool.client)
     assert session.id == 5192234284402249
     assert session.nonce == "QhlCnImCBwBNc72N"
     assert session.status == "READY"
@@ -28,8 +26,6 @@ def test_run_transformation(cognite_client_approval: ApprovalCogniteClient):
     cdf_tool.client = cognite_client_approval.mock_client
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
     cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
-    cdf_tool.oauth_credentials = Mock()
-    cdf_tool.oauth_credentials.authorization_header.return_value = ("Bearer", "123")
     transformation = Transformation(
         name="Test transformation",
         external_id="test",
@@ -45,8 +41,6 @@ def test_run_function(cognite_client_approval: ApprovalCogniteClient):
     cdf_tool.client = cognite_client_approval.mock_client
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
     cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
-    cdf_tool.oauth_credentials = Mock()
-    cdf_tool.oauth_credentials.authorization_header.return_value = ("Bearer", "123")
     function = Function(
         id=1234567890,
         name="Test function",

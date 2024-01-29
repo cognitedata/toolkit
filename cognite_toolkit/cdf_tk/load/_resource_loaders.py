@@ -73,6 +73,7 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     GroupsAcl,
     RawAcl,
+    SessionsAcl,
     TimeSeriesAcl,
     TransformationsAcl,
 )
@@ -407,6 +408,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
         if self.build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
+        # If the function failed, we want to always trigger a redeploy.
+        if cdf_resource.status == "Failed":
+            return False
         function_rootdir = Path(self.build_path / f"{local.external_id}")
         if local.metadata is None:
             local.metadata = {}
@@ -550,8 +554,13 @@ class FunctionScheduleLoader(
         self.extra_configs: dict[str, Any] = {}
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        return FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All())
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+        return [
+            FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
+            SessionsAcl(
+                [SessionsAcl.Action.List, SessionsAcl.Action.Create, SessionsAcl.Action.Delete], SessionsAcl.Scope.All()
+            ),
+        ]
 
     @classmethod
     def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule) -> str:
@@ -582,7 +591,6 @@ class FunctionScheduleLoader(
             for func in functions:
                 if func.external_id == item.function_external_id:
                     item.function_id = func.id
-                    # item.function_external_id = None
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
@@ -611,26 +619,31 @@ class FunctionScheduleLoader(
                     scopes=old_credentials.scopes,
                     token_url=old_credentials.token_url,
                 )
-                session = get_oneshot_session(client=new_tool_config.client)
+                session = get_oneshot_session(new_tool_config.client)
             else:
-                session = get_oneshot_session(client=self.client)
+                session = get_oneshot_session(self.client)
             nonce = session.nonce if session is not None else ""
-            ret = self.client.post(
-                url=f"/api/v1/projects/{self.client.config.project}/functions/schedules",
-                json={
-                    "items": [
-                        {
-                            "name": item.name,
-                            "description": item.description,
-                            "cronExpression": item.cron_expression,
-                            "functionId": item.function_id,
-                            "data": item.data,
-                            "nonce": nonce,
-                        }
-                    ],
-                },
-                headers={"Authorization": bearer},
-            )
+            try:
+                ret = self.client.post(
+                    url=f"/api/v1/projects/{self.client.config.project}/functions/schedules",
+                    json={
+                        "items": [
+                            {
+                                "name": item.name,
+                                "description": item.description,
+                                "cronExpression": item.cron_expression,
+                                "functionId": item.function_id,
+                                "data": item.data,
+                                "nonce": nonce,
+                            }
+                        ],
+                    },
+                    headers={"Authorization": bearer},
+                )
+            except CogniteAPIError as e:
+                if e.code == 400 and "Failed to bind session" in e.message:
+                    print("  [bold yellow]WARNING:[/] Failed to bind session because function is not ready.")
+                continue
             if ret.status_code == 201:
                 created.append(FunctionSchedule.load(ret.json()["items"][0]))
         return created
