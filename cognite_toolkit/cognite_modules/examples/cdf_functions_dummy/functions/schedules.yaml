@@ -6,6 +6,11 @@
     breakfast: "today: peanut butter sandwich and coffee"
     lunch: "today: greek salad and water"
     dinner: "today: steak and red wine"
+  extraConfigs:
+    # Credentials to use to run the function in this schedule.
+    credentials:
+      clientId: ${IDP_CLIENT_ID}
+      clientSecret: ${IDP_CLIENT_SECRET}
 - name: "daily-8pm-utc"
   functionExternalId: 'fn_example_repeater'
   description: "Run every day at 8pm UTC"
@@ -14,3 +19,8 @@
     breakfast: "tomorrow: peanut butter sandwich and coffee"
     lunch: "tomorrow: greek salad and water"
     dinner: "tomorrow: steak and red wine"
+  extraConfigs:
+    # Credentials to use to run the function in this schedule.
+    credentials:
+      clientId: ${IDP_CLIENT_ID}
+      clientSecret: ${IDP_CLIENT_SECRET}

@@ -19,10 +19,11 @@
   #memory: 1
   runtime: 'py311'
   functionPath: './src/handler.py'
-  # The configurations below are used when building and deploying the function, but does not have an API
+  # The extraConfigs below are used when building and deploying the function, but does not have an API
   # corresponding support like the main config file.
-  skip_folder_validation: False
-  data_set_id: 'ds_{{example_data_set_id}}'
+  extraConfigs:
+    # Data set id for the zip file with the code that is uploaded.
+    externalDataSetId: 'ds_files_{{default_location}}'
 - name: 'test2'
   externalId: 'test2'
   fileId: will_be_generated
