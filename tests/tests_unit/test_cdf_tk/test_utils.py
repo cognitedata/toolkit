@@ -27,8 +27,8 @@ from cognite_toolkit.cdf_tk.utils import (
     calculate_directory_hash,
     load_yaml_inject_variables,
     validate_case_raw,
-    validate_config_yaml,
     validate_data_set_is_set,
+    validate_modules_variables,
 )
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -139,7 +139,7 @@ def test_validate_raw_nested() -> None:
     ],
 )
 def test_validate_config_yaml(config_yaml: dict[str, Any], expected_warnings: list[TemplateVariableWarning]) -> None:
-    warnings = validate_config_yaml(config_yaml, Path("config.yaml"))
+    warnings = validate_modules_variables(config_yaml, Path("config.yaml"))
 
     assert sorted(warnings) == sorted(expected_warnings)
 

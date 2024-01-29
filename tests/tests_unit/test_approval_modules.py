@@ -13,7 +13,6 @@ import pytest
 import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit import _version
 from cognite_toolkit.cdf import build, clean, deploy, main_init
 from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, iterate_modules
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -35,12 +34,17 @@ def find_all_modules() -> Iterator[Path]:
 def mock_environments_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> None:
     return mock_read_yaml_file(
         {
-            "environments.yaml": {
-                "dev": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]},
-                "__system": {"cdf_toolkit_version": _version.__version__},
+            "config.dev.yaml": {
+                "environment": {
+                    "name": "dev",
+                    "project": "pytest-project",
+                    "type": "dev",
+                    "selected_modules_and_packages": [module_path.name],
+                }
             }
         },
         monkeypatch,
+        modify=True,
     )
 
 
@@ -144,7 +148,7 @@ def test_clean_module_approval(
         typer_context,
         dry_run=False,
         upgrade=False,
-        git=None,
+        git_branch=None,
         init_dir=str(local_tmp_project_path),
         no_backup=True,
         clean=True,

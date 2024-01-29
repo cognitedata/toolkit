@@ -282,3 +282,4 @@ config.yaml
 demo_project/
 tests/tests_unit/pytest-project/
 my_project/
+*.bck
