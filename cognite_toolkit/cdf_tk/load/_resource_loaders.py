@@ -72,6 +72,7 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     GroupsAcl,
     RawAcl,
+    SessionsAcl,
     TimeSeriesAcl,
     TransformationsAcl,
 )
@@ -388,6 +389,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
         if self.build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
+        # If the function failed, we want to always trigger a redeploy.
+        if cdf_resource.status == "Failed":
+            return False
         function_rootdir = Path(self.build_path / f"{local.external_id}")
         if local.metadata is None:
             local.metadata = {}
@@ -528,8 +532,13 @@ class FunctionScheduleLoader(
     dependencies = frozenset({FunctionLoader})
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        return FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All())
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+        return [
+            FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
+            SessionsAcl(
+                [SessionsAcl.Action.List, SessionsAcl.Action.Create, SessionsAcl.Action.Delete], SessionsAcl.Scope.All()
+            ),
+        ]
 
     @classmethod
     def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule) -> str:
@@ -570,7 +579,7 @@ class FunctionScheduleLoader(
         items = self._resolve_functions_ext_id(items)
         (_, bearer) = self.client.config.credentials.authorization_header()
         created = FunctionSchedulesList([])
-        session = get_oneshot_session(client=self.client)
+        session = get_oneshot_session(self.client)
         nonce = session.nonce if session is not None else ""
         for item in items:
             try:

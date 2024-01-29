@@ -808,23 +808,11 @@ def calculate_directory_hash(directory: Path) -> str:
     return sha256_hash.hexdigest()
 
 
-def get_oneshot_session(
-    ToolGlobals: CDFToolConfig | None = None, client: CogniteClient | None = None
-) -> CreatedSession | None:
+def get_oneshot_session(client: CogniteClient) -> CreatedSession | None:
     """Get a oneshot (use once) session for execution in CDF"""
-    if client is None and ToolGlobals is None:
-        return None
-    # To satsify mypy
-    my_client: CogniteClient = (
-        ToolGlobals.client if client is None and ToolGlobals is not None and ToolGlobals.client is not None else client
-    ) or CogniteClient()
-    if ToolGlobals is not None:
-        ToolGlobals.verify_client(capabilities={"sessionsAcl": ["LIST", "CREATE", "DELETE"]})
-        (_, bearer) = ToolGlobals.oauth_credentials.authorization_header()
-    else:
-        (_, bearer) = my_client.config.credentials.authorization_header()
-    ret = my_client.post(
-        url=f"/api/v1/projects/{my_client.config.project}/sessions",
+    (_, bearer) = client.config.credentials.authorization_header()
+    ret = client.post(
+        url=f"/api/v1/projects/{client.config.project}/sessions",
         json={
             "items": [
                 {
