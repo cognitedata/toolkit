@@ -554,7 +554,6 @@ class FunctionScheduleLoader(
             for func in functions:
                 if func.external_id == item.function_external_id:
                     item.function_id = func.id
-                    # item.function_external_id = None
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
@@ -574,22 +573,27 @@ class FunctionScheduleLoader(
         session = get_oneshot_session(client=self.client)
         nonce = session.nonce if session is not None else ""
         for item in items:
-            ret = self.client.post(
-                url=f"/api/v1/projects/{self.client.config.project}/functions/schedules",
-                json={
-                    "items": [
-                        {
-                            "name": item.name,
-                            "description": item.description,
-                            "cronExpression": item.cron_expression,
-                            "functionId": item.function_id,
-                            "data": item.data,
-                            "nonce": nonce,
-                        }
-                    ],
-                },
-                headers={"Authorization": bearer},
-            )
+            try:
+                ret = self.client.post(
+                    url=f"/api/v1/projects/{self.client.config.project}/functions/schedules",
+                    json={
+                        "items": [
+                            {
+                                "name": item.name,
+                                "description": item.description,
+                                "cronExpression": item.cron_expression,
+                                "functionId": item.function_id,
+                                "data": item.data,
+                                "nonce": nonce,
+                            }
+                        ],
+                    },
+                    headers={"Authorization": bearer},
+                )
+            except CogniteAPIError as e:
+                if e.code == 400 and "Failed to bind session" in e.message:
+                    print("  [bold yellow]WARNING:[/] Failed to bind session because function is not ready.")
+                continue
             if ret.status_code == 201:
                 created.append(FunctionSchedule.load(ret.json()["items"][0]))
         return created
