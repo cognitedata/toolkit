@@ -36,6 +36,7 @@ import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import OAuthClientCredentials, Token
+from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
@@ -805,3 +806,34 @@ def calculate_directory_hash(directory: Path) -> str:
                     sha256_hash.update(chunk)
 
     return sha256_hash.hexdigest()
+
+
+def get_oneshot_session(
+    ToolGlobals: CDFToolConfig | None = None, client: CogniteClient | None = None
+) -> CreatedSession | None:
+    """Get a oneshot (use once) session for execution in CDF"""
+    if client is None and ToolGlobals is None:
+        return None
+    # To satsify mypy
+    my_client: CogniteClient = (
+        ToolGlobals.client if client is None and ToolGlobals is not None and ToolGlobals.client is not None else client
+    ) or CogniteClient()
+    if ToolGlobals is not None:
+        ToolGlobals.verify_client(capabilities={"sessionsAcl": ["LIST", "CREATE", "DELETE"]})
+        (_, bearer) = ToolGlobals.oauth_credentials.authorization_header()
+    else:
+        (_, bearer) = my_client.config.credentials.authorization_header()
+    ret = my_client.post(
+        url=f"/api/v1/projects/{my_client.config.project}/sessions",
+        json={
+            "items": [
+                {
+                    "oneshotTokenExchange": True,
+                },
+            ],
+        },
+        headers={"Authorization": bearer},
+    )
+    if ret.status_code == 200:
+        return CreatedSession.load(ret.json()["items"][0])
+    return None

@@ -5,38 +5,18 @@ import json
 import time
 from typing import Any
 
-from cognite.client.data_classes import CreatedSession, FunctionCall
+from cognite.client.data_classes import FunctionCall
 from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
 from rich import print
 from rich.table import Table
 
-from .utils import CDFToolConfig
-
-
-def get_oneshot_session(ToolGlobals: CDFToolConfig) -> CreatedSession | None:
-    """Get a oneshot (use once) session for execution in CDF"""
-    ToolGlobals.verify_client(capabilities={"sessionsAcl": ["LIST", "CREATE", "DELETE"]})
-    (_, bearer) = ToolGlobals.oauth_credentials.authorization_header()
-    ret = ToolGlobals.client.post(
-        url=f"/api/v1/projects/{ToolGlobals.project}/sessions",
-        json={
-            "items": [
-                {
-                    "oneshotTokenExchange": True,
-                },
-            ],
-        },
-        headers={"Authorization": bearer},
-    )
-    if ret.status_code == 200:
-        return CreatedSession.load(ret.json()["items"][0])
-    return None
+from .utils import CDFToolConfig, get_oneshot_session
 
 
 def run_function(ToolGlobals: CDFToolConfig, external_id: str, payload: str, follow: bool = False) -> bool:
     """Run a function in CDF"""
-    session = get_oneshot_session(ToolGlobals)
+    session = get_oneshot_session(ToolGlobals=ToolGlobals)
     if session is None:
         print("[bold red]ERROR:[/] Could not get a oneshot session.")
         return False
@@ -58,7 +38,7 @@ def run_function(ToolGlobals: CDFToolConfig, external_id: str, payload: str, fol
 
     def _function_call(id: int, payload: dict[str, Any]) -> FunctionCall | None:
         (_, bearer) = ToolGlobals.oauth_credentials.authorization_header()
-        session = get_oneshot_session(ToolGlobals)
+        session = get_oneshot_session(ToolGlobals=ToolGlobals)
         if session is None:
             print("[bold red]ERROR:[/] Could not get a oneshot session.")
             return None
@@ -131,7 +111,7 @@ def run_transformation(ToolGlobals: CDFToolConfig, external_ids: str | list[str]
     """Run a transformation in CDF"""
     if isinstance(external_ids, str):
         external_ids = [external_ids]
-    session = get_oneshot_session(ToolGlobals)
+    session = get_oneshot_session(ToolGlobals=ToolGlobals)
     if session is None:
         print("[bold red]ERROR:[/] Could not get a oneshot session.")
         return False
