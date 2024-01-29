@@ -40,15 +40,16 @@ os.environ["SENTRY_ENABLED"] = "false"
 
 from cognite_toolkit.cdf import app  # noqa: E402
 
-config_init = InitConfigYAML(
-    Environment(
-        name="local",
-        project="<my-project>",
-        build_type="dev",
-        selected_modules_and_packages=["cdf_demo_infield", "cdf_oid_example_data"],
-    )
-).load_defaults(REPO_ROOT / "cognite_toolkit")
-(REPO_ROOT / "cognite_toolkit" / "config.local.yaml").write_text(config_init.dump_yaml_with_comments())
+if not Path(REPO_ROOT / "cognite_toolkit" / "config.local.yaml").exists():
+    config_init = InitConfigYAML(
+        Environment(
+            name="local",
+            project="<my-project>",
+            build_type="dev",
+            selected_modules_and_packages=["cdf_demo_infield", "cdf_oid_example_data"],
+        )
+    ).load_defaults(REPO_ROOT / "cognite_toolkit")
+    (REPO_ROOT / "cognite_toolkit" / "config.local.yaml").write_text(config_init.dump_yaml_with_comments())
 
 if __name__ == "__main__":
     app()
