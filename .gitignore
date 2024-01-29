@@ -283,3 +283,6 @@ demo_project/
 tests/tests_unit/pytest-project/
 my_project/
 *.bck
+
+# Hide environments used for migration testing
+tests_migrations/.venv*
