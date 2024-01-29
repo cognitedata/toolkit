@@ -36,6 +36,7 @@ from cognite.client.data_classes import (
     FileMetadataWrite,
     FileMetadataWriteList,
     Function,
+    FunctionCall,
     FunctionList,
     FunctionWrite,
     FunctionWriteList,
@@ -523,6 +524,11 @@ class ApprovalCogniteClient:
             elif url.endswith("/functions/schedules"):
                 sessionResponse.status_code = 201
                 sessionResponse._content = str.encode(JSON.dumps(json))
+            elif url.split("/")[-3] == "functions" and url.split("/")[-2].isdigit() and url.endswith("call"):
+                sessionResponse.status_code = 201
+                sessionResponse._content = str.encode(
+                    JSON.dumps(FunctionCall(id=1, status="RUNNING").dump(camel_case=True))
+                )
             else:
                 raise ValueError(
                     f"The url {url} is called with post method, but not mocked. Please add in _create_post_method in approval.client.py"
