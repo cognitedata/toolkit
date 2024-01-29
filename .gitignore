@@ -286,3 +286,4 @@ my_project/
 
 # Hide environments used for migration testing
 tests_migrations/.venv*
+tests_migrations/tmp*

@@ -2,7 +2,7 @@
 import platform
 import subprocess
 
-from tests_migrations.constants import SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT
+from constants import SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT
 
 
 def create_environments():
