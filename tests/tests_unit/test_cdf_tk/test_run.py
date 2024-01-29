@@ -60,5 +60,6 @@ def test_run_function(cognite_client_approval: ApprovalCogniteClient):
         secrets={"my_secret": "a_secret,"},
     )
     cognite_client_approval.append(Function, function)
-
     assert run_function(cdf_tool, external_id="test", payload='{"var1": "value"}', follow=False) is True
+    cdf_tool.client.functions.calls.get_response.return_value = {}
+    assert run_function(cdf_tool, external_id="test", payload='{"var1": "value"}', follow=True) is True
