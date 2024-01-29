@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import itertools
+import json as JSON
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -101,6 +102,7 @@ from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case
+from requests import Response
 
 TEST_FOLDER = Path(__file__).resolve().parent
 
@@ -128,11 +130,14 @@ class ApprovalCogniteClient:
         self._create_methods: dict[str, list[MagicMock]] = defaultdict(list)
         self._retrieve_methods: dict[str, list[MagicMock]] = defaultdict(list)
         self._inspect_methods: dict[str, list[MagicMock]] = defaultdict(list)
+        self._post_methods: dict[str, list[MagicMock]] = defaultdict(list)
 
         # Set the side effect of the MagicMock to the real method
         self.mock_client.iam.compare_capabilities.side_effect = IAMAPI.compare_capabilities
         # Set functions to be activated
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
+        # Activate authorization_header()
+        self.mock_client.config.credentials.authorization_header.return_value = ("Bearer", "123")
 
         # Setup all mock methods
         for resource in _API_RESOURCES:
@@ -141,19 +146,24 @@ class ApprovalCogniteClient:
             for part in parts:
                 if not hasattr(mock_api, part):
                     raise ValueError(f"Invalid api name {resource.api_name}, could not find {part}")
-                mock_api = getattr(mock_api, part)
+                # To avoid registering the side effect on the mock_client.post.post and use
+                # just mock_client.post instead, we need to skip the "step into" post mock here.
+                if part != "post":
+                    mock_api = getattr(mock_api, part)
             for method_type, methods in resource.methods.items():
                 method_factory: Callable = {
                     "create": self._create_create_method,
                     "delete": self._create_delete_method,
                     "retrieve": self._create_retrieve_method,
                     "inspect": self._create_inspect_method,
+                    "post": self._create_post_method,
                 }[method_type]
                 method_dict = {
                     "create": self._create_methods,
                     "delete": self._delete_methods,
                     "retrieve": self._retrieve_methods,
                     "inspect": self._inspect_methods,
+                    "post": self._post_methods,
                 }[method_type]
                 for mock_method in methods:
                     if not hasattr(mock_api, mock_method.api_class_method):
@@ -502,6 +512,43 @@ class ApprovalCogniteClient:
         method = available_inspect_methods[mock_method]
         return method
 
+    def _create_post_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+        def post_method(
+            url: str, json: dict[str, Any], params: dict[str, Any] | None = None, headers: dict[str, Any] | None = None
+        ) -> Response:
+            sessionResponse = Response()
+            if url.endswith("/sessions"):
+                sessionResponse.status_code = 200
+                sessionResponse._content = b'{"items":[{"id":5192234284402249,"nonce":"QhlCnImCBwBNc72N","status":"READY","type":"ONESHOT_TOKEN_EXCHANGE"}]}'
+            elif url.endswith("/functions/schedules"):
+                sessionResponse.status_code = 201
+                sessionResponse._content = str.encode(JSON.dumps(json))
+            else:
+                raise ValueError(
+                    f"The url {url} is called with post method, but not mocked. Please add in _create_post_method in approval.client.py"
+                )
+            return sessionResponse
+
+        existing_resources = self._existing_resources
+        resource_cls = resource.resource_cls
+
+        def return_value(*args, **kwargs):
+            return existing_resources[resource_cls.__name__][0]
+
+        available_post_methods = {
+            fn.__name__: fn
+            for fn in [
+                return_value,
+                post_method,
+            ]
+        }
+        if mock_method not in available_post_methods:
+            raise ValueError(
+                f"Invalid mock retrieve method {mock_method} for resource {resource_cls.__name__}. Supported {available_post_methods.keys()}"
+            )
+        method = available_post_methods[mock_method]
+        return method
+
     def dump(self) -> dict[str, Any]:
         """This returns a dictionary with all the resources that have been created and deleted.
 
@@ -710,6 +757,14 @@ class APIResource:
 # You can add more resources here if you need to mock more resources
 _API_RESOURCES = [
     APIResource(
+        api_name="post",
+        resource_cls=TokenInspection,
+        list_cls=list[TokenInspection],
+        methods={
+            "post": [Method(api_class_method="post", mock_name="post_method")],
+        },
+    ),
+    APIResource(
         api_name="iam.groups",
         resource_cls=Group,
         _write_cls=GroupWrite,
@@ -816,6 +871,20 @@ _API_RESOURCES = [
         },
     ),
     APIResource(
+        api_name="functions.schedules",
+        resource_cls=Function,
+        _write_cls=FunctionWrite,
+        list_cls=FunctionList,
+        _write_list_cls=FunctionWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_name="create_function_api")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+            ],
+        },
+    ),
+    APIResource(
         api_name="transformations",
         resource_cls=Transformation,
         _write_cls=TransformationWrite,
@@ -843,7 +912,6 @@ _API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
                 Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
             ],
         },
     ),
