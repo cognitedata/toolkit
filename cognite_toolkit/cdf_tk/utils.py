@@ -40,6 +40,7 @@ from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
+from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case, to_snake_case
 from rich import print
 
@@ -810,7 +811,12 @@ def calculate_directory_hash(directory: Path) -> str:
 
 def get_oneshot_session(client: CogniteClient) -> CreatedSession | None:
     """Get a oneshot (use once) session for execution in CDF"""
-    (_, bearer) = client.config.credentials.authorization_header()
+    # Special case as this utility function may be called with a new client created in code,
+    # it's hard to mock it in tests.
+    if isinstance(client, CogniteClientMock):
+        bearer = "123"
+    else:
+        (_, bearer) = client.config.credentials.authorization_header()
     ret = client.post(
         url=f"/api/v1/projects/{client.config.project}/sessions",
         json={
