@@ -282,3 +282,6 @@ config.yaml
 demo_project/
 tests/tests_unit/pytest-project/
 my_project/
+*.bck
+
+cognite_toolkit/config.local.yaml

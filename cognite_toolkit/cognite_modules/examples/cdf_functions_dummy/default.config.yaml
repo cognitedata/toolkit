@@ -1,0 +1,3 @@
+example_secret: '${MY_SECRET}'
+example_data_set_id: 'example_functions'
+version: '0.0.1'

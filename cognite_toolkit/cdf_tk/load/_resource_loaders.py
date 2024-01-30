@@ -17,9 +17,11 @@ import itertools
 import json
 import re
 from collections.abc import Iterable, Sequence
+from numbers import Number
 from pathlib import Path
 from time import sleep
 from typing import Any, Literal, cast, final
+from zipfile import ZipFile
 
 import yaml
 from cognite.client import CogniteClient
@@ -36,6 +38,14 @@ from cognite.client.data_classes import (
     FileMetadataList,
     FileMetadataWrite,
     FileMetadataWriteList,
+    Function,
+    FunctionList,
+    FunctionSchedule,
+    FunctionSchedulesList,
+    FunctionScheduleWrite,
+    FunctionScheduleWriteList,
+    FunctionWrite,
+    FunctionWriteList,
     OidcCredentials,
     TimeSeries,
     TimeSeriesList,
@@ -59,8 +69,10 @@ from cognite.client.data_classes.capabilities import (
     DataSetsAcl,
     ExtractionPipelinesAcl,
     FilesAcl,
+    FunctionsAcl,
     GroupsAcl,
     RawAcl,
+    SessionsAcl,
     TimeSeriesAcl,
     TransformationsAcl,
 )
@@ -110,7 +122,12 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit.cdf_tk.utils import (
+    CDFToolConfig,
+    calculate_directory_hash,
+    get_oneshot_session,
+    load_yaml_inject_variables,
+)
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
 from .data_classes import LoadableEdges, LoadableNodes, RawDatabaseTable, RawTableList
@@ -338,6 +355,265 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
+
+
+@final
+class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
+    support_drop = True
+    api_name = "functions"
+    folder_name = "functions"
+    filename_pattern = (
+        r"^(?:(?!schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
+    )
+    resource_cls = Function
+    resource_write_cls = FunctionWrite
+    list_cls = FunctionList
+    list_write_cls = FunctionWriteList
+    dependencies = frozenset({DataSetsLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+        return [
+            FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
+            FilesAcl(
+                [FilesAcl.Action.Read, FilesAcl.Action.Write], FilesAcl.Scope.All()
+            ),  # Needed for uploading function artifacts
+        ]
+
+    @classmethod
+    def get_id(cls, item: Function | FunctionWrite) -> str:
+        if item.external_id is None:
+            raise ValueError("Function must have external_id set.")
+        return item.external_id
+
+    def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
+        if self.build_path is None:
+            raise ValueError("build_path must be set to compare functions as function code must be compared.")
+        # If the function failed, we want to always trigger a redeploy.
+        if cdf_resource.status == "Failed":
+            return False
+        function_rootdir = Path(self.build_path / f"{local.external_id}")
+        if local.metadata is None:
+            local.metadata = {}
+        local.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
+
+        # Is changed as part of deploy to the API
+        local.file_id = cdf_resource.file_id
+        cdf_resource.secrets = local.secrets
+        # Set empty values for local
+        attrs = [
+            attr for attr in dir(cdf_resource) if not callable(getattr(cdf_resource, attr)) and not attr.startswith("_")
+        ]
+        # Remove server-side attributes
+        attrs.remove("created_time")
+        attrs.remove("error")
+        attrs.remove("id")
+        attrs.remove("runtime_version")
+        attrs.remove("status")
+        # Set empty values for local that have default values server-side
+        for attribute in attrs:
+            if getattr(local, attribute) is None:
+                setattr(local, attribute, getattr(cdf_resource, attribute))
+        return local.dump() == cdf_resource.as_write().dump()
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
+        status = self.client.functions.status()
+        if status.status != "activated":
+            if status.status == "requested":
+                print(
+                    "  [bold yellow]WARNING:[/] Function service activation is in progress, cannot retrieve functions."
+                )
+                return FunctionList([])
+            else:
+                print(
+                    "  [bold yellow]WARNING:[/] Function service has not been activated, activating now, this may take up to 2 hours..."
+                )
+                self.client.functions.activate()
+                return FunctionList([])
+        ret = self.client.functions.retrieve_multiple(
+            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
+        )
+        if ret is None:
+            return FunctionList([])
+        if isinstance(ret, Function):
+            return FunctionList([ret])
+        else:
+            return ret
+
+    def update(self, items: FunctionWriteList) -> FunctionList:
+        self.delete([item.external_id for item in items])
+        return self.create(items)
+
+    def _zip_and_upload_folder(
+        self,
+        root_dir: Path,
+        external_id: str,
+        data_set_id: int | None = None,
+    ) -> int:
+        zip_path = Path(root_dir.parent / f"{external_id}.zip")
+        root_length = len(root_dir.parts)
+        with ZipFile(zip_path, "w") as zipfile:
+            for file in root_dir.rglob("*"):
+                if file.is_file():
+                    zipfile.write(file, "/".join(file.parts[root_length - 1 : -1]) + f"/{file.name}")
+        file_info = self.client.files.upload_bytes(
+            zip_path.read_bytes(),
+            name=f"{external_id}.zip",
+            external_id=external_id,
+            overwrite=True,
+            data_set_id=data_set_id,
+        )
+        zip_path.unlink()
+        return cast(int, file_info.id)
+
+    def create(self, items: Sequence[FunctionWrite]) -> FunctionList:
+        items = list(items)
+        created = FunctionList([], cognite_client=self.client)
+        status = self.client.functions.status()
+        if status.status != "activated":
+            if status.status == "requested":
+                print("  [bold yellow]WARNING:[/] Function service activation is in progress, skipping functions.")
+                return FunctionList([])
+            else:
+                print(
+                    "  [bold yellow]WARNING:[/] Function service is not activated, activating and skipping functions..."
+                )
+                self.client.functions.activate()
+                return FunctionList([])
+        if self.build_path is None:
+            raise ValueError("build_path must be set to compare functions as function code must be compared.")
+        for item in items:
+            function_rootdir = Path(self.build_path / (item.external_id or ""))
+            if item.metadata is None:
+                item.metadata = {}
+            item.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
+            file_id = self._zip_and_upload_folder(
+                root_dir=function_rootdir,
+                external_id=item.external_id or item.name,
+                data_set_id=None,  # TODO: support data_set for function upload
+            )
+            created.append(
+                self.client.functions.create(
+                    name=item.name,
+                    external_id=item.external_id or item.name,
+                    # data_set_id=item.data_set_id,
+                    file_id=file_id,
+                    function_path=item.function_path or "./handler.py",
+                    description=item.description,
+                    owner=item.owner,
+                    secrets=item.secrets,
+                    env_vars=item.env_vars,
+                    cpu=cast(Number, item.cpu),
+                    memory=cast(Number, item.memory),
+                    runtime=item.runtime,
+                    metadata=item.metadata,
+                    index_url=item.index_url,
+                    extra_index_urls=item.extra_index_urls,
+                )
+            )
+        return created
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        self.client.functions.delete(external_id=cast(SequenceNotStr[str], ids))
+        return len(ids)
+
+
+@final
+class FunctionScheduleLoader(
+    ResourceLoader[str, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList]
+):
+    api_name = "functions.schedules"
+    folder_name = "functions"
+    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule.
+    resource_cls = FunctionSchedule
+    resource_write_cls = FunctionScheduleWrite
+    list_cls = FunctionSchedulesList
+    list_write_cls = FunctionScheduleWriteList
+    dependencies = frozenset({FunctionLoader})
+
+    @classmethod
+    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+        return [
+            FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
+            SessionsAcl(
+                [SessionsAcl.Action.List, SessionsAcl.Action.Create, SessionsAcl.Action.Delete], SessionsAcl.Scope.All()
+            ),
+        ]
+
+    @classmethod
+    def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule) -> str:
+        if item.function_external_id is None or item.cron_expression is None:
+            raise ValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
+        return f"{item.function_external_id}:{item.cron_expression}"
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> FunctionScheduleWrite | FunctionScheduleWriteList | None:
+        resource = super().load_resource(filepath, ToolGlobals, skip_validation)
+        return resource
+
+    def _is_equal_custom(self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule) -> bool:
+        remote_dump = cdf_resource.as_write().dump()
+        del remote_dump["functionId"]
+        return remote_dump == local.dump()
+
+    def _resolve_functions_ext_id(self, items: FunctionScheduleWriteList) -> FunctionScheduleWriteList:
+        functions = FunctionLoader(self.client).retrieve(list(set([item.function_external_id for item in items])))
+        for item in items:
+            for func in functions:
+                if func.external_id == item.function_external_id:
+                    item.function_id = func.id
+        return items
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
+        functions = FunctionLoader(self.client).retrieve(list(set([id.split(":")[0] for id in ids])))
+        schedules = FunctionSchedulesList([])
+        for func in functions:
+            ret = self.client.functions.schedules.list(function_id=func.id, limit=-1)
+            for schedule in ret:
+                schedule.function_external_id = func.external_id
+            schedules.extend(ret)
+        return schedules
+
+    def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
+        items = self._resolve_functions_ext_id(items)
+        (_, bearer) = self.client.config.credentials.authorization_header()
+        created = FunctionSchedulesList([])
+        session = get_oneshot_session(self.client)
+        nonce = session.nonce if session is not None else ""
+        for item in items:
+            try:
+                ret = self.client.post(
+                    url=f"/api/v1/projects/{self.client.config.project}/functions/schedules",
+                    json={
+                        "items": [
+                            {
+                                "name": item.name,
+                                "description": item.description,
+                                "cronExpression": item.cron_expression,
+                                "functionId": item.function_id,
+                                "data": item.data,
+                                "nonce": nonce,
+                            }
+                        ],
+                    },
+                    headers={"Authorization": bearer},
+                )
+            except CogniteAPIError as e:
+                if e.code == 400 and "Failed to bind session" in e.message:
+                    print("  [bold yellow]WARNING:[/] Failed to bind session because function is not ready.")
+                continue
+            if ret.status_code == 201:
+                created.append(FunctionSchedule.load(ret.json()["items"][0]))
+        return created
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        schedules = self.retrieve(ids)
+        count = 0
+        for schedule in schedules:
+            self.client.functions.schedules.delete(id=schedule.id)
+            count += 1
+        return count
 
 
 @final

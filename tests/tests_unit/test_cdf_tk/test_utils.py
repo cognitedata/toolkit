@@ -1,3 +1,5 @@
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
@@ -22,10 +24,11 @@ from cognite_toolkit.cdf_tk.utils import (
     DataSetMissingWarning,
     SnakeCaseWarning,
     TemplateVariableWarning,
+    calculate_directory_hash,
     load_yaml_inject_variables,
     validate_case_raw,
-    validate_config_yaml,
     validate_data_set_is_set,
+    validate_modules_variables,
 )
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -136,7 +139,7 @@ def test_validate_raw_nested() -> None:
     ],
 )
 def test_validate_config_yaml(config_yaml: dict[str, Any], expected_warnings: list[TemplateVariableWarning]) -> None:
-    warnings = validate_config_yaml(config_yaml, Path("config.yaml"))
+    warnings = validate_modules_variables(config_yaml, Path("config.yaml"))
 
     assert sorted(warnings) == sorted(expected_warnings)
 
@@ -149,3 +152,23 @@ def test_validate_data_set_is_set():
     assert sorted(warnings) == sorted(
         [DataSetMissingWarning(Path("timeseries.yaml"), "myTimeSeries", "externalId", "TimeSeries")]
     )
+
+
+def test_calculate_hash_on_folder():
+    folder = Path(THIS_FOLDER / "calc_hash_data")
+    hash1 = calculate_directory_hash(folder)
+    hash2 = calculate_directory_hash(folder)
+
+    print(hash1)
+
+    assert (
+        hash1 == "4f8d111764625a3fbb9ec07e6c4ffae20d4578cabc9fdccedaf6e52b1cca53ff"
+    ), f"The hash should not change as long as content in {folder} is not changed."
+    assert hash1 == hash2
+    tempdir = Path(tempfile.mkdtemp())
+    shutil.rmtree(tempdir)
+    shutil.copytree(folder, tempdir)
+    hash3 = calculate_directory_hash(tempdir)
+    shutil.rmtree(tempdir)
+
+    assert hash1 == hash3

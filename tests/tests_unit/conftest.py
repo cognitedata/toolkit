@@ -109,7 +109,7 @@ def init_project(typer_context: typer.Context, local_tmp_project_path: Path) -> 
         typer_context,
         dry_run=False,
         upgrade=False,
-        git=None,
+        git_branch=None,
         init_dir=str(local_tmp_project_path),
         no_backup=True,
         clean=True,
