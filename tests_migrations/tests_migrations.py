@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from cognite_toolkit._version import __version__
 from tests_migrations.constants import SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT
 
 
@@ -60,18 +61,23 @@ def local_build_path() -> Path:
     yield build_path
 
 
-@pytest.mark.parametrize("old_version_script_dir, old_version", list(cdf_tk_cmd_all_versions())[:1])
+@pytest.mark.parametrize("old_version_script_dir, old_version", list(cdf_tk_cmd_all_versions())[-1:])
 def tests_init_migrate_build_deploy(
     old_version_script_dir: Path, old_version: str, local_tmp_project_path: Path, local_build_path: Path
 ) -> str:
+    project_name = local_tmp_project_path.name
+    build_name = local_build_path.name
+
     modified_env_variables = os.environ.copy()
     repo_root = TEST_DIR_ROOT.parent
     # Need to remove the repo root from PYTHONPATH to avoid importing the wrong version of the toolkit
     modified_env_variables["PYTHONPATH"] = modified_env_variables["PYTHONPATH"].replace(str(repo_root), "")
+    old_command = str(old_version_script_dir / "cdf-tk")
+
     with chdir(TEST_DIR_ROOT):
         version_output = subprocess.run(
             [
-                str(old_version_script_dir / "cdf-tk"),
+                old_command,
                 "--version",
             ],
             capture_output=True,
@@ -79,4 +85,55 @@ def tests_init_migrate_build_deploy(
             env=modified_env_variables,
         )
         stdout = version_output.stdout.decode("utf-8").strip()
-        assert stdout.startswith(f"CDF-Toolkit version: {old_version}"), "Failed to setup the correct environment"
+        assert stdout.startswith(
+            f"CDF-Toolkit version: {old_version}"
+        ), f"Failed to setup the correct environment for {old_version}"
+
+        init_output = subprocess.run(
+            [old_command, "init", project_name, "--clean"], capture_output=True, env=modified_env_variables
+        )
+        assert (
+            not init_output.stderr
+        ), f"Failed to init project with {old_version}: {init_output.stderr.decode('utf-8')}"
+        build_output = subprocess.run(
+            [old_command, "build", project_name, "--env", "dev"], capture_output=True, env=modified_env_variables
+        )
+        assert (
+            not build_output.stderr
+        ), f"Failed to build project with {old_version}: {build_output.stderr.decode('utf-8')}"
+        previous_output = subprocess.run(
+            [old_command, "deploy", "--env", "dev", "--dry-run"], capture_output=True, env=modified_env_variables
+        )
+        assert (
+            not previous_output.stderr
+        ), f"Failed to deploy project with {old_version}: {previous_output.stderr.decode('utf-8')}"
+
+    with chdir(TEST_DIR_ROOT.parent):
+        current_version = subprocess.run(
+            [
+                "cdf-tk",
+                "--version",
+            ],
+            capture_output=True,
+            shell=True,
+        )
+        stdout = current_version.stdout.decode("utf-8").strip()
+        assert stdout.startswith(
+            f"CDF-Toolkit version: {__version__}"
+        ), "Failed to setup the correct environment for the current version"
+        current_build = subprocess.run(
+            ["cdf-tk", "build", "--env", "dev", "--build-dir", build_name, "--clean"], capture_output=True, shell=True
+        )
+        assert (
+            not current_build.stderr
+        ), f"Failed to build project with current version: {current_build.stderr.decode('utf-8')}"
+        current_output = subprocess.run(
+            ["cdf-tk", "deploy", "--env", "dev", "--dry-run"], capture_output=True, shell=True
+        )
+        assert (
+            not current_output.stderr
+        ), f"Failed to deploy project with current version: {current_output.stderr.decode('utf-8')}"
+
+    assert (
+        previous_output.stdout.decode("utf-8").strip() == current_output.stdout.decode("utf-8").strip()
+    ), "Deployments are not identical"
