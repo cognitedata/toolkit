@@ -8,6 +8,8 @@
     dinner: "today: steak and red wine"
   extraConfigs:
     # Credentials to use to run the function in this schedule.
+    # In this example, we just use the main deploy credentials, so the result is the same, but use a different set of
+    # credentials (env variables) if you want to run the function with different permissions.
     credentials:
       clientId: ${IDP_CLIENT_ID}
       clientSecret: ${IDP_CLIENT_SECRET}
@@ -19,8 +21,3 @@
     breakfast: "tomorrow: peanut butter sandwich and coffee"
     lunch: "tomorrow: greek salad and water"
     dinner: "tomorrow: steak and red wine"
-  extraConfigs:
-    # Credentials to use to run the function in this schedule.
-    credentials:
-      clientId: ${IDP_CLIENT_ID}
-      clientSecret: ${IDP_CLIENT_SECRET}

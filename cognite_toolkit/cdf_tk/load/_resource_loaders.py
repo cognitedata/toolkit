@@ -610,7 +610,7 @@ class FunctionScheduleLoader(
         for item in items:
             if (
                 extra_configs := self.extra_configs.get(item.function_external_id or "", {}).get(item.cron_expression)
-            ) is not None:
+            ) is not None and len(extra_configs) > 0:
                 new_tool_config = CDFToolConfig()
                 old_credentials = cast(OAuthClientCredentials, new_tool_config.client.config.credentials)
                 new_tool_config.client.config.credentials = OAuthClientCredentials(
