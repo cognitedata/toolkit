@@ -1,0 +1,16 @@
+- name: "daily-8am-utc"
+  functionExternalId: 'fn_example_repeater'
+  description: "Run every day at 8am UTC"
+  cronExpression: "0 8 * * *"
+  data:
+    breakfast: "today: peanut butter sandwich and coffee"
+    lunch: "today: greek salad and water"
+    dinner: "today: steak and red wine"
+- name: "daily-8pm-utc"
+  functionExternalId: 'fn_example_repeater'
+  description: "Run every day at 8pm UTC"
+  cronExpression: "0 20 * * *"
+  data:
+    breakfast: "tomorrow: peanut butter sandwich and coffee"
+    lunch: "tomorrow: greek salad and water"
+    dinner: "tomorrow: steak and red wine"
