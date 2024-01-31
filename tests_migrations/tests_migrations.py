@@ -1,34 +1,14 @@
-import contextlib
 import os
 import platform
 import shutil
 import subprocess
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
 
 from cognite_toolkit._version import __version__
-from tests_migrations.constants import SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT
-
-
-@contextlib.contextmanager
-def chdir(new_dir: Path) -> Iterator[None]:
-    """
-    Change directory to new_dir and return to the original directory when exiting the context.
-
-    Args:
-        new_dir: The new directory to change to.
-
-    """
-    current_working_dir = Path.cwd()
-    os.chdir(new_dir)
-
-    try:
-        yield
-
-    finally:
-        os.chdir(current_working_dir)
+from tests_migrations.constants import SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT, chdir
 
 
 def cdf_tk_cmd_all_versions() -> Iterable[tuple[Path, str]]:
