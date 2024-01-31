@@ -379,7 +379,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
 
     def __init__(self, client: CogniteClient):
         super().__init__(client)
-        self.extra_configs: dict[str, Any] = {}
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
@@ -403,10 +402,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             filepath, ToolGlobals.environment_variables(), required_return_type="list"
         )
         for func in functions:
-            self.extra_configs[func["externalId"]] = func.pop("extraConfigs", {})
-            if self.extra_configs[func["externalId"]].get("dataSetId") is not None:
+            if self.extra_configs.get(func["externalId"]) is None:
+                self.extra_configs[func["externalId"]] = {}
+            if func.get("externalDataSetId") is not None:
                 self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
-                    self.extra_configs[func["externalId"]].get("dataSetId"), skip_validation=skip_validation
+                    func.get("externalDataSetId", ""), skip_validation=skip_validation
                 )
         return FunctionWriteList.load(functions)
 
@@ -556,7 +556,6 @@ class FunctionScheduleLoader(
 
     def __init__(self, client: CogniteClient):
         super().__init__(client)
-        self.extra_configs: dict[str, Any] = {}
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
@@ -580,9 +579,10 @@ class FunctionScheduleLoader(
             filepath, ToolGlobals.environment_variables(), required_return_type="list"
         )
         for sched in schedules:
-            if self.extra_configs.get(sched.get("functionExternalId", "")) is None:
-                self.extra_configs[sched["functionExternalId"]] = {}
-            self.extra_configs[sched["functionExternalId"]][sched["cronExpression"]] = sched.pop("extraConfigs", {})
+            ext_id = f"{sched['functionExternalId']}:{sched['cronExpression']}"
+            if self.extra_configs.get(ext_id) is None:
+                self.extra_configs[ext_id] = {}
+            self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
         return FunctionScheduleWriteList.load(schedules)
 
     def _is_equal_custom(self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule) -> bool:
@@ -614,13 +614,15 @@ class FunctionScheduleLoader(
         created = FunctionSchedulesList([])
         for item in items:
             if (
-                extra_configs := self.extra_configs.get(item.function_external_id or "", {}).get(item.cron_expression)
-            ) is not None and len(extra_configs) > 0:
+                authentication := self.extra_configs.get(f"{item.function_external_id}:{item.cron_expression}", {}).get(
+                    "authentication"
+                )
+            ) is not None and len(authentication) > 0:
                 new_tool_config = CDFToolConfig()
                 old_credentials = cast(OAuthClientCredentials, new_tool_config.client.config.credentials)
                 new_tool_config.client.config.credentials = OAuthClientCredentials(
-                    client_id=extra_configs.get("credentials", {}).get("clientId"),
-                    client_secret=extra_configs.get("credentials", {}).get("clientSecret"),
+                    client_id=authentication.get("clientId"),
+                    client_secret=authentication.get("clientSecret"),
                     scopes=old_credentials.scopes,
                     token_url=old_credentials.token_url,
                 )

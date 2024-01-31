@@ -6,13 +6,12 @@
     breakfast: "today: peanut butter sandwich and coffee"
     lunch: "today: greek salad and water"
     dinner: "today: steak and red wine"
-  extraConfigs:
+  authentication:
     # Credentials to use to run the function in this schedule.
     # In this example, we just use the main deploy credentials, so the result is the same, but use a different set of
     # credentials (env variables) if you want to run the function with different permissions.
-    credentials:
-      clientId: ${IDP_CLIENT_ID}
-      clientSecret: ${IDP_CLIENT_SECRET}
+    clientId: {{cicd_clientId}}
+    clientSecret: {{cicd_clientSecret}}
 - name: "daily-8pm-utc"
   functionExternalId: 'fn_example_repeater'
   description: "Run every day at 8pm UTC"

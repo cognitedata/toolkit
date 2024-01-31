@@ -19,11 +19,8 @@
   #memory: 1
   runtime: 'py311'
   functionPath: './src/handler.py'
-  # The extraConfigs below are used when building and deploying the function, but does not have an API
-  # corresponding support like the main config file.
-  extraConfigs:
-    # Data set id for the zip file with the code that is uploaded.
-    externalDataSetId: 'ds_files_{{default_location}}'
+  # Data set id for the zip file with the code that is uploaded.
+  externalDataSetId: 'ds_files_{{default_location}}'
 - name: 'test2'
   externalId: 'fn_test2'
   fileId: <will_be_generated>
