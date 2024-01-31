@@ -804,7 +804,8 @@ def calculate_directory_hash(directory: Path) -> str:
             # Open each file and update the hash
             with open(filepath, "rb") as file:
                 while chunk := file.read(8192):
-                    sha256_hash.update(chunk)
+                    # Get rid of Windows line endings to make the hash consistent across platforms.
+                    sha256_hash.update(chunk.replace(b"\r\n", b"\n"))
 
     return sha256_hash.hexdigest()
 
