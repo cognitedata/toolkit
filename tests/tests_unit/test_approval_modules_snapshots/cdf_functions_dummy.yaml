@@ -4,8 +4,8 @@ FileMetadata:
   name: fn_example_repeater.zip
   overwrite: true
 - data_set_id: null
-  external_id: test2
-  name: test2.zip
+  external_id: fn_test2
+  name: fn_test2.zip
   overwrite: true
 Function:
 - description: Returns the input data, secrets, and function info.
@@ -22,12 +22,12 @@ Function:
   runtime: py311
   secrets:
     mysecret: ${MY_SECRET}
-- externalId: test2
+- externalId: fn_test2
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 5f0d3c8c6833bf5b351e0c87e372dd21ef14379184e7034dee4a2133e22e4a68
+    cdf-toolkit-function-hash: 6cb4f65253425b2c2ea74bac82cbb311d1c5a8eed765e63ba5f0cfe11b145e61
   name: test2
 deleted:
   Function:
   - externalId: fn_example_repeater
-  - externalId: test2
+  - externalId: fn_test2
