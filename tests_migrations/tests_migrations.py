@@ -71,25 +71,28 @@ def tests_init_migrate_build_deploy(
     modified_env_variables = os.environ.copy()
     repo_root = TEST_DIR_ROOT.parent
     # Need to remove the repo root from PYTHONPATH to avoid importing the wrong version of the toolkit
-    modified_env_variables["PYTHONPATH"] = modified_env_variables["PYTHONPATH"].replace(str(repo_root), "")
-    old_command = str(old_version_script_dir / "cdf-tk")
+    if "PYTHONPATH" in modified_env_variables:
+        modified_env_variables["PYTHONPATH"] = modified_env_variables["PYTHONPATH"].replace(str(repo_root), "")
+    previous_version = str(old_version_script_dir / "cdf-tk")
 
     with chdir(TEST_DIR_ROOT):
         for cmd in [
-            [old_command, "--version"],
-            [old_command, "init", project_name, "--clean"],
-            [old_command, "build", project_name, "--env", "dev"],
-            [old_command, "deploy", "--env", "dev", "--dry-run"],
+            [previous_version, "--version"],
+            [previous_version, "init", project_name, "--clean"],
+            [previous_version, "build", project_name, "--env", "dev"],
+            [previous_version, "deploy", "--env", "dev", "--dry-run"],
             # This runs the cdf-tk command from the cognite_toolkit package in the ROOT of the repo.
             ["cdf-tk", "--version"],
+            # Todo: Here we need to add 'cdf-tk migrate', but it is not implemented yet.
             ["cdf-tk", "build", "--env", "dev", "--build-dir", build_name, "--clean"],
             ["cdf-tk", "deploy", "--env", "dev", "--dry-run"],
         ]:
-            kwargs = dict(env=modified_env_variables) if cmd[0] == old_command else dict()
+            kwargs = dict(env=modified_env_variables) if cmd[0] == previous_version else dict()
             output = subprocess.run(cmd, capture_output=True, shell=True, **kwargs)
             assert output.returncode == 0, f"Failed to run {cmd[0]}: {output.stderr.decode('utf-8')}"
 
             if cmd[-1] == "--version":
+                # This is to check that we use the expected version of the toolkit.
                 stdout = output.stdout.decode("utf-8").strip()
                 expected_version = __version__ if cmd[0] == "cdf-tk" else old_version
                 assert stdout.startswith(
