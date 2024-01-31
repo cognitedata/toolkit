@@ -34,7 +34,13 @@ def config_yaml() -> str:
 
 @pytest.fixture(scope="session")
 def dummy_environment() -> Environment:
-    return Environment(name="dev", project="my_project", build_type="dev", selected_modules_and_packages=["none"])
+    return Environment(
+        name="dev",
+        project="my_project",
+        build_type="dev",
+        selected_modules_and_packages=["none"],
+        common_function_code="./common_function_code",
+    )
 
 
 class TestConfigYAML:
