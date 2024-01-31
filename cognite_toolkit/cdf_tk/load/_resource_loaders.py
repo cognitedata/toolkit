@@ -25,6 +25,7 @@ from zipfile import ZipFile
 
 import yaml
 from cognite.client import CogniteClient
+from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     DatapointsList,
     DataSet,
@@ -376,6 +377,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     list_write_cls = FunctionWriteList
     dependencies = frozenset({DataSetsLoader})
 
+    def __init__(self, client: CogniteClient):
+        super().__init__(client)
+
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
         return [
@@ -390,6 +394,21 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if item.external_id is None:
             raise ValueError("Function must have external_id set.")
         return item.external_id
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> FunctionWrite | FunctionWriteList | None:
+        functions = load_yaml_inject_variables(
+            filepath, ToolGlobals.environment_variables(), required_return_type="list"
+        )
+        for func in functions:
+            if self.extra_configs.get(func["externalId"]) is None:
+                self.extra_configs[func["externalId"]] = {}
+            if func.get("externalDataSetId") is not None:
+                self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
+                    func.get("externalDataSetId", ""), skip_validation=skip_validation
+                )
+        return FunctionWriteList.load(functions)
 
     def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
         if self.build_path is None:
@@ -495,13 +514,12 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             file_id = self._zip_and_upload_folder(
                 root_dir=function_rootdir,
                 external_id=item.external_id or item.name,
-                data_set_id=None,  # TODO: support data_set for function upload
+                data_set_id=self.extra_configs[item.external_id or item.name].get("dataSetId", None),
             )
             created.append(
                 self.client.functions.create(
                     name=item.name,
                     external_id=item.external_id or item.name,
-                    # data_set_id=item.data_set_id,
                     file_id=file_id,
                     function_path=item.function_path or "./handler.py",
                     description=item.description,
@@ -536,6 +554,9 @@ class FunctionScheduleLoader(
     list_write_cls = FunctionScheduleWriteList
     dependencies = frozenset({FunctionLoader})
 
+    def __init__(self, client: CogniteClient):
+        super().__init__(client)
+
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
         return [
@@ -554,8 +575,15 @@ class FunctionScheduleLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionScheduleWrite | FunctionScheduleWriteList | None:
-        resource = super().load_resource(filepath, ToolGlobals, skip_validation)
-        return resource
+        schedules = load_yaml_inject_variables(
+            filepath, ToolGlobals.environment_variables(), required_return_type="list"
+        )
+        for sched in schedules:
+            ext_id = f"{sched['functionExternalId']}:{sched['cronExpression']}"
+            if self.extra_configs.get(ext_id) is None:
+                self.extra_configs[ext_id] = {}
+            self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
+        return FunctionScheduleWriteList.load(schedules)
 
     def _is_equal_custom(self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule) -> bool:
         remote_dump = cdf_resource.as_write().dump()
@@ -584,9 +612,24 @@ class FunctionScheduleLoader(
         items = self._resolve_functions_ext_id(items)
         (_, bearer) = self.client.config.credentials.authorization_header()
         created = FunctionSchedulesList([])
-        session = get_oneshot_session(self.client)
-        nonce = session.nonce if session is not None else ""
         for item in items:
+            if (
+                authentication := self.extra_configs.get(f"{item.function_external_id}:{item.cron_expression}", {}).get(
+                    "authentication"
+                )
+            ) is not None and len(authentication) > 0:
+                new_tool_config = CDFToolConfig()
+                old_credentials = cast(OAuthClientCredentials, new_tool_config.client.config.credentials)
+                new_tool_config.client.config.credentials = OAuthClientCredentials(
+                    client_id=authentication.get("clientId"),
+                    client_secret=authentication.get("clientSecret"),
+                    scopes=old_credentials.scopes,
+                    token_url=old_credentials.token_url,
+                )
+                session = get_oneshot_session(new_tool_config.client)
+            else:
+                session = get_oneshot_session(self.client)
+            nonce = session.nonce if session is not None else ""
             try:
                 ret = self.client.post(
                     url=f"/api/v1/projects/{self.client.config.project}/functions/schedules",

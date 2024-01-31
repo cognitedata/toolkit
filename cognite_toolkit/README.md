@@ -44,6 +44,7 @@ The `environment` have the following fields:
 - `selected_modules_and_packages` - A list of modules to deploy in this environment.
   You can see the list of packages in `cognite_modules/_system.yaml`. Note
   packages are a collection of modules.
+- `common_function_code` - The path to where common code for functions can be found.
 
 The `modules` section contains the variables for each module. The variables
 are hierarchically structured:

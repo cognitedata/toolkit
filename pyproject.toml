@@ -40,6 +40,14 @@ cdf-tk = "cognite_toolkit.cdf:app"
 fail_under = 60
 show_missing = true
 
+[tool.mypy]
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+follow_imports = "normal"
+ignore_missing_imports = true
+exclude = "cognite_toolkit/cognite_modules|cognite_toolkit/common_function_code"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

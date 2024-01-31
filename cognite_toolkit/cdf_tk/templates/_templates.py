@@ -56,7 +56,7 @@ def build_config(
         for warning in warnings:
             print(f"    {warning}")
 
-    process_config_files(source_dir, selected_modules, build_dir, config.modules, verbose)
+    process_config_files(source_dir, selected_modules, build_dir, config, verbose)
 
     build_environment = config.create_build_environment(system_config)
     build_environment.dump_to_file(build_dir)
@@ -231,14 +231,120 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
     return True
 
 
+def copy_common_code(
+    function_source_dir: Path,
+    build_dest_dir: Path,
+    common_code_dir: Path,
+) -> None:
+    # Copies in code from the common folder if it exists
+    if not common_code_dir.exists():
+        return
+
+    common_destination = Path(build_dest_dir / "common")
+    print(
+        f"        [bold green]INFO:[/] Copying common function code from " f"{common_code_dir} to {common_destination}"
+    )
+
+    if Path(function_source_dir / "common").is_symlink():
+        # If we had a symlink in the source dir, we can safely delete the copied in common dir
+        shutil.rmtree(common_destination)
+
+    try:
+        shutil.copytree(
+            common_code_dir,
+            common_destination,
+        )
+    except FileExistsError:
+        # The common dir was NOT a symlink, it was actual code, so we risk overwriting code.
+        print(
+            f"        [bold yellow]ERROR:[/] 'common' dir already exists in function code dir:"
+            f" {dir}. This is not supported when common_function_code is set in your config.<env>.yaml file."
+        )
+        exit(1)
+
+    if Path(common_destination / "requirements.txt").exists():
+        reqs = (
+            Path(build_dest_dir / "requirements.txt").read_text()
+            if Path(build_dest_dir / "requirements.txt").exists()
+            else ""
+        )
+        reqs += "\n" + Path(common_destination / "requirements.txt").read_text()
+        Path(build_dest_dir / "requirements.txt").write_text(reqs)
+        Path(common_destination / "requirements.txt").unlink()
+
+
+def process_function_directory(
+    yaml_source_path: Path,
+    yaml_dest_path: Path,
+    module_dir: Path,
+    build_dir: Path,
+    common_code_dir: Path,
+) -> None:
+    try:
+        functions = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
+    except KeyError as e:
+        print(f"      [bold red]ERROR:[/] Failed to load function file {yaml_source_path}, error in key: {e}")
+        exit(1)
+    except Exception as e:
+        print(f"      [bold red]ERROR:[/] Failed to load function file {yaml_source_path}, error:\n{e}")
+        exit(1)
+    for func in functions:
+        found = False
+        for function_subdirs in iterate_functions(module_dir):
+            for function_dir in function_subdirs:
+                if func.external_id == function_dir.name:
+                    found = True
+                    print(f"      [bold green]INFO:[/] Found function {func.external_id}")
+                    if func.file_id != "<will_be_generated>":
+                        print(
+                            f"        [bold yellow]WARNING:[/] Function {func.external_id} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
+                        )
+                    destination = build_dir / "functions" / f"{func.external_id}"
+                    if destination.exists():
+                        print(f"        [bold yellow]ERROR:[/] Function {func.external_id} is duplicated.")
+                        exit(1)
+                    shutil.copytree(function_dir, destination)
+
+                    # Copy in common code if it exists
+                    if common_code_dir.is_dir():
+                        copy_common_code(
+                            function_source_dir=function_dir,
+                            build_dest_dir=destination,
+                            common_code_dir=common_code_dir,
+                        )
+                    # Run validations on the function using the SDK's validation function
+                    try:
+                        validate_function_folder(
+                            root_path=destination.as_posix(),
+                            function_path=func.function_path,
+                            skip_folder_validation=False,
+                        )
+                    except Exception as e:
+                        print(
+                            f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {function_dir}, python module is not loadable:\n{e}"
+                        )
+                        exit(1)
+                    # Clean up cache files
+                    for subdir in destination.iterdir():
+                        if subdir.is_dir():
+                            shutil.rmtree(subdir / "__pycache__", ignore_errors=True)
+                    shutil.rmtree(destination / "__pycache__", ignore_errors=True)
+        if not found:
+            print(
+                f"        [bold red]ERROR:[/] Function directory not found for externalId {func.external_id} defined in {yaml_source_path}."
+            )
+            exit(1)
+
+
 def process_config_files(
     project_config_dir: Path,
     selected_modules: list[str],
     build_dir: Path,
-    config: dict[str, Any],
+    config: BuildConfigYAML,
     verbose: bool = False,
 ) -> None:
-    configs = split_config(config)
+    environment = config.environment
+    configs = split_config(config.modules)
     modules_by_variables = defaultdict(list)
     for module_path, variables in configs.items():
         for variable in variables:
@@ -298,50 +404,13 @@ def process_config_files(
                 and filepath.suffix.lower() == ".yaml"
                 and re.match(FunctionLoader.filename_pattern, filepath.stem)
             ):
-                try:
-                    functions = FunctionList.load(yaml.safe_load(destination.read_text()))
-                except KeyError as e:
-                    print(f"      [bold red]ERROR:[/] Failed to load function file {filepath}, error in key: {e}")
-                    exit(1)
-                except Exception as e:
-                    print(f"      [bold red]ERROR:[/] Failed to load function file {filepath}, error:\n{e}")
-                    exit(1)
-                for func in functions:
-                    found = False
-                    for function_subdirs in iterate_functions(module_dir):
-                        for dir in function_subdirs:
-                            if func.external_id == dir.name:
-                                found = True
-                                print(f"      [bold green]INFO:[/] Found function {func.external_id}")
-                                if func.file_id != "will_be_generated":
-                                    print(
-                                        f"        [bold yellow]WARNING:[/] Function {func.external_id} in {filepath} has set a file_id. Expects 'will_be_generated' and this will be ignored."
-                                    )
-                                try:
-                                    validate_function_folder(
-                                        root_path=dir.as_posix(),
-                                        function_path=func.function_path,
-                                        skip_folder_validation=False,
-                                    )
-                                except Exception as e:
-                                    print(
-                                        f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {dir}, python module is not loadable:\n{e}"
-                                    )
-                                    exit(1)
-                                destination = build_dir / "functions" / f"{func.external_id}"
-                                if destination.exists():
-                                    print(f"        [bold yellow]ERROR:[/] Function {func.external_id} is duplicated.")
-                                    exit(1)
-                                shutil.copytree(dir, destination)
-                                for subdir in destination.iterdir():
-                                    if subdir.is_dir():
-                                        shutil.rmtree(subdir / "__pycache__", ignore_errors=True)
-                                shutil.rmtree(destination / "__pycache__", ignore_errors=True)
-                    if not found:
-                        print(
-                            f"        [bold red]ERROR:[/] Function directory not found for externalId {func.external_id} defined in {filepath}."
-                        )
-                        exit(1)
+                process_function_directory(
+                    yaml_source_path=filepath,
+                    yaml_dest_path=destination,
+                    module_dir=module_dir,
+                    build_dir=build_dir,
+                    common_code_dir=Path(project_config_dir / environment.common_function_code),
+                )
 
 
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:

@@ -285,3 +285,4 @@ my_project/
 *.bck
 
 cognite_toolkit/config.local.yaml
+**/functions/**/common
