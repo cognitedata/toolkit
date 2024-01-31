@@ -75,68 +75,23 @@ def tests_init_migrate_build_deploy(
     old_command = str(old_version_script_dir / "cdf-tk")
 
     with chdir(TEST_DIR_ROOT):
-        version_output = subprocess.run(
-            [
-                old_command,
-                "--version",
-            ],
-            capture_output=True,
-            shell=True,
-            env=modified_env_variables,
-        )
-        stdout = version_output.stdout.decode("utf-8").strip()
-        assert version_output.returncode == 0, f"Failed to run {old_command}: {version_output.stderr.decode('utf-8')}"
-        assert stdout.startswith(
-            f"CDF-Toolkit version: {old_version}"
-        ), f"Failed to setup the correct environment for {old_version}"
-
-        init_output = subprocess.run(
+        for cmd in [
+            [old_command, "--version"],
             [old_command, "init", project_name, "--clean"],
-            capture_output=True,
-            env=modified_env_variables,
-            shell=True,
-        )
-        assert (
-            init_output.returncode == 0
-        ), f"Failed to init project with {old_version}: {init_output.stderr.decode('utf-8')}"
-        build_output = subprocess.run(
             [old_command, "build", project_name, "--env", "dev"],
-            capture_output=True,
-            env=modified_env_variables,
-            shell=True,
-        )
-        assert (
-            build_output.returncode == 0
-        ), f"Failed to build project with {old_version}: {build_output.stderr.decode('utf-8')}"
-        previous_output = subprocess.run(
-            [old_command, "deploy", "--env", "dev", "--dry-run"], capture_output=True, env=modified_env_variables
-        )
-        assert (
-            previous_output.returncode == 0
-        ), f"Failed to deploy project with {old_version}: {previous_output.stderr.decode('utf-8')}"
+            [old_command, "deploy", "--env", "dev", "--dry-run"],
+            # This runs the cdf-tk command from the cognite_toolkit package in the ROOT of the repo.
+            ["cdf-tk", "--version"],
+            ["cdf-tk", "build", "--env", "dev", "--build-dir", build_name, "--clean"],
+            ["cdf-tk", "deploy", "--env", "dev", "--dry-run"],
+        ]:
+            kwargs = dict(env=modified_env_variables) if cmd[0] == old_command else dict()
+            output = subprocess.run(cmd, capture_output=True, shell=True, **kwargs)
+            assert output.returncode == 0, f"Failed to run {cmd[0]}: {output.stderr.decode('utf-8')}"
 
-        current_version = subprocess.run(
-            [
-                "cdf-tk",
-                "--version",
-            ],
-            capture_output=True,
-            shell=True,
-        )
-        stdout = current_version.stdout.decode("utf-8").strip()
-        assert current_version.returncode == 0, f"Failed to run cdf-tk: {current_version.stderr.decode('utf-8')}"
-        assert stdout.startswith(
-            f"CDF-Toolkit version: {__version__}"
-        ), "Failed to setup the correct environment for the current version"
-        current_build = subprocess.run(
-            ["cdf-tk", "build", "--env", "dev", "--build-dir", build_name, "--clean"], capture_output=True, shell=True
-        )
-        assert (
-            current_build.returncode == 0
-        ), f"Failed to build project with current version: {current_build.stderr.decode('utf-8')}"
-        current_output = subprocess.run(
-            ["cdf-tk", "deploy", "--env", "dev", "--dry-run"], capture_output=True, shell=True
-        )
-        assert (
-            current_output.returncode == 0
-        ), f"Failed to deploy project with current version: {current_output.stderr.decode('utf-8')}"
+            if cmd[-1] == "--version":
+                stdout = output.stdout.decode("utf-8").strip()
+                expected_version = __version__ if cmd[0] == "cdf-tk" else old_version
+                assert stdout.startswith(
+                    f"CDF-Toolkit version: {expected_version}"
+                ), f"Failed to setup the correct environment for {expected_version}"
