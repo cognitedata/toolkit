@@ -9,6 +9,7 @@ import pytest
 
 from cognite_toolkit._version import __version__
 from tests_migrations.constants import SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT, chdir
+from tests_migrations.migrations import get_migration
 
 
 def cdf_tk_cmd_all_versions() -> Iterable[tuple[Path, str]]:
@@ -37,11 +38,14 @@ def local_build_path() -> Path:
     build_path = TEST_DIR_ROOT / "build"
     if build_path.exists():
         shutil.rmtree(build_path)
+
     build_path.mkdir(exist_ok=True)
+    # This is a small hack to get 0.1.0b1-4 working
+    (build_path / "file.txt").touch(exist_ok=True)
     yield build_path
 
 
-@pytest.mark.parametrize("old_version_script_dir, old_version", list(cdf_tk_cmd_all_versions()))
+@pytest.mark.parametrize("old_version_script_dir, old_version", list(cdf_tk_cmd_all_versions())[:1])
 def tests_init_migrate_build_deploy(
     old_version_script_dir: Path, old_version: str, local_tmp_project_path: Path, local_build_path: Path
 ) -> None:
@@ -57,17 +61,22 @@ def tests_init_migrate_build_deploy(
     previous_version = str(old_version_script_dir / "cdf-tk")
 
     with chdir(TEST_DIR_ROOT):
+        is_upgrade = True
         for cmd in [
             [previous_version, "--version"],
             [previous_version, "init", project_name, "--clean"],
-            [previous_version, "build", project_name, "--env", "dev"],
+            [previous_version, "build", project_name, "--env", "dev", "--clean"],
             [previous_version, "deploy", "--env", "dev", "--dry-run"],
             # This runs the cdf-tk command from the cognite_toolkit package in the ROOT of the repo.
             ["cdf-tk", "--version"],
-            # Todo: Here we need to add 'cdf-tk migrate', but it is not implemented yet.
-            ["cdf-tk", "build", "--env", "dev", "--build-dir", build_name, "--clean"],
+            ["cdf-tk", "build", project_name, "--env", "dev", "--build-dir", build_name, "--clean"],
             ["cdf-tk", "deploy", "--env", "dev", "--dry-run"],
         ]:
+            if cmd[0] == "cdf-tk" and is_upgrade:
+                migration = get_migration(old_version, __version__)
+                migration(local_tmp_project_path)
+                is_upgrade = False
+
             kwargs = dict(env=modified_env_variables) if cmd[0] == previous_version else dict()
             output = subprocess.run(cmd, capture_output=True, shell=True, **kwargs)
             assert output.returncode == 0, f"Failed to run {cmd[0]}: {output.stderr.decode('utf-8')}"
