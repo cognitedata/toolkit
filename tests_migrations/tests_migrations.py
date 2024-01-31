@@ -70,8 +70,9 @@ def tests_init_migrate_build_deploy(
 
     modified_env_variables = os.environ.copy()
     repo_root = TEST_DIR_ROOT.parent
-    # Need to remove the repo root from PYTHONPATH to avoid importing the wrong version of the toolkit
     if "PYTHONPATH" in modified_env_variables:
+        # Need to remove the repo root from PYTHONPATH to avoid importing the wrong version of the toolkit
+        # (This is typically set by the IDE, for example, PyCharm sets it when running tests).
         modified_env_variables["PYTHONPATH"] = modified_env_variables["PYTHONPATH"].replace(str(repo_root), "")
     previous_version = str(old_version_script_dir / "cdf-tk")
 

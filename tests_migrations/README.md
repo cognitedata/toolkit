@@ -9,7 +9,10 @@ This is to ensure that the migration scripts are working as expected. These test
 than the other tests as they are expensive to run due to the need to create one virtual environment for each version
 of the package that we support migration from.
 
-## Setup
+## Setup and Running Tests
+
+**Caveat** These tests are only run with `Windows` and `PyCharm`, there might be differences in how these tests
+need to be run on other platforms.
 
 To run the tests you need to setup virtual environments for each version of the package that you want to test.
 This can be done by running the `create_environments.py` file in this directory.
