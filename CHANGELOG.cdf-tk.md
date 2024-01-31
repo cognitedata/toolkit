@@ -17,6 +17,15 @@ Changes are grouped as follows:
 
 ## TBD
 
+## Added
+
+**NOTE: The function changelog was by accident included in beta6 and has been moved to the correct version.**
+
+- Added support for loading functions and function schedules. Example of a function can be found in `cognite_modules/example/cdf_functions_dummy`.
+- Added support for common function code as defined by `common_function_code` parameter in the environment config file.
+- Added support for new command, `run function` that runs a function with a one-shot session created using currently
+  configured credentials for cdf-tk.
+
 ## Changed
 
 - The cdf-toolkit now requires one `config.yaml` per environment, for example, `config.dev.yaml` and `config.prod.yaml`.
@@ -51,10 +60,6 @@ or a database with table, no need to also specify a `.csv` or `.parquet` file fo
 dbName: myRawRawDatabase
 tableName: myRawTable
 ```
-
-- Added support for loading functions. Example of a function can be found in `cognite_modules/example/cdf_functions_dummy`.
-- Added support for new command, `run function` that runs a function with a one-shot session created using currently
-  configured credentials for cdf-tk.
 
 ### Changed
 
