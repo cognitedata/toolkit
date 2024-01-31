@@ -102,6 +102,8 @@ def test_auth_verify_happypath(
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
     check_auth(cdf_tool_config, group_file=Path(DATA_FOLDER / "rw-group.yaml"))
     out, _ = capfd.readouterr()
+    # Strip trailing spaces
+    out = "\n".join([line.rstrip() for line in out.splitlines()])
     file_regression.check(out, encoding="utf-8", fullpath=to_fullpath(f"{TEST_PREFIX}_auth_verify_happypath"))
 
     dump = auth_cognite_approval_client.dump()
@@ -127,6 +129,8 @@ def test_auth_verify_wrong_capabilities(
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
     check_auth(cdf_tool_config, group_file=Path(DATA_FOLDER / "rw-group.yaml"))
     out, _ = capfd.readouterr()
+    # Strip trailing spaces
+    out = "\n".join([line.rstrip() for line in out.splitlines()])
     file_regression.check(out, encoding="utf-8", fullpath=to_fullpath(f"{TEST_PREFIX}_auth_verify_wrong_capabilities"))
 
     dump = auth_cognite_approval_client.dump()
@@ -151,6 +155,8 @@ def test_auth_verify_two_groups(
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
     check_auth(cdf_tool_config, group_file=Path(DATA_FOLDER / "rw-group.yaml"))
     out, _ = capfd.readouterr()
+    # Strip trailing spaces
+    out = "\n".join([line.rstrip() for line in out.splitlines()])
     file_regression.check(out, encoding="utf-8", fullpath=to_fullpath(f"{TEST_PREFIX}_auth_verify_two_groups"))
 
     dump = auth_cognite_approval_client.dump()
@@ -178,6 +184,8 @@ def test_auth_verify_no_capabilities(
 
     check_auth(cdf_tool_config, group_file=Path(DATA_FOLDER / "rw-group.yaml"))
     out, _ = capfd.readouterr()
+    # Strip trailing spaces
+    out = "\n".join([line.rstrip() for line in out.splitlines()])
     file_regression.check(out, encoding="utf-8", fullpath=to_fullpath(f"{TEST_PREFIX}_auth_verify_no_capabilities"))
 
     dump = auth_cognite_approval_client.dump()
