@@ -204,7 +204,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
         is_resource_scoped = False
         for capability in raw.get("capabilities", []):
-            for _, values in capability.items():
+            for acl, values in capability.items():
                 scope = values.get("scope", {})
                 is_resource_scoped = any(scope_name in scope for scope_name in self.resource_scope_names)
                 if self.target_scopes == "all_scoped_only" and is_resource_scoped:
@@ -214,7 +214,12 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
                 for scope_name, verify_method in [
                     ("datasetScope", ToolGlobals.verify_dataset),
-                    ("idScope", ToolGlobals.verify_dataset),
+                    (
+                        "idScope",
+                        ToolGlobals.verify_extraction_pipeline
+                        if acl == "extractionPipelinesAcl"
+                        else ToolGlobals.verify_dataset,
+                    ),
                     ("extractionPipelineScope", ToolGlobals.verify_extraction_pipeline),
                 ]:
                     if ids := scope.get(scope_name, {}).get("ids", []):
