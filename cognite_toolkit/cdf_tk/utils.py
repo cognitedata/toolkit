@@ -36,6 +36,7 @@ import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import OAuthClientCredentials, Token
+from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
@@ -805,3 +806,22 @@ def calculate_directory_hash(directory: Path) -> str:
                     sha256_hash.update(chunk)
 
     return sha256_hash.hexdigest()
+
+
+def get_oneshot_session(client: CogniteClient) -> CreatedSession | None:
+    """Get a oneshot (use once) session for execution in CDF"""
+    (_, bearer) = client.config.credentials.authorization_header()
+    ret = client.post(
+        url=f"/api/v1/projects/{client.config.project}/sessions",
+        json={
+            "items": [
+                {
+                    "oneshotTokenExchange": True,
+                },
+            ],
+        },
+        headers={"Authorization": bearer},
+    )
+    if ret.status_code == 200:
+        return CreatedSession.load(ret.json()["items"][0])
+    return None
