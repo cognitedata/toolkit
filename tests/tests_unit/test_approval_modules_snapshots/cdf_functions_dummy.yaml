@@ -1,5 +1,5 @@
 FileMetadata:
-- data_set_id: null
+- data_set_id: 42
   external_id: fn_example_repeater
   name: fn_example_repeater.zip
   overwrite: true
