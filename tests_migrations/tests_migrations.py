@@ -45,7 +45,7 @@ def local_build_path() -> Path:
     yield build_path
 
 
-@pytest.mark.parametrize("old_version_script_dir, old_version", list(cdf_tk_cmd_all_versions())[:1])
+@pytest.mark.parametrize("old_version_script_dir, old_version", list(cdf_tk_cmd_all_versions()))
 def tests_init_migrate_build_deploy(
     old_version_script_dir: Path, old_version: str, local_tmp_project_path: Path, local_build_path: Path
 ) -> None:
