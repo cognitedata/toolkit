@@ -65,7 +65,11 @@
     transformations:
       - title: "The field 'ignoreNullFields' is now required"
         steps:
-          - "Add 'ignoreNullFields: true' to all your transformations."
+          - "Add 'ignoreNullFields: true' to all your transformations configs."
+    files:
+      - title: "The field 'name' is now required"
+        steps:
+          - "Add 'name: <Your file name>' to all your files configs."
 - version: 0.1.0b4
   cognite_modules: {}
   resources: {}

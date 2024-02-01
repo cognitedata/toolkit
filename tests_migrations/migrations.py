@@ -31,7 +31,7 @@ def get_migration(previous_version: str, current_version: str) -> Callable[[Path
     if previous_version > (0, 1, 0, "b", 6):
         raise NotImplementedError(f"Migration from {previous_version} to {current_version} is not implemented.")
 
-    if previous_version <= (0, 1, 0, "b", 1):
+    if previous_version <= (0, 1, 0, "b", 4):
         changes.append(_add_name_to_file_configs)
 
     if previous_version <= (0, 1, 0, "b", 4):
@@ -58,6 +58,8 @@ class Changes:
 def _add_name_to_file_configs(project_path: Path) -> None:
     # Added required field 'name' to files
     for file_yaml in _config_yaml_from_folder_name(project_path, "files"):
+        if file_yaml.suffix != ".yaml":
+            continue
         data = yaml.safe_load(file_yaml.read_text().replace("{{", "").replace("}}", ""))
         for entry in data:
             if "name" not in entry:
@@ -67,10 +69,16 @@ def _add_name_to_file_configs(project_path: Path) -> None:
 
 def _add_ignore_null_fields_to_transformation_configs(project_path: Path) -> None:
     for transformation_yaml in _config_yaml_from_folder_name(project_path, "transformations"):
+        if transformation_yaml.suffix != ".yaml" or transformation_yaml.name.endswith(".schedule.yaml"):
+            continue
         data = yaml.safe_load(transformation_yaml.read_text().replace("{{", "").replace("}}", ""))
-        for entry in data:
-            if "ignoreNullFields" not in entry:
-                entry["ignoreNullFields"] = False
+        if isinstance(data, list):
+            for entry in data:
+                if "ignoreNullFields" not in entry:
+                    entry["ignoreNullFields"] = False
+        elif isinstance(data, dict):
+            if "ignoreNullFields" not in data:
+                data["ignoreNullFields"] = False
         transformation_yaml.write_text(yaml.dump(data))
 
 
@@ -114,7 +122,7 @@ def _to_config_env_yaml(project_path: Path) -> None:
 def _config_yaml_from_folder_name(project: Path, folder_name: str) -> Iterable[Path]:
     for module_name, module_files in iterate_modules(project):
         for module_file in module_files:
-            if module_file.parent == folder_name:
+            if module_file.parent.name == folder_name:
                 yield module_file
 
 
