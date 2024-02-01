@@ -798,14 +798,14 @@ def calculate_directory_hash(directory: Path) -> str:
     sha256_hash = hashlib.sha256()
 
     # Walk through each file in the directory
-    for dirpath, _, filenames in os.walk(directory):
-        for filename in filenames:
-            filepath = os.path.join(dirpath, filename)
-            # Open each file and update the hash
-            with open(filepath, "rb") as file:
-                while chunk := file.read(8192):
-                    # Get rid of Windows line endings to make the hash consistent across platforms.
-                    sha256_hash.update(chunk.replace(b"\r\n", b"\n"))
+    for filepath in sorted(directory.rglob("*"), key=lambda p: str(p.relative_to(directory))):
+        if filepath.is_dir():
+            continue
+        # Open each file and update the hash
+        with filepath.open("rb") as file:
+            while chunk := file.read(8192):
+                # Get rid of Windows line endings to make the hash consistent across platforms.
+                sha256_hash.update(chunk.replace(b"\r\n", b"\n"))
 
     return sha256_hash.hexdigest()
 
