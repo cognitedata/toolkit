@@ -880,7 +880,10 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
         ...
 
     def done_message(self) -> str:
-        return f"You project in {self.target_dir_display} was upgraded."
+        return f"Automatic upgraded of {self.target_dir_display} is done.\nManual Steps:"
+
+    def print_manual_steps(self) -> str:
+        raise NotImplementedError()
 
     @staticmethod
     def _download_templates(git_branch: str, dry_run: bool) -> Path:

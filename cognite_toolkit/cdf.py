@@ -718,6 +718,10 @@ def main_init(
     if not dry_run:
         print(project_dir.done_message())
 
+    if isinstance(project_dir, ProjectDirectoryUpgrade):
+        print(Panel("[bold]Manual Upgrade Steps[/]"))
+        project_dir.print_manual_steps()
+
 
 @describe_app.callback(invoke_without_command=True)
 def describe_main(ctx: typer.Context) -> None:
