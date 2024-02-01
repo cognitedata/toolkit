@@ -33,8 +33,6 @@ def get_migration(previous_version: str, current_version: str) -> Callable[[Path
 
     if previous_version <= (0, 1, 0, "b", 4):
         changes.append(_add_name_to_file_configs)
-
-    if previous_version <= (0, 1, 0, "b", 4):
         changes.append(_add_ignore_null_fields_to_transformation_configs)
 
     if previous_version <= (0, 1, 0, "b", 6):
