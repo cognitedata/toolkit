@@ -9,7 +9,7 @@ import pytest
 
 from cognite_toolkit._version import __version__
 from tests_migrations.constants import SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT, chdir
-from tests_migrations.migrations import get_migration
+from tests_migrations.migrations import get_migration, modify_environment_to_run_all_modules
 
 
 def cdf_tk_cmd_all_versions() -> Iterable[tuple[Path, str]]:
@@ -76,6 +76,10 @@ def tests_init_migrate_build_deploy(
                 migration = get_migration(old_version, __version__)
                 migration(local_tmp_project_path)
                 is_upgrade = False
+
+            if cmd[:2] == [previous_version, "build"]:
+                # This is to ensure that we test all modules.
+                modify_environment_to_run_all_modules(local_tmp_project_path)
 
             kwargs = dict(env=modified_env_variables) if cmd[0] == previous_version else dict()
             output = subprocess.run(cmd, capture_output=True, shell=True, **kwargs)

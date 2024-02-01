@@ -6,6 +6,23 @@ from typing import Any
 import yaml
 
 from cognite_toolkit._version import __version__
+from cognite_toolkit.cdf_tk.templates import iterate_modules
+
+
+def modify_environment_to_run_all_modules(project_path: Path) -> None:
+    """Modify the environment to run all modules."""
+    environments_path = project_path / "environments.yaml"
+    if not environments_path.exists():
+        raise FileNotFoundError(f"Could not find environments.yaml in {project_path}")
+    environments = yaml.safe_load(environments_path.read_text())
+
+    modules = [module_path.name for module_path, _ in iterate_modules(project_path)]
+
+    for env_name, env_config in environments.items():
+        if env_name == "__system":
+            continue
+        env_config["deploy"] = modules
+    environments_path.write_text(yaml.dump(environments))
 
 
 def get_migration(previous_version: str, current_version: str) -> Callable[[Path], None]:
