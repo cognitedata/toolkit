@@ -9,6 +9,7 @@ environment:
     - cdf_demo_infield
     - cdf_oid_example_data
     - cdf_data_pipeline_asset_valhall
+  common_function_code: ./common_function_code
 
 modules:
   # Globally variables are available to all submodules

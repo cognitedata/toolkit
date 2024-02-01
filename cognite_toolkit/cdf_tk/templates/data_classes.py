@@ -108,6 +108,7 @@ class Environment:
     project: str
     build_type: str
     selected_modules_and_packages: list[str]
+    common_function_code: str
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str) -> Environment:
@@ -117,6 +118,7 @@ class Environment:
                 project=data["project"],
                 build_type=data["type"],
                 selected_modules_and_packages=data["selected_modules_and_packages"],
+                common_function_code=data.get("common_function_code", "./common_function_code"),
             )
         except KeyError:
             print(
@@ -131,6 +133,7 @@ class Environment:
             "project": self.project,
             "type": self.build_type,
             "selected_modules_and_packages": self.selected_modules_and_packages,
+            "common_function_code": self.common_function_code,
         }
 
 
@@ -186,6 +189,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
             project=self.environment.project,
             build_type=self.environment.build_type,
             selected_modules_and_packages=self.environment.selected_modules_and_packages,
+            common_function_code=self.environment.common_function_code,
             cdf_toolkit_version=system_config.cdf_toolkit_version,
         )
 
@@ -251,6 +255,7 @@ class BuildEnvironment(Environment):
                 build_type=load_data["type"],
                 selected_modules_and_packages=load_data["selected_modules_and_packages"],
                 cdf_toolkit_version=version,
+                common_function_code=load_data.get("common_function_code", "./common_function_code"),
             )
         except KeyError:
             print(

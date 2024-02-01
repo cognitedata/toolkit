@@ -63,6 +63,7 @@ class Loader(ABC):
     def __init__(self, client: CogniteClient, build_path: Path | None = None):
         self.client = client
         self.build_path = build_path
+        self.extra_configs: dict[str, Any] = {}
 
     @classmethod
     def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig) -> T_Loader:
