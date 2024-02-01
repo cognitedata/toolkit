@@ -774,6 +774,10 @@ class ProjectDirectory:
                 )
 
     @abstractmethod
+    def upsert_config_yamls(self) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
     def done_message(self) -> str:
         raise NotImplementedError()
 
@@ -799,7 +803,7 @@ class ProjectDirectoryInit(ProjectDirectory):
         if not self._dry_run:
             self.project_dir.mkdir(exist_ok=True)
 
-    def create_config_yamls(self) -> None:
+    def upsert_config_yamls(self) -> None:
         # Creating the config.[environment].yaml files
         environment_default = self._source / COGNITE_MODULES / "default.environments.yaml"
         if not environment_default.is_file():
@@ -835,6 +839,10 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
 
     """
 
+    def __init__(self, project_dir: Path, dry_run: bool):
+        super().__init__(project_dir, dry_run)
+        self._has_copied = False
+
     def create_project_directory(self, clean: bool) -> None:
         if self.project_dir.exists():
             print(f"[bold]Upgrading directory {self.target_dir_display}...[/b]")
@@ -859,11 +867,17 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
         print("  Will upgrade modules and files in place.")
         super().print_what_to_copy()
 
+    def copy(self, verbose: bool) -> None:
+        super().copy(verbose)
+
     def set_source(self, git_branch: str | None) -> None:
         if git_branch is None:
             return
 
         self._source = self._download_templates(git_branch, self._dry_run)
+
+    def upsert_config_yamls(self) -> None:
+        ...
 
     def done_message(self) -> str:
         return f"You project in {self.target_dir_display} was upgraded."

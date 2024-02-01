@@ -2,9 +2,6 @@
 # The Typer parameters get mixed up if we use the __future__ import annotations
 import os
 import sys
-import tempfile
-import urllib
-import zipfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from graphlib import TopologicalSorter
@@ -716,8 +713,7 @@ def main_init(
 
     project_dir.copy(verbose)
 
-    if isinstance(project_dir, ProjectDirectoryInit):
-        project_dir.create_config_yamls()
+    project_dir.upsert_config_yamls()
 
     if not dry_run:
         print(project_dir.done_message())
@@ -863,29 +859,6 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
         except ValueError:
             print(f"Invalid selection: {answer}")
             exit(1)
-
-
-def _download_templates(git_branch: str, dry_run: bool) -> Path:
-    toolkit_github_url = f"https://github.com/cognitedata/cdf-project-templates/archive/refs/heads/{git_branch}.zip"
-    extract_dir = tempfile.mkdtemp(prefix="git.", suffix=".tmp", dir=Path.cwd())
-    prefix = "Would download" if dry_run else "Downloading"
-    print(f"{prefix} templates from https://github.com/cognitedata/cdf-project-templates, branch {git_branch}...")
-    print(
-        "  [bold yellow]WARNING:[/] You are only upgrading templates, not the cdf-tk tool. "
-        "Your current version may not support the new templates."
-    )
-    if not dry_run:
-        try:
-            zip_path, _ = urllib.request.urlretrieve(toolkit_github_url)
-            with zipfile.ZipFile(zip_path, "r") as f:
-                f.extractall(extract_dir)
-        except Exception:
-            print(
-                f"Failed to download templates. Are you sure that the branch {git_branch} exists in"
-                + "the https://github.com/cognitedata/cdf-project-templatesrepository?\n{e}"
-            )
-            exit(1)
-    return Path(extract_dir) / f"cdf-project-templates-{git_branch}" / "cognite_toolkit"
 
 
 if __name__ == "__main__":

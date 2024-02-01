@@ -11,7 +11,9 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._version import __version__ as current_version
-from cognite_toolkit.cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
+from cognite_toolkit.cdf_tk.templates._constants import COGNITE_MODULES
+from cognite_toolkit.cdf_tk.templates._utils import _get_cognite_module_version, iterate_modules
+from cognite_toolkit.cdf_tk.utils import load_yaml_inject_variables
 
 
 @dataclass
@@ -47,7 +49,7 @@ class VersionChanges:
         return cls(
             version=data["version"],
             cognite_modules={
-                key: [Change.load(change) for change in changes] for key, changes in data["cognite_modules"].items()
+                key: [Change.load(change) for change in changes] for key, changes in data[COGNITE_MODULES].items()
             },
             resources={key: [Change.load(change) for change in changes] for key, changes in data["resources"].items()},
             tool=[Change.load(change) for change in data["tool"]],
@@ -86,32 +88,7 @@ class MigrationYAML(UserList):
 
 
 def print_changes(project_dir: Path) -> None:
-    cognite_modules = project_dir / "cognite_modules"
-    if (cognite_modules / "_system.yaml").exists():
-        system_yaml = read_yaml_file(cognite_modules / "_system.yaml")
-        try:
-            previous_version = system_yaml["cdf_toolkit_version"]
-        except KeyError:
-            previous_version = None
-    elif (project_dir / "environments.yaml").exists():
-        environments_yaml = read_yaml_file(project_dir / "environments.yaml")
-        try:
-            previous_version = environments_yaml["__system__"]["cdf_toolkit_version"]
-        except KeyError:
-            previous_version = None
-    else:
-        previous_version = None
-
-    if previous_version is None:
-        print(
-            "Failed to load previous version, have you changed the "
-            "'_system.yaml' or 'environments.yaml' (before 0.1.0b6) file?"
-        )
-        exit(1)
-
-    if previous_version == current_version:
-        print("No changes to the toolkit detected.")
-        exit(0)
+    previous_version = _get_cognite_module_version(project_dir)
 
     _print_difference(project_dir, previous_version)
 
@@ -128,39 +105,42 @@ def _print_difference(project_dir: Path, previous_version: str) -> None:
 
     all_changes = migrations.as_one_change()
 
-    print(
-        Markdown(
-            f"# Found {len(all_changes.tool)} changes to the 'cdf-tk' from version '{previous_version}' to '{current_version}':"
-        )
-    )
-    for change in all_changes.tool:
-        change.print()
-
-    # Todo filter out only resources that are found in the user's project
-
-    print(
-        Markdown(
-            f"# Found {len(all_changes.resources)} changes to resources from version '{previous_version}' to '{current_version}':"
-        )
-    )
-    for resource, changes in all_changes.resources.items():
-        print(Markdown(f"# Resource: {resource}"))
-        for change in changes:
+    suffix = f"from version {previous_version!r} to {current_version!r}"
+    if all_changes.tool:
+        print(Markdown(f"# Found {len(all_changes.tool)} changes to the 'cdf-tk' {suffix}:"))
+        for change in all_changes.tool:
             change.print()
 
-    # Todo filter out only modules that are found in the user's project
+    used_resources = {
+        file_path.relative_to(module_path).parts[0]
+        for module_path, file_paths in iterate_modules(project_dir)
+        for file_path in file_paths
+    }
 
-    print(
-        Markdown(
-            f"# Found {len(all_changes.cognite_modules)} changes to cognite modules from version '{previous_version}' to '{current_version}':"
-        )
-    )
+    resources = {resource: changes for resource, changes in all_changes.resources.items() if resource in used_resources}
+    if resources:
+        print(Markdown(f"# Found {len(resources)} changes to resources {suffix}:"))
+        for resource, changes in resources.items():
+            print(Markdown(f"# Resource: {resource}"))
+            for change in changes:
+                change.print()
 
-    for module, changes in all_changes.cognite_modules.items():
-        print(Markdown(f"# Module: {module}"))
-        for change in changes:
-            change.print()
+    cognite_modules_dir = project_dir / COGNITE_MODULES
+    used_cognite_modules = {
+        ".".join(module_path.relative_to(cognite_modules_dir).parts)
+        for module_path, file_paths in iterate_modules(cognite_modules_dir)
+    }
+    cognite_modules = {
+        module: changes for module, changes in all_changes.cognite_modules.items() if module in used_cognite_modules
+    }
+    if cognite_modules:
+        print(Markdown(f"# Found {len(cognite_modules)} changes to cognite modules {suffix}:"))
+
+        for module, changes in cognite_modules.items():
+            print(Markdown(f"# Module: {module}"))
+            for change in changes:
+                change.print()
 
 
 if __name__ == "__main__":
-    _print_difference(Path(__file__).parent.parent, "0.1.0b1")
+    _print_difference(Path(__file__).parent.parent.parent, "0.1.0b1")
