@@ -1,0 +1,3 @@
+# Add common requirements in this file
+# python-dotenv is used by CDFClientTool in tool.py
+python-dotenv >= 1.0.0

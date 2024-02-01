@@ -99,7 +99,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
     table.add_row("List of views", "".join(view_names))
     print(table)
     model_edge_types: list[DirectRelationReference] = []
-    for view in views:
+    for view in sorted(views, key=lambda v: v.external_id):
         table = Table(title=f"View {view.external_id}, version {view.version} in space {space_name}")
         table.add_column("Info", justify="left")
         table.add_column("Value", justify="left", style="green")
@@ -112,7 +112,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
         table.add_row("List of properties", "".join(properties))
         direct_relations = []
         edge_relations = []
-        for p, edge_type in view.properties.items():
+        for p, edge_type in sorted(view.properties.items()):
             if isinstance(edge_type, MappedProperty) and type(edge_type.type) is DirectRelation:
                 if edge_type.source is None:
                     direct_relations.append(f"{p} --> no source")
