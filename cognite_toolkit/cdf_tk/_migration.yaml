@@ -1,5 +1,5 @@
 - version: 0.1.0b7
-  modules: {}
+  cognite_modules: {}
   resources: {}
   tool:
     - title: New required file '_system.yaml'.
@@ -53,29 +53,45 @@
         - Remove it from your project.
     - title: Default files are no longer used in 'CogniteModules'
       steps:
-        - Remove all files with prefix `default.` from the `CogniteModules` folder.
+        - Remove all files with prefix `default.` from the `cognite_modules` folder including all 
+          subfolders.
+- version: 0.1.0b6
+  cognite_modules: {}
+  resources: {}
+  tool: {}
 - version: 0.1.0b5
-  modules: {}
+  cognite_modules: {}
   resources:
     transformations:
       - title: "The field 'ignoreNullFields' is now required"
         steps:
           - "Add 'ignoreNullFields: true' to all your transformations."
-- version: 0.1.0b2
-  modules:
-    changed:
-      cognite_modules:
-        examples:
-          example_pump_asset_hierarchy:
-            changed:
-              - Transformation External IDs are prefixed with `tr_`
-        experimental:
-          cdf_asset_source_model:
-            changed:
-              - Transformation External IDs are prefixed with `tr_`
-          example_pump_data_model:
-            changed:
-              - Transformation External IDs are prefixed with `tr_`
+- version: 0.1.0b4
+  cognite_modules: {}
   resources: {}
   tool: {}
-
+- version: 0.1.0b3
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+- version: 0.1.0b2
+  cognite_modules:
+    examples.example_pump_asset_hierarchy:
+      - title: "Transformation External IDs are prefixed with `tr_`"
+        steps:
+          - "Add the prefix `tr_` to all your transformation External IDs."
+    experimental.cdf_asset_source_model:
+      - title: "Transformation External IDs are prefixed with `tr_`"
+        steps:
+          - "Add the prefix `tr_` to all your transformation External IDs."
+          - Transformation External IDs are prefixed with `tr_`
+    experimental.example_pump_data_model:
+      - title: "Transformation External IDs are prefixed with `tr_`"
+        steps:
+          - Transformation External IDs are prefixed with `tr_`
+  resources: {}
+  tool: {}
+- version: 0.1.0b1
+  cognite_modules: {}
+  resources: {}
+  tool: {}
