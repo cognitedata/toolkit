@@ -686,6 +686,13 @@ def main_init(
             help="Will delete the new_project directory before starting.",
         ),
     ] = False,
+    migration_help: Annotated[
+        bool,
+        typer.Option(
+            "--migration-help",
+            help="Will print the migration help text for the current version.",
+        ),
+    ] = False,
     init_dir: Annotated[
         str,
         typer.Argument(
