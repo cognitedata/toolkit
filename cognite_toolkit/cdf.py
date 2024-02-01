@@ -29,7 +29,6 @@ from cognite_toolkit.cdf_tk.load import (
     DeployResults,
     ResourceLoader,
 )
-from cognite_toolkit.cdf_tk.migration_help import print_help
 from cognite_toolkit.cdf_tk.run import run_function, run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
@@ -687,13 +686,6 @@ def main_init(
             help="Will delete the new_project directory before starting.",
         ),
     ] = False,
-    migration_help: Annotated[
-        bool,
-        typer.Option(
-            "--migration-help",
-            help="Will print the migration help text for the current version.",
-        ),
-    ] = False,
     init_dir: Annotated[
         str,
         typer.Argument(
@@ -703,10 +695,6 @@ def main_init(
 ) -> None:
     """Initialize or upgrade a new CDF project with templates."""
     project_dir = Path.cwd() / f"{init_dir}"
-
-    if migration_help:
-        print_help(project_dir)
-        exit(0)
 
     target_dir_display = f"'{project_dir.relative_to(Path.cwd())!s}'"
 

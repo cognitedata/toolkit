@@ -83,7 +83,9 @@ def tests_init_migrate_build_deploy(
 
             kwargs = dict(env=modified_env_variables) if cmd[0] == previous_version else dict()
             output = subprocess.run(cmd, capture_output=True, shell=True, **kwargs)
-            assert output.returncode == 0, f"Failed to run {cmd[0]}: {output.stderr.decode('utf-8')}"
+
+            messaged = output.stderr.decode() or output.stdout.decode()
+            assert output.returncode == 0, f"Failed to run {cmd[0]}: {messaged}"
 
             if cmd[-1] == "--version":
                 # This is to check that we use the expected version of the toolkit.
