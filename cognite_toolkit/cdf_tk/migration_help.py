@@ -85,7 +85,7 @@ class MigrationYAML(UserList):
         )
 
 
-def print_help(project_dir: Path) -> None:
+def print_changes(project_dir: Path) -> None:
     cognite_modules = project_dir / "cognite_modules"
     if (cognite_modules / "_system.yaml").exists():
         system_yaml = read_yaml_file(cognite_modules / "_system.yaml")
