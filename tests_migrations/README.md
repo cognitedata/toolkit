@@ -5,9 +5,21 @@ with the current version of the package.
 
 ## Motivation
 
-This is to ensure that the migration scripts are working as expected. These tests are setup in a different directory
-than the other tests as they are expensive to run due to the need to create one virtual environment for each version
-of the package that we support migration from.
+This is used to have a machine check for breaking changes in the package. The results of this check is
+used to update `cognite_toolkit/cdf_tk/templates/_migrations.yaml` with instructions on how to migrate from
+the previous version of the package to the current version of the package.
+
+## Workflow
+
+1. Update `tests_migrations/constants.py` with the previous versions to test against.
+2. Follow the instructions in Section [Setup and Running Tests](#setup-and-running-tests) to create the virtual
+   environments and running the tests.
+3. If the tests pass, no further action is needed.
+4. If the tests fail, update `tests_migrations/migrations.py:get_migration` function with programmatic instructions on
+   how to migrate from the previous version of the package to the current version of the package.
+5. Then, verify that the tests are now passing.
+6. Then update `cognite_toolkit/cdf_tk/templates/_migrations.yaml` with instructions on how to migrate from the
+   previous version of the package to the current version of the package.
 
 ## Setup and Running Tests
 
