@@ -84,6 +84,7 @@ def test_run_local_function(cognite_client_approval: ApprovalCogniteClient) -> N
         run_local_function(
             ToolGlobals=cdf_tool,
             source_path=DATA_FOLDER,
+            rebuild_env=True,
             build_env="dev",
             external_id="fn_test2",
             payload='{"var1": "value"}',
