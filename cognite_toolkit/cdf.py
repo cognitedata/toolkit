@@ -936,11 +936,27 @@ def run_function_cmd(
             help="Rebuild the virtual environment.",
         ),
     ] = False,
+    no_cleanup: Annotated[
+        bool,
+        typer.Option(
+            "--no-cleanup",
+            "-n",
+            help="Do not delete the temporary build directory.",
+        ),
+    ] = False,
     source_dir: Annotated[
         Optional[str],
         typer.Argument(
             help="Where to find the module templates to build from",
             allow_dash=True,
+        ),
+    ] = None,
+    schedule: Annotated[
+        Optional[str],
+        typer.Option(
+            "--schedule",
+            "-s",
+            help="Run the function locally with the credentials from the schedule specified with the cron expression.",
         ),
     ] = None,
     build_env: Annotated[
@@ -974,12 +990,15 @@ def run_function_cmd(
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
     run_local_function(
-        ToolGlobals,
-        source_path,
-        external_id,
-        build_env,
-        rebuild_env,
+        ToolGlobals=ToolGlobals,
+        source_path=source_path,
+        external_id=external_id,
+        payload=payload or "{}",
+        schedule=schedule,
+        build_env=build_env,
+        rebuild_env=rebuild_env,
         verbose=ctx.obj.verbose,
+        no_cleanup=no_cleanup,
     )
 
 

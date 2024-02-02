@@ -25,7 +25,7 @@ Function:
 - externalId: fn_test2
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: db804597a394fe8119ee55457e262965f9fa033f951b839d50f3eca805ae0654
+    cdf-toolkit-function-hash: 11fb6c9ddce5cad484224dc621ec4258b8865013a2324da90711e8b7f31e2e47
   name: test2
 deleted:
   Function:
