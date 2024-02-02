@@ -170,7 +170,7 @@ def run_local_function(
     rebuild_env: bool = False,
     verbose: bool = False,
     no_cleanup: bool = False,
-) -> None:
+) -> bool:
     system_config = SystemConfig.load_from_directory(source_path / COGNITE_MODULES, build_env)
     config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(f"[bold]Building for environment {build_env} using {source_path!s} as sources...[/bold]")
@@ -190,7 +190,7 @@ def run_local_function(
                     break
     if not found:
         print(f"  [bold red]ERROR:[/] Could not find function with external id {external_id}, exiting.")
-        exit(1)
+        return False
     build_config(
         build_dir=Path(build_dir),
         source_dir=source_path,
@@ -234,7 +234,7 @@ def run_local_function(
                 )
                 if not no_cleanup:
                     shutil.rmtree(build_dir)
-                exit(1)
+                return False
             if verbose:
                 print(process.stdout.decode("utf-8"))
 
@@ -257,13 +257,13 @@ def run_local_function(
         )
         if not no_cleanup:
             shutil.rmtree(build_dir)
-        exit(1)
+        return False
     handler_file = Path(f"{build_dir}/functions/{external_id}/{func.function_path}")
     if not handler_file.exists():
         print(f"  [bold red]ERROR:[/] Could not find handler file {handler_file}, exiting.")
         if not no_cleanup:
             shutil.rmtree(build_dir)
-        exit(1)
+        return False
     if verbose:
         print("  [bold]Creating environment and tmpmain.py to run...[/]")
     # Create environment to transfer to sub-process
@@ -334,7 +334,7 @@ if __name__ == "__main__":
         print('Remember to escape, example: --payload={\\"name\\": \\"test\\"}')
         if not no_cleanup:
             shutil.rmtree(build_dir)
-        exit(1)
+        return False
     print("[bold]Running function locally...[/]")
     print("-------------------------------")
     python_exe = Path(environment_dir / "bin/python").absolute()
@@ -361,7 +361,7 @@ if __name__ == "__main__":
         )
         if not no_cleanup:
             shutil.rmtree(build_dir)
-        exit(1)
+        return False
     if Path(f"{build_dir}/functions/{external_id}/out.json").exists():
         out_data = json.loads(Path(f"{build_dir}/functions/{external_id}/out.json").read_text())
         print("  [bold]Function output:[/]")
@@ -376,3 +376,4 @@ if __name__ == "__main__":
     print(out.decode("utf-8"))
     if not no_cleanup:
         shutil.rmtree(build_dir)
+    return True
