@@ -7,15 +7,17 @@ import zipfile
 from abc import abstractmethod
 from importlib import resources
 from pathlib import Path
+from typing import ClassVar
 
 from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit.cdf_tk.templates._constants import COGNITE_MODULES, CUSTOM_MODULES
-from cognite_toolkit.cdf_tk.templates._utils import iterate_modules
-from cognite_toolkit.cdf_tk.utils import read_yaml_file
+from cognite_toolkit.cdf_tk.templates._utils import _get_cognite_module_version, iterate_modules
+from cognite_toolkit.cdf_tk.utils import calculate_directory_hash, read_yaml_file
 
 from ._config_yaml import ConfigYAMLs
+from ._migration_yaml import MigrationYAML
 
 
 class ProjectDirectory:
@@ -28,19 +30,19 @@ class ProjectDirectory:
         dry_run: Whether to do a dry run or not.
     """
 
+    _files_to_copy: ClassVar[list[str]] = [
+        "README.md",
+        ".gitignore",
+        ".env.tmpl",
+    ]
+    _root_modules: ClassVar[list[str]] = [
+        COGNITE_MODULES,
+        CUSTOM_MODULES,
+    ]
+
     def __init__(self, project_dir: Path, dry_run: bool):
         self.project_dir = project_dir
-        self._has_modified_cognite_modules = False
         self._dry_run = dry_run
-        self._files_to_copy: list[str] = [
-            "README.md",
-            ".gitignore",
-            ".env.tmpl",
-        ]
-        self._root_modules: list[str] = [
-            COGNITE_MODULES,
-            CUSTOM_MODULES,
-        ]
         self._source = Path(resources.files("cognite_toolkit"))  # type: ignore[arg-type]
         self.modules_by_root: dict[str, list[str]] = {}
         for root_module in self._root_modules:
@@ -95,9 +97,30 @@ class ProjectDirectory:
                     ignore=shutil.ignore_patterns("default.*"),
                 )
 
-    @abstractmethod
-    def upsert_config_yamls(self) -> None:
-        raise NotImplementedError()
+    def upsert_config_yamls(self, clean: bool) -> None:
+        # Creating the config.[environment].yaml files
+        environment_default = self._source / COGNITE_MODULES / "default.environments.yaml"
+        if not environment_default.is_file():
+            print(
+                f"  [bold red]ERROR:[/] Could not find default.environments.yaml in {environment_default.parent.relative_to(Path.cwd())!s}. "
+                f"There is something wrong with your installation, try to reinstall `cognite-tk`, and if the problem persists, please contact support."
+            )
+            exit(1)
+
+        config_yamls = ConfigYAMLs.load_default_environments(read_yaml_file(environment_default))
+
+        config_yamls.load_default_variables(self._source)
+        config_yamls.load_variables(self._source)
+
+        for environment, config_yaml in config_yamls.items():
+            config_filepath = self.project_dir / f"config.{environment}.yaml"
+
+            print(f"Created config for {environment!r} environment.")
+            if self._dry_run:
+                print(f"Would write {config_filepath.name!r} to {self.target_dir_display}")
+            else:
+                config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
+                print(f"Wrote {config_filepath.name!r} file to {self.target_dir_display}")
 
     @abstractmethod
     def done_message(self) -> str:
@@ -125,31 +148,6 @@ class ProjectDirectoryInit(ProjectDirectory):
         if not self._dry_run:
             self.project_dir.mkdir(exist_ok=True)
 
-    def upsert_config_yamls(self) -> None:
-        # Creating the config.[environment].yaml files
-        environment_default = self._source / COGNITE_MODULES / "default.environments.yaml"
-        if not environment_default.is_file():
-            print(
-                f"  [bold red]ERROR:[/] Could not find default.environments.yaml in {environment_default.parent.relative_to(Path.cwd())!s}. "
-                f"There is something wrong with your installation, try to reinstall `cognite-tk`, and if the problem persists, please contact support."
-            )
-            exit(1)
-
-        config_yamls = ConfigYAMLs.load_default_environments(read_yaml_file(environment_default))
-
-        config_yamls.load_default_variables(self._source)
-        config_yamls.load_variables(self._source)
-
-        for environment, config_yaml in config_yamls.items():
-            config_filepath = self.project_dir / f"config.{environment}.yaml"
-
-            print(f"Created config for {environment!r} environment.")
-            if self._dry_run:
-                print(f"Would write {config_filepath.name!r} to {self.target_dir_display}")
-            else:
-                config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-                print(f"Wrote {config_filepath.name!r} file to {self.target_dir_display}")
-
     def done_message(self) -> str:
         return f"A new project was created in {self.target_dir_display}."
 
@@ -163,7 +161,18 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
 
     def __init__(self, project_dir: Path, dry_run: bool):
         super().__init__(project_dir, dry_run)
-        self._has_copied = False
+
+        self._cognite_module_version = _get_cognite_module_version(self.project_dir)
+        self._changes = MigrationYAML.load()
+        version_hash = next(
+            (entry.cognite_modules_hash for entry in self._changes if entry.version == self._cognite_module_version),
+            None,
+        )
+        if version_hash is None:
+            print(f"Failed to find migration from version '{self._cognite_module_version}'.")
+            exit(1)
+        current_hash = calculate_directory_hash(self.project_dir / COGNITE_MODULES)
+        self._has_changed_cognite_modules = current_hash != version_hash
 
     def create_project_directory(self, clean: bool) -> None:
         if self.project_dir.exists():
@@ -190,7 +199,10 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
         super().print_what_to_copy()
 
     def copy(self, verbose: bool) -> None:
-        super().copy(verbose)
+        if self._has_changed_cognite_modules:
+            print("  [bold yellow]WARNING:[/] The cognite_modules have changed, it will not be upgraded.")
+        else:
+            super().copy(verbose)
 
     def set_source(self, git_branch: str | None) -> None:
         if git_branch is None:
@@ -198,8 +210,36 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
 
         self._source = self._download_templates(git_branch, self._dry_run)
 
-    def upsert_config_yamls(self) -> None:
-        ...
+    def upsert_config_yamls(self, clean: bool) -> None:
+        if clean:
+            super().upsert_config_yamls(clean)
+            return
+        if self._has_changed_cognite_modules:
+            return
+
+        existing_environments = list(self.project_dir.glob("config.*.yaml"))
+        if len(existing_environments) == 0:
+            print("  [bold yellow]WARNING:[/] No existing config.[env].yaml files found, creating from the defaults.")
+            super().upsert_config_yamls(clean)
+            return
+
+        config_yamls = ConfigYAMLs.load_existing_environments(existing_environments)
+
+        config_yamls.load_default_variables(self._source)
+        config_yamls.load_variables(self._source)
+
+        for environment, config_yaml in config_yamls.items():
+            config_filepath = self.project_dir / f"config.{environment}.yaml"
+            for entry in config_yaml.added:
+                print(entry)
+            for entry in config_yaml.removed:
+                print(entry)
+
+            if self._dry_run:
+                print(f"Would write {config_filepath.name!r} to {self.target_dir_display}")
+            else:
+                config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
+                print(f"Wrote {config_filepath.name!r} file to {self.target_dir_display}")
 
     def done_message(self) -> str:
         return f"Automatic upgraded of {self.target_dir_display} is done.\nManual Steps:"

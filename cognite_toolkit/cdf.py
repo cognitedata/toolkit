@@ -713,7 +713,7 @@ def main_init(
 
     project_dir.copy(verbose)
 
-    project_dir.upsert_config_yamls()
+    project_dir.upsert_config_yamls(clean)
 
     if not dry_run:
         print(project_dir.done_message())

@@ -39,6 +39,7 @@ class Change:
 @dataclass
 class VersionChanges:
     version: str
+    cognite_modules_hash: str
     cognite_modules: dict[str, list[Change]]
     resources: dict[str, list[Change]]
     tool: list[Change]
@@ -47,6 +48,7 @@ class VersionChanges:
     def load(cls, data: dict[str, Any]) -> VersionChanges:
         return cls(
             version=data["version"],
+            cognite_modules_hash=data["cognite_modules_hash"],
             cognite_modules={
                 key: [Change.load(change) for change in changes] for key, changes in data[COGNITE_MODULES].items()
             },
@@ -55,7 +57,7 @@ class VersionChanges:
         )
 
 
-class MigrationYAML(UserList):
+class MigrationYAML(UserList[VersionChanges]):
     filename: str = "_migration.yaml"
 
     def __init__(self, collection: Collection[VersionChanges] | None = None) -> None:
@@ -66,6 +68,20 @@ class MigrationYAML(UserList):
         filepath = Path(__file__).parent.parent / cls.filename
         loaded = load_yaml_inject_variables(filepath, {"VERSION": current_version})
         return cls([VersionChanges.load(cast(dict[str, Any], version_changes)) for version_changes in loaded])
+
+    @classmethod
+    def load_from_version(cls, previous_version: str) -> VersionChanges:
+        migration_yaml = cls.load()
+
+        return migration_yaml.slice_from(previous_version).as_one_change()
+
+    def slice_from(self, previous_version: str) -> MigrationYAML:
+        from_version = next((no for no, entry in enumerate(self) if entry.version == previous_version), None)
+        if from_version is None:
+            print(f"Failed to find migration from version '{previous_version}'.")
+            exit(1)
+
+        return self[:from_version]
 
     def as_one_change(self) -> VersionChanges:
         tool: list[Change] = []
@@ -83,4 +99,5 @@ class MigrationYAML(UserList):
             tool=tool,
             resources=resources,
             cognite_modules=cognite_modules,
+            cognite_modules_hash=self[-1].cognite_modules_hash,
         )

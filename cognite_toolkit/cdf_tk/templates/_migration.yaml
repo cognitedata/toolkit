@@ -61,6 +61,7 @@
   cognite_modules: {}
   resources: {}
   tool: []
+  cognite_modules_hash: "26a10c03fa61ee332aafccb7194b973b197a1ec4cf3ae3d151e1ab772c7ac1f6"
 - version: 0.1.0b5
   cognite_modules: {}
   resources:
@@ -73,14 +74,17 @@
         steps:
           - "Add 'name: <Your file name>' to all your files configs."
   tool: []
+  cognite_modules_hash: "26a10c03fa61ee332aafccb7194b973b197a1ec4cf3ae3d151e1ab772c7ac1f6"
 - version: 0.1.0b4
   cognite_modules: {}
   resources: {}
   tool: []
+  cognite_modules_hash: "53a5b851f72603b78aa4947260b47a65d968480c13d93f6d02109c2a2a6a988d"
 - version: 0.1.0b3
   cognite_modules: {}
   resources: {}
   tool: []
+  cognite_modules_hash: "8639259c215b2b87ac8787854e6b55975bc23933302f814dc6f4bfad65287712"
 - version: 0.1.0b2
   cognite_modules:
     examples.example_pump_asset_hierarchy:
@@ -97,7 +101,9 @@
           - "Add the prefix `tr_` to all your transformation External IDs."
   resources: {}
   tool: []
+  cognite_modules_hash: "8639259c215b2b87ac8787854e6b55975bc23933302f814dc6f4bfad65287712"
 - version: 0.1.0b1
   cognite_modules: {}
   resources: {}
   tool: []
+  cognite_modules_hash: "f4e7e1fd4fb010cbe7bdc945de7642dd4b9a253d29e48659f6090fa3c8b9fbd0"
