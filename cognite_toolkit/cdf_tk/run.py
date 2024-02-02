@@ -307,6 +307,9 @@ def run_local_function(
             environ["IDP_AUDIENCE"] = ToolGlobals.environ("IDP_AUDIENCE")
         if ToolGlobals.environ("IDP_SCOPES", fail=False):
             environ["IDP_SCOPES"] = ToolGlobals.environ("IDP_SCOPES")
+    if function.env_vars is not None and len(function.env_vars) > 0:
+        for var, value in function.env_vars.items():
+            environ[var] = value
     # Create temporary main file to execute
     Path(Path(f"{build_dir}/functions/{external_id}/{func.function_path}").parent / "tmpmain.py").write_text(
         """

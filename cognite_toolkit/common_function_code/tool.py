@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import json
 import os
 from collections.abc import Sequence
 from pathlib import Path
@@ -129,23 +128,20 @@ class CDFClientTool:
         return {**self._environ.copy(), **os.environ}
 
     def as_string(self) -> str:
-        environment = self._environ.copy()
+        environment = os.environ
         if "IDP_CLIENT_SECRET" in environment:
             environment["IDP_CLIENT_SECRET"] = "***"
         if "TRANSFORMATIONS_CLIENT_SECRET" in environment:
             environment["TRANSFORMATIONS_CLIENT_SECRET"] = "***"
+        if "FUNCTIONS_CLIENT_SECRET" in environment:
+            environment["FUNCTIONS_CLIENT_SECRET"] = "***"
         envs = ""
         for e in environment:
             envs += f"  {e}={environment[e]}\n"
-        return f"Cluster {self._cluster} with project {self._project} and config:\n{envs}"
+        return f"CDF URL {self._client.config.base_url} with project {self._client.config.project} and config:\n{envs}"
 
     def __str__(self) -> str:
-        environment = self._environ.copy()
-        if "IDP_CLIENT_SECRET" in environment:
-            environment["IDP_CLIENT_SECRET"] = "***"
-        if "TRANSFORMATIONS_CLIENT_SECRET" in environment:
-            environment["TRANSFORMATIONS_CLIENT_SECRET"] = "***"
-        return "Environment config:\n" + json.dumps(environment, indent=2, sort_keys=True)
+        return self.as_string()
 
     @property
     def client(self) -> CogniteClient:

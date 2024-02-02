@@ -15,6 +15,8 @@ def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info:
         ]
     )
     print("Print statements will be shown in the logs.")
+    print("Running with the following configuration:\n")
+    print(tool)
     return {
         "data": data,
         "secrets": mask_secrets(secrets),
