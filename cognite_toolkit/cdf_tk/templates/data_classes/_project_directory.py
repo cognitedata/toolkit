@@ -185,6 +185,13 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
             exit(1)
 
     def do_backup(self, no_backup: bool, verbose: bool) -> None:
+        if not no_backup and self._has_changed_cognite_modules:
+            print(
+                "[bold yellow]WARNING:[/] The cognite_modules have changed, it will not be upgraded, "
+                f"no backup {'would have been' if self._dry_run else 'will be'} be done."
+            )
+            return
+
         if not no_backup:
             prefix = "Would have backed up" if self._dry_run else "Backing up"
             if verbose:
@@ -194,7 +201,8 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
                 shutil.copytree(self.project_dir, Path(backup_dir), dirs_exist_ok=True)
         else:
             print(
-                f"[bold yellow]WARNING:[/] --no-backup is specified, no backup {'would have been' if self._dry_run else 'will be'} be."
+                "[bold yellow]WARNING:[/] --no-backup is specified, no backup "
+                f"{'would have been' if self._dry_run else 'will be'} be done."
             )
 
     def print_what_to_copy(self) -> None:
