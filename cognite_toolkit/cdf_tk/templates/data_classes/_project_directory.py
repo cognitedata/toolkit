@@ -187,8 +187,8 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
     def do_backup(self, no_backup: bool, verbose: bool) -> None:
         if not no_backup and self._has_changed_cognite_modules:
             print(
-                "[bold yellow]WARNING:[/] The cognite_modules have changed, it will not be upgraded."
-                f"no backup {'would have been' if self._dry_run else 'will be'} be done."
+                "[bold yellow]WARNING:[/] The cognite_modules have changed, it will not be upgraded.\n"
+                f"  No backup {'would have been' if self._dry_run else 'will be'} done."
             )
             return
         elif self._has_changed_cognite_modules:
@@ -204,7 +204,7 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
         else:
             print(
                 "[bold yellow]WARNING:[/] --no-backup is specified, no backup "
-                f"{'would have been' if self._dry_run else 'will be'} be done."
+                f"{'would have been' if self._dry_run else 'will be'} done."
             )
 
     def print_what_to_copy(self) -> None:
