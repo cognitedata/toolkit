@@ -63,7 +63,7 @@ def _get_cognite_module_version(project_dir: Path) -> str:
     elif (project_dir / "environments.yaml").exists():
         environments_yaml = read_yaml_file(project_dir / "environments.yaml")
         try:
-            previous_version = environments_yaml["__system__"]["cdf_toolkit_version"]
+            previous_version = environments_yaml["__system"]["cdf_toolkit_version"]
         except KeyError:
             previous_version = None
     else:
