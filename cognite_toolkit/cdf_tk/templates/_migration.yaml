@@ -57,6 +57,7 @@
       steps:
         - Remove all files with prefix `default.` from the `cognite_modules` folder including all 
           subfolders.
+  cognite_modules_hash: ""
 - version: 0.1.0b6
   cognite_modules: {}
   resources: {}

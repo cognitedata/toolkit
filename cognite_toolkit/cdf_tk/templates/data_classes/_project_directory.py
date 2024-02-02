@@ -163,9 +163,9 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
         super().__init__(project_dir, dry_run)
 
         self._cognite_module_version = _get_cognite_module_version(self.project_dir)
-        self._changes = MigrationYAML.load()
+        changes = MigrationYAML.load()
         version_hash = next(
-            (entry.cognite_modules_hash for entry in self._changes if entry.version == self._cognite_module_version),
+            (entry.cognite_modules_hash for entry in changes if entry.version == self._cognite_module_version),
             None,
         )
         if version_hash is None:
@@ -173,6 +173,7 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
             exit(1)
         current_hash = calculate_directory_hash(self.project_dir / COGNITE_MODULES)
         self._has_changed_cognite_modules = current_hash != version_hash
+        self._changes = changes.slice_from(self._cognite_module_version).as_one_change()
 
     def create_project_directory(self, clean: bool) -> None:
         if self.project_dir.exists():
@@ -246,7 +247,7 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
 
     def print_manual_steps(self) -> None:
         print(Panel("[bold]Manual Upgrade Steps[/]"))
-        raise NotImplementedError()
+        self._changes.print(self.project_dir, self._cognite_module_version)
 
     @staticmethod
     def _download_templates(git_branch: str, dry_run: bool) -> Path:

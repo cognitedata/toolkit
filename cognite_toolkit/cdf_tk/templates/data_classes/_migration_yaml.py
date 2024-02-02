@@ -12,6 +12,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._version import __version__ as current_version
 from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES
+from cognite_toolkit.cdf_tk.templates._utils import iterate_modules
 from cognite_toolkit.cdf_tk.utils import load_yaml_inject_variables
 
 
@@ -55,6 +56,47 @@ class VersionChanges:
             resources={key: [Change.load(change) for change in changes] for key, changes in data["resources"].items()},
             tool=[Change.load(change) for change in data["tool"]],
         )
+
+    def print(self, project_dir: Path, previous_version: str) -> None:
+        used_resources = {
+            file_path.relative_to(module_path).parts[0]
+            for module_path, file_paths in iterate_modules(project_dir)
+            for file_path in file_paths
+        }
+
+        changes_resources = {
+            resource: changes for resource, changes in self.resources.items() if resource in used_resources
+        }
+
+        cognite_modules_dir = project_dir / COGNITE_MODULES
+        used_cognite_modules = {
+            ".".join(module_path.relative_to(cognite_modules_dir).parts)
+            for module_path, file_paths in iterate_modules(cognite_modules_dir)
+        }
+        changes_cognite_modules = {
+            module: changes for module, changes in self.cognite_modules.items() if module in used_cognite_modules
+        }
+
+        suffix = f"from version {previous_version!r} to {current_version!r}"
+        if self.tool:
+            print(Markdown(f"# Found {len(self.tool)} changes to the 'cdf-tk' {suffix}:"))
+            for change in self.tool:
+                change.print()
+
+        if changes_resources:
+            print(Markdown(f"# Found {len(changes_resources)} changes to resources {suffix}:"))
+            for resource, changes in changes_resources.items():
+                print(Markdown(f"# Resource: {resource}"))
+                for change in changes:
+                    change.print()
+
+        if changes_cognite_modules:
+            print(Markdown(f"# Found {len(changes_cognite_modules)} changes to cognite modules {suffix}:"))
+
+            for module, changes in changes_cognite_modules.items():
+                print(Markdown(f"# Module: {module}"))
+                for change in changes:
+                    change.print()
 
 
 class MigrationYAML(UserList[VersionChanges]):
@@ -101,3 +143,8 @@ class MigrationYAML(UserList[VersionChanges]):
             cognite_modules=cognite_modules,
             cognite_modules_hash=self[-1].cognite_modules_hash,
         )
+
+
+if __name__ == "__main__":
+    m = MigrationYAML.load_from_version("0.1.0b1")
+    m.print(Path(__file__).parent.parent.parent, "0.1.0b1")
