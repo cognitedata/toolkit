@@ -1,0 +1,39 @@
+externalId: APM_Config
+usedFor: node
+space: APM_Config # Must be this exact space
+properties:
+  name:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  appDataSpaceId:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  appDataSpaceVersion:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  customerDataSpaceId:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  customerDataSpaceVersion:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  featureConfiguration:
+    type:
+      type: json
+      list: false
+    nullable: true

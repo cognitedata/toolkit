@@ -1,0 +1,6 @@
+- space: {{instance_space}}
+  name: {{instance_space}}
+  description: Space for the instances.
+- space: {{model_space}}
+  name: {{model_space}}
+  description: Space for the Pump Model.

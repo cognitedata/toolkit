@@ -1,0 +1,14 @@
+externalId: Asset
+name: Asset
+space: '{{model_space}}'
+usedFor: node
+properties:
+  metadata:
+    autoIncrement: false
+    defaultValue: null
+    description: Custom, application specific metadata. String key -> String value.
+    name: metadata
+    nullable: true
+    type:
+      list: false
+      type: json

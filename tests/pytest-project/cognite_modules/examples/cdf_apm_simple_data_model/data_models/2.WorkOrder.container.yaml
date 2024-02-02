@@ -1,0 +1,183 @@
+externalId: WorkOrder
+name: WorkOrder
+properties:
+  actualHours:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: actualHours
+    nullable: true
+    type:
+      list: false
+      type: int32
+  createdDate:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: createdDate
+    nullable: true
+    type:
+      list: false
+      type: timestamp
+  description:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: description
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  dueDate:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: dueDate
+    nullable: true
+    type:
+      list: false
+      type: timestamp
+  durationHours:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: durationHours
+    nullable: true
+    type:
+      list: false
+      type: int32
+  endTime:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: endTime
+    nullable: true
+    type:
+      list: false
+      type: timestamp
+  isActive:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: isActive
+    nullable: true
+    type:
+      list: false
+      type: boolean
+  isCancelled:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: isCancelled
+    nullable: true
+    type:
+      list: false
+      type: boolean
+  isCompleted:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: isCompleted
+    nullable: true
+    type:
+      list: false
+      type: boolean
+  isSafetyCritical:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: isSafetyCritical
+    nullable: true
+    type:
+      list: false
+      type: boolean
+  percentageProgress:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: percentageProgress
+    nullable: true
+    type:
+      list: false
+      type: int32
+  plannedStart:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: plannedStart
+    nullable: true
+    type:
+      list: false
+      type: timestamp
+  priorityDescription:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: priorityDescription
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  programNumber:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: programNumber
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  startTime:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: startTime
+    nullable: true
+    type:
+      list: false
+      type: timestamp
+  status:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: status
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  title:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: title
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  workOrderNumber:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: workOrderNumber
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  workPackageNumber:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: workPackageNumber
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+space: '{{space}}'
+usedFor: node

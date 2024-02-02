@@ -1,0 +1,2 @@
+dbName: asset_{{default_location}}_{{source_asset}}
+tableName: asset2children

@@ -5,6 +5,8 @@
 # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
 # specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all' 
 
+version: '0.0.1'
+
 # location based on OID example data
 location_name: oid
 
@@ -19,3 +21,4 @@ files_raw_input_table: files_metadata
 files_location_extractor_group_source_id: <change_me>
 files_location_processing_group_source_id: <change_me>
 files_location_read_group_source_id: <change_me>
+

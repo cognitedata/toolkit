@@ -1,0 +1,3 @@
+space: {{instance_space}}
+name: {{instance_space}}
+description: Space for the instances in the ExtendedSourceData data model

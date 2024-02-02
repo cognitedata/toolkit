@@ -1,0 +1,24 @@
+externalId: 'ep_src_files_{{location_name}}_{{source_name}}'
+name: 'src:files:{{location_name}}:{{source_name}}'
+dataSetExternalId: 'ds_files_{{location_name}}'
+description: 'File source extraction pipeline with configuration for File extractor reading data from {{location_name}}:{{source_name}}'
+rawTables:  [
+    dbName: 'files_{{location_name}}_{{source_name}}',
+    tableName: '{{files_raw_input_table}}'
+  ]
+
+source: '{{source_name}}'
+documentation: >
+  The Cognite File Extractor is a generic file extractor that can connect to and extract file from a host of different sources. \n
+  \n
+  The currently supported sources are: \n
+  * Local files \n
+  * File Transfer Protocol (FTP) \n
+  * Secure File Transfer Protocol (SFTP) \n
+  * File Transfer Protocol over SSH (FTPS) \n
+  * Documents and files in SharePoint Online \n
+  * Files in Google Cloud Storage \n
+  \n\n
+  The extractor is provided with template configuration files for all mentioned source systems. To set up the file extractor against your source system, pick the config template that fits your setup and adjust parameters as you see fit.
+
+

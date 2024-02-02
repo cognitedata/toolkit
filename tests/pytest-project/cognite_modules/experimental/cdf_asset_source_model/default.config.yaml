@@ -1,0 +1,7 @@
+# Only valid for this module, loads template variables from environment
+model_space: sp_extended_source_data_models
+instance_space: sp_cdf_template_instances
+view_asset_version: '1'
+data_model_version: '1'
+root_asset_external_id: 'lift_pump_stations:root'
+data_set: ds_example_asset_source_data

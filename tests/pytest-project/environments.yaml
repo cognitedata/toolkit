@@ -1,0 +1,56 @@
+# EDIT THIS FILE!!!
+#
+# This file controls which modules will be built and deployed.
+#
+# local.yaml should be checked into code repository.
+# It contains the environment definitions to control build and deploy.
+# Use build.sh --env <env> to specify which environment to build and deploy
+# where <env> is the name of one of the below environment in local.yaml (root-level key)
+#
+# Note that the following environment variables will be set:
+# CDF_ENVIRON = name of the environment (e.g. demo)
+# CDF_BUILD_TYPE = type of the environment (dev, staging, prod)
+# 
+# If you set CDF_PROJECT as an environment variable, the environment you are trying to
+# deploy to must have the same project name configured below. This is a safety measure
+# to prevent you from accidentally deploying to the wrong environment.
+demo:
+  project: <a-demo-project>
+  type: dev
+  # This should be a used to specify which modules and packages to deploy locally and in the GitHub Action.
+  # You can have multiple deploy commands.
+  # Order is important.
+  deploy:
+    - cdf_demo_infield
+    - cdf_oid_example_data
+local:
+  project: <customer-dev>
+  type: dev
+  deploy:
+    - cdf_auth_readwrite_all
+    - cdf_apm_base
+    - cdf_oid_example_data
+    - cdf_infield_common
+    - cdf_infield_location
+dev:
+  project: <customer-dev>
+  type: dev
+  deploy:
+    - cdf_demo_infield
+    - cdf_oid_example_data
+staging:
+  project: <customer-staging>
+  type: staging
+  deploy:
+    - cdf_infield
+prod:
+  project: <customer-prod>
+  type: prod
+  deploy:
+    - cdf_infield
+
+
+# DO NOT EDIT THE LINES BELOW!
+# This part is used by cdf-toolkit to keep track of the version and help you upgrade.
+__system:
+  cdf_toolkit_version: 0.1.0b2

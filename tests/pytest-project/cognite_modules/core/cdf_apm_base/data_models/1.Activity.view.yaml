@@ -1,0 +1,109 @@
+externalId: APM_Activity
+name: APM_Activity
+description: "An activity represents a set of maintenance tasks, comprised of multiple operations for individual assets. It provides an overarching description and is considered incomplete until all its operations are finished."
+version: '{{apm_datamodel_version}}'
+space: {{apm_datamodel_space}}
+properties:
+  id:
+    description: "Unique identifier from the source, such as object ID in SAP."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: id
+  title:
+    description: "Concise title or brief description of the maintenance activity or work order."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: title
+  description:
+    description: "Detailed explanation of the maintenance activity or work order."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: description
+  assignedTo:
+    description: "Who the maintenance activity or work order has been assigned to."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: assignedTo
+  source:
+    description: "Origin of the activity or work order, such as SAP, Comos, etc."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: source
+  startTime:
+    description: "Planned start time of activity to be executed."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: startTime
+  endTime:
+    description: "Planned end time of the activity to be done."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: endTime
+  assetExternalId:
+    description: "The asset / functional location assosiated with the activity."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: assetExternalId
+  notifications:
+    description: "Originating notifications linked to this maintenance activity."
+    type:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity.notifications
+    source:
+      type: view
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      version: '{{apm_datamodel_version}}'
+    direction: outwards
+    connectionType: multiEdgeConnection
+  rootLocation:
+    description: "Primary location tied to the activity, useful for location-based filtering. It refers to the external ID of the location set in InField."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: rootLocation
+  resource:
+    description: "Designated resources, work centers, or disciplines to execute the work. Prefer descriptive names over codes for user interface clarity."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: resource
+  type:
+    description: "Nature of the activity, such as corrective or preventive. Use descriptive terms over codes for better UI clarity."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: type
+  status:
+    description: "Current state of the activity, e.g., planning, execution-ready, ongoing, or completed. Use descriptive statuses over codes for better UI understanding."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: status
+  cloneOf:
+    description: "Used by 'Maintain' when modifying work orders and operations. 'InField' currently filters out 'Maintain' activities and operations. Required for GraphQL as it has an associated filter."
+    container:
+      type: container
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+    containerPropertyIdentifier: cloneOf

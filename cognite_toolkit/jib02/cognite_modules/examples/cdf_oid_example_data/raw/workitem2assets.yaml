@@ -1,0 +1,2 @@
+dbName: workorder_{{default_location}}_{{source_workorder}}
+tableName: workitem2assets

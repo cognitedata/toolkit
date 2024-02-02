@@ -1,0 +1,80 @@
+externalId: APM_Activity
+usedFor: node
+space: {{apm_datamodel_space}}
+properties:
+  id:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  title:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  description:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  assignedTo:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    nullable: true
+  source:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  startTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+  endTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+  assetExternalId:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  rootLocation:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  resource:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  type:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  status:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  cloneOf:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true

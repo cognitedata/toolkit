@@ -1,0 +1,9 @@
+externalId: ExtendedSourceData
+name: ExtendedSourceData
+space: {{model_space}}
+version: '{{data_model_version}}'
+views:
+- externalId: Asset
+  space: '{{model_space}}'
+  type: view
+  version: '{{view_asset_version}}'
