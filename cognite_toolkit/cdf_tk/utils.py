@@ -794,12 +794,14 @@ def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
     return (base_path / path).resolve()
 
 
-def calculate_directory_hash(directory: Path) -> str:
+def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None = None) -> str:
     sha256_hash = hashlib.sha256()
 
     # Walk through each file in the directory
     for filepath in sorted(directory.rglob("*"), key=lambda p: str(p.relative_to(directory))):
         if filepath.is_dir():
+            continue
+        if exclude_prefixes and any(filepath.name.startswith(prefix) for prefix in exclude_prefixes):
             continue
         # Open each file and update the hash
         with filepath.open("rb") as file:
