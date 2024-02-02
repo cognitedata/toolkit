@@ -57,7 +57,7 @@ class VersionChanges:
             tool=[Change.load(change) for change in data["tool"]],
         )
 
-    def print(self, project_dir: Path, previous_version: str) -> None:
+    def print(self, project_dir: Path, previous_version: str, print_cognite_module_changes: bool = True) -> None:
         used_resources = {
             file_path.relative_to(module_path).parts[0]
             for module_path, file_paths in iterate_modules(project_dir)
@@ -90,7 +90,7 @@ class VersionChanges:
                 for change in changes:
                     change.print()
 
-        if changes_cognite_modules:
+        if changes_cognite_modules and print_cognite_module_changes:
             print(Markdown(f"# Found {len(changes_cognite_modules)} changes to cognite modules {suffix}:"))
 
             for module, changes in changes_cognite_modules.items():
@@ -146,5 +146,6 @@ class MigrationYAML(UserList[VersionChanges]):
 
 
 if __name__ == "__main__":
+    # This is a simple convince to print the migration from a specific version.
     m = MigrationYAML.load_from_version("0.1.0b1")
     m.print(Path(__file__).parent.parent.parent, "0.1.0b1")

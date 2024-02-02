@@ -12,6 +12,7 @@ from typing import ClassVar
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._version import __version__ as current_version
 from cognite_toolkit.cdf_tk.templates._constants import COGNITE_MODULES, CUSTOM_MODULES
 from cognite_toolkit.cdf_tk.templates._utils import _get_cognite_module_version, iterate_modules
 from cognite_toolkit.cdf_tk.utils import calculate_directory_hash, read_yaml_file
@@ -247,7 +248,19 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
 
     def print_manual_steps(self) -> None:
         print(Panel("[bold]Manual Upgrade Steps[/]"))
-        self._changes.print(self.project_dir, self._cognite_module_version)
+        # If we updated the cognite_modules, we do not print the changes as there are no manual steps needed.
+        self._changes.print(
+            self.project_dir,
+            self._cognite_module_version,
+            print_cognite_module_changes=self._has_changed_cognite_modules,
+        )
+
+        print(
+            Panel(
+                f"[bold red]Change the version in {COGNITE_MODULES}/_system.yaml from {self._cognite_module_version} to {current_version}[/]",
+                title="When you are done with the manual updates",
+            )
+        )
 
     @staticmethod
     def _download_templates(git_branch: str, dry_run: bool) -> Path:
