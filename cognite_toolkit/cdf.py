@@ -719,7 +719,6 @@ def main_init(
         print(project_dir.done_message())
 
     if isinstance(project_dir, ProjectDirectoryUpgrade):
-        print(Panel("[bold]Manual Upgrade Steps[/]"))
         project_dir.print_manual_steps()
 
 

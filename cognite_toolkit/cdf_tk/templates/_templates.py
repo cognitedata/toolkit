@@ -58,7 +58,7 @@ def build_config(
 
     process_config_files(source_dir, selected_modules, build_dir, config, verbose)
 
-    build_environment = config.create_build_environment(system_config)
+    build_environment = config.create_build_environment()
     build_environment.dump_to_file(build_dir)
     print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
     return None

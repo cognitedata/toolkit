@@ -3,103 +3,22 @@ from __future__ import annotations
 import itertools
 import os
 import re
-import shutil
-import tempfile
-import urllib
-import zipfile
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections import UserDict, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from importlib import resources
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TypeVar, cast
+from typing import Any, Literal, cast
 
 import yaml
 from rich import print
 
-from cognite_toolkit import _version
+from cognite_toolkit._version import __version__
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
-from cognite_toolkit.cdf_tk.utils import read_yaml_file
+from cognite_toolkit.cdf_tk.templates import BUILD_ENVIRONMENT_FILE, flatten_dict
+from cognite_toolkit.cdf_tk.templates._constants import DEFAULT_CONFIG_FILE, SEARCH_VARIABLES_SUFFIX
 
-from ._constants import (
-    BUILD_ENVIRONMENT_FILE,
-    COGNITE_MODULES,
-    CUSTOM_MODULES,
-    DEFAULT_CONFIG_FILE,
-    SEARCH_VARIABLES_SUFFIX,
-)
-from ._utils import flatten_dict, iterate_modules
-
-__all__ = ["SystemConfig", "BuildConfigYAML", "InitConfigYAML", "ConfigYAMLs", "BuildEnvironment"]
-
-
-@dataclass
-class ConfigCore(ABC):
-    """Base class for the two build config files (global.yaml and [env].config.yaml)"""
-
-    filepath: Path
-
-    @classmethod
-    @abstractmethod
-    def _file_name(cls, build_env: str) -> str:
-        raise NotImplementedError
-
-    @classmethod
-    def load_from_directory(cls: type[T_BuildConfig], source_path: Path, build_env: str) -> T_BuildConfig:
-        file_name = cls._file_name(build_env)
-        filepath = source_path / file_name
-        filepath = filepath if filepath.is_file() else Path.cwd() / file_name
-        if not filepath.is_file():
-            print(f"  [bold red]ERROR:[/] {filepath.name!r} does not exist")
-            exit(1)
-        return cls.load(read_yaml_file(filepath), build_env, filepath)
-
-    @classmethod
-    @abstractmethod
-    def load(cls: type[T_BuildConfig], data: dict[str, Any], build_env: str, filepath: Path) -> T_BuildConfig:
-        raise NotImplementedError
-
-
-T_BuildConfig = TypeVar("T_BuildConfig", bound=ConfigCore)
-
-
-@dataclass
-class SystemConfig(ConfigCore):
-    file_name: ClassVar[str] = "_system.yaml"
-    cdf_toolkit_version: str
-    packages: dict[str, list[str]] = field(default_factory=dict)
-
-    @classmethod
-    def _file_name(cls, build_env: str) -> str:
-        return cls.file_name
-
-    @classmethod
-    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> SystemConfig:
-        version = _load_version_variable(data, filepath.name)
-        packages = data.get("packages", {})
-        if not packages:
-            print(f"  [bold yellow]Warning:[/] No packages defined in {cls.file_name}.")
-        return cls(
-            filepath=filepath,
-            cdf_toolkit_version=version,
-            packages=packages,
-        )
-
-    def validate_modules(self, available_modules: set[str], selected_modules_and_packages: list[str]) -> None:
-        selected_packages = {package for package in selected_modules_and_packages if package in self.packages}
-        for package, modules in self.packages.items():
-            if package not in selected_packages:
-                # We do not check packages that are not selected.
-                # Typically, the user will delete the modules that are irrelevant for them,
-                # thus we only check the selected packages.
-                continue
-            if missing := set(modules) - available_modules:
-                print(
-                    f"  [bold red]ERROR:[/] Package {package} defined in {self.filepath.name!s} is referring "
-                    f"the following missing modules {missing}."
-                )
-                exit(1)
+from ._base import ConfigCore, _load_version_variable
 
 
 @dataclass
@@ -183,14 +102,14 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
             exit(1)
         return cls(environment=environment, modules=modules, filepath=filepath)
 
-    def create_build_environment(self, system_config: SystemConfig) -> BuildEnvironment:
+    def create_build_environment(self) -> BuildEnvironment:
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
             build_type=self.environment.build_type,
             selected_modules_and_packages=self.environment.selected_modules_and_packages,
             common_function_code=self.environment.common_function_code,
-            cdf_toolkit_version=system_config.cdf_toolkit_version,
+            cdf_toolkit_version=__version__,
         )
 
     def get_selected_modules(
@@ -671,239 +590,3 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
         # Can be optimized, but not a priority
         for config_yaml in self.values():
             config_yaml.load_variables(project_dir)
-
-
-def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
-    try:
-        cdf_tk_version: str = data["cdf_toolkit_version"]
-    except KeyError:
-        print(
-            f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {file_name!s}"
-        )
-        if file_name == BUILD_ENVIRONMENT_FILE:
-            print(f"  rerun `cdf-tk build` to build the templates again and create `{file_name!s}` correctly.")
-        else:
-            print(
-                f"  run `cdf-tk init --upgrade` to initialize the templates again and create a correct `{file_name!s}` file."
-            )
-        exit(1)
-    if cdf_tk_version != _version.__version__:
-        print(
-            f"  [bold red]Error:[/] The version of the templates ({cdf_tk_version}) does not match the version of the installed package ({_version.__version__})."
-        )
-        print("  Please either run `cdf-tk init --upgrade` to upgrade the templates OR")
-        print(f"  run `pip install cognite-toolkit==={cdf_tk_version}` to downgrade cdf-tk.")
-        exit(1)
-    return cdf_tk_version
-
-
-class ProjectDirectory:
-    """This represents the project directory, and is used in the init command.
-
-    It is responsible for copying the files from the templates to the project directory.
-
-    Args:
-        project_dir: The project directory.
-        dry_run: Whether to do a dry run or not.
-    """
-
-    def __init__(self, project_dir: Path, dry_run: bool):
-        self.project_dir = project_dir
-        self._dry_run = dry_run
-        self._files_to_copy: list[str] = [
-            "README.md",
-            ".gitignore",
-            ".env.tmpl",
-        ]
-        self._root_modules: list[str] = [
-            COGNITE_MODULES,
-            CUSTOM_MODULES,
-        ]
-        self._source = Path(resources.files("cognite_toolkit"))  # type: ignore[arg-type]
-        self.modules_by_root: dict[str, list[str]] = {}
-        for root_module in self._root_modules:
-            self.modules_by_root[root_module] = [
-                f"{module.relative_to(self._source)!s}" for module, _ in iterate_modules(self._source / root_module)
-            ]
-
-    def set_source(self, git_branch: str | None) -> None:
-        ...
-
-    @property
-    def target_dir_display(self) -> str:
-        return f"'{self.project_dir.relative_to(Path.cwd())!s}'"
-
-    @abstractmethod
-    def create_project_directory(self, clean: bool) -> None:
-        ...
-
-    def print_what_to_copy(self) -> None:
-        copy_prefix = "Would" if self._dry_run else "Will"
-        print(f"{copy_prefix} copy these files to {self.target_dir_display}:")
-        print(self._files_to_copy)
-
-        for root_module, modules in self.modules_by_root.items():
-            print(f"{copy_prefix} copy these modules to {self.target_dir_display} from {root_module}:")
-            print(modules)
-
-    def copy(self, verbose: bool) -> None:
-        dry_run = self._dry_run
-        copy_prefix = "Would copy" if dry_run else "Copying"
-        for filename in self._files_to_copy:
-            if verbose:
-                print(f"{copy_prefix} file {filename} to {self.target_dir_display}")
-            if not dry_run:
-                if filename == "README.md":
-                    content = (self._source / filename).read_text().replace("<MY_PROJECT>", self._source.name)
-                    (self.project_dir / filename).write_text(content)
-                else:
-                    shutil.copyfile(self._source / filename, self.project_dir / filename)
-
-        for root_module in self._root_modules:
-            if verbose:
-                print(f"{copy_prefix} the following modules from  {root_module} to {self.target_dir_display}")
-                print(self.modules_by_root[root_module])
-            if not dry_run:
-                (Path(self.project_dir) / root_module).mkdir(exist_ok=True)
-                # Default files are not copied, as they are only used to setup the config.yaml.
-                shutil.copytree(
-                    self._source / root_module,
-                    self.project_dir / root_module,
-                    dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns("default.*"),
-                )
-
-    @abstractmethod
-    def upsert_config_yamls(self) -> None:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def done_message(self) -> str:
-        raise NotImplementedError()
-
-
-class ProjectDirectoryInit(ProjectDirectory):
-    """This represents the project directory, and is used in the init command.
-    It is used when creating a new project (or overwriting an existing one).
-    """
-
-    def create_project_directory(self, clean: bool) -> None:
-        if self.project_dir.exists() and not clean:
-            print(f"Directory {self.target_dir_display} already exists.")
-            exit(1)
-        elif self.project_dir.exists() and clean and self._dry_run:
-            print(f"Would clean out directory {self.target_dir_display}...")
-        elif self.project_dir.exists() and clean:
-            print(f"Cleaning out directory {self.target_dir_display}...")
-            shutil.rmtree(self.project_dir)
-        else:
-            print(f"Found no directory {self.target_dir_display} to upgrade.")
-            exit(1)
-
-        if not self._dry_run:
-            self.project_dir.mkdir(exist_ok=True)
-
-    def upsert_config_yamls(self) -> None:
-        # Creating the config.[environment].yaml files
-        environment_default = self._source / COGNITE_MODULES / "default.environments.yaml"
-        if not environment_default.is_file():
-            print(
-                f"  [bold red]ERROR:[/] Could not find default.environments.yaml in {environment_default.parent.relative_to(Path.cwd())!s}. "
-                f"There is something wrong with your installation, try to reinstall `cognite-tk`, and if the problem persists, please contact support."
-            )
-            exit(1)
-
-        config_yamls = ConfigYAMLs.load_default_environments(read_yaml_file(environment_default))
-
-        config_yamls.load_default_variables(self._source)
-        config_yamls.load_variables(self._source)
-
-        for environment, config_yaml in config_yamls.items():
-            config_filepath = self.project_dir / f"config.{environment}.yaml"
-
-            print(f"Created config for {environment!r} environment.")
-            if self._dry_run:
-                print(f"Would write {config_filepath.name!r} to {self.target_dir_display}")
-            else:
-                config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-                print(f"Wrote {config_filepath.name!r} file to {self.target_dir_display}")
-
-    def done_message(self) -> str:
-        return f"A new project was created in {self.target_dir_display}."
-
-
-class ProjectDirectoryUpgrade(ProjectDirectory):
-    """This represents the project directory, and is used in the init command.
-
-    It is used when upgrading an existing project.
-
-    """
-
-    def __init__(self, project_dir: Path, dry_run: bool):
-        super().__init__(project_dir, dry_run)
-        self._has_copied = False
-
-    def create_project_directory(self, clean: bool) -> None:
-        if self.project_dir.exists():
-            print(f"[bold]Upgrading directory {self.target_dir_display}...[/b]")
-        else:
-            print(f"Found no directory {self.target_dir_display} to upgrade.")
-            exit(1)
-
-    def do_backup(self, no_backup: bool, verbose: bool) -> None:
-        if not no_backup:
-            prefix = "Would have backed up" if self._dry_run else "Backing up"
-            if verbose:
-                print(f"{prefix} {self.target_dir_display}")
-            if not self._dry_run:
-                backup_dir = tempfile.mkdtemp(prefix=f"{self.project_dir.name}.", suffix=".bck", dir=Path.cwd())
-                shutil.copytree(self.project_dir, Path(backup_dir), dirs_exist_ok=True)
-        else:
-            print(
-                f"[bold yellow]WARNING:[/] --no-backup is specified, no backup {'would have been' if self._dry_run else 'will be'} be."
-            )
-
-    def print_what_to_copy(self) -> None:
-        print("  Will upgrade modules and files in place.")
-        super().print_what_to_copy()
-
-    def copy(self, verbose: bool) -> None:
-        super().copy(verbose)
-
-    def set_source(self, git_branch: str | None) -> None:
-        if git_branch is None:
-            return
-
-        self._source = self._download_templates(git_branch, self._dry_run)
-
-    def upsert_config_yamls(self) -> None:
-        ...
-
-    def done_message(self) -> str:
-        return f"Automatic upgraded of {self.target_dir_display} is done.\nManual Steps:"
-
-    def print_manual_steps(self) -> str:
-        raise NotImplementedError()
-
-    @staticmethod
-    def _download_templates(git_branch: str, dry_run: bool) -> Path:
-        toolkit_github_url = f"https://github.com/cognitedata/cdf-project-templates/archive/refs/heads/{git_branch}.zip"
-        extract_dir = tempfile.mkdtemp(prefix="git.", suffix=".tmp", dir=Path.cwd())
-        prefix = "Would download" if dry_run else "Downloading"
-        print(f"{prefix} templates from https://github.com/cognitedata/cdf-project-templates, branch {git_branch}...")
-        print(
-            "  [bold yellow]WARNING:[/] You are only upgrading templates, not the cdf-tk tool. "
-            "Your current version may not support the new templates."
-        )
-        if not dry_run:
-            try:
-                zip_path, _ = urllib.request.urlretrieve(toolkit_github_url)
-                with zipfile.ZipFile(zip_path, "r") as f:
-                    f.extractall(extract_dir)
-            except Exception:
-                print(
-                    f"Failed to download templates. Are you sure that the branch {git_branch} exists in"
-                    + "the https://github.com/cognitedata/cdf-project-templatesrepository?\n{e}"
-                )
-                exit(1)
-        return Path(extract_dir) / f"cdf-project-templates-{git_branch}" / "cognite_toolkit"
