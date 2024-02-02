@@ -39,6 +39,11 @@ Changes are grouped as follows:
   - The file `default.packages.yaml` has been renamed `_system.yaml` and extended to include the `cdf-tk` version.
     This should not be changed by the user and is used to store package information for the toolkit itself and
     version.
+- Running the `cdf-tk init --upgrade` now gives the user instructions on how to update the breaking changes
+  since their last upgrade.
+- If the user has changed the content of `cognite_modules`, the command `cdf-tk init --upgrade` will no longer
+  overwrite the content of the `cognite_modules` folder. Instead, the user will be given instructions on how to
+  update the `cognite_modules` folder manually.
 
 ## Fixed
 
