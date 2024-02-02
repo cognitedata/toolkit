@@ -11,9 +11,11 @@ from pathlib import Path
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, CUSTOM_MODULES, iterate_modules
-from cognite_toolkit.cdf_tk.templates.data_classes import ConfigYAMLs
+from cognite_toolkit.cdf_tk.templates._constants import COGNITE_MODULES, CUSTOM_MODULES
+from cognite_toolkit.cdf_tk.templates._utils import iterate_modules
 from cognite_toolkit.cdf_tk.utils import read_yaml_file
+
+from ._config_yaml import ConfigYAMLs
 
 
 class ProjectDirectory:
@@ -28,6 +30,7 @@ class ProjectDirectory:
 
     def __init__(self, project_dir: Path, dry_run: bool):
         self.project_dir = project_dir
+        self._has_modified_cognite_modules = False
         self._dry_run = dry_run
         self._files_to_copy: list[str] = [
             "README.md",

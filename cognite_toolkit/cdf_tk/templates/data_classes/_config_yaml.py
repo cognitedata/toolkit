@@ -15,8 +15,12 @@ from rich import print
 
 from cognite_toolkit._version import __version__
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
-from cognite_toolkit.cdf_tk.templates import BUILD_ENVIRONMENT_FILE, flatten_dict
-from cognite_toolkit.cdf_tk.templates._constants import DEFAULT_CONFIG_FILE, SEARCH_VARIABLES_SUFFIX
+from cognite_toolkit.cdf_tk.templates._constants import (
+    BUILD_ENVIRONMENT_FILE,
+    DEFAULT_CONFIG_FILE,
+    SEARCH_VARIABLES_SUFFIX,
+)
+from cognite_toolkit.cdf_tk.templates._utils import flatten_dict
 
 from ._base import ConfigCore, _load_version_variable
 

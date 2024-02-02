@@ -37,7 +37,7 @@ from cognite_toolkit.cdf_tk.templates.data_classes import (
     ProjectDirectory,
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,
-    SystemConfig,
+    SystemYAML,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, read_yaml_file
 
@@ -213,7 +213,7 @@ def build(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    system_config = SystemConfig.load_from_directory(source_path / COGNITE_MODULES, build_env)
+    system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, build_env)
     config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(
         Panel(

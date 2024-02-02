@@ -10,7 +10,7 @@ from cognite_toolkit.cdf_tk.templates.data_classes._base import ConfigCore, _loa
 
 
 @dataclass
-class SystemConfig(ConfigCore):
+class SystemYAML(ConfigCore):
     file_name: ClassVar[str] = "_system.yaml"
     cdf_toolkit_version: str
     packages: dict[str, list[str]] = field(default_factory=dict)
@@ -20,7 +20,7 @@ class SystemConfig(ConfigCore):
         return cls.file_name
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> SystemConfig:
+    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> SystemYAML:
         version = _load_version_variable(data, filepath.name)
         packages = data.get("packages", {})
         if not packages:
