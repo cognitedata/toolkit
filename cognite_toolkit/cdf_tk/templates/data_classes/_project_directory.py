@@ -142,9 +142,6 @@ class ProjectDirectoryInit(ProjectDirectory):
         elif self.project_dir.exists() and clean:
             print(f"Cleaning out directory {self.target_dir_display}...")
             shutil.rmtree(self.project_dir)
-        else:
-            print(f"Found no directory {self.target_dir_display} to upgrade.")
-            exit(1)
 
         if not self._dry_run:
             self.project_dir.mkdir(exist_ok=True)
