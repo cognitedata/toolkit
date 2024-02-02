@@ -33,12 +33,12 @@
         - "For example, the resulting `config.dev.yaml` should look like this:"
         - "<Panel>
           environment:\n
-            name: dev\n
-            project: <my-project>\n
-            type: dev\n
-            selected_modules_and_packages:\n
-            - cdf_functions_dummy\n
-            common_function_code: ./common_function_code\n
+          \u00A0  name: dev\n
+          \u00A0  project: <my-project>\n
+          \u00A0  type: dev\n
+          \u00A0  selected_modules_and_packages:\n
+          \u00A0  - cdf_functions_dummy\n
+          \u00A0  common_function_code: ./common_function_code\n
           \n
           modules:\n
           \u00A0 cognite_modules:\n

@@ -159,6 +159,10 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
 
     def __init__(self, project_dir: Path, dry_run: bool):
         super().__init__(project_dir, dry_run)
+        if not project_dir.exists():
+            # Need to do this check here, as we load version from the project directory.
+            print(f"Found no directory {self.target_dir_display} to upgrade.")
+            exit(1)
 
         self._cognite_module_version = _get_cognite_module_version(self.project_dir)
         changes = MigrationYAML.load()
