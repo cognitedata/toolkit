@@ -25,6 +25,8 @@ Changes are grouped as follows:
 - Added support for common function code as defined by `common_function_code` parameter in the environment config file.
 - Added support for new command, `run function` that runs a function with a one-shot session created using currently
   configured credentials for cdf-tk.
+- Added support for running a Cognite function locally using the `run function --local` command. This command will run the
+  function locally in a virtual environment simulating CDF hosted run-time environment and print the result to the console.
 
 ## Changed
 
