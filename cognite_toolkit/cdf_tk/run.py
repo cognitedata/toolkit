@@ -2,16 +2,30 @@ from __future__ import annotations
 
 import datetime
 import json
+import platform
+import shutil
+import subprocess
+import tempfile
 import time
+import venv
+from pathlib import Path
 from typing import Any
 
-from cognite.client.data_classes import FunctionCall
+from cognite.client.data_classes import FunctionCall, FunctionWriteList
 from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
 from rich import print
 from rich.table import Table
 
-from .utils import CDFToolConfig, get_oneshot_session
+from cognite_toolkit.cdf_tk.load import (
+    FunctionLoader,
+)
+from cognite_toolkit.cdf_tk.templates import (
+    COGNITE_MODULES,
+    build_config,
+)
+from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, SystemConfig
+from cognite_toolkit.cdf_tk.utils import CDFToolConfig, get_oneshot_session
 
 
 def run_function(ToolGlobals: CDFToolConfig, external_id: str, payload: str, follow: bool = False) -> bool:
@@ -146,3 +160,162 @@ def run_transformation(ToolGlobals: CDFToolConfig, external_ids: str | list[str]
             print(f"[bold red]ERROR:[/] Could not run transformation {transformation.external_id}.")
             print(e)
     return True
+
+
+def run_local_function(
+    ToolGlobals: CDFToolConfig,
+    source_path: Path,
+    external_id: str,
+    build_env: str,
+    rebuild_env: bool = False,
+    verbose: bool = False,
+) -> None:
+    system_config = SystemConfig.load_from_directory(source_path / COGNITE_MODULES, build_env)
+    config = BuildConfigYAML.load_from_directory(source_path, build_env)
+    print(f"[bold]Building for environment {build_env} using {source_path!s} as sources...[/bold]")
+    config.set_environment_variables()
+    build_dir = tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd())
+    found = False
+    for root_module, root_values in config.modules.items():
+        if not isinstance(root_values, dict):
+            continue
+        for group_module, group_values in root_values.items():
+            if not isinstance(group_values, dict):
+                continue
+            for module_name in group_values:
+                if Path(source_path / f"{root_module}/{group_module}/{module_name}/functions/{external_id}").is_dir():
+                    config.environment.selected_modules_and_packages = [f"{module_name}"]
+                    found = True
+                    break
+    if not found:
+        print(f"  [bold red]ERROR:[/] Could not find function with external id {external_id}, exiting.")
+        exit(1)
+    build_config(
+        build_dir=Path(build_dir),
+        source_dir=source_path,
+        config=config,
+        system_config=system_config,
+        clean=True,
+        verbose=False,
+    )
+    environment_dir = Path(f"./.venv.{external_id}")
+    if not environment_dir.exists() or rebuild_env:
+        print("  Creating virtual environment...")
+        venv.create(env_dir=environment_dir.as_posix(), with_pip=True, system_site_packages=False)
+        req_file = Path(f"{build_dir}/functions/{external_id}/requirements.txt")
+        if req_file.exists():
+            if platform.system() == "Windows":
+                process = subprocess.run(
+                    [
+                        f"{environment_dir}/Scripts/pip",
+                        "install",
+                        f"-r {build_dir}/functions/{external_id}/requirements.txt",
+                    ]
+                )
+            else:
+                process = subprocess.run(
+                    [
+                        f"{environment_dir}/bin/pip",
+                        "--python",
+                        f"{environment_dir}/bin/python",
+                        "install",
+                        "--disable-pip-version-check",
+                        "-r",
+                        f"{req_file}",
+                    ],
+                    capture_output=True,
+                )
+            if process.returncode != 0:
+                print(
+                    "  [bold red]ERROR:[/] Failed to install requirements in virtual environment: ",
+                    process.stderr.decode("utf-8"),
+                )
+                shutil.rmtree(build_dir)
+                exit(1)
+            if verbose:
+                print(process.stdout.decode("utf-8"))
+
+    function_loader: FunctionLoader = FunctionLoader.create_loader(ToolGlobals)
+    function = None
+    for filepath in function_loader.find_files(Path(f"{build_dir}/functions")):
+        functions = function_loader.load_resource(
+            Path(filepath), ToolGlobals=ToolGlobals, skip_validation=False
+        ) or FunctionWriteList([])
+        if not isinstance(functions, FunctionWriteList):
+            functions = FunctionWriteList([functions])
+        for func in functions:
+            if func.external_id == external_id:
+                function = func
+    if not function:
+        print(
+            f"  [bold red]ERROR:[/] Could not find function with external id {external_id} in the build directory, exiting."
+        )
+        shutil.rmtree(build_dir)
+        exit(1)
+    handler_file = Path(f"{build_dir}/functions/{external_id}/{func.function_path}")
+    if not handler_file.exists():
+        print(f"  [bold red]ERROR:[/] Could not find handler file {handler_file}, exiting.")
+        shutil.rmtree(build_dir)
+        exit(1)
+    env_file_path = handler_file.parent / Path(".env")
+    content = """
+# Temporary .env file generated by cognite-toolkit
+CDF_CLUSTER={}
+CDF_PROJECT={}
+""".format(
+        ToolGlobals.environ("CDF_CLUSTER"),
+        ToolGlobals.environ("CDF_PROJECT"),
+    )
+    if ToolGlobals.environ("CDF_TOKEN", fail=False):
+        content += "CDF_TOKEN={}\n".format(ToolGlobals.environ("CDF_TOKEN", fail=False))
+    if ToolGlobals.environ("CDF_URL", fail=False):
+        content += "CDF_URL={}\n".format(ToolGlobals.environ("CDF_URL", fail=False))
+    else:
+        content += """
+IDP_CLIENT_ID={}
+IDP_CLIENT_SECRET={}
+IDP_TOKEN_URL={}
+""".format(
+            ToolGlobals.environ("IDP_CLIENT_ID"),
+            ToolGlobals.environ("IDP_CLIENT_ID"),
+            ToolGlobals.environ("IDP_TOKEN_URL"),
+        )
+        if ToolGlobals.environ("IDP_TENANT_ID", fail=False):
+            content += "IDP_TENANT_ID={}\n".format(ToolGlobals.environ("IDP_TENANT_ID"))
+        if ToolGlobals.environ("IDP_AUDIENCE", fail=False):
+            content += "IDP_AUDIENCE={}\n".format(ToolGlobals.environ("IDP_AUDIENCE"))
+        if ToolGlobals.environ("IDP_SCOPES", fail=False):
+            content += "IDP_SCOPES={}\n".format(ToolGlobals.environ("IDP_SCOPES"))
+    Path(env_file_path).write_text(content)
+
+    Path(Path(f"{build_dir}/functions/{external_id}/{func.function_path}").parent / "tmpmain.py").write_text(
+        """
+from handler import handle
+from common.tool import CDFClientTool
+
+tool = CDFClientTool(env_path="./.env")
+
+if __name__ == "__main__":
+    print(handle(data={}, client=tool.client, secrets={}, function_call_info={}))
+
+"""
+    )
+    print("[bold]Running function locally...[/]")
+    print("-------------------------------")
+    process = subprocess.run(
+        [
+            f"{environment_dir}/bin/python",
+            "-Xfrozen_modules=off",
+            f"{handler_file.parent}/tmpmain.py",
+        ],
+        capture_output=True,
+    )
+    if process.returncode != 0:
+        print(
+            "  [bold red]ERROR:[/] Failed to run function: ",
+            process.stderr.decode("utf-8"),
+        )
+        shutil.rmtree(build_dir)
+        exit(1)
+    print(process.stdout.decode("utf-8"))
+    shutil.rmtree(build_dir)

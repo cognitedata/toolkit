@@ -29,7 +29,7 @@ from cognite_toolkit.cdf_tk.load import (
     DeployResults,
     ResourceLoader,
 )
-from cognite_toolkit.cdf_tk.run import run_function, run_transformation
+from cognite_toolkit.cdf_tk.run import run_function, run_local_function, run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
@@ -920,6 +920,37 @@ def run_function_cmd(
             help="Use follow to wait for results of function.",
         ),
     ] = False,
+    local: Annotated[
+        bool,
+        typer.Option(
+            "--local",
+            "-l",
+            help="Run the function locally in a virtual environment.",
+        ),
+    ] = False,
+    rebuild_env: Annotated[
+        bool,
+        typer.Option(
+            "--rebuild-env",
+            "-r",
+            help="Rebuild the virtual environment.",
+        ),
+    ] = False,
+    source_dir: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="Where to find the module templates to build from",
+            allow_dash=True,
+        ),
+    ] = None,
+    build_env: Annotated[
+        str,
+        typer.Option(
+            "--env",
+            "-e",
+            help="Build environment to build for",
+        ),
+    ] = "dev",
 ) -> None:
     """This command will run the specified function using a one-time session."""
     if ctx.obj.mockToolGlobals is not None:
@@ -927,7 +958,29 @@ def run_function_cmd(
     else:
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
     external_id = cast(str, external_id).strip()
-    run_function(ToolGlobals, external_id=external_id, payload=payload or "", follow=follow)
+    if not local:
+        run_function(ToolGlobals, external_id=external_id, payload=payload or "", follow=follow)
+        return None
+    if follow:
+        print("  [bold yellow]WARNING:[/] --follow is not supported when running locally and should not be specified.")
+    if source_dir is None:
+        source_dir = "./"
+    source_path = Path(source_dir)
+    if not source_path.is_dir():
+        print(f"  [bold red]ERROR:[/] {source_path} does not exist")
+        exit(1)
+    if ctx.obj.mockToolGlobals is not None:
+        ToolGlobals = ctx.obj.mockToolGlobals
+    else:
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    run_local_function(
+        ToolGlobals,
+        source_path,
+        external_id,
+        build_env,
+        rebuild_env,
+        verbose=ctx.obj.verbose,
+    )
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
