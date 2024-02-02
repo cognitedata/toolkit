@@ -128,7 +128,7 @@ class CDFClientTool:
         return {**self._environ.copy(), **os.environ}
 
     def as_string(self) -> str:
-        environment = os.environ
+        environment = os.environ.copy()
         if "IDP_CLIENT_SECRET" in environment:
             environment["IDP_CLIENT_SECRET"] = "***"
         if "TRANSFORMATIONS_CLIENT_SECRET" in environment:

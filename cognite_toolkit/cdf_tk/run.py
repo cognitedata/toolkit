@@ -199,16 +199,16 @@ def run_local_function(
         clean=True,
         verbose=False,
     )
-    environment_dir = Path(source_path / f"./.venv.{external_id}")
-    if not environment_dir.exists() or rebuild_env:
-        print(f"  Creating virtual environment in {environment_dir}...")
-        venv.create(env_dir=environment_dir.as_posix(), with_pip=True, system_site_packages=False)
+    virtual_env_dir = Path(source_path / f"./.venv.{external_id}")
+    if not virtual_env_dir.exists() or rebuild_env:
+        print(f"  Creating virtual environment in {virtual_env_dir}...")
+        venv.create(env_dir=virtual_env_dir.as_posix(), with_pip=True, system_site_packages=False)
         req_file = Path(f"{build_dir}/functions/{external_id}/requirements.txt")
         if req_file.exists():
             if platform.system() == "Windows":
                 process = subprocess.run(
                     [
-                        f"{environment_dir}/Scripts/pip",
+                        f"{virtual_env_dir}/Scripts/pip",
                         "install",
                         f"-r {build_dir}/functions/{external_id}/requirements.txt",
                     ],
@@ -217,9 +217,9 @@ def run_local_function(
             else:
                 process = subprocess.run(
                     [
-                        f"{environment_dir}/bin/pip",
+                        f"{virtual_env_dir}/bin/pip",
                         "--python",
-                        f"{environment_dir}/bin/python",
+                        f"{virtual_env_dir}/bin/python",
                         "install",
                         "--disable-pip-version-check",
                         "-r",
@@ -337,7 +337,7 @@ if __name__ == "__main__":
         return False
     print("[bold]Running function locally...[/]")
     print("-------------------------------")
-    python_exe = Path(environment_dir / "bin/python").absolute()
+    python_exe = Path(virtual_env_dir / "bin/python").absolute()
     if verbose:
         print(f"  [bold]Running function with {python_exe}...[/]")
     process_run = subprocess.Popen(
