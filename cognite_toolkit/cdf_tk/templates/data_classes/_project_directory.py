@@ -198,12 +198,15 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
             )
 
     def print_what_to_copy(self) -> None:
-        print("  Will upgrade modules and files in place.")
-        super().print_what_to_copy()
+        if self._has_changed_cognite_modules:
+            print("  [bold yellow]WARNING:[/] The cognite_modules have changed, it will not be upgraded.")
+        else:
+            print("  Will upgrade modules and files in place.")
+            super().print_what_to_copy()
 
     def copy(self, verbose: bool) -> None:
         if self._has_changed_cognite_modules:
-            print("  [bold yellow]WARNING:[/] The cognite_modules have changed, it will not be upgraded.")
+            return
         else:
             super().copy(verbose)
 
