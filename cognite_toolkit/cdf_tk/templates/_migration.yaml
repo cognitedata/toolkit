@@ -30,6 +30,8 @@
           under the key `environment` in the `config.<env>.yaml` files.
         - In the `environments` entry rename `deploy` to `selected_modules_and_packages`.
         - In the `environments` entry add the key `name` with the name of the environment.
+        - If you have a `common_function_code` in the `config.yaml` file, add it to the `config.<env>.yaml`
+          file under the key `common_function_code`.
         - "For example, the resulting `config.dev.yaml` should look like this:"
         - "<Panel>
           environment:\n
@@ -52,7 +54,9 @@
           \u00A0\u00A0\u00A0      custom_key: custom_value"
     - title: "The file `environments.yaml` is no longer used"
       steps:
-        - Remove it from your project.
+        - Ensure that you have a `config.<env>.yaml` file for each environment in the `environments.yaml`
+          file created in the previous step.
+        - Then, you can remove it from your project.
     - title: Default files are no longer used in 'CogniteModules'
       steps:
         - Remove all files with prefix `default.` from the `cognite_modules` folder including all 

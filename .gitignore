@@ -285,7 +285,7 @@ my_project/
 *.bck
 
 # Hide environments used for migration testing
-tests_migrations/.venv*
+**/.venv*
 tests_migrations/tmp*
 
 cognite_toolkit/config.local.yaml

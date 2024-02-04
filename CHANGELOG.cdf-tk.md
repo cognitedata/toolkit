@@ -41,9 +41,9 @@ Changes are grouped as follows:
     version.
 - Running the `cdf-tk init --upgrade` now gives the user instructions on how to update the breaking changes
   since their last upgrade.
-- If the user has changed the content of `cognite_modules`, the command `cdf-tk init --upgrade` will no longer
+- If the user has changed any files in `cognite_modules`, the command `cdf-tk init --upgrade` will no longer
   overwrite the content of the `cognite_modules` folder. Instead, the user will be given instructions on how to
-  update the `cognite_modules` folder manually.
+  update the `cognite_modules` files in the folder manually.
 
 ## Fixed
 

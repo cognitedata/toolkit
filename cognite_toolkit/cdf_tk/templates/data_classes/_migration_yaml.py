@@ -29,6 +29,7 @@ class Change:
         )
 
     def print(self) -> None:
+        print()  # Add a newline before each change
         print(Panel.fit(self.title, title="Change"))
         for no, step in enumerate(self.steps, 1):
             if step.startswith("<Panel>"):
@@ -79,7 +80,7 @@ class VersionChanges:
 
         suffix = f"from version {previous_version!r} to {current_version!r}"
         if self.tool:
-            print(Markdown(f"# Found {len(self.tool)} changes to the 'cdf-tk' {suffix}:"))
+            print(Markdown(f"# Found {len(self.tool)} changes to 'cdf-tk' CLI and it's functionality {suffix}:"))
             for change in self.tool:
                 change.print()
 
