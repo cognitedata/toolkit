@@ -695,7 +695,7 @@ def main_init(
     ] = "new_project",
 ) -> None:
     """Initialize or upgrade a new CDF project with templates."""
-    project_dir: ProjectDirectoryUpgrade | ProjectDirectoryInit
+    project_dir: Union[ProjectDirectoryUpgrade, ProjectDirectoryInit]
     if upgrade:
         project_dir = ProjectDirectoryUpgrade(Path.cwd() / f"{init_dir}", dry_run)
         if project_dir.cognite_module_version == current_version:
