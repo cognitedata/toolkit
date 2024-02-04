@@ -177,6 +177,10 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
         self._has_changed_cognite_modules = current_hash != version_hash
         self._changes = changes.slice_from(self._cognite_module_version).as_one_change()
 
+    @property
+    def cognite_module_version(self) -> str:
+        return self._cognite_module_version
+
     def create_project_directory(self, clean: bool) -> None:
         if self.project_dir.exists():
             print(f"[bold]Upgrading directory {self.target_dir_display}...[/b]")

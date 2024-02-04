@@ -7,7 +7,6 @@ from typing import Any
 
 from rich import print
 
-from cognite_toolkit._version import __version__ as current_version
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit.cdf_tk.utils import read_yaml_file
 
@@ -74,7 +73,4 @@ def _get_cognite_module_version(project_dir: Path) -> str:
             "'_system.yaml' or 'environments.yaml' (before 0.1.0b6) file?"
         )
         exit(1)
-    if previous_version == current_version:
-        print("No changes to the toolkit detected.")
-        exit(0)
     return previous_version

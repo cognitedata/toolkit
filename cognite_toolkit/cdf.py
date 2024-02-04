@@ -16,6 +16,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit import _version
+from cognite_toolkit._version import __version__ as current_version
 from cognite_toolkit.cdf_tk import bootstrap
 from cognite_toolkit.cdf_tk.describe import describe_datamodel
 from cognite_toolkit.cdf_tk.load import (
@@ -34,7 +35,6 @@ from cognite_toolkit.cdf_tk.templates import (
 from cognite_toolkit.cdf_tk.templates.data_classes import (
     BuildConfigYAML,
     BuildEnvironment,
-    ProjectDirectory,
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,
     SystemYAML,
@@ -695,11 +695,15 @@ def main_init(
     ] = "new_project",
 ) -> None:
     """Initialize or upgrade a new CDF project with templates."""
-    project_dir: ProjectDirectory
+    project_dir: ProjectDirectoryUpgrade | ProjectDirectoryInit
     if upgrade:
         project_dir = ProjectDirectoryUpgrade(Path.cwd() / f"{init_dir}", dry_run)
+        if project_dir.cognite_module_version == current_version:
+            print("No changes to the toolkit detected.")
+            exit(0)
     else:
         project_dir = ProjectDirectoryInit(Path.cwd() / f"{init_dir}", dry_run)
+
     verbose = ctx.obj.verbose
 
     project_dir.set_source(git_branch)
