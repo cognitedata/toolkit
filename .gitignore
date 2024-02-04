@@ -286,3 +286,6 @@ my_project/
 
 cognite_toolkit/config.local.yaml
 **/functions/**/common
+
+**/.venv*
+tests_migrations/tmp-project
