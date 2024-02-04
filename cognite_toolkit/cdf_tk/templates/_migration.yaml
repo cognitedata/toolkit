@@ -4,6 +4,8 @@
   tool:
     - title: New required file '_system.yaml'.
       steps:
+        - "If the 'cognite_modules' was upgraded in place, this file was created for you, 
+           and you can skip this step."
         - "Create a new file '_system.yaml' in the 'cognite_modules' folder."
         - "Copy the content from 'cognite_modules/default.packages.yaml' into '_system.yaml'."
         - "Remove the comments. This file should not be edited by a user."
@@ -24,6 +26,9 @@
             cdf_toolkit_version: ${VERSION}"
     - title: "New format for configs: `config.<env>.yaml`"
       steps:
+        - "If the 'cognite_modules' was upgraded in place, this file was created for you with default values.
+           You have to update the `config.<env>.yaml` files with the correct values based on your `config.yaml` and
+           `environments.yaml` files."
         - "For each entry in `environments.yaml` create a new file `config.<env>.yaml`."
         - Copy the content from `config.yaml` into each of the new files under the key `modules`.
         - At the top of the file, copy in the content of the entry in the `environments.yaml` file.
