@@ -134,8 +134,8 @@ tableName: myRawTable
 ### Fixed
 
 - Handle duplicate `TransformationSchedules` when loading `Transformation` resources.
-- Print table at the end of `cdf-tk deploy` failed with `AttributeError` if a resource.
-  returned empty. This is now fixed.
+- Print table at the end of `cdf-tk deploy` failed with `AttributeError`, if any of resources were empty.
+  This is now fixed.
 - The `cdf-tk build` command no longer gives a warning about missing `sql` file for
   `TransformationSchedule`s.
 

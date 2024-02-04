@@ -147,6 +147,8 @@ class MigrationYAML(UserList[VersionChanges]):
 
 
 if __name__ == "__main__":
-    # This is a simple convince to print the migration from a specific version.
+    # This is a simple convinced to print the content of ../_migration.yaml
+    # to the console. It is not used in the toolkit itself, but can be used
+    # in the development of the toolkit.
     m = MigrationYAML.load_from_version("0.1.0b1")
     m.print(Path(__file__).parent.parent.parent, "0.1.0b1")

@@ -66,4 +66,4 @@ tests_migrations
 
 This tests runs the `init`, `build`, `deploy` command in previous versions of the package and
 then runs the `build`, `deploy` in the current version. All it ensures is that the commands returns exit status 0.
-There is no check that the deploy commands stays consistent between versions.
+There is no check that the deploy command stays consistent between versions.
