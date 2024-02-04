@@ -720,7 +720,7 @@ def main_init(
     project_dir.upsert_config_yamls(clean)
 
     if not dry_run:
-        print(project_dir.done_message())
+        print(Panel(project_dir.done_message()))
 
     if isinstance(project_dir, ProjectDirectoryUpgrade):
         project_dir.print_manual_steps()

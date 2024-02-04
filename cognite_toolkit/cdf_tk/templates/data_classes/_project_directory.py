@@ -260,7 +260,10 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
                 print(f"Wrote {config_filepath.name!r} file to {self.target_dir_display}")
 
     def done_message(self) -> str:
-        return f"Automatic upgraded of {self.target_dir_display} is done.\nManual Steps:"
+        return (
+            f"[bold green]Automatic upgrade of {self.target_dir_display} is done.[/]\n"
+            "[bold red]You now have to do these manual steps:[/]"
+        )
 
     def print_manual_steps(self) -> None:
         print(Panel("[bold]Manual Upgrade Steps[/]"))
