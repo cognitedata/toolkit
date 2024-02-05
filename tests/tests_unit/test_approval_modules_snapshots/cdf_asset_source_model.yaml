@@ -54,7 +54,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://bluefield.cognitedata.com/.default
+    scopes: https://westeurope-1.cognitedata.com/.default
     tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
   externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
   ignoreNullFields: false
@@ -89,7 +89,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://bluefield.cognitedata.com/.default
+    scopes: https://westeurope-1.cognitedata.com/.default
     tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
 TransformationSchedule:
 - externalId: tr_sync-asset_hierarchy_cdf_asset_source_model

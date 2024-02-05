@@ -88,7 +88,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://bluefield.cognitedata.com/.default
+    scopes: https://westeurope-1.cognitedata.com/.default
     tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
   externalId: tr_pump_model-populate-lift_station_pumps_edges
   ignoreNullFields: false
@@ -103,7 +103,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://bluefield.cognitedata.com/.default
+    scopes: https://westeurope-1.cognitedata.com/.default
     tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
 - conflictMode: upsert
   dataSetId: 42
@@ -121,7 +121,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://bluefield.cognitedata.com/.default
+    scopes: https://westeurope-1.cognitedata.com/.default
     tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
   externalId: tr_pump_model-populate-pump_container
   ignoreNullFields: false
@@ -139,7 +139,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://bluefield.cognitedata.com/.default
+    scopes: https://westeurope-1.cognitedata.com/.default
     tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
 TransformationSchedule:
 - externalId: tr_pump_model-populate-lift_station_pumps_edges
