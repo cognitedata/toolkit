@@ -985,5 +985,59 @@ def _download_templates(git_branch: str, dry_run: bool) -> Path:
     return Path(extract_dir) / f"cdf-project-templates-{git_branch}" / "cognite_toolkit"
 
 
+@app.command("sync")
+def sync(
+    resource_type: Annotated[
+        str,
+        typer.Argument(
+            help="The resource type to sync from CDF, for example, transformations. Defaults to all.",
+            allow_dash=True,
+        ),
+    ] = "all",
+    resource_id: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="The resource id to sync from CDF. Defaults to all.",
+            allow_dash=True,
+        ),
+    ] = None,
+    build_dir: Annotated[
+        Union[str, None],
+        typer.Argument(
+            help="Where to find the module templates to deploy from. Defaults to current directory.",
+            allow_dash=True,
+        ),
+    ] = None,
+    build_env: Annotated[
+        str,
+        typer.Option(
+            "--env",
+            "-e",
+            help="CDF project environment to build for. Defined in environments.yaml.",
+        ),
+    ] = "dev",
+    interactive: Annotated[
+        bool,
+        typer.Option(
+            "--interactive",
+            "-i",
+            help="Whether to use interactive mode when deciding which modules to deploy.",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            "-r",
+            help="Whether to do a dry-run, do dry-run if present.",
+        ),
+    ] = False,
+) -> None:
+    ...
+    # Download the resource from the CDF project into the build folder.
+    # Identify the variables that are used in the resource and replace them with the variable syntax.
+    # Write the resource back to the source folder found in _build_environment.yaml.
+
+
 if __name__ == "__main__":
     app()
