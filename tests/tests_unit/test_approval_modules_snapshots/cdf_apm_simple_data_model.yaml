@@ -359,7 +359,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
   externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
   ignoreNullFields: true
@@ -373,7 +373,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
@@ -391,7 +391,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
   externalId: tr_asset_oid_workmate_apm_simple_load_assets
   ignoreNullFields: true
@@ -409,7 +409,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
@@ -427,7 +427,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
   externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets
   ignoreNullFields: true
@@ -440,7 +440,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
@@ -458,7 +458,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
   externalId: tr_workorder_oid_workmate_apm_simple_load_workitems
   ignoreNullFields: true
@@ -475,7 +475,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
@@ -493,7 +493,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
   externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2assets
   ignoreNullFields: true
@@ -513,7 +513,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
@@ -531,7 +531,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
   externalId: tr_workorder_oid_workmate_apm_simple_load_workitems2workorders
   ignoreNullFields: true
@@ -551,7 +551,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
@@ -569,7 +569,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
   externalId: tr_workorder_oid_workmate_apm_simple_load_workorders
   ignoreNullFields: true
@@ -593,7 +593,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
@@ -611,7 +611,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
   externalId: tr_workorder_oid_workmate_apm_simple_load_workorders2assets
   ignoreNullFields: true
@@ -625,7 +625,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_apm_simple_load_asset2children
