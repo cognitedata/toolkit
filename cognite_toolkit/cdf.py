@@ -584,7 +584,7 @@ def auth_verify(
         typer.Option(
             "--group-file",
             "-f",
-            help="Path to group yaml configuration file to use for group verification. Defaults to readwrite.all.group.yaml from the cdf_auth_readwrite_all common module.",
+            help="Path to group yaml configuration file to use for group verification. Defaults to admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.",
         ),
     ] = None,
     update_group: Annotated[
@@ -616,7 +616,7 @@ def auth_verify(
     "projectsAcl": ["LIST", "READ"],
     "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
 
-    The default bootstrap group configuration is readwrite.all.group.yaml from the cdf_auth_readwrite_all common module.
+    The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
     if create_group is not None and update_group != 0:
         print("[bold red]ERROR: [/] --create-group and --update-group are mutually exclusive.")
@@ -628,7 +628,7 @@ def auth_verify(
     if group_file is None:
         template_dir = cast(Path, resources.files("cognite_toolkit"))
         group_path = template_dir.joinpath(
-            Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml")
+            Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/admin.readwrite.group.yaml")
         )
     else:
         group_path = Path(group_file)
