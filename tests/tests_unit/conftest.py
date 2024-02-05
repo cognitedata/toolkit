@@ -68,7 +68,7 @@ def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch:
         "IDP_TENANT_ID": "dummy",
         "IDP_AUDIENCE": "https://bluefield.cognitedata.com",
         "IDP_SCOPES": "https://bluefield.cognitedata.com/.default",
-        "CDF_URL": "https://bluefield.cognitedata.com"
+        "CDF_URL": "https://bluefield.cognitedata.com",
     }
     existing = {}
     for key, value in environment_variables.items():
