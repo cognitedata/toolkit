@@ -284,5 +284,9 @@ tests/tests_unit/pytest-project/
 my_project/
 *.bck
 
+# Hide environments used for migration testing
+**/.venv*
+tests_migrations/tmp*
+
 cognite_toolkit/config.local.yaml
 **/functions/**/common

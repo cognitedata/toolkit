@@ -104,6 +104,8 @@ To release a new version of the `cdf-tk` tool and the templates, you need to do 
       fail the test build as the environments.yaml is detected as not upgraded.
    1. Run `poetry lock` to update the `poetry.lock` file.
    1. Run `pytest tests` locally to ensure that tests pass.
+   1. Follow the guide in [tests_migration](tests_migration/README.md) do detect breaking changes, and
+      update the migration instructions in `cognite_toolkit/templales/_migration.py` if necessary.
 1. Get approval to merge the branch into `main`:
    1. Verify that all Github actions pass.
 1. Create a release branch: `release-x.y.z` from `main`:
