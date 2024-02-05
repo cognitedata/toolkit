@@ -260,7 +260,7 @@ def run_local_function(
         if not no_cleanup:
             shutil.rmtree(build_dir)
         return False
-    handler_file = Path(f"{build_dir}/functions/{external_id}/{func.function_path}")
+    handler_file = Path(build_dir) / "functions" / external_id / "func.function_path"
     if not handler_file.exists():
         print(f"  [bold red]ERROR:[/] Could not find handler file {handler_file}, exiting.")
         if not no_cleanup:
@@ -313,7 +313,7 @@ def run_local_function(
         for var, value in function.env_vars.items():
             environ[var] = value
     # Create temporary main file to execute
-    Path(Path(f"{build_dir}/functions/{external_id}/{func.function_path}").parent / "tmpmain.py").write_text(
+    (handler_file.parent / "tmpmain.py").write_text(
         """
 from pathlib import Path
 from handler import handle
@@ -330,7 +330,7 @@ if __name__ == "__main__":
 """
     )
     try:
-        Path(f"{build_dir}/functions/{external_id}/in.json").write_text(json.dumps(json.loads(payload)))
+        (Path(build_dir) / "functions" / external_id / "in.json").write_text(json.dumps(json.loads(payload)))
     except Exception:
         print(f"  [bold red]ERROR:[/] Could not decode your payload as json: {payload}")
         print('Remember to escape, example: --payload={\\"name\\": \\"test\\"}')
@@ -349,11 +349,11 @@ if __name__ == "__main__":
         [
             f"{python_exe}",
             "-Xfrozen_modules=off",
-            f"{handler_file.parent}/tmpmain.py",
+            str(handler_file.parent / "tmpmain.py"),
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        cwd=f"{build_dir}/functions/{external_id}",
+        cwd=Path(build_dir) / "functions" / external_id,
         env=environ,
     )
     out, err = process_run.communicate()
@@ -367,8 +367,8 @@ if __name__ == "__main__":
         if not no_cleanup:
             shutil.rmtree(build_dir)
         return False
-    if Path(f"{build_dir}/functions/{external_id}/out.json").exists():
-        out_data = json.loads(Path(f"{build_dir}/functions/{external_id}/out.json").read_text())
+    if (outfile := Path(build_dir) / "functions" / external_id / "out.json").exists():
+        out_data = json.loads(outfile.read_text())
         print("  [bold]Function output:[/]")
         print(json.dumps(out_data, indent=2, sort_keys=True))
     else:
