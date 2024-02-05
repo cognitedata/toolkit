@@ -50,12 +50,12 @@ Transformation:
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:
-    audience: https://westeurope-1.cognitedata.com
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
     scopes: https://westeurope-1.cognitedata.com/.default
-    tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
+    tokenUri: dummy
   externalId: tr_pump_asset_hierarchy-load-collections_pump
   ignoreNullFields: false
   isPublic: true
@@ -79,12 +79,12 @@ Transformation:
     \  Enabled,\n  DesignPointHeadFT,\n  LowHeadFT,\n  FacilityID,\n  InstallDate,\n\
     \  LifeCycleStatus,\n  LocationDescription\n  ) as metadata\nfrom `pump_assets`.`collections_pump`\n"
   sourceOidcCredentials:
-    audience: https://westeurope-1.cognitedata.com
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
     scopes: https://westeurope-1.cognitedata.com/.default
-    tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
+    tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_pump_asset_hierarchy-load-collections_pump
   interval: 7 * * * *

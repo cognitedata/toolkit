@@ -116,12 +116,12 @@ Transformation:
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:
-    audience: https://westeurope-1.cognitedata.com
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
     scopes: https://westeurope-1.cognitedata.com/.default
-    tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
+    tokenUri: dummy
   externalId: tr_asset_oid_workmate_asset_hierarchy
   ignoreNullFields: true
   isPublic: true
@@ -137,12 +137,12 @@ Transformation:
     , \"description\"), *) \n                                  as metadata\nFROM \n\
     \  `asset_oid_workmate`.`assets`\n"
   sourceOidcCredentials:
-    audience: https://westeurope-1.cognitedata.com
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
     scopes: https://westeurope-1.cognitedata.com/.default
-    tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
+    tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_asset_hierarchy
   interval: 7 * * * *

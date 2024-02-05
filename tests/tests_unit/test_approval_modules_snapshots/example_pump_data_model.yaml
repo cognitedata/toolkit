@@ -84,12 +84,12 @@ Transformation:
     instanceSpace: sp_pump_instance_space
     type: instances
   destinationOidcCredentials:
-    audience: https://westeurope-1.cognitedata.com
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
     scopes: https://westeurope-1.cognitedata.com/.default
-    tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
+    tokenUri: dummy
   externalId: tr_pump_model-populate-lift_station_pumps_edges
   ignoreNullFields: false
   isPublic: true
@@ -99,12 +99,12 @@ Transformation:
     \ cast(`externalId` as STRING)) as endNode\nfrom\n  cdf_data_models(\"sp_extended_source_data_models\"\
     , \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
   sourceOidcCredentials:
-    audience: https://westeurope-1.cognitedata.com
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
     scopes: https://westeurope-1.cognitedata.com/.default
-    tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
+    tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
   destination:
@@ -117,12 +117,12 @@ Transformation:
     instanceSpace: sp_pump_instance_space
     type: instances
   destinationOidcCredentials:
-    audience: https://westeurope-1.cognitedata.com
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
     scopes: https://westeurope-1.cognitedata.com/.default
-    tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
+    tokenUri: dummy
   externalId: tr_pump_model-populate-pump_container
   ignoreNullFields: false
   isPublic: true
@@ -135,12 +135,12 @@ Transformation:
     sp_extended_source_data_models\", \"ExtendedSourceData\", \"1\", \"Asset\")\n\
     where\n  startswith(title, 'Pump')\n"
   sourceOidcCredentials:
-    audience: https://westeurope-1.cognitedata.com
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
     scopes: https://westeurope-1.cognitedata.com/.default
-    tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
+    tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_pump_model-populate-lift_station_pumps_edges
   interval: 7 * * * *
