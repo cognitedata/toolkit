@@ -3,7 +3,7 @@ Checking current service principal/application and environment configurations...
 it shouldn't be https://bluefield.cognitedata.com?
   WARNING: IDP_AUDIENCE is set to https://westeurope-1.cognitedata.com, are you
 sure it shouldn't be https://bluefield.cognitedata.com?
-  WARNING: IDP_SCOPES is set to https://westeurope-1.cognitedata.com/.default,
+  WARNING: IDP_SCOPES is set to https://bluefield.cognitedata.com/.default,
 are you sure it shouldn't be https://bluefield.cognitedata.com/.default?
 
 Checking basic project configuration...

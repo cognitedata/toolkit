@@ -120,7 +120,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
   externalId: tr_asset_oid_workmate_asset_hierarchy
   ignoreNullFields: true
@@ -141,7 +141,7 @@ Transformation:
     cdfProjectName: pytest-project
     clientId: dummy
     clientSecret: dummy
-    scopes: https://westeurope-1.cognitedata.com/.default
+    scopes: https://bluefield.cognitedata.com/.default
     tokenUri: https://cognite-trials.eu.auth0.com/oauth/token
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_asset_hierarchy
