@@ -46,7 +46,8 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 follow_imports = "normal"
 ignore_missing_imports = true
-exclude = "cognite_toolkit/cognite_modules|cognite_toolkit/common_function_code"
+exclude = ["cognite_toolkit/cognite_modules",
+            "cognite_toolkit/common_function_code"]
 
 [build-system]
 requires = ["poetry-core"]

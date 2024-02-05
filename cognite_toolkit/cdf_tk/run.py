@@ -337,7 +337,10 @@ if __name__ == "__main__":
         return False
     print("[bold]Running function locally...[/]")
     print("-------------------------------")
-    python_exe = Path(virtual_env_dir / "bin/python").absolute()
+    if platform.system() == "Windows":
+        python_exe = Path(virtual_env_dir / "Scripts" / "python.exe").absolute()
+    else:
+        python_exe = Path(virtual_env_dir / "bin" / "python").absolute()
     if verbose:
         print(f"  [bold]Running function with {python_exe}...[/]")
     process_run = subprocess.Popen(
