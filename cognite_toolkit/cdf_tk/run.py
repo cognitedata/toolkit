@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 import platform
 import shutil
 import subprocess
@@ -260,7 +261,7 @@ def run_local_function(
         if not no_cleanup:
             shutil.rmtree(build_dir)
         return False
-    handler_file = Path(build_dir) / "functions" / external_id / "func.function_path"
+    handler_file = Path(build_dir) / "functions" / external_id / func.function_path  # type: ignore[operator]
     if not handler_file.exists():
         print(f"  [bold red]ERROR:[/] Could not find handler file {handler_file}, exiting.")
         if not no_cleanup:
@@ -345,24 +346,27 @@ if __name__ == "__main__":
         python_exe = Path(virtual_env_dir / "bin" / "python").absolute()
     if verbose:
         print(f"  [bold]Running function with {python_exe}...[/]")
-    process_run = subprocess.Popen(
+
+    environ_copy = os.environ.copy()
+    environ_copy.update(environ)
+    process_run = subprocess.run(
         [
-            f"{python_exe}",
+            str(python_exe),
             "-Xfrozen_modules=off",
-            str(handler_file.parent / "tmpmain.py"),
+            "tmpmain.py",
         ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        env=environ_copy,
         cwd=Path(build_dir) / "functions" / external_id,
-        env=environ,
     )
-    out, err = process_run.communicate()
+
+    out, err = process_run.stdout.decode("utf-8"), process_run.stderr.decode("utf-8")
 
     if process_run.returncode != 0:
         print(
             "  [bold red]ERROR:[/] Failed to run function: ",
-            err.decode("utf-8"),
-            out.decode("utf-8"),
+            err,
+            out,
         )
         if not no_cleanup:
             shutil.rmtree(build_dir)
@@ -378,7 +382,13 @@ if __name__ == "__main__":
     print("-------------------------------")
     print(f"[bold]Function {external_id} run completed with the following log: [/bold]")
     print("------------")
-    print(out.decode("utf-8"))
+    # We passed all environment variables to the subprocess, so we remove them from the outpu
+    for key, value in os.environ.items():
+        if key in out:
+            out = out.replace(f"{key}={value}", "")
+    out = os.linesep.join([s for s in out.splitlines() if s.strip()])
+
+    print(out)
     if not no_cleanup:
         shutil.rmtree(build_dir)
     return True
