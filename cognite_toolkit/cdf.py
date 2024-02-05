@@ -1002,18 +1002,18 @@ def sync(
         ),
     ] = None,
     build_dir: Annotated[
-        Union[str, None],
+        str,
         typer.Argument(
-            help="Where to find the module templates to deploy from. Defaults to current directory.",
+            help="Where to find the module templates to sync with. Defaults to build.",
             allow_dash=True,
         ),
-    ] = None,
+    ] = "./build",
     build_env: Annotated[
         str,
         typer.Option(
             "--env",
             "-e",
-            help="CDF project environment to build for. Defined in environments.yaml.",
+            help="CDF project environment to sync with. Defined in `config.<env>.yaml`",
         ),
     ] = "dev",
     interactive: Annotated[
@@ -1021,7 +1021,7 @@ def sync(
         typer.Option(
             "--interactive",
             "-i",
-            help="Whether to use interactive mode when deciding which modules to deploy.",
+            help="Whether to use interactive mode when deciding which resources to sync.",
         ),
     ] = False,
     dry_run: Annotated[
@@ -1033,6 +1033,7 @@ def sync(
         ),
     ] = False,
 ) -> None:
+    """Sync from CDF to configuration files."""
     ...
     # Download the resource from the CDF project into the build folder.
     # Identify the variables that are used in the resource and replace them with the variable syntax.
