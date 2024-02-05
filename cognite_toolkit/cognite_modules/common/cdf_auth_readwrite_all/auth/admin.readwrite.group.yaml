@@ -1,4 +1,4 @@
-name: 'gp_cicd_all_read_write'
+name: 'gp_admin_read_write'
 sourceId: '{{readwrite_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
