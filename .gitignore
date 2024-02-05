@@ -284,6 +284,9 @@ tests/tests_unit/pytest-project/
 my_project/
 *.bck
 
+**/.venv*
+tests_migrations/tmp*
+
 cognite_toolkit/config.local.yaml
 **/functions/**/common
 **/.venv*
