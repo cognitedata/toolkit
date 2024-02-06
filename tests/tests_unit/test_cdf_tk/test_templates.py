@@ -11,6 +11,7 @@ from cognite_toolkit.cdf_tk.templates import (
     check_yaml_semantics,
     create_local_config,
     flatten_dict,
+    iterate_modules,
     split_config,
 )
 from cognite_toolkit.cdf_tk.templates.data_classes import Environment, InitConfigYAML, YAMLComment
@@ -260,3 +261,16 @@ class TestCheckYamlSemantics:
         # not sure why it is there
         build_path = Path("does_not_matter")
         assert check_yaml_semantics(raw_yaml, source_path, build_path)
+
+
+class TestIterateModules:
+    def test_modules_project_for_tests(self):
+        expected_modules = {
+            PYTEST_PROJECT / "cognite_modules" / "a_module",
+            PYTEST_PROJECT / "cognite_modules" / "another_module",
+            PYTEST_PROJECT / "cognite_modules" / "parent_module" / "child_module",
+        }
+
+        actual_modules = {module for module, _ in iterate_modules(PYTEST_PROJECT)}
+
+        assert actual_modules == expected_modules
