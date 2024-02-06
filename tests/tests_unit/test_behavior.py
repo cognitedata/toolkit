@@ -95,7 +95,7 @@ def test_pull_transformation(
         typer_context,
         source_dir=str(init_project),
         external_id=read_transformation.external_id,
-        build_env="dev",
+        env="dev",
         dry_run=False,
     )
 

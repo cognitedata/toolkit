@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations
+import contextlib
 import os
 import sys
+import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from graphlib import TopologicalSorter
@@ -31,6 +33,7 @@ from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
     build_config,
+    iterate_modules,
 )
 from cognite_toolkit.cdf_tk.templates.data_classes import (
     BuildConfigYAML,
@@ -932,13 +935,13 @@ def pull_transformation_cmd(
     external_id: Annotated[
         Optional[str],
         typer.Option(
-            "--external_id",
+            "--external-id",
             "-e",
             prompt=True,
             help="External id of the transformation to pull.",
         ),
     ] = None,
-    build_env: Annotated[
+    env: Annotated[
         str,
         typer.Option(
             "--env",
@@ -956,7 +959,29 @@ def pull_transformation_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified transformation"""
-    ...
+
+    if source_dir is None:
+        source_dir = "./"
+    source_path = Path(source_dir)
+    if not source_path.is_dir():
+        print(f"  [bold red]ERROR:[/] {source_path} does not exist")
+        exit(1)
+
+    build_dir = tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd())
+    system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, env)
+    config = BuildConfigYAML.load_from_directory(source_path, env)
+    config.set_environment_variables()
+    config.environment.selected_modules_and_packages = [module.name for module, _ in iterate_modules(source_path)]
+    with contextlib.redirect_stdout(None):
+        source_by_build_path = build_config(
+            build_dir=Path(build_dir),
+            source_dir=source_path,
+            config=config,
+            system_config=system_config,
+            clean=True,
+            verbose=False,
+        )
+    print(source_by_build_path)
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:

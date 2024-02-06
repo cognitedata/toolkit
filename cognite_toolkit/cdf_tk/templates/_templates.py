@@ -30,7 +30,7 @@ def build_config(
     system_config: SystemYAML,
     clean: bool = False,
     verbose: bool = False,
-) -> None:
+) -> dict[Path, Path]:
     is_populated = build_dir.exists() and any(build_dir.iterdir())
     if is_populated and clean:
         shutil.rmtree(build_dir)
@@ -61,7 +61,7 @@ def build_config(
     build_environment = config.create_build_environment()
     build_environment.dump_to_file(build_dir)
     print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
-    return None
+    return {}
 
 
 def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
