@@ -148,12 +148,10 @@ class CDFClientTool:
         return self._client
 
     @overload
-    def environ(self, attr: str, default: str | None = None, fail: Literal[True] = True) -> str:
-        ...
+    def environ(self, attr: str, default: str | None = None, fail: Literal[True] = True) -> str: ...
 
     @overload
-    def environ(self, attr: str, default: str | None = None, fail: Literal[False] = False) -> str | None:
-        ...
+    def environ(self, attr: str, default: str | None = None, fail: Literal[False] = False) -> str | None: ...
 
     def environ(self, attr: str, default: str | None = None, fail: bool = True) -> str | None:
         """Helper function to load variables from the environment.

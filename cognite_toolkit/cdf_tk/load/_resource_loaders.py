@@ -217,9 +217,11 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                     ("datasetScope", ToolGlobals.verify_dataset),
                     (
                         "idScope",
-                        ToolGlobals.verify_extraction_pipeline
-                        if acl == "extractionPipelinesAcl"
-                        else ToolGlobals.verify_dataset,
+                        (
+                            ToolGlobals.verify_extraction_pipeline
+                            if acl == "extractionPipelinesAcl"
+                            else ToolGlobals.verify_dataset
+                        ),
                     ),
                     ("extractionPipelineScope", ToolGlobals.verify_extraction_pipeline),
                 ]:
@@ -884,9 +886,11 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         return TimeSeriesAcl(
             [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
-            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
-            if ToolGlobals.data_set_id
-            else TimeSeriesAcl.Scope.All(),
+            (
+                TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+                if ToolGlobals.data_set_id
+                else TimeSeriesAcl.Scope.All()
+            ),
         )
 
     @classmethod
