@@ -155,7 +155,7 @@ def pull_command(
 
         if dry_run or verbose:
             old_content = filepath.read_text()
-            print("\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())))
+            print("\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())))
 
         if not dry_run:
             filepath.write_text(content)
