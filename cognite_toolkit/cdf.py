@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations
-import contextlib
-import difflib
 import os
-import shutil
 import sys
-import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from graphlib import TopologicalSorter
 from importlib import resources
@@ -31,16 +27,12 @@ from cognite_toolkit.cdf_tk.load import (
     ResourceLoader,
     TransformationLoader,
 )
-from cognite_toolkit.cdf_tk.load._base_loaders import T_ID
-from cognite_toolkit.cdf_tk.pull import ResourceYAML
+from cognite_toolkit.cdf_tk.pull import pull_command
 from cognite_toolkit.cdf_tk.run import run_function, run_local_function, run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
     build_config,
-    create_local_config,
-    iterate_modules,
-    split_config,
 )
 from cognite_toolkit.cdf_tk.templates.data_classes import (
     BuildConfigYAML,
@@ -945,109 +937,9 @@ def pull_transformation_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified transformation"""
-    run_command(
+    pull_command(
         source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
     )
-
-
-def run_command(
-    source_dir: str,
-    id_: T_ID,
-    env: str,
-    dry_run: bool,
-    verbose: bool,
-    ToolGlobals: CDFToolConfig,
-    Loader: type[ResourceLoader],
-) -> None:
-    if source_dir is None:
-        source_dir = "./"
-    source_path = Path(source_dir)
-    if not source_path.is_dir():
-        print(f"  [bold red]ERROR:[/] {source_path} does not exist")
-        exit(1)
-
-    build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))
-    system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, env)
-    config = BuildConfigYAML.load_from_directory(source_path, env)
-    config.set_environment_variables()
-    config.environment.selected_modules_and_packages = [module.name for module, _ in iterate_modules(source_path)]
-    with contextlib.redirect_stdout(None):
-        source_by_build_path = build_config(
-            build_dir=build_dir,
-            source_dir=source_path,
-            config=config,
-            system_config=system_config,
-            clean=True,
-            verbose=False,
-        )
-
-    loader = Loader.create_loader(ToolGlobals)
-    resource_files = loader.find_files(build_dir / loader.folder_name)
-    resource_by_file = {file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in resource_files}
-    selected = {k: v for k, v in resource_by_file.items() if loader.get_id(v) == id_}
-    if len(selected) == 0:
-        print(f"  [bold red]ERROR:[/] No {loader.display_name} with external id {id_} governed in {source_dir}.")
-        exit(1)
-    elif len(selected) >= 2:
-        files = "\n".join(map(str, selected.keys()))
-        print(
-            f"  [bold red]ERROR:[/] Multiple {loader.display_name} with {id_} found in {source_dir}. Delete all but one and try again."
-            f"\nFiles: {files}"
-        )
-        exit(1)
-    build_file, transformation = next(iter(selected.items()))
-
-    print(Panel(f"[bold]Pulling {loader.display_name} {id_}...[/]"))
-    source_file = source_by_build_path[build_file]
-    cdf_transformations = loader.retrieve([loader.get_id(transformation)])
-    if not cdf_transformations:
-        print(f"  [bold red]ERROR:[/] No {loader.display_name} with {id_} found in CDF.")
-    cdf_transformation = cdf_transformations[0].as_write()
-
-    if cdf_transformation == transformation:
-        print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} is up to date.")
-        return
-
-    resource = ResourceYAML.load(build_file.read_text())
-
-    cdf_dumped = cdf_transformation.dump()
-    _ = cdf_dumped.pop("query")
-    cdf_dumped.pop("dataSetId")
-    cdf_dumped.pop("sourceOidcCredentials")
-    cdf_dumped.pop("destinationOidcCredentials")
-    # Special handling for SQL File.
-    resource.update(cdf_dumped)
-    new_content = resource.dump_yaml_with_comments()
-    configs = split_config(config.modules)
-
-    for i in range(len(source_file.parts)):
-        if source_file.parts[i] == "transformations":
-            module_dir = Path("/".join(source_file.parts[:i]))
-            break
-    else:
-        raise ValueError(f"Could not find module directory for {source_file}. Contact support.")
-
-    local_config = create_local_config(configs, module_dir)
-
-    def reverse_replace_variables(content: str, local_config: Mapping[str, str]) -> str:
-        for name, variable in local_config.items():
-            content = content.replace(str(variable), f"{{{{{name}}}}}")
-        return content
-
-    new_content = reverse_replace_variables(new_content, local_config)
-
-    if dry_run:
-        print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} will be updated.")
-
-    if dry_run or verbose:
-        old_content = source_file.read_text()
-        print("\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())))
-
-    if not dry_run:
-        source_file.write_text(new_content)
-        print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated.")
-
-    shutil.rmtree(build_dir)
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:

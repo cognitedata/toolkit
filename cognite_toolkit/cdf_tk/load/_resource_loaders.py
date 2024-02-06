@@ -1021,6 +1021,14 @@ class TransformationLoader(
 
         return transformation
 
+    def dump_resource(self, resource: TransformationWrite, source_file: Path) -> tuple[dict[str, Any], dict[Path, str]]:
+        dumped = resource.dump()
+        query = dumped.pop("query")
+        dumped.pop("dataSetId")
+        dumped.pop("sourceOidcCredentials")
+        dumped.pop("destinationOidcCredentials")
+        return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
+
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
         if existing:

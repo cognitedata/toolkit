@@ -214,6 +214,22 @@ class ResourceLoader(
             return self.list_write_cls.load(raw_yaml)
         return self.resource_write_cls.load(raw_yaml)
 
+    def dump_resource(self, resource: T_WriteClass, source_file: Path) -> tuple[dict[str, Any], dict[Path, str]]:
+        """Dumps the resource to a dictionary that matches the write format.
+
+        In addition, it can return a dictionary with extra files and their content. This is, for example, used by
+        Transformations to dump the 'query' key to an .sql file.
+
+        Args:
+            resource (T_WritableCogniteResource): The resource to dump.
+            source_file (Path): The source file that the resource was loaded from.
+
+        Returns:
+            tuple[dict[str, Any], dict[Path, str]]: The dumped resource and a dictionary with extra files and their
+             content.
+        """
+        return resource.dump(), {}
+
     def create(self, items: T_CogniteResourceList) -> Sized:
         return self.api_class.create(items)
 
