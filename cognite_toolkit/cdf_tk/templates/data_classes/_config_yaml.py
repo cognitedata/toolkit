@@ -404,6 +404,13 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
                 key_parents = {self._find_common_parent(list(key_parents))}
 
             for key_parent in key_parents:
+                # Remove module subfolders.
+                key_parent_list = list(key_parent)
+                for i in range(len(key_parent_list)):
+                    if key_parent_list[i] in LOADER_BY_FOLDER_NAME:
+                        key_parent_list = key_parent_list[:i]
+                        break
+                key_parent = tuple(key_parent_list)
                 key_path = (self._modules, *key_parent, variable)
                 if key_path in self:
                     continue
