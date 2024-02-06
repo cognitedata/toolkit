@@ -1007,7 +1007,16 @@ def pull_transformation_cmd(
 
     print(Panel(f"[bold]Pulling transformation {external_id}...[/]"))
     source_file = source_by_build_path[build_file]
-    cdf_transformation = loader.retrieve([loader.get_id(transformation)]).as_write()
+    cdf_transformations = loader.retrieve([loader.get_id(transformation)])
+    if not cdf_transformations:
+        print(f"  [bold red]ERROR:[/] No transformation with external id {external_id} found in CDF.")
+    cdf_transformation = cdf_transformations[0].as_write()
+
+    if cdf_transformation == transformation:
+        print(f"  [bold green]INFO:[/] Transformation {external_id} is up to date.")
+        return
+    # Special handling for SQL File.
+
     print(cdf_transformation)
     print(source_file)
     # Identify variables and replace them

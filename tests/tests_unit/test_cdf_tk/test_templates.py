@@ -14,7 +14,8 @@ from cognite_toolkit.cdf_tk.templates import (
     iterate_modules,
     split_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import Environment, InitConfigYAML, YAMLComment
+from cognite_toolkit.cdf_tk.templates.data_classes import Environment, InitConfigYAML
+from cognite_toolkit.cdf_tk.utils import YAMLComment
 
 PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
 
