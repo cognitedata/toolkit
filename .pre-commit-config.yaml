@@ -45,7 +45,7 @@ repos:
   - hooks:
     - id: mypy
       name: mypy
-      entry: mypy cognite_toolkit/
+      entry: mypy cognite_toolkit/ --config-file pyproject.toml
       files: ^.*.(py|pyi)$
       language: system
       pass_filenames: false

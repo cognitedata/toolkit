@@ -290,3 +290,6 @@ tests_migrations/tmp*
 
 cognite_toolkit/config.local.yaml
 **/functions/**/common
+**/.venv*
+.venv.*
+build.*
