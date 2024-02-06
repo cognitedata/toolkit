@@ -11,6 +11,7 @@ from typing import Annotated, Optional, Union, cast
 
 import sentry_sdk
 import typer
+from cognite.client.data_classes.data_modeling import NodeId
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
@@ -24,6 +25,7 @@ from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
     DataSetsLoader,
     DeployResults,
+    NodeLoader,
     ResourceLoader,
     TransformationLoader,
 )
@@ -939,6 +941,63 @@ def pull_transformation_cmd(
     """This command will pull the specified transformation"""
     pull_command(
         source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
+    )
+
+
+@pull_app.command("node")
+def pull_node_cmd(
+    ctx: typer.Context,
+    space: Annotated[
+        str,
+        typer.Option(
+            "--space",
+            "-s",
+            prompt=True,
+            help="Space used to uniquely identify the node to pull.",
+        ),
+    ],
+    external_id: Annotated[
+        str,
+        typer.Option(
+            "--external-id",
+            "-e",
+            prompt=True,
+            help="External id of the node to pull.",
+        ),
+    ],
+    source_dir: Annotated[
+        str,
+        typer.Argument(
+            help="Where to find the module templates to pull the transformation into",
+            allow_dash=True,
+        ),
+    ] = "./",
+    env: Annotated[
+        str,
+        typer.Option(
+            "--env",
+            "-e",
+            help="Build environment to build for",
+        ),
+    ] = "dev",
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            "-r",
+            help="Whether to do a dry-run, do dry-run if present.",
+        ),
+    ] = False,
+) -> None:
+    """This command will pull the specified node"""
+    pull_command(
+        source_dir,
+        NodeId(space, external_id),
+        env,
+        dry_run,
+        ctx.obj.verbose,
+        CDFToolConfig.from_context(ctx),
+        NodeLoader,
     )
 
 

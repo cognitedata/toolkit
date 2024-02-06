@@ -175,5 +175,5 @@ def _get_module(source_file: Path, folder_name: str) -> Path:
             module_dir = Path("/".join(source_file.parts[:i]))
             break
     else:
-        raise ValueError(f"Could not find module directory for {source_file}. Contact support.")
+        raise ValueError(f"Could not find module directory for {source_file}. Error is logged and reported.zs")
     return module_dir
