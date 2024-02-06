@@ -152,8 +152,8 @@ variable4: "value with #in it" # But a comment after
         config = InitConfigYAML(dummy_environment).load_variables(PYTEST_PROJECT, propagate_reused_variables=True)
 
         missing = expected - set(config.keys())
-        assert not missing, f"Missing keys: {missing}"
         extra = set(config.keys()) - expected
+        assert not missing, f"Missing keys: {missing}. Got extra {extra}"
         assert not extra, f"Extra keys: {extra}"
 
 
