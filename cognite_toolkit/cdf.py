@@ -59,9 +59,13 @@ describe_app = typer.Typer(
 run_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
+pull_app = typer.Typer(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
 app.add_typer(auth_app, name="auth")
 app.add_typer(describe_app, name="describe")
 app.add_typer(run_app, name="run")
+app.add_typer(pull_app, name="pull")
 
 
 _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
@@ -908,6 +912,53 @@ def run_function_cmd(
     )
 
 
+@pull_app.callback(invoke_without_command=True)
+def pull_main(ctx: typer.Context) -> None:
+    """Commands to pull governed resources from CDF"""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk pull --help[/] for more information.")
+
+
+@pull_app.command("transformation")
+def pull_transformation_cmd(
+    ctx: typer.Context,
+    source_dir: Annotated[
+        str,
+        typer.Argument(
+            help="Where to find the module templates to pull the transformation into",
+            allow_dash=True,
+        ),
+    ] = "./",
+    external_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--external_id",
+            "-e",
+            prompt=True,
+            help="External id of the transformation to pull.",
+        ),
+    ] = None,
+    build_env: Annotated[
+        str,
+        typer.Option(
+            "--env",
+            "-e",
+            help="Build environment to build for",
+        ),
+    ] = "dev",
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            "-r",
+            help="Whether to do a dry-run, do dry-run if present.",
+        ),
+    ] = False,
+) -> None:
+    """This command will pull the specified transformation"""
+    ...
+
+
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
     if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
         print(
@@ -938,61 +989,6 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
         except ValueError:
             print(f"Invalid selection: {answer}")
             exit(1)
-
-
-@app.command("sync")
-def sync(
-    resource_type: Annotated[
-        str,
-        typer.Argument(
-            help="The resource type to sync from CDF, for example, transformations. Defaults to all.",
-            allow_dash=True,
-        ),
-    ] = "all",
-    resource_id: Annotated[
-        Optional[str],
-        typer.Argument(
-            help="The resource id to sync from CDF. Defaults to all.",
-            allow_dash=True,
-        ),
-    ] = None,
-    build_dir: Annotated[
-        str,
-        typer.Argument(
-            help="Where to find the module templates to sync with. Defaults to build.",
-            allow_dash=True,
-        ),
-    ] = "./build",
-    build_env: Annotated[
-        str,
-        typer.Option(
-            "--env",
-            "-e",
-            help="CDF project environment to sync with. Defined in `config.<env>.yaml`",
-        ),
-    ] = "dev",
-    interactive: Annotated[
-        bool,
-        typer.Option(
-            "--interactive",
-            "-i",
-            help="Whether to use interactive mode when deciding which resources to sync.",
-        ),
-    ] = False,
-    dry_run: Annotated[
-        bool,
-        typer.Option(
-            "--dry-run",
-            "-r",
-            help="Whether to do a dry-run, do dry-run if present.",
-        ),
-    ] = False,
-) -> None:
-    """Sync from CDF to configuration files."""
-    ...
-    # Download the resource from the CDF project into the build folder.
-    # Identify the variables that are used in the resource and replace them with the variable syntax.
-    # Write the resource back to the source folder found in _build_environment.yaml.
 
 
 if __name__ == "__main__":
