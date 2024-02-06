@@ -144,6 +144,7 @@ variable4: "value with #in it" # But a comment after
             # default_location is used in two modules and is moved to the top level
             ("modules", "cognite_modules", "default_location"),
             ("modules", "cognite_modules", "another_module", "source_files"),
+            ("modules", "cognite_modules", "another_module", "model_space"),
             ("modules", "cognite_modules", "parent_module", "child_module", "source_asset"),
         }
 
