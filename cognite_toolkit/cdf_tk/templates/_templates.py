@@ -301,7 +301,9 @@ def process_function_directory(
                         )
                     destination = build_dir / "functions" / f"{func.external_id}"
                     if destination.exists():
-                        print(f"        [bold yellow]ERROR:[/] Function {func.external_id} is duplicated.")
+                        print(
+                            f"        [bold red]ERROR:[/] Function {func.external_id} is duplicated. If this is unexpected, you want want to use '--clean'."
+                        )
                         exit(1)
                     shutil.copytree(function_dir, destination)
 

@@ -51,16 +51,14 @@ class ProjectDirectory:
                 f"{module.relative_to(self._source)!s}" for module, _ in iterate_modules(self._source / root_module)
             ]
 
-    def set_source(self, git_branch: str | None) -> None:
-        ...
+    def set_source(self, git_branch: str | None) -> None: ...
 
     @property
     def target_dir_display(self) -> str:
         return f"'{self.project_dir.relative_to(Path.cwd())!s}'"
 
     @abstractmethod
-    def create_project_directory(self, clean: bool) -> None:
-        ...
+    def create_project_directory(self, clean: bool) -> None: ...
 
     def print_what_to_copy(self) -> None:
         copy_prefix = "Would" if self._dry_run else "Will"

@@ -1,4 +1,5 @@
 """This is required to run the migration tests in this folder."""
+
 import platform
 import subprocess
 
