@@ -27,6 +27,7 @@ from cognite_toolkit.cdf_tk.load import (
     DataSetsLoader,
     DeployResults,
     ResourceLoader,
+    TransformationLoader,
 )
 from cognite_toolkit.cdf_tk.run import run_function, run_local_function, run_transformation
 from cognite_toolkit.cdf_tk.templates import (
@@ -967,21 +968,49 @@ def pull_transformation_cmd(
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
 
-    build_dir = tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd())
+    build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))
     system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, env)
     config = BuildConfigYAML.load_from_directory(source_path, env)
     config.set_environment_variables()
     config.environment.selected_modules_and_packages = [module.name for module, _ in iterate_modules(source_path)]
     with contextlib.redirect_stdout(None):
         source_by_build_path = build_config(
-            build_dir=Path(build_dir),
+            build_dir=build_dir,
             source_dir=source_path,
             config=config,
             system_config=system_config,
             clean=True,
             verbose=False,
         )
-    print(source_by_build_path)
+    if ctx.obj.mockToolGlobals is not None:
+        ToolGlobals = ctx.obj.mockToolGlobals
+    else:
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+
+    loader = TransformationLoader.create_loader(ToolGlobals)
+    transformation_files = loader.find_files(build_dir / "transformations")
+    transformation_by_external_id = {
+        file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in transformation_files
+    }
+    selected_transformation = {k: v for k, v in transformation_by_external_id.items() if v.external_id == external_id}
+    if len(selected_transformation) == 0:
+        print(f"  [bold red]ERROR:[/] No transformation with external id {external_id} governed in {source_dir}.")
+        exit(1)
+    elif len(selected_transformation) >= 2:
+        files = "\n".join(map(str, selected_transformation.keys()))
+        print(
+            f"  [bold red]ERROR:[/] Multiple transformations with external id {external_id} found in {source_dir}."
+            f"\nFiles: {files}"
+        )
+        exit(1)
+    build_file, transformation = next(iter(selected_transformation.items()))
+
+    print(Panel(f"[bold]Pulling transformation {external_id}...[/]"))
+    source_file = source_by_build_path[build_file]
+    cdf_transformation = loader.retrieve([loader.get_id(transformation)]).as_write()
+    print(cdf_transformation)
+    print(source_file)
+    # Identify variables and replace them
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:

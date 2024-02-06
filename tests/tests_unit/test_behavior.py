@@ -2,7 +2,7 @@ from pathlib import Path
 
 import typer
 import yaml
-from cognite.client.data_classes import Transformation
+from cognite.client.data_classes import Transformation, TransformationWrite
 from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf import build, deploy, pull_transformation_cmd
@@ -71,25 +71,31 @@ def test_pull_transformation(
         / "transformations"
         / "pump_asset_hierarchy-load-collections_pump.yaml"
     )
-
-    # Injecting variables into the transformation file, so we can load it.
-    content = transformation_yaml.read_text()
-    content = content.replace("{{data_set}}", "ds_test")
-    content = content.replace("{{cicd_clientId}}", "123")
-    content = content.replace("{{cicd_clientSecret}}", "123")
-    content = content.replace("{{cicd_tokenUri}}", "123")
-    content = content.replace("{{cdfProjectName}}", "123")
-    content = content.replace("{{cicd_scopes}}", "scope")
-    content = content.replace("{{cicd_audience}}", "123")
-    transformation_yaml.write_text(content)
-
     loader = TransformationLoader.create_loader(cdf_tool_config)
 
-    loaded = loader.load_resource(transformation_yaml, cdf_tool_config, skip_validation=True)
+    def load_transformation() -> TransformationWrite:
+        # Injecting variables into the transformation file, so we can load it.
+        original = transformation_yaml.read_text()
+        content = original.replace("{{data_set}}", "ds_test")
+        content = content.replace("{{cicd_clientId}}", "123")
+        content = content.replace("{{cicd_clientSecret}}", "123")
+        content = content.replace("{{cicd_tokenUri}}", "123")
+        content = content.replace("{{cdfProjectName}}", "123")
+        content = content.replace("{{cicd_scopes}}", "scope")
+        content = content.replace("{{cicd_audience}}", "123")
+        transformation_yaml.write_text(content)
+
+        transformation = loader.load_resource(transformation_yaml, cdf_tool_config, skip_validation=True)
+        # Write back original content
+        transformation_yaml.write_text(original)
+        return transformation
+
+    loaded = load_transformation()
+
     # Simulate a change in the transformation in CDF.
     loaded.name = "New transformation name"
     read_transformation = Transformation.load(loaded.dump())
-    cognite_client_approval.append(Transformation, loaded)
+    cognite_client_approval.append(Transformation, read_transformation)
 
     pull_transformation_cmd(
         typer_context,
@@ -99,6 +105,6 @@ def test_pull_transformation(
         dry_run=False,
     )
 
-    loaded = loader.load_resource(transformation_yaml, cdf_tool_config, skip_validation=True)
+    after_loaded = load_transformation()
 
-    assert loaded.name == "New transformation name"
+    assert after_loaded.name == "New transformation name"
