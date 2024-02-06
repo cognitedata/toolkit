@@ -23,7 +23,7 @@ from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, SystemConfig
+from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, get_oneshot_session
 
 
@@ -172,7 +172,7 @@ def run_local_function(
     verbose: bool = False,
     no_cleanup: bool = False,
 ) -> bool:
-    system_config = SystemConfig.load_from_directory(source_path / COGNITE_MODULES, build_env)
+    system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, build_env)
     config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(f"[bold]Building for environment {build_env} using {source_path!s} as sources...[/bold]")
     config.set_environment_variables()

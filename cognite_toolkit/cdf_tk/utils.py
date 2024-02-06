@@ -794,18 +794,20 @@ def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
     return (base_path / path).resolve()
 
 
-def calculate_directory_hash(directory: Path) -> str:
+def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None = None) -> str:
     sha256_hash = hashlib.sha256()
 
     # Walk through each file in the directory
-    for dirpath, _, filenames in os.walk(directory):
-        for filename in filenames:
-            filepath = os.path.join(dirpath, filename)
-            # Open each file and update the hash
-            with open(filepath, "rb") as file:
-                while chunk := file.read(8192):
-                    # Get rid of Windows line endings to make the hash consistent across platforms.
-                    sha256_hash.update(chunk.replace(b"\r\n", b"\n"))
+    for filepath in sorted(directory.rglob("*"), key=lambda p: str(p.relative_to(directory))):
+        if filepath.is_dir():
+            continue
+        if exclude_prefixes and any(filepath.name.startswith(prefix) for prefix in exclude_prefixes):
+            continue
+        # Open each file and update the hash
+        with filepath.open("rb") as file:
+            while chunk := file.read(8192):
+                # Get rid of Windows line endings to make the hash consistent across platforms.
+                sha256_hash.update(chunk.replace(b"\r\n", b"\n"))
 
     return sha256_hash.hexdigest()
 
