@@ -33,6 +33,7 @@ from functools import total_ordering
 from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, TypeVar, get_origin, overload
 
+import typer
 import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
@@ -149,6 +150,13 @@ class CDFToolConfig:
                     credentials=self.oauth_credentials,
                 )
             )
+
+    @classmethod
+    def from_context(cls, ctx: typer.Context) -> CDFToolConfig:
+        if ctx.obj.mockToolGlobals is not None:
+            return ctx.obj.mockToolGlobals
+        else:
+            return CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
 
     def environment_variables(self) -> dict[str, str | None]:
         return {**self._environ.copy(), **os.environ}

@@ -31,6 +31,7 @@ from cognite_toolkit.cdf_tk.load import (
     ResourceLoader,
     TransformationLoader,
 )
+from cognite_toolkit.cdf_tk.load._base_loaders import T_ID
 from cognite_toolkit.cdf_tk.pull import ResourceYAML
 from cognite_toolkit.cdf_tk.run import run_function, run_local_function, run_transformation
 from cognite_toolkit.cdf_tk.templates import (
@@ -306,10 +307,7 @@ def deploy(
 ) -> None:
     """Deploy one or more resource types from the built configurations to a CDF project environment of your choice (as set in environments.yaml)."""
     # Override cluster and project from the options/env variables
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
 
     build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env, "deploy")
     build_.set_environment_variables()
@@ -485,10 +483,7 @@ def clean(
 ) -> None:
     """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
     # Override cluster and project from the options/env variables
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
 
     build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env, "clean")
     build_.set_environment_variables()
@@ -634,10 +629,7 @@ def auth_verify(
     if create_group is not None and update_group != 0:
         print("[bold red]ERROR: [/] --create-group and --update-group are mutually exclusive.")
         exit(1)
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
     if group_file is None:
         template_dir = cast(Path, resources.files("cognite_toolkit"))
         group_path = template_dir.joinpath(
@@ -774,10 +766,7 @@ def describe_datamodel_cmd(
     if space is None or len(space) == 0:
         print("[bold red]ERROR: [/] --space is required.")
         exit(1)
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
     describe_datamodel(ToolGlobals, space, data_model)
     return None
 
@@ -803,10 +792,7 @@ def run_transformation_cmd(
     ] = None,
 ) -> None:
     """This command will run the specified transformation using a one-time session."""
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
     external_id = cast(str, external_id).strip()
     run_transformation(ToolGlobals, external_id)
 
@@ -888,10 +874,7 @@ def run_function_cmd(
     ] = "dev",
 ) -> None:
     """This command will run the specified function using a one-time session."""
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
     external_id = cast(str, external_id).strip()
     if not local:
         run_function(ToolGlobals, external_id=external_id, payload=payload or "", follow=follow)
@@ -904,10 +887,7 @@ def run_function_cmd(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
     run_local_function(
         ToolGlobals=ToolGlobals,
         source_path=source_path,
@@ -931,6 +911,15 @@ def pull_main(ctx: typer.Context) -> None:
 @pull_app.command("transformation")
 def pull_transformation_cmd(
     ctx: typer.Context,
+    external_id: Annotated[
+        str,
+        typer.Option(
+            "--external-id",
+            "-e",
+            prompt=True,
+            help="External id of the transformation to pull.",
+        ),
+    ],
     source_dir: Annotated[
         str,
         typer.Argument(
@@ -938,15 +927,6 @@ def pull_transformation_cmd(
             allow_dash=True,
         ),
     ] = "./",
-    external_id: Annotated[
-        Optional[str],
-        typer.Option(
-            "--external-id",
-            "-e",
-            prompt=True,
-            help="External id of the transformation to pull.",
-        ),
-    ] = None,
     env: Annotated[
         str,
         typer.Option(
@@ -965,7 +945,20 @@ def pull_transformation_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified transformation"""
+    run_command(
+        source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
+    )
 
+
+def run_command(
+    source_dir: str,
+    id_: T_ID,
+    env: str,
+    dry_run: bool,
+    verbose: bool,
+    ToolGlobals: CDFToolConfig,
+    Loader: type[ResourceLoader],
+) -> None:
     if source_dir is None:
         source_dir = "./"
     source_path = Path(source_dir)
@@ -987,38 +980,32 @@ def pull_transformation_cmd(
             clean=True,
             verbose=False,
         )
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
 
-    loader = TransformationLoader.create_loader(ToolGlobals)
-    transformation_files = loader.find_files(build_dir / "transformations")
-    transformation_by_external_id = {
-        file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in transformation_files
-    }
-    selected_transformation = {k: v for k, v in transformation_by_external_id.items() if v.external_id == external_id}
-    if len(selected_transformation) == 0:
-        print(f"  [bold red]ERROR:[/] No transformation with external id {external_id} governed in {source_dir}.")
+    loader = Loader.create_loader(ToolGlobals)
+    resource_files = loader.find_files(build_dir / loader.folder_name)
+    resource_by_file = {file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in resource_files}
+    selected = {k: v for k, v in resource_by_file.items() if loader.get_id(v) == id_}
+    if len(selected) == 0:
+        print(f"  [bold red]ERROR:[/] No {loader.display_name} with external id {id_} governed in {source_dir}.")
         exit(1)
-    elif len(selected_transformation) >= 2:
-        files = "\n".join(map(str, selected_transformation.keys()))
+    elif len(selected) >= 2:
+        files = "\n".join(map(str, selected.keys()))
         print(
-            f"  [bold red]ERROR:[/] Multiple transformations with external id {external_id} found in {source_dir}."
+            f"  [bold red]ERROR:[/] Multiple {loader.display_name} with {id_} found in {source_dir}. Delete all but one and try again."
             f"\nFiles: {files}"
         )
         exit(1)
-    build_file, transformation = next(iter(selected_transformation.items()))
+    build_file, transformation = next(iter(selected.items()))
 
-    print(Panel(f"[bold]Pulling transformation {external_id}...[/]"))
+    print(Panel(f"[bold]Pulling {loader.display_name} {id_}...[/]"))
     source_file = source_by_build_path[build_file]
     cdf_transformations = loader.retrieve([loader.get_id(transformation)])
     if not cdf_transformations:
-        print(f"  [bold red]ERROR:[/] No transformation with external id {external_id} found in CDF.")
+        print(f"  [bold red]ERROR:[/] No {loader.display_name} with {id_} found in CDF.")
     cdf_transformation = cdf_transformations[0].as_write()
 
     if cdf_transformation == transformation:
-        print(f"  [bold green]INFO:[/] Transformation {external_id} is up to date.")
+        print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} is up to date.")
         return
 
     resource = ResourceYAML.load(build_file.read_text())
@@ -1050,15 +1037,15 @@ def pull_transformation_cmd(
     new_content = reverse_replace_variables(new_content, local_config)
 
     if dry_run:
-        print(f"  [bold green]INFO:[/] Transformation {external_id} will be updated.")
+        print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} will be updated.")
 
-    if dry_run or ctx.obj.verbose:
+    if dry_run or verbose:
         old_content = source_file.read_text()
         print("\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())))
 
     if not dry_run:
         source_file.write_text(new_content)
-        print(f"  [bold green]INFO:[/] Transformation {external_id} updated.")
+        print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated.")
 
     shutil.rmtree(build_dir)
 
