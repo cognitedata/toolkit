@@ -201,12 +201,10 @@ class CDFToolConfig:
         self._data_set = None
 
     @overload
-    def environ(self, attr: str, default: str | None = None, fail: Literal[True] = True) -> str:
-        ...
+    def environ(self, attr: str, default: str | None = None, fail: Literal[True] = True) -> str: ...
 
     @overload
-    def environ(self, attr: str, default: str | None = None, fail: Literal[False] = False) -> str | None:
-        ...
+    def environ(self, attr: str, default: str | None = None, fail: Literal[False] = False) -> str | None: ...
 
     def environ(self, attr: str, default: str | None = None, fail: bool = True) -> str | None:
         """Helper function to load variables from the environment.
@@ -425,22 +423,19 @@ class CDFToolConfig:
 @overload
 def load_yaml_inject_variables(
     filepath: Path, variables: dict[str, str | None], required_return_type: Literal["list"]
-) -> list[dict[str, Any]]:
-    ...
+) -> list[dict[str, Any]]: ...
 
 
 @overload
 def load_yaml_inject_variables(
     filepath: Path, variables: dict[str, str | None], required_return_type: Literal["dict"]
-) -> dict[str, Any]:
-    ...
+) -> dict[str, Any]: ...
 
 
 @overload
 def load_yaml_inject_variables(
     filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
-) -> dict[str, Any] | list[dict[str, Any]]:
-    ...
+) -> dict[str, Any] | list[dict[str, Any]]: ...
 
 
 def load_yaml_inject_variables(
@@ -467,13 +462,11 @@ def load_yaml_inject_variables(
 
 
 @overload
-def read_yaml_file(filepath: Path, expected_output: Literal["dict"] = "dict") -> dict[str, Any]:
-    ...
+def read_yaml_file(filepath: Path, expected_output: Literal["dict"] = "dict") -> dict[str, Any]: ...
 
 
 @overload
-def read_yaml_file(filepath: Path, expected_output: Literal["list"]) -> list[dict[str, Any]]:
-    ...
+def read_yaml_file(filepath: Path, expected_output: Literal["list"]) -> list[dict[str, Any]]: ...
 
 
 def read_yaml_file(
