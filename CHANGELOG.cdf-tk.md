@@ -25,6 +25,8 @@ Changes are grouped as follows:
 - Added support for common function code as defined by `common_function_code` parameter in the environment config file.
 - Added support for new command, `run function` that runs a function with a one-shot session created using currently
   configured credentials for cdf-tk.
+- Added support for running a Cognite function locally using the `run function --local` command. This command will run the
+  function locally in a virtual environment simulating CDF hosted run-time environment and print the result to the console.
 
 ## Changed
 
@@ -39,6 +41,11 @@ Changes are grouped as follows:
   - The file `default.packages.yaml` has been renamed `_system.yaml` and extended to include the `cdf-tk` version.
     This should not be changed by the user and is used to store package information for the toolkit itself and
     version.
+- Running the `cdf-tk init --upgrade` now gives the user instructions on how to update the breaking changes
+  since their last upgrade.
+- If the user has changed any files in `cognite_modules`, the command `cdf-tk init --upgrade` will no longer
+  overwrite the content of the `cognite_modules` folder. Instead, the user will be given instructions on how to
+  update the `cognite_modules` files in the folder manually.
 
 ## Fixed
 
@@ -129,8 +136,8 @@ tableName: myRawTable
 ### Fixed
 
 - Handle duplicate `TransformationSchedules` when loading `Transformation` resources.
-- Print table at the end of `cdf-tk deploy` failed with `AttributeError` is a resource.
-  returned empty. This is now fixed.
+- Print table at the end of `cdf-tk deploy` failed with `AttributeError`, if any of resources were empty.
+  This is now fixed.
 - The `cdf-tk build` command no longer gives a warning about missing `sql` file for
   `TransformationSchedule`s.
 

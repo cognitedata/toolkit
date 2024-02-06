@@ -15,7 +15,7 @@ Function:
   externalId: fn_example_repeater
   functionPath: ./src/handler.py
   metadata:
-    cdf-toolkit-function-hash: f807242d05163d8eb6bbe1221cd41e172a9d43106238dafec8e2e5206eb79bbc
+    cdf-toolkit-function-hash: d097f4cc2e418e302a34db72abc1e070f50cc381792751f8bc28f3b5056eaa00
     version: 0.0.1
   name: example:repeater
   owner: Anonymous
@@ -25,7 +25,7 @@ Function:
 - externalId: fn_test2
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: db804597a394fe8119ee55457e262965f9fa033f951b839d50f3eca805ae0654
+    cdf-toolkit-function-hash: dd88d5381083eb8aac093829c84d506543317298a5df9ecd81acc4fb007310cd
   name: test2
 deleted:
   Function:
