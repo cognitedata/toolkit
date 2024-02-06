@@ -27,20 +27,26 @@ def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
 
 
 def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
-    """Iterate over all modules in the project and yield the module directory and all files in the module."""
-    for module_dir in root_dir.rglob("*"):
+    """Iterate over all modules in the project and yield the module directory and all files in the module.
+
+    Args:
+        root_dir (Path): The root directory of the project
+
+    Yields:
+        Iterator[tuple[Path, list[Path]]]: A tuple containing the module directory and a list of all files in the module
+
+    """
+    for module_dir in root_dir.iterdir():
         if not module_dir.is_dir():
             continue
-        module_directories = [path for path in module_dir.iterdir() if path.is_dir()]
-        is_any_resource_directories = any(dir.name in LOADER_BY_FOLDER_NAME for dir in module_directories)
-        if module_directories and is_any_resource_directories:
-            yield module_dir, [
-                path
-                for path in module_dir.rglob("*")
-                if path.is_file() and path.name not in EXCL_FILES and path.parent != module_dir
-                # Exclude files that are found in subdirs of functions dir (i.e. function code)
-                and "functions" not in path.parent.parent.parts
-            ]
+        sub_directories = [path for path in module_dir.iterdir() if path.is_dir()]
+        is_any_resource_directories = any(dir.name in LOADER_BY_FOLDER_NAME for dir in sub_directories)
+        if sub_directories and is_any_resource_directories:
+            # Module found
+            yield module_dir, [path for path in module_dir.rglob("*") if path.is_file() and path.name not in EXCL_FILES]
+            # Stop searching for modules in subdirectories
+            continue
+        yield from iterate_modules(module_dir)
 
 
 def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:

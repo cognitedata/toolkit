@@ -11,6 +11,7 @@ from cognite_toolkit.cdf_tk.templates import (
     check_yaml_semantics,
     create_local_config,
     flatten_dict,
+    iterate_modules,
     split_config,
 )
 from cognite_toolkit.cdf_tk.templates.data_classes import Environment, InitConfigYAML, YAMLComment
@@ -144,14 +145,15 @@ variable4: "value with #in it" # But a comment after
             # default_location is used in two modules and is moved to the top level
             ("modules", "cognite_modules", "default_location"),
             ("modules", "cognite_modules", "another_module", "source_files"),
+            ("modules", "cognite_modules", "another_module", "model_space"),
             ("modules", "cognite_modules", "parent_module", "child_module", "source_asset"),
         }
 
         config = InitConfigYAML(dummy_environment).load_variables(PYTEST_PROJECT, propagate_reused_variables=True)
 
         missing = expected - set(config.keys())
-        assert not missing, f"Missing keys: {missing}"
         extra = set(config.keys()) - expected
+        assert not missing, f"Missing keys: {missing}. Got extra {extra}"
         assert not extra, f"Extra keys: {extra}"
 
 
@@ -259,3 +261,16 @@ class TestCheckYamlSemantics:
         # not sure why it is there
         build_path = Path("does_not_matter")
         assert check_yaml_semantics(raw_yaml, source_path, build_path)
+
+
+class TestIterateModules:
+    def test_modules_project_for_tests(self):
+        expected_modules = {
+            PYTEST_PROJECT / "cognite_modules" / "a_module",
+            PYTEST_PROJECT / "cognite_modules" / "another_module",
+            PYTEST_PROJECT / "cognite_modules" / "parent_module" / "child_module",
+        }
+
+        actual_modules = {module for module, _ in iterate_modules(PYTEST_PROJECT)}
+
+        assert actual_modules == expected_modules
