@@ -347,8 +347,10 @@ if __name__ == "__main__":
     if verbose:
         print(f"  [bold]Running function with {python_exe}...[/]")
 
-    environ_copy = os.environ.copy()
-    environ_copy.update(environ)
+    if platform.system() == "Windows" and (system_root := os.environ.get("SYSTEMROOT")):
+        # This is needed to run python on Windows.
+        environ["SYSTEMROOT"] = system_root
+
     process_run = subprocess.run(
         [
             str(python_exe),
@@ -356,7 +358,7 @@ if __name__ == "__main__":
             "tmpmain.py",
         ],
         capture_output=True,
-        env=environ_copy,
+        env=environ,
         cwd=Path(build_dir) / "functions" / external_id,
     )
 
@@ -382,12 +384,6 @@ if __name__ == "__main__":
     print("-------------------------------")
     print(f"[bold]Function {external_id} run completed with the following log: [/bold]")
     print("------------")
-    # We passed all environment variables to the subprocess, so we remove them from the outpu
-    for key, value in os.environ.items():
-        if key in out:
-            out = out.replace(f"{key}={value}", "")
-    out = os.linesep.join([s for s in out.splitlines() if s.strip()])
-
     print(out)
     if not no_cleanup:
         shutil.rmtree(build_dir)
