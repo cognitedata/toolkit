@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations
 import contextlib
+import difflib
 import os
+import shutil
 import sys
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from graphlib import TopologicalSorter
 from importlib import resources
@@ -29,12 +31,15 @@ from cognite_toolkit.cdf_tk.load import (
     ResourceLoader,
     TransformationLoader,
 )
+from cognite_toolkit.cdf_tk.pull import ResourceYAML
 from cognite_toolkit.cdf_tk.run import run_function, run_local_function, run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
     build_config,
+    create_local_config,
     iterate_modules,
+    split_config,
 )
 from cognite_toolkit.cdf_tk.templates.data_classes import (
     BuildConfigYAML,
@@ -1015,11 +1020,47 @@ def pull_transformation_cmd(
     if cdf_transformation == transformation:
         print(f"  [bold green]INFO:[/] Transformation {external_id} is up to date.")
         return
-    # Special handling for SQL File.
 
-    print(cdf_transformation)
-    print(source_file)
-    # Identify variables and replace them
+    resource = ResourceYAML.load(build_file.read_text())
+
+    cdf_dumped = cdf_transformation.dump()
+    _ = cdf_dumped.pop("query")
+    cdf_dumped.pop("dataSetId")
+    cdf_dumped.pop("sourceOidcCredentials")
+    cdf_dumped.pop("destinationOidcCredentials")
+    # Special handling for SQL File.
+    resource.update(cdf_dumped)
+    new_content = resource.dump_yaml_with_comments()
+    configs = split_config(config.modules)
+
+    for i in range(len(source_file.parts)):
+        if source_file.parts[i] == "transformations":
+            module_dir = Path("/".join(source_file.parts[:i]))
+            break
+    else:
+        raise ValueError(f"Could not find module directory for {source_file}. Contact support.")
+
+    local_config = create_local_config(configs, module_dir)
+
+    def reverse_replace_variables(content: str, local_config: Mapping[str, str]) -> str:
+        for name, variable in local_config.items():
+            content = content.replace(str(variable), f"{{{{{name}}}}}")
+        return content
+
+    new_content = reverse_replace_variables(new_content, local_config)
+
+    if dry_run:
+        print(f"  [bold green]INFO:[/] Transformation {external_id} will be updated.")
+
+    if dry_run or ctx.obj.verbose:
+        old_content = source_file.read_text()
+        print("\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())))
+
+    if not dry_run:
+        source_file.write_text(new_content)
+        print(f"  [bold green]INFO:[/] Transformation {external_id} updated.")
+
+    shutil.rmtree(build_dir)
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
