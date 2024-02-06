@@ -1009,7 +1009,7 @@ class TransformationLoader(
             destination_oidc_credentials
         )
         # Find the non-integer prefixed filename
-        file_name = filepath.stem.split(".", 2)[1]
+        file_name = re.sub(r"\d+\.", "", filepath.stem)
         sql_file = filepath.parent / f"{file_name}.sql"
         if not sql_file.exists():
             sql_file = filepath.parent / f"{transformation.external_id}.sql"
