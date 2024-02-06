@@ -443,6 +443,10 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             **config,
         }
 
+    def dump_yaml_with_comments(self, indent_size: int = 2) -> str:
+        """Dump a config dictionary to a yaml string"""
+        return self._dump_yaml_with_comments(indent_size, True)
+
     def _get_comment(self, key: tuple[str, ...]) -> YAMLComment | None:
         if (entry := self.get(key)) and entry.comment:
             return entry.comment

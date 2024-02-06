@@ -894,7 +894,7 @@ class YAMLWithComments(Generic[T_Key, T_Value], UserDict[T_Key, T_Value]):
 
         return dict(comments)
 
-    def dump_yaml_with_comments(self, indent_size: int = 2) -> str:
+    def _dump_yaml_with_comments(self, indent_size: int = 2, newline_after_indent_reduction: bool = False) -> str:
         """Dump a config dictionary to a yaml string"""
         config = self.dump()
         dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
@@ -912,8 +912,9 @@ class YAMLWithComments(Generic[T_Key, T_Value], UserDict[T_Key, T_Value]):
                     raise ValueError("Unexpected state of last_variable being None")
                 path = (*path, last_variable)
             elif last_indent > indent:
-                # Adding some extra space between modules
-                out_lines.append("")
+                if newline_after_indent_reduction:
+                    # Adding some extra space between modules
+                    out_lines.append("")
                 indent_reduction_steps = (last_indent - indent) // indent_size
                 path = path[:-indent_reduction_steps]
 
