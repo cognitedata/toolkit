@@ -1,4 +1,4 @@
-# The dire with the function code should have the same name
+# The dir with the function code should have the same name
 # and externalId as the function itself as defined below.
 - name: 'example:repeater'
   externalId: 'fn_example_repeater'

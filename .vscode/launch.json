@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Python: build",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "./cdf-tk-dev.py",
             "args": [
@@ -23,7 +23,7 @@
         },
         {
             "name": "Python: deploy",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "./cdf-tk-dev.py",
             "args": [
@@ -40,7 +40,7 @@
         },
         {
             "name": "Python: clean",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "./cdf-tk-dev.py",
             "args": [
@@ -54,14 +54,17 @@
         },
         {
             "name": "Python: cdf.py",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "./cdf-tk-dev.py",
             "args": [
                 //"--project=TEST",
-                "describe",
-                "datamodel",
-                "--space=cdf_apm",
+                "run",
+                "function",
+                "--external_id=fn_test2",
+                "--local",
+                "--env=local",
+                "./cognite_toolkit/"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

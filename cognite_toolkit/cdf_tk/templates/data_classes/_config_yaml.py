@@ -3,92 +3,26 @@ from __future__ import annotations
 import itertools
 import os
 import re
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections import UserDict, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TypeVar, cast
+from typing import Any, Literal, cast
 
 import yaml
 from rich import print
 
-from cognite_toolkit import _version
+from cognite_toolkit._version import __version__
 from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
-from cognite_toolkit.cdf_tk.utils import read_yaml_file
+from cognite_toolkit.cdf_tk.templates._constants import (
+    BUILD_ENVIRONMENT_FILE,
+    DEFAULT_CONFIG_FILE,
+    SEARCH_VARIABLES_SUFFIX,
+)
+from cognite_toolkit.cdf_tk.templates._utils import flatten_dict
 
-from ._constants import BUILD_ENVIRONMENT_FILE, DEFAULT_CONFIG_FILE, SEARCH_VARIABLES_SUFFIX
-from ._utils import flatten_dict
-
-__all__ = ["SystemConfig", "BuildConfigYAML", "InitConfigYAML", "ConfigYAMLs", "BuildEnvironment"]
-
-
-@dataclass
-class ConfigCore(ABC):
-    """Base class for the two build config files (global.yaml and [env].config.yaml)"""
-
-    filepath: Path
-
-    @classmethod
-    @abstractmethod
-    def _file_name(cls, build_env: str) -> str:
-        raise NotImplementedError
-
-    @classmethod
-    def load_from_directory(cls: type[T_BuildConfig], source_path: Path, build_env: str) -> T_BuildConfig:
-        file_name = cls._file_name(build_env)
-        filepath = source_path / file_name
-        filepath = filepath if filepath.is_file() else Path.cwd() / file_name
-        if not filepath.is_file():
-            print(f"  [bold red]ERROR:[/] {filepath.name!r} does not exist")
-            exit(1)
-        return cls.load(read_yaml_file(filepath), build_env, filepath)
-
-    @classmethod
-    @abstractmethod
-    def load(cls: type[T_BuildConfig], data: dict[str, Any], build_env: str, filepath: Path) -> T_BuildConfig:
-        raise NotImplementedError
-
-
-T_BuildConfig = TypeVar("T_BuildConfig", bound=ConfigCore)
-
-
-@dataclass
-class SystemConfig(ConfigCore):
-    file_name: ClassVar[str] = "_system.yaml"
-    cdf_toolkit_version: str
-    packages: dict[str, list[str]] = field(default_factory=dict)
-
-    @classmethod
-    def _file_name(cls, build_env: str) -> str:
-        return cls.file_name
-
-    @classmethod
-    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> SystemConfig:
-        version = _load_version_variable(data, filepath.name)
-        packages = data.get("packages", {})
-        if not packages:
-            print(f"  [bold yellow]Warning:[/] No packages defined in {cls.file_name}.")
-        return cls(
-            filepath=filepath,
-            cdf_toolkit_version=version,
-            packages=packages,
-        )
-
-    def validate_modules(self, available_modules: set[str], selected_modules_and_packages: list[str]) -> None:
-        selected_packages = {package for package in selected_modules_and_packages if package in self.packages}
-        for package, modules in self.packages.items():
-            if package not in selected_packages:
-                # We do not check packages that are not selected.
-                # Typically, the user will delete the modules that are irrelevant for them,
-                # thus we only check the selected packages.
-                continue
-            if missing := set(modules) - available_modules:
-                print(
-                    f"  [bold red]ERROR:[/] Package {package} defined in {self.filepath.name!s} is referring "
-                    f"the following missing modules {missing}."
-                )
-                exit(1)
+from ._base import ConfigCore, _load_version_variable
 
 
 @dataclass
@@ -172,14 +106,14 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
             exit(1)
         return cls(environment=environment, modules=modules, filepath=filepath)
 
-    def create_build_environment(self, system_config: SystemConfig) -> BuildEnvironment:
+    def create_build_environment(self) -> BuildEnvironment:
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
             build_type=self.environment.build_type,
             selected_modules_and_packages=self.environment.selected_modules_and_packages,
             common_function_code=self.environment.common_function_code,
-            cdf_toolkit_version=system_config.cdf_toolkit_version,
+            cdf_toolkit_version=__version__,
         )
 
     def get_selected_modules(
@@ -470,6 +404,13 @@ class InitConfigYAML(UserDict[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
                 key_parents = {self._find_common_parent(list(key_parents))}
 
             for key_parent in key_parents:
+                # Remove module subfolders.
+                key_parent_list = list(key_parent)
+                for i in range(len(key_parent_list)):
+                    if key_parent_list[i] in LOADER_BY_FOLDER_NAME:
+                        key_parent_list = key_parent_list[:i]
+                        break
+                key_parent = tuple(key_parent_list)
                 key_path = (self._modules, *key_parent, variable)
                 if key_path in self:
                     continue
@@ -660,27 +601,3 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
         # Can be optimized, but not a priority
         for config_yaml in self.values():
             config_yaml.load_variables(project_dir)
-
-
-def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
-    try:
-        cdf_tk_version: str = data["cdf_toolkit_version"]
-    except KeyError:
-        print(
-            f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {file_name!s}"
-        )
-        if file_name == BUILD_ENVIRONMENT_FILE:
-            print(f"  rerun `cdf-tk build` to build the templates again and create `{file_name!s}` correctly.")
-        else:
-            print(
-                f"  run `cdf-tk init --upgrade` to initialize the templates again and create a correct `{file_name!s}` file."
-            )
-        exit(1)
-    if cdf_tk_version != _version.__version__:
-        print(
-            f"  [bold red]Error:[/] The version of the templates ({cdf_tk_version}) does not match the version of the installed package ({_version.__version__})."
-        )
-        print("  Please either run `cdf-tk init --upgrade` to upgrade the templates OR")
-        print(f"  run `pip install cognite-toolkit==={cdf_tk_version}` to downgrade cdf-tk.")
-        exit(1)
-    return cdf_tk_version

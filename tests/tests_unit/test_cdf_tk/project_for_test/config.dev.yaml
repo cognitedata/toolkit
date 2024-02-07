@@ -20,6 +20,7 @@ modules:
       source_workorder: workmate
       source_files: fileshare # This is a comment after a variable
       source_timeseries: pi
+      model_space: sp_model_space
     parent_module:
       child_module:
         child_variable: <change_me>

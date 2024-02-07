@@ -20,14 +20,14 @@ from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_data_set_is
 
 from ._constants import COGNITE_MODULES, CUSTOM_MODULES, EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX
 from ._utils import iterate_functions, iterate_modules
-from .data_classes import BuildConfigYAML, SystemConfig
+from .data_classes import BuildConfigYAML, SystemYAML
 
 
 def build_config(
     build_dir: Path,
     source_dir: Path,
     config: BuildConfigYAML,
-    system_config: SystemConfig,
+    system_config: SystemYAML,
     clean: bool = False,
     verbose: bool = False,
 ) -> None:
@@ -58,7 +58,7 @@ def build_config(
 
     process_config_files(source_dir, selected_modules, build_dir, config, verbose)
 
-    build_environment = config.create_build_environment(system_config)
+    build_environment = config.create_build_environment()
     build_environment.dump_to_file(build_dir)
     print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
     return None
@@ -301,7 +301,9 @@ def process_function_directory(
                         )
                     destination = build_dir / "functions" / f"{func.external_id}"
                     if destination.exists():
-                        print(f"        [bold yellow]ERROR:[/] Function {func.external_id} is duplicated.")
+                        print(
+                            f"        [bold red]ERROR:[/] Function {func.external_id} is duplicated. If this is unexpected, you want want to use '--clean'."
+                        )
                         exit(1)
                     shutil.copytree(function_dir, destination)
 

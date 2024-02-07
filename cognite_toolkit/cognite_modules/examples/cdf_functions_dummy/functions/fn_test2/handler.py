@@ -14,6 +14,9 @@ def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info:
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
         ]
     )
+    print("Print statements will be shown in the logs.")
+    print("Running with the following configuration:\n")
+    print(tool)
     return {
         "data": data,
         "secrets": mask_secrets(secrets),

@@ -4,6 +4,7 @@ and fails if they have changed.
 
 If the changes are desired, you can update the snapshot by running `pytest --force-regen`.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -124,12 +125,10 @@ def test_deploy_dry_run_module_approval(
         include=[],
     )
 
-    assert not (
-        calls := cognite_client_approval.create_calls()
-    ), f"No resources should be created in dry run: got these calls: {calls}"
-    assert not (
-        calls := cognite_client_approval.delete_calls()
-    ), f"No resources should be deleted in dry run: got these calls: {calls}"
+    create_result = cognite_client_approval.create_calls()
+    assert not create_result, f"No resources should be created in dry run: got these calls: {create_result}"
+    delete_result = cognite_client_approval.delete_calls()
+    assert not delete_result, f"No resources should be deleted in dry run: got these calls: {delete_result}"
 
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
