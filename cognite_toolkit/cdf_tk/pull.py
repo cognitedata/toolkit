@@ -4,16 +4,17 @@ import contextlib
 import difflib
 import shutil
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import yaml
+from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit.cdf_tk.load import ResourceLoader, TransformationLoader
-from cognite_toolkit.cdf_tk.load._base_loaders import T_ID
+from cognite_toolkit.cdf_tk.load._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
@@ -63,7 +64,11 @@ def pull_command(
     dry_run: bool,
     verbose: bool,
     ToolGlobals: CDFToolConfig,
-    Loader: type[ResourceLoader],
+    Loader: type[
+        ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ]
+    ],
 ) -> None:
     if source_dir is None:
         source_dir = "./"
@@ -96,7 +101,16 @@ def pull_command(
     loader = Loader.create_loader(ToolGlobals)
     resource_files = loader.find_files(build_dir / loader.folder_name)
     resource_by_file = {file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in resource_files}
-    selected = {k: v for k, v in resource_by_file.items() if loader.get_id(v) == id_}
+    selected: dict[Path, T_WriteClass] = {}
+    for file, resources in resource_by_file.items():
+        if not isinstance(resources, Sequence):
+            if loader.get_id(resources) == id_:  # type: ignore[arg-type]
+                selected[file] = resources  # type: ignore[assignment]
+            continue
+        for resource in resources:
+            if loader.get_id(resource) == id_:
+                selected[file] = resource
+                break
     if len(selected) == 0:
         print(f"  [bold red]ERROR:[/] No {loader.display_name} with external id {id_} governed in {source_dir}.")
         exit(1)

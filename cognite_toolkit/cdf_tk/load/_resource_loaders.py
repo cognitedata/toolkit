@@ -1719,6 +1719,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
             ToolGlobals.verify_spaces(list({item.space for item in loaded}))
         return loaded
 
+    def dump_resource(self, resource: NodeApply, source_file: Path) -> tuple[dict[str, Any], dict[Path, str]]:
+        dumped = resource.dump()
+        return dumped, {}
+
     def create(self, items: LoadableNodes) -> NodeApplyResultList:
         if not isinstance(items, LoadableNodes):
             raise ValueError("Unexpected node format file format")
