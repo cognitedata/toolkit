@@ -71,6 +71,12 @@ def pull_command(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
+    if not (source_path / COGNITE_MODULES).is_dir():
+        print(
+            f"  [bold red]ERROR:[/] {source_path} does not contain a {COGNITE_MODULES} directory. "
+            f"Did you pass in a valid source directory?"
+        )
+        exit(1)
 
     build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))
     system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, env)
@@ -129,19 +135,24 @@ def pull_command(
 
     if dry_run:
         print(
-            f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} will be updated in "
-            f"{source_file.relative_to(source_dir)!r}."
+            f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_!r} will be updated in "
+            f"'{source_file.relative_to(source_dir)}'."
         )
 
     if dry_run or verbose:
         old_content = source_file.read_text()
-        print("\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())))
+        print(
+            Panel(
+                "\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())),
+                title=f"Difference between local and CDF resource {source_file.name!r}",
+            )
+        )
 
     if not dry_run:
         source_file.write_text(new_content)
         print(
             f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
-            f"{source_file.relative_to(source_dir)!r}."
+            f"'{source_file.relative_to(source_dir)}'."
         )
 
     for filepath, content in extra_files.items():
@@ -151,11 +162,16 @@ def pull_command(
             continue
 
         if dry_run:
-            print(f"  [bold green]INFO:[/] In addition, will update {filepath.relative_to(source_dir)!r}.")
+            print(f"  [bold green]INFO:[/] In addition, would update '{filepath.relative_to(source_dir)}'.")
 
         if dry_run or verbose:
             old_content = filepath.read_text()
-            print("\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())))
+            print(
+                Panel(
+                    "\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())),
+                    title=f"Difference between local and CDF resource {filepath.name!r}",
+                )
+            )
 
         if not dry_run:
             filepath.write_text(content)
