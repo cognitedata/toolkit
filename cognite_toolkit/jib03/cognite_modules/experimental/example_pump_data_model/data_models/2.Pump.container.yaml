@@ -1,0 +1,48 @@
+externalId: Pump
+name: Pump
+space: '{{model_space}}'
+usedFor: node
+properties:
+  DesignPointFlowGPM:
+    autoIncrement: false
+    defaultValue: null
+    description: The flow the pump was designed for given in gallons per minute.
+    name: DesignPointFlowGPM
+    nullable: true
+    type:
+      list: false
+      type: float64
+  DesignPointHeadFT:
+    autoIncrement: false
+    defaultValue: null
+    description: The flow head pump was designed for given in feet.
+    name: DesignPointHeadFT
+    nullable: true
+    type:
+      list: false
+      type: float64
+  LowHeadFT:
+    autoIncrement: false
+    defaultValue: null
+    description: The low head of the pump given in feet.
+    name: LowHeadFT
+    nullable: true
+    type:
+      list: false
+      type: float64
+  LowHeadFlowGPM:
+    autoIncrement: false
+    defaultValue: null
+    description: The low head flow of the pump given in gallons per minute.
+    name: DesignPointHeadFT
+    nullable: true
+    type:
+      list: false
+      type: float64
+constraints:
+  requiredAsset:
+    constraintType: requires
+    require:
+      type: container
+      space: cdf_core
+      externalId: Asset

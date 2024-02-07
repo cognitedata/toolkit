@@ -1,0 +1,78 @@
+externalId: Asset
+name: Asset
+space: '{{model_space}}'
+version: '{{view_asset_version}}'
+implements:
+  # This gives us all the properties' show commented out below.
+  - type: view
+    space: cdf_core
+    externalId: Asset
+    version: v1
+properties:
+  # Inherited properties from cdf_core:Asset
+  # sourceId:
+  #   description: "ID as the node appears in the Source system"
+  #   container:
+  #     type: container
+  #     space: cdf_core
+  #     externalId: Sourceable
+  #   containerPropertyIdentifier: sourceId
+  # source:
+  #   description: "Name of the source system node comes from"
+  #   container:
+  #     type: container
+  #     space: cdf_core
+  #     externalId: Sourceable
+  #   containerPropertyIdentifier: source
+  # title:
+  #   description: "Title or name of the node"
+  #   container:
+  #     type: container
+  #     space: cdf_core
+  #     externalId: Describable
+  #   containerPropertyIdentifier: title
+  # description:
+  #   description: "Long description of the node"
+  #   container:
+  #     type: container
+  #     space: cdf_core
+  #     externalId: Describable
+  #   containerPropertyIdentifier: description
+  # labels:
+  #   description: "Text based labels for generic use"
+  #   container:
+  #     type: container
+  #     space: cdf_core
+  #     externalId: Describable
+  #   containerPropertyIdentifier: labels
+  # parent:
+  #   description: "Parent of this asset"
+  #   source:
+  #     type: view
+  #     space: cdf_core
+  #     externalId: Asset
+  #     version: v1
+  #   container:
+  #     type: container
+  #     space: cdf_core
+  #     externalId: Asset
+  #   containerPropertyIdentifier: parent
+  # root:
+  #   description: "Root location - asset at the top of the hierarchy."
+  #   source:
+  #     type: view
+  #     space: cdf_core
+  #     externalId: Asset
+  #     version: v1
+  #   container:
+  #     type: container
+  #     space: cdf_core
+  #     externalId: Asset
+  #   containerPropertyIdentifier: root
+  metadata:
+    container:
+      externalId: Asset
+      space: '{{model_space}}'
+      type: container
+    containerPropertyIdentifier: metadata
+    name: metadata

@@ -1,0 +1,18 @@
+- externalId: ds_asset_{{default_location}}
+  name: asset:{{default_location}}
+  description: This dataset contains asset data for the {{default_location}} location.
+- externalId: ds_files_{{default_location}}
+  name: files:{{default_location}}
+  description: This dataset contains files for the {{default_location}} location.
+- externalId: ds_timeseries_{{default_location}}
+  name: timeseries:{{default_location}}
+  description: This dataset contains timeseries for the {{default_location}} location.
+- externalId: ds_3d_{{default_location}}
+  name: 3d:{{default_location}}
+  description: This dataset contains 3D data for the {{default_location}} location.
+- externalId: ds_relationships_{{default_location}}
+  name: relationships:{{default_location}}
+  description: This dataset contains relationships data for the {{default_location}} location.
+- externalId: ds_transformations_{{default_location}}
+  name: transformations:{{default_location}}
+  description: This dataset contains transformations data for the {{default_location}} location.
