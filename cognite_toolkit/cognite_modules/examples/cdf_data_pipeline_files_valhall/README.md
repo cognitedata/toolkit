@@ -17,21 +17,30 @@ Data](https://learn.cognite.com/open-industrial-data), the Valhall platform.
 
 This module manages the following resources:
 
-1. data set:
+1. auth:
+   - Name: `gp_files_oid_extractor`
+     - Content: Authorization group used by the extractor writing data to CDF RAW, files, pipeline and update of extraction pipeline run
+   - Name: `gp_files_oid_processing`
+     - Content: Authorization group used for processing the files, running transformation, function with contextualization and updating files
+   - Name: `gp_files_oid_read`
+     - Content: Authorization group used by the users reading files and annotations 
+        
+2. data set:
    - ID: `ds_files_oid`
      - Content: Data lineage, used Links to used extraction pipelines, transformation and raw tabels
 
-2. extraction pipeline:
+3. extraction pipeline:
    - ID: `ep_src_files_oid_fileshare`
      - Content: Documentation and configuration example for the file extractor
    - ID: `ep_ctx_files_oid_pandid_annotation`
-     - Content: Documentation and configuration for a CDF function running P&ID contextualization / annotastion (see function form more description)
+     - Content: Documentation and configuration for a CDF function running P&ID contextualization / annotation (see function form more description)
 
-3. transformations:
-   - ID: `tr_files_oid_fileshare_file_matadata`
-     - Content: update of metadata for example file metdata, prepping for contextualization / annotation 
+4. transformations:
+   - ID: `tr_files_oid_fileshare_file_metadata`
+     - Content: update of metadata for example file metadata, prepping for contextualization / annotation
+     - NOTE: the transformation must run before the contextualization function. Without the transformation the function will not be able to find the files to contextualize.
 
-4. function:
+5. function:
    - ID: `fu_context_files_oid_fileshare_annotation`
      - Content: Extracts all tags in P&ID that matches tags from Asset Hierarchy and creates CDF annotations used for linking found objects in document to other resource types in CDF
 
@@ -57,8 +66,8 @@ The following variables are required and defined in this module:
 
 ## Usage
 
-If you want to create a project with example data, you can either specify this module in your `environment.yml` file or
-you can copy it to `custom_modules`, change the name (remove the cdf_ prefix), and replace the data with your own in the
-various sub-directories.
+You should copy and rename an example module into the `custom_modules` directory (remove any `cdf_` prefixes) and make
+your own modifications. You should then update the `deploy:` section in your `environments.yaml` file to install
+the module.
 
 See [Using Templates](https://developer.cognite.com/sdks/toolkit/templates)
