@@ -29,7 +29,8 @@ This module manages the following resources:
 
 3. transformations:
    - ID: `tr_files_oid_fileshare_file_matadata`
-     - Content: update of metadata for example file metdata, prepping for contextualization / annotation 
+     - Content: update of metadata for example file metdata, prepping for contextualization / annotation
+     - NOTE: the transformation must run before the contextualization function. Without the transformation the function will not be able to find the files to contextualize.
 
 4. function:
    - ID: `fu_context_files_oid_fileshare_annotation`
