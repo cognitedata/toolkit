@@ -1021,7 +1021,9 @@ class TransformationLoader(
 
         return transformation
 
-    def dump_resource(self, resource: TransformationWrite, source_file: Path) -> tuple[dict[str, Any], dict[Path, str]]:
+    def dump_resource(
+        self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite
+    ) -> tuple[dict[str, Any], dict[Path, str]]:
         dumped = resource.dump()
         query = dumped.pop("query")
         dumped.pop("dataSetId", None)
@@ -1719,8 +1721,20 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
             ToolGlobals.verify_spaces(list({item.space for item in loaded}))
         return loaded
 
-    def dump_resource(self, resource: NodeApply, source_file: Path) -> tuple[dict[str, Any], dict[Path, str]]:
-        dumped = resource.dump()
+    def dump_resource(
+        self, resource: NodeApply, source_file: Path, local_resource: NodeApply
+    ) -> tuple[dict[str, Any], dict[Path, str]]:
+        # Retrieve node again to get properties.
+        view_ids = {source.source for source in local_resource.sources or [] if isinstance(source.source, ViewId)}
+        nodes = self.client.data_modeling.instances.retrieve(nodes=local_resource.as_id(), sources=list(view_ids)).nodes
+        if not nodes:
+            print(
+                f"  [bold yellow]WARNING:[/] Node {local_resource.as_id()} does not exist. Failed to fetch properties."
+            )
+            return resource.dump(), {}
+        node = nodes[0]
+        dumped = node.as_write().dump()
+        dumped.pop("existingVersion", None)
         return dumped, {}
 
     def create(self, items: LoadableNodes) -> NodeApplyResultList:

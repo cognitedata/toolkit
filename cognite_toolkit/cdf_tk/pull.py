@@ -10,10 +10,11 @@ from typing import Any
 
 import yaml
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
+from cognite.client.data_classes.data_modeling import NodeId
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit.cdf_tk.load import ResourceLoader, TransformationLoader
+from cognite_toolkit.cdf_tk.load import NodeLoader, ResourceLoader, TransformationLoader
 from cognite_toolkit.cdf_tk.load._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
@@ -136,11 +137,20 @@ def pull_command(
 
     source_file = source_by_build_path[build_file]
 
-    cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file)
+    cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)
 
     # Using the ResourceYAML class to load and dump the file to preserve comments
     resource = ResourceYAML.load(build_file.read_text())
-    resource.update(cdf_dumped)
+    if Loader is NodeLoader:
+        # Nodes have a special format that needs to be preserved
+        for no, node in enumerate(resource["nodes"]):
+            if NodeId(node.get("space"), node.get("externalId")) == id_:
+                resource["nodes"][no].update(node)
+                break
+        else:
+            raise ValueError(f"Node with id {id_} not found in {source_file}.")
+    else:
+        resource.update(cdf_dumped)
 
     if Loader is TransformationLoader:
         # This is a hack to make the scope variable, which is a list into a string
