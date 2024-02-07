@@ -12,7 +12,7 @@ import yaml
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit.cdf_tk.load import ResourceLoader
+from cognite_toolkit.cdf_tk.load import ResourceLoader, TransformationLoader
 from cognite_toolkit.cdf_tk.load._base_loaders import T_ID
 from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
@@ -127,10 +127,20 @@ def pull_command(
     # Using the ResourceYAML class to load and dump the file to preserve comments
     resource = ResourceYAML.load(build_file.read_text())
     resource.update(cdf_dumped)
+
+    if Loader is TransformationLoader:
+        # This is a hack to make the scope variable, which is a list into a string
+        # that such that the reverse replace can be done
+        if "authentication" in resource and "scopes" in resource["authentication"]:
+            resource["authentication"]["scopes"] = str(resource["authentication"]["scopes"])
+
     new_content = resource.dump_yaml_with_comments()
 
-    module_dir = _get_module(source_file, loader.folder_name)
+    if Loader is TransformationLoader:
+        # This is some more hackery to make the scope variable a list again
+        new_content = new_content.replace("''", "'")
 
+    module_dir = _get_module(source_file, loader.folder_name)
     local_config = create_local_config(split_config(config.modules), module_dir)
     new_content = reverse_replace_variables(new_content, local_config)
 
@@ -163,7 +173,7 @@ def pull_command(
             continue
 
         if dry_run:
-            print(f"  [bold green]INFO:[/] In addition, would update '{filepath.relative_to(source_dir)}'.")
+            print(f"[bold green]INFO:[/] In addition, would update '{filepath.relative_to(source_dir)}'.")
 
         if dry_run or verbose:
             old_content = filepath.read_text()
@@ -178,6 +188,7 @@ def pull_command(
             filepath.write_text(content)
 
     shutil.rmtree(build_dir)
+    print("  [bold green]INFO:[/] Pull complete. Cleaned up temporary files.")
 
 
 def reverse_replace_variables(content: str, local_config: Mapping[str, str]) -> str:
