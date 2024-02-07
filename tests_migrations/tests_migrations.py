@@ -82,7 +82,7 @@ def tests_init_migrate_build_deploy(
                 modify_environment_to_run_all_modules(local_tmp_project_path)
 
             kwargs = dict(env=modified_env_variables) if cmd[0] == previous_version else dict()
-            output = subprocess.run(cmd, capture_output=True, shell=True, **kwargs)
+            output = subprocess.run([" ".join(cmd)], capture_output=True, shell=True, **kwargs)
 
             messaged = output.stderr.decode() or output.stdout.decode()
             assert output.returncode == 0, f"Failed to run {cmd[0]}: {messaged}"
@@ -90,6 +90,9 @@ def tests_init_migrate_build_deploy(
             if cmd[-1] == "--version":
                 # This is to check that we use the expected version of the toolkit.
                 stdout = output.stdout.decode("utf-8").strip()
+                print(f"cmd: {cmd}")
+                print(f"output: {output}")
+                print(f"stdout: {stdout}")
                 expected_version = __version__ if cmd[0] == "cdf-tk" else old_version
                 assert stdout.startswith(
                     f"CDF-Toolkit version: {expected_version}"

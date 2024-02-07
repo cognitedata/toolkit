@@ -17,7 +17,9 @@ Changes are grouped as follows:
 
 ## TBD
 
-## Added
+## [0.1.0b7] - 2024-02-07
+
+### Added
 
 **NOTE: The function changelog was by accident included in beta6 and has been moved to the correct version.**
 
@@ -28,12 +30,12 @@ Changes are grouped as follows:
 - Added support for running a Cognite function locally using the `run function --local` command. This command will run the
   function locally in a virtual environment simulating CDF hosted run-time environment and print the result to the console.
 
-## Changed
+### Changed
 
-- The cdf-toolkit now requires one `config.yaml` per environment, for example, `config.dev.yaml` and `config.prod.yaml`.
-- The file `environments.yaml` has been merged into `config.[env].yaml`. This means that the `environments.yaml` file
-  is no longer used and the `config.[env].yaml` file now contains all the information needed to deploy to
-  that environment.
+- **BREAKING:** The cdf-toolkit now requires one `config.yaml` per environment, for example, `config.dev.yaml` and `config.prod.yaml`.
+- **BREAKING:** The file `environments.yaml` has been merged into `config.[env].yaml`.
+  This means that the `environments.yaml` file is no longer used and the `config.[env].yaml`
+  file now contains all the information needed to deploy to that environment.
 - The module `cognite_modules` is no longer considered to be a black box governed by the toolkit, but should instead
   be controlled by the user. There are two main changes to the `cognite_modules` folder:
   - All `default.config.yaml` are removed from `cognite_modules` and only used when running `cdf-tk init`to generate
@@ -47,7 +49,7 @@ Changes are grouped as follows:
   overwrite the content of the `cognite_modules` folder. Instead, the user will be given instructions on how to
   update the `cognite_modules` files in the folder manually.
 
-## Fixed
+### Fixed
 
 - In the generation of the `config.[env].yaml` multiline comments were lost. This is now fixed.
 

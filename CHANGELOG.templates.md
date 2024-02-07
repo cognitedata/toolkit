@@ -17,6 +17,8 @@ Changes are grouped as follows:
 
 ## TBD
 
+## [0.1.0b7] - 2024-02-07
+
 - Added a new module `cognite_modules/example/cdf_functions_dummy` that shows how to create functions and deploy them.
 - Added common function code examples in `common_function_code/` directory as well as an
   example of how to use the common code in the `cognite_modules/example/cdf_functions_dummy/fn_test2` and
