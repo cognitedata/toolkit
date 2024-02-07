@@ -124,6 +124,7 @@ def pull_command(
 
     cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file)
 
+    # Using the ResourceYAML class to load and dump the file to preserve comments
     resource = ResourceYAML.load(build_file.read_text())
     resource.update(cdf_dumped)
     new_content = resource.dump_yaml_with_comments()
