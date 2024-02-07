@@ -36,6 +36,9 @@ class ProjectDirectory:
         ".gitignore",
         ".env.tmpl",
     ]
+    _directories_to_copy: ClassVar[list[str]] = [
+        "common_function_code",
+    ]
     _root_modules: ClassVar[list[str]] = [
         COGNITE_MODULES,
         CUSTOM_MODULES,
@@ -81,6 +84,12 @@ class ProjectDirectory:
                     (self.project_dir / filename).write_text(content)
                 else:
                     shutil.copyfile(self._source / filename, self.project_dir / filename)
+
+        for directory in self._directories_to_copy:
+            if verbose:
+                print(f"{copy_prefix} directory {directory} to {self.target_dir_display}")
+            if not dry_run:
+                shutil.copytree(self._source / directory, self.project_dir / directory, dirs_exist_ok=True)
 
         for root_module in self._root_modules:
             if verbose:
