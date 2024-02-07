@@ -60,8 +60,10 @@ class Loader(ABC):
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
 
-    def __init__(self, client: CogniteClient):
+    def __init__(self, client: CogniteClient, build_path: Path | None = None):
         self.client = client
+        self.build_path = build_path
+        self.extra_configs: dict[str, Any] = {}
 
     @classmethod
     def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig) -> T_Loader:
@@ -250,6 +252,7 @@ class ResourceLoader(
         has_dropped_data: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
+        self.build_path = path
         filepaths = self.find_files(path)
 
         batches = self._load_batches(filepaths, ToolGlobals, skip_validation=dry_run, verbose=verbose)
@@ -295,6 +298,7 @@ class ResourceLoader(
 
                 nr_of_unchanged += len(unchanged)
                 nr_of_created += len(to_create)
+                nr_of_changed += len(to_update)
                 if verbose:
                     self._verbose_batch_print(batch_no, len(batches), to_create, to_update, unchanged, dry_run)
                 continue

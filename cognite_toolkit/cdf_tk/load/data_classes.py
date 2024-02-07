@@ -130,9 +130,9 @@ class LoadableNodes(NodeApplyList):
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:  # type: ignore[override]
         return {
-            "autoCreateDirectRelations"
-            if camel_case
-            else "auto_create_direct_relations": self.auto_create_direct_relations,
+            (
+                "autoCreateDirectRelations" if camel_case else "auto_create_direct_relations"
+            ): self.auto_create_direct_relations,
             "skipOnVersionConflict" if camel_case else "skip_on_version_conflict": self.skip_on_version_conflict,
             "replace": self.replace,
             "nodes": self.nodes.dump(camel_case),

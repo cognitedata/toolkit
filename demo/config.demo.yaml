@@ -1,0 +1,152 @@
+environment:
+  name: demo
+  project: project-loader-dev
+  type: dev
+  # This should be a used to specify which modules and packages to deploy locally and in the GitHub Action.
+  # You can have multiple deploy commands.
+  # Order is important.
+  selected_modules_and_packages:
+    - cdf_demo_infield
+    - cdf_oid_example_data
+    - cdf_data_pipeline_asset_valhall
+  common_function_code: ./common_function_code
+
+modules:
+  # Globally variables are available to all submodules
+  # of the cognite_modules.
+  cognite_modules:
+    cdfProjectName: ${CDF_PROJECT}
+    cdf_cluster: ${CDF_CLUSTER}
+    # Optional: If idP requires providing the audience
+    cicd_audience: ${IDP_AUDIENCE}
+    cicd_clientId: ${IDP_CLIENT_ID}
+    cicd_clientSecret: ${IDP_CLIENT_SECRET}
+    # Optional: If idP requires providing the scopes
+    cicd_scopes:
+    - ${IDP_SCOPES}
+    cicd_tokenUri: ${IDP_TOKEN_URL}
+    # Daily at 1:35 AM
+    scheduleDaily: 35 1 * * *
+    # Seven minutes past each hour
+    scheduleHourly: 7 * * * *
+    # Every fifteen minutes
+    scheduleQuarterly: 0/15 * * * *
+    common:
+      cdf_auth_readwrite_all:
+        readonly_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+        readwrite_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+
+    core:
+      cdf_apm_base:
+        apm_datamodel_space: APM_SourceData
+        apm_datamodel_version: '1'
+
+    examples:
+      # Values here are only valid for this module.
+      # The raw database values here point to the RAW data loaded in the cdf_oid_example_data
+      # module. If you have changed the default values in that module, you need to change them here as well.
+      cdf_apm_simple_data_model:
+        datamodel: apm_simple
+        datamodel_version: '1'
+        default_location: oid
+        pause_transformations: true
+        source_asset: workmate
+        source_timeseries: pi
+        source_workorder: workmate
+        space: apm_simple
+        view_Asset_version: '1'
+        view_WorkItem_version: '1'
+        view_WorkOrder_version: '1'
+
+      # Only valid for this module, loads template variables from environment
+      #
+      # In the example below we are setting up a project based on the Open Industry Data (OID),
+      # that originates from the Valhall oil rig. Note that the location/site is NOT used
+      # to structure the data when on-boarding. The expectation is that a single source system
+      # and it's data pipeline may supply data for multiple locations/sites.
+      # The structuring of the data based on site/location should happen as part of processing
+      # the data in CDF, i.e. contextualisation.
+      #
+      # Each of data resource types have assigned the source system where the data originates from.
+      # This information will be used to construct RAW database names, and to create data sets in CDF,
+      # and can be used to control access.
+      cdf_oid_example_data:
+        default_location: oid
+        source_asset: workmate
+        source_files: fileshare
+        source_timeseries: pi
+        source_workorder: workmate
+
+      # Only valid for this module, loads template variables from environment
+      example_pump_asset_hierarchy:
+        data_set: src:lift_pump_stations
+        raw_db: pump_assets
+
+      cdf_data_pipeline_asset_valhall:
+        location_name: oid
+        module_version: '1'
+        source_name: workmate
+        asset_dataset: ds_asset_oid
+        asset_raw_input_db: asset_oid_workmate
+        asset_raw_input_table: assets
+        asset_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        asset_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        asset_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+        clientId: ${IDP_CLIENT_ID}
+        clientSecret: ${IDP_CLIENT_SECRET}
+        tokenUri: ${IDP_TOKEN_URL}
+        cdfProjectName: ${CDF_PROJECT}
+        scopes: ${IDP_SCOPES}
+        audience: ${IDP_AUDIENCE}
+        pause_transformations: true
+    experimental:
+      # Only valid for this module, loads template variables from environment
+      cdf_asset_source_model:
+        data_model_version: '1'
+        instance_space: cdfTemplateInstances
+        model_space: ExtendedSourceDataModels
+        root_asset_external_id: lift_pump_stations:root
+        view_asset_version: '1'
+
+      # Only valid for this module, loads template variables from environment
+      example_pump_data_model:
+        data_model: PumpLiftStations
+        data_model_version: '1'
+        instance_space: pumpInstanceSpace
+        model_space: pumpModelSpace
+        source_model: ExtendedSourceData
+        source_model_space: ExtendedSourceDataModels
+        view_LiftStation_version: '1'
+        view_Pump_version: '1'
+
+    infield:
+      cdf_infield_common:
+        applicationsconfiguration_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+
+      # This default_location points to the location created by the cdf_oid_example_data module.
+      # When you create your own location by copying the cdf_oid_example_data module to
+      # set up data sets and groups, the below needs to refer to the location to define.
+      #
+      cdf_infield_location:
+        apm_app_config_external_id: default-infield-config-minimal
+        apm_config_instance_space: APM_Config
+        apm_datamodel_space: APM_SourceData
+        default_location: oid
+        # infield and must be updated for each location
+        infield_default_location_checklist_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        infield_default_location_normal_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+        infield_default_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        infield_default_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+        module_version: '1'
+        # the root asset for this location, needs to be updated for each location
+        root_asset_external_id: WMT:VAL
+        # changed if you want to load workorders from another RAW database.
+        source_asset: workmate
+        source_workorder: workmate
+        workorder_raw_db: workorder_oid_workmate
+        # The table name in the raw_db database that has workorder data
+        workorder_table_name: workorders
+
+  custom_modules:
+    my_example_module:
+      example_variable: demo_dataset # This is the variable that will be used in the module

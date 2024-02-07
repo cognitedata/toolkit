@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import abc
 import collections
+import hashlib
 import inspect
 import itertools
 import json
@@ -35,9 +36,11 @@ import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import OAuthClientCredentials, Token
+from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
+from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case, to_snake_case
 from rich import print
 
@@ -198,12 +201,10 @@ class CDFToolConfig:
         self._data_set = None
 
     @overload
-    def environ(self, attr: str, default: str | None = None, fail: Literal[True] = True) -> str:
-        ...
+    def environ(self, attr: str, default: str | None = None, fail: Literal[True] = True) -> str: ...
 
     @overload
-    def environ(self, attr: str, default: str | None = None, fail: Literal[False] = False) -> str | None:
-        ...
+    def environ(self, attr: str, default: str | None = None, fail: Literal[False] = False) -> str | None: ...
 
     def environ(self, attr: str, default: str | None = None, fail: bool = True) -> str | None:
         """Helper function to load variables from the environment.
@@ -422,22 +423,19 @@ class CDFToolConfig:
 @overload
 def load_yaml_inject_variables(
     filepath: Path, variables: dict[str, str | None], required_return_type: Literal["list"]
-) -> list[dict[str, Any]]:
-    ...
+) -> list[dict[str, Any]]: ...
 
 
 @overload
 def load_yaml_inject_variables(
     filepath: Path, variables: dict[str, str | None], required_return_type: Literal["dict"]
-) -> dict[str, Any]:
-    ...
+) -> dict[str, Any]: ...
 
 
 @overload
 def load_yaml_inject_variables(
     filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
-) -> dict[str, Any] | list[dict[str, Any]]:
-    ...
+) -> dict[str, Any] | list[dict[str, Any]]: ...
 
 
 def load_yaml_inject_variables(
@@ -461,6 +459,35 @@ def load_yaml_inject_variables(
         raise ValueError(f"Expected a dict, but got {type(result)}")
     else:
         raise ValueError(f"Unknown required_return_type {required_return_type}")
+
+
+@overload
+def read_yaml_file(filepath: Path, expected_output: Literal["dict"] = "dict") -> dict[str, Any]: ...
+
+
+@overload
+def read_yaml_file(filepath: Path, expected_output: Literal["list"]) -> list[dict[str, Any]]: ...
+
+
+def read_yaml_file(
+    filepath: Path, expected_output: Literal["list", "dict"] = "dict"
+) -> dict[str, Any] | list[dict[str, Any]]:
+    """Read a YAML file and return a dictionary
+
+    filepath: path to the YAML file
+    """
+    try:
+        config_data = yaml.safe_load(filepath.read_text())
+    except yaml.YAMLError as e:
+        print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
+        return {}
+    if expected_output == "list" and isinstance(config_data, dict):
+        print(f"  [bold red]ERROR:[/] {filepath} is not a list")
+        exit(1)
+    elif expected_output == "dict" and isinstance(config_data, list):
+        print(f"  [bold red]ERROR:[/] {filepath} is not a dict")
+        exit(1)
+    return config_data
 
 
 @dataclass(frozen=True)
@@ -697,7 +724,7 @@ def _validate_case_raw(
     return warnings
 
 
-def validate_config_yaml(config: dict[str, Any], filepath: Path, path: str = "") -> TemplateVariableWarningList:
+def validate_modules_variables(config: dict[str, Any], filepath: Path, path: str = "") -> TemplateVariableWarningList:
     """Checks whether the config file has any issues.
 
     Currently, this checks for:
@@ -716,7 +743,7 @@ def validate_config_yaml(config: dict[str, Any], filepath: Path, path: str = "")
         elif isinstance(value, dict):
             if path:
                 path += "."
-            warnings.extend(validate_config_yaml(value, filepath, f"{path}{key}"))
+            warnings.extend(validate_modules_variables(value, filepath, f"{path}{key}"))
     return warnings
 
 
@@ -742,3 +769,61 @@ def validate_data_set_is_set(
     value = raw.get(identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}"))
     warnings.append(DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__))
     return warnings
+
+
+def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
+    """
+    This is useful if we provide a relative path to some resource in a config file.
+    """
+    if path.is_absolute():
+        raise ValueError(f"Path {path} is not relative.")
+
+    if isinstance(base_path, str):
+        base_path = Path(base_path)
+
+    if not base_path.is_dir():
+        base_path = base_path.parent
+
+    return (base_path / path).resolve()
+
+
+def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None = None) -> str:
+    sha256_hash = hashlib.sha256()
+
+    # Walk through each file in the directory
+    for filepath in sorted(directory.rglob("*"), key=lambda p: str(p.relative_to(directory))):
+        if filepath.is_dir():
+            continue
+        if exclude_prefixes and any(filepath.name.startswith(prefix) for prefix in exclude_prefixes):
+            continue
+        # Open each file and update the hash
+        with filepath.open("rb") as file:
+            while chunk := file.read(8192):
+                # Get rid of Windows line endings to make the hash consistent across platforms.
+                sha256_hash.update(chunk.replace(b"\r\n", b"\n"))
+
+    return sha256_hash.hexdigest()
+
+
+def get_oneshot_session(client: CogniteClient) -> CreatedSession | None:
+    """Get a oneshot (use once) session for execution in CDF"""
+    # Special case as this utility function may be called with a new client created in code,
+    # it's hard to mock it in tests.
+    if isinstance(client, CogniteClientMock):
+        bearer = "123"
+    else:
+        (_, bearer) = client.config.credentials.authorization_header()
+    ret = client.post(
+        url=f"/api/v1/projects/{client.config.project}/sessions",
+        json={
+            "items": [
+                {
+                    "oneshotTokenExchange": True,
+                },
+            ],
+        },
+        headers={"Authorization": bearer},
+    )
+    if ret.status_code == 200:
+        return CreatedSession.load(ret.json()["items"][0])
+    return None

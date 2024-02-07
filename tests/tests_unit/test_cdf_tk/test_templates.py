@@ -8,13 +8,13 @@ import pytest
 import yaml
 
 from cognite_toolkit.cdf_tk.templates import (
-    ConfigYAML,
-    YAMLComment,
     check_yaml_semantics,
     create_local_config,
     flatten_dict,
+    iterate_modules,
     split_config,
 )
+from cognite_toolkit.cdf_tk.templates.data_classes import Environment, InitConfigYAML, YAMLComment
 
 PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
 
@@ -30,16 +30,31 @@ def dict_keys(d: dict[str, Any]) -> set[str]:
 
 @pytest.fixture(scope="session")
 def config_yaml() -> str:
-    return (PYTEST_PROJECT / "config.yaml").read_text()
+    return (PYTEST_PROJECT / "config.dev.yaml").read_text()
+
+
+@pytest.fixture(scope="session")
+def dummy_environment() -> Environment:
+    return Environment(
+        name="dev",
+        project="my_project",
+        build_type="dev",
+        selected_modules_and_packages=["none"],
+        common_function_code="./common_function_code",
+    )
 
 
 class TestConfigYAML:
-    def test_producing_correct_keys(self, config_yaml) -> None:
+    def test_producing_correct_keys(self, config_yaml: str, dummy_environment: Environment) -> None:
         expected_keys = set(flatten_dict(yaml.safe_load(config_yaml)))
-        # Custom keys are not loaded from the module folder
-        expected_keys.remove(("custom_modules", "my_example_module", "transformation_is_paused"))
+        # Custom keys are not loaded from the module folder.
+        # This custom key is added o the dev.config.yaml for other tests.
+        expected_keys.remove(("modules", "custom_modules", "my_example_module", "transformation_is_paused"))
+        # Skip all environment variables
+        expected_keys = {k for k in expected_keys if not k[0] == "environment"}
 
-        config = ConfigYAML.load(PYTEST_PROJECT)
+        config = InitConfigYAML(dummy_environment).load_defaults(PYTEST_PROJECT)
+
         actual_keys = set(config.keys())
         missing = expected_keys - actual_keys
         assert not missing, f"Missing keys: {missing}"
@@ -48,21 +63,21 @@ class TestConfigYAML:
 
     def test_extract_extract_config_yaml_comments(self, config_yaml: str) -> None:
         expected_comments = {
-            ("cognite_modules", "a_module", "readonly_source_id"): YAMLComment(
+            ("modules", "cognite_modules", "a_module", "readonly_source_id"): YAMLComment(
                 above=["This is a comment in the middle of the file"], after=[]
             ),
-            ("cognite_modules", "another_module", "default_location"): YAMLComment(
+            ("modules", "cognite_modules", "another_module", "default_location"): YAMLComment(
                 above=["This is a comment at the beginning of the module."]
             ),
-            ("cognite_modules", "another_module", "source_asset"): YAMLComment(
+            ("modules", "cognite_modules", "another_module", "source_asset"): YAMLComment(
                 after=["This is an extra comment added to the config only 'lore ipsum'"]
             ),
-            ("cognite_modules", "another_module", "source_files"): YAMLComment(
+            ("modules", "cognite_modules", "another_module", "source_files"): YAMLComment(
                 after=["This is a comment after a variable"]
             ),
         }
 
-        actual_comments = ConfigYAML._extract_comments(config_yaml)
+        actual_comments = InitConfigYAML._extract_comments(config_yaml)
 
         assert actual_comments == expected_comments
 
@@ -70,17 +85,19 @@ class TestConfigYAML:
         "raw_file, key_prefix, expected_comments",
         [
             pytest.param(
-                """# This is a module comment
-    variable: value # After variable comment
-    # Before variable comment
-    variable2: value2
-    variable3: 'value with #in it'
-    variable4: "value with #in it" # But a comment after
-    """,
+                """---
+# This is a module comment
+variable: value # After variable comment
+# Before variable comment
+variable2: value2
+variable3: 'value with #in it'
+variable4: "value with #in it" # But a comment after
+""",
                 tuple("super_module.module_a".split(".")),
                 {
-                    ("super_module", "module_a"): YAMLComment(above=["This is a module comment"]),
-                    ("super_module", "module_a", "variable"): YAMLComment(after=["After variable comment"]),
+                    ("super_module", "module_a", "variable"): YAMLComment(
+                        after=["After variable comment"], above=["This is a module comment"]
+                    ),
                     ("super_module", "module_a", "variable2"): YAMLComment(above=["Before variable comment"]),
                     ("super_module", "module_a", "variable4"): YAMLComment(after=["But a comment after"]),
                 },
@@ -91,36 +108,53 @@ class TestConfigYAML:
     def test_extract_default_config_comments(
         self, raw_file: str, key_prefix: tuple[str, ...], expected_comments: dict[str, Any]
     ):
-        actual_comments = ConfigYAML._extract_comments(raw_file, key_prefix)
+        actual_comments = InitConfigYAML._extract_comments(raw_file, key_prefix)
         assert actual_comments == expected_comments
 
     def test_persist_variable_with_comment(self, config_yaml: str) -> None:
         custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
 
-        config = ConfigYAML.load(PYTEST_PROJECT, existing_config_yaml=config_yaml)
+        config = InitConfigYAML.load_existing(config_yaml).load_defaults(PYTEST_PROJECT)
 
         dumped = config.dump_yaml_with_comments()
         loaded = yaml.safe_load(dumped)
-        assert loaded["cognite_modules"]["another_module"]["source_asset"] == "my_new_workmate"
+        assert loaded["modules"]["cognite_modules"]["another_module"]["source_asset"] == "my_new_workmate"
         assert custom_comment in dumped
 
     def test_added_and_removed_variables(self, config_yaml: str) -> None:
         existing_config_yaml = yaml.safe_load(config_yaml)
         # Added = Exists in the BUILD_CONFIG directory default.config.yaml files but not in config.yaml
-        existing_config_yaml["cognite_modules"]["another_module"].pop("source_asset")
+        existing_config_yaml["modules"]["cognite_modules"]["another_module"].pop("source_asset")
         # Removed = Exists in config.yaml but not in the BUILD_CONFIG directory default.config.yaml files
-        existing_config_yaml["cognite_modules"]["another_module"]["removed_variable"] = "old_value"
+        existing_config_yaml["modules"]["cognite_modules"]["another_module"]["removed_variable"] = "old_value"
 
-        config = ConfigYAML.load(PYTEST_PROJECT, existing_config_yaml=yaml.safe_dump(existing_config_yaml))
+        config = InitConfigYAML.load_existing(yaml.safe_dump(existing_config_yaml)).load_defaults(PYTEST_PROJECT)
 
-        removed = config.removed
+        removed = [v for v in config.values() if v.default_value is None]
         # There is already a custom variable in the config.yaml file
         assert len(removed) == 2
-        assert ("cognite_modules", "another_module", "removed_variable") in [v.key_path for v in removed]
+        assert ("modules", "cognite_modules", "another_module", "removed_variable") in [v.key_path for v in removed]
 
-        added = config.added
+        added = [v for v in config.values() if v.current_value is None]
         assert len(added) == 1
-        assert added[0].key_path == ("cognite_modules", "another_module", "source_asset")
+        assert added[0].key_path == ("modules", "cognite_modules", "another_module", "source_asset")
+
+    def test_load_variables(self, dummy_environment: Environment) -> None:
+        expected = {
+            ("modules", "cognite_modules", "a_module", "readonly_source_id"),
+            # default_location is used in two modules and is moved to the top level
+            ("modules", "cognite_modules", "default_location"),
+            ("modules", "cognite_modules", "another_module", "source_files"),
+            ("modules", "cognite_modules", "another_module", "model_space"),
+            ("modules", "cognite_modules", "parent_module", "child_module", "source_asset"),
+        }
+
+        config = InitConfigYAML(dummy_environment).load_variables(PYTEST_PROJECT, propagate_reused_variables=True)
+
+        missing = expected - set(config.keys())
+        extra = set(config.keys()) - expected
+        assert not missing, f"Missing keys: {missing}. Got extra {extra}"
+        assert not extra, f"Extra keys: {extra}"
 
 
 @pytest.mark.parametrize(
@@ -227,3 +261,16 @@ class TestCheckYamlSemantics:
         # not sure why it is there
         build_path = Path("does_not_matter")
         assert check_yaml_semantics(raw_yaml, source_path, build_path)
+
+
+class TestIterateModules:
+    def test_modules_project_for_tests(self):
+        expected_modules = {
+            PYTEST_PROJECT / "cognite_modules" / "a_module",
+            PYTEST_PROJECT / "cognite_modules" / "another_module",
+            PYTEST_PROJECT / "cognite_modules" / "parent_module" / "child_module",
+        }
+
+        actual_modules = {module for module, _ in iterate_modules(PYTEST_PROJECT)}
+
+        assert actual_modules == expected_modules

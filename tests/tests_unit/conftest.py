@@ -59,12 +59,21 @@ def local_tmp_project_path() -> Path:
 
 @pytest.fixture
 def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
-    monkeypatch.setenv("CDF_PROJECT", "pytest-project")
-    monkeypatch.setenv("CDF_CLUSTER", "bluefield")
-    monkeypatch.setenv("IDP_TOKEN_URL", "dummy")
-    monkeypatch.setenv("IDP_CLIENT_ID", "dummy")
-    monkeypatch.setenv("IDP_CLIENT_SECRET", "dummy")
-    monkeypatch.setenv("IDP_TENANT_ID", "dummy")
+    environment_variables = {
+        "CDF_PROJECT": "pytest-project",
+        "CDF_CLUSTER": "bluefield",
+        "IDP_TOKEN_URL": "dummy",
+        "IDP_CLIENT_ID": "dummy",
+        "IDP_CLIENT_SECRET": "dummy",
+        "IDP_TENANT_ID": "dummy",
+        "IDP_AUDIENCE": "https://bluefield.cognitedata.com",
+        "IDP_SCOPES": "https://bluefield.cognitedata.com/.default",
+        "CDF_URL": "https://bluefield.cognitedata.com",
+    }
+    existing = {}
+    for key, value in environment_variables.items():
+        existing[key] = os.environ.get(key)
+        os.environ[key] = value
 
     with chdir(REPO_ROOT):
         real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
@@ -77,6 +86,12 @@ def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch:
         cdf_tool.verify_dataset.return_value = 42
         cdf_tool.data_set_id = 999
         yield cdf_tool
+
+    for key, value in existing.items():
+        if value is None:
+            del os.environ[key]
+        else:
+            os.environ[key] = value
 
 
 @pytest.fixture
@@ -109,7 +124,7 @@ def init_project(typer_context: typer.Context, local_tmp_project_path: Path) -> 
         typer_context,
         dry_run=False,
         upgrade=False,
-        git=None,
+        git_branch=None,
         init_dir=str(local_tmp_project_path),
         no_backup=True,
         clean=True,

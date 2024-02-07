@@ -82,6 +82,8 @@ def test_describe_datamodel(
 
     describe_datamodel(cdf_tool, "test", "test")
     out, _ = capfd.readouterr()
+    # Strip trailing spaces
+    out = "\n".join([line.rstrip() for line in out.splitlines()])
     if platform.system() == "Windows":
         # Windows console use different characters for tables in rich.
         fullpath = SNAPSHOTS_DIR / "describe_datamodel_windows.txt"

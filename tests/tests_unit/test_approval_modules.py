@@ -4,6 +4,7 @@ and fails if they have changed.
 
 If the changes are desired, you can update the snapshot by running `pytest --force-regen`.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -13,7 +14,6 @@ import pytest
 import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit import _version
 from cognite_toolkit.cdf import build, clean, deploy, main_init
 from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES, iterate_modules
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
@@ -35,12 +35,18 @@ def find_all_modules() -> Iterator[Path]:
 def mock_environments_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> None:
     return mock_read_yaml_file(
         {
-            "environments.yaml": {
-                "dev": {"project": "pytest-project", "type": "dev", "deploy": [module_path.name]},
-                "__system": {"cdf_toolkit_version": _version.__version__},
+            "config.dev.yaml": {
+                "environment": {
+                    "name": "dev",
+                    "project": "pytest-project",
+                    "type": "dev",
+                    "selected_modules_and_packages": [module_path.name],
+                    "common_function_code": Path(REPO_ROOT / "cognite_toolkit/common_function_code").as_posix(),
+                }
             }
         },
         monkeypatch,
+        modify=True,
     )
 
 
@@ -77,7 +83,7 @@ def test_deploy_module_approval(
     not_mocked = cognite_client_approval.not_mocked_calls()
     assert not not_mocked, (
         f"The following APIs have been called without being mocked: {not_mocked}, "
-        "Please update the list _API_RESOURCES in tests/conftest.py"
+        "Please update the list _API_RESOURCES in tests/approval_client.py"
     )
 
     dump = cognite_client_approval.dump()
@@ -119,12 +125,10 @@ def test_deploy_dry_run_module_approval(
         include=[],
     )
 
-    assert not (
-        calls := cognite_client_approval.create_calls()
-    ), f"No resources should be created in dry run: got these calls: {calls}"
-    assert not (
-        calls := cognite_client_approval.delete_calls()
-    ), f"No resources should be deleted in dry run: got these calls: {calls}"
+    create_result = cognite_client_approval.create_calls()
+    assert not create_result, f"No resources should be created in dry run: got these calls: {create_result}"
+    delete_result = cognite_client_approval.delete_calls()
+    assert not delete_result, f"No resources should be deleted in dry run: got these calls: {delete_result}"
 
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
@@ -144,7 +148,7 @@ def test_clean_module_approval(
         typer_context,
         dry_run=False,
         upgrade=False,
-        git=None,
+        git_branch=None,
         init_dir=str(local_tmp_project_path),
         no_backup=True,
         clean=True,
@@ -169,7 +173,7 @@ def test_clean_module_approval(
     not_mocked = cognite_client_approval.not_mocked_calls()
     assert not not_mocked, (
         f"The following APIs have been called without being mocked: {not_mocked}, "
-        "Please update the list _API_RESOURCES in tests/conftest.py"
+        "Please update the list _API_RESOURCES in tests/approval_client.py"
     )
     dump = cognite_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR_CLEAN / f"{module_path.name}.yaml")

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cognite_toolkit"
-version = "0.1.0b6"
+version = "0.1.0b7"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
@@ -11,17 +11,19 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = ">=7.13.8, <7.14", extras = ["pandas"]}
+cognite-sdk = {version = ">=7.17.1, <7.18", extras = ["pandas"]}
 pandas = "^2.1.1"
 pyyaml = "^6.0.1"
 chardet = "^5.1.0"
 typer = {version = "^0.9.0", extras = ["all"]}
 sentry-sdk = "^1.39"
+pyarrow = "^15.0.0"
+mypy = "^1.8.0"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.7.1"
 pre-commit = "^3.6.0"
-pytest = "^7.4.2"
+pytest = "^8.0.0"
 pep8-naming = "^0.13.3"
 pytest-icdiff = "*"  # Used for better diffs in pytest
 pytest-regressions = "^2.4.2"
@@ -38,6 +40,17 @@ cdf-tk = "cognite_toolkit.cdf:app"
 [tool.coverage.report]
 fail_under = 60
 show_missing = true
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+follow_imports = "normal"
+ignore_missing_imports = true
+exclude = ["cognite_toolkit/cognite_modules",
+            "cognite_toolkit/common_function_code",
+            "cognite_toolkit/build*",
+]
 
 [build-system]
 requires = ["poetry-core"]

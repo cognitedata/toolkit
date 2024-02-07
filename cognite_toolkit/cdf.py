@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations
 import os
-import shutil
 import sys
-import tempfile
-import urllib
-import zipfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from graphlib import TopologicalSorter
@@ -20,6 +16,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit import _version
+from cognite_toolkit._version import __version__ as current_version
 from cognite_toolkit.cdf_tk import bootstrap
 from cognite_toolkit.cdf_tk.describe import describe_datamodel
 from cognite_toolkit.cdf_tk.load import (
@@ -29,19 +26,20 @@ from cognite_toolkit.cdf_tk.load import (
     DeployResults,
     ResourceLoader,
 )
-from cognite_toolkit.cdf_tk.run import run_transformation
+from cognite_toolkit.cdf_tk.run import run_function, run_local_function, run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
-    CONFIG_FILE,
-    CUSTOM_MODULES,
-    ENVIRONMENTS_FILE,
-    BuildEnvironment,
-    ConfigYAML,
     build_config,
-    read_yaml_file,
 )
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from cognite_toolkit.cdf_tk.templates.data_classes import (
+    BuildConfigYAML,
+    BuildEnvironment,
+    ProjectDirectoryInit,
+    ProjectDirectoryUpgrade,
+    SystemYAML,
+)
+from cognite_toolkit.cdf_tk.utils import CDFToolConfig, read_yaml_file
 
 if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
     sentry_sdk.init(
@@ -215,33 +213,21 @@ def build(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    sourced_environment_file = source_path / ENVIRONMENTS_FILE
-    environment_file = (
-        sourced_environment_file if sourced_environment_file.is_file() else Path.cwd() / ENVIRONMENTS_FILE
-    )
-    if not environment_file.is_file() and not (environment_file := source_path / ENVIRONMENTS_FILE).is_file():
-        print(f"  [bold red]ERROR:[/] {environment_file} does not exist")
-        exit(1)
-    sourced_config_file = source_path / CONFIG_FILE
-    config_file = sourced_config_file if sourced_config_file.is_file() else Path.cwd() / Path(CONFIG_FILE)
-    if not config_file.is_file() and not (config_file := source_path / Path(CONFIG_FILE)).is_file():
-        print(f"  [bold red]ERROR:[/] {config_file} does not exist")
-        exit(1)
+    system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, build_env)
+    config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(
         Panel(
             f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_path!s} as sources...[/bold]"
-            f"\n[bold]Environment file:[/] {environment_file.absolute()!s} and [bold]config file:[/] {config_file.absolute()!s}"
+            f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}'"
         )
     )
-    print(f"  Environment is {build_env}, using that section in {ENVIRONMENTS_FILE!s}.\n")
-    build_ = BuildEnvironment.load(read_yaml_file(environment_file), build_env, "build")
-    build_.set_environment_variables()
+    config.set_environment_variables()
 
     build_config(
         build_dir=Path(build_dir),
         source_dir=source_path,
-        config_file=config_file,
-        build=build_,
+        config=config,
+        system_config=system_config,
         clean=clean,
         verbose=ctx.obj.verbose,
     )
@@ -598,7 +584,7 @@ def auth_verify(
         typer.Option(
             "--group-file",
             "-f",
-            help="Path to group yaml configuration file to use for group verification. Defaults to readwrite.all.group.yaml from the cdf_auth_readwrite_all common module.",
+            help="Path to group yaml configuration file to use for group verification. Defaults to admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.",
         ),
     ] = None,
     update_group: Annotated[
@@ -630,7 +616,7 @@ def auth_verify(
     "projectsAcl": ["LIST", "READ"],
     "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
 
-    The default bootstrap group configuration is readwrite.all.group.yaml from the cdf_auth_readwrite_all common module.
+    The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
     if create_group is not None and update_group != 0:
         print("[bold red]ERROR: [/] --create-group and --update-group are mutually exclusive.")
@@ -642,7 +628,7 @@ def auth_verify(
     if group_file is None:
         template_dir = cast(Path, resources.files("cognite_toolkit"))
         group_path = template_dir.joinpath(
-            Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/readwrite.all.group.yaml")
+            Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/admin.readwrite.group.yaml")
         )
     else:
         group_path = Path(group_file)
@@ -679,7 +665,7 @@ def main_init(
             help="Will upgrade templates in place without overwriting existing config.yaml and other files.",
         ),
     ] = False,
-    git: Annotated[
+    git_branch: Annotated[
         Optional[str],
         typer.Option(
             "--git",
@@ -709,129 +695,35 @@ def main_init(
     ] = "new_project",
 ) -> None:
     """Initialize or upgrade a new CDF project with templates."""
-
-    files_to_copy: list[str] = []
-    dirs_to_copy: list[str] = []
-    if not upgrade:
-        files_to_copy.extend(
-            [
-                "environments.yaml",
-                "README.md",
-                ".gitignore",
-                ".env.tmpl",
-            ]
-        )
-        dirs_to_copy.append(CUSTOM_MODULES)
-    module_dirs_to_copy = [
-        COGNITE_MODULES,
-    ]
-    template_dir = cast(Path, resources.files("cognite_toolkit"))
-    target_dir = Path.cwd() / f"{init_dir}"
-    if target_dir.exists():
-        if not upgrade:
-            if clean:
-                if dry_run:
-                    print(f"Would clean out directory {target_dir}...")
-                else:
-                    print(f"Cleaning out directory {target_dir}...")
-                    shutil.rmtree(target_dir)
-            else:
-                print(f"Directory {target_dir} already exists.")
-                exit(1)
-        else:
-            print(f"[bold]Upgrading directory {target_dir}...[/b]")
-    elif upgrade:
-        print(f"Found no directory {target_dir} to upgrade.")
-        exit(1)
-    if not dry_run and not upgrade:
-        target_dir.mkdir(exist_ok=True)
+    project_dir: Union[ProjectDirectoryUpgrade, ProjectDirectoryInit]
     if upgrade:
-        print("  Will upgrade modules and files in place.")
-    print(f"Will copy these files to {target_dir}:")
-    print(files_to_copy)
-    print(f"Will copy these module directories to {target_dir}:")
-    print(module_dirs_to_copy)
-    print(f"Will copy these directories to {target_dir}:")
-    print(dirs_to_copy)
-    extract_dir = None
-    if upgrade and git is not None:
-        toolkit_github_url = f"https://github.com/cognitedata/cdf-project-templates/archive/refs/heads/{git}.zip"
-        extract_dir = tempfile.mkdtemp(prefix="git.", suffix=".tmp", dir=Path.cwd())
-        print(f"Upgrading templates from https://github.com/cognitedata/cdf-project-templates, branch {git}...")
-        print(
-            "  [bold yellow]WARNING:[/] You are only upgrading templates, not the cdf-tk tool. Your current version may not support the new templates."
-        )
-        if not dry_run:
-            try:
-                zip_path, _ = urllib.request.urlretrieve(toolkit_github_url)
-                with zipfile.ZipFile(zip_path, "r") as f:
-                    f.extractall(extract_dir)
-            except Exception:
-                print(
-                    f"Failed to download templates. Are you sure that the branch {git} exists in"
-                    + "the https://github.com/cognitedata/cdf-project-templatesrepository?\n{e}"
-                )
-                exit(1)
-        template_dir = Path(extract_dir) / f"cdf-project-templates-{git}" / "cognite_toolkit"
-    for filepath in files_to_copy:
-        if dry_run and ctx.obj.verbose:
-            print("Would copy file", filepath, "to", target_dir)
-        elif not dry_run:
-            if ctx.obj.verbose:
-                print("Copying file", filepath, "to", target_dir)
-            shutil.copyfile(Path(template_dir) / filepath, target_dir / filepath)
-    for d in dirs_to_copy:
-        if dry_run and ctx.obj.verbose:
-            if upgrade:
-                print("Would copy and overwrite directory", d, "to", target_dir)
-            else:
-                print("Would copy directory", d, "to", target_dir)
-        elif not dry_run:
-            if ctx.obj.verbose:
-                print("Copying directory", d, "to", target_dir)
-            shutil.copytree(Path(template_dir) / d, target_dir / d, dirs_exist_ok=True)
-    if upgrade and not no_backup:
-        if dry_run:
-            if ctx.obj.verbose:
-                print(f"Would have backed up {target_dir}")
-        else:
-            backup_dir = tempfile.mkdtemp(prefix=f"{target_dir.name}.", suffix=".bck", dir=Path.cwd())
-            if ctx.obj.verbose:
-                print(f"Backing up {target_dir} to {backup_dir}...")
-            shutil.copytree(Path(target_dir), Path(backup_dir), dirs_exist_ok=True)
-    elif upgrade:
-        print("[bold yellow]WARNING:[/] --no-backup is specified, no backup will be made.")
-    for d in module_dirs_to_copy:
-        if not dry_run:
-            (Path(target_dir) / d).mkdir(exist_ok=True)
-        if ctx.obj.verbose:
-            if dry_run:
-                print(f"Would have copied modules in {d}")
-            else:
-                print(f"Copying modules in {d}...")
-        if not dry_run:
-            shutil.copytree(Path(template_dir / d), target_dir / d, dirs_exist_ok=True)
-    if extract_dir is not None:
-        shutil.rmtree(extract_dir)
+        project_dir = ProjectDirectoryUpgrade(Path.cwd() / f"{init_dir}", dry_run)
+        if project_dir.cognite_module_version == current_version:
+            print("No changes to the toolkit detected.")
+            exit(0)
+    else:
+        project_dir = ProjectDirectoryInit(Path.cwd() / f"{init_dir}", dry_run)
+
+    verbose = ctx.obj.verbose
+
+    project_dir.set_source(git_branch)
+
+    project_dir.create_project_directory(clean)
+
+    if isinstance(project_dir, ProjectDirectoryUpgrade):
+        project_dir.do_backup(no_backup, verbose)
+
+    project_dir.print_what_to_copy()
+
+    project_dir.copy(verbose)
+
+    project_dir.upsert_config_yamls(clean)
+
     if not dry_run:
-        if upgrade:
-            print(f"You project in {target_dir} was upgraded.")
-        else:
-            print(f"A new project was created in {target_dir}.")
-    config_filepath = target_dir / "config.yaml"
-    if not dry_run:
-        if clean or not config_filepath.exists():
-            config_yaml = ConfigYAML.load(target_dir)
-            config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-            print(f"Created your config.yaml file in {target_dir}.")
-        else:
-            current = config_filepath.read_text()
-            config_yaml = ConfigYAML.load(target_dir, existing_config_yaml=current)
-            config_filepath.write_text(config_yaml.dump_yaml_with_comments(indent_size=2))
-            print(str(config_yaml))
-            if ctx.obj.verbose:
-                for added in config_yaml.added:
-                    print(f"  [bold green]ADDED:[/] {added}")
+        print(Panel(project_dir.done_message()))
+
+    if isinstance(project_dir, ProjectDirectoryUpgrade):
+        project_dir.print_manual_steps()
 
 
 @describe_app.callback(invoke_without_command=True)
@@ -904,6 +796,116 @@ def run_transformation_cmd(
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
     external_id = cast(str, external_id).strip()
     run_transformation(ToolGlobals, external_id)
+
+
+@run_app.command("function")
+def run_function_cmd(
+    ctx: typer.Context,
+    external_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--external_id",
+            "-e",
+            prompt=True,
+            help="External id of the function to run.",
+        ),
+    ] = None,
+    payload: Annotated[
+        Optional[str],
+        typer.Option(
+            "--payload",
+            "-p",
+            help='Payload to send to the function, remember to escape " with \\.',
+        ),
+    ] = None,
+    follow: Annotated[
+        bool,
+        typer.Option(
+            "--follow",
+            "-f",
+            help="Use follow to wait for results of function.",
+        ),
+    ] = False,
+    local: Annotated[
+        bool,
+        typer.Option(
+            "--local",
+            "-l",
+            help="Run the function locally in a virtual environment.",
+        ),
+    ] = False,
+    rebuild_env: Annotated[
+        bool,
+        typer.Option(
+            "--rebuild-env",
+            "-r",
+            help="Rebuild the virtual environment.",
+        ),
+    ] = False,
+    no_cleanup: Annotated[
+        bool,
+        typer.Option(
+            "--no-cleanup",
+            "-n",
+            help="Do not delete the temporary build directory.",
+        ),
+    ] = False,
+    source_dir: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="Where to find the module templates to build from",
+            allow_dash=True,
+        ),
+    ] = None,
+    schedule: Annotated[
+        Optional[str],
+        typer.Option(
+            "--schedule",
+            "-s",
+            help="Run the function locally with the credentials from the schedule specified with the cron expression.",
+        ),
+    ] = None,
+    build_env: Annotated[
+        str,
+        typer.Option(
+            "--env",
+            "-e",
+            help="Build environment to build for",
+        ),
+    ] = "dev",
+) -> None:
+    """This command will run the specified function using a one-time session."""
+    if ctx.obj.mockToolGlobals is not None:
+        ToolGlobals = ctx.obj.mockToolGlobals
+    else:
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    external_id = cast(str, external_id).strip()
+    if not local:
+        run_function(ToolGlobals, external_id=external_id, payload=payload or "", follow=follow)
+        return None
+    if follow:
+        print("  [bold yellow]WARNING:[/] --follow is not supported when running locally and should not be specified.")
+    if source_dir is None:
+        source_dir = "./"
+    source_path = Path(source_dir)
+    if not source_path.is_dir():
+        print(f"  [bold red]ERROR:[/] {source_path} does not exist")
+        exit(1)
+    if ctx.obj.mockToolGlobals is not None:
+        ToolGlobals = ctx.obj.mockToolGlobals
+    else:
+        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    run_local_function(
+        ToolGlobals=ToolGlobals,
+        source_path=source_path,
+        external_id=external_id,
+        payload=payload or "{}",
+        schedule=schedule,
+        build_env=build_env,
+        rebuild_env=rebuild_env,
+        verbose=ctx.obj.verbose,
+        no_cleanup=no_cleanup,
+    )
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
