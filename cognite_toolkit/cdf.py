@@ -897,7 +897,7 @@ def run_function_cmd(
 
 @pull_app.callback(invoke_without_command=True)
 def pull_main(ctx: typer.Context) -> None:
-    """Commands to pull governed resources from CDF"""
+    """Commands to download resource configuration from CDF into the module directory"""
     if ctx.invoked_subcommand is None:
         print("Use [bold yellow]cdf-tk pull --help[/] for more information.")
 
