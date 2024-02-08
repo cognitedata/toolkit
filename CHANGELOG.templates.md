@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Fixed
+
+- Added missing cognite-sdk dependency to the common_functions_code.
+
 ## [0.1.0b7] - 2024-02-07
 
 - Added a new module `cognite_modules/example/cdf_functions_dummy` that shows how to create functions and deploy them.
