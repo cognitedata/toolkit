@@ -207,7 +207,8 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         for capability in raw.get("capabilities", []):
             for acl, values in capability.items():
                 scope = values.get("scope", {})
-                is_resource_scoped = any(scope_name in scope for scope_name in self.resource_scope_names)
+                if not is_resource_scoped:
+                    is_resource_scoped = any(scope_name in scope for scope_name in self.resource_scope_names)
                 if self.target_scopes == "all_scoped_only" and is_resource_scoped:
                     # If a group has a single capability with a resource scope, we skip it.
                     # None indicates skip
@@ -232,7 +233,6 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                         ]
 
         if not is_resource_scoped and self.target_scopes == "resource_scoped_only":
-            # If a group has no resource scoped capabilities, we skip it.
             return None
 
         return GroupWrite.load(raw)
