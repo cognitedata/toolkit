@@ -778,7 +778,7 @@ def run_transformation_cmd(
     external_id: Annotated[
         Optional[str],
         typer.Option(
-            "--external_id",
+            "--external-id",
             "-e",
             prompt=True,
             help="External id of the transformation to run.",
@@ -797,7 +797,7 @@ def run_function_cmd(
     external_id: Annotated[
         Optional[str],
         typer.Option(
-            "--external_id",
+            "--external-id",
             "-e",
             prompt=True,
             help="External id of the function to run.",
@@ -897,7 +897,7 @@ def run_function_cmd(
 
 @pull_app.callback(invoke_without_command=True)
 def pull_main(ctx: typer.Context) -> None:
-    """Commands to download resource configuration from CDF into the module directory"""
+    """Commands to download resource configurations from CDF into the module directory."""
     if ctx.invoked_subcommand is None:
         print("Use [bold yellow]cdf-tk pull --help[/] for more information.")
 
@@ -917,7 +917,7 @@ def pull_transformation_cmd(
     source_dir: Annotated[
         str,
         typer.Argument(
-            help="Where to find the module templates to pull the transformation into",
+            help="Where to find the destination module templates (project directory).",
             allow_dash=True,
         ),
     ] = "./",
@@ -926,7 +926,7 @@ def pull_transformation_cmd(
         typer.Option(
             "--env",
             "-e",
-            help="Build environment to build for",
+            help="Environment to use.",
         ),
     ] = "dev",
     dry_run: Annotated[
@@ -938,7 +938,7 @@ def pull_transformation_cmd(
         ),
     ] = False,
 ) -> None:
-    """This command will pull the specified transformation"""
+    """This command will pull the specified transformation and store it as YAML configuration."""
     pull_command(
         source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
     )
@@ -953,7 +953,7 @@ def pull_node_cmd(
             "--space",
             "-s",
             prompt=True,
-            help="Space used to uniquely identify the node to pull.",
+            help="Space where the node to pull can be found.",
         ),
     ],
     external_id: Annotated[
@@ -968,7 +968,7 @@ def pull_node_cmd(
     source_dir: Annotated[
         str,
         typer.Argument(
-            help="Where to find the module templates to pull the transformation into",
+            help="Where to find the destination module templates (project directory).",
             allow_dash=True,
         ),
     ] = "./",
@@ -977,7 +977,7 @@ def pull_node_cmd(
         typer.Option(
             "--env",
             "-e",
-            help="Build environment to build for",
+            help="Environment to use.",
         ),
     ] = "dev",
     dry_run: Annotated[
@@ -989,7 +989,7 @@ def pull_node_cmd(
         ),
     ] = False,
 ) -> None:
-    """This command will pull the specified node"""
+    """This command will pull the specified node and store it as YAML configuration."""
     pull_command(
         source_dir,
         NodeId(space, external_id),
