@@ -362,6 +362,9 @@ def process_config_files(
         # Sort to support 1., 2. etc prefixes
         filepaths.sort()
         for filepath in filepaths:
+            if filepath.parent.parent.name == "functions":
+                # Skip any functions directory, we will process them separately
+                continue
             if verbose:
                 print(f"    [bold green]INFO:[/] Processing {filepath.name}")
 

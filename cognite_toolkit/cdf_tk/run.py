@@ -318,13 +318,29 @@ def run_local_function(
 from pathlib import Path
 from handler import handle
 import json
+import inspect
+from collections import OrderedDict
 from common.tool import CDFClientTool
 
 tool = CDFClientTool()
 
+def get_args(fn, handle_args):
+    params = inspect.signature(fn).parameters
+    kwargs = OrderedDict()
+    for p in params.values():
+        if p.name in handle_args:
+            kwargs[p.name] = handle_args[p.name]
+    return kwargs
+
 if __name__ == "__main__":
     data = json.loads(Path("./in.json").read_text())
-    out = handle(data=data, client=tool.client, secrets={}, function_call_info={"local": True})
+    args = get_args(handle, {
+        "data": data,
+        "client": tool.client,
+        "secrets": {},
+        "function_call_info": {"local": True}
+    })
+    out = handle(**args)
     Path("./out.json").write_text(json.dumps(out))
 
 """
