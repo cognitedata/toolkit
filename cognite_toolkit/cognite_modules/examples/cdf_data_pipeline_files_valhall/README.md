@@ -6,7 +6,9 @@ This module relies on these example data modules being loaded:
 - cdf_data_pipeline_asset_valhall
 
 The module creates a simple data pipeline for processing files from the OID example module.
-The processing here is related to the annotation/contextualization mapping of tags in P&ID documents to assets in the asset hierarchy.
+The processing here is related to the annotation/contextualization mapping of tags in P&ID documents 
+to assets in the asset hierarchy.
+
 OID is used as the examle location name.
 Since the pipeline doesn't load from a source, the example data from cdf_oid_example_data is loaded to files and RAW in CDF.
 
@@ -19,9 +21,11 @@ This module manages the following resources:
 
 1. auth:
    - Name: `gp_files_oid_extractor`
-     - Content: Authorization group used by the extractor writing data to CDF RAW, files, pipeline and update of extraction pipeline run
+     - Content: Authorization group used by the extractor writing data to CDF RAW, files, pipeline and
+       update of extraction pipeline run
    - Name: `gp_files_oid_processing`
-     - Content: Authorization group used for processing the files, running transformation, function with contextualization and updating files
+     - Content: Authorization group used for processing the files, running transformation,
+       function (contextualization) and updating files
    - Name: `gp_files_oid_read`
      - Content: Authorization group used by the users reading files and annotations 
         
@@ -33,16 +37,19 @@ This module manages the following resources:
    - ID: `ep_src_files_oid_fileshare`
      - Content: Documentation and configuration example for the file extractor
    - ID: `ep_ctx_files_oid_pandid_annotation`
-     - Content: Documentation and configuration for a CDF function running P&ID contextualization / annotation (see function form more description)
+     - Content: Documentation and configuration for a CDF function running P&ID contextualization / annotation
+       (see function form more description)
 
 4. transformations:
    - ID: `tr_files_oid_fileshare_file_metadata`
      - Content: update of metadata for example file metadata, prepping for contextualization / annotation
-     - NOTE: the transformation must run before the contextualization function. Without the transformation the function will not be able to find the files to contextualize.
+     - NOTE: the transformation must run before the contextualization function. Without the transformation the
+       function will not be able to find the files to contextualize.
 
 5. function:
    - ID: `fu_context_files_oid_fileshare_annotation`
-     - Content: Extracts all tags in P&ID that matches tags from Asset Hierarchy and creates CDF annotations used for linking found objects in document to other resource types in CDF
+     - Content: Extracts all tags in P&ID that matches tags from Asset Hierarchy and creates CDF annotations used for linking
+       found objects in document to other resource types in CDF
 
 ### Illustration of the files data pipeline
 
