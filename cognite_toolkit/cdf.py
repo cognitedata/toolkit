@@ -782,7 +782,7 @@ def run_transformation_cmd(
     external_id: Annotated[
         Optional[str],
         typer.Option(
-            "--external_id",
+            "--external-id",
             "-e",
             prompt=True,
             help="External id of the transformation to run.",
@@ -804,7 +804,7 @@ def run_function_cmd(
     external_id: Annotated[
         Optional[str],
         typer.Option(
-            "--external_id",
+            "--external-id",
             "-e",
             prompt=True,
             help="External id of the function to run.",
@@ -854,7 +854,6 @@ def run_function_cmd(
         Optional[str],
         typer.Argument(
             help="Where to find the module templates to build from",
-            allow_dash=True,
         ),
     ] = None,
     schedule: Annotated[
