@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import difflib
 import shutil
 import tempfile
@@ -89,15 +88,14 @@ def pull_command(
     config = BuildConfigYAML.load_from_directory(source_path, env)
     config.set_environment_variables()
     config.environment.selected_modules_and_packages = [module.name for module, _ in iterate_modules(source_path)]
-    with contextlib.redirect_stdout(None):
-        source_by_build_path = build_config(
-            build_dir=build_dir,
-            source_dir=source_path,
-            config=config,
-            system_config=system_config,
-            clean=True,
-            verbose=False,
-        )
+    source_by_build_path = build_config(
+        build_dir=build_dir,
+        source_dir=source_path,
+        config=config,
+        system_config=system_config,
+        clean=True,
+        verbose=False,
+    )
 
     loader = Loader.create_loader(ToolGlobals)
     resource_files = loader.find_files(build_dir / loader.folder_name)
