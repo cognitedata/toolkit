@@ -233,6 +233,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                         ]
 
         if not is_resource_scoped and self.target_scopes == "resource_scoped_only":
+            # If a group has no resource scoped capabilities, we skip it.
             return None
 
         return GroupWrite.load(raw)
