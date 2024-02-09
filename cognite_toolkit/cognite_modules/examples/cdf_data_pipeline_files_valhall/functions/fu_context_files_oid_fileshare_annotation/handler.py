@@ -3,11 +3,13 @@ import os
 import re
 import time
 import traceback
-from datetime import datetime
+
+from datetime import datetime, timedelta
 from time import gmtime, strftime
 from typing import Any, Optional
 
 import yaml
+
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
@@ -18,6 +20,8 @@ from cognite.client.data_classes import (
     FileMetadataUpdate,
 )
 from cognite.client.exceptions import CogniteAPIError
+from cognite.logger import configure_logger
+
 
 # P&ID original file defaults
 orgMimeType = "application/pdf"
@@ -39,37 +43,48 @@ maxLengthMetadata = 10000
 # static variables
 functionName = "P&ID Annotation"
 
-# log configuration
-logging.basicConfig(
-    format="%(asctime)s.%(msecs)03d %(levelname)s %(name)s: %(message)s",
-    datefmt="%Y-%m-%d,%H:%M:%S",
-    level=logging.INFO,
-)
-logger = logging.getLogger(functionName)
+
+# logging the output
+# Configure application logger (only done ONCE):
+configure_logger(logger_name="func", log_json=False, log_level="INFO")
+
+# The following line must be added to all python modules (after imports):
+logger = logging.getLogger(f"func.{__name__}")
 logger.info("---------------------------------------START--------------------------------------------")
 
 
-def handle(client, data):
+def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info: dict) -> dict:
     msg = ""
     logger.info("[STARTING] Extracting input data")
+
     try:
         annoConfig = getConfigParam(client, data)
         logger.info("[FINISHED] Extracting input parameters")
-    except Exception as e:
-        logger.error(f"[FAILED] Extracting input parameters. Error: {e}")
-        raise e
-
-    try:
         annotate_p_and_id(client, annoConfig)
     except Exception as e:
         tb = traceback.format_exc()
         msg = f"Function: {functionName}: Extraction failed - Message: {e!r} - {tb}"
         logger.error(f"[FAILED] Error: {msg}")
-        return {"error": e.__str__(), "status": "failed"}
+        return {
+            "error": e.__str__(),
+            "status": "failed",
+            "data": data,
+            "secrets": mask_secrets(secrets),
+            "functionInfo": function_call_info,
+        }
 
     logger.info(f"[FINISHED] : {msg}")
 
-    return {"status": "succeeded"}
+    return {
+        "status": "succeeded",
+        "data": data,
+        "secrets": mask_secrets(secrets),
+        "functionInfo": function_call_info,
+    }
+
+
+def mask_secrets(secrets: dict) -> dict:
+    return {k: "***" for k in secrets}
 
 
 def getConfigParam(cognite_client: CogniteClient, data: dict[str, Any]) -> dict[str, Any]:
@@ -265,18 +280,16 @@ def update_file_metadata(
     pAndIdFiles: dict[str, FileMetadata],
     file_annotated: str,
 ) -> tuple[dict[str, FileMetadata], list[FileMetadataUpdate]]:
-    
+
     annotated_date = None
     if file.metadata and file_annotated is not None:
         file_annotated_time = file.metadata.get(file_annotated, None)
         if file_annotated_time:
-            annotated_date = datetime.strptime(file_annotated_time, '%Y-%m-%d %H:%M:%S')
+            annotated_date = datetime.strptime(file_annotated_time, "%Y-%m-%d %H:%M:%S")
 
     annotated_stamp = int(annotated_date.timestamp() * 1000) if annotated_date else None
     if (
-        annotated_stamp is not None
-        and file.last_updated_time is not None  # Check for None
-        and file.last_updated_time > annotated_stamp + 3600000
+        annotated_stamp is not None and file.last_updated_time is not None and file.last_updated_time > annotated_stamp
     ):  # live 1 h for buffer
         if file_annotated is not None:  # Check for None
             file_meta_update = FileMetadataUpdate(external_id=file.external_id).metadata.remove([file_annotated])
@@ -307,7 +320,7 @@ def get_files_entities(pAndIdFiles: dict[str, FileMetadata]) -> list[dict[str, A
             continue
 
         # build list with possible file name variations used in P&ID to refer to other P&ID
-        split_name = re.split("[,._ \-!?:]+", file_meta.name)
+        split_name = re.split("[,._ \\-!?:]+", file_meta.name)
 
         ctx_name = ""
         core_name = ""
@@ -414,7 +427,7 @@ def get_assets(
                 nameList.append(name)
 
                 # Split name - and if a system number is used also add name without system number to list
-                split_name = re.split("[,._ \-:]+", name)
+                split_name = re.split("[,._ \\-:]+", name)
                 if split_name[0].isnumeric():
                     nameList.append(name[len(split_name[0]) + 1 :])
 
@@ -488,7 +501,10 @@ def process_files(
                 numAnnotated += 1
                 # Update metadata from found PDF files
                 try:
-                    convert_date_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+                    # Note uses local time, since file update time also uses local time + add a minute
+                    # making sure annotation time is larger than last update time
+                    now = datetime.now() + timedelta(minutes=1)
+                    convert_date_time = now.strftime("%Y-%m-%d %H:%M:%S")
                     my_update = (
                         FileMetadataUpdate(id=file.id)
                         .asset_ids.set(assetIdsList)
@@ -543,7 +559,7 @@ def detect_create_annotation(
     entities_name_found = []
     createAnnotationList: list[Annotation] = []
     deleteAnnotationList: list[int] = []
-    itemNum = 0
+    numDetected = 0
 
     # in case contextualization service not is avaiable - back off and retry
     retryNum = 0
@@ -576,8 +592,7 @@ def detect_create_annotation(
         if annotatedResourceId in annotationList:
             deleteAnnotationList.extend(annotationList[annotatedResourceId])
 
-        detectedSytemNum = getSysNums(job.result["items"][0]["annotations"])
-        itemNum = len(job.result["items"][0]["annotations"])
+        detectedSytemNum, numDetected = getSysNums(job.result["items"][0]["annotations"], numDetected)
         for item in job.result["items"][0]["annotations"]:
             if item["entities"][0]["type"] == "file":
                 annotationType = fileAnnotationType
@@ -590,61 +605,61 @@ def detect_create_annotation(
                 entities_name_found.append(item["entities"][0]["name"][0])
                 entities_id_found.append(item["entities"][0]["id"])
 
-            if item["confidence"] >= 0.5:
-                tokens = item["text"].split("-")
-
-                # logic to create suggestions for annotations if system number is missing
-                # but suggestion matches most frequent system number from P&ID
-                if len(tokens) == 2 and item["confidence"] >= matchTreshold and len(item["entities"]) == 1:
-                    sysTokenFound = item["entities"][0]["name"][0].split("-")
-                    if len(sysTokenFound) == 3:
-                        sysNumFound = sysTokenFound[0]
-                        if sysNumFound in detectedSytemNum and detectedSytemNum[sysNumFound] / itemNum > 0.5:
-                            annotationStatus = annotationStatusAproved
-                        else:
-                            continue
+            # logic to create suggestions for annotations if system number is missing from tag in P&ID
+            # but suggestion matches most frequent system number from P&ID
+            tokens = item["text"].split("-")
+            if len(tokens) == 2 and item["confidence"] >= matchTreshold and len(item["entities"]) == 1:
+                sysTokenFound = item["entities"][0]["name"][0].split("-")
+                if len(sysTokenFound) == 3:
+                    sysNumFound = sysTokenFound[0]
+                    # if missing system number is in > 30% of the tag asume it's correct - else create suggestion
+                    if sysNumFound in detectedSytemNum and detectedSytemNum[sysNumFound] / numDetected > 0.3:
+                        annotationStatus = annotationStatusAproved
                     else:
-                        continue
-
-                elif item["confidence"] >= matchTreshold and len(item["entities"]) == 1:
-                    annotationStatus = annotationStatusAproved
-
-                elif item["confidence"] >= 0.5 and item["entities"][0]["type"] == "asset" and len(tokens) > 5:
-                    annotationStatus = annotationStatusSuggested
+                        annotationStatus = annotationStatusSuggested
                 else:
                     continue
 
-                xMin, xMax, yMin, yMax = getCord(item["region"]["vertices"])
+            elif item["confidence"] >= matchTreshold and len(item["entities"]) == 1:
+                annotationStatus = annotationStatusAproved
 
-                annotationData = {
-                    refType: {"externalId": item["entities"][0]["externalId"]},
-                    "pageNumber": item["region"]["page"],
-                    "text": txtValue,
-                    "textRegion": {
-                        "xMax": xMax,
-                        "xMin": xMin,
-                        "yMax": yMax,
-                        "yMin": yMin,
-                    },
-                }
+            # If there are long asset names a lower confidence is ok to create a suggestion
+            elif item["confidence"] >= 0.5 and item["entities"][0]["type"] == "asset" and len(tokens) > 5:
+                annotationStatus = annotationStatusSuggested
+            else:
+                continue
 
-                fileAnnotation = Annotation(
-                    annotation_type=annotationType,
-                    data=annotationData,
-                    status=annotationStatus,
-                    annotated_resource_type=annotatedResourceType,
-                    annotated_resource_id=annotatedResourceId,
-                    creating_app=creatingApp,
-                    creating_app_version=creatingAppVersion,
-                    creating_user=f"job.{job.job_id}",
-                )
+            xMin, xMax, yMin, yMax = getCord(item["region"]["vertices"])
 
-                createAnnotationList.append(fileAnnotation)
+            annotationData = {
+                refType: {"externalId": item["entities"][0]["externalId"]},
+                "pageNumber": item["region"]["page"],
+                "text": txtValue,
+                "textRegion": {
+                    "xMax": xMax,
+                    "xMin": xMin,
+                    "yMax": yMax,
+                    "yMin": yMin,
+                },
+            }
 
-                # can oonly create 1000 annotations at the time.
-                if len(createAnnotationList) >= 999:
-                    cognite_client.annotations.create(createAnnotationList)
-                    createAnnotationList = []
+            fileAnnotation = Annotation(
+                annotation_type=annotationType,
+                data=annotationData,
+                status=annotationStatus,
+                annotated_resource_type=annotatedResourceType,
+                annotated_resource_id=annotatedResourceId,
+                creating_app=creatingApp,
+                creating_app_version=creatingAppVersion,
+                creating_user=f"job.{job.job_id}",
+            )
+
+            createAnnotationList.append(fileAnnotation)
+
+            # can only create 1000 annotations at the time.
+            if len(createAnnotationList) >= 999:
+                cognite_client.annotations.create(createAnnotationList)
+                createAnnotationList = []
 
         if len(createAnnotationList) > 0:
             cognite_client.annotations.create(createAnnotationList)
@@ -658,13 +673,14 @@ def detect_create_annotation(
     return entities_name_found, entities_id_found
 
 
-def getSysNums(annotations: Any) -> dict[str, int]:
+def getSysNums(annotations: Any, numDetected: int) -> dict[str, int]:
     """
     Get dict of used system number in P&ID. The dict is used to annotate if system
     number is missing - but then only annotation of found text is part of most
     frequent used system number
 
     :annotations found by context api
+    :numDetected total number of detected system numbers
 
     :returns: dict of system numbers and number of times used.
     """
@@ -675,12 +691,13 @@ def getSysNums(annotations: Any) -> dict[str, int]:
         tokens = item["text"].split("-")
         if len(tokens) == 3:
             sysNum = tokens[0]
+            numDetected += 1
             if sysNum in detectedSytemNum:
                 detectedSytemNum[sysNum] += 1
             else:
                 detectedSytemNum[sysNum] = 1
 
-    return detectedSytemNum
+    return detectedSytemNum, numDetected
 
 
 def getCord(vertices: dict) -> tuple[int, int, int, int]:
@@ -788,6 +805,8 @@ def main():
 
     baseUrl = f"https://{cdfCluster}.cognitedata.com"
     scopes = f"{baseUrl}/.default"
+    secrets = {"mySecrets": "Values"}
+    function_call_info = {"Debugging": "Called from Function main "}
 
     oauth_provider = OAuthClientCredentials(
         token_url=tokenUri,
@@ -810,7 +829,7 @@ def main():
     }
 
     # Test function handler
-    handle(client, data)
+    handle(data, client, secrets, function_call_info)
 
 
 if __name__ == "__main__":
