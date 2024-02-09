@@ -78,18 +78,28 @@ class TestAuthLoader:
 name: 'some_name'
 sourceId: '123'
 capabilities:
-  - datasetsAcl:
-      actions:
-        - READ
-        - OWNER
-      scope:
-        idScope: { ids: ["site:001:b60:ds"] }
+    - datasetsAcl:
+        actions:
+            - READ
+            - OWNER
+        scope:
+            idScope: { ids: ["site:001:b60:ds"] }
+    - assertAcl:
+        actions:
+            - READ
+            - OWNER
+        scope:
+            all: {}
+
 """
 
         mock_read_yaml_file({"group_file.yaml": yaml.safe_load(file_content)}, monkeypatch)
-
+        loader.target_scopes = "all_scoped_only"
         loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        assert loaded is None
 
+        loader.target_scopes = "resource_scoped_only"
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
         assert loaded.name == "some_name"
 
 
