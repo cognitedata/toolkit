@@ -71,26 +71,114 @@ class DataSetsLoaderTest:
 
 
 class TestAuthLoader:
-    def test_load_id_scoped_dataset_acl(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, "all")
 
-        file_content = """
-name: 'some_name'
+    scoped_content = """
+name: 'scoped_group_name'
 sourceId: '123'
 capabilities:
-  - datasetsAcl:
-      actions:
-        - READ
-        - OWNER
-      scope:
-        idScope: { ids: ["site:001:b60:ds"] }
+    - datasetsAcl:
+        actions:
+            - READ
+            - OWNER
+        scope:
+            idScope: { ids: ["site:001:b60:ds"] }
+
+    - assetsAcl:
+        actions:
+            - READ
+            - WRITE
+        scope:
+            datasetScope: {
+                ids: ['ds_asset_oid']
+            }
+    - extractionConfigsAcl:
+        actions:
+            - READ
+        scope:
+            extractionPipelineScope: {
+                ids: ['ep_src_asset_oid']
+            }
+
+    - sessionsAcl:
+        actions:
+            - LIST
+            - CREATE
+            - DELETE
+        scope:
+            all: {}
+    """
+
+    unscoped_content = """
+    name: 'unscoped_group_name'
+    sourceId: '123'
+    capabilities:
+
+        - assetsAcl:
+            actions:
+                - READ
+                - WRITE
+            scope:
+                all: {}
+        - sessionsAcl:
+            actions:
+                - LIST
+                - CREATE
+                - DELETE
+            scope:
+                all: {}
+
 """
 
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(file_content)}, monkeypatch)
+    def test_load_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
 
+        loader = AuthLoader.create_loader(cdf_tool_config, "all")
+
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
         loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        assert loaded.name == "unscoped_group_name"
 
-        assert loaded.name == "some_name"
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.scoped_content)}, monkeypatch)
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        assert loaded.name == "scoped_group_name"
+
+        caps = {str(type(element).__name__): element for element in loaded.capabilities}
+
+        assert all(isinstance(item, int) for item in caps["DataSetsAcl"].scope.ids)
+        assert all(isinstance(item, int) for item in caps["AssetsAcl"].scope.ids)
+        assert all(isinstance(item, int) for item in caps["ExtractionConfigsAcl"].scope.ids)
+        assert caps["SessionsAcl"].scope._scope_name == "all"
+
+    def test_load_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
+
+        loader = AuthLoader.create_loader(cdf_tool_config, "all_scoped_only")
+
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        assert loaded.name == "unscoped_group_name"
+
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.scoped_content)}, monkeypatch)
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        assert loaded is None
+
+    def test_load_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
+
+        loader = AuthLoader.create_loader(cdf_tool_config, "resource_scoped_only")
+
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        assert loaded is None
+
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.scoped_content)}, monkeypatch)
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        assert loaded.name == "scoped_group_name"
+        assert len(loaded.capabilities) == 4
+
+        caps = {str(type(element).__name__): element for element in loaded.capabilities}
+
+        assert all(isinstance(item, int) for item in caps["DataSetsAcl"].scope.ids)
+        assert all(isinstance(item, int) for item in caps["AssetsAcl"].scope.ids)
+        assert all(isinstance(item, int) for item in caps["ExtractionConfigsAcl"].scope.ids)
+        assert caps["SessionsAcl"].scope._scope_name == "all"
 
 
 class TestTimeSeriesLoader:
