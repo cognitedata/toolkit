@@ -22,6 +22,7 @@ from cognite_toolkit.cdf_tk.load import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
+    module_from_path,
 )
 from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, get_oneshot_session
@@ -184,7 +185,7 @@ def run_local_function(
             continue
         for path in function_dir.iterdir():
             if path.is_dir() and path.name == external_id:
-                config.environment.selected_modules_and_packages = [path.parts[-3]]
+                config.environment.selected_modules_and_packages = [module_from_path(path)]
                 found = True
                 break
 
