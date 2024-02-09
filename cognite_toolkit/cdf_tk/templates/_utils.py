@@ -49,6 +49,18 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
         yield from iterate_modules(module_dir)
 
 
+def module_from_path(path: Path) -> str:
+    """Get the module name from a path"""
+    if len(path.parts) == 1:
+        raise ValueError("Path is not a module")
+    last_folder = path.parts[1]
+    for part in path.parts[1:]:
+        if part in LOADER_BY_FOLDER_NAME:
+            return last_folder
+        last_folder = part
+    raise ValueError("Path is not part of a module")
+
+
 def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
     for function_dir in module_dir.glob("**/functions"):
         if not function_dir.is_dir():
