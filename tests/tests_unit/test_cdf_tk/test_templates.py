@@ -290,6 +290,8 @@ class TestModuleFromPath:
             pytest.param(
                 Path("cognite_modules/parent_module/child_module/data_models/auth/my_group.group.yaml"), "child_module"
             ),
+            pytest.param(Path("custom_modules/child_module/functions/functions.yaml"), "child_module"),
+            pytest.param(Path("custom_modules/parent_module/child_module/functions/functions.yaml"), "child_module"),
         ],
     )
     def test_module_from_path(self, path: Path, expected: str):
