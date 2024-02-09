@@ -12,6 +12,7 @@ from cognite_toolkit.cdf_tk.templates import (
     create_local_config,
     flatten_dict,
     iterate_modules,
+    module_from_path,
     split_config,
 )
 from cognite_toolkit.cdf_tk.templates.data_classes import Environment, InitConfigYAML, YAMLComment
@@ -274,3 +275,22 @@ class TestIterateModules:
         actual_modules = {module for module, _ in iterate_modules(PYTEST_PROJECT)}
 
         assert actual_modules == expected_modules
+
+
+class TestModuleFromPath:
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            pytest.param(Path("cognite_modules/a_module/data_models/my_model.datamodel.yaml"), "a_module"),
+            pytest.param(Path("cognite_modules/another_module/data_models/views/my_view.view.yaml"), "another_module"),
+            pytest.param(
+                Path("cognite_modules/parent_module/child_module/data_models/containers/my_container.container.yaml"),
+                "child_module",
+            ),
+            pytest.param(
+                Path("cognite_modules/parent_module/child_module/data_models/auth/my_group.group.yaml"), "child_module"
+            ),
+        ],
+    )
+    def test_module_from_path(self, path: Path, expected: str):
+        assert module_from_path(path) == expected
