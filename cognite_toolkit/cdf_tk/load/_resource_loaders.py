@@ -1628,7 +1628,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         if not cdf_resource_dumped["properties"]:
             # All properties were removed, so we remove the properties key.
             cdf_resource_dumped.pop("properties", None)
-        if local.properties and not local_dumped["properties"]:
+        if "properties" in local_dumped and not local_dumped["properties"]:
             # In case the local properties are set to an empty dict.
             local_dumped.pop("properties", None)
 
