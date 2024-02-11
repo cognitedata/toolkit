@@ -494,7 +494,9 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
                 filepath_src=source_path,
                 filepath_build=destination,
             ):
-                exit(1)
+                print(
+                    f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r} is not semantically correct."
+                )
         loaders = LOADER_BY_FOLDER_NAME.get(destination.parent.name, [])
         loader: type[Loader] | None
         if len(loaders) == 1:
