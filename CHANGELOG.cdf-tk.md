@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Allow installing the toolkit on `Python==3.12`
+
 ## [0.1.0b7] - 2024-02-07
 
 ### Added
