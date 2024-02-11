@@ -359,8 +359,16 @@ def process_config_files(
         if verbose:
             print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
         local_config = create_local_config(configs, module_dir)
+
         # Sort to support 1., 2. etc prefixes
-        filepaths.sort()
+        def sort_key(p: Path) -> int:
+            if result := re.findall(r"^(\d+)", p.stem):
+                return int(result[0])
+            else:
+                return len(filepaths)
+
+        filepaths = sorted(filepaths, key=sort_key)
+
         for filepath in filepaths:
             if verbose:
                 print(f"    [bold green]INFO:[/] Processing {filepath.name}")
