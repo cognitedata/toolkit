@@ -376,7 +376,11 @@ def process_config_files(
             content = replace_variables(content, local_config)
             filename = create_file_name(filepath, number_by_resource_type)
 
-            _, resource_folder = module_from_path(filepath, return_resource_folder=True)
+            try:
+                _, resource_folder = module_from_path(filepath, return_resource_folder=True)
+            except ValueError:
+                # This is not a resource file, skip it.
+                continue
 
             destination = build_dir / resource_folder / filename
             destination.parent.mkdir(parents=True, exist_ok=True)
