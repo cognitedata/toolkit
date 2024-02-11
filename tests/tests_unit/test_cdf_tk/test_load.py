@@ -16,8 +16,17 @@ from cognite_toolkit.cdf_tk.load import (
     TimeSeriesLoader,
     ViewLoader,
 )
+from cognite_toolkit.cdf_tk.templates import (
+    COGNITE_MODULES,
+    build_config,
+)
+from cognite_toolkit.cdf_tk.templates.data_classes import (
+    BuildConfigYAML,
+    SystemYAML,
+)
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
+from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT
 from tests.tests_unit.utils import mock_read_yaml_file
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -284,3 +293,24 @@ description: PH 1stStgSuctCool Gas Out
 
         assert len(loaded) == 1
         assert loaded[0].data_set_id == 12345
+
+
+class TestDeployResources:
+    def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
+        build_env = "dev"
+        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT / COGNITE_MODULES, build_env)
+        config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
+        config.environment.selected_modules_and_packages = ["another_module"]
+        build_config(BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False)
+        expected_order = ["MyView", "MyOtherView"]
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+
+        ViewLoader.create_loader(cdf_tool).deploy_resources(BUILD_DIR, cdf_tool, dry_run=False)
+
+        views = cognite_client_approval.dump()["View"]
+
+        actual_order = [view["externalId"] for view in views]
+
+        assert actual_order == expected_order
