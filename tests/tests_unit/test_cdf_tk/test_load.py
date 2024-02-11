@@ -110,7 +110,7 @@ class TestViewLoader:
             description=None,
             name=None,
             filter=None,
-            implements=None,
+            implements=[interface.as_id()],
             writable=True,
             used_for="node",
             is_global=False,
@@ -119,6 +119,7 @@ class TestViewLoader:
             space="sp_space",
             external_id="child",
             version="1",
+            implements=[interface.as_id()],
         )
         # Simulating that the interface and child_cdf are available in CDF
         cognite_client_approval.append(dm.View, [interface, child_cdf])
