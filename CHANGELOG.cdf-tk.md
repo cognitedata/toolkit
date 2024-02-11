@@ -22,6 +22,10 @@ Changes are grouped as follows:
 - `View` which implements other views would always be classified as changed never unchanged in the `cdf-tk deploy`
   command. This is now fixed.
 
+### Added
+
+- Allow installing the toolkit on `Python==3.12`
+
 ## [0.1.0b7] - 2024-02-07
 
 ### Added
