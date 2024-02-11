@@ -309,7 +309,7 @@ class TestDeployResources:
 
         ViewLoader.create_loader(cdf_tool).deploy_resources(BUILD_DIR, cdf_tool, dry_run=False)
 
-        views = cognite_client_approval.dump()["View"]
+        views = cognite_client_approval.dump(sort=False)["View"]
 
         actual_order = [view["externalId"] for view in views]
 
