@@ -255,6 +255,14 @@ class ResourceLoader(
         self.build_path = path
         filepaths = self.find_files(path)
 
+        def sort_key(p: Path) -> int:
+            if result := re.findall(r"^(\d+)", p.stem):
+                return int(result[0])
+            else:
+                return len(filepaths)
+
+        filepaths = sorted(filepaths, key=sort_key)
+
         batches = self._load_batches(filepaths, ToolGlobals, skip_validation=dry_run, verbose=verbose)
         if batches is None:
             ToolGlobals.failed = True
