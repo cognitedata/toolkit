@@ -19,9 +19,10 @@ Changes are grouped as follows:
 
 ### Fixed
 
-- `View` which implements other views would always be classified as changed never unchanged in the `cdf-tk deploy`
-  command. This is now fixed.
-- `DataModels` which are equal would be wrongly classified as changed if the view order was different. This is now fixed.
+- `View` which implements other views would always be classified as changed, ven though no change
+  has been done to the `view`, in the `cdf-tk deploy` command. This is now fixed.
+- `DataModels` which are equal would be wrongly classified as changed if the view order was different.
+  This is now fixed.
 
 ## [0.1.0b7] - 2024-02-07
 
