@@ -199,7 +199,8 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     def get_id(cls, item: GroupWrite | Group) -> str:
         return item.name
 
-    def _substitute_scope_ids(self, raw: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
+    @staticmethod
+    def _substitute_scope_ids(raw: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
         for capability in raw.get("capabilities", []):
             for acl, values in capability.items():
                 scope = values.get("scope", {})
