@@ -236,9 +236,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
             for acl in capability
         )
 
-        if self.target_scopes == "all_scoped_only":
-            if not is_resource_scoped:
-                return GroupWrite.load(raw)
+        if self.target_scopes == "all_scoped_only" and is_resource_scoped:
             return None
 
         if self.target_scopes == "resource_scoped_only":
