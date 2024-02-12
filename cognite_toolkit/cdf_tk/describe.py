@@ -9,6 +9,7 @@ from cognite.client.data_classes.data_modeling import (
     MappedProperty,
     SingleHopConnectionDefinition,
     SpaceList,
+    ViewId,
     ViewIdentifier,
 )
 from rich import print
@@ -92,7 +93,7 @@ def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: 
     table.add_row("Last updated time", str(datetime.datetime.fromtimestamp(data_model.last_updated_time / 1000)))
     view_list: list[ViewIdentifier] = []
     for view in data_model.views:
-        view_list.append(view.as_id())
+        view_list.append(view if isinstance(view, ViewId) else view.as_id())
     views = client.data_modeling.views.retrieve(view_list)
     table.add_row("Number of views", str(len(views)))
     view_names = "\n".join(sorted([v.external_id for v in views]))
