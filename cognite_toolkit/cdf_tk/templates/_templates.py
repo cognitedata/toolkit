@@ -19,7 +19,7 @@ from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, L
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
 
 from ._constants import COGNITE_MODULES, CUSTOM_MODULES, EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX
-from ._utils import iterate_functions, iterate_modules, module_from_path
+from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
 
@@ -377,7 +377,7 @@ def process_config_files(
             filename = create_file_name(filepath, number_by_resource_type)
 
             try:
-                _, resource_folder = module_from_path(filepath, return_resource_folder=True)
+                resource_folder = resource_folder_from_path(filepath)
             except ValueError:
                 # This is not a resource file, skip it.
                 continue
@@ -468,7 +468,8 @@ def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
 
 
 def validate(content: str, destination: Path, source_path: Path, modules_by_variable: dict[str, list[str]]) -> None:
-    module, resource_folder = module_from_path(source_path, return_resource_folder=True)
+    module = module_from_path(source_path)
+    resource_folder = resource_folder_from_path(source_path)
 
     for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
         print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {destination!s}")
