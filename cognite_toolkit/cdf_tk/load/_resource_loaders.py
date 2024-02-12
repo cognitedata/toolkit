@@ -239,9 +239,8 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         if self.target_scopes == "all_scoped_only" and is_resource_scoped:
             return None
 
-        if self.target_scopes == "resource_scoped_only":
-            if not is_resource_scoped:
-                return None
+        if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
+            return None
 
         substituted = self._substitute_scope_ids(raw, ToolGlobals, skip_validation)
         return GroupWrite.load(substituted)
