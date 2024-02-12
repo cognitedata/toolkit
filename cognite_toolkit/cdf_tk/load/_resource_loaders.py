@@ -933,6 +933,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
                 end=_MAX_TIMESTAMP_MS + 1,
                 aggregates="count",
                 granularity="1000d",
+                ignore_unknown_ids=True,
             ),
         )
         return sum(sum(data.count or []) for data in datapoints)
@@ -1689,6 +1690,21 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             items = loaded if isinstance(loaded, DataModelApplyList) else [loaded]
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         return loaded
+
+    def _is_equal_custom(self, local: DataModelApply, cdf_resource: DataModel) -> bool:
+        local_dumped = local.dump()
+        cdf_resource_dumped = cdf_resource.as_write().dump()
+
+        # Data models that have the same views, but in different order, are considered equal.
+        # We also account for whether views are given as IDs or View objects.
+        local_dumped["views"] = sorted(
+            (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in local.views or []
+        )
+        cdf_resource_dumped["views"] = sorted(
+            (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in cdf_resource.views or []
+        )
+
+        return local_dumped == cdf_resource_dumped
 
     def create(self, items: DataModelApplyList) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
