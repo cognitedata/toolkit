@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Fixed
+
+- `View` which implements other views would always be classified as changed, ven though no change
+  has been done to the `view`, in the `cdf-tk deploy` command. This is now fixed.
+
 ## [0.1.0b7] - 2024-02-07
 
 ### Added
