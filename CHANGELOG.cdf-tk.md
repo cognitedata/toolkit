@@ -27,6 +27,8 @@ Changes are grouped as follows:
   For example, if you had `my_module/data_models/container/my_container.container.view`, it would be put inside
   a `build/container/my_container.container.yaml` instead of `build/data_models/my_container.container.yaml`,
   and thus fail in the `cdf-tk deploy/clean` step. This is now fixed.
+- When running `cdf-tk deploy` the prefixed number on resource file was not used to sort the deployment order.
+  This is now fixed.
 
 ## [0.1.0b7] - 2024-02-07
 
