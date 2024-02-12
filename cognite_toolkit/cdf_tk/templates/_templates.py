@@ -379,12 +379,12 @@ def process_config_files(
             try:
                 resource_folder = resource_folder_from_path(filepath)
             except ValueError:
-                # This is not a resource file, skip it.
+                print(f"      [bold green]INFO:[/] The file {filepath.name} is not a resource file, skipping it...")
                 continue
 
             destination = build_dir / resource_folder / filename
             destination.parent.mkdir(parents=True, exist_ok=True)
-            if "timeseries_datapoints" in filepath.parent.name and filepath.suffix.lower() == ".csv":
+            if resource_folder == "timeseries_datapoints" and filepath.suffix.lower() == ".csv":
                 # Special case for timeseries datapoints, we want to timeshit datapoints
                 # if the file is a csv file and we have been instructed to.
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
@@ -408,7 +408,7 @@ def process_config_files(
 
             # If we have a function definition, we want to process the directory.
             if (
-                "functions" in filepath.parent.name
+                resource_folder == "functions"
                 and filepath.suffix.lower() == ".yaml"
                 and re.match(FunctionLoader.filename_pattern, filepath.stem)
             ):
