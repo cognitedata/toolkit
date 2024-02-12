@@ -25,9 +25,7 @@ from cognite_toolkit.cdf_tk.templates.data_classes import (
     SystemYAML,
     YAMLComment,
 )
-
-PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
-BUILD_DIR = PYTEST_PROJECT.parent / "tmp"
+from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT
 
 
 def dict_keys(d: dict[str, Any]) -> set[str]:
