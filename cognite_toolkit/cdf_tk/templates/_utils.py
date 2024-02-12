@@ -61,6 +61,14 @@ def module_from_path(path: Path) -> str:
     raise ValueError("Path is not part of a module")
 
 
+def resource_folder_from_path(path: Path) -> str:
+    """Get the resource_folder from a path"""
+    for part in path.parts:
+        if part in LOADER_BY_FOLDER_NAME:
+            return part
+    raise ValueError("Path does not container a resource folder")
+
+
 def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
     for function_dir in module_dir.glob("**/functions"):
         if not function_dir.is_dir():

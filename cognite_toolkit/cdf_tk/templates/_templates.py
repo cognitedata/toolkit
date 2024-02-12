@@ -19,7 +19,7 @@ from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, L
 from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
 
 from ._constants import COGNITE_MODULES, CUSTOM_MODULES, EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX
-from ._utils import iterate_functions, iterate_modules
+from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
 
@@ -376,9 +376,15 @@ def process_config_files(
             content = replace_variables(content, local_config)
             filename = create_file_name(filepath, number_by_resource_type)
 
-            destination = build_dir / filepath.parent.name / filename
+            try:
+                resource_folder = resource_folder_from_path(filepath)
+            except ValueError:
+                print(f"      [bold green]INFO:[/] The file {filepath.name} is not a resource file, skipping it...")
+                continue
+
+            destination = build_dir / resource_folder / filename
             destination.parent.mkdir(parents=True, exist_ok=True)
-            if "timeseries_datapoints" in filepath.parent.name and filepath.suffix.lower() == ".csv":
+            if resource_folder == "timeseries_datapoints" and filepath.suffix.lower() == ".csv":
                 # Special case for timeseries datapoints, we want to timeshit datapoints
                 # if the file is a csv file and we have been instructed to.
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
@@ -400,9 +406,9 @@ def process_config_files(
 
             validate(content, destination, filepath, modules_by_variables)
 
-            # If we have a functions definition, we want to process the directory.
+            # If we have a function definition, we want to process the directory.
             if (
-                "functions" in filepath.parent.name
+                resource_folder == "functions"
                 and filepath.suffix.lower() == ".yaml"
                 and re.match(FunctionLoader.filename_pattern, filepath.stem)
             ):
@@ -462,7 +468,8 @@ def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
 
 
 def validate(content: str, destination: Path, source_path: Path, modules_by_variable: dict[str, list[str]]) -> None:
-    this_module = ".".join(source_path.parts[1:-2])
+    module = module_from_path(source_path)
+    resource_folder = resource_folder_from_path(source_path)
 
     for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
         print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {destination!s}")
@@ -470,11 +477,11 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
         if modules := modules_by_variable.get(variable):
             module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
             print(
-                f"    [bold green]Hint:[/] The variables in 'config.yaml' are defined in a tree structure, i.e., "
+                f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' are defined in a tree structure, i.e., "
                 "variables defined at a higher level can be used in lower levels."
                 f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str} "
                 f"\n    need{'' if len(modules) > 1 else 's'} to be moved up in the config structure to be used "
-                f"in {this_module!r}."
+                f"in {module!r}."
             )
 
     if destination.suffix in {".yaml", ".yml"}:
@@ -494,8 +501,10 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
                 filepath_src=source_path,
                 filepath_build=destination,
             ):
-                exit(1)
-        loaders = LOADER_BY_FOLDER_NAME.get(destination.parent.name, [])
+                print(
+                    f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r} is not semantically correct."
+                )
+        loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
         loader: type[Loader] | None
         if len(loaders) == 1:
             loader = loaders[0]
@@ -509,7 +518,7 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
 
         if loader is None:
             print(
-                f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r} is not supported by the toolkit."
+                f"  [bold yellow]WARNING:[/] In module {module!r}, the resource {resource_folder!r} is not supported by the toolkit."
             )
             print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
             return

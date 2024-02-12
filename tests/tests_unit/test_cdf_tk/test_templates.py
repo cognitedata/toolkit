@@ -7,7 +7,10 @@ from typing import Any
 import pytest
 import yaml
 
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit.cdf_tk.templates import (
+    COGNITE_MODULES,
+    build_config,
     check_yaml_semantics,
     create_local_config,
     flatten_dict,
@@ -15,9 +18,16 @@ from cognite_toolkit.cdf_tk.templates import (
     module_from_path,
     split_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import Environment, InitConfigYAML, YAMLComment
+from cognite_toolkit.cdf_tk.templates.data_classes import (
+    BuildConfigYAML,
+    Environment,
+    InitConfigYAML,
+    SystemYAML,
+    YAMLComment,
+)
 
 PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
+BUILD_DIR = PYTEST_PROJECT.parent / "tmp"
 
 
 def dict_keys(d: dict[str, Any]) -> set[str]:
@@ -296,3 +306,18 @@ class TestModuleFromPath:
     )
     def test_module_from_path(self, path: Path, expected: str):
         assert module_from_path(path) == expected
+
+
+class TestBuildConfig:
+    def test_build_config(self, config_yaml: str):
+        build_env = "dev"
+        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT / COGNITE_MODULES, build_env)
+        config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
+        config.environment.selected_modules_and_packages = ["another_module"]
+        build_config(BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False)
+
+        invalid_resource_folders = [
+            dir_.name for dir_ in BUILD_DIR.iterdir() if dir_.is_dir() and dir_.name not in LOADER_BY_FOLDER_NAME
+        ]
+
+        assert not invalid_resource_folders, f"Invalid resource folders after build: {invalid_resource_folders}"
