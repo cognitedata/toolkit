@@ -933,6 +933,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
                 end=_MAX_TIMESTAMP_MS + 1,
                 aggregates="count",
                 granularity="1000d",
+                ignore_unknown_ids=True,
             ),
         )
         return sum(sum(data.count or []) for data in datapoints)
