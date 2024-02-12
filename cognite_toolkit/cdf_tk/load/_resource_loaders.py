@@ -933,6 +933,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
                 end=_MAX_TIMESTAMP_MS + 1,
                 aggregates="count",
                 granularity="1000d",
+                ignore_unknown_ids=True,
             ),
         )
         return sum(sum(data.count or []) for data in datapoints)
@@ -1561,6 +1562,11 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
 
     _display_name = "views"
 
+    def __init__(self, client: CogniteClient):
+        super().__init__(client)
+        # Caching to avoid multiple lookups on the same interfaces.
+        self._interfaces_by_id: dict[ViewId, View] = {}
+
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         # Todo Scoped to spaces
@@ -1581,6 +1587,53 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             items = loaded if isinstance(loaded, ViewApplyList) else [loaded]
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         return loaded
+
+    def _get_parents(self, implements: list[ViewId]) -> list[View]:
+        parents = implements
+        found = []
+        while parents:
+            to_lookup = []
+            new_parents = []
+            for parent in parents:
+                if parent in self._interfaces_by_id:
+                    found.append(self._interfaces_by_id[parent])
+                    new_parents.extend(self._interfaces_by_id[parent].implements or [])
+                else:
+                    to_lookup.append(parent)
+
+            if to_lookup:
+                looked_up = self.client.data_modeling.views.retrieve(to_lookup)
+                self._interfaces_by_id.update({view.as_id(): view for view in looked_up})
+                found.extend(looked_up)
+                for view in looked_up:
+                    for grandparent in view.implements or []:
+                        new_parents.append(grandparent)
+
+            parents = new_parents
+        return found
+
+    def _is_equal_custom(self, local: ViewApply, cdf_resource: View) -> bool:
+        local_dumped = local.dump()
+        cdf_resource_dumped = cdf_resource.as_write().dump()
+        if not cdf_resource.implements:
+            return local_dumped == cdf_resource_dumped
+
+        if cdf_resource.properties:
+            # All read version of views have all the properties of their parent views.
+            # We need to remove these properties to compare with the local view.
+            parents = self._get_parents(cdf_resource.implements)
+            for parent in parents:
+                for prop_name in parent.properties.keys():
+                    cdf_resource_dumped["properties"].pop(prop_name, None)
+
+        if not cdf_resource_dumped["properties"]:
+            # All properties were removed, so we remove the properties key.
+            cdf_resource_dumped.pop("properties", None)
+        if "properties" in local_dumped and not local_dumped["properties"]:
+            # In case the local properties are set to an empty dict.
+            local_dumped.pop("properties", None)
+
+        return local_dumped == cdf_resource_dumped
 
     def create(self, items: Sequence[ViewApply]) -> ViewList:
         return self.client.data_modeling.views.apply(items)
@@ -1637,6 +1690,21 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             items = loaded if isinstance(loaded, DataModelApplyList) else [loaded]
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         return loaded
+
+    def _is_equal_custom(self, local: DataModelApply, cdf_resource: DataModel) -> bool:
+        local_dumped = local.dump()
+        cdf_resource_dumped = cdf_resource.as_write().dump()
+
+        # Data models that have the same views, but in different order, are considered equal.
+        # We also account for whether views are given as IDs or View objects.
+        local_dumped["views"] = sorted(
+            (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in local.views or []
+        )
+        cdf_resource_dumped["views"] = sorted(
+            (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in cdf_resource.views or []
+        )
+
+        return local_dumped == cdf_resource_dumped
 
     def create(self, items: DataModelApplyList) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
