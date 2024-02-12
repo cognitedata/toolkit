@@ -23,6 +23,10 @@ Changes are grouped as follows:
   has been done to the `view`, in the `cdf-tk deploy` command. This is now fixed.
 - `DataModels` which are equal would be wrongly classified as changed if the view order was different.
   This is now fixed.
+- In the `cdf-tk build`, modules with a nested folder structure under the resource folder were not built correctly.
+  For example, if you had `my_module/data_models/container/my_container.container.view`, it would be put inside
+  a `build/container/my_container.container.yaml` instead of `build/data_models/my_container.container.yaml`,
+  and thus fail in the `cdf-tk deploy/clean` step. This is now fixed.
 
 ## [0.1.0b7] - 2024-02-07
 
