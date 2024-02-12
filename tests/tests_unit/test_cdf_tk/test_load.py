@@ -3,16 +3,19 @@ from unittest.mock import MagicMock
 
 import pytest
 import yaml
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import DataSet
 from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
+    DataModelLoader,
     DatapointsLoader,
     DataSetsLoader,
     FileMetadataLoader,
     ResourceLoader,
     TimeSeriesLoader,
+    ViewLoader,
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
@@ -66,6 +69,110 @@ class DataSetsLoaderTest:
         to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(loaded)
 
         assert len(to_create) == 1
+        assert len(to_change) == 0
+        assert len(unchanged) == 1
+
+
+class TestViewLoader:
+    def test_update_view_with_interface(self, cognite_client_approval: ApprovalCogniteClient):
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        prop1 = dm.MappedProperty(
+            dm.ContainerId(space="sp_space", external_id="container_id"),
+            "prop1",
+            type=dm.Text(),
+            nullable=True,
+            auto_increment=False,
+        )
+        interface = dm.View(
+            space="sp_space",
+            external_id="interface",
+            version="1",
+            properties={"prop1": prop1},
+            last_updated_time=1,
+            created_time=1,
+            description=None,
+            name=None,
+            filter=None,
+            implements=None,
+            writable=True,
+            used_for="node",
+            is_global=False,
+        )
+        # Note that child views always contain all properties of their parent interfaces.
+        child_cdf = dm.View(
+            space="sp_space",
+            external_id="child",
+            version="1",
+            properties={"prop1": prop1},
+            last_updated_time=1,
+            created_time=1,
+            description=None,
+            name=None,
+            filter=None,
+            implements=[interface.as_id()],
+            writable=True,
+            used_for="node",
+            is_global=False,
+        )
+        child_local = dm.ViewApply(
+            space="sp_space",
+            external_id="child",
+            version="1",
+            implements=[interface.as_id()],
+        )
+        # Simulating that the interface and child_cdf are available in CDF
+        cognite_client_approval.append(dm.View, [interface, child_cdf])
+
+        loader = ViewLoader.create_loader(cdf_tool)
+        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(dm.ViewApplyList([child_local]))
+
+        assert len(to_create) == 0
+        assert len(to_change) == 0
+        assert len(unchanged) == 1
+
+
+class TestDataModelLoader:
+    def test_update_data_model_random_view_order(self, cognite_client_approval: ApprovalCogniteClient):
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_data_model = dm.DataModel(
+            space="sp_space",
+            external_id="my_model",
+            version="1",
+            views=[
+                dm.ViewId(space="sp_space", external_id="first", version="1"),
+                dm.ViewId(space="sp_space", external_id="second", version="1"),
+            ],
+            last_updated_time=1,
+            created_time=1,
+            description=None,
+            name=None,
+            is_global=False,
+        )
+        # Simulating that the data model is available in CDF
+        cognite_client_approval.append(dm.DataModel, cdf_data_model)
+
+        local_data_model = dm.DataModelApply(
+            space="sp_space",
+            external_id="my_model",
+            version="1",
+            views=[
+                dm.ViewId(space="sp_space", external_id="second", version="1"),
+                dm.ViewId(space="sp_space", external_id="first", version="1"),
+            ],
+            description=None,
+            name=None,
+        )
+
+        loader = DataModelLoader.create_loader(cdf_tool)
+        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(
+            dm.DataModelApplyList([local_data_model])
+        )
+
+        assert len(to_create) == 0
         assert len(to_change) == 0
         assert len(unchanged) == 1
 

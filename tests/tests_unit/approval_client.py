@@ -479,11 +479,20 @@ class ApprovalCogniteClient:
             else:
                 return None
 
+        def data_model_retrieve(ids, *args, **kwargs):
+            id_list = list(ids) if isinstance(ids, Sequence) else [ids]
+            to_return = read_list_cls([], cognite_client=client)
+            for resource in existing_resources[resource_cls.__name__]:
+                if resource.as_id() in id_list:
+                    to_return.append(resource)
+            return to_return
+
         available_retrieve_methods = {
             fn.__name__: fn
             for fn in [
                 return_values,
                 return_value,
+                data_model_retrieve,
             ]
         }
         if mock_method not in available_retrieve_methods:
@@ -977,7 +986,7 @@ _API_RESOURCES = [
             "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="data_model_retrieve"),
             ],
         },
     ),
