@@ -367,6 +367,8 @@ def process_config_files(
             else:
                 return len(filepaths)
 
+        # The builder of a module can control the order that resources are deployed by prefixing a number
+        # The custom key 'sort_key' is to get the sort on integer and not the string.
         filepaths = sorted(filepaths, key=sort_key)
 
         for filepath in filepaths:

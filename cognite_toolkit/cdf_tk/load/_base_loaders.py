@@ -261,6 +261,9 @@ class ResourceLoader(
             else:
                 return len(filepaths)
 
+        # In the build step, the resource files are prefixed a number that controls the order in which
+        # the resources are deployed. The custom 'sort_key' here is to get a sort on integer instead of a default string
+        # sort.
         filepaths = sorted(filepaths, key=sort_key)
 
         batches = self._load_batches(filepaths, ToolGlobals, skip_validation=dry_run, verbose=verbose)
