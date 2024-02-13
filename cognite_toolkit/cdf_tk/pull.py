@@ -3,54 +3,76 @@ from __future__ import annotations
 import difflib
 import shutil
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
-from cognite.client.data_classes.data_modeling import NodeId
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit.cdf_tk.load import NodeLoader, ResourceLoader, TransformationLoader
+from cognite_toolkit.cdf_tk.load import ResourceLoader
 from cognite_toolkit.cdf_tk.load._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
-    create_local_config,
     iterate_modules,
-    split_config,
 )
 from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments
 
 
-class ResourceYAML(YAMLWithComments[str, Any]):
-    """This represents a YAML file that contains a single CDF resource such as transformation.
+@dataclass
+class ResourceProperty:
+    """This represents a single property in a CDF resource file.
 
-    It is used to load and dump an YAML file that contains comments.
+    Args:
+        key_path: The path to the property in the resource file.
+        build_value: The value of the property in the local resource file build file.
+        cdf_value: The value of the property in the CDF resource.
+        variable_placeholder: The placeholder for the variable, used to load the source file as a YAML.
+        variable: The name of the variable used in the local resource file
+        comment: The comment for the property.
+
     """
 
-    def __init__(
-        self, items: dict[str, Any] | None = None, comments: dict[tuple[str, ...], YAMLComment] | None = None
-    ) -> None:
-        super().__init__(items or {})
-        self._comments = comments or {}
+    key_path: tuple[str, ...]
+    build_value: float | int | str | bool | None = None
+    cdf_value: float | int | str | bool | None = None
+    variable_placeholder: str | None = None
+    variable: str | None = None
+    comment: YAMLComment | None = None
+
+    @property
+    def is_different(self) -> bool:
+        return self.build_value != self.cdf_value and self.build_value is not None and self.cdf_value is not None
+
+
+class ResourceYAMLDifference(YAMLWithComments[tuple[str, ...], ResourceProperty]):
+    """This represents a YAML file that contains resources and their properties.
+
+    It is used to compare a local resource file with a CDF resource.
+    """
+
+    def __init__(self) -> None:
+        super().__init__({})
 
     def _get_comment(self, key: tuple[str, ...]) -> YAMLComment | None:
-        return self._comments.get(key)
+        return self[key].comment if key in self else None
 
     @classmethod
-    def load(cls, content: str) -> ResourceYAML:
-        comments = cls._extract_comments(content)
-        items = yaml.safe_load(content)
-        if not isinstance(items, dict):
-            raise ValueError(f"Expected a dictionary, got {type(items)}")
-        return cls(items, comments)
+    def load(cls, build_content: str, source_content: str) -> ResourceYAMLDifference:
+        raise NotImplementedError()
+        # comments = cls._extract_comments(content)
+        # items = yaml.safe_load(content)
+        # if not isinstance(items, dict):
+        #     raise ValueError(f"Expected a dictionary, got {type(items)}")
+        # return cls()
 
     def dump(self) -> dict[str, Any]:
-        return self.data
+        raise NotImplementedError()
+        # return self.data
 
     def dump_yaml_with_comments(self, indent_size: int = 2) -> str:
         """Dump a config dictionary to a yaml string"""
@@ -127,6 +149,7 @@ def pull_command(
     cdf_resources = loader.retrieve([loader.get_id(local_resource)])
     if not cdf_resources:
         print(f"  [bold red]ERROR:[/] No {loader.display_name} with {id_} found in CDF.")
+        exit(1)
     cdf_resource = cdf_resources[0].as_write()
 
     if cdf_resource == local_resource:
@@ -138,33 +161,20 @@ def pull_command(
     cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)
 
     # Using the ResourceYAML class to load and dump the file to preserve comments
-    resource = ResourceYAML.load(build_file.read_text())
-    if Loader is NodeLoader:
-        # Nodes have a special format that needs to be preserved
-        for no, node in enumerate(resource["nodes"]):
-            if NodeId(node.get("space"), node.get("externalId")) == id_:
-                resource["nodes"][no].update(node)
-                break
-        else:
-            raise ValueError(f"Node with id {id_} not found in {source_file}.")
-    else:
-        resource.update(cdf_dumped)
-
-    if Loader is TransformationLoader:
-        # This is a hack to make the scope variable, which is a list into a string
-        # that such that the reverse replace can be done
-        if "authentication" in resource and "scopes" in resource["authentication"]:
-            resource["authentication"]["scopes"] = str(resource["authentication"]["scopes"])
+    resource = ResourceYAMLDifference.load(build_file.read_text(), source_file.read_text())
+    resource.update(cdf_dumped)
+    # if Loader is NodeLoader:
+    #     # Nodes have a special format that needs to be preserved
+    #     for no, node in enumerate(resource["nodes"]):
+    #         if NodeId(node.get("space"), node.get("externalId")) == id_:
+    #             resource["nodes"][no].update(node)
+    #             break
+    #     else:
+    #         raise ValueError(f"Node with id {id_} not found in {source_file}.")
+    # else:
+    #     resource.update(cdf_dumped)
 
     new_content = resource.dump_yaml_with_comments()
-
-    if Loader is TransformationLoader:
-        # This is some more hackery to make the scope variable a list again
-        new_content = new_content.replace("''", "'")
-
-    module_dir = _get_module(source_file, loader.folder_name)
-    local_config = create_local_config(split_config(config.modules), module_dir)
-    new_content = reverse_replace_variables(new_content, local_config)
 
     if dry_run:
         print(
@@ -172,7 +182,7 @@ def pull_command(
             f"'{source_file.relative_to(source_dir)}'."
         )
 
-    if dry_run or verbose:
+    if verbose:
         old_content = source_file.read_text()
         print(
             Panel(
@@ -189,7 +199,6 @@ def pull_command(
         )
 
     for filepath, content in extra_files.items():
-        content = reverse_replace_variables(content, local_config)
         if not filepath.exists():
             print(f"  [bold red]ERROR:[/] {filepath} does not exist.")
             continue
@@ -197,7 +206,7 @@ def pull_command(
         if dry_run:
             print(f"[bold green]INFO:[/] In addition, would update '{filepath.relative_to(source_dir)}'.")
 
-        if dry_run or verbose:
+        if verbose:
             old_content = filepath.read_text()
             print(
                 Panel(
@@ -211,19 +220,3 @@ def pull_command(
 
     shutil.rmtree(build_dir)
     print("  [bold green]INFO:[/] Pull complete. Cleaned up temporary files.")
-
-
-def reverse_replace_variables(content: str, local_config: Mapping[str, str]) -> str:
-    for name, variable in local_config.items():
-        content = content.replace(str(variable), f"{{{{{name}}}}}")
-    return content
-
-
-def _get_module(source_file: Path, folder_name: str) -> Path:
-    for i in range(len(source_file.parts)):
-        if source_file.parts[i] == folder_name:
-            module_dir = Path("/".join(source_file.parts[:i]))
-            break
-    else:
-        raise ValueError(f"Could not find module directory for {source_file}. Error is logged and reported.zs")
-    return module_dir
