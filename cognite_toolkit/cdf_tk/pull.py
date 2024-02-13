@@ -9,7 +9,7 @@ from collections import UserList
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import yaml
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
@@ -46,12 +46,15 @@ class ResourceProperty:
     key_path: tuple[str | int, ...]
     build_value: float | int | str | bool | None = None
     cdf_value: float | int | str | bool | None = None
+    source_value: float | int | str | bool | None = None
     variable_placeholder: str | None = None
     variable: str | None = None
 
     @property
     def value(self) -> float | int | str | bool | None:
-        return self.variable_placeholder or self.cdf_value or self.build_value
+        if self.variable_placeholder:
+            return self.source_value
+        return self.cdf_value or self.build_value
 
     @property
     def is_changed(self) -> bool:
@@ -120,15 +123,16 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
         source = yaml.safe_load(source_content)
         source_items = cls._flatten(source)
         for key, value in source_items.items():
-            if value in variable_by_placeholder:
-                items[key].variable_placeholder = value if value is None else str(value)
-                items[key].variable = variable_by_placeholder[cast(str, value)]
+            if placeholder := next((p for p in variable_by_placeholder if p in str(value)), None):
+                items[key].variable_placeholder = placeholder
+                items[key].variable = variable_by_placeholder[placeholder]
+                items[key].source_value = value
         return cls(items, comments)
 
     @classmethod
     def _flatten(
         cls, raw: dict[str, Any] | list[dict[str, Any]]
-    ) -> dict[tuple[str, ...], str | int | float | bool | None]:
+    ) -> dict[tuple[str | int, ...], str | int | float | bool | None]:
         if isinstance(raw, dict):
             return cls._flatten_dict(raw)
         elif isinstance(raw, list):
@@ -138,12 +142,21 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
 
     @classmethod
     def _flatten_dict(
-        cls, raw: dict[str, Any], key_path: tuple[str, ...] = ()
-    ) -> dict[tuple[str, ...], str | int | float | bool | None]:
-        items = {}
+        cls, raw: dict[str, Any], key_path: tuple[str | int, ...] = ()
+    ) -> dict[tuple[str | int, ...], str | int | float | bool | None]:
+        items: dict[tuple[str | int, ...], str | int | float | bool | None] = {}
         for key, value in raw.items():
-            if isinstance(value, dict):
+            if key == "scopes":
+                # Hack to handle that scopes is a list variable
+                items[(*key_path, key)] = value
+            elif isinstance(value, dict):
                 items.update(cls._flatten_dict(value, (*key_path, key)))
+            elif isinstance(value, list):
+                for i, item in enumerate(value):
+                    if isinstance(item, dict):
+                        items.update(cls._flatten_dict(item, (*key_path, key, i)))
+                    else:
+                        items[(*key_path, key, i)] = item
             else:
                 items[(*key_path, key)] = value
         return items
@@ -151,11 +164,15 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
     @classmethod
     def _replace_variables(cls, content: str) -> tuple[str, dict[str, str]]:
         variable_by_placeholder: dict[str, str] = {}
+        seen: set[str] = set()
         for match in _VARIABLE_PATTERN.finditer(content):
             variable = match.group(1)
+            if variable in seen:
+                continue
             placeholder = f"VARIABLE_{uuid.uuid4().hex[:8]}"
             content = content.replace(f"{{{{{variable}}}}}", placeholder)
             variable_by_placeholder[placeholder] = variable
+            seen.add(variable)
         return content, variable_by_placeholder
 
     def update_cdf_resource(self, cdf_resource: dict[str, Any]) -> None:
@@ -169,14 +186,24 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
         dumped: dict[Any, Any] = {}
         for key, prop in self.items():
             current = dumped
-            for part in key[:-1]:
-                if isinstance(part, int):
-                    raise NotImplementedError()
-                elif isinstance(part, str):
+            for part, next_part in zip(key[:-1], key[1:]):
+                if isinstance(part, int) and isinstance(current, list) and len(current) < part + 1:
+                    current.append({})
+                    current = current[part]
+                elif isinstance(part, int) and isinstance(current, list) and part < len(current):
+                    current = current[part]
+                elif isinstance(part, str) and isinstance(next_part, str):
                     current = current.setdefault(part, {})
+                elif isinstance(part, str) and isinstance(next_part, int):
+                    current = current.setdefault(part, [])
                 else:
                     raise ValueError(f"Expected a string or int, got {type(part)}")
-            current[key[-1]] = prop.value
+            if isinstance(key[-1], int) and isinstance(current, list):
+                current.append(prop.value)
+            elif isinstance(key[-1], str) and isinstance(current, dict):
+                current[key[-1]] = prop.value
+            else:
+                raise ValueError(f"Expected a string or int, got {type(key[-1])}")
         return dumped
 
     def dump_yaml_with_comments(self, indent_size: int = 2) -> str:

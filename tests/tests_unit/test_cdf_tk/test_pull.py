@@ -80,6 +80,134 @@ isPublic: true
 
     yield pytest.param(build_file, source_file, cdf_resource, expected, dumped, id="Transformation with no differences")
 
+    build_file = """autoCreateDirectRelations: true
+skipOnVersionConflict: false
+replace: true
+nodes:
+- space: APM_Config
+  externalId: default_infield_config_minimal
+  sources:
+  - source:
+      space: APM_Config
+      externalId: APM_Config
+      version: '1'
+      type: view
+    properties:
+      featureConfiguration:
+        rootLocationConfigurations:
+        - assetExternalId: WMT:VAL
+          appDataInstanceSpace: sp_infield_oid_app_data
+          sourceDataInstanceSpace: sp_asset_oid_source
+          templateAdmins:
+          - gp_infield_oid_template_admins
+          checklistAdmins:
+          - gp_infield_oid_checklist_admins
+      customerDataSpaceId: APM_SourceData
+      customerDataSpaceVersion: '1'
+      name: Default location
+"""
+    source_file = """autoCreateDirectRelations: true
+skipOnVersionConflict: false
+replace: true
+nodes:
+- space: {{apm_config_instance_space}}
+  externalId: default_infield_config_minimal
+  sources:
+  - source:
+      space: APM_Config
+      externalId: APM_Config
+      version: '1'
+      type: view
+    properties:
+      featureConfiguration:
+        rootLocationConfigurations:
+        - assetExternalId: {{root_asset_external_id}}
+          appDataInstanceSpace: sp_infield_{{default_location}}_app_data
+          sourceDataInstanceSpace: sp_asset_{{default_location}}_source
+          templateAdmins:
+          - gp_infield_{{default_location}}_template_admins
+          checklistAdmins:
+          - gp_infield_{{default_location}}_checklist_admins
+      customerDataSpaceId: APM_SourceData
+      customerDataSpaceVersion: '1'
+      name: Default location
+"""
+
+    cdf_resource = {
+        "autoCreateDirectRelations": True,
+        "skipOnVersionConflict": False,
+        "replace": True,
+        "nodes": [
+            {
+                "space": "APM_Config",
+                "instanceType": "node",
+                "externalId": "default_infield_config_minimal",
+                "sources": [
+                    {
+                        "properties": {
+                            "name": "Default location",
+                            "appDataSpaceVersion": "1",
+                            "customerDataSpaceId": "APM_SourceData",
+                            "featureConfiguration": {
+                                "rootLocationConfigurations": [
+                                    {
+                                        "templateAdmins": ["gp_infield_oid_template_admins"],
+                                        "assetExternalId": "WMT:VAL",
+                                        "checklistAdmins": ["gp_infield_oid_checklist_admins"],
+                                        "appDataInstanceSpace": "sp_infield_oid_app_data",
+                                        "sourceDataInstanceSpace": "sp_asset_oid_source",
+                                    }
+                                ]
+                            },
+                            "customerDataSpaceVersion": "1",
+                        },
+                        "source": {"space": "APM_Config", "externalId": "APM_Config", "version": "1", "type": "view"},
+                    }
+                ],
+            }
+        ],
+    }
+
+    expected = {
+        "added": {
+            "nodes.0.instanceType": "node",
+            "nodes.0.sources.0.properties.appDataSpaceVersion": "1",
+        },
+        "changed": {},
+        "cannot_change": {},
+    }
+
+    dumped = """autoCreateDirectRelations: true
+skipOnVersionConflict: false
+replace: true
+nodes:
+- space: {{apm_config_instance_space}}
+  externalId: default_infield_config_minimal
+  sources:
+  - source:
+      space: APM_Config
+      externalId: APM_Config
+      version: '1'
+      type: view
+    properties:
+      featureConfiguration:
+        rootLocationConfigurations:
+        - assetExternalId: {{root_asset_external_id}}
+          appDataInstanceSpace: sp_infield_{{default_location}}_app_data
+          sourceDataInstanceSpace: sp_asset_{{default_location}}_source
+          templateAdmins:
+          - gp_infield_{{default_location}}_template_admins
+          checklistAdmins:
+          - gp_infield_{{default_location}}_checklist_admins
+      customerDataSpaceId: APM_SourceData
+      customerDataSpaceVersion: '1'
+      name: Default location
+      appDataSpaceVersion: '1'
+  instanceType: node
+"""
+
+    yield pytest.param(build_file, source_file, cdf_resource, expected, dumped, id="Node with a changed field")
+
 
 class TestResourceYAML:
     @pytest.mark.parametrize(
@@ -97,10 +225,10 @@ class TestResourceYAML:
         resource_yaml = ResourceYAMLDifference.load(build_file, source_file)
         resource_yaml.update_cdf_resource(cdf_resource)
 
-        added = {".".join(key): value.cdf_value for key, value in resource_yaml.items() if value.is_added}
-        changed = {".".join(key): value.cdf_value for key, value in resource_yaml.items() if value.is_changed}
+        added = {".".join(map(str, key)): value.cdf_value for key, value in resource_yaml.items() if value.is_added}
+        changed = {".".join(map(str, key)): value.cdf_value for key, value in resource_yaml.items() if value.is_changed}
         cannot_change = {
-            ".".join(key): value.cdf_value for key, value in resource_yaml.items() if value.is_cannot_change
+            ".".join(map(str, key)): value.cdf_value for key, value in resource_yaml.items() if value.is_cannot_change
         }
 
         assert added == expected["added"]

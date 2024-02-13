@@ -1821,8 +1821,14 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
             )
             return resource.dump(), {}
         node = nodes[0]
-        dumped = node.as_write().dump()
-        dumped.pop("existingVersion", None)
+        node_dumped = node.as_write().dump()
+        node_dumped.pop("existingVersion", None)
+
+        # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
+        dumped = yaml.safe_load("\n".join(source_file.read_text().splitlines()[:3]))
+
+        dumped["nodes"] = [node_dumped]
+
         return dumped, {}
 
     def create(self, items: LoadableNodes) -> NodeApplyResultList:
