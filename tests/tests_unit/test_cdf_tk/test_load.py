@@ -310,7 +310,7 @@ capabilities:
     def test_load_group_list_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
 
         loader = AuthLoader.create_loader(cdf_tool_config, "resource_scoped_only")
-        list_content = yaml.dump([yaml.safe_load(self.unscoped_content), yaml.safe_load(self.scoped_content)])
+        list_content = yaml.dump([yaml.safe_load(self.scoped_content), yaml.safe_load(self.unscoped_content)])
 
         mock_read_yaml_file({"group_file.yaml": yaml.safe_load(list_content)}, monkeypatch)
         loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
@@ -321,7 +321,7 @@ capabilities:
     def test_load_group_list_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
 
         loader = AuthLoader.create_loader(cdf_tool_config, "all_scoped_only")
-        list_content = yaml.dump([yaml.safe_load(self.unscoped_content), yaml.safe_load(self.scoped_content)])
+        list_content = yaml.dump([yaml.safe_load(self.scoped_content), yaml.safe_load(self.unscoped_content)])
 
         mock_read_yaml_file({"group_file.yaml": yaml.safe_load(list_content)}, monkeypatch)
         loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
