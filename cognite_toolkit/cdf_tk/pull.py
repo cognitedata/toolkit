@@ -9,7 +9,7 @@ from collections import UserList
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 import yaml
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
@@ -90,7 +90,7 @@ class ResourceProperty:
             return f"UNCHANGED: '{key_str}: {self.build_value}'"
 
 
-class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourceProperty]):
+class ResourceYAMLDifference(YAMLWithComments[tuple[Union[str, int], ...], ResourceProperty]):
     """This represents a YAML file that contains resources and their properties.
 
     It is used to compare a local resource file with a CDF resource.
