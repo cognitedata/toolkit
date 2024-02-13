@@ -421,9 +421,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionWrite | FunctionWriteList | None:
-        functions = load_yaml_inject_variables(
-            filepath, ToolGlobals.environment_variables(), required_return_type="list"
-        )
+        functions = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+
+        if isinstance(functions, dict):
+            functions = [functions]
+
         for func in functions:
             if self.extra_configs.get(func["externalId"]) is None:
                 self.extra_configs[func["externalId"]] = {}
@@ -431,7 +433,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
                     func.get("externalDataSetId", ""), skip_validation=skip_validation
                 )
-        return FunctionWriteList.load(functions)
+
+        if len(functions) == 1:
+            return FunctionWrite.load(functions[0])
+        else:
+            return FunctionWriteList.load(functions)
 
     def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
         if self.build_path is None:

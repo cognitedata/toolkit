@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import DataSet, GroupWrite, GroupWriteList
+from cognite.client.data_classes import DataSet, FunctionWrite, GroupWrite, GroupWriteList
 from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf_tk.load import (
@@ -60,7 +60,7 @@ def test_loader_class(
 
 class TestFunctionLoader:
 
-    def test_load_function(self, cognite_client_approval: ApprovalCogniteClient):
+    def test_load_functions(self, cognite_client_approval: ApprovalCogniteClient):
 
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
@@ -72,19 +72,15 @@ class TestFunctionLoader:
         )
         assert len(loaded) == 2
 
-        first = loaded[0]
-        # Set the properties that are set on the server side
-        first.id = 42
-        first.created_time = 42
-        first.last_updated_time = 42
-        # Simulate that the function is already in CDF
-        cognite_client_approval.append(dm.Function, first)
+    def test_load_function(self, cognite_client_approval: ApprovalCogniteClient):
 
-        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(loaded)
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
 
-        assert len(to_create) == 1
-        assert len(to_change) == 0
-        assert len(unchanged) == 1
+        loader = FunctionLoader.create_loader(cdf_tool)
+        loaded = loader.load_resource(DATA_FOLDER / "functions" / "1.my_function.yaml", cdf_tool, skip_validation=False)
+        assert isinstance(loaded, FunctionWrite)
 
 
 class TestDataSetsLoader:
