@@ -1,0 +1,274 @@
+DataSet:
+- description: File data for oid
+  externalId: ds_files_oid
+  metadata:
+    consoleSource: '{"names": ["fileshare"]}'
+    rawTables: '[{"databaseName": "files_oid_fileshare", "tableName": "files_metadata"}]'
+    transformations: '[{"externalId": "tr_files_oid_fileshare_file_metadata", "type":
+      "Transformations"}]'
+  name: files:oid
+  writeProtected: false
+ExtractionPipeline:
+- createdBy: unknown
+  dataSetId: 42
+  description: Annotation of P&ID documents from file source  oid:fileshare
+  documentation: "# Contextualization / Annotation of P&ID Documents\n\nThe P&ID Annotation\
+    \ runs as a process in CDF Functions. Process triggers on new and updated documents\
+    \ based on update timestamp for document.\n\nExtracts all tags in P&ID that matches\
+    \ tags from Asset Hierarchy and creates CDF annotations used for linking found\
+    \ objects in document to other resource types in CDF.\n\nDefault configuration\
+    \ is provided as part of the deployment, but can be overwritten by configuration\
+    \ provided in configuration section below\n```\n # if True, run without writing\
+    \ any annotations to CDF\n debug: False\n # if True run annotation on all found\
+    \ documents, if False only run on document not updated since last  annotation\n\
+    \ runAll: False\n # Number of document from each asset to annotate -1 = All, else\
+    \ number is used\n docLimit: -1\n # Data set to read documents / P&ID from + update\
+    \ with annotated timestamp when done\n docDataSetExtId: \"ds_files_oid\"\n # In\
+    \ document metadata, where is location of property for P&ID type documents\n docTypeMetaCol:\
+    \ \"doc_type\"\n # Document type for P&ID type documents\n pAndIdDocType: \"PNID\"\
+    \n # List of externalId for root assets to be used for annotation of documents.\
+    \ Documents are also extracted based on the root asset ID\n assetRootExtIds: [workmate:VAL]\n\
+    \ # Number between 0 and 1, indication of strict the matching should be 1 = only\
+    \ exact matches\n matchTreshold: 0.85\n```\n"
+  externalId: ep_ctx_files_oid_fileshare_pandid_annotation
+  name: ctx:files:oid:fileshare:pandid_annotation
+  source: fileshare
+- createdBy: unknown
+  dataSetId: 42
+  description: File source extraction pipeline with configuration for File extractor
+    reading data from oid:fileshare
+  documentation: "The Cognite File Extractor is a generic file extractor that can\
+    \ connect to and extract file from a host of different sources. \n\nThe currently\
+    \ supported sources are: \n  * Local files \n  * File Transfer Protocol (FTP)\n\
+    \  * Secure File Transfer Protocol (SFTP)\n  * File Transfer Protocol over SSH\
+    \ (FTPS)\n  * Documents and files in SharePoint Online \n  * Files in Google Cloud\
+    \ Storage \n\n\nThe extractor is provided with template configuration files for\
+    \ all mentioned source systems. To set up the file extractor against your source\
+    \ system, pick the config template that fits your setup and adjust parameters\
+    \ as you see fit.\n"
+  externalId: ep_src_files_oid_fileshare
+  name: src:files:oid:fileshare
+  rawTables:
+  - dbName: files_oid_fileshare
+    tableName: files_metadata
+  source: fileshare
+ExtractionPipelineConfig:
+- config: "data:\n    assetRootExtIds:\n    - workmate:VAL\n    debug: false\n   \
+    \ docDataSetExtId: ds_files_oid\n    docLimit: -1\n    docTypeMetaCol: doc_type\n\
+    \    matchTreshold: 0.85\n    pAndIdDocType: PNID\n    runAll: false\n"
+  externalId: ep_ctx_files_oid_fileshare_pandid_annotation
+- config: "cognite:\n    data-set:\n        external-id: ds-files:valhall\nfiles:\n\
+    \    extensions:\n    - .pdf\n    file-provider:\n        path: c:/tmp/files\n\
+    \        type: local\nlogger:\n    console:\n        level: INFO\n    file:\n\
+    \        level: INFO\n        path: c:/tmp/file.log\n"
+  externalId: ep_src_files_oid_fileshare
+FileMetadata:
+- data_set_id: 42
+  external_id: fu_context_files_oid_fileshare_annotation
+  name: fu_context_files_oid_fileshare_annotation.zip
+  overwrite: true
+Function:
+- cpu: 0.6
+  description: Contextualization of P&ID files creating annotations
+  envVars:
+    CDF_ENV: dev
+    ENV_TYPE: dev
+  externalId: fu_context_files_oid_fileshare_annotation
+  functionPath: ./handler.py
+  metadata:
+    cdf-toolkit-function-hash: 39332a5361c2403a44671aeaab669a3d28ef0da72e014cab7ee1d1f92ed41a67
+    version: 0.0.1
+  name: context:files:oid:fileshare:annotation
+  owner: Anonymous
+  runtime: py311
+Group:
+- capabilities:
+  - rawAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        tableScope:
+          dbsToTables:
+            files_oid_fileshare:
+              tables: []
+  - filesAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - extractionConfigsAcl:
+      actions:
+      - READ
+      scope:
+        extractionPipelineScope:
+          ids:
+          - 1
+  - extractionRunsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  metadata:
+    origin: cdf-project-templates
+  name: gp_files_oid_extractor
+  sourceId: <change_me>
+- capabilities:
+  - rawAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        tableScope:
+          dbsToTables:
+            files_oid_fileshare:
+              tables: []
+  - sessionsAcl:
+      actions:
+      - LIST
+      - CREATE
+      - DELETE
+      scope:
+        all: {}
+  - assetsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - filesAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - extractionConfigsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - extractionRunsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - annotationsAcl:
+      actions:
+      - READ
+      - WRITE
+      - SUGGEST
+      - REVIEW
+      scope:
+        all: {}
+  - entitymatchingAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - labelsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - functionsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - transformationsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  metadata:
+    origin: cdf-project-templates
+  name: gp_files_oid_processing
+  sourceId: <change_me>
+- capabilities:
+  - annotationsAcl:
+      actions:
+      - READ
+      - REVIEW
+      scope:
+        all: {}
+  - labelsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  metadata:
+    origin: cdf-project-templates
+  name: gp_files_oid_read
+  sourceId: <change_me>
+Transformation:
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    type: files
+  destinationOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+  externalId: tr_files_oid_fileshare_file_metadata
+  ignoreNullFields: true
+  isPublic: true
+  name: files:oid:fileshare:file_metadata
+  query: "--\n-- Update file metdata using Transformation\n--\n-- Input data from\
+    \ RAW DB table (using example data) and uploaded files\n--\nSELECT\n  file.id\
+    \                          as id,\n  file.name                        as name,\n\
+    \  'oid_'|| file.name as  externalId,\n  meta.source                      as source,\n\
+    \  meta.`mime_type`                 as mimeType,\n  dataset_id('ds_files_oid')\
+    \  as dataSetId,\n  to_metadata(doc_type)            as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
+    \ meta,\n  _cdf.files                                 file \nWHERE \n  file.name\
+    \ = meta.name\n"
+  sourceOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+TransformationSchedule:
+- externalId: tr_files_oid_fileshare_file_metadata
+  interval: 7 * * * *
+  isPaused: true
+deleted:
+  ExtractionPipeline:
+  - externalId: ep_ctx_files_oid_fileshare_pandid_annotation
+  - externalId: ep_src_files_oid_fileshare
+  Function:
+  - externalId: fu_context_files_oid_fileshare_annotation
+  TransformationSchedule:
+  - externalId: tr_files_oid_fileshare_file_metadata
