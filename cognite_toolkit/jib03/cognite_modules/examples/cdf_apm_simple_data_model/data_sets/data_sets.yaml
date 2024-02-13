@@ -1,3 +1,0 @@
-- externalId: ds_transformations_{{default_location}}
-  name: transformations:{{default_location}}
-  description: This dataset contains transformations data for the {{default_location}} location.

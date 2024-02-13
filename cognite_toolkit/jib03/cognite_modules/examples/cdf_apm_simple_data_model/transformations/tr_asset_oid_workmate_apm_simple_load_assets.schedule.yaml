@@ -1,3 +1,0 @@
-externalId: tr_asset_{{default_location}}_{{source_asset}}_apm_simple_load_assets
-interval: '{{scheduleHourly}}'
-isPaused : {{pause_transformations}}
