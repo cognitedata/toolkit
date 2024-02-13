@@ -363,3 +363,21 @@ class TestDeployResources:
         actual_order = [view["externalId"] for view in views]
 
         assert actual_order == expected_order
+
+
+class TestListDictConsistency:
+
+    def find_subclasses(self, cls):
+        subclasses = set()
+        for subclass in cls.__subclasses__():
+            subclasses.add(subclass)
+            subclasses |= self.find_subclasses(subclass)  # Recursive call to find indirect subclasses
+        return subclasses
+
+    def test_list_dict_consistency(self):
+        loaders = self.find_subclasses(ResourceLoader)
+
+        for loader in loaders:
+            pass
+
+        assert len(loaders) > 0
