@@ -197,21 +197,21 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
             prop for prop in self.values() if not prop.is_added and not prop.is_changed and not prop.is_cannot_change
         ]
 
-        content = []
+        content: list[str] = []
         if added:
-            content.append(Markdown("## Added properties:"))
-            content.extend([Markdown(f" - {prop}") for prop in added])
+            content.append("## Added properties:")
+            content.extend([f" - {prop}" for prop in added])
         if changed:
-            content.append(Markdown("## Changed properties:"))
-            content.extend([Markdown(f" - {prop}") for prop in changed])
+            content.append("## Changed properties:")
+            content.extend([f" - {prop}" for prop in changed])
         if cannot_change:
-            content.append(Markdown("## Cannot change properties:"))
-            content.extend([Markdown(f" - {prop}") for prop in cannot_change])
+            content.append("## Cannot change properties:")
+            content.extend([f" - {prop}" for prop in cannot_change])
         if unchanged:
-            content.append(Markdown("## Unchanged properties:"))
-            content.append(f"  {len(unchanged)} properties unchanged")  # type: ignore[arg-type]
+            content.append("## Unchanged properties:")
+            content.append(f"  {len(unchanged)} properties unchanged")
 
-        print(Panel("\n".join(content), title="Resource differences"))  # type: ignore[arg-type]
+        print(Panel(Markdown("\n".join(content)), title="Resource differences"))
 
 
 def pull_command(
