@@ -13,6 +13,7 @@ from typing import Any, cast
 import yaml
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from rich import print
+from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit.cdf_tk.load import ResourceLoader
@@ -45,7 +46,10 @@ class ResourceProperty:
     cdf_value: float | int | str | bool | None = None
     variable_placeholder: str | None = None
     variable: str | None = None
-    comment: YAMLComment | None = None
+
+    @property
+    def value(self) -> float | int | str | bool | None:
+        return self.variable_placeholder or self.cdf_value or self.build_value
 
     @property
     def is_changed(self) -> bool:
@@ -69,7 +73,7 @@ class ResourceProperty:
             and self.cdf_value is not None
         )
 
-    def display(self) -> str:
+    def __str__(self) -> str:
         key_str = ".".join(map(str, self.key_path))
         if self.is_added:
             return f"ADDED {key_str}: {self.cdf_value}"
@@ -89,11 +93,16 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
 
     VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 
-    def __init__(self, items: dict[tuple[str | int, ...], ResourceProperty]) -> None:
+    def __init__(
+        self,
+        items: dict[tuple[str | int, ...], ResourceProperty],
+        comments: dict[tuple[str, ...], YAMLComment] | None = None,
+    ) -> None:
         super().__init__(items or {})
+        self._comments = comments or {}
 
-    def _get_comment(self, key: tuple[str | int, ...]) -> YAMLComment | None:
-        return self[key].comment if key in self else None
+    def _get_comment(self, key: tuple[str, ...]) -> YAMLComment | None:
+        return self._comments.get(key)
 
     @classmethod
     def load(cls, build_content: str, source_content: str) -> ResourceYAMLDifference:
@@ -105,7 +114,6 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
             items[key] = ResourceProperty(
                 key_path=key,
                 build_value=value,
-                comment=comments.get(key),
             )
 
         source_content, variable_by_placeholder = cls._replace_variables(source_content)
@@ -115,7 +123,7 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
             if value in variable_by_placeholder:
                 items[key].variable_placeholder = value if value is None else str(value)
                 items[key].variable = variable_by_placeholder[cast(str, value)]
-        return cls(items)
+        return cls(items, comments)
 
     @classmethod
     def _flatten(
@@ -157,13 +165,53 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
             else:
                 self[key] = ResourceProperty(key_path=key, cdf_value=value)
 
-    def dump(self) -> dict[str, Any]:
-        raise NotImplementedError()
-        # return self.data
+    def dump(self) -> dict[Any, Any]:
+        dumped: dict[Any, Any] = {}
+        for key, prop in self.items():
+            current = dumped
+            for part in key[:-1]:
+                if isinstance(part, int):
+                    raise NotImplementedError()
+                elif isinstance(part, str):
+                    current = current.setdefault(part, {})
+                else:
+                    raise ValueError(f"Expected a string or int, got {type(part)}")
+            current[key[-1]] = prop.value
+        return dumped
 
     def dump_yaml_with_comments(self, indent_size: int = 2) -> str:
         """Dump a config dictionary to a yaml string"""
-        return self._dump_yaml_with_comments(indent_size, False)
+        dumped_with_comments = self._dump_yaml_with_comments(indent_size, False)
+        for key, prop in self.items():
+            if prop.variable_placeholder:
+                dumped_with_comments = dumped_with_comments.replace(
+                    prop.variable_placeholder, f"{{{{{prop.variable}}}}}"
+                )
+        return dumped_with_comments
+
+    def display(self) -> None:
+        added = [prop for prop in self.values() if prop.is_added]
+        changed = [prop for prop in self.values() if prop.is_changed]
+        cannot_change = [prop for prop in self.values() if prop.is_cannot_change]
+        unchanged = [
+            prop for prop in self.values() if not prop.is_added and not prop.is_changed and not prop.is_cannot_change
+        ]
+
+        content = []
+        if added:
+            content.append(Markdown("## Added properties:"))
+            content.extend([Markdown(f" - {prop}") for prop in added])
+        if changed:
+            content.append(Markdown("## Changed properties:"))
+            content.extend([Markdown(f" - {prop}") for prop in changed])
+        if cannot_change:
+            content.append(Markdown("## Cannot change properties:"))
+            content.extend([Markdown(f" - {prop}") for prop in cannot_change])
+        if unchanged:
+            content.append(Markdown("## Unchanged properties:"))
+            content.append(f"  {len(unchanged)} properties unchanged")  # type: ignore[arg-type]
+
+        print(Panel("\n".join(content), title="Resource differences"))  # type: ignore[arg-type]
 
 
 def pull_command(

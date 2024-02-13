@@ -57,16 +57,42 @@ authentication:
         "cannot_change": {},
     }
 
-    yield pytest.param(build_file, source_file, cdf_resource, expected, id="Transformation with no differences")
+    dumped = """externalId: tr_pump_asset_hierarchy-load-collections_pump
+name: pump_asset_hierarchy-load-collections_pump
+destination:
+  type: asset_hierarchy
+dataSetExternalId: {{data_set}}
+ignoreNullFields: false
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the audience
+  audience: {{cicd_audience}}
+conflictMode: upsert
+isPublic: true
+"""
+
+    yield pytest.param(build_file, source_file, cdf_resource, expected, dumped, id="Transformation with no differences")
 
 
 class TestResourceYAML:
     @pytest.mark.parametrize(
-        "build_file, source_file, cdf_resource, expected",
+        "build_file, source_file, cdf_resource, expected, expected_dumped",
         list(load_update_diffs_use_cases()),
     )
     def test_load_update_diffs(
-        self, build_file: str, source_file: str, cdf_resource: dict[str, Any], expected: dict[str, dict[str, Any]]
+        self,
+        build_file: str,
+        source_file: str,
+        cdf_resource: dict[str, Any],
+        expected: dict[str, dict[str, Any]],
+        expected_dumped: str,
     ) -> None:
         resource_yaml = ResourceYAMLDifference.load(build_file, source_file)
         resource_yaml.update_cdf_resource(cdf_resource)
@@ -80,3 +106,5 @@ class TestResourceYAML:
         assert added == expected["added"]
         assert changed == expected["changed"]
         assert cannot_change == expected["cannot_change"]
+
+        assert resource_yaml.dump_yaml_with_comments() == expected_dumped
