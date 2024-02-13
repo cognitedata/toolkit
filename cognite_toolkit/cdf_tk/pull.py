@@ -199,17 +199,16 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
 
         content: list[str] = []
         if added:
-            content.append("## Added properties:")
+            content.append("\n**Added properties**(Either set in CDF UI or default values set by CDF):")
             content.extend([f" - {prop}" for prop in added])
         if changed:
-            content.append("## Changed properties:")
+            content.append("\n**Changed properties:**")
             content.extend([f" - {prop}" for prop in changed])
         if cannot_change:
-            content.append("## Cannot change properties:")
+            content.append("\n**Cannot change properties**")
             content.extend([f" - {prop}" for prop in cannot_change])
         if unchanged:
-            content.append("## Unchanged properties:")
-            content.append(f"  {len(unchanged)} properties unchanged")
+            content.append(f"\n**{len(unchanged)} properties unchanged**")
 
         print(Panel(Markdown("\n".join(content)), title="Resource differences"))
 
@@ -297,17 +296,9 @@ def pull_command(
 
     # Using the ResourceYAML class to load and dump the file to preserve comments
     resource = ResourceYAMLDifference.load(build_file.read_text(), source_file.read_text())
-    resource.update(cdf_dumped)
-    # if Loader is NodeLoader:
-    #     # Nodes have a special format that needs to be preserved
-    #     for no, node in enumerate(resource["nodes"]):
-    #         if NodeId(node.get("space"), node.get("externalId")) == id_:
-    #             resource["nodes"][no].update(node)
-    #             break
-    #     else:
-    #         raise ValueError(f"Node with id {id_} not found in {source_file}.")
-    # else:
-    #     resource.update(cdf_dumped)
+    resource.update_cdf_resource(cdf_dumped)
+
+    resource.display()
 
     new_content = resource.dump_yaml_with_comments()
 
