@@ -5,6 +5,7 @@ import re
 import shutil
 import tempfile
 import uuid
+from collections import UserList
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,6 +27,8 @@ from cognite_toolkit.cdf_tk.templates import (
 from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments
 
+_VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
+
 
 @dataclass
 class ResourceProperty:
@@ -37,7 +40,6 @@ class ResourceProperty:
         cdf_value: The value of the property in the CDF resource.
         variable_placeholder: The placeholder for the variable, used to load the source file as a YAML.
         variable: The name of the variable used in the local resource file
-        comment: The comment for the property.
 
     """
 
@@ -76,13 +78,13 @@ class ResourceProperty:
     def __str__(self) -> str:
         key_str = ".".join(map(str, self.key_path))
         if self.is_added:
-            return f"ADDED {key_str}: {self.cdf_value}"
+            return f"ADDED: '{key_str}: {self.cdf_value}'"
         elif self.is_changed:
-            return f"CHANGED {key_str}: {self.build_value} -> {self.cdf_value}"
+            return f"CHANGED: '{key_str}: {self.build_value} -> {self.cdf_value}'"
         elif self.is_cannot_change:
-            return f"CANNOT CHANGE {key_str}: {self.build_value} -> {self.cdf_value} (variable {self.variable})"
+            return f"CANNOT CHANGE: '{key_str}: {self.build_value} -> {self.cdf_value} (variable {self.variable})'"
         else:
-            return f"UNCHANGED {key_str}: {self.build_value}"
+            return f"UNCHANGED: '{key_str}: {self.build_value}'"
 
 
 class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourceProperty]):
@@ -90,8 +92,6 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
 
     It is used to compare a local resource file with a CDF resource.
     """
-
-    VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 
     def __init__(
         self,
@@ -151,7 +151,7 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
     @classmethod
     def _replace_variables(cls, content: str) -> tuple[str, dict[str, str]]:
         variable_by_placeholder: dict[str, str] = {}
-        for match in cls.VARIABLE_PATTERN.finditer(content):
+        for match in _VARIABLE_PATTERN.finditer(content):
             variable = match.group(1)
             placeholder = f"VARIABLE_{uuid.uuid4().hex[:8]}"
             content = content.replace(f"{{{{{variable}}}}}", placeholder)
@@ -189,7 +189,7 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
                 )
         return dumped_with_comments
 
-    def display(self) -> None:
+    def display(self, title: str | None = None) -> None:
         added = [prop for prop in self.values() if prop.is_added]
         changed = [prop for prop in self.values() if prop.is_changed]
         cannot_change = [prop for prop in self.values() if prop.is_cannot_change]
@@ -210,7 +210,114 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourcePro
         if unchanged:
             content.append(f"\n**{len(unchanged)} properties unchanged**")
 
-        print(Panel(Markdown("\n".join(content)), title="Resource differences"))
+        print(Panel.fit(Markdown("\n".join(content), justify="left"), title=title or "Resource differences"))
+
+
+@dataclass
+class Line:
+    line_no: int
+    build_value: str | None = None
+    source_value: str | None = None
+    cdf_value: str | None = None
+    variables: list[str] | None = None
+
+    @property
+    def value(self) -> str:
+        if self.variables:
+            if self.source_value is None:
+                raise ValueError("Source value should be set if there are variables")
+            return self.source_value
+        value = self.cdf_value or self.build_value
+        if value is None:
+            raise ValueError("CDF value or build value should be set")
+        return value
+
+    @property
+    def is_changed(self) -> bool:
+        return (
+            self.build_value != self.cdf_value
+            and self.build_value is not None
+            and self.cdf_value is not None
+            and self.variables is None
+        )
+
+    @property
+    def is_added(self) -> bool:
+        return self.build_value is None and self.cdf_value is not None
+
+    @property
+    def is_cannot_change(self) -> bool:
+        return (
+            self.build_value != self.cdf_value
+            and self.variables is not None
+            and self.build_value is not None
+            and self.cdf_value is not None
+        )
+
+
+class TextFileDifference(UserList):
+    def __init__(self, lines: list[Line] | None) -> None:
+        super().__init__(lines or [])
+
+    @classmethod
+    def load(cls, build_content: str, source_content: str) -> TextFileDifference:
+        lines = []
+        # Build and source content should have the same number of lines
+        for no, (build, source) in enumerate(zip(build_content.splitlines(), source_content.splitlines())):
+            variables = [v.group(1) for v in _VARIABLE_PATTERN.finditer(source)] or None
+            lines.append(
+                Line(
+                    line_no=no + 1,
+                    build_value=build,
+                    source_value=source,
+                    variables=variables,
+                )
+            )
+        return cls(lines)
+
+    def update_cdf_content(self, cdf_content: str) -> None:
+        for i, line in enumerate(cdf_content.splitlines()):
+            if i < len(self):
+                self[i].cdf_value = line
+            else:
+                self.append(Line(cdf_value=line, line_no=i + 1))
+
+    def dump(self) -> str:
+        return "\n".join(line.value for line in self) + "\n"
+
+    def display(self, title: str | None = None) -> None:
+        added = [line for line in self if line.is_added]
+        changed = [line for line in self if line.is_changed]
+        cannot_change = [line for line in self if line.is_cannot_change]
+        unchanged_count = len(self) - len(added) - len(changed) - len(cannot_change)
+
+        content: list[str] = []
+        if added:
+            content.append("\n**Added lines**")
+            if len(added) == 1:
+                content.append(f" - Line {added[0].line_no}: '{added[0].cdf_value}'")
+            else:
+                content.append(f" - Line {added[0].line_no} - {added[-1].line_no}: {len(added)} lines")
+        if changed:
+            content.append("\n**Changed lines**")
+            if len(changed) == 1:
+                content.append(f" - Line {changed[0].line_no}: '{changed[0].source_value}' -> '{changed[0].cdf_value}'")
+            else:
+                content.append(f" - Line {changed[0].line_no} - {changed[-1].line_no}: {len(changed)} lines")
+        if cannot_change:
+            content.append("\n**Cannot change lines**")
+            if len(cannot_change) == 1:
+                content.append(
+                    f" - Line {cannot_change[0].line_no}: '{cannot_change[0].source_value}' -> '{cannot_change[0].cdf_value}'"
+                )
+            else:
+                content.append(
+                    f" - Line {cannot_change[0].line_no} - {cannot_change[-1].line_no}: {len(cannot_change)} lines"
+                )
+        if unchanged_count != 0:
+            content.append(f"\n**{unchanged_count} lines unchanged**")
+
+        print(Panel.fit(Markdown("\n".join(content), justify="left"), title=title or "File differences"))
 
 
 def pull_command(
@@ -244,6 +351,7 @@ def pull_command(
     config = BuildConfigYAML.load_from_directory(source_path, env)
     config.set_environment_variables()
     config.environment.selected_modules_and_packages = [module.name for module, _ in iterate_modules(source_path)]
+    print(Panel.fit(f"[bold]Building {source_path}...[/]"))
     source_by_build_path = build_config(
         build_dir=build_dir,
         source_dir=source_path,
@@ -278,14 +386,15 @@ def pull_command(
         exit(1)
     build_file, local_resource = next(iter(selected.items()))
 
-    print(Panel(f"[bold]Pulling {loader.display_name} {id_}...[/]"))
+    print(f"[bold]Pulling {loader.display_name} {id_}...[/]")
 
-    cdf_resources = loader.retrieve([loader.get_id(local_resource)])
+    resource_id = loader.get_id(local_resource)
+    cdf_resources = loader.retrieve([resource_id])
     if not cdf_resources:
         print(f"  [bold red]ERROR:[/] No {loader.display_name} with {id_} found in CDF.")
         exit(1)
-    cdf_resource = cdf_resources[0].as_write()
 
+    cdf_resource = cdf_resources[0].as_write()
     if cdf_resource == local_resource:
         print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} is up to date.")
         return
@@ -294,17 +403,16 @@ def pull_command(
 
     cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)
 
-    # Using the ResourceYAML class to load and dump the file to preserve comments
+    # Using the ResourceYAML class to load and dump the file to preserve comments and detect changes
     resource = ResourceYAMLDifference.load(build_file.read_text(), source_file.read_text())
     resource.update_cdf_resource(cdf_dumped)
 
-    resource.display()
-
+    resource.display(title=f"Resource differences for {loader.display_name} {id_}")
     new_content = resource.dump_yaml_with_comments()
 
     if dry_run:
         print(
-            f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_!r} will be updated in "
+            f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_!r} will be updated in file "
             f"'{source_file.relative_to(source_dir)}'."
         )
 
@@ -313,24 +421,34 @@ def pull_command(
         print(
             Panel(
                 "\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())),
-                title=f"Difference between local and CDF resource {source_file.name!r}",
+                title=f"Updates to file {source_file.name!r}",
             )
         )
 
     if not dry_run:
         source_file.write_text(new_content)
         print(
-            f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
+            f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
             f"'{source_file.relative_to(source_dir)}'."
         )
 
     for filepath, content in extra_files.items():
         if not filepath.exists():
-            print(f"  [bold red]ERROR:[/] {filepath} does not exist.")
+            print(f"[bold red]ERROR:[/] {filepath} does not exist.")
             continue
 
+        build_extra_file = Path(build_dir / loader.folder_name / filepath.name)
+        if not build_extra_file.exists():
+            print(f"[bold red]ERROR:[/] {build_extra_file} does not exist.")
+            continue
+
+        file_diffs = TextFileDifference.load(build_extra_file.read_text(), filepath.read_text())
+        file_diffs.update_cdf_content(content)
+
         if dry_run:
-            print(f"[bold green]INFO:[/] In addition, would update '{filepath.relative_to(source_dir)}'.")
+            print(f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(source_dir)}'.")
+
+        file_diffs.display(title=f"File differences for {filepath.name!r}")
 
         if verbose:
             old_content = filepath.read_text()
@@ -345,4 +463,4 @@ def pull_command(
             filepath.write_text(content)
 
     shutil.rmtree(build_dir)
-    print("  [bold green]INFO:[/] Pull complete. Cleaned up temporary files.")
+    print("[bold green]INFO:[/] Pull complete. Cleaned up temporary files.")

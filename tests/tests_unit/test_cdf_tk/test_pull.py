@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from cognite_toolkit.cdf_tk.pull import ResourceYAMLDifference
+from cognite_toolkit.cdf_tk.pull import ResourceYAMLDifference, TextFileDifference
 
 
 def load_update_diffs_use_cases():
@@ -86,7 +86,7 @@ class TestResourceYAML:
         "build_file, source_file, cdf_resource, expected, expected_dumped",
         list(load_update_diffs_use_cases()),
     )
-    def test_load_update_diffs(
+    def test_load_update_changes_dump(
         self,
         build_file: str,
         source_file: str,
@@ -108,3 +108,70 @@ class TestResourceYAML:
         assert cannot_change == expected["cannot_change"]
 
         assert resource_yaml.dump_yaml_with_comments() == expected_dumped
+
+
+def load_update_changed_dump_test_cases():
+    build_file = """--- 1. asset root (defining all columns)
+SELECT
+    "Lift Pump Stations" AS name,
+    dataset_id("src:lift_pump_stations") AS dataSetId,
+    "lift_pump_stations:root" AS externalId,
+    '' as parentExternalId,
+    "An example pump dataset" as description,
+    null as metadata
+"""
+    source_file = """--- 1. asset root (defining all columns)
+SELECT
+    "Lift Pump Stations" AS name,
+    dataset_id("{{data_set}}") AS dataSetId,
+    "lift_pump_stations:root" AS externalId,
+    '' as parentExternalId,
+    "An example pump dataset" as description,
+    null as metadata
+"""
+    cdf_content = """--- 1. asset root (defining all columns) And Extra comment in the SQL
+SELECT
+    "Lift Pump Stations" AS name,
+    dataset_id("src:new_data_set") AS dataSetId,
+    "lift_pump_stations:root" AS externalId,
+    '' as parentExternalId,
+    "An example pump dataset" as description,
+    null as metadata
+"""
+    expected = {
+        "added": [],
+        "changed": ["--- 1. asset root (defining all columns) And Extra comment in the SQL"],
+        "cannot_change": [('    dataset_id("src:new_data_set") AS dataSetId,', ["data_set"])],
+    }
+    dumped = """--- 1. asset root (defining all columns) And Extra comment in the SQL
+SELECT
+    "Lift Pump Stations" AS name,
+    dataset_id("{{data_set}}") AS dataSetId,
+    "lift_pump_stations:root" AS externalId,
+    '' as parentExternalId,
+    "An example pump dataset" as description,
+    null as metadata
+"""
+    yield pytest.param(build_file, source_file, cdf_content, expected, dumped, id="SQL with one line differences")
+
+
+class TestTextFileDifference:
+    @pytest.mark.parametrize(
+        "build_file, source_file, cdf_content, expected, dumped",
+        list(load_update_changed_dump_test_cases()),
+    )
+    def test_load_update_changes_dump(
+        self, build_file: str, source_file: str, cdf_content: str, expected: dict[str, list], dumped: str
+    ) -> None:
+        text_file = TextFileDifference.load(build_file, source_file)
+        text_file.update_cdf_content(cdf_content)
+
+        added = [line.cdf_value for line in text_file if line.is_added]
+        changed = [line.cdf_value for line in text_file if line.is_changed]
+        cannot_change = [(line.cdf_value, line.variables) for line in text_file if line.is_cannot_change]
+
+        assert added == expected["added"]
+        assert changed == expected["changed"]
+        assert cannot_change == expected["cannot_change"]
+
+        assert text_file.dump() == dumped
