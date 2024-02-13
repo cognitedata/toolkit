@@ -200,8 +200,8 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         return item.name
 
     @staticmethod
-    def _substitute_scope_ids(raw: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
-        for capability in raw.get("capabilities", []):
+    def _substitute_scope_ids(group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
+        for capability in group.get("capabilities", []):
             for acl, values in capability.items():
                 scope = values.get("scope", {})
 
@@ -222,28 +222,40 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                             verify_method(ext_id, skip_validation) if isinstance(ext_id, str) else ext_id
                             for ext_id in ids
                         ]
-
-        return raw
+        return group
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> GroupWrite | GroupWriteList | None:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
 
-        is_resource_scoped = any(
-            any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
-            for capability in raw.get("capabilities", [])
-            for acl in capability
-        )
+        group_write_list = GroupWriteList([])
 
-        if self.target_scopes == "all_scoped_only" and is_resource_scoped:
+        if isinstance(raw, dict):
+            raw = [raw]
+
+        for group in raw:
+
+            is_resource_scoped = any(
+                any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
+                for capability in group.get("capabilities", [])
+                for acl in capability
+            )
+
+            if self.target_scopes == "all_scoped_only" and is_resource_scoped:
+                continue
+
+            if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
+                continue
+
+            substituted = self._substitute_scope_ids(group, ToolGlobals, skip_validation)
+            group_write_list.append(GroupWrite.load(substituted))
+
+        if len(group_write_list) == 0:
             return None
-
-        if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
-            return None
-
-        substituted = self._substitute_scope_ids(raw, ToolGlobals, skip_validation)
-        return GroupWrite.load(substituted)
+        if len(group_write_list) == 1:
+            return group_write_list[0]
+        return group_write_list
 
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
         if len(items) == 0:
