@@ -202,41 +202,54 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> GroupWrite | GroupWriteList | None:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
-        is_resource_scoped = False
-        for capability in raw.get("capabilities", []):
-            for acl, values in capability.items():
-                scope = values.get("scope", {})
-                if not is_resource_scoped:
-                    is_resource_scoped = any(scope_name in scope for scope_name in self.resource_scope_names)
-                if self.target_scopes == "all_scoped_only" and is_resource_scoped:
-                    # If a group has a single capability with a resource scope, we skip it.
-                    # None indicates skip
-                    return None
 
-                for scope_name, verify_method in [
-                    ("datasetScope", ToolGlobals.verify_dataset),
-                    (
-                        "idScope",
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        group_write_list = GroupWriteList([])
+
+        if isinstance(raw, dict):
+            raw = [raw]
+
+        for group in raw:
+            is_resource_scoped = False
+            for capability in group.get("capabilities", []):
+                for acl, values in capability.items():
+                    scope = values.get("scope", {})
+                    if not is_resource_scoped:
+                        is_resource_scoped = any(scope_name in scope for scope_name in self.resource_scope_names)
+                    if self.target_scopes == "all_scoped_only" and is_resource_scoped:
+                        # If a group has a single capability with a resource scope, we skip it.
+                        # None indicates skip
+                        return None
+
+                    for scope_name, verify_method in [
+                        ("datasetScope", ToolGlobals.verify_dataset),
                         (
-                            ToolGlobals.verify_extraction_pipeline
-                            if acl == "extractionPipelinesAcl"
-                            else ToolGlobals.verify_dataset
+                            "idScope",
+                            (
+                                ToolGlobals.verify_extraction_pipeline
+                                if acl == "extractionPipelinesAcl"
+                                else ToolGlobals.verify_dataset
+                            ),
                         ),
-                    ),
-                    ("extractionPipelineScope", ToolGlobals.verify_extraction_pipeline),
-                ]:
-                    if ids := scope.get(scope_name, {}).get("ids", []):
-                        values["scope"][scope_name]["ids"] = [
-                            verify_method(ext_id, skip_validation) if isinstance(ext_id, str) else ext_id
-                            for ext_id in ids
-                        ]
+                        ("extractionPipelineScope", ToolGlobals.verify_extraction_pipeline),
+                    ]:
+                        if ids := scope.get(scope_name, {}).get("ids", []):
+                            values["scope"][scope_name]["ids"] = [
+                                verify_method(ext_id, skip_validation) if isinstance(ext_id, str) else ext_id
+                                for ext_id in ids
+                            ]
 
-        if not is_resource_scoped and self.target_scopes == "resource_scoped_only":
-            # If a group has no resource scoped capabilities, we skip it.
+            if not is_resource_scoped and self.target_scopes == "resource_scoped_only":
+                # If a group has no resource scoped capabilities, we skip it.
+                continue
+            else:
+                group_write_list.append(GroupWrite.load(group))
+
+        if len(group_write_list) == 0:
             return None
-
-        return GroupWrite.load(raw)
+        if len(group_write_list) == 1:
+            return group_write_list[0]
+        return group_write_list
 
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
         if len(items) == 0:
