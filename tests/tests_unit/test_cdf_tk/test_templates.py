@@ -7,16 +7,25 @@ from typing import Any
 import pytest
 import yaml
 
+from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit.cdf_tk.templates import (
+    COGNITE_MODULES,
+    build_config,
     check_yaml_semantics,
     create_local_config,
     flatten_dict,
     iterate_modules,
+    module_from_path,
     split_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import Environment, InitConfigYAML, YAMLComment
-
-PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
+from cognite_toolkit.cdf_tk.templates.data_classes import (
+    BuildConfigYAML,
+    Environment,
+    InitConfigYAML,
+    SystemYAML,
+    YAMLComment,
+)
+from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT
 
 
 def dict_keys(d: dict[str, Any]) -> set[str]:
@@ -274,3 +283,39 @@ class TestIterateModules:
         actual_modules = {module for module, _ in iterate_modules(PYTEST_PROJECT)}
 
         assert actual_modules == expected_modules
+
+
+class TestModuleFromPath:
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            pytest.param(Path("cognite_modules/a_module/data_models/my_model.datamodel.yaml"), "a_module"),
+            pytest.param(Path("cognite_modules/another_module/data_models/views/my_view.view.yaml"), "another_module"),
+            pytest.param(
+                Path("cognite_modules/parent_module/child_module/data_models/containers/my_container.container.yaml"),
+                "child_module",
+            ),
+            pytest.param(
+                Path("cognite_modules/parent_module/child_module/data_models/auth/my_group.group.yaml"), "child_module"
+            ),
+            pytest.param(Path("custom_modules/child_module/functions/functions.yaml"), "child_module"),
+            pytest.param(Path("custom_modules/parent_module/child_module/functions/functions.yaml"), "child_module"),
+        ],
+    )
+    def test_module_from_path(self, path: Path, expected: str):
+        assert module_from_path(path) == expected
+
+
+class TestBuildConfig:
+    def test_build_config(self, config_yaml: str):
+        build_env = "dev"
+        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT / COGNITE_MODULES, build_env)
+        config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
+        config.environment.selected_modules_and_packages = ["another_module"]
+        build_config(BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False)
+
+        invalid_resource_folders = [
+            dir_.name for dir_ in BUILD_DIR.iterdir() if dir_.is_dir() and dir_.name not in LOADER_BY_FOLDER_NAME
+        ]
+
+        assert not invalid_resource_folders, f"Invalid resource folders after build: {invalid_resource_folders}"

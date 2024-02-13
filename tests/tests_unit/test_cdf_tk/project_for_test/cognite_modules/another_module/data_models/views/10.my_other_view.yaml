@@ -1,0 +1,13 @@
+space: {{model_space}}
+externalId: MyOtherView
+version: "1"
+name: MyOtherView
+properties:
+  name:
+    container:
+      space: {{model_space}}
+      externalId: MyContainer
+      type: container
+    containerPropertyIdentifier: name
+    name: name
+    description: The name of the item.
