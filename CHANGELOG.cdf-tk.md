@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- `Group` resource type supports list of groups in the same file
+
 ### Fixed
 
 - `View` which implements other views would always be classified as changed, ven though no change
