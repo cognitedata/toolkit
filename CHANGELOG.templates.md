@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+- Added a new module `cognite_modules/example/cdf_data_pipeline_files_valhall` file extractor pipeline, transformation 
+  and CDF function ruiing annotation on P&ID documents.
+
+
 ## [0.1.0b7] - 2024-02-07
 
 - Added a new module `cognite_modules/example/cdf_functions_dummy` that shows how to create functions and deploy them.
