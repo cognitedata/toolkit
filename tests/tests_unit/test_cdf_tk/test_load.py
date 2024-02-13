@@ -296,6 +296,25 @@ capabilities:
         assert all(isinstance(item, int) for item in caps["ExtractionConfigsAcl"].scope.ids)
         assert caps["SessionsAcl"].scope._scope_name == "all"
 
+    def test_load_group_list(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
+
+        loader = AuthLoader.create_loader(cdf_tool_config, "all")
+
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        assert loaded.name == "unscoped_group_name"
+
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.scoped_content)}, monkeypatch)
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        assert loaded.name == "scoped_group_name"
+
+        caps = {str(type(element).__name__): element for element in loaded.capabilities}
+
+        assert all(isinstance(item, int) for item in caps["DataSetsAcl"].scope.ids)
+        assert all(isinstance(item, int) for item in caps["AssetsAcl"].scope.ids)
+        assert all(isinstance(item, int) for item in caps["ExtractionConfigsAcl"].scope.ids)
+        assert caps["SessionsAcl"].scope._scope_name == "all"
+
 
 class TestTimeSeriesLoader:
     timeseries_yaml = """
