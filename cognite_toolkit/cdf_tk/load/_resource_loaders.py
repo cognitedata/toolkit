@@ -219,7 +219,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                     if self.target_scopes == "all_scoped_only" and is_resource_scoped:
                         # If a group has a single capability with a resource scope, we skip it.
                         # None indicates skip
-                        return None
+                        continue
 
                     for scope_name, verify_method in [
                         ("datasetScope", ToolGlobals.verify_dataset),
