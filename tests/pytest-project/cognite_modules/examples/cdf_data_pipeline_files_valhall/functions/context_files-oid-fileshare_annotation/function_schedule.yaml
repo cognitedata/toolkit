@@ -1,8 +1,0 @@
-externalId: 'fu_context_files_{{location_name}}_{{source_name}}_annotation'
-name: 'context:files:{{location_name}}:{{source_name}}:annotation'
-dataSetExternalId: 'ds_files_{{location_name}}'
-schedule:
-- name: 'context:files:{{location_name}}:{{source_name}}:annotation'
-  cron: "0 5 * * *"
-  data:
-    ExtractionPipelineExtId: 'ep_ctx_files_{{location_name}}_pandid_annotation'

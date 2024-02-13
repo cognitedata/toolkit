@@ -1,3 +1,0 @@
-externalId: tr_workorder_{{default_location}}_{{source_workorder}}_apm_simple_load_workitems
-interval: '{{scheduleHourly}}'
-isPaused : {{pause_transformations}}
