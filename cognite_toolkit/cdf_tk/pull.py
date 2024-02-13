@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import difflib
+import re
 import shutil
 import tempfile
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+import yaml
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from rich import print
 from rich.panel import Panel
@@ -37,7 +40,7 @@ class ResourceProperty:
 
     """
 
-    key_path: tuple[str, ...]
+    key_path: tuple[str | int, ...]
     build_value: float | int | str | bool | None = None
     cdf_value: float | int | str | bool | None = None
     variable_placeholder: str | None = None
@@ -45,30 +48,114 @@ class ResourceProperty:
     comment: YAMLComment | None = None
 
     @property
-    def is_different(self) -> bool:
-        return self.build_value != self.cdf_value and self.build_value is not None and self.cdf_value is not None
+    def is_changed(self) -> bool:
+        return (
+            self.build_value != self.cdf_value
+            and self.build_value is not None
+            and self.cdf_value is not None
+            and self.variable is None
+        )
+
+    @property
+    def is_added(self) -> bool:
+        return self.build_value is None and self.cdf_value is not None
+
+    @property
+    def is_cannot_change(self) -> bool:
+        return (
+            self.build_value != self.cdf_value
+            and self.variable is not None
+            and self.build_value is not None
+            and self.cdf_value is not None
+        )
+
+    def display(self) -> str:
+        key_str = ".".join(map(str, self.key_path))
+        if self.is_added:
+            return f"ADDED {key_str}: {self.cdf_value}"
+        elif self.is_changed:
+            return f"CHANGED {key_str}: {self.build_value} -> {self.cdf_value}"
+        elif self.is_cannot_change:
+            return f"CANNOT CHANGE {key_str}: {self.build_value} -> {self.cdf_value} (variable {self.variable})"
+        else:
+            return f"UNCHANGED {key_str}: {self.build_value}"
 
 
-class ResourceYAMLDifference(YAMLWithComments[tuple[str, ...], ResourceProperty]):
+class ResourceYAMLDifference(YAMLWithComments[tuple[str | int, ...], ResourceProperty]):
     """This represents a YAML file that contains resources and their properties.
 
     It is used to compare a local resource file with a CDF resource.
     """
 
-    def __init__(self) -> None:
-        super().__init__({})
+    VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 
-    def _get_comment(self, key: tuple[str, ...]) -> YAMLComment | None:
+    def __init__(self, items: dict[tuple[str | int, ...], ResourceProperty]) -> None:
+        super().__init__(items or {})
+
+    def _get_comment(self, key: tuple[str | int, ...]) -> YAMLComment | None:
         return self[key].comment if key in self else None
 
     @classmethod
     def load(cls, build_content: str, source_content: str) -> ResourceYAMLDifference:
-        raise NotImplementedError()
-        # comments = cls._extract_comments(content)
-        # items = yaml.safe_load(content)
-        # if not isinstance(items, dict):
-        #     raise ValueError(f"Expected a dictionary, got {type(items)}")
-        # return cls()
+        comments = cls._extract_comments(build_content)
+        build = yaml.safe_load(build_content)
+        build_flatten = cls._flatten(build)
+        items: dict[tuple[str | int, ...], ResourceProperty] = {}
+        for key, value in build_flatten.items():
+            items[key] = ResourceProperty(
+                key_path=key,
+                build_value=value,
+                comment=comments.get(key),
+            )
+
+        source_content, variable_by_placeholder = cls._replace_variables(source_content)
+        source = yaml.safe_load(source_content)
+        source_items = cls._flatten(source)
+        for key, value in source_items.items():
+            if value in variable_by_placeholder:
+                items[key].variable_placeholder = value if value is None else str(value)
+                items[key].variable = variable_by_placeholder[cast(str, value)]
+        return cls(items)
+
+    @classmethod
+    def _flatten(
+        cls, raw: dict[str, Any] | list[dict[str, Any]]
+    ) -> dict[tuple[str, ...], str | int | float | bool | None]:
+        if isinstance(raw, dict):
+            return cls._flatten_dict(raw)
+        elif isinstance(raw, list):
+            raise NotImplementedError()
+        else:
+            raise ValueError(f"Expected a dictionary or list, got {type(raw)}")
+
+    @classmethod
+    def _flatten_dict(
+        cls, raw: dict[str, Any], key_path: tuple[str, ...] = ()
+    ) -> dict[tuple[str, ...], str | int | float | bool | None]:
+        items = {}
+        for key, value in raw.items():
+            if isinstance(value, dict):
+                items.update(cls._flatten_dict(value, (*key_path, key)))
+            else:
+                items[(*key_path, key)] = value
+        return items
+
+    @classmethod
+    def _replace_variables(cls, content: str) -> tuple[str, dict[str, str]]:
+        variable_by_placeholder: dict[str, str] = {}
+        for match in cls.VARIABLE_PATTERN.finditer(content):
+            variable = match.group(1)
+            placeholder = f"VARIABLE_{uuid.uuid4().hex[:8]}"
+            content = content.replace(f"{{{{{variable}}}}}", placeholder)
+            variable_by_placeholder[placeholder] = variable
+        return content, variable_by_placeholder
+
+    def update_cdf_resource(self, cdf_resource: dict[str, Any]) -> None:
+        for key, value in self._flatten_dict(cdf_resource).items():
+            if key in self:
+                self[key].cdf_value = value
+            else:
+                self[key] = ResourceProperty(key_path=key, cdf_value=value)
 
     def dump(self) -> dict[str, Any]:
         raise NotImplementedError()
