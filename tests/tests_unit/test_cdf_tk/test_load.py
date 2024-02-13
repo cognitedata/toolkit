@@ -13,6 +13,7 @@ from cognite_toolkit.cdf_tk.load import (
     DatapointsLoader,
     DataSetsLoader,
     FileMetadataLoader,
+    FunctionLoader,
     ResourceLoader,
     TimeSeriesLoader,
     ViewLoader,
@@ -57,7 +58,36 @@ def test_loader_class(
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{directory.name}.yaml")
 
 
-class DataSetsLoaderTest:
+class TestFunctionLoader:
+
+    def test_load_function(self, cognite_client_approval: ApprovalCogniteClient):
+
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+
+        loader = FunctionLoader.create_loader(cdf_tool)
+        loaded = loader.load_resource(
+            DATA_FOLDER / "functions" / "1.my_functions.yaml", cdf_tool, skip_validation=False
+        )
+        assert len(loaded) == 2
+
+        first = loaded[0]
+        # Set the properties that are set on the server side
+        first.id = 42
+        first.created_time = 42
+        first.last_updated_time = 42
+        # Simulate that the function is already in CDF
+        cognite_client_approval.append(dm.Function, first)
+
+        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(loaded)
+
+        assert len(to_create) == 1
+        assert len(to_change) == 0
+        assert len(unchanged) == 1
+
+
+class TestDataSetsLoader:
     def test_upsert_data_set(self, cognite_client_approval: ApprovalCogniteClient):
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
@@ -188,73 +218,18 @@ class TestDataModelLoader:
 
 class TestAuthLoader:
 
-    scoped_content = """
-name: 'scoped_group_name'
-sourceId: '123'
-capabilities:
-    - datasetsAcl:
-        actions:
-            - READ
-            - OWNER
-        scope:
-            idScope: { ids: ["site:001:b60:ds"] }
-
-    - assetsAcl:
-        actions:
-            - READ
-            - WRITE
-        scope:
-            datasetScope: {
-                ids: ['ds_asset_oid']
-            }
-    - extractionConfigsAcl:
-        actions:
-            - READ
-        scope:
-            extractionPipelineScope: {
-                ids: ['ep_src_asset_oid']
-            }
-
-    - sessionsAcl:
-        actions:
-            - LIST
-            - CREATE
-            - DELETE
-        scope:
-            all: {}
-    """
-
-    unscoped_content = """
-    name: 'unscoped_group_name'
-    sourceId: '123'
-    capabilities:
-
-        - assetsAcl:
-            actions:
-                - READ
-                - WRITE
-            scope:
-                all: {}
-        - sessionsAcl:
-            actions:
-                - LIST
-                - CREATE
-                - DELETE
-            scope:
-                all: {}
-
-"""
-
     def test_load_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
 
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
 
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
+        )
         assert loaded.name == "unscoped_group_name"
 
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.scoped_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
+        )
         assert loaded.name == "scoped_group_name"
 
         caps = {str(type(element).__name__): element for element in loaded.capabilities}
@@ -267,25 +242,28 @@ capabilities:
     def test_load_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
 
         loader = AuthLoader.create_loader(cdf_tool_config, "all_scoped_only")
-
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
+        )
         assert loaded.name == "unscoped_group_name"
 
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.scoped_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=False
+        )
         assert loaded is None
 
     def test_load_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
 
         loader = AuthLoader.create_loader(cdf_tool_config, "resource_scoped_only")
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
+        )
 
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
         assert loaded is None
 
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.scoped_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=False
+        )
         assert loaded.name == "scoped_group_name"
         assert len(loaded.capabilities) == 4
 
@@ -299,10 +277,9 @@ capabilities:
     def test_load_group_list_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
 
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
-        list_content = yaml.dump([yaml.safe_load(self.unscoped_content), yaml.safe_load(self.scoped_content)])
-
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(list_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
+        )
 
         assert isinstance(loaded, GroupWriteList)
         assert len(loaded) == 2
@@ -310,10 +287,9 @@ capabilities:
     def test_load_group_list_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
 
         loader = AuthLoader.create_loader(cdf_tool_config, "resource_scoped_only")
-        list_content = yaml.dump([yaml.safe_load(self.scoped_content), yaml.safe_load(self.unscoped_content)])
-
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(list_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
+        )
 
         assert isinstance(loaded, GroupWrite)
         assert loaded.name == "scoped_group_name"
@@ -321,10 +297,9 @@ capabilities:
     def test_load_group_list_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
 
         loader = AuthLoader.create_loader(cdf_tool_config, "all_scoped_only")
-        list_content = yaml.dump([yaml.safe_load(self.scoped_content), yaml.safe_load(self.unscoped_content)])
-
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(list_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
+        )
 
         assert isinstance(loaded, GroupWrite)
         assert loaded.name == "unscoped_group_name"
