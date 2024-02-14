@@ -1,3 +1,8 @@
+- version: 0.1.0b8
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: ""
 - version: 0.1.0b7
   cognite_modules: {}
   resources: {}
@@ -66,7 +71,7 @@
       steps:
         - Remove all files with prefix `default.` from the `cognite_modules` folder including all 
           subfolders.
-  cognite_modules_hash: ""
+  cognite_modules_hash: "9d533dadebca4aee79be865842a9e2baeed0871120ec5e08ad85ba3d1c822253"
 - version: 0.1.0b6
   cognite_modules: {}
   resources: {}
