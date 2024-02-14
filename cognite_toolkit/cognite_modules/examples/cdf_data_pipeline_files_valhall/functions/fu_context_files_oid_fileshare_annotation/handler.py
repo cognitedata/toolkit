@@ -228,6 +228,7 @@ def get_files(
     file_list = cognite_client.files.list(
         metadata={docTypeMetaCol: pAndIdDocType},
         data_set_external_ids=[docDataSetExtId],
+        asset_subtree_external_ids=[assetRootExtId],
         mime_type=orgMimeType,
         limit=docLimit,
     )
@@ -238,12 +239,6 @@ def get_files(
 
         # only process files related to docLimit (-1 == ALL)
         if docLimit == -1 or numDoc <= docLimit:
-            # debug
-            # if file.name == "SKA-AK-ER251-R-XB-2011-001.pdf":
-            #    pAndIdFiles_process[file.external_id] = file
-            #    break
-            # else:
-            #    continue
 
             if file_annotated is not None and file_annotated not in (file.metadata or {}):
                 if file.external_id is not None:
