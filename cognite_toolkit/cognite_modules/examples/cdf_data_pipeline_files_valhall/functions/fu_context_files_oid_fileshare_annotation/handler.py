@@ -3,11 +3,13 @@ import os
 import re
 import time
 import traceback
+
 from datetime import datetime, timedelta
 from time import gmtime, strftime
 from typing import Any, Optional
 
 import yaml
+
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
@@ -20,26 +22,26 @@ from cognite.client.data_classes import (
 from cognite.client.exceptions import CogniteAPIError
 from cognite.logger import configure_logger
 
+
 # P&ID original file defaults
-orgMimeType = "application/pdf"
-file_annotated = "file_annotated"
-annotationErrorMsg = "annotation_created_error"
+ORG_MIME_TYPE = "application/pdf"
+FILE_ANNOTATED = "FILE_ANNOTATED"
+ANNOTATION_ERROR_MSG = "annotation_created_error"
 
 # Annotation defaults
-assetAnnotationType = "diagrams.AssetLink"
-fileAnnotationType = "diagrams.FileLink"
-annotationStatusAproved = "approved"
-annotationStatusSuggested = "suggested"
-annotatedResourceType = "file"
-creatingApp = "P&ID contextualization and annotation function"
-creatingAppVersion = "1.0.0"
+ASSET_ANNOTATION_TYPE = "diagrams.AssetLink"
+FILE_ANNOTATION_TYPE = "diagrams.FileLink"
+ANNOTATION_STATUS_APPROVED = "approved"
+ANNOTATION_STATUS_SUGGESTED = "suggested"
+ANNOTATION_RESOURCE_TYPE = "file"
+CREATING_APP = "P&ID contextualization and annotation function"
+CREATING_APPVERSION = "1.0.0"
 
 # Asset constats
-maxLengthMetadata = 10000
+MAX_LENGTH_METADATA = 10000
 
 # static variables
-functionName = "P&ID Annotation"
-
+FUNCTION_NAME = "P&ID Annotation"
 
 # logging the output
 # Configure application logger (only done ONCE):
@@ -60,7 +62,7 @@ def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info:
         annotate_p_and_id(client, annoConfig)
     except Exception as e:
         tb = traceback.format_exc()
-        msg = f"Function: {functionName}: Extraction failed - Message: {e!r} - {tb}"
+        msg = f"Function: {FUNCTION_NAME}: Extraction failed - Message: {e!r} - {tb}"
         logger.error(f"[FAILED] Error: {msg}")
         return {
             "error": e.__str__(),
@@ -222,14 +224,14 @@ def get_files(
     metaFileUpdate: list[FileMetadataUpdate] = []
 
     logger.info(
-        f"Get files to annotate data set: {docDataSetExtId}, asset root: {assetRootExtId} doc_type: {pAndIdDocType} and mime_type: {orgMimeType}"
+        f"Get files to annotate data set: {docDataSetExtId}, asset root: {assetRootExtId} doc_type: {pAndIdDocType} and mime_type: {ORG_MIME_TYPE}"
     )
 
     file_list = cognite_client.files.list(
         metadata={docTypeMetaCol: pAndIdDocType},
         data_set_external_ids=[docDataSetExtId],
         asset_subtree_external_ids=[assetRootExtId],
-        mime_type=orgMimeType,
+        mime_type=ORG_MIME_TYPE,
         limit=docLimit,
     )
 
@@ -240,22 +242,22 @@ def get_files(
         # only process files related to docLimit (-1 == ALL)
         if docLimit == -1 or numDoc <= docLimit:
 
-            if file_annotated is not None and file_annotated not in (file.metadata or {}):
+            if FILE_ANNOTATED is not None and FILE_ANNOTATED not in (file.metadata or {}):
                 if file.external_id is not None:
                     pAndIdFiles_process[file.external_id] = file
 
             # if run all - remove metadata element from last annotation
             elif runAll:
-                if not debug and file_annotated is not None:
+                if not debug and FILE_ANNOTATED is not None:
                     file_meta_update = FileMetadataUpdate(external_id=file.external_id).metadata.remove(
-                        [file_annotated]
+                        [FILE_ANNOTATED]
                     )
                     metaFileUpdate.append(file_meta_update)
                 if file.external_id is not None:
                     pAndIdFiles_process[file.external_id] = file
             else:
                 pAndIdFiles_process, metaFileUpdate = update_file_metadata(
-                    metaFileUpdate, file, pAndIdFiles_process, file_annotated
+                    metaFileUpdate, file, pAndIdFiles_process, FILE_ANNOTATED
                 )
         if debug:
             break
@@ -270,12 +272,12 @@ def update_file_metadata(
     metaFileUpdate: list[FileMetadataUpdate],
     file: FileMetadata,
     pAndIdFiles: dict[str, FileMetadata],
-    file_annotated: str,
+    FILE_ANNOTATED: str,
 ) -> tuple[dict[str, FileMetadata], list[FileMetadataUpdate]]:
 
     annotated_date = None
-    if file.metadata and file_annotated is not None:
-        file_annotated_time = file.metadata.get(file_annotated, None)
+    if file.metadata and FILE_ANNOTATED is not None:
+        file_annotated_time = file.metadata.get(FILE_ANNOTATED, None)
         if file_annotated_time:
             annotated_date = datetime.strptime(file_annotated_time, "%Y-%m-%d %H:%M:%S")
 
@@ -283,8 +285,8 @@ def update_file_metadata(
     if (
         annotated_stamp is not None and file.last_updated_time is not None and file.last_updated_time > annotated_stamp
     ):  # live 1 h for buffer
-        if file_annotated is not None:  # Check for None
-            file_meta_update = FileMetadataUpdate(external_id=file.external_id).metadata.remove([file_annotated])
+        if FILE_ANNOTATED is not None:  # Check for None
+            file_meta_update = FileMetadataUpdate(external_id=file.external_id).metadata.remove([FILE_ANNOTATED])
             metaFileUpdate.append(file_meta_update)
         if file.external_id is not None:
             pAndIdFiles[file.external_id] = file
@@ -374,7 +376,7 @@ def get_existing_annotations(
 
         for anno in annotationList or []:
             # only get old annotations created by this app - do not thouch manual or other created annotations
-            if anno.creating_app == creatingApp:
+            if anno.creating_app == CREATING_APP:
                 annotated_resource_id = anno.annotated_resource_id
                 if annotated_resource_id not in annotatedFileText:
                     annotatedFileText[annotated_resource_id] = [anno.id]
@@ -474,8 +476,8 @@ def process_files(
 
             # create a string of matched tag - to be added to metadata
             assetNames = ",".join(map(str, entities_name_found))
-            if len(assetNames) > maxLengthMetadata:
-                assetNames = assetNames[0:maxLengthMetadata] + "..."
+            if len(assetNames) > MAX_LENGTH_METADATA:
+                assetNames = assetNames[0:MAX_LENGTH_METADATA] + "..."
 
             file_asset_ids = list(file.asset_ids) if file.asset_ids else []
 
@@ -500,7 +502,7 @@ def process_files(
                     my_update = (
                         FileMetadataUpdate(id=file.id)
                         .asset_ids.set(assetIdsList)
-                        .metadata.add({file_annotated: convert_date_time, "tags": assetNames})
+                        .metadata.add({FILE_ANNOTATED: convert_date_time, "tags": assetNames})
                     )
                     updateOrgFiles(cognite_client, my_update, file.external_id)
                 except Exception as e:
@@ -520,7 +522,7 @@ def process_files(
             if "KeyError" in r:
                 convert_date_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
                 my_update = FileMetadataUpdate(id=file.id).metadata.add(
-                    {file_annotated: convert_date_time, annotationErrorMsg: msg}
+                    {FILE_ANNOTATED: convert_date_time, ANNOTATION_ERROR_MSG: msg}
                 )
                 updateOrgFiles(cognite_client, my_update, file.external_id)
             pass
@@ -587,11 +589,11 @@ def detect_create_annotation(
         detectedSytemNum, numDetected = getSysNums(job.result["items"][0]["annotations"], numDetected)
         for item in job.result["items"][0]["annotations"]:
             if item["entities"][0]["type"] == "file":
-                annotationType = fileAnnotationType
+                annotationType = FILE_ANNOTATION_TYPE
                 refType = "fileRef"
                 txtValue = item["entities"][0]["orgName"]
             else:
-                annotationType = assetAnnotationType
+                annotationType = ASSET_ANNOTATION_TYPE
                 refType = "assetRef"
                 txtValue = item["entities"][0]["orgName"]
                 entities_name_found.append(item["entities"][0]["name"][0])
@@ -606,18 +608,18 @@ def detect_create_annotation(
                     sysNumFound = sysTokenFound[0]
                     # if missing system number is in > 30% of the tag asume it's correct - else create suggestion
                     if sysNumFound in detectedSytemNum and detectedSytemNum[sysNumFound] / numDetected > 0.3:
-                        annotationStatus = annotationStatusAproved
+                        annotationStatus = ANNOTATION_STATUS_APPROVED
                     else:
-                        annotationStatus = annotationStatusSuggested
+                        annotationStatus = ANNOTATION_STATUS_SUGGESTED
                 else:
                     continue
 
             elif item["confidence"] >= matchTreshold and len(item["entities"]) == 1:
-                annotationStatus = annotationStatusAproved
+                annotationStatus = ANNOTATION_STATUS_APPROVED
 
             # If there are long asset names a lower confidence is ok to create a suggestion
             elif item["confidence"] >= 0.5 and item["entities"][0]["type"] == "asset" and len(tokens) > 5:
-                annotationStatus = annotationStatusSuggested
+                annotationStatus = ANNOTATION_STATUS_SUGGESTED
             else:
                 continue
 
@@ -639,10 +641,10 @@ def detect_create_annotation(
                 annotation_type=annotationType,
                 data=annotationData,
                 status=annotationStatus,
-                annotated_resource_type=annotatedResourceType,
+                annotated_resource_type=ANNOTATION_RESOURCE_TYPE,
                 annotated_resource_id=annotatedResourceId,
-                creating_app=creatingApp,
-                creating_app_version=creatingAppVersion,
+                creating_app=CREATING_APP,
+                creating_app_version=CREATING_APPVERSION,
                 creating_user=f"job.{job.job_id}",
             )
 
