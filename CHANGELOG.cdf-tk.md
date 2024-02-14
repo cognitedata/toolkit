@@ -15,7 +15,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.1.0b8] - 2024-02-14
 
 ### Added
 
@@ -33,6 +33,7 @@ Changes are grouped as follows:
   and thus fail in the `cdf-tk deploy/clean` step. This is now fixed.
 - When running `cdf-tk deploy` the prefixed number on resource file was not used to sort the deployment order.
   This is now fixed.
+- Fixed a bug that caused Extraction Pipeline Config update to fail
 
 ## [0.1.0b7] - 2024-02-07
 
