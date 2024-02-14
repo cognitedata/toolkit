@@ -10,5 +10,5 @@ config:
     docTypeMetaCol: "doc_type"
     pAndIdDocType: "PNID"
     assetRootExtIds: [workmate:VAL]
-    matchTreshold: 0.85
+    matchThreshold: 0.85
    
