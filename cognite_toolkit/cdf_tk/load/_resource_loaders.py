@@ -1232,6 +1232,10 @@ class ExtractionPipelineConfigLoader(
     def create(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
 
+    # configs cannot be updated, instead new revision is created
+    def update(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
+        return self.create(items)
+
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:
         retrieved = ExtractionPipelineConfigList([])
         for external_id in ids:
