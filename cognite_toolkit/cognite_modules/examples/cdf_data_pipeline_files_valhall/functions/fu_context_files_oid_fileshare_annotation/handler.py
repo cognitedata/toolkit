@@ -20,6 +20,7 @@ from cognite.client.data_classes import (
     FileMetadata,
     FileMetadataUpdate,
 )
+from cognite.client.data_classes.contextualization import DiagramDetectResults
 from cognite.client.exceptions import CogniteAPIError
 from cognite.logger import configure_logger
 
@@ -86,6 +87,15 @@ class Entity:
     name: list[str]
     id: int
     type: str = "file"
+
+    def dump(self) -> dict[str, Any]:
+        return {
+            "externalId": self.external_id,
+            "orgName": self.org_name,
+            "name": self.name,
+            "id": self.id,
+            "type": self.type,
+        }
 
 
 def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info: dict) -> dict:
@@ -469,9 +479,9 @@ def process_files(
             )
 
             # create a string of matched tag - to be added to metadata
-            assetNames = ",".join(map(str, entities_name_found))
-            if len(assetNames) > MAX_LENGTH_METADATA:
-                assetNames = assetNames[0:MAX_LENGTH_METADATA] + "..."
+            asset_names = ",".join(map(str, entities_name_found))
+            if len(asset_names) > MAX_LENGTH_METADATA:
+                asset_names = asset_names[0:MAX_LENGTH_METADATA] + "..."
 
             file_asset_ids = list(file.asset_ids) if file.asset_ids else []
 
@@ -496,9 +506,9 @@ def process_files(
                     my_update = (
                         FileMetadataUpdate(id=file.id)
                         .asset_ids.set(asset_ids_list)
-                        .metadata.add({FILE_ANNOTATED_METADATA_KEY: convert_date_time, "tags": assetNames})
+                        .metadata.add({FILE_ANNOTATED_METADATA_KEY: convert_date_time, "tags": asset_names})
                     )
-                    updateOrgFiles(cognite_client, my_update, file.external_id)
+                    safe_files_update(cognite_client, my_update, file.external_id)
                 except Exception as e:
                     s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
                     logger.warning(f"Not able to update refrence doc : {file_id} - {s}  - {r}")
@@ -506,7 +516,7 @@ def process_files(
 
             else:
                 logger.info(f"Converted and created (not upload due to DEBUG) file: {file_id}")
-                logger.info(f"Assets found: {assetNames}")
+                logger.info(f"Assets found: {asset_names}")
 
         except Exception as e:
             error_count += 1
@@ -518,7 +528,7 @@ def process_files(
                 my_update = FileMetadataUpdate(id=file.id).metadata.add(
                     {FILE_ANNOTATED_METADATA_KEY: convert_date_time, ANNOTATION_ERROR_MSG: msg}
                 )
-                updateOrgFiles(cognite_client, my_update, file.external_id)
+                safe_files_update(cognite_client, my_update, file.external_id)
             pass
 
     return annotated_count, error_count
@@ -527,60 +537,40 @@ def process_files(
 def detect_create_annotation(
     cognite_client: CogniteClient,
     match_threshold: float,
-    fileId: str,
-    entities: list,
-    annotationList: dict,
+    file_id: str,
+    entities: list[Entity],
+    annotation_list: dict[Optional[int], list[Optional[int]]],
 ) -> tuple[list[Any], list[Any]]:
     """
     Detect tags + files and create annotation for P&ID
 
-    :param cognite_client: client id used to connect to CDF
-    :param match_threshold: score used to qualify match
-    :param fileId: file to be processed
-    :param entities: list of input entities that are used to match content in file
-    :param annotationList: list of existing annotations for input files
+    Args:
+        cognite_client: client id used to connect to CDF
+        match_threshold: score used to qualify match
+        file_id: file to be processed
+        entities: list of input entities that are used to match content in file
+        annotation_list: list of existing annotations for input files
 
-    :returns: list of found ID and names in P&ID
+    Returns:
+        list of found entities and list of found entities ids
+
     """
-
     entities_id_found = []
     entities_name_found = []
     createAnnotationList: list[Annotation] = []
     deleteAnnotationList: list[int] = []
     numDetected = 0
 
-    # in case contextualization service not is avaiable - back off and retry
-    retryNum = 0
-    while retryNum < 3:
-        try:
-            job = cognite_client.diagrams.detect(
-                file_external_ids=[fileId],
-                search_field="name",
-                entities=entities,
-                partial_match=True,
-                min_tokens=2,
-            )
-            break
-        except Exception as e:
-            s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-            # retry func if CDF api returns an error
-            if retryNum < 3:
-                retryNum += 1
-                logger.warning(f"Retry #{retryNum} - wait before retry - error was: {s}  - {r}")
-                time.sleep(retryNum * 5)
-                pass
-            else:
-                msg = f"ERROR: Failed to detect entities, Message: {s}  - {r}"
-                logger.error(msg)
-                raise Exception(msg)
+    # in case contextualization service not is available - back off and retry
+    job = retrieve_diagram_with_retry(cognite_client, entities, file_id)
 
     if "items" in job.result and len(job.result["items"]) > 0:
-        # build list of annotation BEFORE filtering on matchTreshold
-        annotatedResourceId = job.result["items"][0]["fileId"]
-        if annotatedResourceId in annotationList:
-            deleteAnnotationList.extend(annotationList[annotatedResourceId])
+        # build list of annotation BEFORE filtering on matchThreshold
+        annotated_resource_id = job.result["items"][0]["fileId"]
+        if annotated_resource_id in annotation_list:
+            deleteAnnotationList.extend(annotation_list[annotated_resource_id])
 
-        detectedSytemNum, numDetected = getSysNums(job.result["items"][0]["annotations"], numDetected)
+        detectedSytemNum, numDetected = get_sys_nums(job.result["items"][0]["annotations"], numDetected)
         for item in job.result["items"][0]["annotations"]:
             if item["entities"][0]["type"] == "file":
                 annotationType = FILE_ANNOTATION_TYPE
@@ -617,7 +607,7 @@ def detect_create_annotation(
             else:
                 continue
 
-            xMin, xMax, yMin, yMax = getCord(item["region"]["vertices"])
+            xMin, xMax, yMin, yMax = get_coordinates(item["region"]["vertices"])
 
             annotationData = {
                 refType: {"externalId": item["entities"][0]["externalId"]},
@@ -636,7 +626,7 @@ def detect_create_annotation(
                 data=annotationData,
                 status=annotationStatus,
                 annotated_resource_type=ANNOTATION_RESOURCE_TYPE,
-                annotated_resource_id=annotatedResourceId,
+                annotated_resource_id=annotated_resource_id,
                 creating_app=CREATING_APP,
                 creating_app_version=CREATING_APPVERSION,
                 creating_user=f"job.{job.job_id}",
@@ -652,7 +642,7 @@ def detect_create_annotation(
         if len(createAnnotationList) > 0:
             cognite_client.annotations.create(createAnnotationList)
 
-        deleteAnnotations(deleteAnnotationList, cognite_client)
+        delete_annotations(deleteAnnotationList, cognite_client)
 
         # sort / deduplicate list of names and id
         entities_name_found = list(dict.fromkeys(entities_name_found))
@@ -661,7 +651,35 @@ def detect_create_annotation(
     return entities_name_found, entities_id_found
 
 
-def getSysNums(annotations: Any, numDetected: int) -> dict[str, int]:
+def retrieve_diagram_with_retry(
+    cognite_client: CogniteClient, entities: list[Entity], file_id: str, retries: int = 3
+) -> DiagramDetectResults:
+    retry_num = 0
+    while retry_num < retries:
+        try:
+            job = cognite_client.diagrams.detect(
+                file_external_ids=[file_id],
+                search_field="name",
+                entities=[e.dump() for e in entities],
+                partial_match=True,
+                min_tokens=2,
+            )
+            return job
+        except Exception as e:
+            s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
+            # retry func if CDF api returns an error
+            if retry_num < 3:
+                retry_num += 1
+                logger.warning(f"Retry #{retry_num} - wait before retry - error was: {s}  - {r}")
+                time.sleep(retry_num * 5)
+            else:
+                msg = f"ERROR: Failed to detect entities, Message: {s}  - {r}"
+                logger.error(msg)
+                raise Exception(msg)
+    raise Exception("Failed to detect entities - max retries reached")
+
+
+def get_sys_nums(annotations: Any, detected_count: int) -> tuple[dict[str, int], int]:
     """
     Get dict of used system number in P&ID. The dict is used to annotate if system
     number is missing - but then only annotation of found text is part of most
@@ -673,22 +691,22 @@ def getSysNums(annotations: Any, numDetected: int) -> dict[str, int]:
     :returns: dict of system numbers and number of times used.
     """
 
-    detectedSytemNum = {}
+    detected_sytem_num = {}
 
     for item in annotations:
         tokens = item["text"].split("-")
         if len(tokens) == 3:
-            sysNum = tokens[0]
-            numDetected += 1
-            if sysNum in detectedSytemNum:
-                detectedSytemNum[sysNum] += 1
+            sys_num = tokens[0]
+            detected_count += 1
+            if sys_num in detected_sytem_num:
+                detected_sytem_num[sys_num] += 1
             else:
-                detectedSytemNum[sysNum] = 1
+                detected_sytem_num[sys_num] = 1
 
-    return detectedSytemNum, numDetected
+    return detected_sytem_num, detected_count
 
 
-def getCord(vertices: dict) -> tuple[int, int, int, int]:
+def get_coordinates(vertices: dict) -> tuple[int, int, int, int]:
     """
     Get coordinates for text box based on input from contextualization
     and convert it to coordinates used in annotations.
@@ -698,45 +716,45 @@ def getCord(vertices: dict) -> tuple[int, int, int, int]:
     :returns: coordinates used by annotations.
     """
 
-    initValues = True
+    init_values = True
 
     for vert in vertices:
         # Values must be between 0 and 1
         x = 1 if vert["x"] > 1 else vert["x"]
         y = 1 if vert["y"] > 1 else vert["y"]
 
-        if initValues:
-            xMax = x
-            xMin = x
-            yMax = y
-            yMin = y
-            initValues = False
+        if init_values:
+            x_max = x
+            x_min = x
+            y_max = y
+            y_min = y
+            init_values = False
         else:
-            if x > xMax:
-                xMax = x
-            elif x < xMin:
-                xMin = x
-            if y > yMax:
-                yMax = y
-            elif y < yMin:
-                yMin = y
+            if x > x_max:
+                x_max = x
+            elif x < x_min:
+                x_min = x
+            if y > y_max:
+                y_max = y
+            elif y < y_min:
+                y_min = y
 
-        if xMin == xMax:
-            if xMin > 0.001:
-                xMin -= 0.001
+        if x_min == x_max:
+            if x_min > 0.001:
+                x_min -= 0.001
             else:
-                xMax += 0.001
+                x_max += 0.001
 
-        if yMin == yMax:
-            if yMin > 0.001:
-                yMin -= 0.001
+        if y_min == y_max:
+            if y_min > 0.001:
+                y_min -= 0.001
             else:
-                yMax += 0.001
+                y_max += 0.001
 
-    return xMin, xMax, yMin, yMax
+    return x_min, x_max, y_min, y_max
 
 
-def deleteAnnotations(deleteAnnotationList: list, cognite_client: CogniteClient) -> None:
+def delete_annotations(deleteAnnotationList: list[int], cognite_client: CogniteClient) -> None:
     """
     Clean up / delete exising annotatoions
 
@@ -745,38 +763,39 @@ def deleteAnnotations(deleteAnnotationList: list, cognite_client: CogniteClient)
 
     :returns: None
     """
-
+    if len(deleteAnnotationList) == 0:
+        return
     try:
-        if len(deleteAnnotationList) > 0:
-            deleteL = list(set(deleteAnnotationList))
-            cognite_client.annotations.delete(deleteL)
+        unique_annotations = list(set(deleteAnnotationList))
+        cognite_client.annotations.delete(unique_annotations)
     except Exception as e:
         s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
         msg = f"Failed to delete annotations, Message: {s}  - {r}"
         logger.warning(msg)
-        pass
 
 
-def updateOrgFiles(
+def safe_files_update(
     cognite_client: CogniteClient,
-    my_updates: FileMetadataUpdate,
-    fileExtId: str,
+    my_updates: FileMetadataUpdate | list[FileMetadataUpdate],
+    file_ext_id: str,
 ) -> None:
     """
     Update metadata of original pdf files wit list of tags
 
-    :param cognite_client: Dict of files found based on filter
-    :param my_updates:
+    Catch exception and log error if update fails
+
+    Args:
+        cognite_client: client id used to connect to CDF
+        my_updates: list of updates to be done
+        file_ext_id: file to be updated
     """
 
     try:
         # write updates for existing files
         cognite_client.files.update(my_updates)
-
     except Exception as e:
         s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-        logger.error(f"Failed to update the file {fileExtId}, Message: {s}  - {r}")
-        pass
+        logger.error(f"Failed to update the file {file_ext_id}, Message: {s}  - {r}")
 
 
 def main():
@@ -785,28 +804,28 @@ def main():
     update local .env file to set variables to connect to CDF
     """
 
-    cdfProjectName = os.environ["CDF_PROJECT"]
-    cdfCluster = os.environ["CDF_CLUSTER"]
-    clientId = os.environ["IDP_CLIENT_ID"]
-    clientSecret = os.environ["IDP_CLIENT_SECRET"]
-    tokenUri = os.environ["IDP_TOKEN_URL"]
+    cdf_project_name = os.environ["CDF_PROJECT"]
+    cdf_cluster = os.environ["CDF_CLUSTER"]
+    client_id = os.environ["IDP_CLIENT_ID"]
+    client_secret = os.environ["IDP_CLIENT_SECRET"]
+    token_uri = os.environ["IDP_TOKEN_URL"]
 
-    baseUrl = f"https://{cdfCluster}.cognitedata.com"
-    scopes = f"{baseUrl}/.default"
+    base_url = f"https://{cdf_cluster}.cognitedata.com"
+    scopes = f"{base_url}/.default"
     secrets = {"mySecrets": "Values"}
     function_call_info = {"Debugging": "Called from Function main "}
 
     oauth_provider = OAuthClientCredentials(
-        token_url=tokenUri,
-        client_id=clientId,
-        client_secret=clientSecret,
-        scopes=scopes,
+        token_url=token_uri,
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=[scopes],
     )
 
     cnf = ClientConfig(
-        client_name=cdfProjectName,
-        base_url=baseUrl,
-        project=cdfProjectName,
+        client_name=cdf_project_name,
+        base_url=base_url,
+        project=cdf_project_name,
         credentials=oauth_provider,
     )
 
