@@ -10,7 +10,7 @@ version: '0.0.1'
 # location based on OID example data
 location_name: oid
 
-# spesify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
+# specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
 source_name: fileshare  
 files_dataset: ds_files_oid
 pause_transformations: true
@@ -21,4 +21,3 @@ files_raw_input_table: files_metadata
 files_location_extractor_group_source_id: <change_me>
 files_location_processing_group_source_id: <change_me>
 files_location_read_group_source_id: <change_me>
-
