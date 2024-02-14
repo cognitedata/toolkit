@@ -6,7 +6,7 @@ This module relies on these example data modules being loaded:
 - cdf_data_pipeline_asset_valhall
 
 The module creates a simple data pipeline for processing files from the OID example module.
-The processing here is related to the annotation/contextualization mapping of tags in P&ID documents 
+The processing here is related to the annotation/contextualization mapping of tags in P&ID documents
 to assets in the asset hierarchy.
 
 OID is used as the examle location name.
@@ -27,8 +27,8 @@ This module manages the following resources:
      - Content: Authorization group used for processing the files, running transformation,
        function (contextualization) and updating files
    - Name: `gp_files_oid_read`
-     - Content: Authorization group used by the users reading files and annotations 
-        
+     - Content: Authorization group used by the users reading files and annotations
+
 2. data set:
    - ID: `ds_files_oid`
      - Content: Data lineage, used Links to used extraction pipelines, transformation and raw tabels
