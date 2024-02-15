@@ -371,64 +371,83 @@ def process_config_files(
         # The custom key 'sort_key' is to get the sort on integer and not the string.
         filepaths = sorted(filepaths, key=sort_key)
 
+        # Initialise for auth, other resource folders will be added as they are found
+        all_files: dict[str, dict[str, list[Path]]] = {
+            "auth": {
+                "resource_files": [],
+                "other_files": [],
+            }
+        }
         for filepath in filepaths:
-            if verbose:
-                print(f"    [bold green]INFO:[/] Processing {filepath.name}")
+            try:
+                resource_folder = resource_folder_from_path(filepath)
+            except ValueError:
+                print(
+                    f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
+                )
+                continue
+            if resource_folder not in all_files:
+                all_files[resource_folder] = {
+                    "resource_files": [],
+                    "other_files": [],
+                }
+            if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
+                all_files[resource_folder]["resource_files"].append(filepath)
+            else:
+                all_files[resource_folder]["other_files"].append(filepath)
 
-            if filepath.suffix.lower() not in PROC_TMPL_VARS_SUFFIX:
+        for resource_folder in all_files:
+            for filepath in all_files[resource_folder]["other_files"]:
                 # Copy the file as is, not variable replacement
                 destination = build_dir / filepath.parent.name / filepath.name
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(filepath, destination)
-                continue
 
-            content = filepath.read_text()
-            content = replace_variables(content, local_config)
-            filename = create_file_name(filepath, number_by_resource_type)
+            for filepath in all_files[resource_folder]["resource_files"]:
+                if verbose:
+                    print(f"    [bold green]INFO:[/] Processing {filepath.name}")
 
-            try:
-                resource_folder = resource_folder_from_path(filepath)
-            except ValueError:
-                print(f"      [bold green]INFO:[/] The file {filepath.name} is not a resource file, skipping it...")
-                continue
+                content = filepath.read_text()
+                content = replace_variables(content, local_config)
+                filename = create_file_name(filepath, number_by_resource_type)
 
-            destination = build_dir / resource_folder / filename
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            if resource_folder == "timeseries_datapoints" and filepath.suffix.lower() == ".csv":
-                # Special case for timeseries datapoints, we want to timeshit datapoints
-                # if the file is a csv file and we have been instructed to.
-                # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-                file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
-                if "timeshift_" in data.index.name:
-                    print(
-                        "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
-                    )
-                    data.index.name = data.index.name.replace("timeshift_", "")
-                    data.index = pd.DatetimeIndex(data.index)
-                    periods = datetime.datetime.today() - data.index[-1]
-                    data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
-                    destination.write_text(data.to_csv())
+                destination = build_dir / resource_folder / filename
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                if resource_folder == "timeseries_datapoints" and filepath.suffix.lower() == ".csv":
+                    # Special case for timeseries datapoints, we want to timeshit datapoints
+                    # if the file is a csv file and we have been instructed to.
+                    # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+                    file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+                    data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
+                    if "timeshift_" in data.index.name:
+                        print(
+                            "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
+                        )
+                        data.index.name = data.index.name.replace("timeshift_", "")
+                        data.index = pd.DatetimeIndex(data.index)
+                        periods = datetime.datetime.today() - data.index[-1]
+                        data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
+                        destination.write_text(data.to_csv())
+                    else:
+                        destination.write_text(content)
                 else:
                     destination.write_text(content)
-            else:
-                destination.write_text(content)
 
-            validate(content, destination, filepath, modules_by_variables)
+                validate(content, destination, filepath, modules_by_variables)
 
-            # If we have a function definition, we want to process the directory.
-            if (
-                resource_folder == "functions"
-                and filepath.suffix.lower() == ".yaml"
-                and re.match(FunctionLoader.filename_pattern, filepath.stem)
-            ):
-                process_function_directory(
-                    yaml_source_path=filepath,
-                    yaml_dest_path=destination,
-                    module_dir=module_dir,
-                    build_dir=build_dir,
-                    common_code_dir=Path(project_config_dir / environment.common_function_code),
-                )
+                # If we have a function definition, we want to process the directory.
+                if (
+                    resource_folder == "functions"
+                    and filepath.suffix.lower() == ".yaml"
+                    and re.match(FunctionLoader.filename_pattern, filepath.stem)
+                ):
+                    process_function_directory(
+                        yaml_source_path=filepath,
+                        yaml_dest_path=destination,
+                        module_dir=module_dir,
+                        build_dir=build_dir,
+                        common_code_dir=Path(project_config_dir / environment.common_function_code),
+                    )
 
 
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
