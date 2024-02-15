@@ -72,6 +72,10 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
     modules: dict[str, Any]
 
+    @property
+    def available_modules(self) -> list[str]:
+        raise NotImplementedError()
+
     @classmethod
     def _file_name(cls, build_env: str) -> str:
         return f"config.{build_env}.yaml"
