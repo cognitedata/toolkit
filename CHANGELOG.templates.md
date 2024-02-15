@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Changed
+
+- In cdf_oid_example_data, the filename prefixes have been removed from the filenames and instead the new name template
+  functionality is used to prefix the filenames as part of the build step.
+
 ## [0.1.0b8] - 2024-02-14
 
 No changes to templates.

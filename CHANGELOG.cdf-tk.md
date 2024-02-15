@@ -15,6 +15,20 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Support for using a template for file names `name: prefix_$FILENAME_suffix` in the `files` resource. The files will be
+  processed and renamed as part of the build step.
+
+### Changes
+
+- Files in module directories that do not live in a recognised resource directory will be skipped when building. If
+  verbose is enabled, a warning will be printed for each skipped file.
+- Only .yaml files in functions resource folders and the defined function sub-directories will be processed as part of
+  building.
+
 ## [0.1.0b8] - 2024-02-14
 
 ### Added
