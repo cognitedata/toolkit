@@ -15,7 +15,9 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.1.0b8] - 2024-02-14
+
+No changes to templates.
 
 ## [0.1.0b7] - 2024-02-07
 

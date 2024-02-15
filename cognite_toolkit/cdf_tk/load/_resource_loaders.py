@@ -201,7 +201,6 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
     @staticmethod
     def _substitute_scope_ids(group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
-
         for capability in group.get("capabilities", []):
             for acl, values in capability.items():
                 scope = values.get("scope", {})
@@ -1237,6 +1236,10 @@ class ExtractionPipelineConfigLoader(
 
     def create(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
+
+    # configs cannot be updated, instead new revision is created
+    def update(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
+        return self.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:
         retrieved = ExtractionPipelineConfigList([])
