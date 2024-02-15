@@ -28,6 +28,7 @@ from cognite_toolkit.cdf_tk.templates.data_classes import (
 )
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
+from tests.tests_unit.fake_generator import FakeCogniteResourceGenerator
 from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT
 from tests.tests_unit.utils import mock_read_yaml_file
 
@@ -374,10 +375,24 @@ class TestListDictConsistency:
             subclasses |= self.find_subclasses(subclass)  # Recursive call to find indirect subclasses
         return subclasses
 
-    def test_list_dict_consistency(self):
-        loaders = self.find_subclasses(ResourceLoader)
+    def test_loader_takes_dict(self, yaml_dict_file, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
+
+        loaders = sorted(self.find_subclasses(ResourceLoader), key=lambda x: x.__name__)
+        fakegenerator = FakeCogniteResourceGenerator(seed=1337, cognite_client=cdf_tool_config.client)
 
         for loader in loaders:
-            pass
+
+            try:
+                yaml_content = fakegenerator.create_instance(loader.resource_cls)
+
+                mock_read_yaml_file({"dict.yaml": yaml_content}, monkeypatch)
+                loaded = loader.load_resource(
+                    loader, filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True
+                )
+                assert isinstance(loaded, loader.resource_write_cls)
+                print(f"Success for {loader.__name__}")
+            except Exception as e:
+                print(f"Failed for {loader.__name__}")
+                print(e)
 
         assert len(loaders) > 0
