@@ -184,6 +184,8 @@ def annotate_p_and_id(cognite_client: CogniteClient, config: AnnotationConfig) -
 
             if len(entities) > 0:
                 annotation_list = get_existing_annotations(cognite_client, entities)
+            else:
+                annotation_list = {}
 
             annotated_count = 0
             error_count = 0
@@ -219,7 +221,6 @@ def annotate_p_and_id(cognite_client: CogniteClient, config: AnnotationConfig) -
                     message=msg,
                 )
             )
-            pass
 
 
 def get_files(
@@ -314,7 +315,7 @@ def update_file_metadata(
 
 def get_files_entities(p_and_id_files: dict[str, FileMetadata]) -> list[Entity]:
     """
-    Loop found P&ID files and create list of enties used for matching against file names in P&ID
+    Loop found P&ID files and create a list of entities used for matching against file names in P&ID
 
     Args:
         p_and_id_files: Dict of files found based on filter
@@ -469,13 +470,13 @@ def process_files(
     error_count = 0
     annotation_list = annotation_list or {}
 
-    for file_id, file in files.items():
-        logger.info(f"Parse and annotate, input file: {file_id}")
+    for file_ext_id, file in files.items():
+        logger.info(f"Parse and annotate, input file: {file_ext_id}")
 
         try:
             # contextualize, create annotation and get list of matched tags
             entities_name_found, entities_id_found = detect_create_annotation(
-                cognite_client, config.match_threshold, file_id, entities, annotation_list
+                cognite_client, config.match_threshold, file_ext_id, entities, annotation_list
             )
 
             # create a string of matched tag - to be added to metadata
@@ -511,11 +512,11 @@ def process_files(
                     safe_files_update(cognite_client, my_update, file.external_id)
                 except Exception as e:
                     s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-                    logger.warning(f"Not able to update refrence doc : {file_id} - {s}  - {r}")
+                    logger.warning(f"Not able to update reference doc : {file_ext_id} - {s}  - {r}")
                     pass
 
             else:
-                logger.info(f"Converted and created (not upload due to DEBUG) file: {file_id}")
+                logger.info(f"Converted and created (not upload due to DEBUG) file: {file_ext_id}")
                 logger.info(f"Assets found: {asset_names}")
 
         except Exception as e:
@@ -529,7 +530,6 @@ def process_files(
                     {FILE_ANNOTATED_METADATA_KEY: convert_date_time, ANNOTATION_ERROR_MSG: msg}
                 )
                 safe_files_update(cognite_client, my_update, file.external_id)
-            pass
 
     return annotated_count, error_count
 
@@ -537,7 +537,7 @@ def process_files(
 def detect_create_annotation(
     cognite_client: CogniteClient,
     match_threshold: float,
-    file_id: str,
+    file_ext_id: str,
     entities: list[Entity],
     annotation_list: dict[Optional[int], list[Optional[int]]],
 ) -> tuple[list[Any], list[Any]]:
@@ -547,7 +547,7 @@ def detect_create_annotation(
     Args:
         cognite_client: client id used to connect to CDF
         match_threshold: score used to qualify match
-        file_id: file to be processed
+        file_ext_id: file to be processed
         entities: list of input entities that are used to match content in file
         annotation_list: list of existing annotations for input files
 
@@ -557,74 +557,75 @@ def detect_create_annotation(
     """
     entities_id_found = []
     entities_name_found = []
-    createAnnotationList: list[Annotation] = []
-    deleteAnnotationList: list[int] = []
-    numDetected = 0
+    create_annotation_list: list[Annotation] = []
+    to_delete_annotation_list: list[int] = []
+    detected_count = 0
 
     # in case contextualization service not is available - back off and retry
-    job = retrieve_diagram_with_retry(cognite_client, entities, file_id)
+    job = retrieve_diagram_with_retry(cognite_client, entities, file_ext_id)
 
     if "items" in job.result and len(job.result["items"]) > 0:
-        # build list of annotation BEFORE filtering on matchThreshold
+        # build a list of annotation BEFORE filtering on matchThreshold
         annotated_resource_id = job.result["items"][0]["fileId"]
         if annotated_resource_id in annotation_list:
-            deleteAnnotationList.extend(annotation_list[annotated_resource_id])
+            to_delete_annotation_list.extend(annotation_list[annotated_resource_id])
 
-        detectedSytemNum, numDetected = get_sys_nums(job.result["items"][0]["annotations"], numDetected)
+        detected_sytem_num, detected_count = get_sys_nums(job.result["items"][0]["annotations"], detected_count)
         for item in job.result["items"][0]["annotations"]:
             if item["entities"][0]["type"] == "file":
-                annotationType = FILE_ANNOTATION_TYPE
-                refType = "fileRef"
-                txtValue = item["entities"][0]["orgName"]
+                annotation_type = FILE_ANNOTATION_TYPE
+                ref_type = "fileRef"
+                txt_value = item["entities"][0]["orgName"]
             else:
-                annotationType = ASSET_ANNOTATION_TYPE
-                refType = "assetRef"
-                txtValue = item["entities"][0]["orgName"]
+                annotation_type = ASSET_ANNOTATION_TYPE
+                ref_type = "assetRef"
+                txt_value = item["entities"][0]["orgName"]
                 entities_name_found.append(item["entities"][0]["name"][0])
                 entities_id_found.append(item["entities"][0]["id"])
 
             # logic to create suggestions for annotations if system number is missing from tag in P&ID
-            # but suggestion matches most frequent system number from P&ID
+            # but a suggestion matches the most frequent system number from P&ID
             tokens = item["text"].split("-")
             if len(tokens) == 2 and item["confidence"] >= match_threshold and len(item["entities"]) == 1:
-                sysTokenFound = item["entities"][0]["name"][0].split("-")
-                if len(sysTokenFound) == 3:
-                    sysNumFound = sysTokenFound[0]
-                    # if missing system number is in > 30% of the tag asume it's correct - else create suggestion
-                    if sysNumFound in detectedSytemNum and detectedSytemNum[sysNumFound] / numDetected > 0.3:
-                        annotationStatus = ANNOTATION_STATUS_APPROVED
+                sys_token_found = item["entities"][0]["name"][0].split("-")
+                if len(sys_token_found) == 3:
+                    sys_num_found = sys_token_found[0]
+                    # if missing system number is in > 30% of the tag assume that it's correct -
+                    # else create a suggestion
+                    if sys_num_found in detected_sytem_num and detected_sytem_num[sys_num_found] / detected_count > 0.3:
+                        annotation_status = ANNOTATION_STATUS_APPROVED
                     else:
-                        annotationStatus = ANNOTATION_STATUS_SUGGESTED
+                        annotation_status = ANNOTATION_STATUS_SUGGESTED
                 else:
                     continue
 
             elif item["confidence"] >= match_threshold and len(item["entities"]) == 1:
-                annotationStatus = ANNOTATION_STATUS_APPROVED
+                annotation_status = ANNOTATION_STATUS_APPROVED
 
             # If there are long asset names a lower confidence is ok to create a suggestion
             elif item["confidence"] >= 0.5 and item["entities"][0]["type"] == "asset" and len(tokens) > 5:
-                annotationStatus = ANNOTATION_STATUS_SUGGESTED
+                annotation_status = ANNOTATION_STATUS_SUGGESTED
             else:
                 continue
 
-            xMin, xMax, yMin, yMax = get_coordinates(item["region"]["vertices"])
+            x_min, x_max, y_min, y_max = get_coordinates(item["region"]["vertices"])
 
-            annotationData = {
-                refType: {"externalId": item["entities"][0]["externalId"]},
+            annotation_data = {
+                ref_type: {"externalId": item["entities"][0]["externalId"]},
                 "pageNumber": item["region"]["page"],
-                "text": txtValue,
+                "text": txt_value,
                 "textRegion": {
-                    "xMax": xMax,
-                    "xMin": xMin,
-                    "yMax": yMax,
-                    "yMin": yMin,
+                    "xMax": x_max,
+                    "xMin": x_min,
+                    "yMax": y_max,
+                    "yMin": y_min,
                 },
             }
 
-            fileAnnotation = Annotation(
-                annotation_type=annotationType,
-                data=annotationData,
-                status=annotationStatus,
+            file_annotation = Annotation(
+                annotation_type=annotation_type,
+                data=annotation_data,
+                status=annotation_status,
                 annotated_resource_type=ANNOTATION_RESOURCE_TYPE,
                 annotated_resource_id=annotated_resource_id,
                 creating_app=CREATING_APP,
@@ -632,17 +633,17 @@ def detect_create_annotation(
                 creating_user=f"job.{job.job_id}",
             )
 
-            createAnnotationList.append(fileAnnotation)
+            create_annotation_list.append(file_annotation)
 
-            # can only create 1000 annotations at the time.
-            if len(createAnnotationList) >= 999:
-                cognite_client.annotations.create(createAnnotationList)
-                createAnnotationList = []
+            # can only create 1000 annotations at a time.
+            if len(create_annotation_list) >= 999:
+                cognite_client.annotations.create(create_annotation_list)
+                create_annotation_list = []
 
-        if len(createAnnotationList) > 0:
-            cognite_client.annotations.create(createAnnotationList)
+        if len(create_annotation_list) > 0:
+            cognite_client.annotations.create(create_annotation_list)
 
-        delete_annotations(deleteAnnotationList, cognite_client)
+        safe_delete_annotations(to_delete_annotation_list, cognite_client)
 
         # sort / deduplicate list of names and id
         entities_name_found = list(dict.fromkeys(entities_name_found))
@@ -680,15 +681,16 @@ def retrieve_diagram_with_retry(
 
 
 def get_sys_nums(annotations: Any, detected_count: int) -> tuple[dict[str, int], int]:
-    """
-    Get dict of used system number in P&ID. The dict is used to annotate if system
+    """Get dict of used system number in P&ID. The dict is used to annotate if system
     number is missing - but then only annotation of found text is part of most
     frequent used system number
 
-    :annotations found by context api
-    :numDetected total number of detected system numbers
+    Args:
+        annotations: list of annotations found by context api
+        detected_count: total number of detected system numbers
 
-    :returns: dict of system numbers and number of times used.
+    Returns:
+        dict of system numbers and number of times used
     """
 
     detected_sytem_num = {}
@@ -707,8 +709,7 @@ def get_sys_nums(annotations: Any, detected_count: int) -> tuple[dict[str, int],
 
 
 def get_coordinates(vertices: dict) -> tuple[int, int, int, int]:
-    """
-    Get coordinates for text box based on input from contextualization
+    """Get coordinates for text box based on input from contextualization
     and convert it to coordinates used in annotations.
 
     :param vertices coordinates from contextualization
@@ -717,6 +718,10 @@ def get_coordinates(vertices: dict) -> tuple[int, int, int, int]:
     """
 
     init_values = True
+    x_max = 0
+    x_min = 0
+    y_max = 0
+    y_min = 0
 
     for vert in vertices:
         # Values must be between 0 and 1
@@ -754,19 +759,21 @@ def get_coordinates(vertices: dict) -> tuple[int, int, int, int]:
     return x_min, x_max, y_min, y_max
 
 
-def delete_annotations(deleteAnnotationList: list[int], cognite_client: CogniteClient) -> None:
+def safe_delete_annotations(delete_annotation_list: list[int], cognite_client: CogniteClient) -> None:
     """
-    Clean up / delete exising annotatoions
+    Clean up / delete exising annotations
 
-    :param deleteAnnotationList: list of annotation IDs to be deleted
-    :param cognite_client: Dict of files found based on filter
+    Handles any exception and log error if delete fails
 
-    :returns: None
+    Args:
+
+        delete_annotation_list: list of annotation IDs to be deleted
+        cognite_client: Dict of files found based on filter
     """
-    if len(deleteAnnotationList) == 0:
+    if len(delete_annotation_list) == 0:
         return
+    unique_annotations = list(set(delete_annotation_list))
     try:
-        unique_annotations = list(set(deleteAnnotationList))
         cognite_client.annotations.delete(unique_annotations)
     except Exception as e:
         s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
