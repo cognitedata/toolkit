@@ -382,7 +382,6 @@ class TestListDictConsistency:
 
         for loader in loaders:
 
-            # AuthLoader.create_loader(cdf_tool_config, "all")
             loader = loader.create_loader(cdf_tool_config)
 
             try:
