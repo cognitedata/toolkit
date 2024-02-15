@@ -12,7 +12,6 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 python = ">=3.9,<3.12"
 python-dotenv = "^1.0.0"
 cognite-sdk = {version = ">=7.17.1, <7.18", extras = ["pandas"]}
-cognite-logger = "^0.6"
 pandas = "^2.1.1"
 pyyaml = "^6.0.1"
 chardet = "^5.1.0"
@@ -34,6 +33,7 @@ tomli = { version = "^2.0.1", python = "<3.11" }
 toml = { version = "^0.10.2", python = ">=3.11" }
 pytest-freezegun = "^0.4.2"
 pytest-cov = "^4.1.0"
+cognite-logger = "^0.6"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit.cdf:app"
