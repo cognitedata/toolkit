@@ -7,6 +7,7 @@ import importlib
 import inspect
 import random
 import string
+import types
 import typing
 from collections import Counter
 from typing import TYPE_CHECKING, Any, TypeVar, get_args, get_origin, get_type_hints
@@ -236,12 +237,8 @@ class FakeCogniteResourceGenerator:
             return self._random.choice(list(type_))
         elif isinstance(type_, TypeVar):
             return self.create_value(type_.__bound__)
-        elif inspect.isclass(type_):
-            try:
-                if issubclass(type_, CogniteResourceList):
-                    return type_([self.create_value(type_._RESOURCE) for _ in range(self._random.randint(1, 3))])
-            except TypeError:
-                return type_([self.create_value(type_._RESOURCE) for _ in range(self._random.randint(1, 3))])
+        elif inspect.isclass(type_) and issubclass(type_, CogniteResourceList):
+            return type_([self.create_value(type_._RESOURCE) for _ in range(self._random.randint(1, 3))])
         elif inspect.isclass(type_):
             return self.create_instance(type_)
 
@@ -264,7 +261,7 @@ class FakeCogniteResourceGenerator:
         # Handle containers
         args = get_args(type_)
         first_not_none = next((arg for arg in args if arg is not None), None)
-        if container_type is typing.Union:
+        if container_type is typing.Union or container_type is types.UnionType:
             return self.create_value(first_not_none)
         elif container_type is typing.Literal:
             return self._random.choice(args)

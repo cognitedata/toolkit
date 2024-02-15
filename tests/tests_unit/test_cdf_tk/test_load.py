@@ -379,12 +379,22 @@ def find_subclasses(cls):
 
 class TestListDictConsistency:
     @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
+    def test_fake_resource_generator(
+        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+    ):
+        fakegenerator = FakeCogniteResourceGenerator(seed=1337)
+
+        loader = Loader.create_loader(cdf_tool_config)
+        instance = fakegenerator.create_instance(loader.resource_write_cls)
+
+        assert isinstance(instance, loader.resource_write_cls)
+
+    @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
     def test_loader_takes_dict(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        # AuthLoader.create_loader(cdf_tool_config, "all")
         loader = Loader.create_loader(cdf_tool_config)
         instance = fakegenerator.create_instance(loader.resource_cls)
 
