@@ -22,7 +22,6 @@ from cognite_toolkit.cdf_tk.load._base_loaders import T_ID, T_WritableCogniteRes
 from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
-    iterate_modules,
 )
 from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments
@@ -377,7 +376,7 @@ def pull_command(
     system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, env)
     config = BuildConfigYAML.load_from_directory(source_path, env)
     config.set_environment_variables()
-    config.environment.selected_modules_and_packages = [module.name for module, _ in iterate_modules(source_path)]
+    config.environment.selected_modules_and_packages = config.available_modules
     print(Panel.fit(f"[bold]Building {source_path}...[/]"))
     source_by_build_path = build_config(
         build_dir=build_dir,

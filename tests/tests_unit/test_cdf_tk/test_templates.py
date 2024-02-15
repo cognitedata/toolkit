@@ -332,9 +332,10 @@ class TestBuildConfigYAML:
                             "source_id": "123-456-789",
                         },
                         "parent_module": {
+                            "parent_variable": "my_parent_variable",
                             "child_module": {
                                 "dataset_external_id": "ds_my_dataset",
-                            }
+                            },
                         },
                         "module_without_variables": {},
                     }
@@ -349,4 +350,4 @@ class TestBuildConfigYAML:
     ) -> None:
         config = BuildConfigYAML(dummy_environment, filepath=Path("dummy"), modules=modules)
 
-        assert config.available_modules == expected_available_modules
+        assert sorted(config.available_modules) == sorted(expected_available_modules)

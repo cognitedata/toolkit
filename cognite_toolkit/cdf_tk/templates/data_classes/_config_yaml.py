@@ -74,7 +74,18 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
     @property
     def available_modules(self) -> list[str]:
-        raise NotImplementedError()
+        available_modules: list[str] = []
+        to_check = [self.modules]
+        while to_check:
+            current = to_check.pop()
+            for key, value in current.items():
+                if isinstance(value, dict) and not value:
+                    available_modules.append(key)
+                elif isinstance(value, dict) and any(isinstance(v, dict) for v in value.values()):
+                    to_check.append(value)
+                elif isinstance(value, dict):
+                    available_modules.append(key)
+        return available_modules
 
     @classmethod
     def _file_name(cls, build_env: str) -> str:
