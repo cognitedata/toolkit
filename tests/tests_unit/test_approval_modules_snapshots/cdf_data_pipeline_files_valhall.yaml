@@ -55,7 +55,7 @@ ExtractionPipeline:
 ExtractionPipelineConfig:
 - config: "data:\n    assetRootExtIds:\n    - workmate:VAL\n    debug: false\n   \
     \ docDataSetExtId: ds_files_oid\n    docLimit: -1\n    docTypeMetaCol: doc_type\n\
-    \    matchTreshold: 0.85\n    pAndIdDocType: PNID\n    runAll: false\n"
+    \    matchThreshold: 0.85\n    pAndIdDocType: PNID\n    runAll: false\n"
   externalId: ep_ctx_files_oid_fileshare_pandid_annotation
 - config: "cognite:\n    data-set:\n        external-id: ds-files:valhall\nfiles:\n\
     \    extensions:\n    - .pdf\n    file-provider:\n        path: c:/tmp/files\n\
