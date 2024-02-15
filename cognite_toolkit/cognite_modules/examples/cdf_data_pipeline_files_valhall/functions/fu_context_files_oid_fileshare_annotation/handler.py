@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import re
@@ -66,7 +68,7 @@ class AnnotationConfig:
     match_threshold: float
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "AnnotationConfig":
+    def load(cls, data: dict[str, Any]) -> AnnotationConfig:
         return cls(
             extraction_pipeline_ext_id=data["ExtractionPipelineExtId"],
             debug=data["debug"],
