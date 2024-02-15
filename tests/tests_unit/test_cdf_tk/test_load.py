@@ -1,3 +1,4 @@
+import abc
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -366,36 +367,27 @@ class TestDeployResources:
         assert actual_order == expected_order
 
 
+def find_subclasses(cls):
+    subclasses = set()
+    for subclass in cls.__subclasses__():
+        if abc.ABC in subclass.__bases__:
+            continue
+        subclasses.add(subclass)
+        subclasses |= find_subclasses(subclass)  # Recursive call to find indirect subclasses
+    return subclasses
+
+
 class TestListDictConsistency:
+    @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
+    def test_loader_takes_dict(
+        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+    ):
+        fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-    def find_subclasses(self, cls):
-        subclasses = set()
-        for subclass in cls.__subclasses__():
-            subclasses.add(subclass)
-            subclasses |= self.find_subclasses(subclass)  # Recursive call to find indirect subclasses
-        return subclasses
+        # AuthLoader.create_loader(cdf_tool_config, "all")
+        loader = Loader.create_loader(cdf_tool_config)
+        instance = fakegenerator.create_instance(loader.resource_cls)
 
-    def test_loader_takes_dict(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-
-        loaders = sorted(self.find_subclasses(ResourceLoader), key=lambda x: x.__name__)
-        fakegenerator = FakeCogniteResourceGenerator(seed=1337, cognite_client=cdf_tool_config.client)
-
-        for loader in loaders:
-
-            # AuthLoader.create_loader(cdf_tool_config, "all")
-            loader = loader.create_loader(cdf_tool_config)
-
-            try:
-                yaml_content = fakegenerator.create_instance(loader.resource_cls)
-
-                mock_read_yaml_file({"dict.yaml": yaml_content}, monkeypatch)
-                loaded = loader.load_resource(
-                    loader, filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True
-                )
-                assert isinstance(loaded, loader.resource_write_cls)
-                print(f"Success for {loader.__name__}")
-            except Exception as e:
-                print(f"Failed for {loader.__name__}")
-                print(e)
-
-        assert len(loaders) > 0
+        mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
+        loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
+        assert isinstance(loaded, loader.resource_write_cls)
