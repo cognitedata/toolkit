@@ -74,11 +74,10 @@ The following variables are required and defined in this module:
 ## Usage
 
 You should copy and rename an example module into the `custom_modules` directory (remove any `cdf_` prefixes) and make
-your own modifications. You should then update the `deploy:` section in your `environments.yaml` file to install
-the module.
+your own modifications. You should then update the `selected_modules_and_packages:` section in your `config.[env].yaml`
+file to install the module.
 
-`NOTE: Using Cognite Functions to run workloads will be limited by the underlying resources in the cloud provider functions. 
+`NOTE: Using Cognite Functions to run workloads will be limited by the underlying resources in the cloud provider functions.
 Hence processing many P&ID documents will not be optimal in a CDF function since it will time out and fail.`
-
 
 See [Using Templates](https://developer.cognite.com/sdks/toolkit/templates)
