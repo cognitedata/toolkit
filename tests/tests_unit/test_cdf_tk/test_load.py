@@ -375,12 +375,15 @@ class TestListDictConsistency:
             subclasses |= self.find_subclasses(subclass)  # Recursive call to find indirect subclasses
         return subclasses
 
-    def test_loader_takes_dict(self, yaml_dict_file, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
+    def test_loader_takes_dict(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
 
         loaders = sorted(self.find_subclasses(ResourceLoader), key=lambda x: x.__name__)
         fakegenerator = FakeCogniteResourceGenerator(seed=1337, cognite_client=cdf_tool_config.client)
 
         for loader in loaders:
+
+            # AuthLoader.create_loader(cdf_tool_config, "all")
+            loader = loader.create_loader(cdf_tool_config)
 
             try:
                 yaml_content = fakegenerator.create_instance(loader.resource_cls)
