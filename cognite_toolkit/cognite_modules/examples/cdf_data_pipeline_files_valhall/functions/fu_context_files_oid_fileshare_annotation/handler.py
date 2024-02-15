@@ -582,8 +582,6 @@ def detect_create_annotation(
                 annotation_type = ASSET_ANNOTATION_TYPE
                 ref_type = "assetRef"
                 txt_value = item["entities"][0]["orgName"]
-                entities_name_found.append(item["entities"][0]["name"][0])
-                entities_id_found.append(item["entities"][0]["id"])
 
             # logic to create suggestions for annotations if system number is missing from tag in P&ID
             # but a suggestion matches the most frequent system number from P&ID
@@ -610,10 +608,14 @@ def detect_create_annotation(
             else:
                 continue
 
+            if annotation_status == ANNOTATION_STATUS_APPROVED and annotation_type == ASSET_ANNOTATION_TYPE:
+                entities_name_found.append(item["entities"][0]["orgName"])
+                entities_id_found.append(item["entities"][0]["id"])
+
             x_min, x_max, y_min, y_max = get_coordinates(item["region"]["vertices"])
 
             annotation_data = {
-                ref_type: {"externalId": item["entities"][0]["externalId"]},
+                ref_type: {"id": item["entities"][0]["id"]},
                 "pageNumber": item["region"]["page"],
                 "text": txt_value,
                 "textRegion": {
