@@ -370,10 +370,10 @@ class TestDeployResources:
 def find_subclasses(cls):
     subclasses = set()
     for subclass in cls.__subclasses__():
+        subclasses |= find_subclasses(subclass)  # Recursive call to find indirect subclasses
         if abc.ABC in subclass.__bases__:
             continue
         subclasses.add(subclass)
-        subclasses |= find_subclasses(subclass)  # Recursive call to find indirect subclasses
     return subclasses
 
 
