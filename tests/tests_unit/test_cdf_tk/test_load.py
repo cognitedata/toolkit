@@ -5,7 +5,16 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import DataSet, FunctionWrite, GroupWrite, GroupWriteList
+from cognite.client.data_classes import (
+    DataSet,
+    FileMetadata,
+    FunctionWrite,
+    GroupWrite,
+    GroupWriteList,
+    Transformation,
+    TransformationSchedule,
+)
+from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
 
 from cognite_toolkit.cdf_tk.load import (
@@ -390,7 +399,7 @@ class TestListDictConsistency:
         assert isinstance(instance, loader.resource_write_cls)
 
     @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
-    def test_loader_takes_dict_returns_writelist(
+    def test_loader_takes_dict(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
@@ -398,7 +407,41 @@ class TestListDictConsistency:
         loader = Loader.create_loader(cdf_tool_config)
         instance = fakegenerator.create_instance(loader.resource_cls)
 
+        # special cases
+        if isinstance(instance, TransformationSchedule):
+            del instance.id  # Client validation does not allow id and externalid to be set simultaneously
+        elif isinstance(instance, (Transformation, FileMetadata)):
+            pytest.skip("Skipped loaders that require secondary files")
+        elif isinstance(instance, (Edge, Node)):
+            pytest.skip(f"Skipping {type(instance)} because it has special properties")
+
         mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
+
+        loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
+        assert isinstance(
+            loaded, (loader.resource_write_cls, loader.list_write_cls)
+        ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
+
+    @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
+    def test_loader_takes_list(
+        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+    ):
+        fakegenerator = FakeCogniteResourceGenerator(seed=1337)
+
+        loader = Loader.create_loader(cdf_tool_config)
+        instances = fakegenerator.create_instances(loader.list_cls)
+
+        # special casesx
+        if isinstance(instances[0], TransformationSchedule):
+            for instance in instances:
+                del instance.id  # Client validation does not allow id and externalid to be set simultaneously
+        elif isinstance(instances[0], (Transformation, FileMetadata)):
+            pytest.skip("Skipped loaders that require secondary files")
+        elif isinstance(instances[0], (Edge, Node)):
+            pytest.skip(f"Skipping {type(instances)} because it has special properties")
+
+        mock_read_yaml_file({"dict.yaml": instances.dump()}, monkeypatch)
+
         loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)

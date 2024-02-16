@@ -78,6 +78,9 @@ class FakeCogniteResourceGenerator:
         self._random = random.Random(seed)
         self._cognite_client = cognite_client or CogniteClientMock()
 
+    def create_instances(self, list_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+        return list_cls([self.create_instance(list_cls._RESOURCE, skip_defaulted_args) for _ in range(3)])
+
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
         signature = inspect.signature(resource_cls.__init__)
         try:

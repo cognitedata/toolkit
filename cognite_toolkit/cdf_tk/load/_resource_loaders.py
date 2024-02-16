@@ -224,7 +224,9 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                         ]
         return group
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> GroupWriteList | None:
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> GroupWrite | GroupWriteList | None:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
 
         group_write_list = GroupWriteList([])
@@ -248,6 +250,10 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
             group_write_list.append(GroupWrite.load(self._substitute_scope_ids(group, ToolGlobals, skip_validation)))
 
+        if len(group_write_list) == 0:
+            return None
+        if len(group_write_list) == 1:
+            return group_write_list[0]
         return group_write_list
 
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
@@ -596,9 +602,10 @@ class FunctionScheduleLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionScheduleWrite | FunctionScheduleWriteList | None:
-        schedules = load_yaml_inject_variables(
-            filepath, ToolGlobals.environment_variables(), required_return_type="list"
-        )
+        schedules = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if isinstance(schedules, dict):
+            schedules = [schedules]
+
         for sched in schedules:
             ext_id = f"{sched['functionExternalId']}:{sched['cronExpression']}"
             if self.extra_configs.get(ext_id) is None:
@@ -1087,9 +1094,12 @@ class TransformationScheduleLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> TransformationScheduleWrite:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
-        return TransformationScheduleWrite.load(raw)
+    ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if isinstance(raw, dict):
+            return TransformationScheduleWrite.load(raw)
+        else:
+            return TransformationScheduleWriteList.load(raw)
 
     def create(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         try:
@@ -1142,17 +1152,23 @@ class ExtractionPipelineLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ExtractionPipelineWrite:
-        resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
+    ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
+        resources = load_yaml_inject_variables(filepath, {})
+        if isinstance(resources, dict):
+            resources = [resources]
 
-        if resource.get("dataSetExternalId") is not None:
-            ds_external_id = resource.pop("dataSetExternalId")
-            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
-        if resource.get("createdBy") is None:
-            # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
-            resource["createdBy"] = "unknown"
+        for resource in resources:
+            if resource.get("dataSetExternalId") is not None:
+                ds_external_id = resource.pop("dataSetExternalId")
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if resource.get("createdBy") is None:
+                # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
+                resource["createdBy"] = "unknown"
 
-        return ExtractionPipelineWrite.load(resource)
+        if len(resources) == 1:
+            return ExtractionPipelineWrite.load(resources[0])
+        else:
+            return ExtractionPipelineWriteList.load(resources)
 
     def create(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
         items = list(items)
@@ -1217,16 +1233,24 @@ class ExtractionPipelineConfigLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ExtractionPipelineConfigWrite:
-        resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
-        try:
-            resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
-        except Exception:
-            print(
-                "[yellow]WARNING:[/] configuration could not be parsed as valid YAML, which is the recommended format.\n"
-            )
-            resource["config"] = resource.get("config", "")
-        return ExtractionPipelineConfigWrite.load(resource)
+    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+        resources = load_yaml_inject_variables(filepath, {})
+        if isinstance(resources, dict):
+            resources = [resources]
+
+        for resource in resources:
+            try:
+                resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
+            except Exception:
+                print(
+                    f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
+                )
+                resource["config"] = resource.get("config", "")
+
+        if len(resources) == 1:
+            return ExtractionPipelineConfigWrite.load(resources[0])
+        else:
+            return ExtractionPipelineConfigWriteList.load(resources)
 
     def create(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
