@@ -390,7 +390,7 @@ class TestListDictConsistency:
         assert isinstance(instance, loader.resource_write_cls)
 
     @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
-    def test_loader_takes_dict(
+    def test_loader_takes_dict_returns_writelist(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
@@ -400,4 +400,4 @@ class TestListDictConsistency:
 
         mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
         loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
-        assert isinstance(loaded, loader.resource_write_cls)
+        assert isinstance(loaded, loader.list_write_cls)

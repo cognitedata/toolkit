@@ -224,9 +224,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                         ]
         return group
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> GroupWrite | GroupWriteList | None:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> GroupWriteList | None:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
 
         group_write_list = GroupWriteList([])
@@ -250,10 +248,6 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
             group_write_list.append(GroupWrite.load(self._substitute_scope_ids(group, ToolGlobals, skip_validation)))
 
-        if len(group_write_list) == 0:
-            return None
-        if len(group_write_list) == 1:
-            return group_write_list[0]
         return group_write_list
 
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
