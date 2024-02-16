@@ -472,18 +472,18 @@ class TestListDictConsistency:
     def test_loader_takes_dict(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
-        fakegenerator = FakeCogniteResourceGenerator(seed=1337)
-
         loader = Loader.create_loader(cdf_tool_config)
-        instance = fakegenerator.create_instance(loader.resource_cls)
+
+        if loader.resource_cls in [Transformation, FileMetadata]:
+            pytest.skip("Skipped loaders that require secondary files")
+        elif loader.resource_cls in [Edge, Node]:
+            pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
+
+        instance = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
 
         # special cases
         if isinstance(instance, TransformationSchedule):
             del instance.id  # Client validation does not allow id and externalid to be set simultaneously
-        elif isinstance(instance, (Transformation, FileMetadata)):
-            pytest.skip("Skipped loaders that require secondary files")
-        elif isinstance(instance, (Edge, Node)):
-            pytest.skip(f"Skipping {type(instance)} because it has special properties")
 
         mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
 
@@ -496,20 +496,20 @@ class TestListDictConsistency:
     def test_loader_takes_list(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
-        fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
         loader = Loader.create_loader(cdf_tool_config)
-        instances = fakegenerator.create_instances(loader.list_write_cls)
 
+        if loader.resource_cls in [Transformation, FileMetadata]:
+            pytest.skip("Skipped loaders that require secondary files")
+        elif loader.resource_cls in [Edge, Node]:
+            pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
 
-        # special casesx
-        if isinstance(instances[0], TransformationSchedule):
+        instances = FakeCogniteResourceGenerator(seed=1337).create_instances(loader.list_write_cls)
+
+        # special case
+        if isinstance(loader.resource_cls, TransformationSchedule):
             for instance in instances:
                 del instance.id  # Client validation does not allow id and externalid to be set simultaneously
-        elif isinstance(instances[0], (Transformation, FileMetadata)):
-            pytest.skip("Skipped loaders that require secondary files")
-        elif isinstance(instances[0], (Edge, Node)):
-            pytest.skip(f"Skipping {type(instances)} because it has special properties")
 
         mock_read_yaml_file({"dict.yaml": instances.dump()}, monkeypatch)
 
