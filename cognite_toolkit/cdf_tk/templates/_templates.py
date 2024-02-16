@@ -325,6 +325,9 @@ def process_function_directory(
                         print(
                             f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {function_dir}, python module is not loadable:\n{e}"
                         )
+                        print(
+                            "            Note that you need to have any requirements your function uses installed in your current, local python environment."
+                        )
                         exit(1)
                     # Clean up cache files
                     for subdir in destination.iterdir():
@@ -372,6 +375,9 @@ def process_config_files(
         filepaths = sorted(filepaths, key=sort_key)
 
         for filepath in filepaths:
+            if filepath.parent.parent.name == "functions":
+                # Skip any functions directory, we will process them separately
+                continue
             if verbose:
                 print(f"    [bold green]INFO:[/] Processing {filepath.name}")
 
