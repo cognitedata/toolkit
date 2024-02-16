@@ -479,9 +479,9 @@ class TestListDictConsistency:
         elif loader.resource_cls in [Edge, Node]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
 
-        instance = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
+        instance = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_write_cls)
 
-        # special cases
+        # special case
         if isinstance(instance, TransformationSchedule):
             del instance.id  # Client validation does not allow id and externalid to be set simultaneously
 
