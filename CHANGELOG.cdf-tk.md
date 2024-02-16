@@ -17,17 +17,24 @@ Changes are grouped as follows:
 
 ## TBD
 
-### Added
+### Fixed
 
-- Support for using a template for file names `name: prefix_$FILENAME_suffix` in the `files` resource. The files will be
-  processed and renamed as part of the build step.
+- Fixed a bug that caused `Group` upsert to leave duplicate Groups
+- Fixed issue with `run function --local` that did not pick up functions in modules without config variables.
+- Fixed error when running `run function --local` on a function without all optional parameters for handle() being set.
 
-### Changes
+### Changed
 
+- `cdf-tk` now uses --external-id consistently instead of --external_id.
 - Files in module directories that do not live in a recognised resource directory will be skipped when building. If
   verbose is enabled, a warning will be printed for each skipped file.
 - Only .yaml files in functions resource folders and the defined function sub-directories will be processed as part of
   building.
+
+### Added
+
+- Support for using a template for file names `name: prefix_$FILENAME_suffix` in the `files` resource. The files will be
+  processed and renamed as part of the build step.
 
 ## [0.1.0b8] - 2024-02-14
 
