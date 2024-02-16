@@ -80,6 +80,8 @@ try to apply the configuration multiple times without having to clean up manuall
 everything that is governed by your templates, including data ingested into data models, the  `cdf-tk clean`
 script command can be used to clean up configurations using the scripts/delete.py functions.
 
+See [tests](tests/README.md) for more information on how to run tests.
+
 ## Setting up Environment
 
 When you develop `cdf-tk` you should avoid sending errors to  `sentry`. You can control `sentry` by setting
