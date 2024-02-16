@@ -33,6 +33,7 @@ tomli = { version = "^2.0.1", python = "<3.11" }
 toml = { version = "^0.10.2", python = ">=3.11" }
 pytest-freezegun = "^0.4.2"
 pytest-cov = "^4.1.0"
+cognite-logger = "^0.6"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit.cdf:app"
@@ -49,8 +50,7 @@ follow_imports = "normal"
 ignore_missing_imports = true
 exclude = ["cognite_toolkit/cognite_modules",
             "cognite_toolkit/common_function_code",
-            "cognite_toolkit/build*",
-]
+            "cognite_toolkit/build*"]
 
 [build-system]
 requires = ["poetry-core"]
