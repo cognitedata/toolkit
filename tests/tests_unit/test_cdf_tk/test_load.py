@@ -9,6 +9,7 @@ from cognite.client.data_classes import (
     DataSet,
     FileMetadata,
     FunctionWrite,
+    Group,
     GroupWrite,
     GroupWriteList,
     Transformation,
@@ -310,6 +311,73 @@ class TestAuthLoader:
 
         assert isinstance(loaded, GroupWrite)
         assert loaded.name == "unscoped_group_name"
+
+    def test_unchanged_new_group(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
+
+        loader = AuthLoader.create_loader(cdf_tool_config, "all")
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
+        )
+
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
+
+        # Simulate that one group is is already in CDF
+        # cognite_client_approval.append(
+        #     Group(
+        #         id=123,
+        #         name=loaded.name,
+        #         source_id=loaded.source_id,
+        #         capabilities=loaded.capabilities,
+        #         metadata=loaded.metadata,
+        #         is_deleted=False,
+        #     )
+        # )
+
+        new_group = GroupWrite(name="new_group", source_id="123", capabilities=[])
+
+        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(batch=[loaded, new_group])
+
+        assert len(to_create) == 1
+        assert len(to_change) == 0
+        assert len(unchanged) == 1
+
+    def test_upsert_group(self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch):
+
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+
+        loader = AuthLoader.create_loader(cdf_tool, "all")
+
+        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
+        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool, skip_validation=True)
+
+        # Simulate that the group is is already in CDF, but with fewer capabilities
+        cognite_client_approval.append(
+            [
+                Group(
+                    id=123,
+                    name=loaded.name,
+                    source_id=loaded.source_id,
+                    capabilities=loaded.capabilities[0:1],
+                    metadata=loaded.metadata,
+                    is_deleted=False,
+                )
+            ],
+        )
+
+        # group exists, no changes
+        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(batch=[loaded])
+
+        assert len(to_create) == 0
+        assert len(to_change) == 1
+        assert len(unchanged) == 0
+
+        loader._update_resources(to_change, False)
+
+        assert cognite_client_approval.create_calls()["Group"] == 1
+        assert cognite_client_approval.delete_calls()["Group"] == 1
 
 
 class TestTimeSeriesLoader:
