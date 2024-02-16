@@ -68,6 +68,14 @@
             ],
             "console": "integratedTerminal",
             "justMyCode": false
+        },
+        {
+            "name": "Python: P&ID annotation function test",
+            "type": "python",
+            "request": "launch",
+            "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_files_valhall/functions/fu_context_files_oid_fileshare_annotation/handler.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }
