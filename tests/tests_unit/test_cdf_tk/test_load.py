@@ -396,6 +396,11 @@ capabilities:
         assert len(to_change) == 1
         assert len(unchanged) == 0
 
+        loader._update_resources(to_change, False)
+
+        assert ApprovalCogniteClient.delete_calls == 1
+        assert ApprovalCogniteClient.create_calls == 1
+
 
 class TestTimeSeriesLoader:
     timeseries_yaml = """
