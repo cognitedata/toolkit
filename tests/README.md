@@ -108,4 +108,45 @@ to support the following:
 * By default, all `list` and `retrieve` calls should return empty lists and `None`, respectively. Instead of
   a mock object which is the default behavior of the `CogniteClientMock`.
 
+The approval client is put into a package called `approval_client` and is organized as follows:
+
+```bash
+```bash
+📦approval_client
+ ┣ 📜client.py - Module withe the ApprovalCogniteClient class
+ ┣ 📜config.py - Configuration of which API methods are mocked by which mock functions.
+ ┗ 📜data_classes.py - Helper classes for the ApprovalCogniteClient
+```
+
+Each of the public methods in the `ApprovalCogniteClient` should be documented with the most up-to-date information.
+
+The most important methods/properties in the `ApprovalCogniteClient` are:
+
+* Property `client` - Returns a mocked `CogniteClient`
+* Method `append` - Allows you to append a resource to the client. This is used to simulate
+  the resources that are returned from CDF.
+* Method `dump` - Dumps all resources that have been created, updated, or deleted to a dictionary.
+
 ### Extending the ApprovalClient
+
+To extend the `ApprovalCogniteClient`, you either reuse existing mock functions or you have to create new ones.
+
+The most important private methods in the `ApprovalCogniteClient` are:
+
+* `_create_delete_method` - Creates a mock function for the `delete` methods in the API call
+* `_create_create_method` - Creates a mock function for the `create` methods in the API call
+* `_create_retrieve_method` - Creates a mock function for the `retrieve` methods in the API call
+
+Inside each of these methods, you will find multiple functions that are used to create the mock functions. Which
+function is used to mock which methods are controlled by the constant `API_RESOURCES` in `config.py`. This constant
+is a list of APIClasses with the resource classes and which methods are mocked by which mock functions. If you
+can reuse an existing mock function, you can add the resource class to the list and set the mock function to the
+existing mock function. If you need to create a new mock function, you need to create a new function and add it
+inside the relevant method in the `ApprovalCogniteClient`.
+
+The reason why we have multiple different mock functions for the same type of methods is that the `cognite-sdk`
+does not have a uniform way of handling the different resource types. For example, the `create` method
+for most resource is create and takes a single or a list of the resource type `client.time_series.create` is
+an example of this. However, when creating a `datapoints` the method is `client.time_series.data.insert` and takes a
+`pandas.DataFrame` as input, same for `sequences`. Another exception if `client.files.upload_bytes` which is used
+to upload files to CDF.

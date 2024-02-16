@@ -118,6 +118,7 @@ class ApprovalCogniteClient:
 
     @property
     def client(self) -> CogniteClient:
+        """Returns a mock CogniteClient"""
         return cast(CogniteClient, self.mock_client)
 
     def append(self, resource_cls: type[CogniteResource], items: CogniteResource | Sequence[CogniteResource]) -> None:
