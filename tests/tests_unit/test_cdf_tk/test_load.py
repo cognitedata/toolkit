@@ -398,8 +398,8 @@ capabilities:
 
         loader._update_resources(to_change, False)
 
-        assert ApprovalCogniteClient.delete_calls == 1
-        assert ApprovalCogniteClient.create_calls == 1
+        assert cognite_client_approval.create_calls()["Group"] == 1
+        assert cognite_client_approval.delete_calls()["Group"] == 1
 
 
 class TestTimeSeriesLoader:
