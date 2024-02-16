@@ -211,6 +211,20 @@ files = [
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
+name = "cognite-logger"
+version = "0.6.0"
+description = "Library for configuring logger"
+optional = false
+python-versions = ">=3.7,<4.0"
+files = [
+    {file = "cognite_logger-0.6.0-py3-none-any.whl", hash = "sha256:468eac8bc22f5a0cf077db7c5742dfe0b4e6a62d252ef2c2caa19dac33eed2b4"},
+    {file = "cognite_logger-0.6.0.tar.gz", hash = "sha256:ef469773c9c21830d27a18ca104dcc6fd7830affa8d6cac8c8a0fa06fc74add9"},
+]
+
+[package.dependencies]
+python-json-logger = ">=2.0.7,<3.0.0"
+
+[[package]]
 name = "cognite-sdk"
 version = "7.17.3"
 description = "Cognite Python SDK"
@@ -1232,6 +1246,17 @@ files = [
 cli = ["click (>=5.0)"]
 
 [[package]]
+name = "python-json-logger"
+version = "2.0.7"
+description = "A python library adding a json log formatter"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "python-json-logger-2.0.7.tar.gz", hash = "sha256:23e7ec02d34237c5aa1e29a070193a4ea87583bb4e7f8fd06d3de8264c4b2e1c"},
+    {file = "python_json_logger-2.0.7-py3-none-any.whl", hash = "sha256:f380b826a991ebbe3de4d897aeec42760035ac760345e57b812938dc8b35e2bd"},
+]
+
+[[package]]
 name = "pytz"
 version = "2024.1"
 description = "World timezone definitions, modern and historical"
@@ -1660,4 +1685,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "bba8e1755f5f80b42244ca68ad88b6ebc6482229f4e7c873765fe4936dafddce"
+content-hash = "40b9e9dadc2804553a06ac8bb8719fdb04bfdf1beac1d776faa1590b9fcc3ee3"
