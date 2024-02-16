@@ -20,6 +20,12 @@ Changes are grouped as follows:
 ### Fixed
 
 - Fixed a bug that caused `Group` upsert to leave duplicate Groups
+- Fixed issue with `run function --local` that did not pick up functions in modules without config variables.
+- Fixed error when running `run function --local` on a function without all optional parameters for handle() being set.
+
+### Changed
+
+- `cdf-tk` now uses --external-id consistently instead of --external_id.
 
 ## [0.1.0b8] - 2024-02-14
 

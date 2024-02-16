@@ -22,6 +22,7 @@ from cognite_toolkit.cdf_tk.load import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit.cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
+    module_from_path,
 )
 from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig, get_oneshot_session
@@ -177,18 +178,17 @@ def run_local_function(
     print(f"[bold]Building for environment {build_env} using {source_path!s} as sources...[/bold]")
     config.set_environment_variables()
     build_dir = tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd())
+
     found = False
-    for root_module, root_values in config.modules.items():
-        if not isinstance(root_values, dict):
+    for function_dir in source_path.glob("**/functions"):
+        if not function_dir.is_dir():
             continue
-        for group_module, group_values in root_values.items():
-            if not isinstance(group_values, dict):
-                continue
-            for module_name in group_values:
-                if Path(source_path / f"{root_module}/{group_module}/{module_name}/functions/{external_id}").is_dir():
-                    config.environment.selected_modules_and_packages = [f"{module_name}"]
-                    found = True
-                    break
+        for path in function_dir.iterdir():
+            if path.is_dir() and path.name == external_id:
+                config.environment.selected_modules_and_packages = [module_from_path(path)]
+                found = True
+                break
+
     if not found:
         print(f"  [bold red]ERROR:[/] Could not find function with external id {external_id}, exiting.")
         return False
@@ -247,7 +247,7 @@ def run_local_function(
     function = None
     for filepath in function_loader.find_files(Path(f"{build_dir}/functions")):
         functions = function_loader.load_resource(
-            Path(filepath), ToolGlobals=ToolGlobals, skip_validation=False
+            Path(filepath), ToolGlobals=ToolGlobals, skip_validation=True
         ) or FunctionWriteList([])
         if not isinstance(functions, FunctionWriteList):
             functions = FunctionWriteList([functions])
@@ -319,13 +319,29 @@ def run_local_function(
 from pathlib import Path
 from handler import handle
 import json
+import inspect
+from collections import OrderedDict
 from common.tool import CDFClientTool
 
 tool = CDFClientTool()
 
+def get_args(fn, handle_args):
+    params = inspect.signature(fn).parameters
+    kwargs = OrderedDict()
+    for p in params.values():
+        if p.name in handle_args:
+            kwargs[p.name] = handle_args[p.name]
+    return kwargs
+
 if __name__ == "__main__":
     data = json.loads(Path("./in.json").read_text())
-    out = handle(data=data, client=tool.client, secrets={}, function_call_info={"local": True})
+    args = get_args(handle, {
+        "data": data,
+        "client": tool.client,
+        "secrets": {},
+        "function_call_info": {"local": True}
+    })
+    out = handle(**args)
     Path("./out.json").write_text(json.dumps(out))
 
 """
@@ -368,11 +384,17 @@ if __name__ == "__main__":
     out, err = process_run.stdout.decode("utf-8"), process_run.stderr.decode("utf-8")
 
     if process_run.returncode != 0:
-        print(
-            "  [bold red]ERROR:[/] Failed to run function: ",
-            err,
-            out,
-        )
+        if "ModuleNotFoundError: No module named 'cognite'" in err:
+            print(
+                "  [bold red]ERROR:[/] Could not find the Cognite SDK available in your function, check requirements.txt and try , try --rebuild-env:",
+                err,
+            )
+        else:
+            print(
+                "  [bold red]ERROR:[/] Failed to run function: ",
+                err,
+                out,
+            )
         if not no_cleanup:
             shutil.rmtree(build_dir)
         return False
