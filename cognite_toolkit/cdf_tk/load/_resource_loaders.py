@@ -256,7 +256,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
             return group_write_list[0]
         return group_write_list
 
-    def create(self, items: Sequence[GroupWrite]) -> GroupList:
+    def _upsert(self, items: Sequence[GroupWrite]) -> GroupList:
         if len(items) == 0:
             return GroupList([])
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
@@ -277,7 +277,10 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         return created
 
     def update(self, items: Sequence[GroupWrite]) -> GroupList:
-        return self.client.iam.groups.create(items)
+        return self._upsert(items)
+
+    def create(self, items: Sequence[GroupWrite]) -> GroupList:
+        return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
         remote = self.client.iam.groups.list(all=True)

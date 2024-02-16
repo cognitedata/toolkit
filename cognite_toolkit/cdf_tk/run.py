@@ -350,6 +350,8 @@ if __name__ == "__main__":
     if platform.system() == "Windows" and (system_root := os.environ.get("SYSTEMROOT")):
         # This is needed to run python on Windows.
         environ["SYSTEMROOT"] = system_root
+    if platform.system() == "Windows":
+        environ = {k: str(v) for k, v in environ.items()}
 
     process_run = subprocess.run(
         [
@@ -358,6 +360,7 @@ if __name__ == "__main__":
             "tmpmain.py",
         ],
         capture_output=True,
+        shell=True if platform.system() == "Windows" else False,
         env=environ,
         cwd=Path(build_dir) / "functions" / external_id,
     )
