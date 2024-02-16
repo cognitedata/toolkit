@@ -312,27 +312,29 @@ class TestAuthLoader:
         assert isinstance(loaded, GroupWrite)
         assert loaded.name == "unscoped_group_name"
 
-    def test_unchanged_new_group(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
+    def test_unchanged_new_group(
+        self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+    ):
 
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
+            DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )
 
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool_config, skip_validation=True)
-
         # Simulate that one group is is already in CDF
-        # cognite_client_approval.append(
-        #     Group(
-        #         id=123,
-        #         name=loaded.name,
-        #         source_id=loaded.source_id,
-        #         capabilities=loaded.capabilities,
-        #         metadata=loaded.metadata,
-        #         is_deleted=False,
-        #     )
-        # )
+        cognite_client_approval.append(
+            Group,
+            [
+                Group(
+                    id=123,
+                    name=loaded.name,
+                    source_id=loaded.source_id,
+                    capabilities=loaded.capabilities,
+                    metadata=loaded.metadata,
+                    is_deleted=False,
+                )
+            ],
+        )
 
         new_group = GroupWrite(name="new_group", source_id="123", capabilities=[])
 
@@ -342,19 +344,19 @@ class TestAuthLoader:
         assert len(to_change) == 0
         assert len(unchanged) == 1
 
-    def test_upsert_group(self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch):
+    def test_upsert_group(
+        self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+    ):
 
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
-
-        loader = AuthLoader.create_loader(cdf_tool, "all")
-
-        mock_read_yaml_file({"group_file.yaml": yaml.safe_load(self.unscoped_content)}, monkeypatch)
-        loaded = loader.load_resource(Path("group_file.yaml"), cdf_tool, skip_validation=True)
+        loader = AuthLoader.create_loader(cdf_tool_config, "all")
+        loaded = loader.load_resource(
+            DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
+        )
 
         # Simulate that the group is is already in CDF, but with fewer capabilities
+        # Simulate that one group is is already in CDF
         cognite_client_approval.append(
+            Group,
             [
                 Group(
                     id=123,
