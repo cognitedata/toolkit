@@ -5,6 +5,7 @@ import os
 import re
 import time
 import traceback
+
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -12,6 +13,7 @@ from time import gmtime, strftime
 from typing import Any, Optional
 
 import yaml
+
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
@@ -25,6 +27,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.contextualization import DiagramDetectResults
 from cognite.client.exceptions import CogniteAPIError
 from cognite.logger import configure_logger
+
 
 # P&ID original file defaults
 ORG_MIME_TYPE = "application/pdf"
