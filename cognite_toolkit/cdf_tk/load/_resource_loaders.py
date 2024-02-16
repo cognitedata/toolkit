@@ -1015,38 +1015,56 @@ class TransformationLoader(
 
         return local_dumped == cdf_resource.as_write().dump()
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TransformationWrite:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> TransformationWrite | TransformationWriteList:
+        resources = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
 
-        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or None
-        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or None
-        if raw.get("dataSetExternalId") is not None:
-            ds_external_id = raw.pop("dataSetExternalId")
-            raw["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
-        if raw.get("conflictMode") is None:
-            # Todo; Bug SDK missing default value
-            raw["conflictMode"] = "upsert"
+        if isinstance(resources, dict):
+            resources = [resources]
 
-        transformation = TransformationWrite.load(raw)
-        transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-            source_oidc_credentials
-        )
-        transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-            destination_oidc_credentials
-        )
-        # Find the non-integer prefixed filename
-        file_name = filepath.stem.split(".", 2)[1]
-        sql_file = filepath.parent / f"{file_name}.sql"
-        if not sql_file.exists():
-            sql_file = filepath.parent / f"{transformation.external_id}.sql"
+        transformations = TransformationWriteList([])
+
+        for resource in resources:
+
+            source_oidc_credentials = (
+                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
+            )
+            destination_oidc_credentials = (
+                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
+            )
+            if resource.get("dataSetExternalId") is not None:
+                ds_external_id = resource.pop("dataSetExternalId")
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if resource.get("conflictMode") is None:
+                # Todo; Bug SDK missing default value
+                resource["conflictMode"] = "upsert"
+
+            transformation = TransformationWrite.load(resource)
+
+            transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+                source_oidc_credentials
+            )
+            transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+                destination_oidc_credentials
+            )
+            # Find the non-integer prefixed filename
+            file_name = filepath.stem.split(".", 2)[1]
+            sql_file = filepath.parent / f"{file_name}.sql"
             if not sql_file.exists():
-                raise FileNotFoundError(
-                    f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
-                )
-        transformation.query = sql_file.read_text()
+                sql_file = filepath.parent / f"{transformation.external_id}.sql"
+                if not sql_file.exists():
+                    raise FileNotFoundError(
+                        f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
+                    )
+            transformation.query = sql_file.read_text()
+            transformations.append(transformation)
 
-        return transformation
+        if len(transformations) == 1:
+            return transformations[0]
+        else:
+            return transformations
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
