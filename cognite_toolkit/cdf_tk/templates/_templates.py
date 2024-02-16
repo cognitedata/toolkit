@@ -4,6 +4,7 @@ import datetime
 import io
 import re
 import shutil
+import sys
 from collections import ChainMap, defaultdict
 from collections.abc import Mapping
 from pathlib import Path
@@ -345,6 +346,7 @@ def process_config_files(
     config: BuildConfigYAML,
     verbose: bool = False,
 ) -> None:
+    printed_function_warning = False
     environment = config.environment
     configs = split_config(config.modules)
     modules_by_variables = defaultdict(list)
@@ -422,6 +424,13 @@ def process_config_files(
                 and filepath.suffix.lower() == ".yaml"
                 and re.match(FunctionLoader.filename_pattern, filepath.stem)
             ):
+                if not printed_function_warning and sys.version_info >= (3, 12):
+                    print(
+                        "      [bold yellow]WARNING:[/] The functions API does not support Python 3.12. "
+                        "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
+                    )
+                    printed_function_warning = True
+
                 process_function_directory(
                     yaml_source_path=filepath,
                     yaml_dest_path=destination,
