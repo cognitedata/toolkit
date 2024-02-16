@@ -9,7 +9,7 @@ packages = [{include = "cognite_toolkit", from = "."}]
 include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = "^3.9"
 python-dotenv = "^1.0.0"
 cognite-sdk = {version = ">=7.17.1, <7.18", extras = ["pandas"]}
 pandas = "^2.1.1"
