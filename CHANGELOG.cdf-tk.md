@@ -19,12 +19,33 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- Fixed a bug that caused `Group` upsert to leave duplicate Groups
 - Fixed issue with `run function --local` that did not pick up functions in modules without config variables.
 - Fixed error when running `run function --local` on a function without all optional parameters for handle() being set.
 
 ### Changed
 
 - `cdf-tk` now uses --external-id consistently instead of --external_id.
+
+## [0.1.0b8] - 2024-02-14
+
+### Added
+
+- `Group` resource type supports list of groups in the same file
+
+### Fixed
+
+- `View` which implements other views would always be classified as changed, ven though no change
+  has been done to the `view`, in the `cdf-tk deploy` command. This is now fixed.
+- `DataModels` which are equal would be wrongly classified as changed if the view order was different.
+  This is now fixed.
+- In the `cdf-tk build`, modules with a nested folder structure under the resource folder were not built correctly.
+  For example, if you had `my_module/data_models/container/my_container.container.view`, it would be put inside
+  a `build/container/my_container.container.yaml` instead of `build/data_models/my_container.container.yaml`,
+  and thus fail in the `cdf-tk deploy/clean` step. This is now fixed.
+- When running `cdf-tk deploy` the prefixed number on resource file was not used to sort the deployment order.
+  This is now fixed.
+- Fixed a bug that caused Extraction Pipeline Config update to fail
 
 ## [0.1.0b7] - 2024-02-07
 

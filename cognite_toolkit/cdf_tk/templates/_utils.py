@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, overload
 
 from rich import print
 
@@ -49,16 +49,34 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
         yield from iterate_modules(module_dir)
 
 
-def module_from_path(path: Path) -> str:
+@overload
+def module_from_path(path: Path, return_resource_folder: Literal[True]) -> tuple[str, str]: ...
+
+
+@overload
+def module_from_path(path: Path, return_resource_folder: Literal[False] = False) -> str: ...
+
+
+def module_from_path(path: Path, return_resource_folder: bool = False) -> str | tuple[str, str]:
     """Get the module name from a path"""
     if len(path.parts) == 1:
         raise ValueError("Path is not a module")
     last_folder = path.parts[1]
     for part in path.parts[1:]:
         if part in LOADER_BY_FOLDER_NAME:
+            if return_resource_folder:
+                return last_folder, part
             return last_folder
         last_folder = part
     raise ValueError("Path is not part of a module")
+
+
+def resource_folder_from_path(path: Path) -> str:
+    """Get the resource_folder from a path"""
+    for part in path.parts:
+        if part in LOADER_BY_FOLDER_NAME:
+            return part
+    raise ValueError("Path does not container a resource folder")
 
 
 def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:

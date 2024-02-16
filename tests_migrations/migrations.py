@@ -12,23 +12,32 @@ from cognite_toolkit.cdf_tk.templates import iterate_modules
 def modify_environment_to_run_all_modules(project_path: Path) -> None:
     """Modify the environment to run all modules."""
     environments_path = project_path / "environments.yaml"
-    if not environments_path.exists():
-        raise FileNotFoundError(f"Could not find environments.yaml in {project_path}")
-    environments = yaml.safe_load(environments_path.read_text())
+    if environments_path.exists():
+        # This is a older version version
+        environments = yaml.safe_load(environments_path.read_text())
 
-    modules = [module_path.name for module_path, _ in iterate_modules(project_path)]
+        modules = [module_path.name for module_path, _ in iterate_modules(project_path)]
 
-    for env_name, env_config in environments.items():
-        if env_name == "__system":
-            continue
-        env_config["deploy"] = modules
-    environments_path.write_text(yaml.dump(environments))
+        for env_name, env_config in environments.items():
+            if env_name == "__system":
+                continue
+            env_config["deploy"] = modules
+        environments_path.write_text(yaml.dump(environments))
+        return
+    config_dev_file = project_path / "config.dev.yaml"
+    if not config_dev_file.exists():
+        raise FileNotFoundError(f"Could not find config.dev.yaml in {project_path}")
+    config_dev = yaml.safe_load(config_dev_file.read_text())
+    config_dev["environment"]["selected_modules_and_packages"] = [
+        module_path.name for module_path, _ in iterate_modules(project_path)
+    ]
+    config_dev_file.write_text(yaml.dump(config_dev))
 
 
 def get_migration(previous_version: str, current_version: str) -> Callable[[Path], None]:
     previous_version = _version_str_to_tuple(previous_version)
     changes = Changes()
-    if previous_version > (0, 1, 0, "b", 6):
+    if previous_version > (0, 1, 0, "b", 7):
         raise NotImplementedError(f"Migration from {previous_version} to {current_version} is not implemented.")
 
     if previous_version <= (0, 1, 0, "b", 4):

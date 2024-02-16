@@ -479,11 +479,20 @@ class ApprovalCogniteClient:
             else:
                 return None
 
+        def data_model_retrieve(ids, *args, **kwargs):
+            id_list = list(ids) if isinstance(ids, Sequence) else [ids]
+            to_return = read_list_cls([], cognite_client=client)
+            for resource in existing_resources[resource_cls.__name__]:
+                if resource.as_id() in id_list:
+                    to_return.append(resource)
+            return to_return
+
         available_retrieve_methods = {
             fn.__name__: fn
             for fn in [
                 return_values,
                 return_value,
+                data_model_retrieve,
             ]
         }
         if mock_method not in available_retrieve_methods:
@@ -555,23 +564,44 @@ class ApprovalCogniteClient:
         method = available_post_methods[mock_method]
         return method
 
-    def dump(self) -> dict[str, Any]:
+    def dump(self, sort: bool = True) -> dict[str, Any]:
         """This returns a dictionary with all the resources that have been created and deleted.
+
+        The sorting is useful in snapshot testing, as it makes for a consistent output. If you want to check the order
+        that the resources were created, you can set sort=False.
+
+        Args:
+            sort: If True, the resources will be sorted by externalId, dbName, name, or name[0] if externalId is not available.
+
 
         Returns:
             A dict with the resources that have been created and deleted, {resource_name: [resource, ...]}
         """
         dumped = {}
-        for key in sorted(self._created_resources):
+        if sort:
+            created_resources = sorted(self._created_resources)
+        else:
+            created_resources = list(self._created_resources)
+        for key in created_resources:
             values = self._created_resources[key]
             if values:
-                dumped[key] = sorted(
-                    [value.dump(camel_case=True) if hasattr(value, "dump") else value for value in values],
-                    key=lambda x: x.get("externalId", x.get("dbName", x.get("db_name", x.get("name")))),
-                )
+                dumped_resource = (value.dump(camel_case=True) if hasattr(value, "dump") else value for value in values)
+                if sort:
+                    dumped[key] = sorted(
+                        dumped_resource,
+                        key=lambda x: x.get("externalId", x.get("dbName", x.get("db_name", x.get("name")))),
+                    )
+                else:
+                    dumped[key] = list(dumped_resource)
+
         if self._deleted_resources:
             dumped["deleted"] = {}
-            for key in sorted(self._deleted_resources):
+            if sort:
+                deleted_resources = sorted(self._deleted_resources)
+            else:
+                deleted_resources = list(self._deleted_resources)
+
+            for key in deleted_resources:
                 values = self._deleted_resources[key]
 
                 def sort_deleted(x):
@@ -586,9 +616,13 @@ class ApprovalCogniteClient:
                     return "missing"
 
                 if values:
-                    dumped["deleted"][key] = sorted(
-                        values,
-                        key=sort_deleted,
+                    dumped["deleted"][key] = (
+                        sorted(
+                            values,
+                            key=sort_deleted,
+                        )
+                        if sort
+                        else list(values)
                     )
 
         return dumped
@@ -977,7 +1011,7 @@ _API_RESOURCES = [
             "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="data_model_retrieve"),
             ],
         },
     ),
