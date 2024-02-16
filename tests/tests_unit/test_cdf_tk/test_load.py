@@ -499,7 +499,8 @@ class TestListDictConsistency:
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
         loader = Loader.create_loader(cdf_tool_config)
-        instances = fakegenerator.create_instances(loader.list_cls)
+        instances = fakegenerator.create_instances(loader.list_write_cls)
+
 
         # special casesx
         if isinstance(instances[0], TransformationSchedule):
