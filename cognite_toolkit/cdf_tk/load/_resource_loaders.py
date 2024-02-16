@@ -248,8 +248,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
             if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
                 continue
 
-            substituted = self._substitute_scope_ids(group, ToolGlobals, skip_validation)
-            group_write_list.append(GroupWrite.load(substituted))
+            group_write_list.append(GroupWrite.load(self._substitute_scope_ids(group, ToolGlobals, skip_validation)))
 
         if len(group_write_list) == 0:
             return None
@@ -423,9 +422,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionWrite | FunctionWriteList | None:
-        functions = load_yaml_inject_variables(
-            filepath, ToolGlobals.environment_variables(), required_return_type="list"
-        )
+        functions = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+
+        if isinstance(functions, dict):
+            functions = [functions]
+
         for func in functions:
             if self.extra_configs.get(func["externalId"]) is None:
                 self.extra_configs[func["externalId"]] = {}
@@ -433,7 +434,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
                     func.get("externalDataSetId", ""), skip_validation=skip_validation
                 )
-        return FunctionWriteList.load(functions)
+
+        if len(functions) == 1:
+            return FunctionWrite.load(functions[0])
+        else:
+            return FunctionWriteList.load(functions)
 
     def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
         if self.build_path is None:
@@ -600,9 +605,10 @@ class FunctionScheduleLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionScheduleWrite | FunctionScheduleWriteList | None:
-        schedules = load_yaml_inject_variables(
-            filepath, ToolGlobals.environment_variables(), required_return_type="list"
-        )
+        schedules = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if isinstance(schedules, dict):
+            schedules = [schedules]
+
         for sched in schedules:
             ext_id = f"{sched['functionExternalId']}:{sched['cronExpression']}"
             if self.extra_configs.get(ext_id) is None:
@@ -1012,38 +1018,56 @@ class TransformationLoader(
 
         return local_dumped == cdf_resource.as_write().dump()
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TransformationWrite:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> TransformationWrite | TransformationWriteList:
+        resources = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
 
-        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or None
-        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or None
-        if raw.get("dataSetExternalId") is not None:
-            ds_external_id = raw.pop("dataSetExternalId")
-            raw["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
-        if raw.get("conflictMode") is None:
-            # Todo; Bug SDK missing default value
-            raw["conflictMode"] = "upsert"
+        if isinstance(resources, dict):
+            resources = [resources]
 
-        transformation = TransformationWrite.load(raw)
-        transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-            source_oidc_credentials
-        )
-        transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-            destination_oidc_credentials
-        )
-        # Find the non-integer prefixed filename
-        file_name = filepath.stem.split(".", 2)[1]
-        sql_file = filepath.parent / f"{file_name}.sql"
-        if not sql_file.exists():
-            sql_file = filepath.parent / f"{transformation.external_id}.sql"
+        transformations = TransformationWriteList([])
+
+        for resource in resources:
+
+            source_oidc_credentials = (
+                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
+            )
+            destination_oidc_credentials = (
+                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
+            )
+            if resource.get("dataSetExternalId") is not None:
+                ds_external_id = resource.pop("dataSetExternalId")
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if resource.get("conflictMode") is None:
+                # Todo; Bug SDK missing default value
+                resource["conflictMode"] = "upsert"
+
+            transformation = TransformationWrite.load(resource)
+
+            transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+                source_oidc_credentials
+            )
+            transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+                destination_oidc_credentials
+            )
+            # Find the non-integer prefixed filename
+            file_name = filepath.stem.split(".", 2)[1]
+            sql_file = filepath.parent / f"{file_name}.sql"
             if not sql_file.exists():
-                raise FileNotFoundError(
-                    f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
-                )
-        transformation.query = sql_file.read_text()
+                sql_file = filepath.parent / f"{transformation.external_id}.sql"
+                if not sql_file.exists():
+                    raise FileNotFoundError(
+                        f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
+                    )
+            transformation.query = sql_file.read_text()
+            transformations.append(transformation)
 
-        return transformation
+        if len(transformations) == 1:
+            return transformations[0]
+        else:
+            return transformations
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
@@ -1091,9 +1115,12 @@ class TransformationScheduleLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> TransformationScheduleWrite:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
-        return TransformationScheduleWrite.load(raw)
+    ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if isinstance(raw, dict):
+            return TransformationScheduleWrite.load(raw)
+        else:
+            return TransformationScheduleWriteList.load(raw)
 
     def create(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         try:
@@ -1146,17 +1173,23 @@ class ExtractionPipelineLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ExtractionPipelineWrite:
-        resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
+    ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
+        resources = load_yaml_inject_variables(filepath, {})
+        if isinstance(resources, dict):
+            resources = [resources]
 
-        if resource.get("dataSetExternalId") is not None:
-            ds_external_id = resource.pop("dataSetExternalId")
-            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
-        if resource.get("createdBy") is None:
-            # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
-            resource["createdBy"] = "unknown"
+        for resource in resources:
+            if resource.get("dataSetExternalId") is not None:
+                ds_external_id = resource.pop("dataSetExternalId")
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if resource.get("createdBy") is None:
+                # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
+                resource["createdBy"] = "unknown"
 
-        return ExtractionPipelineWrite.load(resource)
+        if len(resources) == 1:
+            return ExtractionPipelineWrite.load(resources[0])
+        else:
+            return ExtractionPipelineWriteList.load(resources)
 
     def create(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
         items = list(items)
@@ -1221,16 +1254,24 @@ class ExtractionPipelineConfigLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ExtractionPipelineConfigWrite:
-        resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
-        try:
-            resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
-        except Exception:
-            print(
-                "[yellow]WARNING:[/] configuration could not be parsed as valid YAML, which is the recommended format.\n"
-            )
-            resource["config"] = resource.get("config", "")
-        return ExtractionPipelineConfigWrite.load(resource)
+    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+        resources = load_yaml_inject_variables(filepath, {})
+        if isinstance(resources, dict):
+            resources = [resources]
+
+        for resource in resources:
+            try:
+                resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
+            except Exception:
+                print(
+                    f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
+                )
+                resource["config"] = resource.get("config", "")
+
+        if len(resources) == 1:
+            return ExtractionPipelineConfigWrite.load(resources[0])
+        else:
+            return ExtractionPipelineConfigWriteList.load(resources)
 
     def create(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
         return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
