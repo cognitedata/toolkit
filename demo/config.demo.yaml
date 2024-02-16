@@ -78,6 +78,27 @@ modules:
         asset_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
         asset_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
+      cdf_data_pipeline_files_valhall:
+        # This is the configuration file used for the example data from The Open Industrial Data (oid)
+        #
+        # The data originates from a single compressor on Aker BP’s Valhall oil platform
+        # in the North Sea. Aker BP selected the first stage compressor on the Valhall
+        # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
+        # specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all'
+        version: 0.0.1
+        # location based on OID example data
+        location_name: oid
+        # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
+        source_name: fileshare
+        files_dataset: ds_files_oid
+        pause_transformations: true
+        files_raw_input_db: files_oid_fileshare
+        files_raw_input_table: files_metadata
+        # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+        files_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        files_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        files_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+
       cdf_functions_dummy:
         example_secret: ${MY_SECRET}
         default_location: oid
