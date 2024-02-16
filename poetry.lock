@@ -1685,4 +1685,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "40b9e9dadc2804553a06ac8bb8719fdb04bfdf1beac1d776faa1590b9fcc3ee3"
+content-hash = "addb0369d27c1659712864714485ff417520246c18a2effd5f6a8bc1e4a3b900"
