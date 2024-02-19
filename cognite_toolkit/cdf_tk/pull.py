@@ -487,7 +487,10 @@ def pull_command(
         if dry_run:
             print(f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(source_dir)}'.")
 
-        file_diffs.display(title=f"File differences for {filepath.name!r}")
+        if any(line.is_added or line.is_changed for line in file_diffs):
+            print(f"File '{filepath.relative_to(source_dir)}' has changed")
+        else:
+            print(f"File '{filepath.relative_to(source_dir)}' has not changed")
 
         if verbose:
             old_content = filepath.read_text()
