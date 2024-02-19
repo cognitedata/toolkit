@@ -7,7 +7,7 @@ import tempfile
 import uuid
 from collections import UserList
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Union
 
@@ -30,6 +30,13 @@ _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 
 
 @dataclass
+class Variable:
+    placeholder: str | None = None
+    name: str | None = None
+    source_value: str | None = None
+
+
+@dataclass
 class ResourceProperty:
     """This represents a single property in a CDF resource file.
 
@@ -37,23 +44,23 @@ class ResourceProperty:
         key_path: The path to the property in the resource file.
         build_value: The value of the property in the local resource file build file.
         cdf_value: The value of the property in the CDF resource.
-        variable_placeholder: The placeholder for the variable, used to load the source file as a YAML.
-        variable: The name of the variable used in the local resource file
-
+        variables: A list of variables that are used in the property value.
     """
 
     key_path: tuple[str | int, ...]
     build_value: float | int | str | bool | None = None
     cdf_value: float | int | str | bool | None = None
-    source_value: float | int | str | bool | None = None
-    variable_placeholder: str | None = None
-    variable: str | None = None
+    variables: list[Variable] = field(default_factory=list)
 
     @property
     def value(self) -> float | int | str | bool | None:
-        if self.variable_placeholder:
-            return self.source_value
+        if self.has_variables:
+            return self.variables[0].source_value
         return self.cdf_value or self.build_value
+
+    @property
+    def has_variables(self) -> bool:
+        return bool(self.variables)
 
     @property
     def is_changed(self) -> bool:
@@ -61,7 +68,7 @@ class ResourceProperty:
             self.build_value != self.cdf_value
             and self.build_value is not None
             and self.cdf_value is not None
-            and self.variable is None
+            and not self.has_variables
         )
 
     @property
@@ -72,7 +79,7 @@ class ResourceProperty:
     def is_cannot_change(self) -> bool:
         return (
             self.build_value != self.cdf_value
-            and self.variable is not None
+            and not self.has_variables
             and self.build_value is not None
             and self.cdf_value is not None
         )
@@ -84,7 +91,7 @@ class ResourceProperty:
         elif self.is_changed:
             return f"CHANGED: '{key_str}: {self.build_value} -> {self.cdf_value}'"
         elif self.is_cannot_change:
-            return f"CANNOT CHANGE: '{key_str}: {self.build_value} -> {self.cdf_value} (variable {self.variable})'"
+            return f"CANNOT CHANGE (contains variables): '{key_str}: {self.build_value} -> {self.cdf_value}'"
         else:
             return f"UNCHANGED: '{key_str}: {self.build_value}'"
 
@@ -122,10 +129,15 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[Union[str, int], ...], Resou
         source = yaml.safe_load(source_content)
         source_items = cls._flatten(source)
         for key, value in source_items.items():
-            if placeholder := next((p for p in variable_by_placeholder if p in str(value)), None):
-                items[key].variable_placeholder = placeholder
-                items[key].variable = variable_by_placeholder[placeholder]
-                items[key].source_value = value
+            for placeholder, variable in variable_by_placeholder.items():
+                if placeholder in str(value):
+                    items[key].variables.append(
+                        Variable(
+                            placeholder=placeholder,
+                            name=variable_by_placeholder[placeholder],
+                            source_value=str(value),
+                        )
+                    )
         return cls(items, comments)
 
     @classmethod
@@ -209,10 +221,8 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[Union[str, int], ...], Resou
         """Dump a config dictionary to a yaml string"""
         dumped_with_comments = self._dump_yaml_with_comments(indent_size, False)
         for key, prop in self.items():
-            if prop.variable_placeholder:
-                dumped_with_comments = dumped_with_comments.replace(
-                    prop.variable_placeholder, f"{{{{{prop.variable}}}}}"
-                )
+            for variable in prop.variables:
+                dumped_with_comments = dumped_with_comments.replace(variable.placeholder, f"{{{{{variable.name}}}}}")
         return dumped_with_comments
 
     def display(self, title: str | None = None) -> None:
