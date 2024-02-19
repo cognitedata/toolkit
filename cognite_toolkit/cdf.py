@@ -940,7 +940,7 @@ def pull_transformation_cmd(
         ),
     ] = False,
 ) -> None:
-    """This command will pull the specified transformation and store it as YAML configuration."""
+    """This command will pull the specified transformation and update its YAML file in the module folder"""
     pull_command(
         source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
     )
@@ -991,7 +991,7 @@ def pull_node_cmd(
         ),
     ] = False,
 ) -> None:
-    """This command will pull the specified node and store it as YAML configuration."""
+    """This command will pull the specified node and update its YAML file in the module folder."""
     pull_command(
         source_dir,
         NodeId(space, external_id),
