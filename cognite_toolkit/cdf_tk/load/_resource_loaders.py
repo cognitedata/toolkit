@@ -1375,14 +1375,29 @@ class FileMetadataLoader(
             print(f"  [bold green]INFO:[/] File pattern detected in {filepath.name}, expanding to all files in folder.")
             file_data = files_metadata.data[0]
             ext_id_pattern = file_data.external_id
+            filename_pattern = file_data.name
             files_metadata = FileMetadataWriteList([], cognite_client=self.client)
             for file in filepath.parent.glob("*"):
                 if file.suffix in [".yaml", ".yml"]:
                     continue
+                # If filename_pattern contains $FILENAME, the build step renamed
+                # the file based on this pattern. We need to find the original name to be
+                # used in the creation of the external_id.
+                if "$FILENAME" in filename_pattern:
+                    subs = filename_pattern.split("$FILENAME")
+                    match = re.match(f"{subs[0]}(.*){subs[1]}", file.name)
+                    if match and len(match.groups()) == 1:
+                        old_file_name = match.groups()[0]
+                    else:
+                        raise ValueError(
+                            f"Could not find original filename in {file.name} using pattern {filename_pattern}"
+                        )
+                else:
+                    old_file_name = file.name
                 files_metadata.append(
                     FileMetadataWrite(
                         name=file.name,
-                        external_id=re.sub(r"\$FILENAME", file.name, ext_id_pattern),
+                        external_id=re.sub(r"\$FILENAME", old_file_name, ext_id_pattern),
                         data_set_id=file_data.data_set_id,
                         source=file_data.source,
                         metadata=file_data.metadata,
