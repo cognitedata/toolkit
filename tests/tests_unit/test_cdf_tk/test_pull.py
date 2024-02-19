@@ -208,6 +208,115 @@ nodes:
 
     yield pytest.param(build_file, source_file, cdf_resource, expected, dumped, id="Node with a changed field")
 
+    build_file = """externalId: tr_timeseries_oid_pi_apm_simple_load_timeseries2assets
+name: timeseries:oid:pi:apm_simple:load_timeseries2assets
+destination:
+  dataModel:
+    space: sp_apm_simple
+    externalId: apm_simple
+    version: '1'
+    destinationType: Asset
+  instanceSpace: sp_apm_simple
+  type: instances
+ignoreNullFields: true
+shared: true
+action: upsert
+dataSetExternalId: ds_transformations_oid
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: ${IDP_CLIENT_ID}
+  clientSecret: ${IDP_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  # Optional: If idP requires providing the cicd_scopes
+  cdfProjectName: ${CDF_PROJECT}
+  scopes: ['${IDP_SCOPES}']
+  # Optional: If idP requires providing the cicd_audience
+  audience: ${IDP_AUDIENCE}"""
+
+    source_file = """externalId: tr_timeseries_{{default_location}}_{{source_timeseries}}_apm_simple_load_timeseries2assets
+name: timeseries:{{default_location}}:{{source_timeseries}}:apm_simple:load_timeseries2assets
+destination:
+  dataModel:
+    space: {{space}}
+    externalId: {{datamodel}}
+    version: '1'
+    destinationType: Asset
+  instanceSpace: {{space}}
+  type: instances
+ignoreNullFields: true
+shared: true
+action: upsert
+dataSetExternalId: ds_transformations_{{default_location}}
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the cicd_scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the cicd_audience
+  audience: {{cicd_audience}}"""
+
+    cdf_resource = {
+        "externalId": "tr_timeseries_oid_pi_apm_simple_load_timeseries2assets",
+        "name": "timeseries:oid:pi:apm_simple:load_timeseries2assets",
+        "destination": {
+            "type": "instances",
+            "dataModel": {
+                "space": "sp_apm_simple",
+                "externalId": "apm_simple",
+                "version": "1",
+                "destinationType": "Asset",
+                "destinationRelationshipFromType": None,
+            },
+            "instanceSpace": "sp_apm_simple",
+        },
+        "conflictMode": "upsert",
+        "isPublic": True,
+        "ignoreNullFields": True,
+    }
+
+    expected = {
+        "added": {"conflictMode": "upsert", "isPublic": True},
+        "changed": {},
+        "cannot_change": {},
+    }
+
+    dumped = """externalId: tr_timeseries_{{default_location}}_{{source_timeseries}}_apm_simple_load_timeseries2assets
+name: timeseries:{{default_location}}:{{source_timeseries}}:apm_simple:load_timeseries2assets
+destination:
+  dataModel:
+    space: {{space}}
+    externalId: {{datamodel}}
+    version: '1'
+    destinationType: Asset
+    destinationRelationshipFromType: null
+  instanceSpace: {{space}}
+  type: instances
+ignoreNullFields: true
+shared: true
+action: upsert
+dataSetExternalId: ds_transformations_{{default_location}}
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the cicd_scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the cicd_audience
+  audience: {{cicd_audience}}
+conflictMode: upsert
+isPublic: true
+"""
+
+    yield pytest.param(build_file, source_file, cdf_resource, expected, dumped, id="Transformation double variable.")
+
 
 class TestResourceYAML:
     @pytest.mark.parametrize(
