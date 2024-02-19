@@ -27,10 +27,14 @@ Changes are grouped as follows:
 - Fixed a bug that caused `Group` upsert to leave duplicate Groups
 - Fixed issue with `run function --local` that did not pick up functions in modules without config variables.
 - Fixed error when running `run function --local` on a function without all optional parameters for handle() being set.
+- Bug when `cdf-tk deploy` of `ExtractionPipelineConfig` with multiple `config` objects in the same file.
+  Then only the first `config` object was deployed. This is now fixed.
 
 ### Changed
 
 - `cdf-tk` now uses --external-id consistently instead of --external_id.
+- `cdf-tk deploy`/`cdf-tk clean` now deploys all config files in one go, instead of one by one. This means batching
+  is no longer done based on the number of resource files, but instead based on the limit of the CDF API.
 
 ## [0.1.0b8] - 2024-02-14
 
