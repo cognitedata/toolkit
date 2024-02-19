@@ -17,6 +17,13 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Introduced `cdf-tk pull transformation` and `cdf-tk pull node` commands to pull transformation or nodes
+  form CDF to the local module.
+- Support for using a template for file names `name: prefix_$FILENAME_suffix` in the `files` resource. The files will
+  be processed and renamed as part of the build step.
+
 ### Fixed
 
 - Fixed a bug that caused `Group` upsert to leave duplicate Groups
@@ -30,11 +37,6 @@ Changes are grouped as follows:
   verbose is enabled, a warning will be printed for each skipped file.
 - Only .yaml files in functions resource folders and the defined function sub-directories will be processed as part of
   building.
-
-### Added
-
-- Support for using a template for file names `name: prefix_$FILENAME_suffix` in the `files` resource. The files will be
-  processed and renamed as part of the build step.
 
 ## [0.1.0b8] - 2024-02-14
 

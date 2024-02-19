@@ -212,7 +212,27 @@ class ResourceLoader(
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
-        return self.resource_write_cls.load(raw_yaml)
+        else:
+            return self.list_write_cls([self.resource_write_cls.load(raw_yaml)])
+
+    def dump_resource(
+        self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass
+    ) -> tuple[dict[str, Any], dict[Path, str]]:
+        """Dumps the resource to a dictionary that matches the write format.
+
+        In addition, it can return a dictionary with extra files and their content. This is, for example, used by
+        Transformations to dump the 'query' key to an .sql file.
+
+        Args:
+            resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
+            source_file (Path): The source file that the resource was loaded from.
+            local_resource (T_WritableCogniteResource): The local resource.
+
+        Returns:
+            tuple[dict[str, Any], dict[Path, str]]: The dumped resource and a dictionary with extra files and their
+             content.
+        """
+        return resource.dump(), {}
 
     def create(self, items: T_CogniteResourceList) -> Sized:
         return self.api_class.create(items)

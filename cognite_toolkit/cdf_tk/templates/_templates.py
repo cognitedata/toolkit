@@ -32,7 +32,7 @@ def build_config(
     system_config: SystemYAML,
     clean: bool = False,
     verbose: bool = False,
-) -> None:
+) -> dict[Path, Path]:
     is_populated = build_dir.exists() and any(build_dir.iterdir())
     if is_populated and clean:
         shutil.rmtree(build_dir)
@@ -58,12 +58,12 @@ def build_config(
         for warning in warnings:
             print(f"    {warning}")
 
-    process_config_files(source_dir, selected_modules, build_dir, config, verbose)
+    source_by_build_path = process_config_files(source_dir, selected_modules, build_dir, config, verbose)
 
     build_environment = config.create_build_environment()
     build_environment.dump_to_file(build_dir)
     print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
-    return None
+    return source_by_build_path
 
 
 def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
@@ -387,7 +387,8 @@ def process_config_files(
     build_dir: Path,
     config: BuildConfigYAML,
     verbose: bool = False,
-) -> None:
+) -> dict[Path, Path]:
+    source_by_build_path: dict[Path, Path] = {}
     printed_function_warning = False
     environment = config.environment
     configs = split_config(config.modules)
@@ -455,6 +456,7 @@ def process_config_files(
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 destination.write_text(content)
                 validate(content, destination, filepath, modules_by_variables)
+                source_by_build_path[destination] = filepath
                 # If we have a function definition, we want to process the directory.
                 if (
                     resource_folder == "functions"
@@ -506,7 +508,6 @@ def process_config_files(
                             destination.write_text(data.to_csv())
                         else:
                             destination.write_text(content)
-
             for filepath in all_files[resource_folder]["other_files"]:
                 if verbose:
                     print(f"    [bold green]INFO:[/] Found unrecognized file {filepath}. Copying in untouched...")
@@ -514,6 +515,8 @@ def process_config_files(
                 destination = build_dir / filepath.parent.name / filepath.name
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(filepath, destination)
+
+    return source_by_build_path
 
 
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
