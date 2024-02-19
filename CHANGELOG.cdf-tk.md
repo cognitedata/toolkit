@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Introduced `cdf-tk pull transformation` and `cdf-tk pull node` commands to pull transformation or nodes
+  form CDF to the local module.
+
 ### Fixed
 
 - Fixed a bug that caused `Group` upsert to leave duplicate Groups

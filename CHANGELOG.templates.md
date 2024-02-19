@@ -33,6 +33,12 @@ No changes to templates.
   example of how to use the common code in the `cognite_modules/example/cdf_functions_dummy/fn_test2` and
   `fn_example_repeater` functions.
 
+### Fixed
+
+- In module `cognite_modules/example/example_pump_asset_hierarchy`, in the transformation
+  `pump_asst_hierarchy_load-collections_pump.sql` the value `pump_assets` was hardcoded instead of using the variable
+  `{{raw_db}}`. This has been fixed.
+
 ## [0.1.0b6] - 2024-01-26
 
 No changes to templates.

@@ -1053,7 +1053,7 @@ class TransformationLoader(
                 destination_oidc_credentials
             )
             # Find the non-integer prefixed filename
-            file_name = filepath.stem.split(".", 2)[1]
+            file_name = re.sub(r"\d+\.", "", filepath.stem)
             sql_file = filepath.parent / f"{file_name}.sql"
             if not sql_file.exists():
                 sql_file = filepath.parent / f"{transformation.external_id}.sql"
@@ -1068,6 +1068,16 @@ class TransformationLoader(
             return transformations[0]
         else:
             return transformations
+
+    def dump_resource(
+        self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite
+    ) -> tuple[dict[str, Any], dict[Path, str]]:
+        dumped = resource.dump()
+        query = dumped.pop("query")
+        dumped.pop("dataSetId", None)
+        dumped.pop("sourceOidcCredentials", None)
+        dumped.pop("destinationOidcCredentials", None)
+        return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
@@ -1846,6 +1856,28 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
         if not skip_validation:
             ToolGlobals.verify_spaces(list({item.space for item in loaded}))
         return loaded
+
+    def dump_resource(
+        self, resource: NodeApply, source_file: Path, local_resource: NodeApply
+    ) -> tuple[dict[str, Any], dict[Path, str]]:
+        # Retrieve node again to get properties.
+        view_ids = {source.source for source in local_resource.sources or [] if isinstance(source.source, ViewId)}
+        nodes = self.client.data_modeling.instances.retrieve(nodes=local_resource.as_id(), sources=list(view_ids)).nodes
+        if not nodes:
+            print(
+                f"  [bold yellow]WARNING:[/] Node {local_resource.as_id()} does not exist. Failed to fetch properties."
+            )
+            return resource.dump(), {}
+        node = nodes[0]
+        node_dumped = node.as_write().dump()
+        node_dumped.pop("existingVersion", None)
+
+        # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
+        dumped = yaml.safe_load("\n".join(source_file.read_text().splitlines()[:3]))
+
+        dumped["nodes"] = [node_dumped]
+
+        return dumped, {}
 
     def create(self, items: LoadableNodes) -> NodeApplyResultList:
         if not isinstance(items, LoadableNodes):
