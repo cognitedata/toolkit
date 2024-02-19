@@ -401,7 +401,10 @@ def pull_command(
                 selected[file] = resource
                 break
     if len(selected) == 0:
-        print(f"  [bold red]ERROR:[/] No {loader.display_name} with external id {id_} governed in {source_dir}.")
+        print(
+            f"  [bold red]ERROR:[/] No {loader.display_name} with external id {id_} found in the current "
+            f"configuration in {source_dir}."
+        )
         exit(1)
     elif len(selected) >= 2:
         files = "\n".join(map(str, selected.keys()))
