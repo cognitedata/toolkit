@@ -4,6 +4,7 @@ import datetime
 import io
 import re
 import shutil
+import sys
 from collections import ChainMap, defaultdict
 from collections.abc import Mapping
 from pathlib import Path
@@ -325,6 +326,9 @@ def process_function_directory(
                         print(
                             f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {function_dir}, python module is not loadable:\n{e}"
                         )
+                        print(
+                            "            Note that you need to have any requirements your function uses installed in your current, local python environment."
+                        )
                         exit(1)
                     # Clean up cache files
                     for subdir in destination.iterdir():
@@ -346,6 +350,7 @@ def process_config_files(
     verbose: bool = False,
 ) -> dict[Path, Path]:
     source_by_build_path: dict[Path, Path] = {}
+    printed_function_warning = False
     environment = config.environment
     configs = split_config(config.modules)
     modules_by_variables = defaultdict(list)
@@ -373,6 +378,9 @@ def process_config_files(
         filepaths = sorted(filepaths, key=sort_key)
 
         for filepath in filepaths:
+            if filepath.parent.parent.name == "functions":
+                # Skip any functions directory, we will process them separately
+                continue
             if verbose:
                 print(f"    [bold green]INFO:[/] Processing {filepath.name}")
 
@@ -423,6 +431,13 @@ def process_config_files(
                 and filepath.suffix.lower() == ".yaml"
                 and re.match(FunctionLoader.filename_pattern, filepath.stem)
             ):
+                if not printed_function_warning and sys.version_info >= (3, 12):
+                    print(
+                        "      [bold yellow]WARNING:[/] The functions API does not support Python 3.12. "
+                        "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
+                    )
+                    printed_function_warning = True
+
                 process_function_directory(
                     yaml_source_path=filepath,
                     yaml_dest_path=destination,

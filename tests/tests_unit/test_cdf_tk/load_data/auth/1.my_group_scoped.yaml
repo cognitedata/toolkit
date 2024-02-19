@@ -1,0 +1,33 @@
+name: 'scoped_group_name'
+sourceId: '123'
+capabilities:
+    - datasetsAcl:
+        actions:
+            - READ
+            - OWNER
+        scope:
+            idScope: { ids: ["site:001:b60:ds"] }
+
+    - assetsAcl:
+        actions:
+            - READ
+            - WRITE
+        scope:
+            datasetScope: {
+                ids: ['ds_asset_oid']
+            }
+    - extractionConfigsAcl:
+        actions:
+            - READ
+        scope:
+            extractionPipelineScope: {
+                ids: ['ep_src_asset_oid']
+            }
+
+    - sessionsAcl:
+        actions:
+            - LIST
+            - CREATE
+            - DELETE
+        scope:
+            all: {}

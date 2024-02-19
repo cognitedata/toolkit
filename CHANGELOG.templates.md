@@ -15,7 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.1.0b8] - 2024-02-14
+
+No changes to templates.
+
+- Added a new module `cognite_modules/example/cdf_data_pipeline_files_valhall` file extractor pipeline, transformation
+  and CDF function running annotation on P&ID documents.
+
+### Fixed
+
+- Added missing cognite-sdk dependency to the common_functions_code.
 
 ## [0.1.0b7] - 2024-02-07
 

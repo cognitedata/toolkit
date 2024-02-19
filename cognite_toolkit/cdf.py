@@ -847,7 +847,6 @@ def run_function_cmd(
         Optional[str],
         typer.Argument(
             help="Where to find the module templates to build from",
-            allow_dash=True,
         ),
     ] = None,
     schedule: Annotated[
@@ -878,8 +877,11 @@ def run_function_cmd(
     if source_dir is None:
         source_dir = "./"
     source_path = Path(source_dir)
-    if not source_path.is_dir():
-        print(f"  [bold red]ERROR:[/] {source_path} does not exist")
+    system_yaml = Path(source_path / "cognite_modules/_system.yaml")
+    if not source_path.is_dir() or not system_yaml.is_file():
+        print(
+            f"  [bold red]ERROR:[/] {source_path} is not a valid project directory. Expecting to find in {system_yaml}."
+        )
         exit(1)
     ToolGlobals = CDFToolConfig.from_context(ctx)
     run_local_function(

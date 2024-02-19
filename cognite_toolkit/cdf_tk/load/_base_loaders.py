@@ -212,7 +212,8 @@ class ResourceLoader(
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
-        return self.resource_write_cls.load(raw_yaml)
+        else:
+            return self.list_write_cls([self.resource_write_cls.load(raw_yaml)])
 
     def dump_resource(
         self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass
