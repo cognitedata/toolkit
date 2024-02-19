@@ -387,7 +387,12 @@ def pull_command(
     config = BuildConfigYAML.load_from_directory(source_path, env)
     config.set_environment_variables()
     config.environment.selected_modules_and_packages = config.available_modules
-    print(Panel.fit(f"[bold]Building {source_path}...[/]"))
+    print(
+        Panel.fit(
+            f"[bold]Building all modules found in {config.filepath} (not only the modules under "
+            f"'selected_modules_and_packages') from {source_path}...[/]"
+        )
+    )
     source_by_build_path = build_config(
         build_dir=build_dir,
         source_dir=source_path,
@@ -484,13 +489,15 @@ def pull_command(
         file_diffs = TextFileDifference.load(build_extra_file.read_text(), filepath.read_text())
         file_diffs.update_cdf_content(content)
 
+        has_changed = any(line.is_added or line.is_changed for line in file_diffs)
         if dry_run:
-            print(f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(source_dir)}'.")
-
-        if any(line.is_added or line.is_changed for line in file_diffs):
-            print(f"File '{filepath.relative_to(source_dir)}' has changed")
-        else:
-            print(f"File '{filepath.relative_to(source_dir)}' has not changed")
+            if has_changed:
+                print(f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(source_dir)}'.")
+            else:
+                print(
+                    f"[bold green]INFO:[/] File '{filepath.relative_to(source_dir)}' has not changed, "
+                    "thus no update would have been done."
+                )
 
         if verbose:
             old_content = filepath.read_text()
@@ -501,8 +508,9 @@ def pull_command(
                 )
             )
 
-        if not dry_run:
+        if not dry_run and has_changed:
             filepath.write_text(content)
+            print(f"[bold green]INFO:[/] File '{filepath.relative_to(source_dir)}' updated.")
 
     shutil.rmtree(build_dir)
     print("[bold green]INFO:[/] Pull complete. Cleaned up temporary files.")
