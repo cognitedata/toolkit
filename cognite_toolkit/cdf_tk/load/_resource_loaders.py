@@ -1375,6 +1375,7 @@ class FileMetadataLoader(
             print(f"  [bold green]INFO:[/] File pattern detected in {filepath.name}, expanding to all files in folder.")
             file_data = files_metadata.data[0]
             ext_id_pattern = file_data.external_id
+            # Since $FILENAME is in file_data.name, it can have the following format: 'prefix_$FILENAME_suffix'.
             filename_pattern = file_data.name
             files_metadata = FileMetadataWriteList([], cognite_client=self.client)
             for file in filepath.parent.glob("*"):

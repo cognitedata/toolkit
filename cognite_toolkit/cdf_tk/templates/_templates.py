@@ -7,6 +7,7 @@ import shutil
 import sys
 from collections import ChainMap, defaultdict
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -359,7 +360,7 @@ def process_files_directory(
     if len(files) == 0:
         return
     try:
-        file_def = FileMetadataList.load(yaml.safe_load(yaml_dest_path.read_text()))
+        file_def = FileMetadataList.load(yaml_dest_path.read_text())
     except KeyError as e:
         print(f"      [bold red]ERROR:[/] Failed to load file definitions file {yaml_dest_path}, error in key: {e}")
         exit(1)
@@ -416,13 +417,13 @@ def process_config_files(
         # The custom key 'sort_key' is to get the sort on integer and not the string.
         filepaths = sorted(filepaths, key=sort_key)
 
+        @dataclass
+        class ResourceFiles:
+            resource_files: list[Path] = field(default_factory=list)
+            other_files: list[Path] = field(default_factory=list)
+
         # Initialise for auth, other resource folders will be added as they are found
-        all_files: dict[str, dict[str, list[Path]]] = {
-            "auth": {
-                "resource_files": [],
-                "other_files": [],
-            }
-        }
+        files_by_resource_folder: dict[str, ResourceFiles] = defaultdict(ResourceFiles)
         for filepath in filepaths:
             try:
                 resource_folder = resource_folder_from_path(filepath)
@@ -432,18 +433,13 @@ def process_config_files(
                         f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
                     )
                 continue
-            if resource_folder not in all_files:
-                all_files[resource_folder] = {
-                    "resource_files": [],
-                    "other_files": [],
-                }
             if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
-                all_files[resource_folder]["resource_files"].append(filepath)
+                files_by_resource_folder[resource_folder].resource_files.append(filepath)
             else:
-                all_files[resource_folder]["other_files"].append(filepath)
+                files_by_resource_folder[resource_folder].other_files.append(filepath)
 
-        for resource_folder in all_files:
-            for filepath in all_files[resource_folder]["resource_files"]:
+        for resource_folder in files_by_resource_folder:
+            for filepath in files_by_resource_folder[resource_folder].resource_files:
                 # We only want to process the yaml files for functions as the function code is handled separately.
                 if resource_folder == "functions" and filepath.suffix.lower() != ".yaml":
                     continue
@@ -477,40 +473,41 @@ def process_config_files(
                         common_code_dir=Path(project_config_dir / environment.common_function_code),
                         verbose=verbose,
                     )
-                    all_files[resource_folder]["other_files"] = []
+                    files_by_resource_folder[resource_folder].other_files = []
                 if resource_folder == "files":
                     process_files_directory(
-                        files=all_files[resource_folder]["other_files"],
+                        files=files_by_resource_folder[resource_folder].other_files,
                         yaml_dest_path=destination,
                         module_dir=module_dir,
                         build_dir=build_dir,
                         verbose=verbose,
                     )
-                    all_files[resource_folder]["other_files"] = []
+                    files_by_resource_folder[resource_folder].other_files = []
 
             if resource_folder == "timeseries_datapoints":
                 # Process all csv files
-                for filepath in all_files["timeseries_datapoints"]["other_files"]:
-                    if filepath.suffix.lower() == ".csv":
-                        # Special case for timeseries datapoints, we want to timeshift datapoints
-                        # if the file is a csv file and we have been instructed to.
-                        # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-                        file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                        data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
-                        destination = build_dir / resource_folder / filename
-                        destination.parent.mkdir(parents=True, exist_ok=True)
-                        if "timeshift_" in data.index.name:
-                            print(
-                                "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
-                            )
-                            data.index.name = data.index.name.replace("timeshift_", "")
-                            data.index = pd.DatetimeIndex(data.index)
-                            periods = datetime.datetime.today() - data.index[-1]
-                            data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
-                            destination.write_text(data.to_csv())
-                        else:
-                            destination.write_text(content)
-            for filepath in all_files[resource_folder]["other_files"]:
+                for filepath in files_by_resource_folder["timeseries_datapoints"].other_files:
+                    if filepath.suffix.lower() != ".csv":
+                        continue
+                    # Special case for timeseries datapoints, we want to timeshift datapoints
+                    # if the file is a csv file and we have been instructed to.
+                    # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+                    file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+                    data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
+                    destination = build_dir / resource_folder / filename
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    if "timeshift_" in data.index.name:
+                        print(
+                            "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
+                        )
+                        data.index.name = data.index.name.replace("timeshift_", "")
+                        data.index = pd.DatetimeIndex(data.index)
+                        periods = datetime.datetime.today() - data.index[-1]
+                        data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
+                        destination.write_text(data.to_csv())
+                    else:
+                        destination.write_text(data.to_csv())
+            for filepath in files_by_resource_folder[resource_folder].other_files:
                 if verbose:
                     print(f"    [bold green]INFO:[/] Found unrecognized file {filepath}. Copying in untouched...")
                 # Copy the file as is, not variable replacement
