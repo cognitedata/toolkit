@@ -19,7 +19,7 @@ select
 FROM (
     select
         first_value(LiftStationID) as lift_station
-    from pump_assets.`collections_pump`
+    from {{raw_db}}.`collections_pump`
     group by LiftStationID
 ) as s
 

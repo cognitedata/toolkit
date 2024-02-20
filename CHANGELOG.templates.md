@@ -15,9 +15,28 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0b9] - 2024-02-20
+
+### Changed
+
+- In cdf_oid_example_data, the filename prefixes have been removed from the filenames and instead the new name template
+  functionality is used to prefix the filenames as part of the build step.
+
+### Fixed
+
+- Replaced `shared: True` to `isPublic: True` and `action: upsert` to `conflictMode: upsert` in all
+  transformation configurations to match the CDF API specification.
+
 ## [0.1.0b8] - 2024-02-14
 
-No changes to templates.
+### Added
+
+- Added a new module `cognite_modules/example/cdf_data_pipeline_files_valhall` file extractor pipeline, transformation
+  and CDF function running annotation on P&ID documents.
+
+### Fixed
+
+- Added missing cognite-sdk dependency to the common_functions_code.
 
 ## [0.1.0b7] - 2024-02-07
 
@@ -25,6 +44,12 @@ No changes to templates.
 - Added common function code examples in `common_function_code/` directory as well as an
   example of how to use the common code in the `cognite_modules/example/cdf_functions_dummy/fn_test2` and
   `fn_example_repeater` functions.
+
+### Fixed
+
+- In module `cognite_modules/example/example_pump_asset_hierarchy`, in the transformation
+  `pump_asset_hierarchy_load-collections_pump.sql` the value `pump_assets` was hardcoded instead of using the variable
+  `{{raw_db}}`. This has been fixed.
 
 ## [0.1.0b6] - 2024-01-26
 

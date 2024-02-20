@@ -37,8 +37,8 @@ def modify_environment_to_run_all_modules(project_path: Path) -> None:
 def get_migration(previous_version: str, current_version: str) -> Callable[[Path], None]:
     previous_version = _version_str_to_tuple(previous_version)
     changes = Changes()
-    if previous_version > (0, 1, 0, "b", 7):
-        raise NotImplementedError(f"Migration from {previous_version} to {current_version} is not implemented.")
+    if (0, 1, 0, "b", 7) <= previous_version:
+        changes.append(_update_system_yaml)
 
     if previous_version <= (0, 1, 0, "b", 4):
         changes.append(_add_name_to_file_configs)
@@ -60,6 +60,15 @@ class Changes:
     def __call__(self, project_path: Path) -> None:
         for change in self._changes:
             change(project_path)
+
+
+def _update_system_yaml(project_path: Path) -> None:
+    system_yaml = project_path / "cognite_modules" / "_system.yaml"
+    if not system_yaml.exists():
+        raise FileNotFoundError(f"Could not find _system.yaml in {project_path}")
+    data = yaml.safe_load(system_yaml.read_text())
+    data["cdf_toolkit_version"] = __version__
+    system_yaml.write_text(yaml.dump(data))
 
 
 def _add_name_to_file_configs(project_path: Path) -> None:

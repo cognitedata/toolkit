@@ -2,7 +2,6 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
 from cognite.client.data_classes.functions import Function
 from cognite.client.data_classes.transformations import Transformation
 
@@ -64,7 +63,6 @@ def test_run_function(cognite_client_approval: ApprovalCogniteClient):
     assert run_function(cdf_tool, external_id="test", payload='{"var1": "value"}', follow=True) is True
 
 
-@pytest.mark.skip("Failing and not time to fix test.")
 def test_run_local_function(cognite_client_approval: ApprovalCogniteClient) -> None:
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.client = cognite_client_approval.mock_client

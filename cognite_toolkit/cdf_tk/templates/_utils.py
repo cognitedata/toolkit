@@ -76,7 +76,7 @@ def resource_folder_from_path(path: Path) -> str:
     for part in path.parts:
         if part in LOADER_BY_FOLDER_NAME:
             return part
-    raise ValueError("Path does not container a resource folder")
+    raise ValueError("Path does not contain a resource folder")
 
 
 def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:

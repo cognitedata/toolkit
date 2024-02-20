@@ -87,12 +87,7 @@ from cognite.client.data_classes.data_modeling import (
     DataModelApply,
     DataModelApplyList,
     DataModelList,
-    Edge,
-    EdgeApply,
-    EdgeApplyResultList,
-    EdgeList,
     Node,
-    NodeApply,
     NodeApplyResultList,
     NodeList,
     Space,
@@ -131,7 +126,7 @@ from cognite_toolkit.cdf_tk.utils import (
 )
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
-from .data_classes import LoadableEdges, LoadableNodes, RawDatabaseTable, RawTableList
+from .data_classes import LoadedNode, LoadedNodeList, RawDatabaseTable, RawTableList
 
 _MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
@@ -248,8 +243,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
             if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
                 continue
 
-            substituted = self._substitute_scope_ids(group, ToolGlobals, skip_validation)
-            group_write_list.append(GroupWrite.load(substituted))
+            group_write_list.append(GroupWrite.load(self._substitute_scope_ids(group, ToolGlobals, skip_validation)))
 
         if len(group_write_list) == 0:
             return None
@@ -257,7 +251,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
             return group_write_list[0]
         return group_write_list
 
-    def create(self, items: Sequence[GroupWrite]) -> GroupList:
+    def _upsert(self, items: Sequence[GroupWrite]) -> GroupList:
         if len(items) == 0:
             return GroupList([])
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
@@ -278,7 +272,10 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         return created
 
     def update(self, items: Sequence[GroupWrite]) -> GroupList:
-        return self.client.iam.groups.create(items)
+        return self._upsert(items)
+
+    def create(self, items: Sequence[GroupWrite]) -> GroupList:
+        return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
         remote = self.client.iam.groups.list(all=True)
@@ -420,9 +417,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionWrite | FunctionWriteList | None:
-        functions = load_yaml_inject_variables(
-            filepath, ToolGlobals.environment_variables(), required_return_type="list"
-        )
+        functions = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+
+        if isinstance(functions, dict):
+            functions = [functions]
+
         for func in functions:
             if self.extra_configs.get(func["externalId"]) is None:
                 self.extra_configs[func["externalId"]] = {}
@@ -430,7 +429,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
                     func.get("externalDataSetId", ""), skip_validation=skip_validation
                 )
-        return FunctionWriteList.load(functions)
+
+        if len(functions) == 1:
+            return FunctionWrite.load(functions[0])
+        else:
+            return FunctionWriteList.load(functions)
 
     def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
         if self.build_path is None:
@@ -597,9 +600,10 @@ class FunctionScheduleLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionScheduleWrite | FunctionScheduleWriteList | None:
-        schedules = load_yaml_inject_variables(
-            filepath, ToolGlobals.environment_variables(), required_return_type="list"
-        )
+        schedules = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if isinstance(schedules, dict):
+            schedules = [schedules]
+
         for sched in schedules:
             ext_id = f"{sched['functionExternalId']}:{sched['cronExpression']}"
             if self.extra_configs.get(ext_id) is None:
@@ -1009,38 +1013,66 @@ class TransformationLoader(
 
         return local_dumped == cdf_resource.as_write().dump()
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TransformationWrite:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> TransformationWrite | TransformationWriteList:
+        resources = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
 
-        source_oidc_credentials = raw.get("authentication", {}).get("read") or raw.get("authentication") or None
-        destination_oidc_credentials = raw.get("authentication", {}).get("write") or raw.get("authentication") or None
-        if raw.get("dataSetExternalId") is not None:
-            ds_external_id = raw.pop("dataSetExternalId")
-            raw["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
-        if raw.get("conflictMode") is None:
-            # Todo; Bug SDK missing default value
-            raw["conflictMode"] = "upsert"
+        if isinstance(resources, dict):
+            resources = [resources]
 
-        transformation = TransformationWrite.load(raw)
-        transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-            source_oidc_credentials
-        )
-        transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-            destination_oidc_credentials
-        )
-        # Find the non-integer prefixed filename
-        file_name = filepath.stem.split(".", 2)[1]
-        sql_file = filepath.parent / f"{file_name}.sql"
-        if not sql_file.exists():
-            sql_file = filepath.parent / f"{transformation.external_id}.sql"
+        transformations = TransformationWriteList([])
+
+        for resource in resources:
+
+            source_oidc_credentials = (
+                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
+            )
+            destination_oidc_credentials = (
+                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
+            )
+            if resource.get("dataSetExternalId") is not None:
+                ds_external_id = resource.pop("dataSetExternalId")
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if resource.get("conflictMode") is None:
+                # Todo; Bug SDK missing default value
+                resource["conflictMode"] = "upsert"
+
+            transformation = TransformationWrite.load(resource)
+
+            transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+                source_oidc_credentials
+            )
+            transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+                destination_oidc_credentials
+            )
+            # Find the non-integer prefixed filename
+            file_name = re.sub(r"\d+\.", "", filepath.stem)
+            sql_file = filepath.parent / f"{file_name}.sql"
             if not sql_file.exists():
-                raise FileNotFoundError(
-                    f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
-                )
-        transformation.query = sql_file.read_text()
+                sql_file = filepath.parent / f"{transformation.external_id}.sql"
+                if not sql_file.exists():
+                    raise FileNotFoundError(
+                        f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
+                    )
+            transformation.query = sql_file.read_text()
+            transformations.append(transformation)
 
-        return transformation
+        if len(transformations) == 1:
+            return transformations[0]
+        else:
+            return transformations
+
+    def dump_resource(
+        self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite
+    ) -> tuple[dict[str, Any], dict[Path, str]]:
+        dumped = resource.dump()
+        query = dumped.pop("query")
+        dumped.pop("dataSetId", None)
+        dumped.pop("sourceOidcCredentials", None)
+        dumped.pop("destinationOidcCredentials", None)
+        return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
@@ -1088,9 +1120,12 @@ class TransformationScheduleLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> TransformationScheduleWrite:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
-        return TransformationScheduleWrite.load(raw)
+    ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if isinstance(raw, dict):
+            return TransformationScheduleWrite.load(raw)
+        else:
+            return TransformationScheduleWriteList.load(raw)
 
     def create(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         try:
@@ -1143,17 +1178,23 @@ class ExtractionPipelineLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ExtractionPipelineWrite:
-        resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
+    ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
+        resources = load_yaml_inject_variables(filepath, {})
+        if isinstance(resources, dict):
+            resources = [resources]
 
-        if resource.get("dataSetExternalId") is not None:
-            ds_external_id = resource.pop("dataSetExternalId")
-            resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
-        if resource.get("createdBy") is None:
-            # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
-            resource["createdBy"] = "unknown"
+        for resource in resources:
+            if resource.get("dataSetExternalId") is not None:
+                ds_external_id = resource.pop("dataSetExternalId")
+                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if resource.get("createdBy") is None:
+                # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
+                resource["createdBy"] = "unknown"
 
-        return ExtractionPipelineWrite.load(resource)
+        if len(resources) == 1:
+            return ExtractionPipelineWrite.load(resources[0])
+        else:
+            return ExtractionPipelineWriteList.load(resources)
 
     def create(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
         items = list(items)
@@ -1218,22 +1259,34 @@ class ExtractionPipelineConfigLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ExtractionPipelineConfigWrite:
-        resource = load_yaml_inject_variables(filepath, {}, required_return_type="dict")
-        try:
-            resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
-        except Exception:
-            print(
-                "[yellow]WARNING:[/] configuration could not be parsed as valid YAML, which is the recommended format.\n"
-            )
-            resource["config"] = resource.get("config", "")
-        return ExtractionPipelineConfigWrite.load(resource)
+    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+        resources = load_yaml_inject_variables(filepath, {})
+        if isinstance(resources, dict):
+            resources = [resources]
 
-    def create(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
-        return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
+        for resource in resources:
+            try:
+                resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
+            except Exception:
+                print(
+                    f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
+                )
+                resource["config"] = resource.get("config", "")
+
+        if len(resources) == 1:
+            return ExtractionPipelineConfigWrite.load(resources[0])
+        else:
+            return ExtractionPipelineConfigWriteList.load(resources)
+
+    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+        created = ExtractionPipelineConfigList([])
+        for item in items:
+            item_created = self.client.extraction_pipelines.config.create(item)
+            created.append(item_created)
+        return created
 
     # configs cannot be updated, instead new revision is created
-    def update(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
+    def update(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
         return self.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:
@@ -1321,14 +1374,30 @@ class FileMetadataLoader(
             print(f"  [bold green]INFO:[/] File pattern detected in {filepath.name}, expanding to all files in folder.")
             file_data = files_metadata.data[0]
             ext_id_pattern = file_data.external_id
+            # Since $FILENAME is in file_data.name, it can have the following format: 'prefix_$FILENAME_suffix'.
+            filename_pattern = file_data.name
             files_metadata = FileMetadataWriteList([], cognite_client=self.client)
             for file in filepath.parent.glob("*"):
                 if file.suffix in [".yaml", ".yml"]:
                     continue
+                # If filename_pattern contains $FILENAME, the build step renamed
+                # the file based on this pattern. We need to find the original name to be
+                # used in the creation of the external_id.
+                if "$FILENAME" in filename_pattern:
+                    subs = filename_pattern.split("$FILENAME")
+                    match = re.match(f"{subs[0]}(.*){subs[1]}", file.name)
+                    if match and len(match.groups()) == 1:
+                        old_file_name = match.groups()[0]
+                    else:
+                        raise ValueError(
+                            f"Could not find original filename in {file.name} using pattern {filename_pattern}"
+                        )
+                else:
+                    old_file_name = file.name
                 files_metadata.append(
                     FileMetadataWrite(
                         name=file.name,
-                        external_id=re.sub(r"\$FILENAME", file.name, ext_id_pattern),
+                        external_id=re.sub(r"\$FILENAME", old_file_name, ext_id_pattern),
                         data_set_id=file_data.data_set_id,
                         source=file_data.source,
                         metadata=file_data.metadata,
@@ -1737,15 +1806,15 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
 
 @final
-class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
+class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeList, NodeList]):
     item_name = "nodes"
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
     resource_cls = Node
-    resource_write_cls = NodeApply
+    resource_write_cls = LoadedNode
     list_cls = NodeList
-    list_write_cls = LoadableNodes
+    list_write_cls = LoadedNodeList
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _display_name = "nodes"
 
@@ -1758,23 +1827,20 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
         )
 
     @classmethod
-    def get_id(cls, item: NodeApply | Node) -> NodeId:
+    def get_id(cls, item: LoadedNode | Node) -> NodeId:
         return item.as_id()
 
-    @classmethod
-    def create_empty_of(cls, items: LoadableNodes) -> LoadableNodes:
-        return cls.list_write_cls.create_empty_from(items)
-
-    def _is_equal_custom(self, local: NodeApply, cdf_resource: Node) -> bool:
+    def _is_equal_custom(self, local: LoadedNode, cdf_resource: Node) -> bool:
         """Comparison for nodes to include properties in the comparison
 
         Note this is an expensive operation as we to an extra retrieve to fetch the properties.
         Thus, the cdf-tk should not be used to upload nodes that are data only nodes used for configuration.
         """
+        local_node = local.node
         # Note reading from a container is not supported.
         sources = [
             source_prop_pair.source
-            for source_prop_pair in local.sources or []
+            for source_prop_pair in local_node.sources or []
             if isinstance(source_prop_pair.source, ViewId)
         ]
         try:
@@ -1785,7 +1851,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
             # View does not exist, so node does not exist.
             return False
         cdf_resource_dumped = cdf_resource_with_properties.as_write().dump()
-        local_dumped = local.dump()
+        local_dumped = local_node.dump()
         if "existingVersion" not in local_dumped:
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
@@ -1793,32 +1859,60 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
 
         return local_dumped == cdf_resource_dumped
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadableNodes:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadedNodeList:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw, dict):
-            loaded = LoadableNodes._load(raw, cognite_client=self.client)
+            loaded = LoadedNodeList._load(raw, cognite_client=self.client)
         else:
             raise ValueError(f"Unexpected node yaml file format {filepath.name}")
         if not skip_validation:
-            ToolGlobals.verify_spaces(list({item.space for item in loaded}))
+            ToolGlobals.verify_spaces(list({item.node.space for item in loaded}))
         return loaded
 
-    def create(self, items: LoadableNodes) -> NodeApplyResultList:
-        if not isinstance(items, LoadableNodes):
+    def dump_resource(
+        self, resource: LoadedNode, source_file: Path, local_resource: LoadedNode
+    ) -> tuple[dict[str, Any], dict[Path, str]]:
+        resource_node = resource.node
+        local_node = local_resource.node
+        # Retrieve node again to get properties.
+        view_ids = {source.source for source in local_node.sources or [] if isinstance(source.source, ViewId)}
+        nodes = self.client.data_modeling.instances.retrieve(nodes=local_node.as_id(), sources=list(view_ids)).nodes
+        if not nodes:
+            print(
+                f"  [bold yellow]WARNING:[/] Node {local_resource.as_id()} does not exist. Failed to fetch properties."
+            )
+            return resource_node.dump(), {}
+        node = nodes[0]
+        node_dumped = node.as_write().dump()
+        node_dumped.pop("existingVersion", None)
+
+        # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
+        dumped = yaml.safe_load("\n".join(source_file.read_text().splitlines()[:3]))
+
+        dumped["nodes"] = [node_dumped]
+
+        return dumped, {}
+
+    def create(self, items: LoadedNodeList) -> NodeApplyResultList:
+        if not isinstance(items, LoadedNodeList):
             raise ValueError("Unexpected node format file format")
-        item = items
-        result = self.client.data_modeling.instances.apply(
-            nodes=item.nodes,
-            auto_create_direct_relations=item.auto_create_direct_relations,
-            skip_on_version_conflict=item.skip_on_version_conflict,
-            replace=item.replace,
-        )
-        return result.nodes
+
+        results = NodeApplyResultList([])
+        for api_call, item in itertools.groupby(sorted(items, key=lambda x: x.api_call), key=lambda x: x.api_call):
+            nodes = [node.node for node in item]
+            result = self.client.data_modeling.instances.apply(
+                nodes=nodes,
+                auto_create_direct_relations=api_call.auto_create_direct_relations,
+                skip_on_version_conflict=api_call.skip_on_version_conflict,
+                replace=api_call.replace,
+            )
+            results.extend(result.nodes)
+        return results
 
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).nodes
 
-    def update(self, items: LoadableNodes) -> NodeApplyResultList:
+    def update(self, items: LoadedNodeList) -> NodeApplyResultList:
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[NodeId]) -> int:
@@ -1835,77 +1929,4 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
 
     def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
         # Nodes will be deleted in .delete call.
-        return 0
-
-
-@final
-class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
-    item_name = "edges"
-    api_name = "data_modeling.instances"
-    folder_name = "data_models"
-    filename_pattern = r"^.*\.?(edge)$"
-    resource_cls = Edge
-    resource_write_cls = EdgeApply
-    list_cls = EdgeList
-    list_write_cls = LoadableEdges
-    _display_name = "edges"
-
-    # Note edges do not need nodes to be created first, as they are created as part of the edge creation.
-    # However, for deletion (reversed order) we need to delete edges before nodes.
-    dependencies = frozenset({SpaceLoader, ViewLoader, NodeLoader})
-
-    @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        # Todo Scoped to spaces
-        return DataModelInstancesAcl(
-            [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
-            DataModelInstancesAcl.Scope.All(),
-        )
-
-    @classmethod
-    def get_id(cls, item: EdgeApply | Edge) -> EdgeId:
-        return item.as_id()
-
-    @classmethod
-    def create_empty_of(cls, items: LoadableEdges) -> LoadableEdges:
-        return cls.list_write_cls.create_empty_from(items)
-
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadableEdges:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        if isinstance(raw, dict):
-            loaded = LoadableEdges._load(raw, cognite_client=self.client)
-        else:
-            raise ValueError(f"Unexpected edge yaml file format {filepath.name}")
-        if not skip_validation:
-            ToolGlobals.verify_spaces(list({item.space for item in loaded}))
-        return loaded
-
-    def create(self, items: LoadableEdges) -> EdgeApplyResultList:
-        if not isinstance(items, LoadableEdges):
-            raise ValueError("Unexpected edge format file format")
-        item = items
-        result = self.client.data_modeling.instances.apply(
-            edges=item.edges,
-            auto_create_start_nodes=item.auto_create_start_nodes,
-            auto_create_end_nodes=item.auto_create_end_nodes,
-            skip_on_version_conflict=item.skip_on_version_conflict,
-            replace=item.replace,
-        )
-        return result.edges
-
-    def retrieve(self, ids: SequenceNotStr[EdgeId]) -> EdgeList:
-        return self.client.data_modeling.instances.retrieve(edges=cast(Sequence, ids)).edges
-
-    def update(self, items: LoadableEdges) -> EdgeApplyResultList:
-        return self.create(items)
-
-    def delete(self, ids: SequenceNotStr[EdgeId]) -> int:
-        deleted = self.client.data_modeling.instances.delete(edges=cast(Sequence, ids))
-        return len(deleted.edges)
-
-    def count(self, ids: SequenceNotStr[EdgeId]) -> int:
-        return len(ids)
-
-    def drop_data(self, ids: SequenceNotStr[EdgeId]) -> int:
-        # Edges will be deleted in .delete call.
         return 0

@@ -5,7 +5,6 @@ from ._config_yaml import (
     ConfigYAMLs,
     Environment,
     InitConfigYAML,
-    YAMLComment,
 )
 from ._migration_yaml import Change, MigrationYAML, VersionChanges
 from ._project_directory import ProjectDirectory, ProjectDirectoryInit, ProjectDirectoryUpgrade
@@ -26,5 +25,4 @@ __all__ = [
     "Environment",
     "BuildEnvironment",
     "ConfigEntry",
-    "YAMLComment",
 ]

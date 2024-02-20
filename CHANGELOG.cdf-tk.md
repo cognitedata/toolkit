@@ -15,6 +15,36 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0b9] - 2024-02-20
+
+### Added
+
+- Introduced `cdf-tk pull transformation` and `cdf-tk pull node` commands to pull transformation or nodes
+  form CDF to the local module.
+- Support for using a template for file names `name: prefix_$FILENAME_suffix` in the `files` resource. The files will
+  be processed and renamed as part of the build step.
+
+### Fixed
+
+- Fixed a bug that caused `Group` upsert to leave duplicate Groups
+- Fixed issue with `run function --local` that did not pick up functions in modules without config variables.
+- Fixed error when running `run function --local` on a function without all optional parameters for handle() being set.
+- Bug when `cdf-tk deploy` of `ExtractionPipelineConfig` with multiple `config` objects in the same file.
+  Then only the first `config` object was deployed. This is now fixed.
+
+### Changed
+
+- `cdf-tk` now uses --external-id consistently instead of --external_id.
+- Removed upper limit on Python version requirement, such that, for example, `Python 3.12` is allowed. Note
+  that when working with `functions` it is recommended to use `Python 3.9-3.11` as `Python 3.12` is not
+  supported yet.
+- `cdf-tk deploy`/`cdf-tk clean` now deploys all config files in one go, instead of one by one. This means batching
+  is no longer done based on the number of resource files, but instead based on the limit of the CDF API.
+- Files in module directories that do not live in a recognised resource directory will be skipped when building. If
+  verbose is enabled, a warning will be printed for each skipped file.
+- Only .yaml files in functions resource folders and the defined function sub-directories will be processed as part of
+  building.
+
 ## [0.1.0b8] - 2024-02-14
 
 ### Added

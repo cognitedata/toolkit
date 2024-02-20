@@ -1,0 +1,17 @@
+name: 'unscoped_group_name'
+sourceId: '123'
+capabilities:
+
+    - assetsAcl:
+        actions:
+            - READ
+            - WRITE
+        scope:
+            all: {}
+    - sessionsAcl:
+        actions:
+            - LIST
+            - CREATE
+            - DELETE
+        scope:
+            all: {}
