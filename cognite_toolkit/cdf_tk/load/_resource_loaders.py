@@ -87,12 +87,7 @@ from cognite.client.data_classes.data_modeling import (
     DataModelApply,
     DataModelApplyList,
     DataModelList,
-    Edge,
-    EdgeApply,
-    EdgeApplyResultList,
-    EdgeList,
     Node,
-    NodeApply,
     NodeApplyResultList,
     NodeList,
     Space,
@@ -131,7 +126,7 @@ from cognite_toolkit.cdf_tk.utils import (
 )
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
-from .data_classes import LoadableEdges, LoadableNodes, RawDatabaseTable, RawTableList
+from .data_classes import LoadedNode, LoadedNodeList, RawDatabaseTable, RawTableList
 
 _MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
@@ -1283,11 +1278,15 @@ class ExtractionPipelineConfigLoader(
         else:
             return ExtractionPipelineConfigWriteList.load(resources)
 
-    def create(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
-        return ExtractionPipelineConfigList([self.client.extraction_pipelines.config.create(items[0])])
+    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+        created = ExtractionPipelineConfigList([])
+        for item in items:
+            item_created = self.client.extraction_pipelines.config.create(item)
+            created.append(item_created)
+        return created
 
     # configs cannot be updated, instead new revision is created
-    def update(self, items: Sequence[ExtractionPipelineConfigWrite]) -> ExtractionPipelineConfigList:
+    def update(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
         return self.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:
@@ -1791,15 +1790,15 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
 
 @final
-class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes, NodeList]):
+class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeList, NodeList]):
     item_name = "nodes"
     api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
     resource_cls = Node
-    resource_write_cls = NodeApply
+    resource_write_cls = LoadedNode
     list_cls = NodeList
-    list_write_cls = LoadableNodes
+    list_write_cls = LoadedNodeList
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _display_name = "nodes"
 
@@ -1812,23 +1811,20 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
         )
 
     @classmethod
-    def get_id(cls, item: NodeApply | Node) -> NodeId:
+    def get_id(cls, item: LoadedNode | Node) -> NodeId:
         return item.as_id()
 
-    @classmethod
-    def create_empty_of(cls, items: LoadableNodes) -> LoadableNodes:
-        return cls.list_write_cls.create_empty_from(items)
-
-    def _is_equal_custom(self, local: NodeApply, cdf_resource: Node) -> bool:
+    def _is_equal_custom(self, local: LoadedNode, cdf_resource: Node) -> bool:
         """Comparison for nodes to include properties in the comparison
 
         Note this is an expensive operation as we to an extra retrieve to fetch the properties.
         Thus, the cdf-tk should not be used to upload nodes that are data only nodes used for configuration.
         """
+        local_node = local.node
         # Note reading from a container is not supported.
         sources = [
             source_prop_pair.source
-            for source_prop_pair in local.sources or []
+            for source_prop_pair in local_node.sources or []
             if isinstance(source_prop_pair.source, ViewId)
         ]
         try:
@@ -1839,7 +1835,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
             # View does not exist, so node does not exist.
             return False
         cdf_resource_dumped = cdf_resource_with_properties.as_write().dump()
-        local_dumped = local.dump()
+        local_dumped = local_node.dump()
         if "existingVersion" not in local_dumped:
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
@@ -1847,27 +1843,29 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
 
         return local_dumped == cdf_resource_dumped
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadableNodes:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadedNodeList:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw, dict):
-            loaded = LoadableNodes._load(raw, cognite_client=self.client)
+            loaded = LoadedNodeList._load(raw, cognite_client=self.client)
         else:
             raise ValueError(f"Unexpected node yaml file format {filepath.name}")
         if not skip_validation:
-            ToolGlobals.verify_spaces(list({item.space for item in loaded}))
+            ToolGlobals.verify_spaces(list({item.node.space for item in loaded}))
         return loaded
 
     def dump_resource(
-        self, resource: NodeApply, source_file: Path, local_resource: NodeApply
+        self, resource: LoadedNode, source_file: Path, local_resource: LoadedNode
     ) -> tuple[dict[str, Any], dict[Path, str]]:
+        resource_node = resource.node
+        local_node = local_resource.node
         # Retrieve node again to get properties.
-        view_ids = {source.source for source in local_resource.sources or [] if isinstance(source.source, ViewId)}
-        nodes = self.client.data_modeling.instances.retrieve(nodes=local_resource.as_id(), sources=list(view_ids)).nodes
+        view_ids = {source.source for source in local_node.sources or [] if isinstance(source.source, ViewId)}
+        nodes = self.client.data_modeling.instances.retrieve(nodes=local_node.as_id(), sources=list(view_ids)).nodes
         if not nodes:
             print(
                 f"  [bold yellow]WARNING:[/] Node {local_resource.as_id()} does not exist. Failed to fetch properties."
             )
-            return resource.dump(), {}
+            return resource_node.dump(), {}
         node = nodes[0]
         node_dumped = node.as_write().dump()
         node_dumped.pop("existingVersion", None)
@@ -1879,22 +1877,26 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
 
         return dumped, {}
 
-    def create(self, items: LoadableNodes) -> NodeApplyResultList:
-        if not isinstance(items, LoadableNodes):
+    def create(self, items: LoadedNodeList) -> NodeApplyResultList:
+        if not isinstance(items, LoadedNodeList):
             raise ValueError("Unexpected node format file format")
-        item = items
-        result = self.client.data_modeling.instances.apply(
-            nodes=item.nodes,
-            auto_create_direct_relations=item.auto_create_direct_relations,
-            skip_on_version_conflict=item.skip_on_version_conflict,
-            replace=item.replace,
-        )
-        return result.nodes
+
+        results = NodeApplyResultList([])
+        for api_call, item in itertools.groupby(sorted(items, key=lambda x: x.api_call), key=lambda x: x.api_call):
+            nodes = [node.node for node in item]
+            result = self.client.data_modeling.instances.apply(
+                nodes=nodes,
+                auto_create_direct_relations=api_call.auto_create_direct_relations,
+                skip_on_version_conflict=api_call.skip_on_version_conflict,
+                replace=api_call.replace,
+            )
+            results.extend(result.nodes)
+        return results
 
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).nodes
 
-    def update(self, items: LoadableNodes) -> NodeApplyResultList:
+    def update(self, items: LoadedNodeList) -> NodeApplyResultList:
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[NodeId]) -> int:
@@ -1911,77 +1913,4 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, LoadableNodes,
 
     def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
         # Nodes will be deleted in .delete call.
-        return 0
-
-
-@final
-class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, LoadableEdges, EdgeList]):
-    item_name = "edges"
-    api_name = "data_modeling.instances"
-    folder_name = "data_models"
-    filename_pattern = r"^.*\.?(edge)$"
-    resource_cls = Edge
-    resource_write_cls = EdgeApply
-    list_cls = EdgeList
-    list_write_cls = LoadableEdges
-    _display_name = "edges"
-
-    # Note edges do not need nodes to be created first, as they are created as part of the edge creation.
-    # However, for deletion (reversed order) we need to delete edges before nodes.
-    dependencies = frozenset({SpaceLoader, ViewLoader, NodeLoader})
-
-    @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        # Todo Scoped to spaces
-        return DataModelInstancesAcl(
-            [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
-            DataModelInstancesAcl.Scope.All(),
-        )
-
-    @classmethod
-    def get_id(cls, item: EdgeApply | Edge) -> EdgeId:
-        return item.as_id()
-
-    @classmethod
-    def create_empty_of(cls, items: LoadableEdges) -> LoadableEdges:
-        return cls.list_write_cls.create_empty_from(items)
-
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadableEdges:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        if isinstance(raw, dict):
-            loaded = LoadableEdges._load(raw, cognite_client=self.client)
-        else:
-            raise ValueError(f"Unexpected edge yaml file format {filepath.name}")
-        if not skip_validation:
-            ToolGlobals.verify_spaces(list({item.space for item in loaded}))
-        return loaded
-
-    def create(self, items: LoadableEdges) -> EdgeApplyResultList:
-        if not isinstance(items, LoadableEdges):
-            raise ValueError("Unexpected edge format file format")
-        item = items
-        result = self.client.data_modeling.instances.apply(
-            edges=item.edges,
-            auto_create_start_nodes=item.auto_create_start_nodes,
-            auto_create_end_nodes=item.auto_create_end_nodes,
-            skip_on_version_conflict=item.skip_on_version_conflict,
-            replace=item.replace,
-        )
-        return result.edges
-
-    def retrieve(self, ids: SequenceNotStr[EdgeId]) -> EdgeList:
-        return self.client.data_modeling.instances.retrieve(edges=cast(Sequence, ids)).edges
-
-    def update(self, items: LoadableEdges) -> EdgeApplyResultList:
-        return self.create(items)
-
-    def delete(self, ids: SequenceNotStr[EdgeId]) -> int:
-        deleted = self.client.data_modeling.instances.delete(edges=cast(Sequence, ids))
-        return len(deleted.edges)
-
-    def count(self, ids: SequenceNotStr[EdgeId]) -> int:
-        return len(ids)
-
-    def drop_data(self, ids: SequenceNotStr[EdgeId]) -> int:
-        # Edges will be deleted in .delete call.
         return 0
