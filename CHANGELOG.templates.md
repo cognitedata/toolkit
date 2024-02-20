@@ -15,9 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0b9] - 2024-02-20
+
+### Fixed
+
+- Replaced `shared: True` to `isPublic: True` and `action: upsert` to `conflictMode: upsert` in all
+  transformation configurations to match the CDF API specification.
+
 ## [0.1.0b8] - 2024-02-14
 
-No changes to templates.
+### Added
 
 - Added a new module `cognite_modules/example/cdf_data_pipeline_files_valhall` file extractor pipeline, transformation
   and CDF function running annotation on P&ID documents.
