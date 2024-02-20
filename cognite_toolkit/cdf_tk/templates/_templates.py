@@ -7,12 +7,14 @@ import shutil
 import sys
 from collections import ChainMap, defaultdict
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import yaml
 from cognite.client._api.functions import validate_function_folder
+from cognite.client.data_classes.files import FileMetadataList
 from cognite.client.data_classes.functions import FunctionList
 from rich import print
 
@@ -236,15 +238,18 @@ def copy_common_code(
     function_source_dir: Path,
     build_dest_dir: Path,
     common_code_dir: Path,
+    verbose: bool = False,
 ) -> None:
     # Copies in code from the common folder if it exists
     if not common_code_dir.exists():
         return
 
     common_destination = Path(build_dest_dir / "common")
-    print(
-        f"        [bold green]INFO:[/] Copying common function code from " f"{common_code_dir} to {common_destination}"
-    )
+    if verbose:
+        print(
+            f"        [bold green]INFO:[/] Copying common function code from "
+            f"{common_code_dir} to {common_destination}"
+        )
 
     if Path(function_source_dir / "common").is_symlink():
         # If we had a symlink in the source dir, we can safely delete the copied in common dir
@@ -280,6 +285,7 @@ def process_function_directory(
     module_dir: Path,
     build_dir: Path,
     common_code_dir: Path,
+    verbose: bool = False,
 ) -> None:
     try:
         functions = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
@@ -295,7 +301,8 @@ def process_function_directory(
             for function_dir in function_subdirs:
                 if func.external_id == function_dir.name:
                     found = True
-                    print(f"      [bold green]INFO:[/] Found function {func.external_id}")
+                    if verbose:
+                        print(f"      [bold green]INFO:[/] Found function {func.external_id}")
                     if func.file_id != "<will_be_generated>":
                         print(
                             f"        [bold yellow]WARNING:[/] Function {func.external_id} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
@@ -314,6 +321,7 @@ def process_function_directory(
                             function_source_dir=function_dir,
                             build_dest_dir=destination,
                             common_code_dir=common_code_dir,
+                            verbose=verbose,
                         )
                     # Run validations on the function using the SDK's validation function
                     try:
@@ -340,6 +348,38 @@ def process_function_directory(
                 f"        [bold red]ERROR:[/] Function directory not found for externalId {func.external_id} defined in {yaml_source_path}."
             )
             exit(1)
+
+
+def process_files_directory(
+    files: list[Path],
+    yaml_dest_path: Path,
+    module_dir: Path,
+    build_dir: Path,
+    verbose: bool = False,
+) -> None:
+    if len(files) == 0:
+        return
+    try:
+        file_def = FileMetadataList.load(yaml_dest_path.read_text())
+    except KeyError as e:
+        print(f"      [bold red]ERROR:[/] Failed to load file definitions file {yaml_dest_path}, error in key: {e}")
+        exit(1)
+    # We only support one file template definition per module.
+    if len(file_def) == 1:
+        if "$FILENAME" in file_def[0].name and file_def[0].name != "$FILENAME":
+            if verbose:
+                print(
+                    f"      [bold green]INFO:[/] Found file template {file_def[0].name} in {module_dir}, renaming files..."
+                )
+            for filepath in files:
+                destination = build_dir / filepath.parent.name / re.sub(r"\$FILENAME", filepath.name, file_def[0].name)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(filepath, destination)
+            return
+    for filepath in files:
+        destination = build_dir / filepath.parent.name / filepath.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(filepath, destination)
 
 
 def process_config_files(
@@ -377,74 +417,101 @@ def process_config_files(
         # The custom key 'sort_key' is to get the sort on integer and not the string.
         filepaths = sorted(filepaths, key=sort_key)
 
-        for filepath in filepaths:
-            if filepath.parent.parent.name == "functions":
-                # Skip any functions directory, we will process them separately
-                continue
-            if verbose:
-                print(f"    [bold green]INFO:[/] Processing {filepath.name}")
+        @dataclass
+        class ResourceFiles:
+            resource_files: list[Path] = field(default_factory=list)
+            other_files: list[Path] = field(default_factory=list)
 
-            if filepath.suffix.lower() not in PROC_TMPL_VARS_SUFFIX:
+        # Initialise for auth, other resource folders will be added as they are found
+        files_by_resource_folder: dict[str, ResourceFiles] = defaultdict(ResourceFiles)
+        for filepath in filepaths:
+            try:
+                resource_folder = resource_folder_from_path(filepath)
+            except ValueError:
+                if verbose:
+                    print(
+                        f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
+                    )
+                continue
+            if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
+                files_by_resource_folder[resource_folder].resource_files.append(filepath)
+            else:
+                files_by_resource_folder[resource_folder].other_files.append(filepath)
+
+        for resource_folder in files_by_resource_folder:
+            for filepath in files_by_resource_folder[resource_folder].resource_files:
+                # We only want to process the yaml files for functions as the function code is handled separately.
+                if resource_folder == "functions" and filepath.suffix.lower() != ".yaml":
+                    continue
+                if verbose:
+                    print(f"    [bold green]INFO:[/] Processing {filepath.name}")
+                content = filepath.read_text()
+                content = replace_variables(content, local_config)
+                filename = create_file_name(filepath, number_by_resource_type)
+                destination = build_dir / resource_folder / filename
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text(content)
+                validate(content, destination, filepath, modules_by_variables)
+                source_by_build_path[destination] = filepath
+                # If we have a function definition, we want to process the directory.
+                if (
+                    resource_folder == "functions"
+                    and filepath.suffix.lower() == ".yaml"
+                    and re.match(FunctionLoader.filename_pattern, filepath.stem)
+                ):
+                    if not printed_function_warning and sys.version_info >= (3, 12):
+                        print(
+                            "      [bold yellow]WARNING:[/] The functions API does not support Python 3.12. "
+                            "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
+                        )
+                        printed_function_warning = True
+                    process_function_directory(
+                        yaml_source_path=filepath,
+                        yaml_dest_path=destination,
+                        module_dir=module_dir,
+                        build_dir=build_dir,
+                        common_code_dir=Path(project_config_dir / environment.common_function_code),
+                        verbose=verbose,
+                    )
+                    files_by_resource_folder[resource_folder].other_files = []
+                if resource_folder == "files":
+                    process_files_directory(
+                        files=files_by_resource_folder[resource_folder].other_files,
+                        yaml_dest_path=destination,
+                        module_dir=module_dir,
+                        build_dir=build_dir,
+                        verbose=verbose,
+                    )
+                    files_by_resource_folder[resource_folder].other_files = []
+
+            if resource_folder == "timeseries_datapoints":
+                # Process all csv files
+                for filepath in files_by_resource_folder["timeseries_datapoints"].other_files:
+                    if filepath.suffix.lower() != ".csv":
+                        continue
+                    # Special case for timeseries datapoints, we want to timeshift datapoints
+                    # if the file is a csv file and we have been instructed to.
+                    # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+                    file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+                    data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
+                    destination = build_dir / resource_folder / filename
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    if "timeshift_" in data.index.name:
+                        print(
+                            "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
+                        )
+                        data.index.name = data.index.name.replace("timeshift_", "")
+                        data.index = pd.DatetimeIndex(data.index)
+                        periods = datetime.datetime.today() - data.index[-1]
+                        data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
+                    destination.write_text(data.to_csv())
+            for filepath in files_by_resource_folder[resource_folder].other_files:
+                if verbose:
+                    print(f"    [bold green]INFO:[/] Found unrecognized file {filepath}. Copying in untouched...")
                 # Copy the file as is, not variable replacement
                 destination = build_dir / filepath.parent.name / filepath.name
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(filepath, destination)
-                continue
-
-            content = filepath.read_text()
-            content = replace_variables(content, local_config)
-            filename = create_file_name(filepath, number_by_resource_type)
-
-            try:
-                resource_folder = resource_folder_from_path(filepath)
-            except ValueError:
-                print(f"      [bold green]INFO:[/] The file {filepath.name} is not a resource file, skipping it...")
-                continue
-
-            destination = build_dir / resource_folder / filename
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            if resource_folder == "timeseries_datapoints" and filepath.suffix.lower() == ".csv":
-                # Special case for timeseries datapoints, we want to timeshit datapoints
-                # if the file is a csv file and we have been instructed to.
-                # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-                file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
-                if "timeshift_" in data.index.name:
-                    print(
-                        "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
-                    )
-                    data.index.name = data.index.name.replace("timeshift_", "")
-                    data.index = pd.DatetimeIndex(data.index)
-                    periods = datetime.datetime.today() - data.index[-1]
-                    data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
-                    destination.write_text(data.to_csv())
-                else:
-                    destination.write_text(content)
-            else:
-                destination.write_text(content)
-            source_by_build_path[destination] = filepath
-            validate(content, destination, filepath, modules_by_variables)
-
-            # If we have a function definition, we want to process the directory.
-            if (
-                resource_folder == "functions"
-                and filepath.suffix.lower() == ".yaml"
-                and re.match(FunctionLoader.filename_pattern, filepath.stem)
-            ):
-                if not printed_function_warning and sys.version_info >= (3, 12):
-                    print(
-                        "      [bold yellow]WARNING:[/] The functions API does not support Python 3.12. "
-                        "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
-                    )
-                    printed_function_warning = True
-
-                process_function_directory(
-                    yaml_source_path=filepath,
-                    yaml_dest_path=destination,
-                    module_dir=module_dir,
-                    build_dir=build_dir,
-                    common_code_dir=Path(project_config_dir / environment.common_function_code),
-                )
 
     return source_by_build_path
 
