@@ -509,8 +509,8 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
             print(
                 f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' are defined in a tree structure, i.e., "
                 "variables defined at a higher level can be used in lower levels."
-                f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str} "
-                f"\n    need{'' if len(modules) > 1 else 's'} to be moved up in the config structure to be used "
+                f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str}."
+                f"\n    It needs to be moved up in the config structure to be used."
                 f"in {module!r}."
             )
 
