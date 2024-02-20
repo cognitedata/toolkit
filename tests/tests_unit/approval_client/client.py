@@ -5,9 +5,8 @@ import itertools
 import json as JSON
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Literal, TextIO, cast
+from typing import Any, BinaryIO, Callable, TextIO, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -15,97 +14,39 @@ from cognite.client import CogniteClient
 from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import (
     Database,
-    DatabaseList,
-    DatabaseWrite,
-    DatabaseWriteList,
-    Datapoints,
-    DatapointsList,
-    DataSet,
-    DataSetList,
-    DataSetWrite,
-    DataSetWriteList,
-    ExtractionPipeline,
     ExtractionPipelineConfig,
     ExtractionPipelineConfigWrite,
-    ExtractionPipelineConfigWriteList,
-    ExtractionPipelineList,
-    ExtractionPipelineWrite,
-    ExtractionPipelineWriteList,
     FileMetadata,
-    FileMetadataList,
-    FileMetadataWrite,
-    FileMetadataWriteList,
     Function,
     FunctionCall,
-    FunctionList,
     FunctionWrite,
-    FunctionWriteList,
     Group,
     GroupList,
-    GroupWrite,
-    GroupWriteList,
-    Row,
-    RowList,
-    RowWrite,
-    RowWriteList,
-    Table,
-    TableList,
-    TableWrite,
-    TableWriteList,
-    TimeSeries,
-    TimeSeriesList,
-    TimeSeriesWrite,
-    TimeSeriesWriteList,
-    Transformation,
-    TransformationList,
-    TransformationSchedule,
-    TransformationScheduleList,
-    TransformationScheduleWrite,
-    TransformationScheduleWriteList,
-    TransformationWrite,
-    TransformationWriteList,
 )
-from cognite.client.data_classes._base import CogniteResource, CogniteResourceList, T_CogniteResource
+from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
 from cognite.client.data_classes.data_modeling import (
-    Container,
-    ContainerApply,
-    ContainerApplyList,
-    ContainerList,
-    DataModel,
-    DataModelApply,
-    DataModelApplyList,
-    DataModelList,
     EdgeApply,
     EdgeApplyResultList,
     EdgeId,
     InstancesApplyResult,
     InstancesDeleteResult,
-    Node,
     NodeApply,
-    NodeApplyList,
     NodeApplyResult,
     NodeApplyResultList,
     NodeId,
-    NodeList,
-    Space,
-    SpaceApply,
-    SpaceApplyList,
-    SpaceList,
     VersionedDataModelingId,
     View,
-    ViewApply,
-    ViewApplyList,
-    ViewList,
 )
 from cognite.client.data_classes.data_modeling.ids import InstanceId
-from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import FunctionsStatus
-from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case
 from requests import Response
 
-TEST_FOLDER = Path(__file__).resolve().parent
+from .config import API_RESOURCES
+from .data_classes import APIResource, AuthGroupCalls
+
+TEST_FOLDER = Path(__file__).resolve().parent.parent
 
 
 class ApprovalCogniteClient:
@@ -141,7 +82,7 @@ class ApprovalCogniteClient:
         self.mock_client.config.credentials.authorization_header.return_value = ("Bearer", "123")
 
         # Setup all mock methods
-        for resource in _API_RESOURCES:
+        for resource in API_RESOURCES:
             parts = resource.api_name.split(".")
             mock_api = mock_client
             for part in parts:
@@ -177,6 +118,7 @@ class ApprovalCogniteClient:
 
     @property
     def client(self) -> CogniteClient:
+        """Returns a mock CogniteClient"""
         return cast(CogniteClient, self.mock_client)
 
     def append(self, resource_cls: type[CogniteResource], items: CogniteResource | Sequence[CogniteResource]) -> None:
@@ -692,7 +634,7 @@ class ApprovalCogniteClient:
             A dict with the calls that have been made to sub APIs that have not been mocked, {api_name.method_name: call_count}
         """
         mocked_apis: dict[str : set[str]] = defaultdict(set)
-        for r in _API_RESOURCES:
+        for r in API_RESOURCES:
             if r.api_name.count(".") == 1:
                 api_name, sub_api = r.api_name.split(".")
             elif r.api_name.count(".") == 0:
@@ -727,369 +669,3 @@ class ApprovalCogniteClient:
         groups = sorted(groups, key=lambda x: x.name)
         for name, group in itertools.groupby(groups, key=lambda x: x.name):
             yield AuthGroupCalls(name=name, calls=list(group))
-
-
-@dataclass
-class AuthGroupCalls:
-    name: str
-    calls: list[Group]
-
-    @property
-    def last_created_capabilities(self) -> set[str]:
-        return {c._capability_name for c in self.calls[-1].capabilities}
-
-    @property
-    def capabilities_all_calls(self) -> set[str]:
-        return {c._capability_name for call in self.calls for c in call.capabilities}
-
-
-@dataclass
-class Method:
-    """Represent a method in the CogniteClient that should be mocked
-
-    Args:
-        api_class_method: The name of the method in the CogniteClient, for example, 'create', 'insert_dataframe'
-        mock_name: The name of the method in the ApprovalCogniteClient, for example, 'create', 'insert_dataframe'
-
-    The available mock methods you can see inside
-    * ApprovalCogniteClient._create_create_method,
-    * ApprovalCogniteClient._create_delete_method,
-    * ApprovalCogniteClient._create_retrieve_method
-
-    """
-
-    api_class_method: str
-    mock_name: str
-
-
-@dataclass
-class APIResource:
-    """This is used to define the resources that should be mocked in the ApprovalCogniteClient
-
-    Args:
-        api_name: The name of the resource in the CogniteClient, for example, 'time_series', 'data_modeling.views'
-        resource_cls: The resource class for the API
-        list_cls: The list resource API class
-        methods: The methods that should be mocked
-        _write_cls: The write resource class for the API. For example, the writing class for 'data_modeling.views' is 'ViewApply'
-        _write_list_cls: The write list class in the CogniteClient
-
-    """
-
-    api_name: str
-    resource_cls: type[CogniteResource]
-    list_cls: type[CogniteResourceList] | type[list]
-    methods: dict[Literal["create", "delete", "retrieve"], list[Method]]
-
-    _write_cls: type[CogniteResource] | None = None
-    _write_list_cls: type[CogniteResourceList] | None = None
-
-    @property
-    def write_cls(self) -> type[CogniteResource]:
-        return self._write_cls or self.resource_cls
-
-    @property
-    def write_list_cls(self) -> type[CogniteResourceList]:
-        return self._write_list_cls or self.list_cls
-
-
-# This is used to define the resources that should be mocked in the ApprovalCogniteClient
-# You can add more resources here if you need to mock more resources
-_API_RESOURCES = [
-    APIResource(
-        api_name="post",
-        resource_cls=TokenInspection,
-        list_cls=list[TokenInspection],
-        methods={
-            "post": [Method(api_class_method="post", mock_name="post_method")],
-        },
-    ),
-    APIResource(
-        api_name="iam.groups",
-        resource_cls=Group,
-        _write_cls=GroupWrite,
-        _write_list_cls=GroupWriteList,
-        list_cls=GroupList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
-            "retrieve": [Method(api_class_method="list", mock_name="return_values")],
-        },
-    ),
-    APIResource(
-        api_name="iam.token",
-        resource_cls=TokenInspection,
-        list_cls=list[TokenInspection],
-        methods={
-            "inspect": [Method(api_class_method="inspect", mock_name="return_value")],
-        },
-    ),
-    APIResource(
-        api_name="data_sets",
-        resource_cls=DataSet,
-        _write_cls=DataSetWrite,
-        _write_list_cls=DataSetWriteList,
-        list_cls=DataSetList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="time_series",
-        resource_cls=TimeSeries,
-        _write_cls=TimeSeriesWrite,
-        list_cls=TimeSeriesList,
-        _write_list_cls=TimeSeriesWriteList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="raw.databases",
-        resource_cls=Database,
-        _write_cls=DatabaseWrite,
-        list_cls=DatabaseList,
-        _write_list_cls=DatabaseWriteList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "retrieve": [Method(api_class_method="list", mock_name="return_values")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
-        },
-    ),
-    APIResource(
-        api_name="raw.tables",
-        resource_cls=Table,
-        _write_cls=TableWrite,
-        list_cls=TableList,
-        _write_list_cls=TableWriteList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "retrieve": [Method(api_class_method="list", mock_name="return_values")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
-        },
-    ),
-    APIResource(
-        api_name="raw.rows",
-        resource_cls=Row,
-        _write_cls=RowWrite,
-        list_cls=RowList,
-        _write_list_cls=RowWriteList,
-        methods={
-            "create": [Method(api_class_method="insert_dataframe", mock_name="insert_dataframe")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="functions",
-        resource_cls=Function,
-        _write_cls=FunctionWrite,
-        list_cls=FunctionList,
-        _write_list_cls=FunctionWriteList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create_function_api")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="functions.schedules",
-        resource_cls=Function,
-        _write_cls=FunctionWrite,
-        list_cls=FunctionList,
-        _write_list_cls=FunctionWriteList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create_function_api")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="transformations",
-        resource_cls=Transformation,
-        _write_cls=TransformationWrite,
-        list_cls=TransformationList,
-        _write_list_cls=TransformationWriteList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="transformations.schedules",
-        resource_cls=TransformationSchedule,
-        _write_cls=TransformationScheduleWrite,
-        list_cls=TransformationScheduleList,
-        _write_list_cls=TransformationScheduleWriteList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="extraction_pipelines",
-        resource_cls=ExtractionPipeline,
-        _write_cls=ExtractionPipelineWrite,
-        list_cls=ExtractionPipelineList,
-        _write_list_cls=ExtractionPipelineWriteList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="extraction_pipelines.config",
-        resource_cls=ExtractionPipelineConfig,
-        _write_cls=ExtractionPipelineConfigWrite,
-        list_cls=ExtractionPipelineConfigList,
-        _write_list_cls=ExtractionPipelineConfigWriteList,
-        methods={
-            "create": [Method(api_class_method="create", mock_name="create_extraction_pipeline_config")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="data_modeling.containers",
-        resource_cls=Container,
-        list_cls=ContainerList,
-        _write_cls=ContainerApply,
-        _write_list_cls=ContainerApplyList,
-        methods={
-            "create": [Method(api_class_method="apply", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="data_modeling.views",
-        resource_cls=View,
-        list_cls=ViewList,
-        _write_cls=ViewApply,
-        _write_list_cls=ViewApplyList,
-        methods={
-            "create": [Method(api_class_method="apply", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="data_model_retrieve"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="data_modeling.data_models",
-        resource_cls=DataModel,
-        list_cls=DataModelList,
-        _write_cls=DataModelApply,
-        _write_list_cls=DataModelApplyList,
-        methods={
-            "create": [Method(api_class_method="apply", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="data_modeling.spaces",
-        resource_cls=Space,
-        list_cls=SpaceList,
-        _write_cls=SpaceApply,
-        _write_list_cls=SpaceApplyList,
-        methods={
-            "create": [Method(api_class_method="apply", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_space")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="time_series.data",
-        resource_cls=Datapoints,
-        list_cls=DatapointsList,
-        methods={
-            "create": [
-                Method(api_class_method="insert", mock_name="create"),
-                Method(api_class_method="insert_dataframe", mock_name="insert_dataframe"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="files",
-        resource_cls=FileMetadata,
-        list_cls=FileMetadataList,
-        _write_cls=FileMetadataWrite,
-        _write_list_cls=FileMetadataWriteList,
-        methods={
-            "create": [
-                Method(api_class_method="upload", mock_name="upload"),
-                Method(api_class_method="create", mock_name="create"),
-                # This is used by functions to upload the file used for deployment.
-                Method(api_class_method="upload_bytes", mock_name="upload_bytes_files_api"),
-            ],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="data_modeling.instances",
-        resource_cls=Node,
-        list_cls=NodeList,
-        _write_cls=NodeApply,
-        _write_list_cls=NodeApplyList,
-        methods={
-            "create": [Method(api_class_method="apply", mock_name="create_instances")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_instances")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
-            ],
-        },
-    ),
-]
