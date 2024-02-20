@@ -338,7 +338,7 @@ class TestAuthLoader:
 
         new_group = GroupWrite(name="new_group", source_id="123", capabilities=[])
 
-        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(batch=[loaded, new_group])
+        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(resources=[loaded, new_group])
 
         assert len(to_create) == 1
         assert len(to_change) == 0
@@ -370,7 +370,7 @@ class TestAuthLoader:
         )
 
         # group exists, no changes
-        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(batch=[loaded])
+        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(resources=[loaded])
 
         assert len(to_create) == 0
         assert len(to_change) == 1
