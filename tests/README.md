@@ -1,7 +1,5 @@
 # Testing
 
-## Integration vs Unit Testing
-
 Tests are organized into two main categories, integration and unit tests.
 The integration tests are dependent on the CDF, while the unit tests are not:
 
@@ -13,10 +11,19 @@ The integration tests are dependent on the CDF, while the unit tests are not:
  ┗ 📜README.md - This file
 ```
 
-## Snapshot Testing
+## Integration Testing
+
+To support the integration testing you need to have a `.env` file in the root of the project following the
+[`.env.templ`](../cognite_toolkit/.env.templ) file structure.
+
+## Unit Testing
+
+### Snapshot Testing (Regression Testing)
 
 In `cdf-tk` we use snapshot testing to check that a sequence of CLI commands produces consistent output. This type
-of testing is also called [Regression Testing](https://en.wikipedia.org/wiki/Regression_testing).
+of testing is also called [Regression Testing](https://en.wikipedia.org/wiki/Regression_testing). Note the
+idea of snapshot testing can be used in integration tests as well, but in `cdf-tk` we only use it
+in the unit tests.
 
 We have three main types of snapshot tests in `cdf-tk`:
 
@@ -53,7 +60,7 @@ written to CDF, these tests will fail.
 * If you have changed an existing module, the tests will fail, and you need to manually verify that the changes
   are expected and then update the snapshot file. You do this by running the tests with the `pytest --force-regen`
 
-## <code>ApprovalCogniteClient</code>
+### <code>ApprovalCogniteClient</code>
 
 To intercept CDF calls, we have created an `ApprovalCogniteClient` that is used in the snapshot tests. To understand
 this client, you need to understand mocking. The first Section below goes through the basics of mocking in the CDF client
@@ -62,7 +69,7 @@ context. The second section goes through how the `ApprovalCogniteClient` is buil
 **Note** that the `ApprovalCogniteClient` is not only used in the snapshot tests, but also in other tests where we want
 to simulate CDF.
 
-### Mocking CDF Client
+#### Mocking CDF Client
 
 From the `cognite-sdk` there is a built-in mock client available. This can be used as shown below:
 
@@ -92,7 +99,7 @@ In the test `tests_my_function` we use the `CogniteClientMock` to mock the `Cogn
 of the `assets.list` method to a list of assets with the name `MyAsset`. We then call `my_function` and verify that
 the return value is as expected.
 
-### ApprovalClient
+#### ApprovalClient
 
 A challenge with the example above is that there are typically 3–5 methods that need to be mocked for each resource
 type. As of, 16. February 2024, the `cognite-toolkit` supports 18 different resource types, which means that the
@@ -127,7 +134,7 @@ The most important methods/properties in the `ApprovalCogniteClient` are:
   the resources that are returned from CDF.
 * Method `dump` - Dumps all resources that have been created, updated, or deleted to a dictionary.
 
-### Extending the ApprovalClient
+#### Extending the ApprovalClient
 
 To extend the `ApprovalCogniteClient`, you either reuse existing mock functions or you have to create new ones.
 
