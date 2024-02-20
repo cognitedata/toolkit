@@ -4,6 +4,7 @@ import datetime
 import io
 import re
 import shutil
+import sys
 from collections import ChainMap, defaultdict
 from collections.abc import Mapping
 from pathlib import Path
@@ -30,7 +31,7 @@ def build_config(
     system_config: SystemYAML,
     clean: bool = False,
     verbose: bool = False,
-) -> None:
+) -> dict[Path, Path]:
     is_populated = build_dir.exists() and any(build_dir.iterdir())
     if is_populated and clean:
         shutil.rmtree(build_dir)
@@ -56,12 +57,12 @@ def build_config(
         for warning in warnings:
             print(f"    {warning}")
 
-    process_config_files(source_dir, selected_modules, build_dir, config, verbose)
+    source_by_build_path = process_config_files(source_dir, selected_modules, build_dir, config, verbose)
 
     build_environment = config.create_build_environment()
     build_environment.dump_to_file(build_dir)
     print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
-    return None
+    return source_by_build_path
 
 
 def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
@@ -325,6 +326,9 @@ def process_function_directory(
                         print(
                             f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {function_dir}, python module is not loadable:\n{e}"
                         )
+                        print(
+                            "            Note that you need to have any requirements your function uses installed in your current, local python environment."
+                        )
                         exit(1)
                     # Clean up cache files
                     for subdir in destination.iterdir():
@@ -344,7 +348,9 @@ def process_config_files(
     build_dir: Path,
     config: BuildConfigYAML,
     verbose: bool = False,
-) -> None:
+) -> dict[Path, Path]:
+    source_by_build_path: dict[Path, Path] = {}
+    printed_function_warning = False
     environment = config.environment
     configs = split_config(config.modules)
     modules_by_variables = defaultdict(list)
@@ -372,6 +378,9 @@ def process_config_files(
         filepaths = sorted(filepaths, key=sort_key)
 
         for filepath in filepaths:
+            if filepath.parent.parent.name == "functions":
+                # Skip any functions directory, we will process them separately
+                continue
             if verbose:
                 print(f"    [bold green]INFO:[/] Processing {filepath.name}")
 
@@ -413,7 +422,7 @@ def process_config_files(
                     destination.write_text(content)
             else:
                 destination.write_text(content)
-
+            source_by_build_path[destination] = filepath
             validate(content, destination, filepath, modules_by_variables)
 
             # If we have a function definition, we want to process the directory.
@@ -422,6 +431,13 @@ def process_config_files(
                 and filepath.suffix.lower() == ".yaml"
                 and re.match(FunctionLoader.filename_pattern, filepath.stem)
             ):
+                if not printed_function_warning and sys.version_info >= (3, 12):
+                    print(
+                        "      [bold yellow]WARNING:[/] The functions API does not support Python 3.12. "
+                        "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
+                    )
+                    printed_function_warning = True
+
                 process_function_directory(
                     yaml_source_path=filepath,
                     yaml_dest_path=destination,
@@ -429,6 +445,8 @@ def process_config_files(
                     build_dir=build_dir,
                     common_code_dir=Path(project_config_dir / environment.common_function_code),
                 )
+
+    return source_by_build_path
 
 
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
@@ -482,15 +500,17 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
     resource_folder = resource_folder_from_path(source_path)
 
     for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-        print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {destination!s}")
+        print(
+            f"  [bold yellow]WARNING:[/] Unresolved template variable in module {module}: {unmatched} in {destination!s}"
+        )
         variable = unmatched[2:-2]
         if modules := modules_by_variable.get(variable):
             module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
             print(
                 f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' are defined in a tree structure, i.e., "
                 "variables defined at a higher level can be used in lower levels."
-                f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str} "
-                f"\n    need{'' if len(modules) > 1 else 's'} to be moved up in the config structure to be used "
+                f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str}."
+                f"\n    It needs to be moved up in the config structure to be used"
                 f"in {module!r}."
             )
 

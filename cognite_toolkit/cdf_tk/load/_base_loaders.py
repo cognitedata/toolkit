@@ -212,7 +212,27 @@ class ResourceLoader(
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
-        return self.resource_write_cls.load(raw_yaml)
+        else:
+            return self.list_write_cls([self.resource_write_cls.load(raw_yaml)])
+
+    def dump_resource(
+        self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass
+    ) -> tuple[dict[str, Any], dict[Path, str]]:
+        """Dumps the resource to a dictionary that matches the write format.
+
+        In addition, it can return a dictionary with extra files and their content. This is, for example, used by
+        Transformations to dump the 'query' key to an .sql file.
+
+        Args:
+            resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
+            source_file (Path): The source file that the resource was loaded from.
+            local_resource (T_WritableCogniteResource): The local resource.
+
+        Returns:
+            tuple[dict[str, Any], dict[Path, str]]: The dumped resource and a dictionary with extra files and their
+             content.
+        """
+        return resource.dump(), {}
 
     def create(self, items: T_CogniteResourceList) -> Sized:
         return self.api_class.create(items)
@@ -266,54 +286,48 @@ class ResourceLoader(
         # sort.
         filepaths = sorted(filepaths, key=sort_key)
 
-        batches = self._load_batches(filepaths, ToolGlobals, skip_validation=dry_run, verbose=verbose)
-        if batches is None:
+        loaded_resources = self._load_files(filepaths, ToolGlobals, skip_validation=dry_run, verbose=verbose)
+        if loaded_resources is None:
             ToolGlobals.failed = True
             return None
 
         # Duplicates should be handled on the build step,
         # but in case any of them slip through, we do it here as well to
         # avoid an error.
-        batches, duplicates = self._remove_duplicates(batches)
+        loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
 
-        nr_of_batches = len(batches)
-        nr_of_items = sum(len(batch) for batch in batches)
+        nr_of_items = len(loaded_resources)
         if nr_of_items == 0:
             return ResourceDeployResult(name=self.display_name)
 
         prefix = "Would deploy" if dry_run else "Deploying"
-        plural = "es" if nr_of_batches > 1 else ""
-        print(f"[bold]{prefix} {nr_of_items} {self.display_name} in {nr_of_batches} batch{plural} to CDF...[/]")
+        print(f"[bold]{prefix} {nr_of_items} {self.display_name} to CDF...[/]")
         # Moved here to avoid printing before the above message.
         for duplicate in duplicates:
             print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
-        for batch_no, batch in enumerate(batches, 1):
-            to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(batch)
+        to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(loaded_resources)
 
-            if dry_run:
-                if (
-                    self.support_drop
-                    and has_done_drop
-                    and (not isinstance(self, ResourceContainerLoader) or has_dropped_data)
-                ):
-                    # Means the resources will be deleted and not left unchanged or changed
-                    for item in unchanged:
-                        # We cannot use extents as LoadableNodes cannot be extended.
-                        to_create.append(item)
-                    for item in to_update:
-                        to_create.append(item)
-                    unchanged.clear()
-                    to_update.clear()
+        if dry_run:
+            if (
+                self.support_drop
+                and has_done_drop
+                and (not isinstance(self, ResourceContainerLoader) or has_dropped_data)
+            ):
+                # Means the resources will be deleted and not left unchanged or changed
+                for item in unchanged:
+                    # We cannot use extents as LoadableNodes cannot be extended.
+                    to_create.append(item)
+                for item in to_update:
+                    to_create.append(item)
+                unchanged.clear()
+                to_update.clear()
 
-                nr_of_unchanged += len(unchanged)
-                nr_of_created += len(to_create)
-                nr_of_changed += len(to_update)
-                if verbose:
-                    self._verbose_batch_print(batch_no, len(batches), to_create, to_update, unchanged, dry_run)
-                continue
-
+            nr_of_unchanged += len(unchanged)
+            nr_of_created += len(to_create)
+            nr_of_changed += len(to_update)
+        else:
             nr_of_unchanged += len(unchanged)
 
             if to_create:
@@ -331,8 +345,8 @@ class ResourceLoader(
 
                 nr_of_changed += updated
 
-            if verbose:
-                self._verbose_batch_print(batch_no, len(batches), to_create, to_update, unchanged, dry_run)
+        if verbose:
+            self._verbose_print(to_create, to_update, unchanged, dry_run)
 
         if isinstance(self, ResourceContainerLoader):
             return ResourceContainerDeployResult(
@@ -378,18 +392,17 @@ class ResourceLoader(
         filepaths = self.find_files(path)
 
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-        batches = self._load_batches(filepaths, ToolGlobals, skip_validation=True, verbose=verbose)
-        if batches is None:
+        loaded_resources = self._load_files(filepaths, ToolGlobals, skip_validation=True, verbose=verbose)
+        if loaded_resources is None:
             ToolGlobals.failed = True
             return None
 
         # Duplicates should be handled on the build step,
         # but in case any of them slip through, we do it here as well to
         # avoid an error.
-        batches, duplicates = self._remove_duplicates(batches)
+        loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
 
-        nr_of_batches = len(batches)
-        nr_of_items = sum(len(batch) for batch in batches)
+        nr_of_items = len(loaded_resources)
         if nr_of_items == 0:
             return ResourceDeployResult(name=self.display_name)
 
@@ -399,18 +412,15 @@ class ResourceLoader(
         else:
             prefix = "Would drop data from" if dry_run else "Dropping data from"
             with_data = ""
-        plural = "es" if nr_of_batches > 1 else ""
-        print(
-            f"[bold]{prefix} {nr_of_items} {self.display_name} {with_data}in {nr_of_batches} batch{plural} to CDF...[/]"
-        )
+        print(f"[bold]{prefix} {nr_of_items} {self.display_name} {with_data} from CDF...[/]")
         for duplicate in duplicates:
             print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
 
         # Deleting resources.
         if isinstance(self, ResourceContainerLoader) and drop_data:
-            nr_of_dropped_datapoints = self._drop_data(batches, dry_run, verbose)
+            nr_of_dropped_datapoints = self._drop_data(loaded_resources, dry_run, verbose)
             if drop:
-                nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
+                nr_of_deleted = self._delete_resources(loaded_resources, dry_run, verbose)
             else:
                 nr_of_deleted = 0
             if verbose:
@@ -423,7 +433,7 @@ class ResourceLoader(
                 item_name=self.item_name,
             )
         elif not isinstance(self, ResourceContainerLoader) and drop:
-            nr_of_deleted = self._delete_resources(batches, dry_run, verbose)
+            nr_of_deleted = self._delete_resources(loaded_resources, dry_run, verbose)
             if verbose:
                 print("")
             return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
@@ -431,27 +441,27 @@ class ResourceLoader(
             return ResourceDeployResult(name=self.display_name)
 
     def to_create_changed_unchanged_triple(
-        self, batch: T_CogniteResourceList
+        self, resources: T_CogniteResourceList
     ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList]:
         """Returns a triple of lists of resources that should be created, updated, and are unchanged."""
-        batch_ids = self.get_ids(batch)
+        resource_ids = self.get_ids(resources)
         to_create, to_update, unchanged = (
-            self.create_empty_of(batch),
-            self.create_empty_of(batch),
-            self.create_empty_of(batch),
+            self.create_empty_of(resources),
+            self.create_empty_of(resources),
+            self.create_empty_of(resources),
         )
         try:
-            cdf_resources = self.retrieve(batch_ids)
+            cdf_resources = self.retrieve(resource_ids)
         except Exception as e:
             print(
-                f"  [bold yellow]WARNING:[/] Failed to retrieve {len(batch_ids)} of {self.display_name}. Proceeding assuming not data in CDF. Error {e}."
+                f"  [bold yellow]WARNING:[/] Failed to retrieve {len(resource_ids)} of {self.display_name}. Proceeding assuming not data in CDF. Error {e}."
             )
             print(Panel(traceback.format_exc()))
             cdf_resource_by_id = {}
         else:
             cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources}
 
-        for item in batch:
+        for item in resources:
             cdf_resource = cdf_resource_by_id.get(self.get_id(item))
             # The custom compare is needed when the regular == does not work. For example, TransformationWrite
             # have OIDC credentials that will not be returned by the retrieve method, and thus need special handling.
@@ -463,10 +473,8 @@ class ResourceLoader(
                 to_create.append(item)
         return to_create, to_update, unchanged
 
-    def _verbose_batch_print(
+    def _verbose_print(
         self,
-        batch_no: int,
-        total_batches: int,
         to_create: T_CogniteResourceList,
         to_update: T_CogniteResourceList,
         unchanged: T_CogniteResourceList,
@@ -482,7 +490,7 @@ class ResourceLoader(
             print_outs.append(
                 f"{'Untouched' if dry_run else 'Unchanged'} {self._print_ids_or_length(self.get_ids(unchanged))}"
             )
-        prefix_message = f" Batch {batch_no}/{total_batches} of {self.display_name}: "
+        prefix_message = f" {self.display_name}: "
         if len(print_outs) == 1:
             print(f"{prefix_message}{print_outs[0]}")
         elif len(print_outs) == 2:
@@ -498,10 +506,10 @@ class ResourceLoader(
         """
         return False
 
-    def _load_batches(
+    def _load_files(
         self, filepaths: list[Path], ToolGlobals: CDFToolConfig, skip_validation: bool, verbose: bool = False
-    ) -> list[T_CogniteResourceList] | None:
-        batches: list[T_CogniteResourceList] = []
+    ) -> T_CogniteResourceList | None:
+        loaded_resources = self.create_empty_of(self.list_write_cls([]))
         for filepath in filepaths:
             try:
                 resource = self.load_resource(filepath, ToolGlobals, skip_validation)
@@ -519,58 +527,54 @@ class ResourceLoader(
             if resource is None:
                 # This is intentional. It is, for example, used by the AuthLoader to skip groups with resource scopes.
                 continue
-            batch = resource if isinstance(resource, self.list_write_cls) else self.list_write_cls([resource])
-            if not batch:
+            if isinstance(resource, self.list_write_cls) and not resource:
                 print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
                 continue
-            batches.append(batch)
-        return batches
 
-    def _remove_duplicates(
-        self, batches: list[T_CogniteResourceList]
-    ) -> tuple[list[T_CogniteResourceList], list[T_ID]]:
+            if isinstance(resource, self.list_write_cls):
+                loaded_resources.extend(resource)
+            else:
+                loaded_resources.append(resource)
+        return loaded_resources
+
+    def _remove_duplicates(self, loaded_resources: T_CogniteResourceList) -> tuple[T_CogniteResourceList, list[T_ID]]:
         seen: set[T_ID] = set()
-        output: list[T_CogniteResourceList] = []
+        output = self.create_empty_of(loaded_resources)
         duplicates: list[T_ID] = []
-        for batch in batches:
-            no_duplicates = self.create_empty_of(batch)
-            for item in batch:
-                identifier = self.get_id(item)
-                if identifier not in seen:
-                    no_duplicates.append(item)
-                    seen.add(identifier)
-                else:
-                    duplicates.append(identifier)
-            if no_duplicates:
-                output.append(no_duplicates)
+        for item in loaded_resources:
+            identifier = self.get_id(item)
+            if identifier not in seen:
+                output.append(item)
+                seen.add(identifier)
+            else:
+                duplicates.append(identifier)
         return output, duplicates
 
-    def _delete_resources(self, batches: list[T_CogniteResourceList], dry_run: bool, verbose: bool) -> int:
+    def _delete_resources(self, loaded_resources: T_CogniteResourceList, dry_run: bool, verbose: bool) -> int:
         nr_of_deleted = 0
-        for batch in batches:
-            batch_ids = self.get_ids(batch)
-            if dry_run:
-                nr_of_deleted += len(batch_ids)
-                if verbose:
-                    print(f"  Would have deleted {self._print_ids_or_length(batch_ids)}.")
-                continue
+        resource_ids = self.get_ids(loaded_resources)
+        if dry_run:
+            nr_of_deleted += len(resource_ids)
+            if verbose:
+                print(f"  Would have deleted {self._print_ids_or_length(resource_ids)}.")
+            return nr_of_deleted
 
-            try:
-                nr_of_deleted += self.delete(batch_ids)
-            except CogniteAPIError as e:
-                print(f"  [bold yellow]WARNING:[/] Failed to delete {self._print_ids_or_length(batch_ids)}. Error {e}.")
-                if verbose:
-                    print(Panel(traceback.format_exc()))
-            except CogniteNotFoundError:
-                if verbose:
-                    print(f"  [bold]INFO:[/] {self._print_ids_or_length(batch_ids)} do(es) not exist.")
-            except Exception as e:
-                print(f"  [bold yellow]WARNING:[/] Failed to delete {self._print_ids_or_length(batch_ids)}. Error {e}.")
-                if verbose:
-                    print(Panel(traceback.format_exc()))
-            else:  # Delete succeeded
-                if verbose:
-                    print(f"  Deleted {self._print_ids_or_length(batch_ids)}.")
+        try:
+            nr_of_deleted += self.delete(resource_ids)
+        except CogniteAPIError as e:
+            print(f"  [bold yellow]WARNING:[/] Failed to delete {self._print_ids_or_length(resource_ids)}. Error {e}.")
+            if verbose:
+                print(Panel(traceback.format_exc()))
+        except CogniteNotFoundError:
+            if verbose:
+                print(f"  [bold]INFO:[/] {self._print_ids_or_length(resource_ids)} do(es) not exist.")
+        except Exception as e:
+            print(f"  [bold yellow]WARNING:[/] Failed to delete {self._print_ids_or_length(resource_ids)}. Error {e}.")
+            if verbose:
+                print(Panel(traceback.format_exc()))
+        else:  # Delete succeeded
+            if verbose:
+                print(f"  Deleted {self._print_ids_or_length(resource_ids)}.")
         return nr_of_deleted
 
     def _create_resources(self, resources: T_CogniteResourceList, verbose: bool) -> int | None:
@@ -607,13 +611,13 @@ class ResourceLoader(
             return len(updated)
 
     @staticmethod
-    def _print_ids_or_length(batch_ids: SequenceNotStr[T_ID], limit: int = 10) -> str:
-        if len(batch_ids) == 1:
-            return f"{batch_ids[0]!r}"
-        elif len(batch_ids) <= limit:
-            return f"{batch_ids}"
+    def _print_ids_or_length(resource_ids: SequenceNotStr[T_ID], limit: int = 10) -> str:
+        if len(resource_ids) == 1:
+            return f"{resource_ids[0]!r}"
+        elif len(resource_ids) <= limit:
+            return f"{resource_ids}"
         else:
-            return f"{len(batch_ids)} items"
+            return f"{len(resource_ids)} items"
 
 
 class ResourceContainerLoader(
@@ -645,53 +649,53 @@ class ResourceContainerLoader(
     def drop_data(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
 
-    def _drop_data(self, batches: list[T_CogniteResourceList], dry_run: bool, verbose: bool) -> int:
+    def _drop_data(self, loaded_resources: T_CogniteResourceList, dry_run: bool, verbose: bool) -> int:
         nr_of_dropped = 0
-        for batch in batches:
-            batch_ids = self.get_ids(batch)
-            if dry_run:
-                batch_drop_count = self.count(batch_ids)
-                nr_of_dropped += batch_drop_count
-                if verbose:
-                    self._verbose_batch_print_drop(batch_drop_count, batch_ids, dry_run)
-                continue
+        resource_ids = self.get_ids(loaded_resources)
+        if dry_run:
+            resource_drop_count = self.count(resource_ids)
+            nr_of_dropped += resource_drop_count
+            if verbose:
+                self._verbose_print_drop(resource_drop_count, resource_ids, dry_run)
+            return nr_of_dropped
 
-            try:
-                batch_drop_count = self.drop_data(batch_ids)
-                nr_of_dropped += batch_drop_count
-            except CogniteAPIError as e:
-                if e.code == 404 and verbose:
-                    print(f"  [bold]INFO:[/] {len(batch_ids)} {self.display_name} do(es) not exist.")
-            except CogniteNotFoundError:
-                continue
-            except Exception as e:
-                print(
-                    f"  [bold yellow]WARNING:[/] Failed to drop {self.item_name} from {len(batch_ids)} {self.display_name}. Error {e}."
-                )
-                if verbose:
-                    print(Panel(traceback.format_exc()))
-            else:  # Delete succeeded
-                if verbose:
-                    self._verbose_batch_print_drop(batch_drop_count, batch_ids, dry_run)
+        try:
+            resource_drop_count = self.drop_data(resource_ids)
+            nr_of_dropped += resource_drop_count
+        except CogniteAPIError as e:
+            if e.code == 404 and verbose:
+                print(f"  [bold]INFO:[/] {len(resource_ids)} {self.display_name} do(es) not exist.")
+        except CogniteNotFoundError:
+            return nr_of_dropped
+        except Exception as e:
+            print(
+                f"  [bold yellow]WARNING:[/] Failed to drop {self.item_name} from {len(resource_ids)} {self.display_name}. Error {e}."
+            )
+            if verbose:
+                print(Panel(traceback.format_exc()))
+        else:  # Delete succeeded
+            if verbose:
+                self._verbose_print_drop(resource_drop_count, resource_ids, dry_run)
         return nr_of_dropped
 
-    def _verbose_batch_print_drop(self, drop_count: int, batch_ids: SequenceNotStr[T_ID], dry_run: bool) -> None:
+    def _verbose_print_drop(self, drop_count: int, resource_ids: SequenceNotStr[T_ID], dry_run: bool) -> None:
         prefix = "Would have dropped" if dry_run else "Dropped"
         if drop_count > 0:
             print(
                 f"  {prefix} {drop_count:,} {self.item_name} from {self.display_name}: "
-                f"{self._print_ids_or_length(batch_ids)}."
+                f"{self._print_ids_or_length(resource_ids)}."
             )
         elif drop_count == 0:
-            verb = "is" if len(batch_ids) == 1 else "are"
+            verb = "is" if len(resource_ids) == 1 else "are"
             print(
-                f"  The {self.display_name}: {self._print_ids_or_length(batch_ids)} {verb} empty, "
+                f"  The {self.display_name}: {self._print_ids_or_length(resource_ids)} {verb} empty, "
                 f"thus no {self.item_name} will be {'touched' if dry_run else 'dropped'}."
             )
         else:
             # Count is not supported
             print(
-                f" {prefix} all {self.item_name} from {self.display_name}: " f"{self._print_ids_or_length(batch_ids)}."
+                f" {prefix} all {self.item_name} from {self.display_name}: "
+                f"{self._print_ids_or_length(resource_ids)}."
             )
 
 
