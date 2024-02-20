@@ -10,8 +10,8 @@ destination:
   type: instances
 ignoreNullFields: true
 dataSetExternalId: ds_transformations_{{default_location}}
-shared: true
-action: upsert
+isPublic: true
+conflictMode: upsert
 # Specify credentials separately like this:
 # You can also use different credentials for the running transformations than the ones you use to deploy
 authentication:
