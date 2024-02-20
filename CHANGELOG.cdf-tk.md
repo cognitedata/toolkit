@@ -33,6 +33,9 @@ Changes are grouped as follows:
 ### Changed
 
 - `cdf-tk` now uses --external-id consistently instead of --external_id.
+- Removed upper limit on Python version requirement, such that, for example, `Python 3.12` is allowed. Note
+  that when working with `functions` it is recommended to use `Python 3.9-3.11` as `Python 3.12` is not
+  supported yet.
 - `cdf-tk deploy`/`cdf-tk clean` now deploys all config files in one go, instead of one by one. This means batching
   is no longer done based on the number of resource files, but instead based on the limit of the CDF API.
 
