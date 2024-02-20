@@ -504,9 +504,7 @@ def process_config_files(
                         data.index = pd.DatetimeIndex(data.index)
                         periods = datetime.datetime.today() - data.index[-1]
                         data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
-                        destination.write_text(data.to_csv())
-                    else:
-                        destination.write_text(data.to_csv())
+                    destination.write_text(data.to_csv())
             for filepath in files_by_resource_folder[resource_folder].other_files:
                 if verbose:
                     print(f"    [bold green]INFO:[/] Found unrecognized file {filepath}. Copying in untouched...")
