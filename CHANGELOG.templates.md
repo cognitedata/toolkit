@@ -22,9 +22,14 @@ Changes are grouped as follows:
 - In cdf_oid_example_data, the filename prefixes have been removed from the filenames and instead the new name template
   functionality is used to prefix the filenames as part of the build step.
 
+### Fixed
+
+- Replaced `shared: True` to `isPublic: True` and `action: upsert` to `conflictMode: upsert` in all
+  transformation configurations to match the CDF API specification.
+
 ## [0.1.0b8] - 2024-02-14
 
-No changes to templates.
+### Added
 
 - Added a new module `cognite_modules/example/cdf_data_pipeline_files_valhall` file extractor pipeline, transformation
   and CDF function running annotation on P&ID documents.
