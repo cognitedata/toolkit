@@ -11,6 +11,7 @@ from typing import Annotated, Optional, Union, cast
 
 import sentry_sdk
 import typer
+from cognite.client.data_classes.data_modeling import NodeId
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
@@ -24,8 +25,11 @@ from cognite_toolkit.cdf_tk.load import (
     AuthLoader,
     DataSetsLoader,
     DeployResults,
+    NodeLoader,
     ResourceLoader,
+    TransformationLoader,
 )
+from cognite_toolkit.cdf_tk.pull import pull_command
 from cognite_toolkit.cdf_tk.run import run_function, run_local_function, run_transformation
 from cognite_toolkit.cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
@@ -59,9 +63,13 @@ describe_app = typer.Typer(
 run_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
+pull_app = typer.Typer(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
 app.add_typer(auth_app, name="auth")
 app.add_typer(describe_app, name="describe")
 app.add_typer(run_app, name="run")
+app.add_typer(pull_app, name="pull")
 
 
 _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
@@ -293,10 +301,7 @@ def deploy(
 ) -> None:
     """Deploy one or more resource types from the built configurations to a CDF project environment of your choice (as set in environments.yaml)."""
     # Override cluster and project from the options/env variables
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
 
     build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env, "deploy")
     build_.set_environment_variables()
@@ -472,10 +477,7 @@ def clean(
 ) -> None:
     """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
     # Override cluster and project from the options/env variables
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
 
     build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env, "clean")
     build_.set_environment_variables()
@@ -621,10 +623,7 @@ def auth_verify(
     if create_group is not None and update_group != 0:
         print("[bold red]ERROR: [/] --create-group and --update-group are mutually exclusive.")
         exit(1)
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
     if group_file is None:
         template_dir = cast(Path, resources.files("cognite_toolkit"))
         group_path = template_dir.joinpath(
@@ -761,10 +760,7 @@ def describe_datamodel_cmd(
     if space is None or len(space) == 0:
         print("[bold red]ERROR: [/] --space is required.")
         exit(1)
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
     describe_datamodel(ToolGlobals, space, data_model)
     return None
 
@@ -790,10 +786,7 @@ def run_transformation_cmd(
     ] = None,
 ) -> None:
     """This command will run the specified transformation using a one-time session."""
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
     external_id = cast(str, external_id).strip()
     run_transformation(ToolGlobals, external_id)
 
@@ -874,10 +867,7 @@ def run_function_cmd(
     ] = "dev",
 ) -> None:
     """This command will run the specified function using a one-time session."""
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
     external_id = cast(str, external_id).strip()
     if not local:
         run_function(ToolGlobals, external_id=external_id, payload=payload or "", follow=follow)
@@ -893,10 +883,7 @@ def run_function_cmd(
             f"  [bold red]ERROR:[/] {source_path} is not a valid project directory. Expecting to find in {system_yaml}."
         )
         exit(1)
-    if ctx.obj.mockToolGlobals is not None:
-        ToolGlobals = ctx.obj.mockToolGlobals
-    else:
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
     run_local_function(
         ToolGlobals=ToolGlobals,
         source_path=source_path,
@@ -907,6 +894,112 @@ def run_function_cmd(
         rebuild_env=rebuild_env,
         verbose=ctx.obj.verbose,
         no_cleanup=no_cleanup,
+    )
+
+
+@pull_app.callback(invoke_without_command=True)
+def pull_main(ctx: typer.Context) -> None:
+    """Commands to download resource configurations from CDF into the module directory."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk pull --help[/] for more information.")
+
+
+@pull_app.command("transformation")
+def pull_transformation_cmd(
+    ctx: typer.Context,
+    external_id: Annotated[
+        str,
+        typer.Option(
+            "--external-id",
+            "-e",
+            prompt=True,
+            help="External id of the transformation to pull.",
+        ),
+    ],
+    source_dir: Annotated[
+        str,
+        typer.Argument(
+            help="Where to find the destination module templates (project directory).",
+            allow_dash=True,
+        ),
+    ] = "./",
+    env: Annotated[
+        str,
+        typer.Option(
+            "--env",
+            "-e",
+            help="Environment to use.",
+        ),
+    ] = "dev",
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            "-r",
+            help="Whether to do a dry-run, do dry-run if present.",
+        ),
+    ] = False,
+) -> None:
+    """This command will pull the specified transformation and update its YAML file in the module folder"""
+    pull_command(
+        source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
+    )
+
+
+@pull_app.command("node")
+def pull_node_cmd(
+    ctx: typer.Context,
+    space: Annotated[
+        str,
+        typer.Option(
+            "--space",
+            "-s",
+            prompt=True,
+            help="Space where the node to pull can be found.",
+        ),
+    ],
+    external_id: Annotated[
+        str,
+        typer.Option(
+            "--external-id",
+            "-e",
+            prompt=True,
+            help="External id of the node to pull.",
+        ),
+    ],
+    source_dir: Annotated[
+        str,
+        typer.Argument(
+            help="Where to find the destination module templates (project directory).",
+            allow_dash=True,
+        ),
+    ] = "./",
+    env: Annotated[
+        str,
+        typer.Option(
+            "--env",
+            "-e",
+            help="Environment to use.",
+        ),
+    ] = "dev",
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            "-r",
+            help="Whether to do a dry-run, do dry-run if present.",
+        ),
+    ] = False,
+) -> None:
+    """This command will pull the specified node and update its YAML file in the module folder."""
+    pull_command(
+        source_dir,
+        NodeId(space, external_id),
+        env,
+        dry_run,
+        ctx.obj.verbose,
+        CDFToolConfig.from_context(ctx),
+        NodeLoader,
     )
 
 

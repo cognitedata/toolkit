@@ -25,13 +25,15 @@ import re
 import sys
 import types
 import typing
-from collections import UserList
+from abc import abstractmethod
+from collections import UserDict, UserList, defaultdict
 from collections.abc import Collection, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import total_ordering
 from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, TypeVar, get_origin, overload
 
+import typer
 import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
@@ -148,6 +150,13 @@ class CDFToolConfig:
                     credentials=self.oauth_credentials,
                 )
             )
+
+    @classmethod
+    def from_context(cls, ctx: typer.Context) -> CDFToolConfig:
+        if ctx.obj.mockToolGlobals is not None:
+            return ctx.obj.mockToolGlobals
+        else:
+            return CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
 
     def environment_variables(self) -> dict[str, str | None]:
         return {**self._environ.copy(), **os.environ}
@@ -827,3 +836,111 @@ def get_oneshot_session(client: CogniteClient) -> CreatedSession | None:
     if ret.status_code == 200:
         return CreatedSession.load(ret.json()["items"][0])
     return None
+
+
+@dataclass(frozen=True)
+class YAMLComment:
+    """This represents a comment in a YAML file. It can be either above or after a variable."""
+
+    above: list[str] = field(default_factory=list)
+    after: list[str] = field(default_factory=list)
+
+
+T_Key = TypeVar("T_Key")
+T_Value = TypeVar("T_Value")
+
+
+class YAMLWithComments(UserDict, Generic[T_Key, T_Value]):
+    @staticmethod
+    def _extract_comments(raw_file: str, key_prefix: tuple[str, ...] = tuple()) -> dict[tuple[str, ...], YAMLComment]:
+        """Extract comments from a raw file and return a dictionary with the comments."""
+        comments: dict[tuple[str, ...], YAMLComment] = defaultdict(YAMLComment)
+        position: Literal["above", "after"]
+        init_value: object = object()
+        variable: str | None | object = init_value
+        last_comments: list[str] = []
+        last_variable: str | None = None
+        last_leading_spaces = 0
+        parent_variables: list[str] = []
+        indent: int | None = None
+        for line in raw_file.splitlines():
+            if ":" in line:
+                # Is variable definition
+                leading_spaces = len(line) - len(line.lstrip())
+                variable = str(line.split(":", maxsplit=1)[0].strip())
+                if leading_spaces > last_leading_spaces and last_variable:
+                    parent_variables.append(last_variable)
+                    if indent is None:
+                        # Automatically indent based on the first variable
+                        indent = leading_spaces
+                elif leading_spaces < last_leading_spaces and parent_variables:
+                    parent_variables = parent_variables[: -((last_leading_spaces - leading_spaces) // (indent or 2))]
+
+                if last_comments:
+                    comments[(*key_prefix, *parent_variables, variable)].above.extend(last_comments)
+                    last_comments.clear()
+
+                last_variable = variable
+                last_leading_spaces = leading_spaces
+
+            if "#" in line:
+                # Potentially has comment.
+                before, comment = str(line).rsplit("#", maxsplit=1)
+                position = "after" if ":" in before else "above"
+                if position == "after" and (before.count('"') % 2 == 1 or before.count("'") % 2 == 1):
+                    # The comment is inside a string
+                    continue
+                # This is a new comment.
+                if (position == "after" or variable is None) and variable is not init_value:
+                    key = (*key_prefix, *parent_variables, *((variable and [variable]) or []))  # type: ignore[misc]
+                    if position == "after":
+                        comments[key].after.append(comment.strip())
+                    else:
+                        comments[key].above.append(comment.strip())
+                else:
+                    last_comments.append(comment.strip())
+
+        return dict(comments)
+
+    def _dump_yaml_with_comments(self, indent_size: int = 2, newline_after_indent_reduction: bool = False) -> str:
+        """Dump a config dictionary to a yaml string"""
+        config = self.dump()
+        dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
+        out_lines = []
+        if comments := self._get_comment(tuple()):
+            for comment in comments.above:
+                out_lines.append(f"# {comment}")
+        last_indent = 0
+        last_variable: str | None = None
+        path: tuple[str, ...] = tuple()
+        for line in dumped.splitlines():
+            indent = len(line) - len(line.lstrip())
+            if last_indent < indent:
+                if last_variable is None:
+                    raise ValueError("Unexpected state of last_variable being None")
+                path = (*path, last_variable)
+            elif last_indent > indent:
+                if newline_after_indent_reduction:
+                    # Adding some extra space between modules
+                    out_lines.append("")
+                indent_reduction_steps = (last_indent - indent) // indent_size
+                path = path[:-indent_reduction_steps]
+
+            variable = line.split(":", maxsplit=1)[0].strip()
+            if comments := self._get_comment((*path, variable)):
+                for line_comment in comments.above:
+                    out_lines.append(f"{' ' * indent}# {line_comment}")
+                if after := comments.after:
+                    line = f"{line} # {after[0]}"
+
+            out_lines.append(line)
+            last_indent = indent
+            last_variable = variable
+        out_lines.append("")
+        return "\n".join(out_lines)
+
+    @abstractmethod
+    def dump(self) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def _get_comment(self, key: tuple[str, ...]) -> YAMLComment | None: ...

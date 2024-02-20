@@ -23,8 +23,8 @@ from cognite_toolkit.cdf_tk.templates.data_classes import (
     Environment,
     InitConfigYAML,
     SystemYAML,
-    YAMLComment,
 )
+from cognite_toolkit.cdf_tk.utils import YAMLComment
 from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT
 
 
@@ -306,8 +306,8 @@ class TestModuleFromPath:
         assert module_from_path(path) == expected
 
 
-class TestBuildConfig:
-    def test_build_config(self, config_yaml: str):
+class TestBuildConfigYAML:
+    def test_build_config(self, config_yaml: str) -> None:
         build_env = "dev"
         system_config = SystemYAML.load_from_directory(PYTEST_PROJECT / COGNITE_MODULES, build_env)
         config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
@@ -319,3 +319,35 @@ class TestBuildConfig:
         ]
 
         assert not invalid_resource_folders, f"Invalid resource folders after build: {invalid_resource_folders}"
+
+    @pytest.mark.parametrize(
+        "modules, expected_available_modules",
+        [
+            pytest.param({"another_module": {}}, ["another_module"], id="Single module"),
+            pytest.param(
+                {
+                    "cognite_modules": {
+                        "top_variable": "my_top_variable",
+                        "a_module": {
+                            "source_id": "123-456-789",
+                        },
+                        "parent_module": {
+                            "parent_variable": "my_parent_variable",
+                            "child_module": {
+                                "dataset_external_id": "ds_my_dataset",
+                            },
+                        },
+                        "module_without_variables": {},
+                    }
+                },
+                ["a_module", "child_module", "module_without_variables"],
+                id="Multiple nested modules",
+            ),
+        ],
+    )
+    def test_available_modules(
+        self, modules: dict[str, Any], expected_available_modules: list[str], dummy_environment: Environment
+    ) -> None:
+        config = BuildConfigYAML(dummy_environment, filepath=Path("dummy"), modules=modules)
+
+        assert sorted(config.available_modules) == sorted(expected_available_modules)
