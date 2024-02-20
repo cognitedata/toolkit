@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Changed
+
+- In cdf_oid_example_data, the filename prefixes have been removed from the filenames and instead the new name template
+  functionality is used to prefix the filenames as part of the build step.
+
 ## [0.1.0b8] - 2024-02-14
 
 No changes to templates.
@@ -36,7 +43,7 @@ No changes to templates.
 ### Fixed
 
 - In module `cognite_modules/example/example_pump_asset_hierarchy`, in the transformation
-  `pump_asst_hierarchy_load-collections_pump.sql` the value `pump_assets` was hardcoded instead of using the variable
+  `pump_asset_hierarchy_load-collections_pump.sql` the value `pump_assets` was hardcoded instead of using the variable
   `{{raw_db}}`. This has been fixed.
 
 ## [0.1.0b6] - 2024-01-26
