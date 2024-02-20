@@ -497,7 +497,9 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
     resource_folder = resource_folder_from_path(source_path)
 
     for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-        print(f"  [bold yellow]WARNING:[/] Unresolved template variable {unmatched} in {destination!s}")
+        print(
+            f"  [bold yellow]WARNING:[/] Unresolved template variable in module {module}: {unmatched} in {destination!s}"
+        )
         variable = unmatched[2:-2]
         if modules := modules_by_variable.get(variable):
             module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
