@@ -31,6 +31,9 @@ Changes are grouped as follows:
 ### Changed
 
 - `cdf-tk` now uses --external-id consistently instead of --external_id.
+- Removed upper limit on Python version requirement, such that, for example, `Python 3.12` is allowed. Note
+  that when working with `functions` it is recommended to use `Python 3.9-3.11` as the `Python 3.12` is not
+  supported yet.
 
 ## [0.1.0b8] - 2024-02-14
 
