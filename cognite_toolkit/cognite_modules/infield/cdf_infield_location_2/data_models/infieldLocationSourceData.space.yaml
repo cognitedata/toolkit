@@ -1,0 +1,3 @@
+space: sp_asset_{{default_location}}_source
+name: sp:infield:{{default_location}}:source
+description: Space for Infield Location Source Data

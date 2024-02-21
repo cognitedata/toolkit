@@ -20,6 +20,13 @@ nodes:
           - gp_infield_{{default_location}}_template_admins
           checklistAdmins:
           - gp_infield_{{default_location}}_checklist_admins
+        - assetExternalId: {{root_asset_external_id}}
+          appDataInstanceSpace: sp_infield_{{location_2}}_app_data
+          sourceDataInstanceSpace: sp_asset_{{location_2}}_source
+          templateAdmins:
+          - gp_infield_{{default_location}}_template_admins
+          checklistAdmins:
+          - gp_infield_{{default_location}}_checklist_admins
       customerDataSpaceId: APM_SourceData
       customerDataSpaceVersion: '1'
       name: Default location

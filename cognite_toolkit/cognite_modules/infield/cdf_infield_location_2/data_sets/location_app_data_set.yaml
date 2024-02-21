@@ -1,0 +1,3 @@
+- externalId: 'ds_infield_{{default_location}}_app_data'
+  name: infield:{{default_location}}:app_data
+  description: This dataset is for writing data from Infield for the location {{default_location}}.
