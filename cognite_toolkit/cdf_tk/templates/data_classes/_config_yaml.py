@@ -428,8 +428,8 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 if key_path in self:
                     continue
                 # Search for the first parent that match.
-                for i in range(len(key_parents) - 1, -1, -1):
-                    alt_key_path = (self._modules, key_parent[0], *key_parent[i - 1 : len(key_parents)], variable)
+                for i in range(1, len(key_parent)):
+                    alt_key_path = (self._modules, *key_parent[:i], variable)
                     if alt_key_path in self:
                         break
                 else:
