@@ -123,6 +123,7 @@ from cognite_toolkit.cdf_tk.utils import (
     calculate_directory_hash,
     get_oneshot_session,
     load_yaml_inject_variables,
+    retrieve_view_ancestors,
 )
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
@@ -1680,30 +1681,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         return loaded
 
-    def _get_parents(self, implements: list[ViewId]) -> list[View]:
-        parents = implements
-        found = []
-        while parents:
-            to_lookup = []
-            new_parents = []
-            for parent in parents:
-                if parent in self._interfaces_by_id:
-                    found.append(self._interfaces_by_id[parent])
-                    new_parents.extend(self._interfaces_by_id[parent].implements or [])
-                else:
-                    to_lookup.append(parent)
-
-            if to_lookup:
-                looked_up = self.client.data_modeling.views.retrieve(to_lookup)
-                self._interfaces_by_id.update({view.as_id(): view for view in looked_up})
-                found.extend(looked_up)
-                for view in looked_up:
-                    for grandparent in view.implements or []:
-                        new_parents.append(grandparent)
-
-            parents = new_parents
-        return found
-
     def _is_equal_custom(self, local: ViewApply, cdf_resource: View) -> bool:
         local_dumped = local.dump()
         cdf_resource_dumped = cdf_resource.as_write().dump()
@@ -1713,7 +1690,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         if cdf_resource.properties:
             # All read version of views have all the properties of their parent views.
             # We need to remove these properties to compare with the local view.
-            parents = self._get_parents(cdf_resource.implements)
+            parents = retrieve_view_ancestors(self.client, cdf_resource.implements or [], self._interfaces_by_id)
             for parent in parents:
                 for prop_name in parent.properties.keys():
                     cdf_resource_dumped["properties"].pop(prop_name, None)

@@ -41,6 +41,7 @@ from cognite.client.credentials import OAuthClientCredentials, Token
 from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes.data_modeling import View, ViewId
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case, to_snake_case
@@ -944,3 +945,36 @@ class YAMLWithComments(UserDict, Generic[T_Key, T_Value]):
 
     @abstractmethod
     def _get_comment(self, key: tuple[str, ...]) -> YAMLComment | None: ...
+
+
+def retrieve_view_ancestors(client: CogniteClient, parents: list[ViewId], cache: dict[ViewId, View]) -> list[View]:
+    """Retrieves all ancestors of a view.
+
+    This will mutate the cache that is passed in, and return a list of views that are the ancestors of the views in the parents list.
+
+    Args:
+        client: The Cognite client to use for the requests
+        parents: The parents of the view to retrieve all ancestors for
+        cache: The cache to store the views in
+    """
+    parent_ids = parents
+    found: list[View] = []
+    while parent_ids:
+        to_lookup = []
+        grand_parent_ids = []
+        for parent in parent_ids:
+            if parent in cache:
+                found.append(cache[parent])
+                grand_parent_ids.extend(cache[parent].implements or [])
+            else:
+                to_lookup.append(parent)
+
+        if to_lookup:
+            looked_up = client.data_modeling.views.retrieve(to_lookup)
+            cache.update({view.as_id(): view for view in looked_up})
+            found.extend(looked_up)
+            for view in looked_up:
+                grand_parent_ids.extend(view.implements or [])
+
+        parent_ids = grand_parent_ids
+    return found
