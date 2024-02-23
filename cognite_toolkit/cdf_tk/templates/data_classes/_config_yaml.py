@@ -393,7 +393,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         Returns:
             self
         """
-        variable_by_paren_key: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+        variable_by_parent_key: dict[str, set[tuple[str, ...]]] = defaultdict(set)
         for filepath in project_dir.glob("**/*"):
             if filepath.suffix.lower() not in SEARCH_VARIABLES_SUFFIX:
                 continue
@@ -405,9 +405,14 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 key_parent = key_parent[:-1]
 
             for match in re.findall(r"{{\s*([a-zA-Z0-9_]+)\s*}}", content):
-                variable_by_paren_key[match].add(key_parent)
+                variable_by_parent_key[match].add(key_parent)
 
-        for variable, key_parents in variable_by_paren_key.items():
+        return self._load_variables(variable_by_parent_key, propagate_reused_variables)
+
+    def _load_variables(
+        self, variable_by_parent_key: dict[str, set[tuple[str, ...]]], propagate_reused_variables: bool = False
+    ) -> InitConfigYAML:
+        for variable, key_parents in variable_by_parent_key.items():
             if len(key_parents) > 1 and propagate_reused_variables:
                 key_parents = {self._find_common_parent(list(key_parents))}
 
