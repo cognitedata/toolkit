@@ -190,7 +190,7 @@ def test_dump_datamodel(
         space="my_space",
         external_id="my_data_model",
         version="1",
-        views=[view.as_id()],
+        views=[view, parent_view],
         created_time=0,
         last_updated_time=0,
         description=None,
@@ -207,15 +207,16 @@ def test_dump_datamodel(
         space="my_space",
         external_id="my_data_model",
         version="1",
+        clean=True,
         output_dir=str(local_tmp_path),
     )
 
-    assert len(list(local_tmp_path.glob("**/.datamodel.yaml"))) == 1
-    assert len(list(local_tmp_path.glob("**/.container.yaml"))) == 1
-    assert len(list(local_tmp_path.glob("**/.space.yaml"))) == 1
-    view_files = list(local_tmp_path.glob("**/.view.yaml"))
+    assert len(list(local_tmp_path.glob("**/*.datamodel.yaml"))) == 1
+    assert len(list(local_tmp_path.glob("**/*.container.yaml"))) == 1
+    assert len(list(local_tmp_path.glob("**/*.space.yaml"))) == 1
+    view_files = list(local_tmp_path.glob("**/*.view.yaml"))
     assert len(view_files) == 2
-    loaded_views = [dm.View.load(f.read_text()) for f in view_files]
+    loaded_views = [dm.ViewApply.load(f.read_text()) for f in view_files]
     child_loaded = next(v for v in loaded_views if v.external_id == "my_view")
     assert child_loaded.implements[0] == parent_view.as_id()
     # The parent property should have been removed from the child view.

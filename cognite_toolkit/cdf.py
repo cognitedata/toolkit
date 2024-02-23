@@ -20,7 +20,7 @@ from cognite_toolkit import _version
 from cognite_toolkit._version import __version__ as current_version
 from cognite_toolkit.cdf_tk import bootstrap
 from cognite_toolkit.cdf_tk.describe import describe_datamodel
-from cognite_toolkit.cdf_tk.dump import dump_command
+from cognite_toolkit.cdf_tk.dump import dump_datamodel_command
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
@@ -1029,6 +1029,22 @@ def dump_datamodel_cmd(
             help="External id of the datamodel to pull.",
         ),
     ],
+    version: Annotated[
+        Optional[str],
+        typer.Option(
+            "--version",
+            "-v",
+            help="Version of the datamodel to pull.",
+        ),
+    ],
+    clean: Annotated[
+        bool,
+        typer.Option(
+            "--clean",
+            "-c",
+            help="Delete the output directory before pulling the datamodel.",
+        ),
+    ] = False,
     output_dir: Annotated[
         str,
         typer.Argument(
@@ -1037,7 +1053,13 @@ def dump_datamodel_cmd(
         ),
     ] = "tmp",
 ) -> None:
-    dump_command(CDFToolConfig.from_context(ctx), DataModelId(space, external_id), Path(output_dir), ctx.obj.verbose)
+    dump_datamodel_command(
+        CDFToolConfig.from_context(ctx),
+        DataModelId(space, external_id, version),
+        Path(output_dir),
+        clean,
+        ctx.obj.verbose,
+    )
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
