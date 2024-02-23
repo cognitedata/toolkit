@@ -1008,7 +1008,7 @@ def pull_node_cmd(
     )
 
 
-@pull_app.command("datamodel")
+@dump_app.command("datamodel")
 def dump_datamodel_cmd(
     ctx: typer.Context,
     space: Annotated[
@@ -1036,7 +1036,7 @@ def dump_datamodel_cmd(
             "-v",
             help="Version of the datamodel to pull.",
         ),
-    ],
+    ] = None,
     clean: Annotated[
         bool,
         typer.Option(
