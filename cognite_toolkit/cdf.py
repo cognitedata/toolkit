@@ -11,7 +11,7 @@ from typing import Annotated, Optional, Union, cast
 
 import sentry_sdk
 import typer
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling import DataModelId, NodeId
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
@@ -20,6 +20,7 @@ from cognite_toolkit import _version
 from cognite_toolkit._version import __version__ as current_version
 from cognite_toolkit.cdf_tk import bootstrap
 from cognite_toolkit.cdf_tk.describe import describe_datamodel
+from cognite_toolkit.cdf_tk.dump import dump_command
 from cognite_toolkit.cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
@@ -66,10 +67,14 @@ run_app = typer.Typer(
 pull_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
+dump_app = typer.Typer(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
 app.add_typer(auth_app, name="auth")
 app.add_typer(describe_app, name="describe")
 app.add_typer(run_app, name="run")
 app.add_typer(pull_app, name="pull")
+app.add_typer(dump_app, name="dump")
 
 
 _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
@@ -1001,6 +1006,38 @@ def pull_node_cmd(
         CDFToolConfig.from_context(ctx),
         NodeLoader,
     )
+
+
+@pull_app.command("datamodel")
+def dump_datamodel_cmd(
+    ctx: typer.Context,
+    space: Annotated[
+        str,
+        typer.Option(
+            "--space",
+            "-s",
+            prompt=True,
+            help="Space where the datamodel to pull can be found.",
+        ),
+    ],
+    external_id: Annotated[
+        str,
+        typer.Option(
+            "--external-id",
+            "-e",
+            prompt=True,
+            help="External id of the datamodel to pull.",
+        ),
+    ],
+    output_dir: Annotated[
+        str,
+        typer.Argument(
+            help="Where to dump the datamodel YAML files.",
+            allow_dash=True,
+        ),
+    ] = "tmp",
+) -> None:
+    dump_command(CDFToolConfig.from_context(ctx), DataModelId(space, external_id), Path(output_dir), ctx.obj.verbose)
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
