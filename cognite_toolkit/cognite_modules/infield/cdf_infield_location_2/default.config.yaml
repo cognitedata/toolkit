@@ -2,7 +2,6 @@
 # When you create your own location by copying the cdf_oid_example_data module to
 # set up data sets and groups, the below needs to refer to the location to define.
 #
-default_location: oid
 module_version: '1'
 apm_datamodel_space: 'APM_SourceData'
 apm_app_config_external_id: 'default-infield-config-minimal'
@@ -16,12 +15,9 @@ workorder_raw_db: workorder_oid_workmate
 # The table name in the raw_db database that has workorder data
 workorder_table_name: 'workorders'
 
-# the root asset for this location, needs to be updated for each location
-root_asset_external_id: 'WMT:VAL'
-
 # the following properties are required for 
 # infield and must be updated for each location
-infield_default_location_checklist_admin_users_source_id: <change_me>
-infield_default_location_normal_users_source_id: <change_me>
-infield_default_location_template_admin_users_source_id: <change_me>
-infield_default_location_viewer_users_source_id: <change_me>
+infield_location_checklist_admin_users_source_id: <change_me>
+infield_location_normal_users_source_id: <change_me>
+infield_location_template_admin_users_source_id: <change_me>
+infield_location_viewer_users_source_id: <change_me>

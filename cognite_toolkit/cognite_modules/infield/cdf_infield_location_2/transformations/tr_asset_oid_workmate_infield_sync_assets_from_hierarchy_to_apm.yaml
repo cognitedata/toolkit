@@ -1,14 +1,14 @@
-externalId: tr_asset_{{default_location}}_{{source_asset}}_infield_sync_assets_from_hierarchy_to_apm
-name: asset:{{default_location}}:{{source_asset}}:infield:sync_assets_from_hierarchy_to_apm
+externalId: tr_asset_{{second_location}}_{{source_asset}}_infield_sync_assets_from_hierarchy_to_apm
+name: asset:{{second_location}}:{{source_asset}}:infield:sync_assets_from_hierarchy_to_apm
 destination:
   view:
     space:  cdf_core
     externalId: Asset
     version: 'v1'
-  instanceSpace: 'sp_asset_{{default_location}}_source'
+  instanceSpace: 'sp_asset_{{second_location}}_source'
   type: nodes
 ignoreNullFields: true
-dataSetExternalId: ds_transformations_{{default_location}}
+dataSetExternalId: ds_transformations_{{second_location}}
 isPublic: true
 conflictMode: upsert
 # Specify credentials separately like this:
