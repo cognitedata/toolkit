@@ -124,7 +124,7 @@ def test_dump_datamodel(
         external_id="my_container",
         name=None,
         description=None,
-        properties={"prop1": dm.ContainerProperty(type=dm.Text())},
+        properties={"prop1": dm.ContainerProperty(type=dm.Text()), "prop2": dm.ContainerProperty(type=dm.Float64())},
         is_global=False,
         last_updated_time=0,
         created_time=0,
@@ -132,6 +132,30 @@ def test_dump_datamodel(
         constraints=None,
         indexes=None,
     )
+    parent_view = dm.View(
+        space="my_space",
+        external_id="parent_view",
+        version="1",
+        properties={
+            "prop2": dm.MappedProperty(
+                container=container.as_id(),
+                container_property_identifier="prop2",
+                type=dm.Float64(),
+                nullable=True,
+                auto_increment=False,
+            )
+        },
+        last_updated_time=0,
+        created_time=0,
+        description=None,
+        name=None,
+        filter=None,
+        implements=None,
+        writable=True,
+        used_for="node",
+        is_global=False,
+    )
+
     view = dm.View(
         space="my_space",
         external_id="my_view",
@@ -143,14 +167,21 @@ def test_dump_datamodel(
                 type=dm.Text(),
                 nullable=True,
                 auto_increment=False,
-            )
+            ),
+            "prop2": dm.MappedProperty(
+                container=container.as_id(),
+                container_property_identifier="prop2",
+                type=dm.Float64(),
+                nullable=True,
+                auto_increment=False,
+            ),
         },
         last_updated_time=0,
         created_time=0,
         description=None,
         name=None,
         filter=None,
-        implements=None,
+        implements=[parent_view.as_id()],
         writable=True,
         used_for="node",
         is_global=False,
@@ -175,10 +206,17 @@ def test_dump_datamodel(
         typer_context,
         space="my_space",
         external_id="my_data_model",
+        version="1",
         output_dir=str(local_tmp_path),
     )
 
     assert len(list(local_tmp_path.glob("**/.datamodel.yaml"))) == 1
     assert len(list(local_tmp_path.glob("**/.container.yaml"))) == 1
-    assert len(list(local_tmp_path.glob("**/.view.yaml"))) == 1
     assert len(list(local_tmp_path.glob("**/.space.yaml"))) == 1
+    view_files = list(local_tmp_path.glob("**/.view.yaml"))
+    assert len(view_files) == 2
+    loaded_views = [dm.View.load(f.read_text()) for f in view_files]
+    child_loaded = next(v for v in loaded_views if v.external_id == "my_view")
+    assert child_loaded.implements[0] == parent_view.as_id()
+    # The parent property should have been removed from the child view.
+    assert len(child_loaded.properties) == 1
