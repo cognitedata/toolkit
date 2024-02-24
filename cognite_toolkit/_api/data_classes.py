@@ -4,7 +4,7 @@ import re
 from collections import UserDict, UserList
 from dataclasses import dataclass
 
-__all__ = ["Variable", "Variables", "Module", "ModuleList"]
+__all__ = ["Variable", "Variables", "ModuleMeta", "ModuleMetaList"]
 
 from pathlib import Path
 from typing import cast
@@ -93,7 +93,7 @@ class Variables(UserDict):
 
 
 @dataclass(frozen=True)
-class Module:
+class ModuleMeta:
     name: str
     variables: Variables
     resource_types: tuple[str, ...]
@@ -104,7 +104,7 @@ class Module:
     @classmethod
     def _load(
         cls, module_path: Path, packages: frozenset[str], default_variables: dict[tuple[str, ...], ConfigEntry]
-    ) -> Module:
+    ) -> ModuleMeta:
         readme: str | None = None
         if (readme_path := module_path / "README.md").exists():
             readme = readme_path.read_text()
@@ -122,12 +122,12 @@ class Module:
         )
 
 
-class ModuleList(UserList):
+class ModuleMetaList(UserList):
     @property
     def names(self) -> list[str]:
         return [module.name for module in self.data]
 
-    def __getitem__(self, item: str) -> Module:  # type: ignore[override]
+    def __getitem__(self, item: str) -> ModuleMeta:  # type: ignore[override]
         for module in self.data:
             if module.name == item:
                 return module

@@ -17,7 +17,7 @@ _ALL_MODULE_NAMES = [
 
 
 @pytest.fixture
-def all_modules(cognite_toolkit: CogniteToolkit) -> dc.ModuleList:
+def all_modules(cognite_toolkit: CogniteToolkit) -> dc.ModuleMetaList:
     return cognite_toolkit.modules.list()
 
 
@@ -29,7 +29,7 @@ class TestModulesAPI:
 
         modules = cognite_toolkit.modules.list()
 
-        assert isinstance(modules, dc.ModuleList)
+        assert isinstance(modules, dc.ModuleMetaList)
         assert set(modules.names) == expected_modules
 
         cdf_auth_readwrite_all = modules["cdf_auth_readwrite_all"]
@@ -44,7 +44,7 @@ class TestModulesAPI:
         cdf_tool_config: CDFToolConfig,
     ) -> None:
         module = cognite_toolkit.modules.retrieve("cdf_auth_readwrite_all")
-        assert isinstance(module, dc.Module)
+        assert isinstance(module, dc.ModuleMeta)
         module.variables["readwrite_source_id"].value = "123"
         module.variables["readonly_source_id"].value = "456"
 

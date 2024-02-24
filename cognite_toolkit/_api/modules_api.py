@@ -11,7 +11,7 @@ import typer
 from cognite.client import CogniteClient
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._api.data_classes import _DUMMY_ENVIRONMENT, Module, ModuleList
+from cognite_toolkit._api.data_classes import _DUMMY_ENVIRONMENT, ModuleMeta, ModuleMetaList
 from cognite_toolkit._cdf import Common, clean, deploy
 from cognite_toolkit._cdf_tk.load import ResourceTypes
 from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES, COGNITE_MODULES_PATH, build_config, iterate_modules
@@ -27,7 +27,7 @@ class ModulesAPI:
         if self._build_dir.exists():
             shutil.rmtree(self._build_dir)
         self._build_dir.mkdir(parents=True, exist_ok=True)
-        self.__module_by_name: dict[str, Module] = {}
+        self.__module_by_name: dict[str, ModuleMeta] = {}
         self._build_env = "dev"
 
     @property
@@ -49,15 +49,17 @@ class ModulesAPI:
                 for package_name, package_modules in system_yaml.packages.items()
                 if module.name in package_modules
             }
-            self.__module_by_name[module.name] = Module._load(module, frozenset(module_packages), dict(default_config))
+            self.__module_by_name[module.name] = ModuleMeta._load(
+                module, frozenset(module_packages), dict(default_config)
+            )
 
     @property
-    def _modules_by_name(self) -> dict[str, Module]:
+    def _modules_by_name(self) -> dict[str, ModuleMeta]:
         if not self.__module_by_name:
             self._load_modules()
         return self.__module_by_name
 
-    def _build(self, modules: Sequence[Module], verbose: bool) -> None:
+    def _build(self, modules: Sequence[ModuleMeta], verbose: bool) -> None:
         variables: dict[str, Any] = {COGNITE_MODULES: {}}
         for module in modules:
             key_parent_path = (COGNITE_MODULES, *module._source.relative_to(self._source_dir).parts)
@@ -105,12 +107,12 @@ class ModulesAPI:
 
     def deploy(
         self,
-        module: Module | Sequence[Module],
+        module: ModuleMeta | Sequence[ModuleMeta],
         include: set[ResourceTypes] | None = None,
         dry_run: bool = False,
         verbose: bool = False,
     ) -> None:
-        modules = [module] if isinstance(module, Module) else module
+        modules = [module] if isinstance(module, ModuleMeta) else module
         self._build(modules, verbose)
         ctx = self._create_context(verbose)
 
@@ -127,12 +129,12 @@ class ModulesAPI:
 
     def clean(
         self,
-        module: Module | Sequence[Module],
+        module: ModuleMeta | Sequence[ModuleMeta],
         include: set[ResourceTypes] | None = None,
         dry_run: bool = False,
         verbose: bool = False,
     ) -> None:
-        modules = [module] if isinstance(module, Module) else module
+        modules = [module] if isinstance(module, ModuleMeta) else module
         self._build(modules, verbose)
         ctx = self._create_context(verbose)
 
@@ -146,16 +148,16 @@ class ModulesAPI:
         )
 
     @overload
-    def retrieve(self, module: str) -> Module: ...
+    def retrieve(self, module: str) -> ModuleMeta: ...
 
     @overload
-    def retrieve(self, module: SequenceNotStr[str]) -> ModuleList: ...
+    def retrieve(self, module: SequenceNotStr[str]) -> ModuleMetaList: ...
 
-    def retrieve(self, module: str | SequenceNotStr[str]) -> Module | ModuleList:
+    def retrieve(self, module: str | SequenceNotStr[str]) -> ModuleMeta | ModuleMetaList:
         if isinstance(module, str):
             return self._modules_by_name[module]
         else:
-            return ModuleList([self._modules_by_name[modul] for modul in module])
+            return ModuleMetaList([self._modules_by_name[modul] for modul in module])
 
-    def list(self) -> ModuleList:
-        return ModuleList(self._modules_by_name.values())
+    def list(self) -> ModuleMetaList:
+        return ModuleMetaList(self._modules_by_name.values())
