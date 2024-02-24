@@ -8,5 +8,5 @@ from cognite_toolkit._api.run_api import RunAPI
 
 class CogniteToolkit:
     def __init__(self, client: CogniteClient, url: str | None = None):
-        self.modules = ModulesAPI()
+        self.modules = ModulesAPI(client, url)
         self.run = RunAPI()

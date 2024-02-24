@@ -1,3 +1,5 @@
+from pathlib import Path
+
 # This is the default config located locally in each module.
 DEFAULT_CONFIG_FILE = "default.config.yaml"
 # The environment file:
@@ -18,3 +20,5 @@ EXCL_INDEX_SUFFIX = frozenset([".sql", ".csv", ".parquet"])
 SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 # Which suffixes to process for template variable replacement
 PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"])
+
+COGNITE_MODULES_PATH = Path(__file__).parent.parent.parent / COGNITE_MODULES
