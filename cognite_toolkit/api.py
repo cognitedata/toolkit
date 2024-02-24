@@ -1,8 +1,73 @@
+from __future__ import annotations
+
+from collections import UserDict, UserList
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from cognite.client import CogniteClient
+from cognite.client.utils.useful_types import SequenceNotStr
+
 from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+
+NOT_SET = object()
+
+
+@dataclass
+class Variable:
+    name: str
+    value: str
+    default: str
+    description: str | None = None
+
+
+@dataclass
+class Variables(UserDict): ...
+
+
+@dataclass
+class Module:
+    name: str
+    variables: Variables
+    source: str
+    resource_types: tuple[str, ...]
+    description: str | None = None
+
+
+class ModuleList(UserList): ...
+
+
+class CogniteToolkit:
+    def __init__(self, client: CogniteClient, url: str | None = None):
+        self.modules = ModulesAPI()
+        self.run = RunAPI()
+        self.describe = DescribeAPI()
+
+
+class ModulesAPI:
+    def __init__(self) -> None:
+        raise NotImplementedError
+
+    def list(
+        self,
+    ) -> ModuleList:
+        raise NotImplementedError
+
+    def retrieve(self, module: str | SequenceNotStr[str]) -> Module:
+        raise NotImplementedError
+
+    def deploy(self, module: Module | Sequence[Module], include: set, exclude: set) -> Module | ModuleList:
+        raise NotImplementedError
+
+    def clean(self, module: Module | Sequence[Module], include: set, exclude: set) -> Module | ModuleList:
+        raise NotImplementedError
+
+
+class RunAPI: ...
+
+
+class DescribeAPI: ...
 
 
 def build(
