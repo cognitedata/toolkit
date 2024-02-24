@@ -367,7 +367,10 @@ class ApprovalCogniteClient:
             name = ""
             for k, v in kwargs.items():
                 if isinstance(v, Path) or (isinstance(v, str) and Path(v).exists()):
-                    kwargs[k] = "/".join(Path(v).relative_to(TEST_FOLDER).parts)
+                    try:
+                        kwargs[k] = "/".join(Path(v).relative_to(TEST_FOLDER).parts)
+                    except ValueError:
+                        kwargs[k] = "/".join(Path(v).parts)
                     name = Path(v).name
 
             created_resources[resource_cls.__name__].append(
@@ -488,7 +491,12 @@ class ApprovalCogniteClient:
                 ]
                 return read_list_cls(datasets, cognite_client=client)
             elif resource_cls is ExtractionPipeline:
-                external_ids = kwargs["external_ids"]
+                if "external_ids" in kwargs:
+                    external_ids = kwargs["external_ids"]
+                elif "external_id" in kwargs:
+                    external_ids = [kwargs["external_id"]]
+                else:
+                    raise NotImplementedError("No external_ids or external_id in kwargs")
                 pipelines = [
                     ExtractionPipeline(
                         external_id=external_id,
