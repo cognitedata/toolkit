@@ -32,7 +32,8 @@ class Module:
     variables: Variables
     source: str
     resource_types: tuple[str, ...]
-    description: str | None = None
+    packages: frozenset[str]
+    _readme: str | None = None
 
 
 class ModuleList(UserList): ...
