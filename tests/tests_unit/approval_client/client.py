@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import hashlib
 import itertools
 import json as JSON
@@ -22,8 +23,10 @@ from cognite.client.data_classes import (
     FunctionWrite,
     Group,
     GroupList,
+    capabilities,
 )
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
+from cognite.client.data_classes.capabilities import AllProjectsScope, ProjectCapability, ProjectCapabilityList
 from cognite.client.data_classes.data_modeling import (
     EdgeApply,
     EdgeApplyResultList,
@@ -39,6 +42,7 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
+from cognite.client.data_classes.iam import ProjectSpec, TokenInspection
 from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case
 from requests import Response
@@ -47,6 +51,23 @@ from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
 
 TEST_FOLDER = Path(__file__).resolve().parent.parent
+
+_ALL_CAPABILITIES = []
+_to_check = list(capabilities.Capability.__subclasses__())
+while _to_check:
+    capability_cls = _to_check.pop()
+    _to_check.extend(capability_cls.__subclasses__())
+    if abc.ABC in capability_cls.__bases__:
+        continue
+    actions = list(capability_cls.Action.__members__.values())
+    scopes = [var_ for name, var_ in vars(capability_cls.Scope).items() if not name.startswith("_")]
+    for action, scope in itertools.product(actions, scopes):
+        try:
+            _ALL_CAPABILITIES.append(capability_cls([action], scope()))
+        except TypeError:
+            # Skipping all scopes that require arguments
+            ...
+del _to_check, capability_cls, actions, scopes, action, scope
 
 
 class ApprovalCogniteClient:
@@ -80,6 +101,9 @@ class ApprovalCogniteClient:
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
         # Activate authorization_header()
         self.mock_client.config.credentials.authorization_header.return_value = ("Bearer", "123")
+        # Set project
+        self.mock_client.config.project = "test_project"
+        self.mock_client.config.base_url = "https://bluefield.cognitedata.com"
 
         # Setup all mock methods
         for resource in API_RESOURCES:
@@ -449,7 +473,20 @@ class ApprovalCogniteClient:
         resource_cls = resource.resource_cls
 
         def return_value(*args, **kwargs):
-            return existing_resources[resource_cls.__name__][0]
+            if value := existing_resources[resource_cls.__name__]:
+                return value[0]
+
+            return TokenInspection(
+                subject="test",
+                projects=[ProjectSpec(url_name="test_project", groups=[123, 456])],
+                capabilities=ProjectCapabilityList(
+                    [
+                        ProjectCapability(capability=capability, project_scope=AllProjectsScope())
+                        for capability in _ALL_CAPABILITIES
+                    ],
+                    cognite_client=client,
+                ),
+            )
 
         available_inspect_methods = {
             fn.__name__: fn
