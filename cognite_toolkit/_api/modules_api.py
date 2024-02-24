@@ -7,6 +7,7 @@ from cognite.client import CogniteClient
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._api.data_classes import _DUMMY_ENVIRONMENT, Module, ModuleList
+from cognite_toolkit._cdf_tk.load import ResourceTypes
 from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES_PATH, iterate_modules
 from cognite_toolkit._cdf_tk.templates.data_classes import InitConfigYAML, SystemYAML
 
@@ -19,7 +20,7 @@ class ModulesAPI:
 
     def _load_modules(self) -> None:
         if self._url is not None:
-            raise NotImplementedError
+            raise NotImplementedError("Loading modules from a URL is not yet supported")
         else:
             modules_path = COGNITE_MODULES_PATH
 
@@ -40,10 +41,26 @@ class ModulesAPI:
             self._load_modules()
         return self.__module_by_name
 
-    def deploy(self, module: Module | Sequence[Module], include: set, exclude: set) -> Module | ModuleList:
+    def deploy(
+        self,
+        module: Module | Sequence[Module],
+        include: set[ResourceTypes] | None,
+        exclude: set[ResourceTypes] | None = None,
+    ) -> Module | ModuleList:
+        if include is not None and exclude is not None:
+            raise ValueError("Cannot specify both resources to include and exclude")
+
+        if isinstance(module, Module):
+            module = [module]
+
         raise NotImplementedError
 
-    def clean(self, module: Module | Sequence[Module], include: set, exclude: set) -> Module | ModuleList:
+    def clean(
+        self,
+        module: Module | Sequence[Module],
+        include: set[ResourceTypes] | None,
+        exclude: set[ResourceTypes] | None = None,
+    ) -> Module | ModuleList:
         raise NotImplementedError
 
     @overload
@@ -58,7 +75,5 @@ class ModulesAPI:
         else:
             return ModuleList([self._modules_by_name[modul] for modul in module])
 
-    def list(
-        self,
-    ) -> ModuleList:
+    def list(self) -> ModuleList:
         return ModuleList(self._modules_by_name.values())

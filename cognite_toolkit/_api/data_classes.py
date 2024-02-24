@@ -32,8 +32,8 @@ class Variable:
     _value: str | object = NOT_SET
 
     @property
-    def value(self) -> str | object:
-        if self._value is not NOT_SET:
+    def value(self) -> str:
+        if isinstance(self._value, str):
             return self._value
         return self.default
 
