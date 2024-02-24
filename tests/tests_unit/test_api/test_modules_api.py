@@ -1,6 +1,7 @@
 from cognite_toolkit import CogniteToolkit
 from cognite_toolkit import data_classes as dc
 from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES, iterate_modules
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 
@@ -21,7 +22,11 @@ class TestModulesAPI:
         assert len(cdf_auth_readwrite_all.variables) == 2
 
     def test_deploy_module(
-        self, cognite_toolkit: CogniteToolkit, cognite_client_approval: ApprovalCogniteClient
+        # THE CDFToolConfig fixture is used as it sets the necessary environment variables
+        self,
+        cognite_toolkit: CogniteToolkit,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config: CDFToolConfig,
     ) -> None:
         module = cognite_toolkit.modules.retrieve("cdf_auth_readwrite_all")
         assert isinstance(module, dc.Module)
@@ -31,9 +36,26 @@ class TestModulesAPI:
         cognite_toolkit.modules.deploy(module)
 
         dumped = cognite_client_approval.dump(sort=False)
-        groups = dumped["groups"]
+        groups = dumped["Group"]
 
-        assert "cdf_auth_readwrite_all" in groups
-        assert groups["cdf_auth_readwrite_all"]["sourceId"] == "123"
-        assert "cdf_auth_readonly_all" in groups
-        assert groups["cdf_auth_readonly_all"]["sourceId"] == "456"
+        assert len(groups) == 2
+        assert groups[0]["name"] == "gp_admin_readonly"
+        assert groups[0]["sourceId"] == "456"
+        assert groups[1]["name"] == "gp_admin_read_write"
+        assert groups[1]["sourceId"] == "123"
+
+    def test_deploy_module_only_auth(
+        # THE CDFToolConfig fixture is used as it sets the necessary environment variables
+        self,
+        cognite_toolkit: CogniteToolkit,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config: CDFToolConfig,
+    ):
+        module = cognite_toolkit.modules.retrieve("cdf_infield_common")
+
+        cognite_toolkit.modules.deploy(module, include={"auth"})
+
+        dumped = cognite_client_approval.dump(sort=False)
+
+        assert len(dumped) == 1
+        assert "Group" in dumped
