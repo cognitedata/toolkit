@@ -30,4 +30,7 @@ class Module:
     _readme: str | None = None
 
 
-class ModuleList(UserList): ...
+class ModuleList(UserList):
+    @property
+    def names(self) -> list[str]:
+        return [module.name for module in self.data]
