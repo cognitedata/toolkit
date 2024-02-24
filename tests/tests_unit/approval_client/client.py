@@ -15,6 +15,8 @@ from cognite.client import CogniteClient
 from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import (
     Database,
+    DataSet,
+    ExtractionPipeline,
     ExtractionPipelineConfig,
     ExtractionPipelineConfigWrite,
     FileMetadata,
@@ -37,6 +39,7 @@ from cognite.client.data_classes.data_modeling import (
     NodeApplyResult,
     NodeApplyResultList,
     NodeId,
+    Space,
     VersionedDataModelingId,
     View,
 )
@@ -80,6 +83,7 @@ class ApprovalCogniteClient:
     """
 
     def __init__(self, mock_client: CogniteClientMock):
+        self._return_verify_resources = False
         self.mock_client = mock_client
         # This is used to simulate the existing resources in CDF
         self._existing_resources: dict[str, list[CogniteResource]] = defaultdict(list)
@@ -144,6 +148,20 @@ class ApprovalCogniteClient:
     def client(self) -> CogniteClient:
         """Returns a mock CogniteClient"""
         return cast(CogniteClient, self.mock_client)
+
+    @property
+    def return_verify_resources(self) -> bool:
+        return self._return_verify_resources
+
+    @return_verify_resources.setter
+    def return_verify_resources(self, value: bool) -> None:
+        """This is used to return the resource that are used for verication.
+
+        Caveat: This only applies to Spaces, DataSets, and ExtractionPipeline.
+
+        The use case is that these are used in verification of other resources.
+        """
+        self._return_verify_resources = value
 
     def append(self, resource_cls: type[CogniteResource], items: CogniteResource | Sequence[CogniteResource]) -> None:
         """This is used to simulate existing resources in CDF.
@@ -436,12 +454,67 @@ class ApprovalCogniteClient:
         resource_cls = resource.resource_cls
         read_list_cls = resource.list_cls
 
+        def _create_verification_resource(*args, **kwargs):
+            # Note that the written version of the resource does not contain the serves set variables,
+            # so we need to set these manually
+            if resource_cls is Space:
+                ids = list(*args)
+                spaces = [
+                    Space(
+                        space=space,
+                        is_global=False,
+                        last_updated_time=1,
+                        created_time=1,
+                    )
+                    for space in ids
+                ]
+                return read_list_cls(spaces, cognite_client=client)
+            elif resource_cls is DataSet:
+                if "external_ids" in kwargs:
+                    external_ids = kwargs["external_ids"]
+                elif "external_id" in kwargs:
+                    external_ids = [kwargs["external_id"]]
+                else:
+                    raise NotImplementedError("No external_ids or external_id in kwargs")
+                datasets = [
+                    DataSet(
+                        external_id=external_id,
+                        name=external_id,
+                        id=42,
+                        last_updated_time=1,
+                        created_time=1,
+                    )
+                    for external_id in external_ids
+                ]
+                return read_list_cls(datasets, cognite_client=client)
+            elif resource_cls is ExtractionPipeline:
+                external_ids = kwargs["external_ids"]
+                pipelines = [
+                    ExtractionPipeline(
+                        external_id=external_id,
+                        name=external_id,
+                        data_set_id=42,
+                        id=722,
+                        last_updated_time=1,
+                        created_time=1,
+                    )
+                    for external_id in external_ids
+                ]
+                return read_list_cls(pipelines, cognite_client=client)
+
+            raise NotImplementedError(f"Return values not implemented for {resource_cls}")
+
         def return_values(*args, **kwargs):
+            if self._return_verify_resources and resource_cls in {Space, DataSet, ExtractionPipeline}:
+                return _create_verification_resource(*args, **kwargs)
+
             return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
 
         def return_value(*args, **kwargs):
             if value := existing_resources[resource_cls.__name__]:
                 return read_list_cls(value, cognite_client=client)[0]
+            elif self.return_verify_resources and resource_cls in {Space, DataSet, ExtractionPipeline}:
+                return _create_verification_resource(*args, **kwargs)[0]
             else:
                 return None
 
