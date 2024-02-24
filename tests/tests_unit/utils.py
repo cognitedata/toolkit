@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from _pytest.monkeypatch import MonkeyPatch
 
-from cognite_toolkit.cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
+from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 
 
 def mock_read_yaml_file(
@@ -33,16 +33,16 @@ def mock_read_yaml_file(
             return file_content
         return load_yaml_inject_variables(filepath, variables, required_return_type)
 
-    monkeypatch.setattr("cognite_toolkit.cdf_tk.utils.read_yaml_file", fake_read_yaml_file)
-    monkeypatch.setattr("cognite_toolkit.cdf_tk.templates.data_classes._base.read_yaml_file", fake_read_yaml_file)
+    monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.read_yaml_file", fake_read_yaml_file)
+    monkeypatch.setattr("cognite_toolkit._cdf_tk.templates.data_classes._base.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr(
-        "cognite_toolkit.cdf_tk.templates.data_classes._project_directory.read_yaml_file", fake_read_yaml_file
+        "cognite_toolkit._cdf_tk.templates.data_classes._project_directory.read_yaml_file", fake_read_yaml_file
     )
-    monkeypatch.setattr("cognite_toolkit.cdf.read_yaml_file", fake_read_yaml_file)
-    monkeypatch.setattr("cognite_toolkit.cdf_tk.utils.load_yaml_inject_variables", fake_load_yaml_inject_variables)
+    monkeypatch.setattr("cognite_toolkit._cdf.read_yaml_file", fake_read_yaml_file)
+    monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.load_yaml_inject_variables", fake_load_yaml_inject_variables)
     monkeypatch.setattr(
-        "cognite_toolkit.cdf_tk.load._base_loaders.load_yaml_inject_variables", fake_load_yaml_inject_variables
+        "cognite_toolkit._cdf_tk.load._base_loaders.load_yaml_inject_variables", fake_load_yaml_inject_variables
     )
     monkeypatch.setattr(
-        "cognite_toolkit.cdf_tk.load._resource_loaders.load_yaml_inject_variables", fake_load_yaml_inject_variables
+        "cognite_toolkit._cdf_tk.load._resource_loaders.load_yaml_inject_variables", fake_load_yaml_inject_variables
     )

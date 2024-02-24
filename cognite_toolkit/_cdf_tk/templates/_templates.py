@@ -18,8 +18,8 @@ from cognite.client.data_classes.files import FileMetadataList
 from cognite.client.data_classes.functions import FunctionList
 from rich import print
 
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
-from cognite_toolkit.cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
+from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
+from cognite_toolkit._cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
 
 from ._constants import COGNITE_MODULES, CUSTOM_MODULES, EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX
 from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path

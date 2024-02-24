@@ -5,14 +5,14 @@ from unittest.mock import MagicMock
 
 from cognite.client.data_classes.data_modeling import Container, DataModel, Space, View
 
-from cognite_toolkit.cdf_tk.describe import describe_datamodel
-from cognite_toolkit.cdf_tk.load import (
+from cognite_toolkit._cdf_tk.describe import describe_datamodel
+from cognite_toolkit._cdf_tk.load import (
     ContainerLoader,
     DataModelLoader,
     SpaceLoader,
     ViewLoader,
 )
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.conftest import ApprovalCogniteClient
 
 THIS_FOLDER = Path(__file__).resolve().parent

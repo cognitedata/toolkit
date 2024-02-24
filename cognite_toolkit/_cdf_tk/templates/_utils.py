@@ -8,8 +8,8 @@ from typing import Any, Literal, overload
 
 from rich import print
 
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
-from cognite_toolkit.cdf_tk.utils import read_yaml_file
+from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
 from ._constants import EXCL_FILES
 
