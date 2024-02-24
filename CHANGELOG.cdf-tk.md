@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- An python package api for the cdf-tk. This allows for programmatic access to the cdf-tk functionality. This
+  is limited to the `build` and `deploy` functionality. You can start by `from cognite_toolkit import CogniteToolkit`.
+
 ## [0.1.0b9] - 2024-02-20
 
 ### Added
