@@ -1,9 +1,24 @@
+from __future__ import annotations
+
+import pytest
+
 from cognite_toolkit import CogniteToolkit
 from cognite_toolkit import data_classes as dc
 from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES, iterate_modules
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
+
+_ALL_MODULE_NAMES = [
+    module_path.name
+    for module_path, _ in iterate_modules(REPO_ROOT / "cognite_toolkit")
+    if COGNITE_MODULES in module_path.parts
+]
+
+
+@pytest.fixture
+def all_modules(cognite_toolkit: CogniteToolkit) -> dc.ModuleList:
+    return cognite_toolkit.modules.list()
 
 
 class TestModulesAPI:
@@ -21,7 +36,7 @@ class TestModulesAPI:
         assert cdf_auth_readwrite_all.name == "cdf_auth_readwrite_all"
         assert len(cdf_auth_readwrite_all.variables) == 2
 
-    def test_deploy_module(
+    def test_deploy_module_with_modified_variables(
         # THE CDFToolConfig fixture is used as it sets the necessary environment variables
         self,
         cognite_toolkit: CogniteToolkit,
@@ -59,3 +74,33 @@ class TestModulesAPI:
 
         assert len(dumped) == 1
         assert "Group" in dumped
+
+    @pytest.mark.parametrize("module_name", _ALL_MODULE_NAMES)
+    def test_deploy_module(
+        self,
+        module_name: str,
+        cognite_toolkit: CogniteToolkit,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config: CDFToolConfig,
+    ):
+        cognite_client_approval.return_verify_resources = True
+        module = cognite_toolkit.modules.retrieve(module_name)
+
+        cognite_toolkit.modules.deploy(module, verbose=True)
+
+        assert True
+
+    @pytest.mark.parametrize("module_name", _ALL_MODULE_NAMES)
+    def test_clean_module(
+        self,
+        module_name: str,
+        cognite_toolkit: CogniteToolkit,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config: CDFToolConfig,
+    ):
+        cognite_client_approval.return_verify_resources = True
+        module = cognite_toolkit.modules.retrieve(module_name)
+
+        cognite_toolkit.modules.clean(module, verbose=True)
+
+        assert True

@@ -128,7 +128,7 @@ class ModulesAPI:
     def clean(
         self,
         module: Module | Sequence[Module],
-        include: set[ResourceTypes] | None,
+        include: set[ResourceTypes] | None = None,
         dry_run: bool = False,
         verbose: bool = False,
     ) -> None:
