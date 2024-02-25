@@ -21,6 +21,7 @@ from cognite.client.data_classes import (
     FileMetadataUpdate,
 )
 from cognite.client.data_classes.contextualization import DiagramDetectResults
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._text import shorten
 
 # P&ID original file defaults
@@ -37,17 +38,14 @@ ANNOTATION_RESOURCE_TYPE = "file"
 CREATING_APP = "P&ID contextualization and annotation function"
 CREATING_APPVERSION = "1.0.0"
 
-# Asset constants
-MAX_LENGTH_METADATA = 10000
-
 # Other constants
-FUNCTION_NAME = "P&ID Annotation"
+ASSET_MAX_LEN_META = 10000
 ISO_8601 = "%Y-%m-%d %H:%M:%S"
 
 
 @dataclass
 class AnnotationConfig:
-    extraction_pipeline_ext_id: str
+    extpipe_xid: str
     debug: bool
     run_all: bool
     doc_limit: int
@@ -60,7 +58,7 @@ class AnnotationConfig:
     @classmethod
     def load(cls, data: dict[str, Any]) -> AnnotationConfig:
         return cls(
-            extraction_pipeline_ext_id=data["ExtractionPipelineExtId"],
+            extpipe_xid=data["ExtractionPipelineExtId"],
             debug=data["debug"],
             run_all=data["runAll"],
             doc_limit=data["docLimit"],
@@ -98,22 +96,17 @@ def handle(data: dict, client: CogniteClient) -> dict:
 
 def load_config_parameters(cognite_client: CogniteClient, function_data: dict[str, Any]) -> AnnotationConfig:
     """Retrieves the configuration parameters from the function data and loads the configuration from CDF."""
+    if "ExtractionPipelineExtId" not in function_data:
+        raise ValueError("Missing key 'ExtractionPipelineExtId' in input data to the function")
 
+    extpipe_xid = function_data["ExtractionPipelineExtId"]
     try:
-        extraction_pipeline_ext_id = function_data["ExtractionPipelineExtId"]
-    except KeyError:
-        raise ValueError("Missing parameter 'ExtractionPipelineExtId' in function data")
+        extpipe_config = cognite_client.extraction_pipelines.config.retrieve(extpipe_xid)
+    except CogniteAPIError:
+        raise RuntimeError(f"Not able to retrieve pipeline config for extraction pipeline: {extpipe_xid!r}")
 
-    try:
-        pipeline_config_str = cognite_client.extraction_pipelines.config.retrieve(extraction_pipeline_ext_id)
-        if pipeline_config_str and pipeline_config_str != "":
-            data = yaml.safe_load(pipeline_config_str.config)["data"]
-        else:
-            raise Exception("No configuration found in pipeline")
-    except Exception as e:
-        raise Exception(f"Not able to load pipeline : {extraction_pipeline_ext_id} configuration - {e}")
-
-    data["ExtractionPipelineExtId"] = extraction_pipeline_ext_id
+    data = yaml.safe_load(extpipe_config.config)["data"]
+    data["ExtractionPipelineExtId"] = extpipe_xid
     return AnnotationConfig.load(data)
 
 
@@ -170,7 +163,7 @@ def annotate_p_and_id(cognite_client: CogniteClient, config: AnnotationConfig) -
             print(f"[INFO] {msg}")
             cognite_client.extraction_pipelines.runs.create(
                 ExtractionPipelineRun(
-                    extpipe_external_id=config.extraction_pipeline_ext_id,
+                    extpipe_external_id=config.extpipe_xid,
                     status="success",
                     message=msg,
                 )
@@ -184,7 +177,7 @@ def annotate_p_and_id(cognite_client: CogniteClient, config: AnnotationConfig) -
             print(f"[ERROR] {msg}")
             cognite_client.extraction_pipelines.runs.create(
                 ExtractionPipelineRun(
-                    extpipe_external_id=config.extraction_pipeline_ext_id,
+                    extpipe_external_id=config.extpipe_xid,
                     status="failure",
                     message=shorten(msg, 1000),
                 )
@@ -446,8 +439,8 @@ def process_files(
 
             # create a string of matched tag - to be added to metadata
             asset_names = ",".join(map(str, entities_name_found))
-            if len(asset_names) > MAX_LENGTH_METADATA:
-                asset_names = asset_names[0:MAX_LENGTH_METADATA] + "..."
+            if len(asset_names) > ASSET_MAX_LEN_META:
+                asset_names = asset_names[0:ASSET_MAX_LEN_META] + "..."
 
             file_asset_ids = list(file.asset_ids) if file.asset_ids else []
 
