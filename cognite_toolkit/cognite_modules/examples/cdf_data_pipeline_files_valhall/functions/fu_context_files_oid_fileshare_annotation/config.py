@@ -14,10 +14,10 @@ class AnnotationConfig:
     debug: bool
     run_all: bool
     doc_limit: int
-    doc_data_set_ext_id: str
+    doc_data_set_xid: str
     doc_type_meta_col: str
-    p_and_id_doc_type: str
-    asset_root_ext_ids: list[str]
+    pnid_doc_type: str
+    asset_root_xids: list[str]
     match_threshold: float
 
     @classmethod
@@ -27,10 +27,10 @@ class AnnotationConfig:
             debug=data["debug"],
             run_all=data["runAll"],
             doc_limit=data["docLimit"],
-            doc_data_set_ext_id=data["docDataSetExtId"],
+            doc_data_set_xid=data["docDataSetExtId"],
             doc_type_meta_col=data["docTypeMetaCol"],
-            p_and_id_doc_type=data["pAndIdDocType"],
-            asset_root_ext_ids=data["assetRootExtIds"],
+            pnid_doc_type=data["pAndIdDocType"],
+            asset_root_xids=data["assetRootExtIds"],
             match_threshold=data["matchThreshold"],
         )
 

@@ -67,7 +67,7 @@ def handle(data: dict, client: CogniteClient) -> dict:
     return {"status": "succeeded", "data": data}
 
 
-def annotate_pnid(cognite_client: CogniteClient, config: AnnotationConfig) -> None:
+def annotate_pnid(client: CogniteClient, config: AnnotationConfig) -> None:
     """
     Read configuration and start P&ID annotation process by
     1. Reading files to annotate
@@ -80,40 +80,40 @@ def annotate_pnid(cognite_client: CogniteClient, config: AnnotationConfig) -> No
         - remove duplicate annotations
 
     Args:
-        cognite_client: An instantiated CogniteClient
+        client: An instantiated CogniteClient
         config: A dataclass containing the configuration for the annotation process
     """
-    for asset_root_ext_id in config.asset_root_ext_ids:
+    for asset_root_xid in config.asset_root_xids:
         try:
             all_files, filer_to_process = get_files(
-                cognite_client,
-                asset_root_ext_id,
+                client,
+                asset_root_xid,
                 config,
             )
             entities = get_files_entities(all_files)
 
             if len(entities) > 0:
-                annotation_list = get_existing_annotations(cognite_client, entities)
+                annotation_list = get_existing_annotations(client, entities)
             else:
                 annotation_list = {}
 
             annotated_count = 0
             error_count = 0
             if len(filer_to_process) > 0:
-                append_asset_entities(entities, cognite_client, asset_root_ext_id)
+                append_asset_entities(entities, client, asset_root_xid)
                 annotated_count, error_count = process_files(
-                    cognite_client,
+                    client,
                     entities,
                     filer_to_process,
                     annotation_list,
                     config,
                 )
             msg = (
-                f"Annotated P&ID files for asset: {asset_root_ext_id} number of files annotated: {annotated_count}, "
+                f"Annotated P&ID files for asset: {asset_root_xid} number of files annotated: {annotated_count}, "
                 f"file not annotaded due to errors: {error_count}"
             )
             print(f"[INFO] {msg}")
-            cognite_client.extraction_pipelines.runs.create(
+            client.extraction_pipelines.runs.create(
                 ExtractionPipelineRun(
                     extpipe_external_id=config.extpipe_xid,
                     status="success",
@@ -123,11 +123,11 @@ def annotate_pnid(cognite_client: CogniteClient, config: AnnotationConfig) -> No
 
         except Exception as e:
             msg = (
-                f"Annotated P&ID files failed on root asset: {asset_root_ext_id}. "
+                f"Annotated P&ID files failed on root asset: {asset_root_xid}. "
                 f"Message: {e!s}, traceback:\n{traceback.format_exc()}"
             )
             print(f"[ERROR] {msg}")
-            cognite_client.extraction_pipelines.runs.create(
+            client.extraction_pipelines.runs.create(
                 ExtractionPipelineRun(
                     extpipe_external_id=config.extpipe_xid,
                     status="failure",
@@ -137,8 +137,8 @@ def annotate_pnid(cognite_client: CogniteClient, config: AnnotationConfig) -> No
 
 
 def get_files(
-    cognite_client: CogniteClient,
-    asset_root_ext_id: str,
+    client: CogniteClient,
+    asset_root_xid: str,
     config: AnnotationConfig,
 ) -> tuple[dict[str, FileMetadata], dict[str, FileMetadata]]:
     """
@@ -146,30 +146,28 @@ def get_files(
 
     :returns: dict of files
     """
-
-    p_and_id_files_all_by_ext_id: dict[str, FileMetadata] = {}  # Define a type for Dict
-    p_and_id_file_to_process_by_ext_id: dict[str, FileMetadata] = {}  # Define a type for Dict
     doc_count = 0
+    all_pnid_files: dict[str, FileMetadata] = {}
+    pnids_to_process: dict[str, FileMetadata] = {}
     meta_file_update: list[FileMetadataUpdate] = []
-
     print(
-        f"[INFO] Get files to annotate data set: {config.doc_data_set_ext_id}, asset root: {asset_root_ext_id} "
-        f"doc_type: {config.p_and_id_doc_type} and mime_type: {ORG_MIME_TYPE}"
+        f"[INFO] Get files to annotate data set: {config.doc_data_set_xid}, asset root: {asset_root_xid} "
+        f"doc_type: {config.pnid_doc_type} and mime_type: {ORG_MIME_TYPE}"
     )
-    file_list = cognite_client.files.list(
-        metadata={config.doc_type_meta_col: config.p_and_id_doc_type},
-        data_set_external_ids=[config.doc_data_set_ext_id],
-        asset_subtree_external_ids=[asset_root_ext_id],
+    file_list = client.files.list(
+        metadata={config.doc_type_meta_col: config.pnid_doc_type},
+        data_set_external_ids=[config.doc_data_set_xid],
+        asset_subtree_external_ids=[asset_root_xid],
         mime_type=ORG_MIME_TYPE,
         limit=config.doc_limit,
     )
     for file in file_list:
         doc_count += 1
-        p_and_id_files_all_by_ext_id[file.external_id] = file
+        all_pnid_files[file.external_id] = file
 
         if FILE_ANNOTATED_METADATA_KEY is not None and FILE_ANNOTATED_METADATA_KEY not in (file.metadata or {}):
             if file.external_id is not None:
-                p_and_id_file_to_process_by_ext_id[file.external_id] = file
+                pnids_to_process[file.external_id] = file
 
         # if run all - remove metadata element from last annotation
         elif config.run_all:
@@ -179,26 +177,26 @@ def get_files(
                 )
                 meta_file_update.append(file_meta_update)
             if file.external_id is not None:
-                p_and_id_file_to_process_by_ext_id[file.external_id] = file
+                pnids_to_process[file.external_id] = file
         else:
             update_file_metadata(
                 meta_file_update,
                 file,
-                p_and_id_file_to_process_by_ext_id,
+                pnids_to_process,
             )
         if config.debug:
             break
 
     if len(meta_file_update) > 0:
-        cognite_client.files.update(meta_file_update)
+        client.files.update(meta_file_update)
 
-    return p_and_id_files_all_by_ext_id, p_and_id_file_to_process_by_ext_id
+    return all_pnid_files, pnids_to_process
 
 
 def update_file_metadata(
     meta_file_update: list[FileMetadataUpdate],
     file: FileMetadata,
-    p_and_id_files: dict[str, FileMetadata],
+    pnid_files: dict[str, FileMetadata],
 ) -> None:
     annotated_date = None
     if file.metadata and FILE_ANNOTATED_METADATA_KEY is not None:
@@ -221,24 +219,24 @@ def update_file_metadata(
             )
             meta_file_update.append(file_meta_update)
         if file.external_id is not None:
-            p_and_id_files[file.external_id] = file
+            pnid_files[file.external_id] = file
 
 
-def get_files_entities(p_and_id_files: dict[str, FileMetadata]) -> list[Entity]:
+def get_files_entities(pnid_files: dict[str, FileMetadata]) -> list[Entity]:
     """
     Loop found P&ID files and create a list of entities used for matching against file names in P&ID
 
     Args:
-        p_and_id_files: Dict of files found based on filter
+        pnid_files: Dict of files found based on filter
     """
     entities: list[Entity] = []
     doc_count = 0
 
-    for file_ext_id, file_meta in p_and_id_files.items():
+    for file_xid, file_meta in pnid_files.items():
         doc_count += 1
         fname_list = []
         if file_meta.name is None:
-            print(f"[WARNING] No name found for file with external ID: {file_ext_id}, and metadata: {file_meta}")
+            print(f"[WARNING] No name found for file with external ID: {file_xid}, and metadata: {file_meta}")
             continue
 
         # build list with possible file name variations used in P&ID to refer to other P&ID
@@ -261,25 +259,16 @@ def get_files_entities(p_and_id_files: dict[str, FileMetadata]) -> list[Entity]:
 
         # add entities for files used to match between file references in P&ID to other files
         entities.append(
-            Entity(
-                external_id=file_ext_id,
-                org_name=file_meta.name,
-                name=fname_list,
-                id=file_meta.id,
-                type="file",
-            )
+            Entity(external_id=file_xid, org_name=file_meta.name, name=fname_list, id=file_meta.id, type="file")
         )
-
     return entities
 
 
-def get_existing_annotations(
-    cognite_client: CogniteClient, entities: list[Entity]
-) -> dict[Optional[int], list[Optional[int]]]:
+def get_existing_annotations(client: CogniteClient, entities: list[Entity]) -> dict[Optional[int], list[Optional[int]]]:
     """
     Read list of already annotated files and get corresponding annotations
 
-    :param cognite_client: Dict of files found based on filter
+    :param client: Dict of files found based on filter
     :param entities:
 
     :returns: dictionary of annotations
@@ -297,7 +286,7 @@ def get_existing_annotations(
 
         if len(sub_file_list) > 0:
             filter_ = AnnotationFilter(annotated_resource_type="file", annotated_resource_ids=sub_file_list)
-            annotation_list = cognite_client.annotations.list(limit=-1, filter=filter_)
+            annotation_list = client.annotations.list(limit=-1, filter=filter_)
 
         for annotation in annotation_list:
             annotation: Annotation
@@ -308,19 +297,19 @@ def get_existing_annotations(
     return annotated_file_text
 
 
-def append_asset_entities(entities: list[Entity], cognite_client: CogniteClient, asset_root_ext_id: str) -> None:
+def append_asset_entities(entities: list[Entity], client: CogniteClient, asset_root_xid: str) -> None:
     """Get Asset used as input to contextualization
     Args:
-        cognite_client: Instance of CogniteClient
-        asset_root_ext_id: external root asset ID
+        client: Instance of CogniteClient
+        asset_root_xid: external root asset ID
         entities: list of entites found so fare (file names)
 
     Returns:
         list of entities
     """
 
-    print(f"[INFO] Get assets based on asset_subtree_external_ids = {asset_root_ext_id}")
-    assets = cognite_client.assets.list(asset_subtree_external_ids=[asset_root_ext_id], limit=-1)
+    print(f"[INFO] Get assets based on asset_subtree_external_ids = {asset_root_xid}")
+    assets = client.assets.list(asset_subtree_external_ids=[asset_root_xid], limit=-1)
 
     # clean up dummy tags and system numbers
     for asset in assets:
@@ -357,7 +346,7 @@ def append_asset_entities(entities: list[Entity], cognite_client: CogniteClient,
 
 
 def process_files(
-    cognite_client: CogniteClient,
+    client: CogniteClient,
     entities: list[Entity],
     files: dict[str, FileMetadata],
     annotation_list: dict[Optional[int], list[Optional[int]]],
@@ -367,7 +356,7 @@ def process_files(
     Then update the metadata for the P&ID input file
 
     Args:
-        cognite_client: client id used to connect to CDF
+        client: client id used to connect to CDF
         entities: list of input entities that are used to match content in file
         files: dict of files found based on filter
         annotation_list: list of existing annotations for input files
@@ -380,13 +369,13 @@ def process_files(
     error_count = 0
     annotation_list = annotation_list or {}
 
-    for file_ext_id, file in files.items():
-        print(f"[INFO] Parse and annotate, input file: {file_ext_id}")
+    for file_xid, file in files.items():
+        print(f"[INFO] Parse and annotate, input file: {file_xid}")
 
         try:
             # contextualize, create annotation and get list of matched tags
             entities_name_found, entities_id_found = detect_create_annotation(
-                cognite_client, config.match_threshold, file_ext_id, entities, annotation_list
+                client, config.match_threshold, file_xid, entities, annotation_list
             )
 
             # create a string of matched tag - to be added to metadata
@@ -420,14 +409,14 @@ def process_files(
                         .asset_ids.set(asset_ids_list)
                         .metadata.add({FILE_ANNOTATED_METADATA_KEY: timestamp, "tags": asset_names})
                     )
-                    safe_files_update(cognite_client, my_update, file.external_id)
+                    safe_files_update(client, my_update, file.external_id)
                 except Exception as e:
                     s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-                    print(f"[WARNING] Not able to update reference doc : {file_ext_id} - {s}  - {r}")
+                    print(f"[WARNING] Not able to update reference doc : {file_xid} - {s}  - {r}")
                     pass
 
             else:
-                print(f"[INFO] Converted and created (not upload due to DEBUG) file: {file_ext_id}")
+                print(f"[INFO] Converted and created (not upload due to DEBUG) file: {file_xid}")
                 print(f"[INFO] Assets found: {asset_names}")
 
         except Exception as e:
@@ -440,15 +429,15 @@ def process_files(
                 my_update = FileMetadataUpdate(id=file.id).metadata.add(
                     {FILE_ANNOTATED_METADATA_KEY: timestamp, ANNOTATION_ERROR_MSG: msg}
                 )
-                safe_files_update(cognite_client, my_update, file.external_id)
+                safe_files_update(client, my_update, file.external_id)
 
     return annotated_count, error_count
 
 
 def detect_create_annotation(
-    cognite_client: CogniteClient,
+    client: CogniteClient,
     match_threshold: float,
-    file_ext_id: str,
+    file_xid: str,
     entities: list[Entity],
     annotation_list: dict[Optional[int], list[Optional[int]]],
 ) -> tuple[list[Any], list[Any]]:
@@ -456,9 +445,9 @@ def detect_create_annotation(
     Detect tags + files and create annotation for P&ID
 
     Args:
-        cognite_client: client id used to connect to CDF
+        client: client id used to connect to CDF
         match_threshold: score used to qualify match
-        file_ext_id: file to be processed
+        file_xid: file to be processed
         entities: list of input entities that are used to match content in file
         annotation_list: list of existing annotations for input files
 
@@ -473,7 +462,7 @@ def detect_create_annotation(
     detected_count = 0
 
     # in case contextualization service not is available - back off and retry
-    job = retrieve_diagram_with_retry(cognite_client, entities, file_ext_id)
+    job = retrieve_diagram_with_retry(client, entities, file_xid)
 
     if "items" in job.result and len(job.result["items"]) > 0:
         # build a list of annotation BEFORE filtering on matchThreshold
@@ -550,13 +539,13 @@ def detect_create_annotation(
 
             # can only create 1000 annotations at a time.
             if len(create_annotation_list) >= 999:
-                cognite_client.annotations.create(create_annotation_list)
+                client.annotations.create(create_annotation_list)
                 create_annotation_list = []
 
         if len(create_annotation_list) > 0:
-            cognite_client.annotations.create(create_annotation_list)
+            client.annotations.create(create_annotation_list)
 
-        safe_delete_annotations(to_delete_annotation_list, cognite_client)
+        safe_delete_annotations(to_delete_annotation_list, client)
 
         # sort / deduplicate list of names and id
         entities_name_found = list(dict.fromkeys(entities_name_found))
@@ -566,12 +555,12 @@ def detect_create_annotation(
 
 
 def retrieve_diagram_with_retry(
-    cognite_client: CogniteClient, entities: list[Entity], file_id: str, retries: int = 3
+    client: CogniteClient, entities: list[Entity], file_id: str, retries: int = 3
 ) -> DiagramDetectResults:
     retry_num = 0
     while retry_num < retries:
         try:
-            job = cognite_client.diagrams.detect(
+            job = client.diagrams.detect(
                 file_external_ids=[file_id],
                 search_field="name",
                 entities=[e.dump() for e in entities],
@@ -629,7 +618,6 @@ def get_coordinates(vertices: dict) -> tuple[int, int, int, int]:
 
     :returns: coordinates used by annotations.
     """
-
     init_values = True
     x_max = 0
     x_min = 0
@@ -672,7 +660,7 @@ def get_coordinates(vertices: dict) -> tuple[int, int, int, int]:
     return x_min, x_max, y_min, y_max
 
 
-def safe_delete_annotations(delete_annotation_list: list[int], cognite_client: CogniteClient) -> None:
+def safe_delete_annotations(delete_annotation_list: list[int], client: CogniteClient) -> None:
     """
     Clean up / delete exising annotations
 
@@ -681,13 +669,13 @@ def safe_delete_annotations(delete_annotation_list: list[int], cognite_client: C
     Args:
 
         delete_annotation_list: list of annotation IDs to be deleted
-        cognite_client: Dict of files found based on filter
+        client: Dict of files found based on filter
     """
     if len(delete_annotation_list) == 0:
         return
     unique_annotations = list(set(delete_annotation_list))
     try:
-        cognite_client.annotations.delete(unique_annotations)
+        client.annotations.delete(unique_annotations)
     except Exception as e:
         s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
         msg = f"Failed to delete annotations, Message: {s}  - {r}"
@@ -695,9 +683,9 @@ def safe_delete_annotations(delete_annotation_list: list[int], cognite_client: C
 
 
 def safe_files_update(
-    cognite_client: CogniteClient,
+    client: CogniteClient,
     my_updates: FileMetadataUpdate | list[FileMetadataUpdate],
-    file_ext_id: str,
+    file_xid: str,
 ) -> None:
     """
     Update metadata of original pdf files wit list of tags
@@ -705,17 +693,16 @@ def safe_files_update(
     Catch exception and log error if update fails
 
     Args:
-        cognite_client: client id used to connect to CDF
+        client: client id used to connect to CDF
         my_updates: list of updates to be done
-        file_ext_id: file to be updated
+        file_xid: file to be updated
     """
-
     try:
         # write updates for existing files
-        cognite_client.files.update(my_updates)
+        client.files.update(my_updates)
     except Exception as e:
         s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-        print(f"[ERROR] Failed to update the file {file_ext_id}, Message: {s}  - {r}")
+        print(f"[ERROR] Failed to update the file {file_xid}, Message: {s}  - {r}")
 
 
 def run_locally():
