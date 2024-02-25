@@ -273,7 +273,6 @@ def get_existing_annotations(client: CogniteClient, entities: list[Entity]) -> d
 
     :returns: dictionary of annotations
     """
-
     annotation_list = AnnotationList([])
     annotated_file_text: dict[Optional[int], list[Optional[int]]] = defaultdict(list)
 
@@ -307,7 +306,6 @@ def append_asset_entities(entities: list[Entity], client: CogniteClient, asset_r
     Returns:
         list of entities
     """
-
     print(f"[INFO] Get assets based on asset_subtree_external_ids = {asset_root_xid}")
     assets = client.assets.list(asset_subtree_external_ids=[asset_root_xid], limit=-1)
 
@@ -379,11 +377,9 @@ def process_files(
             )
 
             # create a string of matched tag - to be added to metadata
-            asset_names = ",".join(map(str, entities_name_found))
-            if len(asset_names) > ASSET_MAX_LEN_META:
-                asset_names = asset_names[0:ASSET_MAX_LEN_META] + "..."
+            asset_names = shorten(",".join(map(str, entities_name_found)), ASSET_MAX_LEN_META)
 
-            file_asset_ids = list(file.asset_ids) if file.asset_ids else []
+            file_asset_ids = file.asset_ids or []
 
             # merge existing assets with new-found, and create a list without duplicates
             asset_ids_list = list(set(file_asset_ids + entities_id_found))
@@ -396,7 +392,10 @@ def process_files(
                 )
                 asset_ids_list = asset_ids_list[:1000]
 
-            if not config.debug:
+            if config.debug:
+                print(f"[INFO] Converted and created (not upload due to DEBUG) file: {file_xid}")
+                print(f"[INFO] Assets found: {asset_names}")
+            else:
                 annotated_count += 1
                 # Update metadata from found PDF files
                 try:
@@ -413,11 +412,6 @@ def process_files(
                 except Exception as e:
                     s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
                     print(f"[WARNING] Not able to update reference doc : {file_xid} - {s}  - {r}")
-                    pass
-
-            else:
-                print(f"[INFO] Converted and created (not upload due to DEBUG) file: {file_xid}")
-                print(f"[INFO] Assets found: {asset_names}")
 
         except Exception as e:
             error_count += 1
@@ -453,7 +447,6 @@ def detect_create_annotation(
 
     Returns:
         list of found entities and list of found entities ids
-
     """
     entities_id_found = []
     entities_name_found = []
@@ -523,7 +516,6 @@ def detect_create_annotation(
                     "yMin": y_min,
                 },
             }
-
             file_annotation = Annotation(
                 annotation_type=annotation_type,
                 data=annotation_data,
@@ -594,7 +586,6 @@ def get_sys_nums(annotations: Any, detected_count: int) -> tuple[dict[str, int],
     Returns:
         dict of system numbers and number of times used
     """
-
     detected_sytem_num = {}
 
     for item in annotations:
@@ -614,9 +605,11 @@ def get_coordinates(vertices: dict) -> tuple[int, int, int, int]:
     """Get coordinates for text box based on input from contextualization
     and convert it to coordinates used in annotations.
 
-    :param vertices coordinates from contextualization
+    Args:
+        vertices (dict): coordinates from contextualization
 
-    :returns: coordinates used by annotations.
+    Returns:
+        tuple[int, int, int, int]: coordinates used by annotations.
     """
     init_values = True
     x_max = 0
@@ -667,42 +660,36 @@ def safe_delete_annotations(delete_annotation_list: list[int], client: CogniteCl
     Handles any exception and log error if delete fails
 
     Args:
-
         delete_annotation_list: list of annotation IDs to be deleted
         client: Dict of files found based on filter
     """
-    if len(delete_annotation_list) == 0:
+    if not delete_annotation_list:
         return
-    unique_annotations = list(set(delete_annotation_list))
     try:
-        client.annotations.delete(unique_annotations)
+        client.annotations.delete(list(set(delete_annotation_list)))
     except Exception as e:
-        s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-        msg = f"Failed to delete annotations, Message: {s}  - {r}"
-        print(f"[WARNING] {msg}")
+        print(f"[ERROR] Failed to delete annotations, error: {type(e)}({e})")
 
 
 def safe_files_update(
     client: CogniteClient,
-    my_updates: FileMetadataUpdate | list[FileMetadataUpdate],
+    file_update: FileMetadataUpdate,
     file_xid: str,
 ) -> None:
     """
-    Update metadata of original pdf files wit list of tags
+    Update metadata of original pdf file with list of tags
 
     Catch exception and log error if update fails
 
     Args:
         client: client id used to connect to CDF
-        my_updates: list of updates to be done
+        file_update: list of updates to be done
         file_xid: file to be updated
     """
     try:
-        # write updates for existing files
-        client.files.update(my_updates)
+        client.files.update(file_update)
     except Exception as e:
-        s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-        print(f"[ERROR] Failed to update the file {file_xid}, Message: {s}  - {r}")
+        print(f"[ERROR] Failed to update the file {file_xid!r}, error: {type(e)}({e})")
 
 
 def run_locally():
