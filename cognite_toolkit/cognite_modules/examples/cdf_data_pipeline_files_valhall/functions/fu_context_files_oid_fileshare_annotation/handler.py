@@ -90,31 +90,10 @@ class Entity:
         }
 
 
-def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info: dict) -> dict:
-    try:
-        config = load_config_parameters(client, data)
-        annotate_p_and_id(client, config)
-    except Exception as e:
-        tb = traceback.format_exc()
-        msg = f"Function: {FUNCTION_NAME}: Extraction failed - Message: {e!r} - {tb}"
-        print(f"[FAILED] Error: {msg}")
-        return {
-            "error": str(e),
-            "status": "failed",
-            "data": data,
-            "secrets": mask_secrets(secrets),
-            "functionInfo": function_call_info,
-        }
-    return {
-        "status": "succeeded",
-        "data": data,
-        "secrets": mask_secrets(secrets),
-        "functionInfo": function_call_info,
-    }
-
-
-def mask_secrets(secrets: dict) -> dict:
-    return {k: "***" for k in secrets}
+def handle(data: dict, client: CogniteClient) -> dict:
+    config = load_config_parameters(client, data)
+    annotate_p_and_id(client, config)
+    return {"status": "succeeded", "data": data}
 
 
 def load_config_parameters(cognite_client: CogniteClient, function_data: dict[str, Any]) -> AnnotationConfig:
@@ -794,46 +773,36 @@ def safe_files_update(
         print(f"[ERROR] Failed to update the file {file_ext_id}, Message: {s}  - {r}")
 
 
-def main():
+def run_locally():
     """
     Code used for local Test & Debug
     update local .env file to set variables to connect to CDF
     """
-
     cdf_project_name = os.environ["CDF_PROJECT"]
     cdf_cluster = os.environ["CDF_CLUSTER"]
     client_id = os.environ["IDP_CLIENT_ID"]
     client_secret = os.environ["IDP_CLIENT_SECRET"]
     token_uri = os.environ["IDP_TOKEN_URL"]
-
     base_url = f"https://{cdf_cluster}.cognitedata.com"
-    scopes = f"{base_url}/.default"
-    secrets = {"mySecrets": "Values"}
-    function_call_info = {"Debugging": "Called from Function main "}
 
-    oauth_provider = OAuthClientCredentials(
-        token_url=token_uri,
-        client_id=client_id,
-        client_secret=client_secret,
-        scopes=[scopes],
+    client = CogniteClient(
+        ClientConfig(
+            client_name=cdf_project_name,
+            base_url=base_url,
+            project=cdf_project_name,
+            credentials=OAuthClientCredentials(
+                token_url=token_uri,
+                client_id=client_id,
+                client_secret=client_secret,
+                scopes=[f"{base_url}/.default"],
+            ),
+        )
     )
+    data = {"ExtractionPipelineExtId": "ep_ctx_files_oid_fileshare_pandid_annotation"}
 
-    cnf = ClientConfig(
-        client_name=cdf_project_name,
-        base_url=base_url,
-        project=cdf_project_name,
-        credentials=oauth_provider,
-    )
-
-    client = CogniteClient(cnf)
-
-    data = {
-        "ExtractionPipelineExtId": "ep_ctx_files_oid_fileshare_pandid_annotation",
-    }
-
-    # Test function handler
-    handle(data, client, secrets, function_call_info)
+    # Locally test function handler:
+    handle(data, client)
 
 
 if __name__ == "__main__":
-    main()
+    run_locally()
