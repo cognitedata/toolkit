@@ -601,54 +601,31 @@ def get_sys_nums(annotations: Any, detected_count: int) -> tuple[dict[str, int],
     return detected_sytem_num, detected_count
 
 
-def get_coordinates(vertices: dict) -> tuple[int, int, int, int]:
+def get_coordinates(vertices: list[dict]) -> tuple[int, int, int, int]:
     """Get coordinates for text box based on input from contextualization
     and convert it to coordinates used in annotations.
 
     Args:
-        vertices (dict): coordinates from contextualization
+        vertices (list[dict]): coordinates from contextualization
 
     Returns:
         tuple[int, int, int, int]: coordinates used by annotations.
     """
-    init_values = True
-    x_max = 0
-    x_min = 0
-    y_max = 0
-    y_min = 0
+    x_min, *_, x_max = sorted(min(1, vert["x"]) for vert in vertices)
+    y_min, *_, y_max = sorted(min(1, vert["y"]) for vert in vertices)
 
-    for vert in vertices:
-        # Values must be between 0 and 1
-        x = 1 if vert["x"] > 1 else vert["x"]
-        y = 1 if vert["y"] > 1 else vert["y"]
-
-        if init_values:
-            x_max = x
-            x_min = x
-            y_max = y
-            y_min = y
-            init_values = False
+    # Adjust if min and max are equal
+    if x_min == x_max:
+        if x_min > 0.001:
+            x_min -= 0.001
         else:
-            if x > x_max:
-                x_max = x
-            elif x < x_min:
-                x_min = x
-            if y > y_max:
-                y_max = y
-            elif y < y_min:
-                y_min = y
+            x_max += 0.001
 
-        if x_min == x_max:
-            if x_min > 0.001:
-                x_min -= 0.001
-            else:
-                x_max += 0.001
-
-        if y_min == y_max:
-            if y_min > 0.001:
-                y_min -= 0.001
-            else:
-                y_max += 0.001
+    if y_min == y_max:
+        if y_min > 0.001:
+            y_min -= 0.001
+        else:
+            y_max += 0.001
 
     return x_min, x_max, y_min, y_max
 
