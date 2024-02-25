@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import logging
 import os
 import re
 import time
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from time import gmtime, strftime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import yaml
@@ -23,8 +21,7 @@ from cognite.client.data_classes import (
     FileMetadataUpdate,
 )
 from cognite.client.data_classes.contextualization import DiagramDetectResults
-from cognite.client.exceptions import CogniteAPIError
-from cognite.logger import configure_logger
+from cognite.client.utils._text import shorten
 
 # P&ID original file defaults
 ORG_MIME_TYPE = "application/pdf"
@@ -40,19 +37,12 @@ ANNOTATION_RESOURCE_TYPE = "file"
 CREATING_APP = "P&ID contextualization and annotation function"
 CREATING_APPVERSION = "1.0.0"
 
-# Asset constats
+# Asset constants
 MAX_LENGTH_METADATA = 10000
 
-# static variables
+# Other constants
 FUNCTION_NAME = "P&ID Annotation"
-
-# logging the output
-# Configure application logger (only done ONCE):
-configure_logger(logger_name="func", log_json=False, log_level="INFO")
-
-# The following line must be added to all python modules (after imports):
-logger = logging.getLogger(f"func.{__name__}")
-logger.info("---------------------------------------START--------------------------------------------")
+ISO_8601 = "%Y-%m-%d %H:%M:%S"
 
 
 @dataclass
@@ -101,27 +91,20 @@ class Entity:
 
 
 def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info: dict) -> dict:
-    msg = ""
-    logger.info("[STARTING] Extracting input data")
-
     try:
         config = load_config_parameters(client, data)
-        logger.info("[FINISHED] Extracting input parameters")
         annotate_p_and_id(client, config)
     except Exception as e:
         tb = traceback.format_exc()
         msg = f"Function: {FUNCTION_NAME}: Extraction failed - Message: {e!r} - {tb}"
-        logger.error(f"[FAILED] Error: {msg}")
+        print(f"[FAILED] Error: {msg}")
         return {
-            "error": e.__str__(),
+            "error": str(e),
             "status": "failed",
             "data": data,
             "secrets": mask_secrets(secrets),
             "functionInfo": function_call_info,
         }
-
-    logger.info(f"[FINISHED] : {msg}")
-
     return {
         "status": "succeeded",
         "data": data,
@@ -173,7 +156,7 @@ def annotate_p_and_id(cognite_client: CogniteClient, config: AnnotationConfig) -
 
     """
 
-    logger.info("Initiating Annotation of P&ID")
+    print("Initiating Annotation[INFO]  of P&ID")
 
     for asset_root_ext_id in config.asset_root_ext_ids:
         try:
@@ -201,8 +184,11 @@ def annotate_p_and_id(cognite_client: CogniteClient, config: AnnotationConfig) -
                     config,
                 )
 
-            msg = f"Annotated P&ID files for asset: {asset_root_ext_id} number of files annotated: {annotated_count} - file not annotaded due to errors: {error_count}"
-            logger.info(msg)
+            msg = (
+                f"Annotated P&ID files for asset: {asset_root_ext_id} number of files annotated: {annotated_count}, "
+                f"file not annotaded due to errors: {error_count}"
+            )
+            print(f"[INFO] {msg}")
             cognite_client.extraction_pipelines.runs.create(
                 ExtractionPipelineRun(
                     extpipe_external_id=config.extraction_pipeline_ext_id,
@@ -211,16 +197,17 @@ def annotate_p_and_id(cognite_client: CogniteClient, config: AnnotationConfig) -
                 )
             )
 
-        except (CogniteAPIError, Exception) as e:
-            msg = f"Annotated P&ID files failed on root asset: {asset_root_ext_id} failed - Message: {e!s}"
-            logger.exception(msg)
-            if len(msg) > 1000:
-                msg = msg[0:995] + "..."
+        except Exception as e:
+            msg = (
+                f"Annotated P&ID files failed on root asset: {asset_root_ext_id}. "
+                f"Message: {e!s}, traceback:\n{traceback.format_exc()}"
+            )
+            print(f"[ERROR] {msg}")
             cognite_client.extraction_pipelines.runs.create(
                 ExtractionPipelineRun(
                     extpipe_external_id=config.extraction_pipeline_ext_id,
                     status="failure",
-                    message=msg,
+                    message=shorten(msg, 1000),
                 )
             )
 
@@ -241,11 +228,10 @@ def get_files(
     doc_count = 0
     meta_file_update: list[FileMetadataUpdate] = []
 
-    logger.info(
-        f"Get files to annotate data set: {config.doc_data_set_ext_id}, asset root: {asset_root_ext_id} doc_type: "
-        f"{config.p_and_id_doc_type} and mime_type: {ORG_MIME_TYPE}"
+    print(
+        f"[INFO] Get files to annotate data set: {config.doc_data_set_ext_id}, asset root: {asset_root_ext_id} "
+        f"doc_type: {config.p_and_id_doc_type} and mime_type: {ORG_MIME_TYPE}"
     )
-
     file_list = cognite_client.files.list(
         metadata={config.doc_type_meta_col: config.p_and_id_doc_type},
         data_set_external_ids=[config.doc_data_set_ext_id],
@@ -253,7 +239,6 @@ def get_files(
         mime_type=ORG_MIME_TYPE,
         limit=config.doc_limit,
     )
-
     for file in file_list:
         doc_count += 1
         p_and_id_files_all_by_ext_id[file.external_id] = file
@@ -296,7 +281,7 @@ def update_file_metadata(
         file_annotated_time = file.metadata.get(FILE_ANNOTATED_METADATA_KEY, None)
         if file_annotated_time:
             try:
-                annotated_date = datetime.strptime(file_annotated_time, "%Y-%m-%d %H:%M:%S")
+                annotated_date = datetime.strptime(file_annotated_time, ISO_8601)
             except ValueError:
                 raise ValueError(
                     f"Failed to parse date from metadata {FILE_ANNOTATED_METADATA_KEY}: {file_annotated_time}"
@@ -329,7 +314,7 @@ def get_files_entities(p_and_id_files: dict[str, FileMetadata]) -> list[Entity]:
         doc_count += 1
         fname_list = []
         if file_meta.name is None:
-            logger.warning(f"No name found for file with external ID: {file_ext_id}, and metadata: {file_meta}")
+            print(f"[WARNING] No name found for file with external ID: {file_ext_id}, and metadata: {file_meta}")
             continue
 
         # build list with possible file name variations used in P&ID to refer to other P&ID
@@ -379,7 +364,7 @@ def get_existing_annotations(
     annotation_list = AnnotationList([])
     annotated_file_text: dict[Optional[int], list[Optional[int]]] = defaultdict(list)
 
-    logger.info("Get existing annotations based on annotated_resource_type= file, and filtered by found files")
+    print("Get existing[INFO]  annotations based on annotated_resource_type= file, and filtered by found files")
     file_list = [{"id": item.id} for item in entities]
 
     n = 1000
@@ -410,7 +395,7 @@ def append_asset_entities(entities: list[Entity], cognite_client: CogniteClient,
         list of entities
     """
 
-    logger.info(f"Get assets based on asset_subtree_external_ids = {asset_root_ext_id}")
+    print(f"[INFO] Get assets based on asset_subtree_external_ids = {asset_root_ext_id}")
     assets = cognite_client.assets.list(asset_subtree_external_ids=[asset_root_ext_id], limit=-1)
 
     # clean up dummy tags and system numbers
@@ -444,8 +429,7 @@ def append_asset_entities(entities: list[Entity], cognite_client: CogniteClient,
                     )
                 )
         except Exception:
-            logger.error(f"Not able to get entities for asset name: {name}, id {asset.external_id}")
-            pass
+            print(f"[ERROR] Not able to get entities for asset name: {name}, id {asset.external_id}")
 
 
 def process_files(
@@ -473,7 +457,7 @@ def process_files(
     annotation_list = annotation_list or {}
 
     for file_ext_id, file in files.items():
-        logger.info(f"Parse and annotate, input file: {file_ext_id}")
+        print(f"[INFO] Parse and annotate, input file: {file_ext_id}")
 
         try:
             # contextualize, create annotation and get list of matched tags
@@ -493,8 +477,9 @@ def process_files(
 
             # If list of assets more than 1000 items, cut the list at 1000
             if len(asset_ids_list) > 1000:
-                logger.warning(
-                    f"List of assetsIds for file {file.external_id} > 1000 ({len(asset_ids_list)}), cutting list at 1000 items"
+                print(
+                    f"[WARNING] List of assetsIds for file {file.external_id} > 1000 ({len(asset_ids_list)}), "
+                    "cutting list at 1000 items"
                 )
                 asset_ids_list = asset_ids_list[:1000]
 
@@ -505,31 +490,31 @@ def process_files(
                     # Note uses local time, since file update time also uses local time + add a minute
                     # making sure annotation time is larger than last update time
                     now = datetime.now() + timedelta(minutes=1)
-                    convert_date_time = now.strftime("%Y-%m-%d %H:%M:%S")
+                    timestamp = now.strftime(ISO_8601)
                     my_update = (
                         FileMetadataUpdate(id=file.id)
                         .asset_ids.set(asset_ids_list)
-                        .metadata.add({FILE_ANNOTATED_METADATA_KEY: convert_date_time, "tags": asset_names})
+                        .metadata.add({FILE_ANNOTATED_METADATA_KEY: timestamp, "tags": asset_names})
                     )
                     safe_files_update(cognite_client, my_update, file.external_id)
                 except Exception as e:
                     s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-                    logger.warning(f"Not able to update reference doc : {file_ext_id} - {s}  - {r}")
+                    print(f"[WARNING] Not able to update reference doc : {file_ext_id} - {s}  - {r}")
                     pass
 
             else:
-                logger.info(f"Converted and created (not upload due to DEBUG) file: {file_ext_id}")
-                logger.info(f"Assets found: {asset_names}")
+                print(f"[INFO] Converted and created (not upload due to DEBUG) file: {file_ext_id}")
+                print(f"[INFO] Assets found: {asset_names}")
 
         except Exception as e:
             error_count += 1
             s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-            msg = f"ERROR: Failed to annotate the document, Message: {s}  - {r}"
-            logger.error(msg)
+            msg = f"Failed to annotate the document, Message: {s}  - {r}"
+            print(f"[ERROR] {msg}")
             if "KeyError" in r:
-                convert_date_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+                timestamp = datetime.now(timezone.utc).strftime(ISO_8601)
                 my_update = FileMetadataUpdate(id=file.id).metadata.add(
-                    {FILE_ANNOTATED_METADATA_KEY: convert_date_time, ANNOTATION_ERROR_MSG: msg}
+                    {FILE_ANNOTATED_METADATA_KEY: timestamp, ANNOTATION_ERROR_MSG: msg}
                 )
                 safe_files_update(cognite_client, my_update, file.external_id)
 
@@ -675,11 +660,11 @@ def retrieve_diagram_with_retry(
             # retry func if CDF api returns an error
             if retry_num < 3:
                 retry_num += 1
-                logger.warning(f"Retry #{retry_num} - wait before retry - error was: {s}  - {r}")
+                print(f"[WARNING] Retry #{retry_num} - wait before retry - error was: {s}  - {r}")
                 time.sleep(retry_num * 5)
             else:
-                msg = f"ERROR: Failed to detect entities, Message: {s}  - {r}"
-                logger.error(msg)
+                msg = f"Failed to detect entities, Message: {s}  - {r}"
+                print(f"[ERROR] {msg}")
                 raise Exception(msg)
     raise Exception("Failed to detect entities - max retries reached")
 
@@ -782,7 +767,7 @@ def safe_delete_annotations(delete_annotation_list: list[int], cognite_client: C
     except Exception as e:
         s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
         msg = f"Failed to delete annotations, Message: {s}  - {r}"
-        logger.warning(msg)
+        print(f"[WARNING] {msg}")
 
 
 def safe_files_update(
@@ -806,7 +791,7 @@ def safe_files_update(
         cognite_client.files.update(my_updates)
     except Exception as e:
         s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-        logger.error(f"Failed to update the file {file_ext_id}, Message: {s}  - {r}")
+        print(f"[ERROR] Failed to update the file {file_ext_id}, Message: {s}  - {r}")
 
 
 def main():
