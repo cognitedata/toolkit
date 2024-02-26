@@ -1,6 +1,6 @@
 from cognite.client import CogniteClient
 
-from cognite_toolkit.cdf_tk.load import DataSetsLoader
+from cognite_toolkit._cdf_tk.load import DataSetsLoader
 
 
 class TestDataSetsLoader:

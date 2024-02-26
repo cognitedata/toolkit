@@ -18,14 +18,14 @@ from cognite.client.data_classes.transformations.common import NonceCredentials
 from rich import print
 from rich.table import Table
 
-from cognite_toolkit.cdf_tk.load import FunctionLoader, FunctionScheduleLoader
-from cognite_toolkit.cdf_tk.templates import (
+from cognite_toolkit._cdf_tk.load import FunctionLoader, FunctionScheduleLoader
+from cognite_toolkit._cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
     module_from_path,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig, get_oneshot_session
+from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
 
 
 def run_function(ToolGlobals: CDFToolConfig, external_id: str, payload: str, follow: bool = False) -> bool:

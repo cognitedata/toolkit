@@ -10,10 +10,10 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES
+from cognite_toolkit._cdf_tk.templates._utils import iterate_modules
+from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._version import __version__ as current_version
-from cognite_toolkit.cdf_tk.templates import COGNITE_MODULES
-from cognite_toolkit.cdf_tk.templates._utils import iterate_modules
-from cognite_toolkit.cdf_tk.utils import load_yaml_inject_variables
 
 
 @dataclass

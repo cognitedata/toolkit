@@ -18,7 +18,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
 
-from cognite_toolkit.cdf_tk.load import (
+from cognite_toolkit._cdf_tk.load import (
     AuthLoader,
     DataModelLoader,
     DatapointsLoader,
@@ -29,15 +29,15 @@ from cognite_toolkit.cdf_tk.load import (
     TimeSeriesLoader,
     ViewLoader,
 )
-from cognite_toolkit.cdf_tk.templates import (
+from cognite_toolkit._cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import (
+from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildConfigYAML,
     SystemYAML,
 )
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.fake_generator import FakeCogniteResourceGenerator
 from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT

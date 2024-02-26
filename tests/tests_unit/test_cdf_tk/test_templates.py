@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 import yaml
 
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
-from cognite_toolkit.cdf_tk.templates import (
+from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
     check_yaml_semantics,
@@ -18,13 +18,14 @@ from cognite_toolkit.cdf_tk.templates import (
     module_from_path,
     split_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import (
+from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildConfigYAML,
+    ConfigEntry,
     Environment,
     InitConfigYAML,
     SystemYAML,
 )
-from cognite_toolkit.cdf_tk.utils import YAMLComment
+from cognite_toolkit._cdf_tk.utils import YAMLComment
 from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT
 
 
@@ -164,6 +165,22 @@ variable4: "value with #in it" # But a comment after
         extra = set(config.keys()) - expected
         assert not missing, f"Missing keys: {missing}. Got extra {extra}"
         assert not extra, f"Extra keys: {extra}"
+
+    def test_load_parent_variables(self, dummy_environment: Environment) -> None:
+        config = InitConfigYAML(
+            dummy_environment,
+            {
+                ("modules", "cognite_modules", "infield", "shared_variable"): ConfigEntry(
+                    key_path=("modules", "cognite_modules", "infield", "shared_variable"),
+                    default_value="shared_value",
+                )
+            },
+        )
+
+        config._load_variables({"shared_variable": {("cognite_modules", "infield", "cdf_infield_common")}})
+
+        assert ("modules", "cognite_modules", "infield", "shared_variable") in config.keys()
+        assert ("modules", "cognite_modules", "infield", "cdf_infield_common", "shared_variable") not in config.keys()
 
 
 @pytest.mark.parametrize(
