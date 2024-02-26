@@ -8,7 +8,7 @@ from cognite.client.data_classes.data_modeling import DataModelId
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig, retrieve_view_ancestors
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, retrieve_view_ancestors
 
 
 def dump_datamodel_command(
