@@ -88,7 +88,7 @@ def dump_datamodel_command(
                 view_write["properties"].pop(prop_name, None)
         if not view_write["properties"]:
             # All properties were removed, so we remove the properties key.
-            view.pop("properties", None)
+            view_write.pop("properties", None)
 
         view_file.write_text(yaml.safe_dump(view_write, sort_keys=False))
         if verbose:
