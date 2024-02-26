@@ -17,14 +17,14 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from cognite_toolkit.cdf_tk.load import ResourceLoader
-from cognite_toolkit.cdf_tk.load._base_loaders import T_ID, T_WritableCogniteResourceList
-from cognite_toolkit.cdf_tk.templates import (
+from cognite_toolkit._cdf_tk.load import ResourceLoader
+from cognite_toolkit._cdf_tk.load._base_loaders import T_ID, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments
+from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 

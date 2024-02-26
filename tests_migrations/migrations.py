@@ -5,8 +5,8 @@ from typing import Any
 
 import yaml
 
+from cognite_toolkit._cdf_tk.templates import iterate_modules
 from cognite_toolkit._version import __version__
-from cognite_toolkit.cdf_tk.templates import iterate_modules
 
 
 def modify_environment_to_run_all_modules(project_path: Path) -> None:

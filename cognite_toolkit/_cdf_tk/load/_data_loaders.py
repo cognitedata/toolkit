@@ -11,7 +11,7 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList, capabilities
 from cognite.client.data_classes.capabilities import Capability, FilesAcl, RawAcl, TimeSeriesAcl
 
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from ._base_loaders import DataLoader
 from ._resource_loaders import FileMetadataLoader, RawDatabaseLoader, RawTableLoader, TimeSeriesLoader

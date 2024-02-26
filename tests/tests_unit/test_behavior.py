@@ -5,9 +5,9 @@ import yaml
 from cognite.client.data_classes import Transformation, TransformationWrite
 from pytest import MonkeyPatch
 
-from cognite_toolkit.cdf import build, deploy, pull_transformation_cmd
-from cognite_toolkit.cdf_tk.load import TransformationLoader
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf import build, deploy, pull_transformation_cmd
+from cognite_toolkit._cdf_tk.load import TransformationLoader
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.utils import mock_read_yaml_file
 

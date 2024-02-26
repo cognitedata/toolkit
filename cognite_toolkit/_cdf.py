@@ -17,10 +17,9 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit import _version
-from cognite_toolkit._version import __version__ as current_version
-from cognite_toolkit.cdf_tk import bootstrap
-from cognite_toolkit.cdf_tk.describe import describe_datamodel
-from cognite_toolkit.cdf_tk.load import (
+from cognite_toolkit._cdf_tk import bootstrap
+from cognite_toolkit._cdf_tk.describe import describe_datamodel
+from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
     DataSetsLoader,
@@ -29,21 +28,22 @@ from cognite_toolkit.cdf_tk.load import (
     ResourceLoader,
     TransformationLoader,
 )
-from cognite_toolkit.cdf_tk.pull import pull_command
-from cognite_toolkit.cdf_tk.run import run_function, run_local_function, run_transformation
-from cognite_toolkit.cdf_tk.templates import (
+from cognite_toolkit._cdf_tk.pull import pull_command
+from cognite_toolkit._cdf_tk.run import run_function, run_local_function, run_transformation
+from cognite_toolkit._cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
     build_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import (
+from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildConfigYAML,
     BuildEnvironment,
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,
     SystemYAML,
 )
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig, read_yaml_file
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_file
+from cognite_toolkit._version import __version__ as current_version
 
 if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
     sentry_sdk.init(

@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit.cdf import build
+from cognite_toolkit._cdf import build
 from tests.constants import REPO_ROOT
 from tests.tests_unit.utils import mock_read_yaml_file
 

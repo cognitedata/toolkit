@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 import yaml
 
-from cognite_toolkit.cdf_tk.load import LOADER_BY_FOLDER_NAME
-from cognite_toolkit.cdf_tk.templates import (
+from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.templates import (
     COGNITE_MODULES,
     build_config,
     check_yaml_semantics,
@@ -18,14 +18,14 @@ from cognite_toolkit.cdf_tk.templates import (
     module_from_path,
     split_config,
 )
-from cognite_toolkit.cdf_tk.templates.data_classes import (
+from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildConfigYAML,
     ConfigEntry,
     Environment,
     InitConfigYAML,
     SystemYAML,
 )
-from cognite_toolkit.cdf_tk.utils import YAMLComment
+from cognite_toolkit._cdf_tk.utils import YAMLComment
 from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT
 
 
