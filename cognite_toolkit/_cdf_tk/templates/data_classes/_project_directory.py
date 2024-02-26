@@ -12,10 +12,10 @@ from typing import ClassVar
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.templates._constants import COGNITE_MODULES, CUSTOM_MODULES
+from cognite_toolkit._cdf_tk.templates._utils import _get_cognite_module_version, iterate_modules
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, read_yaml_file
 from cognite_toolkit._version import __version__ as current_version
-from cognite_toolkit.cdf_tk.templates._constants import COGNITE_MODULES, CUSTOM_MODULES
-from cognite_toolkit.cdf_tk.templates._utils import _get_cognite_module_version, iterate_modules
-from cognite_toolkit.cdf_tk.utils import calculate_directory_hash, read_yaml_file
 
 from ._config_yaml import ConfigYAMLs
 from ._migration_yaml import MigrationYAML

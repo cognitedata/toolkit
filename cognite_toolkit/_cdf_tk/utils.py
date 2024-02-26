@@ -46,8 +46,8 @@ from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case, to_snake_case
 from rich import print
 
+from cognite_toolkit._cdf_tk._get_type_hints import _TypeHints
 from cognite_toolkit._version import __version__
-from cognite_toolkit.cdf_tk._get_type_hints import _TypeHints
 
 logger = logging.getLogger(__name__)
 
@@ -573,7 +573,7 @@ class DataSetMissingWarning(LoadWarning):
 
     def __str__(self) -> str:
         # Avoid circular import
-        from cognite_toolkit.cdf_tk.load import TransformationLoader
+        from cognite_toolkit._cdf_tk.load import TransformationLoader
 
         if self.filepath.parent.name == TransformationLoader.folder_name:
             return f"{type(self).__name__}: It is recommended to use a data set if source or destination can be scoped with a data set. If not, ignore this warning."

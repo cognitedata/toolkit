@@ -37,7 +37,7 @@ pytest-cov = "^4.1.0"
 cognite-logger = "^0.6"
 
 [tool.poetry.scripts]
-cdf-tk = "cognite_toolkit.cdf:app"
+cdf-tk = "cognite_toolkit._cdf:app"
 
 [tool.coverage.report]
 fail_under = 60

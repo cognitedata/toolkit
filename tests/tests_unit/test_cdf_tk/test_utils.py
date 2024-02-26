@@ -19,7 +19,7 @@ from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 
-from cognite_toolkit.cdf_tk.utils import (
+from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     DataSetMissingWarning,
     SnakeCaseWarning,

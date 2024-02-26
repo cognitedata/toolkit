@@ -1,6 +1,6 @@
 from constants import SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT
 
-from cognite_toolkit.cdf_tk.utils import calculate_directory_hash
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash
 
 
 def calculate_hashes():
