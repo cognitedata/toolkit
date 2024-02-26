@@ -1,8 +1,4 @@
 deleted:
-  Node:
-  - externalId: default_infield_config_minimal
-    instanceType: node
-    space: APM_Config
   Space:
   - sp_asset_oid_source
   - sp_infield_oid_app_data
