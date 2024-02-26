@@ -19,6 +19,7 @@ from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.load import (
+    LOADER_BY_FOLDER_NAME,
     AuthLoader,
     DataModelLoader,
     DatapointsLoader,
@@ -26,6 +27,7 @@ from cognite_toolkit._cdf_tk.load import (
     FileMetadataLoader,
     FunctionLoader,
     ResourceLoader,
+    ResourceTypes,
     TimeSeriesLoader,
     ViewLoader,
 )
@@ -517,3 +519,13 @@ class TestListDictConsistency:
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
+
+
+def test_resource_types_is_up_to_date() -> None:
+    expected = set(LOADER_BY_FOLDER_NAME.keys())
+    actual = set(ResourceTypes.__args__)
+
+    missing = expected - actual
+    extra = actual - expected
+    assert not missing, f"Missing {missing=}"
+    assert not extra, f"Extra {extra=}"

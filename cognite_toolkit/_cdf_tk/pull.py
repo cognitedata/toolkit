@@ -222,7 +222,10 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[Union[str, int], ...], Resou
         dumped_with_comments = self._dump_yaml_with_comments(indent_size, False)
         for key, prop in self.items():
             for variable in prop.variables:
-                dumped_with_comments = dumped_with_comments.replace(variable.placeholder, f"{{{{{variable.name}}}}}")
+                if variable.placeholder:
+                    dumped_with_comments = dumped_with_comments.replace(
+                        variable.placeholder, f"{{{{{variable.name}}}}}"
+                    )
         return dumped_with_comments
 
     def display(self, title: str | None = None) -> None:

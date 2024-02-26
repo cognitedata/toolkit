@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import itertools
+import sys
+from typing import Literal
 
 from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
 from ._data_loaders import DatapointsLoader, FileLoader, RawFileLoader
@@ -36,6 +38,12 @@ from ._resource_loaders import (
 )
 from .data_classes import DeployResult, DeployResults
 
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
+
+
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
     ResourceLoader.__subclasses__(), ResourceContainerLoader.__subclasses__(), DataLoader.__subclasses__()
@@ -48,6 +56,19 @@ for _loader in itertools.chain(
     # MyPy bug: https://github.com/python/mypy/issues/4717
     LOADER_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[type-abstract, attr-defined, arg-type]
 del _loader  # cleanup module namespace
+
+ResourceTypes: TypeAlias = Literal[
+    "auth",
+    "data_models",
+    "data_sets",
+    "transformations",
+    "files",
+    "timeseries",
+    "timeseries_datapoints",
+    "extraction_pipelines",
+    "functions",
+    "raw",
+]
 
 __all__ = [
     "LOADER_BY_FOLDER_NAME",
@@ -76,4 +97,5 @@ __all__ = [
     "DataLoader",
     "DeployResult",
     "DeployResults",
+    "ResourceTypes",
 ]
