@@ -1053,7 +1053,7 @@ def dump_datamodel_cmd(
         ),
     ] = "tmp",
 ) -> None:
-    """This command will dump the specified data model to the folder specified, defaults to /tmp."""
+    """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
     dump_datamodel_command(
         CDFToolConfig.from_context(ctx),
         DataModelId(space, external_id, version),
