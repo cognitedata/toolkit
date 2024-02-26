@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Command `cdf-tk dump datamodel` for dumping data models from CDF into a local folder. The use case for this is to
+  dump an existing data model from CDF and use it as a basis for building a new custom module with that data model.
+
 ## [0.1.0b9] - 2024-02-20
 
 ### Added
