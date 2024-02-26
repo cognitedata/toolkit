@@ -1,0 +1,3 @@
+externalId: tr_workorder_{{second_location}}_{{source_workorder}}_infield_sync_workorders_to_apm_activities
+interval: '{{scheduleHourly}}'
+isPaused: false
