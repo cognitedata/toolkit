@@ -30,7 +30,6 @@ class ModulesAPI:
         self.__module_by_name: dict[str, ModuleMeta] = {}
         self._build_env = "dev"
 
-    @property
     def _source_dir(self) -> Path:
         if self._url is not None:
             raise NotImplementedError("Loading modules from a URL is not yet supported")
@@ -38,7 +37,7 @@ class ModulesAPI:
             return COGNITE_MODULES_PATH
 
     def _load_modules(self) -> None:
-        source_dir = self._source_dir
+        source_dir = self._source_dir()
 
         system_yaml = SystemYAML.load_from_directory(source_dir, self._build_env)
         default_config = InitConfigYAML(_DUMMY_ENVIRONMENT).load_defaults(source_dir)
@@ -62,7 +61,7 @@ class ModulesAPI:
     def _build(self, modules: Sequence[ModuleMeta], verbose: bool) -> None:
         variables: dict[str, Any] = {COGNITE_MODULES: {}}
         for module in modules:
-            key_parent_path = (COGNITE_MODULES, *module._source.relative_to(self._source_dir).parts)
+            key_parent_path = (COGNITE_MODULES, *module._source.relative_to(self._source_dir()).parts)
             for variable in module.variables.values():
                 key_path = (*key_parent_path, variable.name)
                 current = variables
@@ -83,9 +82,9 @@ class ModulesAPI:
         )
         build_config(
             self._build_dir,
-            self._source_dir.parent,
+            self._source_dir().parent,
             config,
-            system_config=SystemYAML.load_from_directory(self._source_dir, self._build_env),
+            system_config=SystemYAML.load_from_directory(self._source_dir(), self._build_env),
             clean=True,
             verbose=verbose,
         )

@@ -846,12 +846,16 @@ class YAMLComment:
     above: list[str] = field(default_factory=list)
     after: list[str] = field(default_factory=list)
 
+    @property
+    def comment(self) -> str:
+        return "\n".join(self.above) + "\n" + "\n".join(self.after)
+
 
 T_Key = TypeVar("T_Key")
 T_Value = TypeVar("T_Value")
 
 
-class YAMLWithComments(UserDict, Generic[T_Key, T_Value]):
+class YAMLWithComments(UserDict[T_Key, T_Value]):
     @staticmethod
     def _extract_comments(raw_file: str, key_prefix: tuple[str, ...] = tuple()) -> dict[tuple[str, ...], YAMLComment]:
         """Extract comments from a raw file and return a dictionary with the comments."""

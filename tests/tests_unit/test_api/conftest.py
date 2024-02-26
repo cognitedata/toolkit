@@ -1,6 +1,6 @@
 import pytest
 
-from cognite_toolkit import CogniteToolkit
+from cognite_toolkit._api import CogniteToolkit
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 
 

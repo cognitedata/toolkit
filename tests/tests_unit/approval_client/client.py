@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import abc
 import hashlib
 import itertools
 import json as JSON
@@ -56,21 +55,13 @@ from .data_classes import APIResource, AuthGroupCalls
 TEST_FOLDER = Path(__file__).resolve().parent.parent
 
 _ALL_CAPABILITIES = []
-_to_check = list(capabilities.Capability.__subclasses__())
-while _to_check:
-    capability_cls = _to_check.pop()
-    _to_check.extend(capability_cls.__subclasses__())
-    if abc.ABC in capability_cls.__bases__:
-        continue
-    actions = list(capability_cls.Action.__members__.values())
-    scopes = [var_ for name, var_ in vars(capability_cls.Scope).items() if not name.startswith("_")]
-    for action, scope in itertools.product(actions, scopes):
+for cap, (scopes, names) in capabilities._VALID_SCOPES_BY_CAPABILITY.items():
+    for action, scope in itertools.product(cap.Action, scopes):
         try:
-            _ALL_CAPABILITIES.append(capability_cls([action], scope()))
+            _ALL_CAPABILITIES.append(cap([action], scope=scope()))
         except TypeError:
-            # Skipping all scopes that require arguments
-            ...
-del _to_check, capability_cls, actions, scopes, action, scope
+            pass
+del cap, scopes, names, action, scope
 
 
 class ApprovalCogniteClient:
@@ -478,7 +469,7 @@ class ApprovalCogniteClient:
                 elif "external_id" in kwargs:
                     external_ids = [kwargs["external_id"]]
                 else:
-                    raise NotImplementedError("No external_ids or external_id in kwargs")
+                    raise RuntimeError("No external_ids or external_id in kwargs")
                 datasets = [
                     DataSet(
                         external_id=external_id,
@@ -496,7 +487,7 @@ class ApprovalCogniteClient:
                 elif "external_id" in kwargs:
                     external_ids = [kwargs["external_id"]]
                 else:
-                    raise NotImplementedError("No external_ids or external_id in kwargs")
+                    raise RuntimeError("No external_ids or external_id in kwargs")
                 pipelines = [
                     ExtractionPipeline(
                         external_id=external_id,
