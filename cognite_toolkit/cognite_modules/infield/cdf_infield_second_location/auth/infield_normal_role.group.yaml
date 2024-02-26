@@ -1,7 +1,7 @@
-# This role has only viewer capabilities in InField and cannot create data like templates, checklist, images etc.
-# Typical Reliability users or other business users. 
-name: 'gp_infield_{{first_location}}_viewers'
-sourceId: '{{infield_location_viewer_users_source_id}}'
+# Role has additional write permissions to app data dataset and spaces and is the Normal InField user that can execute on checklists.
+# Typical Technician user
+name: 'gp_infield_{{second_location}}_normal_users'
+sourceId: '{{infield_location_normal_users_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
   module_version: '{{module_version}}'
@@ -17,35 +17,49 @@ capabilities:
         - READ
       scope:
         datasetScope: {
-          ids: ['ds_3d_{{first_location}}']
+          ids: ['ds_3d_{{second_location}}']
         }
   - assetsAcl:
       actions:
         - READ
       scope:
         datasetScope: {
-          ids: ['ds_asset_{{first_location}}']
+          ids: ['ds_asset_{{second_location}}']
         }
   - filesAcl:
       actions:
         - READ
       scope:
         datasetScope: {
-          ids: ['ds_files_{{first_location}}', 'ds_infield_{{first_location}}_app_data']
+          ids: ['ds_files_{{second_location}}', 'ds_infield_{{second_location}}_app_data']
+        }
+  - filesAcl:
+      actions:
+        - WRITE
+      scope:
+        datasetScope: {
+          ids: ['ds_infield_{{second_location}}_app_data']
         }
   - relationshipsAcl:
       actions:
         - READ
       scope:
         datasetScope: {
-          ids: ['ds_relationships_{{first_location}}']
+          ids: ['ds_relationships_{{second_location}}']
         }
   - timeSeriesAcl:
       actions:
         - READ
       scope:
         datasetScope: {
-          ids: ['ds_timeseries_{{first_location}}', 'ds_infield_{{first_location}}_app_data']
+          ids: ['ds_timeseries_{{second_location}}', 'ds_infield_{{second_location}}_app_data']
+        }
+  - timeSeriesAcl:
+      actions:
+        - WRITE
+      scope:
+        datasetScope: {
+          ids: ['ds_infield_{{second_location}}_app_data']
         }
   - dataModelsAcl:
       actions:
@@ -58,7 +72,7 @@ capabilities:
               'cdf_infield',
               'cdf_core',
               'cdf_apps_shared',
-              '{{apm_datamodel_space}}' # from modules/config.yaml (APM_SourceData)
+              '{{apm_datamodel_space}}', # from modules/config.yaml (APM_SourceData)
             ]
         }
   - dataModelInstancesAcl:
@@ -70,8 +84,8 @@ capabilities:
               'APM_Config',
               'cdf_apm',
               'cognite_app_data', # this space must be created to store user profile information
-              'sp_asset_{{first_location}}_source', # from modules/config.yaml
-              'sp_infield_{{first_location}}_app_data' # from modules/config.yaml
+              'sp_asset_{{second_location}}_source', # from modules/config.yaml
+              'sp_infield_{{second_location}}_app_data' # from modules/config.yaml
             ]
         }
   - dataModelInstancesAcl:
@@ -80,6 +94,7 @@ capabilities:
       scope:
         spaceIdScope: {
             spaceIds: [
-              'cognite_app_data' # this space must be created to store user profile information
+              'cognite_app_data', # this space must be created to store user profile information
+              'sp_infield_{{second_location}}_app_data' # from modules/config.yaml
             ]
         }
