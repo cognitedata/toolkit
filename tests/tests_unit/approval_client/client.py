@@ -469,7 +469,7 @@ class ApprovalCogniteClient:
                 elif "external_id" in kwargs:
                     external_ids = [kwargs["external_id"]]
                 else:
-                    raise NotImplementedError("No external_ids or external_id in kwargs")
+                    raise RuntimeError("No external_ids or external_id in kwargs")
                 datasets = [
                     DataSet(
                         external_id=external_id,
@@ -487,7 +487,7 @@ class ApprovalCogniteClient:
                 elif "external_id" in kwargs:
                     external_ids = [kwargs["external_id"]]
                 else:
-                    raise NotImplementedError("No external_ids or external_id in kwargs")
+                    raise RuntimeError("No external_ids or external_id in kwargs")
                 pipelines = [
                     ExtractionPipeline(
                         external_id=external_id,
