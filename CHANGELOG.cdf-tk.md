@@ -19,6 +19,8 @@ Changes are grouped as follows:
 
 ### Added
 
+- Command `cdf-tk dump datamodel` for dumping data models from CDF into a local folder. The use case for this is to
+  dump an existing data model from CDF and use it as a basis for building a new custom module with that data model.
 - An python package api for the cdf-tk. This allows for programmatic access to the cdf-tk functionality. This
   is limited to the `build` and `deploy` functionality. You can start by `from cognite_toolkit import CogniteToolkit`.
 

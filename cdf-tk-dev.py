@@ -29,7 +29,7 @@ import os
 import sys
 from pathlib import Path
 
-from cognite_toolkit.cdf_tk.templates.data_classes import Environment, InitConfigYAML
+from cognite_toolkit._cdf_tk.templates.data_classes import Environment, InitConfigYAML
 
 REPO_ROOT = Path(__file__).resolve().parent
 root_folder = rf"{REPO_ROOT.absolute()}"
@@ -38,7 +38,7 @@ sys.path.append(root_folder)
 # Avoid sending requests to sentry when doing development
 os.environ["SENTRY_ENABLED"] = "false"
 
-from cognite_toolkit.cdf import app  # noqa: E402
+from cognite_toolkit._cdf import app  # noqa: E402
 
 if not Path(REPO_ROOT / "cognite_toolkit" / "config.local.yaml").exists():
     config_init = InitConfigYAML(
