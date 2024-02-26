@@ -11,7 +11,7 @@ from typing import Annotated, Optional, Union, cast
 
 import sentry_sdk
 import typer
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling import DataModelId, NodeId
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
@@ -19,6 +19,7 @@ from rich.panel import Panel
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk import bootstrap
 from cognite_toolkit._cdf_tk.describe import describe_datamodel
+from cognite_toolkit._cdf_tk.dump import dump_datamodel_command
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
@@ -66,10 +67,14 @@ run_app = typer.Typer(
 pull_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
+dump_app = typer.Typer(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
 app.add_typer(auth_app, name="auth")
 app.add_typer(describe_app, name="describe")
 app.add_typer(run_app, name="run")
 app.add_typer(pull_app, name="pull")
+app.add_typer(dump_app, name="dump")
 
 
 _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
@@ -1000,6 +1005,61 @@ def pull_node_cmd(
         ctx.obj.verbose,
         CDFToolConfig.from_context(ctx),
         NodeLoader,
+    )
+
+
+@dump_app.command("datamodel")
+def dump_datamodel_cmd(
+    ctx: typer.Context,
+    space: Annotated[
+        str,
+        typer.Option(
+            "--space",
+            "-s",
+            prompt=True,
+            help="Space where the datamodel to pull can be found.",
+        ),
+    ],
+    external_id: Annotated[
+        str,
+        typer.Option(
+            "--external-id",
+            "-e",
+            prompt=True,
+            help="External id of the datamodel to pull.",
+        ),
+    ],
+    version: Annotated[
+        Optional[str],
+        typer.Option(
+            "--version",
+            "-v",
+            help="Version of the datamodel to pull.",
+        ),
+    ] = None,
+    clean: Annotated[
+        bool,
+        typer.Option(
+            "--clean",
+            "-c",
+            help="Delete the output directory before pulling the datamodel.",
+        ),
+    ] = False,
+    output_dir: Annotated[
+        str,
+        typer.Argument(
+            help="Where to dump the datamodel YAML files.",
+            allow_dash=True,
+        ),
+    ] = "tmp",
+) -> None:
+    """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
+    dump_datamodel_command(
+        CDFToolConfig.from_context(ctx),
+        DataModelId(space, external_id, version),
+        Path(output_dir),
+        clean,
+        ctx.obj.verbose,
     )
 
 

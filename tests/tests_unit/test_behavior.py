@@ -2,10 +2,11 @@ from pathlib import Path
 
 import typer
 import yaml
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import Transformation, TransformationWrite
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf import build, deploy, pull_transformation_cmd
+from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
 from cognite_toolkit._cdf_tk.load import TransformationLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
@@ -108,3 +109,115 @@ def test_pull_transformation(
     after_loaded = load_transformation()
 
     assert after_loaded.name == "New transformation name"
+
+
+def test_dump_datamodel(
+    local_tmp_path: Path,
+    cognite_client_approval: ApprovalCogniteClient,
+    cdf_tool_config: CDFToolConfig,
+    typer_context: typer.Context,
+) -> None:
+    # Create a datamodel and append it to the approval client
+    space = dm.Space("my_space", is_global=False, last_updated_time=0, created_time=0)
+    container = dm.Container(
+        space="my_space",
+        external_id="my_container",
+        name=None,
+        description=None,
+        properties={"prop1": dm.ContainerProperty(type=dm.Text()), "prop2": dm.ContainerProperty(type=dm.Float64())},
+        is_global=False,
+        last_updated_time=0,
+        created_time=0,
+        used_for="node",
+        constraints=None,
+        indexes=None,
+    )
+    parent_view = dm.View(
+        space="my_space",
+        external_id="parent_view",
+        version="1",
+        properties={
+            "prop2": dm.MappedProperty(
+                container=container.as_id(),
+                container_property_identifier="prop2",
+                type=dm.Float64(),
+                nullable=True,
+                auto_increment=False,
+            )
+        },
+        last_updated_time=0,
+        created_time=0,
+        description=None,
+        name=None,
+        filter=None,
+        implements=None,
+        writable=True,
+        used_for="node",
+        is_global=False,
+    )
+
+    view = dm.View(
+        space="my_space",
+        external_id="my_view",
+        version="1",
+        properties={
+            "prop1": dm.MappedProperty(
+                container=container.as_id(),
+                container_property_identifier="prop1",
+                type=dm.Text(),
+                nullable=True,
+                auto_increment=False,
+            ),
+            "prop2": dm.MappedProperty(
+                container=container.as_id(),
+                container_property_identifier="prop2",
+                type=dm.Float64(),
+                nullable=True,
+                auto_increment=False,
+            ),
+        },
+        last_updated_time=0,
+        created_time=0,
+        description=None,
+        name=None,
+        filter=None,
+        implements=[parent_view.as_id()],
+        writable=True,
+        used_for="node",
+        is_global=False,
+    )
+    data_model = dm.DataModel(
+        space="my_space",
+        external_id="my_data_model",
+        version="1",
+        views=[view, parent_view],
+        created_time=0,
+        last_updated_time=0,
+        description=None,
+        name=None,
+        is_global=False,
+    )
+    cognite_client_approval.append(dm.Space, space)
+    cognite_client_approval.append(dm.Container, container)
+    cognite_client_approval.append(dm.View, view)
+    cognite_client_approval.append(dm.DataModel, data_model)
+
+    dump_datamodel_cmd(
+        typer_context,
+        space="my_space",
+        external_id="my_data_model",
+        version="1",
+        clean=True,
+        output_dir=str(local_tmp_path),
+    )
+
+    assert len(list(local_tmp_path.glob("**/*.datamodel.yaml"))) == 1
+    assert len(list(local_tmp_path.glob("**/*.container.yaml"))) == 1
+    assert len(list(local_tmp_path.glob("**/*.space.yaml"))) == 1
+    view_files = list(local_tmp_path.glob("**/*.view.yaml"))
+    assert len(view_files) == 2
+    loaded_views = [dm.ViewApply.load(f.read_text()) for f in view_files]
+    child_loaded = next(v for v in loaded_views if v.external_id == "my_view")
+    assert child_loaded.implements[0] == parent_view.as_id()
+    # The parent property should have been removed from the child view.
+    assert len(child_loaded.properties) == 1
