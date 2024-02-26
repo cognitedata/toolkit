@@ -53,6 +53,21 @@
             "justMyCode": false
         },
         {
+            "name": "Python: dump",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "dump",
+                "datamodel",
+                "--space=cdf_infield",
+                "--external-id=InField",
+                "--clean"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
             "name": "Python: cdf.py",
             "type": "debugpy",
             "request": "launch",
