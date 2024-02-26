@@ -448,130 +448,115 @@ def detect_create_annotation(
     Returns:
         list of found entities and list of found entities ids
     """
+    job = retrieve_diagram_with_retry(client, entities, file_xid)
+    if "items" not in job.result or not job.result["items"]:
+        return [], []
+
     entities_id_found = []
     entities_name_found = []
     create_annotation_list: list[Annotation] = []
     to_delete_annotation_list: list[int] = []
     detected_count = 0
 
-    # in case contextualization service not is available - back off and retry
-    job = retrieve_diagram_with_retry(client, entities, file_xid)
+    # build a list of annotation BEFORE filtering on matchThreshold
+    annotated_resource_id = job.result["items"][0]["fileId"]
+    if annotated_resource_id in annotation_list:
+        to_delete_annotation_list.extend(annotation_list[annotated_resource_id])
 
-    if "items" in job.result and len(job.result["items"]) > 0:
-        # build a list of annotation BEFORE filtering on matchThreshold
-        annotated_resource_id = job.result["items"][0]["fileId"]
-        if annotated_resource_id in annotation_list:
-            to_delete_annotation_list.extend(annotation_list[annotated_resource_id])
+    detected_sytem_num, detected_count = get_sys_nums(job.result["items"][0]["annotations"], detected_count)
+    for item in job.result["items"][0]["annotations"]:
+        if item["entities"][0]["type"] == "file":
+            annotation_type = FILE_ANNOTATION_TYPE
+            ref_type = "fileRef"
+            txt_value = item["entities"][0]["orgName"]
+        else:
+            annotation_type = ASSET_ANNOTATION_TYPE
+            ref_type = "assetRef"
+            txt_value = item["entities"][0]["orgName"]
 
-        detected_sytem_num, detected_count = get_sys_nums(job.result["items"][0]["annotations"], detected_count)
-        for item in job.result["items"][0]["annotations"]:
-            if item["entities"][0]["type"] == "file":
-                annotation_type = FILE_ANNOTATION_TYPE
-                ref_type = "fileRef"
-                txt_value = item["entities"][0]["orgName"]
-            else:
-                annotation_type = ASSET_ANNOTATION_TYPE
-                ref_type = "assetRef"
-                txt_value = item["entities"][0]["orgName"]
-
-            # logic to create suggestions for annotations if system number is missing from tag in P&ID
-            # but a suggestion matches the most frequent system number from P&ID
-            tokens = item["text"].split("-")
-            if len(tokens) == 2 and item["confidence"] >= match_threshold and len(item["entities"]) == 1:
-                sys_token_found = item["entities"][0]["name"][0].split("-")
-                if len(sys_token_found) == 3:
-                    sys_num_found = sys_token_found[0]
-                    # if missing system number is in > 30% of the tag assume that it's correct -
-                    # else create a suggestion
-                    if sys_num_found in detected_sytem_num and detected_sytem_num[sys_num_found] / detected_count > 0.3:
-                        annotation_status = ANNOTATION_STATUS_APPROVED
-                    else:
-                        annotation_status = ANNOTATION_STATUS_SUGGESTED
+        # logic to create suggestions for annotations if system number is missing from tag in P&ID
+        # but a suggestion matches the most frequent system number from P&ID
+        tokens = item["text"].split("-")
+        if len(tokens) == 2 and item["confidence"] >= match_threshold and len(item["entities"]) == 1:
+            sys_token_found = item["entities"][0]["name"][0].split("-")
+            if len(sys_token_found) == 3:
+                sys_num_found = sys_token_found[0]
+                # if missing system number is in > 30% of the tag assume that it's correct -
+                # else create a suggestion
+                if sys_num_found in detected_sytem_num and detected_sytem_num[sys_num_found] / detected_count > 0.3:
+                    annotation_status = ANNOTATION_STATUS_APPROVED
                 else:
-                    continue
-
-            elif item["confidence"] >= match_threshold and len(item["entities"]) == 1:
-                annotation_status = ANNOTATION_STATUS_APPROVED
-
-            # If there are long asset names a lower confidence is ok to create a suggestion
-            elif item["confidence"] >= 0.5 and item["entities"][0]["type"] == "asset" and len(tokens) > 5:
-                annotation_status = ANNOTATION_STATUS_SUGGESTED
+                    annotation_status = ANNOTATION_STATUS_SUGGESTED
             else:
                 continue
 
-            if annotation_status == ANNOTATION_STATUS_APPROVED and annotation_type == ASSET_ANNOTATION_TYPE:
-                entities_name_found.append(item["entities"][0]["orgName"])
-                entities_id_found.append(item["entities"][0]["id"])
+        elif item["confidence"] >= match_threshold and len(item["entities"]) == 1:
+            annotation_status = ANNOTATION_STATUS_APPROVED
 
-            x_min, x_max, y_min, y_max = get_coordinates(item["region"]["vertices"])
+        # If there are long asset names a lower confidence is ok to create a suggestion
+        elif item["confidence"] >= 0.5 and item["entities"][0]["type"] == "asset" and len(tokens) > 5:
+            annotation_status = ANNOTATION_STATUS_SUGGESTED
+        else:
+            continue
 
-            annotation_data = {
-                ref_type: {"id": item["entities"][0]["id"]},
-                "pageNumber": item["region"]["page"],
-                "text": txt_value,
-                "textRegion": {
-                    "xMax": x_max,
-                    "xMin": x_min,
-                    "yMax": y_max,
-                    "yMin": y_min,
-                },
-            }
-            file_annotation = Annotation(
-                annotation_type=annotation_type,
-                data=annotation_data,
-                status=annotation_status,
-                annotated_resource_type=ANNOTATION_RESOURCE_TYPE,
-                annotated_resource_id=annotated_resource_id,
-                creating_app=CREATING_APP,
-                creating_app_version=CREATING_APPVERSION,
-                creating_user=f"job.{job.job_id}",
-            )
+        if annotation_status == ANNOTATION_STATUS_APPROVED and annotation_type == ASSET_ANNOTATION_TYPE:
+            entities_name_found.append(item["entities"][0]["orgName"])
+            entities_id_found.append(item["entities"][0]["id"])
 
-            create_annotation_list.append(file_annotation)
+        x_min, x_max, y_min, y_max = get_coordinates(item["region"]["vertices"])
+        annotation_data = {
+            ref_type: {"id": item["entities"][0]["id"]},
+            "pageNumber": item["region"]["page"],
+            "text": txt_value,
+            "textRegion": {"xMax": x_max, "xMin": x_min, "yMax": y_max, "yMin": y_min},
+        }
+        file_annotation = Annotation(
+            annotation_type=annotation_type,
+            data=annotation_data,
+            status=annotation_status,
+            annotated_resource_type=ANNOTATION_RESOURCE_TYPE,
+            annotated_resource_id=annotated_resource_id,
+            creating_app=CREATING_APP,
+            creating_app_version=CREATING_APPVERSION,
+            creating_user=f"job.{job.job_id}",
+        )
 
-            # can only create 1000 annotations at a time.
-            if len(create_annotation_list) >= 999:
-                client.annotations.create(create_annotation_list)
-                create_annotation_list = []
+        create_annotation_list.append(file_annotation)
 
-        if len(create_annotation_list) > 0:
+        # can only create 1000 annotations at a time.
+        if len(create_annotation_list) >= 999:
             client.annotations.create(create_annotation_list)
+            create_annotation_list = []
 
-        safe_delete_annotations(to_delete_annotation_list, client)
+    if len(create_annotation_list) > 0:
+        client.annotations.create(create_annotation_list)
 
-        # sort / deduplicate list of names and id
-        entities_name_found = list(dict.fromkeys(entities_name_found))
-        entities_id_found = list(dict.fromkeys(entities_id_found))
-
-    return entities_name_found, entities_id_found
+    safe_delete_annotations(to_delete_annotation_list, client)
+    # deduplicate list of names and id
+    return list(set(entities_name_found)), list(set(entities_id_found))
 
 
 def retrieve_diagram_with_retry(
     client: CogniteClient, entities: list[Entity], file_id: str, retries: int = 3
 ) -> DiagramDetectResults:
-    retry_num = 0
-    while retry_num < retries:
+    for retry_num in range(1, retries + 1):
         try:
-            job = client.diagrams.detect(
+            return client.diagrams.detect(
                 file_external_ids=[file_id],
                 search_field="name",
                 entities=[e.dump() for e in entities],
                 partial_match=True,
                 min_tokens=2,
             )
-            return job
         except Exception as e:
-            s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
             # retry func if CDF api returns an error
             if retry_num < 3:
-                retry_num += 1
-                print(f"[WARNING] Retry #{retry_num} - wait before retry - error was: {s}  - {r}")
+                print(f"[WARNING] Failed to detect entities, retry #{retry_num}, error: {type(e)}({e})")
                 time.sleep(retry_num * 5)
             else:
-                msg = f"Failed to detect entities, Message: {s}  - {r}"
+                msg = f"Failed to detect entities, error: {type(e)}({e})"
                 print(f"[ERROR] {msg}")
-                raise Exception(msg)
-    raise Exception("Failed to detect entities - max retries reached")
+                raise RuntimeError(msg)
 
 
 def get_sys_nums(annotations: Any, detected_count: int) -> tuple[dict[str, int], int]:
@@ -584,7 +569,7 @@ def get_sys_nums(annotations: Any, detected_count: int) -> tuple[dict[str, int],
         detected_count: total number of detected system numbers
 
     Returns:
-        dict of system numbers and number of times used
+        tuple[dict[str, int], int]: dict of system numbers and number of times used
     """
     detected_sytem_num = {}
 
