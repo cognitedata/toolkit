@@ -39,13 +39,15 @@ class Variable:
 
     @value.setter
     def value(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise ValueError("Variable value must be a string")
         self._value = value
 
     @classmethod
     def _load(cls, entry: ConfigEntry) -> Variable:
         description: str | None = None
         if entry.default_comment:
-            description = "\n".join(entry.default_comment.above) + "\n" + "\n".join(entry.default_comment.after)
+            description = entry.default_comment.comment
         _value: str | object = NOT_SET
         if not (isinstance(entry.default_value, str) and re.match(r"<.*?>", entry.default_value)):
             _value = entry.default_value
@@ -61,7 +63,6 @@ class Variable:
         return f"{type(self).__name__}(value={self.value})"
 
 
-@dataclass
 class Variables(UserDict):
     def __init__(self, collection: dict[str, Variable] | None = None) -> None:
         super().__init__(collection or {})
@@ -71,8 +72,7 @@ class Variables(UserDict):
         loaded_variables = InitConfigYAML(_DUMMY_ENVIRONMENT).load_variables(module_path)
         variables: dict[str, Variable] = {}
         module_key_path = tuple(module_path.relative_to(COGNITE_MODULES_PATH).parts)
-        for key, value in loaded_variables.items():
-            *_, variable_name = key
+        for (*_, variable_name), value in loaded_variables.items():
             variable_module_key = [*module_key_path, "first_pop"]
             while variable_module_key:
                 variable_module_key.pop()
@@ -107,7 +107,7 @@ class ModuleMeta:
     ) -> ModuleMeta:
         readme: str | None = None
         if (readme_path := module_path / "README.md").exists():
-            readme = readme_path.read_text()
+            readme = readme_path.read_text(encoding="utf-8")
         resource_types = tuple(
             resource_path.name for resource_path in module_path.iterdir() if resource_path.name in LOADER_BY_FOLDER_NAME
         )
