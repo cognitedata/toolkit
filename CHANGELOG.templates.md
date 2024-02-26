@@ -20,8 +20,8 @@ Changes are grouped as follows:
 ### Changed
 
 - In the `infield` section, the `infield_apm_app_config.node.yaml` was moved from `cdf_infield_location` to `cdf_infield_common`
-  module. In addition, the module `cdf_infield_location_2` was added to the `infield` section. This is to demonstrate how
-  to have multiple locations in Infield.
+  module. In addition, the module `cdf_infield_second_location` was added to the `infield` section. This is to demonstrate
+  how multiple locations in Infield should be handled.
 
 ## [0.1.0b9] - 2024-02-20
 
