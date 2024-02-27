@@ -11,8 +11,7 @@ class RunAPI:
         self._client = cognite_client
 
     def _create_tool_config(self) -> CDFToolConfig:
-        cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
-        cdf_tool_config = CDFToolConfig(cluster=cluster, project=self._client.config.project)
+        cdf_tool_config = CDFToolConfig()
         cdf_tool_config._client = self._client
         return cdf_tool_config
 
