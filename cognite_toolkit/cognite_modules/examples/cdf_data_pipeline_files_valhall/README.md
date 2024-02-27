@@ -9,11 +9,11 @@ The module creates a simple data pipeline for processing files from the OID exam
 The processing here is related to the annotation/contextualization mapping of tags in P&ID documents
 to assets in the asset hierarchy.
 
-OID is used as the examle location name.
+OID is used as the example location name.
 Since the pipeline doesn't load from a source, the example data from cdf_oid_example_data is loaded to files and RAW in CDF.
 
-Required example data in the module `cdf_oid_example_data` is a small data set from [Open Industrial
-Data](https://learn.cognite.com/open-industrial-data), the Valhall platform.
+Required example data in the module `cdf_oid_example_data` is a small data set from
+[Open Industrial Data](https://learn.cognite.com/open-industrial-data), the Valhall platform.
 
 ## Managed resources
 
@@ -31,7 +31,7 @@ This module manages the following resources:
 
 2. data set:
    - ID: `ds_files_oid`
-     - Content: Data lineage, used Links to used extraction pipelines, transformation and raw tabels
+     - Content: Data lineage, used Links to used extraction pipelines, transformation and raw tables
 
 3. extraction pipeline:
    - ID: `ep_src_files_oid_fileshare`

@@ -19,6 +19,7 @@ from cognite.client.data_classes import (
     FileMetadataUpdate,
 )
 from cognite.client.data_classes.contextualization import DiagramDetectResults
+from cognite.client.utils._auxiliary import split_into_chunks
 from cognite.client.utils._text import shorten
 
 from .config import AnnotationConfig
@@ -73,40 +74,22 @@ def annotate_pnid(client: CogniteClient, config: AnnotationConfig) -> None:
     """
     for asset_root_xid in config.asset_root_xids:
         try:
-            all_files, filer_to_process = get_files(
-                client,
-                asset_root_xid,
-                config,
-            )
+            all_files, files_to_process = get_files(client, asset_root_xid, config)
             entities = get_files_entities(all_files)
-            if len(entities) > 0:
-                annotation_list = get_existing_annotations(client, entities)
-            else:
-                annotation_list = {}
+            annotation_list = get_existing_annotations(client, entities) if entities else {}
 
-            annotated_count = 0
-            error_count = 0
-            if len(filer_to_process) > 0:
+            error_count, annotated_count = 0, 0
+            if files_to_process:
                 append_asset_entities(entities, client, asset_root_xid)
                 annotated_count, error_count = process_files(
-                    client,
-                    entities,
-                    filer_to_process,
-                    annotation_list,
-                    config,
+                    client, entities, files_to_process, annotation_list, config
                 )
             msg = (
                 f"Annotated P&ID files for asset: {asset_root_xid} number of files annotated: {annotated_count}, "
                 f"file not annotaded due to errors: {error_count}"
             )
             print(f"[INFO] {msg}")
-            client.extraction_pipelines.runs.create(
-                ExtractionPipelineRun(
-                    extpipe_external_id=config.extpipe_xid,
-                    status="success",
-                    message=msg,
-                )
-            )
+            update_extpipe_run(config.extpipe_xid, "success", msg)
 
         except Exception as e:
             msg = (
@@ -114,13 +97,13 @@ def annotate_pnid(client: CogniteClient, config: AnnotationConfig) -> None:
                 f"Message: {e!s}, traceback:\n{traceback.format_exc()}"
             )
             print(f"[ERROR] {msg}")
-            client.extraction_pipelines.runs.create(
-                ExtractionPipelineRun(
-                    extpipe_external_id=config.extpipe_xid,
-                    status="failure",
-                    message=shorten(msg, 1000),
-                )
-            )
+            update_extpipe_run(config.extpipe_xid, "failure", shorten(msg, 1000))
+
+
+def update_extpipe_run(client, xid, status, message):
+    client.extraction_pipelines.runs.create(
+        ExtractionPipelineRun(extpipe_external_id=xid, status=status, message=message)
+    )
 
 
 def get_file_list(client: CogniteClient, asset_root_xid: str, config: AnnotationConfig) -> FileMetadataList:
@@ -196,20 +179,19 @@ def get_files_entities(pnid_files: dict[str, FileMetadata]) -> list[Entity]:
         # build list with possible file name variations used in P&ID to refer to other P&ID
         split_name = re.split("[,._ \\-!?:]+", file_meta.name)
 
-        core_name = ""
-        next_name = ""
+        core_name, next_name = "", ""
         for name in reversed(split_name):
             if core_name == "":
                 idx = file_meta.name.find(name)
                 core_name = file_meta.name[: idx - 1]
                 fname_list.append(core_name)
-            else:
-                idx = core_name.find(name + next_name)
-                if idx != 0:
-                    ctx_name = core_name[idx:]
-                    if next_name != "":  # Ignore first part of name in matching
-                        fname_list.append(ctx_name)
-                    next_name = core_name[idx - 1 :]
+                continue
+
+            if idx := core_name.find(name + next_name):
+                ctx_name = core_name[idx:]
+                if next_name != "":  # Ignore first part of name in matching
+                    fname_list.append(ctx_name)
+                next_name = core_name[idx - 1 :]
 
         # add entities for files used to match between file references in P&ID to other files
         entities.append(
@@ -250,71 +232,55 @@ def get_existing_annotations(client: CogniteClient, entities: list[Entity]) -> d
     annotation_list = AnnotationList([])
     annotated_file_text: dict[Optional[int], list[Optional[int]]] = defaultdict(list)
 
-    print("Get existing[INFO]  annotations based on annotated_resource_type= file, and filtered by found files")
-    file_list = [{"id": item.id} for item in entities]
+    print("[INFO] Get existing annotations based on annotated_resource_type= file, and filtered by found files")
+    file_ids = [{"id": item.id} for item in entities]
 
-    n = 1000
-    for i in range(0, len(file_list), n):
-        sub_file_list = file_list[i : i + n]
-
-        if len(sub_file_list) > 0:
-            filter_ = AnnotationFilter(annotated_resource_type="file", annotated_resource_ids=sub_file_list)
-            annotation_list = client.annotations.list(limit=-1, filter=filter_)
-
+    for sub_file_list in split_into_chunks(file_ids, 1000):
+        annotation_list = client.annotations.list(
+            AnnotationFilter(annotated_resource_type="file", annotated_resource_ids=sub_file_list),
+            limit=None,
+        )
         for annotation in annotation_list:
-            annotation: Annotation
             # only get old annotations created by this app - do not touch manual or other created annotations
             if annotation.creating_app == CREATING_APP:
                 annotated_file_text[annotation.annotated_resource_id].append(annotation.id)
-
     return annotated_file_text
 
 
 def append_asset_entities(entities: list[Entity], client: CogniteClient, asset_root_xid: str) -> None:
-    """Get Asset used as input to contextualization
+    """Get Asset used as input to contextualization and append to 'entities' list
+
     Args:
         client: Instance of CogniteClient
         asset_root_xid: external root asset ID
         entities: list of entites found so fare (file names)
-
-    Returns:
-        list of entities
     """
     print(f"[INFO] Get assets based on asset_subtree_external_ids = {asset_root_xid}")
     assets = client.assets.list(asset_subtree_external_ids=[asset_root_xid], limit=-1)
 
-    # clean up dummy tags and system numbers
     for asset in assets:
         name = asset.name
         try:
-            names = []
-            not_dummy = True
-            if (
-                asset.metadata is not None
-                and "Description" in asset.metadata
-                and "DUMMY TAG" in asset.metadata.get("Description", "").upper()
-            ):
-                not_dummy = False
+            # clean up dummy tags and system numbers (ignore system asset names (01, 02, ...))
+            if name is None or len(name) != 3 or tag_is_dummy(asset):
+                continue
+            # Split name - and if a system number is used also add name without system number to list
+            names = [name]
+            split_name = re.split("[,._ \\-:]+", name)
+            if split_name[0].isnumeric():
+                names.append(name[len(split_name[0]) + 1 :])
 
-            if name is not None and len(name) > 3 and not_dummy:  # ignore system asset names (01, 02, ...)
-                names.append(name)
+            entities.append(Entity(external_id=asset.external_id, org_name=name, name=name, id=asset.id, type="asset"))
+        except Exception as e:
+            print(
+                f"[ERROR] Not able to get entities for asset name: {name}, id {asset.external_id}. "
+                f"Error: {type(e)}({e})"
+            )
 
-                # Split name - and if a system number is used also add name without system number to list
-                split_name = re.split("[,._ \\-:]+", name)
-                if split_name[0].isnumeric():
-                    names.append(name[len(split_name[0]) + 1 :])
 
-                entities.append(
-                    Entity(
-                        external_id=asset.external_id,
-                        org_name=name,
-                        name=name,
-                        id=asset.id,
-                        type="asset",
-                    )
-                )
-        except Exception:
-            print(f"[ERROR] Not able to get entities for asset name: {name}, id {asset.external_id}")
+def tag_is_dummy(asset):
+    custom_description = (asset.metadata or {}).get("Description", "")
+    return "DUMMY TAG" in custom_description.upper()
 
 
 def process_files(
