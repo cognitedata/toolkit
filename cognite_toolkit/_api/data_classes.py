@@ -7,7 +7,9 @@ from dataclasses import dataclass
 __all__ = ["Variable", "Variables", "ModuleMeta", "ModuleMetaList"]
 
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
+
+import pandas as pd
 
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES_PATH
@@ -91,6 +93,18 @@ class Variables(UserDict):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({dict(self)})"
 
+    def _repr_html_(self) -> str:
+        return pd.DataFrame(
+            [
+                {
+                    "name": variable.name,
+                    "value": variable.value,
+                    "description": variable.description,
+                }
+                for variable in self.values()
+            ]
+        )._repr_html_()
+
 
 @dataclass(frozen=True)
 class ModuleMeta:
@@ -121,14 +135,55 @@ class ModuleMeta:
             _readme=readme,
         )
 
+    def _repr_html_(self) -> str:
+        return (
+            pd.Series(
+                {
+                    "name": self.name,
+                    "variables": len(self.variables),
+                    "resource_types": self.resource_types,
+                }
+            )
+            .to_frame("Value")
+            ._repr_html_()
+        )
+
+    @property
+    def info(self) -> None:
+        try:
+            from IPython.display import Markdown, display
+        except ImportError:
+            print(str(self))
+            return
+        display(Markdown(self._readme or ""))
+
 
 class ModuleMetaList(UserList):
     @property
     def names(self) -> list[str]:
         return [module.name for module in self.data]
 
-    def __getitem__(self, item: str) -> ModuleMeta:  # type: ignore[override]
+    def __getitem__(self, item: str | int | slice) -> ModuleMeta:  # type: ignore[override]
+        if isinstance(item, (int, slice)):
+            return cast(ModuleMeta, super().__getitem__(item))
         for module in self.data:
             if module.name == item:
                 return module
         raise KeyError(f"Module {item!r} not found")
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        if not isinstance(value, ModuleMeta):
+            raise TypeError(f"Expected ModuleMeta, got {type(value).__name__}")
+        super().__setitem__(key, value)
+
+    def _repr_html_(self) -> str:
+        return pd.DataFrame(
+            [
+                {
+                    "name": module.name,
+                    "variables": len(module.variables),
+                    "resource_types": module.resource_types,
+                }
+                for module in self.data
+            ]
+        )._repr_html_()

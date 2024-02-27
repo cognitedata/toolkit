@@ -27,7 +27,7 @@ import types
 import typing
 from abc import abstractmethod
 from collections import UserDict, UserList, defaultdict
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesView
 from dataclasses import dataclass, field
 from functools import total_ordering
 from pathlib import Path
@@ -949,6 +949,16 @@ class YAMLWithComments(UserDict[T_Key, T_Value]):
 
     @abstractmethod
     def _get_comment(self, key: tuple[str, ...]) -> YAMLComment | None: ...
+
+    # This is to get better type hints in the IDE
+    def items(self) -> ItemsView[T_Key, T_Value]:
+        return super().items()
+
+    def keys(self) -> KeysView[T_Key]:
+        return super().keys()
+
+    def values(self) -> ValuesView[T_Value]:
+        return super().values()
 
 
 def retrieve_view_ancestors(client: CogniteClient, parents: list[ViewId], cache: dict[ViewId, View]) -> list[View]:
