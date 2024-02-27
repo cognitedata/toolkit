@@ -17,6 +17,7 @@ from cognite.client.data_classes import (
     AnnotationList,
     ExtractionPipelineRun,
     FileMetadata,
+    FileMetadataList,
     FileMetadataUpdate,
 )
 from cognite.client.data_classes.contextualization import DiagramDetectResults
@@ -26,7 +27,7 @@ from .config import AnnotationConfig, load_config_parameters
 
 # P&ID original file defaults
 ORG_MIME_TYPE = "application/pdf"
-FILE_ANNOTATED_METADATA_KEY = "FILE_ANNOTATED"
+FILE_ANNOTATED_META_KEY = "FILE_ANNOTATED"
 ANNOTATION_ERROR_MSG = "annotation_created_error"
 
 # Annotation defaults
@@ -136,6 +137,16 @@ def annotate_pnid(client: CogniteClient, config: AnnotationConfig) -> None:
             )
 
 
+def get_file_list(client: CogniteClient, asset_root_xid: str, config: AnnotationConfig) -> FileMetadataList:
+    return client.files.list(
+        metadata={config.doc_type_meta_col: config.pnid_doc_type},
+        data_set_external_ids=[config.doc_data_set_xid],
+        asset_subtree_external_ids=[asset_root_xid],
+        mime_type=ORG_MIME_TYPE,
+        limit=config.doc_limit,
+    )
+
+
 def get_files(
     client: CogniteClient,
     asset_root_xid: str,
@@ -154,42 +165,28 @@ def get_files(
         f"[INFO] Get files to annotate data set: {config.doc_data_set_xid}, asset root: {asset_root_xid} "
         f"doc_type: {config.pnid_doc_type} and mime_type: {ORG_MIME_TYPE}"
     )
-    file_list = client.files.list(
-        metadata={config.doc_type_meta_col: config.pnid_doc_type},
-        data_set_external_ids=[config.doc_data_set_xid],
-        asset_subtree_external_ids=[asset_root_xid],
-        mime_type=ORG_MIME_TYPE,
-        limit=config.doc_limit,
-    )
+    file_list = get_file_list(client, asset_root_xid, config)
     for file in file_list:
         doc_count += 1
         all_pnid_files[file.external_id] = file
 
-        if FILE_ANNOTATED_METADATA_KEY is not None and FILE_ANNOTATED_METADATA_KEY not in (file.metadata or {}):
-            if file.external_id is not None:
-                pnids_to_process[file.external_id] = file
+        if file.external_id is not None and FILE_ANNOTATED_META_KEY not in (file.metadata or {}):
+            pnids_to_process[file.external_id] = file
 
         # if run all - remove metadata element from last annotation
         elif config.run_all:
-            if not config.debug and FILE_ANNOTATED_METADATA_KEY is not None:
-                file_meta_update = FileMetadataUpdate(external_id=file.external_id).metadata.remove(
-                    [FILE_ANNOTATED_METADATA_KEY]
+            if not config.debug:
+                meta_file_update.append(
+                    FileMetadataUpdate(external_id=file.external_id).metadata.remove([FILE_ANNOTATED_META_KEY])
                 )
-                meta_file_update.append(file_meta_update)
             if file.external_id is not None:
                 pnids_to_process[file.external_id] = file
         else:
-            update_file_metadata(
-                meta_file_update,
-                file,
-                pnids_to_process,
-            )
+            update_file_metadata(meta_file_update, file, pnids_to_process)
         if config.debug:
             break
 
-    if len(meta_file_update) > 0:
-        client.files.update(meta_file_update)
-
+    client.files.update(meta_file_update)
     return all_pnid_files, pnids_to_process
 
 
@@ -198,26 +195,17 @@ def update_file_metadata(
     file: FileMetadata,
     pnid_files: dict[str, FileMetadata],
 ) -> None:
-    annotated_date = None
-    if file.metadata and FILE_ANNOTATED_METADATA_KEY is not None:
-        file_annotated_time = file.metadata.get(FILE_ANNOTATED_METADATA_KEY, None)
-        if file_annotated_time:
-            try:
-                annotated_date = datetime.strptime(file_annotated_time, ISO_8601)
-            except ValueError:
-                raise ValueError(
-                    f"Failed to parse date from metadata {FILE_ANNOTATED_METADATA_KEY}: {file_annotated_time}"
-                )
+    # Parse date from metadata:
+    annotated_date, annotated_stamp = None, None
+    if timestamp := (file.metadata or {}).get(FILE_ANNOTATED_META_KEY):
+        annotated_date = datetime.strptime(timestamp, ISO_8601)
+        annotated_stamp = int(annotated_date.timestamp() * 1000)
 
-    annotated_stamp = int(annotated_date.timestamp() * 1000) if annotated_date else None
-    if (
-        annotated_stamp is not None and file.last_updated_time is not None and file.last_updated_time > annotated_stamp
-    ):  # live 1 h for buffer
-        if FILE_ANNOTATED_METADATA_KEY is not None:  # Check for None
-            file_meta_update = FileMetadataUpdate(external_id=file.external_id).metadata.remove(
-                [FILE_ANNOTATED_METADATA_KEY]
-            )
-            meta_file_update.append(file_meta_update)
+    # live 1 h for buffer
+    if annotated_stamp and file.last_updated_time and file.last_updated_time > annotated_stamp:
+        meta_file_update.append(
+            FileMetadataUpdate(external_id=file.external_id).metadata.remove([FILE_ANNOTATED_META_KEY])
+        )
         if file.external_id is not None:
             pnid_files[file.external_id] = file
 
@@ -368,20 +356,16 @@ def process_files(
     annotation_list = annotation_list or {}
 
     for file_xid, file in files.items():
-        print(f"[INFO] Parse and annotate, input file: {file_xid}")
-
         try:
             # contextualize, create annotation and get list of matched tags
             entities_name_found, entities_id_found = detect_create_annotation(
                 client, config.match_threshold, file_xid, entities, annotation_list
             )
-
             # create a string of matched tag - to be added to metadata
             asset_names = shorten(",".join(map(str, entities_name_found)), ASSET_MAX_LEN_META)
 
-            file_asset_ids = file.asset_ids or []
-
             # merge existing assets with new-found, and create a list without duplicates
+            file_asset_ids = file.asset_ids or []
             asset_ids_list = list(set(file_asset_ids + entities_id_found))
 
             # If list of assets more than 1000 items, cut the list at 1000
@@ -395,35 +379,21 @@ def process_files(
             if config.debug:
                 print(f"[INFO] Converted and created (not upload due to DEBUG) file: {file_xid}")
                 print(f"[INFO] Assets found: {asset_names}")
-            else:
-                annotated_count += 1
-                # Update metadata from found PDF files
-                try:
-                    # Note uses local time, since file update time also uses local time + add a minute
-                    # making sure annotation time is larger than last update time
-                    now = datetime.now() + timedelta(minutes=1)
-                    timestamp = now.strftime(ISO_8601)
-                    my_update = (
-                        FileMetadataUpdate(id=file.id)
-                        .asset_ids.set(asset_ids_list)
-                        .metadata.add({FILE_ANNOTATED_METADATA_KEY: timestamp, "tags": asset_names})
-                    )
-                    safe_files_update(client, my_update, file.external_id)
-                except Exception as e:
-                    s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-                    print(f"[WARNING] Not able to update reference doc : {file_xid} - {s}  - {r}")
+                continue
+
+            annotated_count += 1
+            # Note: add a minute to make sure annotation time is larger than last update time:
+            timestamp = datetime.now(timezone.utc) + timedelta(minutes=1).strftime(ISO_8601)
+            my_update = (
+                FileMetadataUpdate(id=file.id)
+                .asset_ids.set(asset_ids_list)
+                .metadata.add({FILE_ANNOTATED_META_KEY: timestamp, "tags": asset_names})
+            )
+            safe_files_update(client, my_update, file.external_id)
 
         except Exception as e:
             error_count += 1
-            s, r = getattr(e, "message", str(e)), getattr(e, "message", repr(e))
-            msg = f"Failed to annotate the document, Message: {s}  - {r}"
-            print(f"[ERROR] {msg}")
-            if "KeyError" in r:
-                timestamp = datetime.now(timezone.utc).strftime(ISO_8601)
-                my_update = FileMetadataUpdate(id=file.id).metadata.add(
-                    {FILE_ANNOTATED_METADATA_KEY: timestamp, ANNOTATION_ERROR_MSG: msg}
-                )
-                safe_files_update(client, my_update, file.external_id)
+            print(f"[ERROR] Failed to annotate the document: {file_xid!r}, error: {type(e)}({e})")
 
     return annotated_count, error_count
 
@@ -452,11 +422,11 @@ def detect_create_annotation(
     if "items" not in job.result or not job.result["items"]:
         return [], []
 
+    detected_count = 0
     entities_id_found = []
     entities_name_found = []
     create_annotation_list: list[Annotation] = []
     to_delete_annotation_list: list[int] = []
-    detected_count = 0
 
     # build a list of annotation BEFORE filtering on matchThreshold
     annotated_resource_id = job.result["items"][0]["fileId"]
@@ -465,20 +435,17 @@ def detect_create_annotation(
 
     detected_sytem_num, detected_count = get_sys_nums(job.result["items"][0]["annotations"], detected_count)
     for item in job.result["items"][0]["annotations"]:
-        if item["entities"][0]["type"] == "file":
-            annotation_type = FILE_ANNOTATION_TYPE
-            ref_type = "fileRef"
-            txt_value = item["entities"][0]["orgName"]
+        entity = item["entities"][0]
+        if entity["type"] == "file":
+            annotation_type, ref_type, txt_value = FILE_ANNOTATION_TYPE, "fileRef", entity["orgName"]
         else:
-            annotation_type = ASSET_ANNOTATION_TYPE
-            ref_type = "assetRef"
-            txt_value = item["entities"][0]["orgName"]
+            annotation_type, ref_type, txt_value = ASSET_ANNOTATION_TYPE, "assetRef", entity["orgName"]
 
         # logic to create suggestions for annotations if system number is missing from tag in P&ID
         # but a suggestion matches the most frequent system number from P&ID
         tokens = item["text"].split("-")
         if len(tokens) == 2 and item["confidence"] >= match_threshold and len(item["entities"]) == 1:
-            sys_token_found = item["entities"][0]["name"][0].split("-")
+            sys_token_found = entity["name"][0].split("-")
             if len(sys_token_found) == 3:
                 sys_num_found = sys_token_found[0]
                 # if missing system number is in > 30% of the tag assume that it's correct -
@@ -494,45 +461,40 @@ def detect_create_annotation(
             annotation_status = ANNOTATION_STATUS_APPROVED
 
         # If there are long asset names a lower confidence is ok to create a suggestion
-        elif item["confidence"] >= 0.5 and item["entities"][0]["type"] == "asset" and len(tokens) > 5:
+        elif item["confidence"] >= 0.5 and entity["type"] == "asset" and len(tokens) > 5:
             annotation_status = ANNOTATION_STATUS_SUGGESTED
         else:
             continue
 
         if annotation_status == ANNOTATION_STATUS_APPROVED and annotation_type == ASSET_ANNOTATION_TYPE:
-            entities_name_found.append(item["entities"][0]["orgName"])
-            entities_id_found.append(item["entities"][0]["id"])
+            entities_name_found.append(entity["orgName"])
+            entities_id_found.append(entity["id"])
 
-        x_min, x_max, y_min, y_max = get_coordinates(item["region"]["vertices"])
-        annotation_data = {
-            ref_type: {"id": item["entities"][0]["id"]},
-            "pageNumber": item["region"]["page"],
-            "text": txt_value,
-            "textRegion": {"xMax": x_max, "xMin": x_min, "yMax": y_max, "yMin": y_min},
-        }
-        file_annotation = Annotation(
-            annotation_type=annotation_type,
-            data=annotation_data,
-            status=annotation_status,
-            annotated_resource_type=ANNOTATION_RESOURCE_TYPE,
-            annotated_resource_id=annotated_resource_id,
-            creating_app=CREATING_APP,
-            creating_app_version=CREATING_APPVERSION,
-            creating_user=f"job.{job.job_id}",
+        create_annotation_list.append(
+            Annotation(
+                annotation_type=annotation_type,
+                data={
+                    ref_type: {"id": entity["id"]},
+                    "pageNumber": item["region"]["page"],
+                    "text": txt_value,
+                    "textRegion": get_coordinates(item["region"]["vertices"]),
+                },
+                status=annotation_status,
+                annotated_resource_type=ANNOTATION_RESOURCE_TYPE,
+                annotated_resource_id=annotated_resource_id,
+                creating_app=CREATING_APP,
+                creating_app_version=CREATING_APPVERSION,
+                creating_user=f"job.{job.job_id}",
+            )
         )
-
-        create_annotation_list.append(file_annotation)
-
-        # can only create 1000 annotations at a time.
-        if len(create_annotation_list) >= 999:
+        # Create annotations once we hit 1k (to spread insertion over time):
+        if len(create_annotation_list) == 1000:
             client.annotations.create(create_annotation_list)
-            create_annotation_list = []
+            create_annotation_list.clear()
 
-    if len(create_annotation_list) > 0:
-        client.annotations.create(create_annotation_list)
-
+    client.annotations.create(create_annotation_list)
     safe_delete_annotations(to_delete_annotation_list, client)
-    # deduplicate list of names and id
+    # De-duplicate list of names and id before returning:
     return list(set(entities_name_found)), list(set(entities_id_found))
 
 
@@ -571,22 +533,17 @@ def get_sys_nums(annotations: Any, detected_count: int) -> tuple[dict[str, int],
     Returns:
         tuple[dict[str, int], int]: dict of system numbers and number of times used
     """
-    detected_sytem_num = {}
-
+    detected_sytem_num = defaultdict(int)
     for item in annotations:
         tokens = item["text"].split("-")
         if len(tokens) == 3:
-            sys_num = tokens[0]
             detected_count += 1
-            if sys_num in detected_sytem_num:
-                detected_sytem_num[sys_num] += 1
-            else:
-                detected_sytem_num[sys_num] = 1
+            detected_sytem_num[tokens[0]] += 1
 
-    return detected_sytem_num, detected_count
+    return dict(detected_sytem_num), detected_count
 
 
-def get_coordinates(vertices: list[dict]) -> tuple[int, int, int, int]:
+def get_coordinates(vertices: list[dict]) -> dict[str, int]:
     """Get coordinates for text box based on input from contextualization
     and convert it to coordinates used in annotations.
 
@@ -594,25 +551,18 @@ def get_coordinates(vertices: list[dict]) -> tuple[int, int, int, int]:
         vertices (list[dict]): coordinates from contextualization
 
     Returns:
-        tuple[int, int, int, int]: coordinates used by annotations.
+        dict[str, int]: coordinates used by annotations.
     """
     x_min, *_, x_max = sorted(min(1, vert["x"]) for vert in vertices)
     y_min, *_, y_max = sorted(min(1, vert["y"]) for vert in vertices)
 
     # Adjust if min and max are equal
     if x_min == x_max:
-        if x_min > 0.001:
-            x_min -= 0.001
-        else:
-            x_max += 0.001
-
+        x_min, x_max = x_min - 0.001, x_max if x_min > 0.001 else x_min, x_max + 0.001
     if y_min == y_max:
-        if y_min > 0.001:
-            y_min -= 0.001
-        else:
-            y_max += 0.001
+        y_min, y_max = y_min - 0.001, y_max if y_min > 0.001 else y_min, y_max + 0.001
 
-    return x_min, x_max, y_min, y_max
+    return {"xMax": x_max, "xMin": x_min, "yMax": y_max, "yMin": y_min}
 
 
 def safe_delete_annotations(delete_annotation_list: list[int], client: CogniteClient) -> None:
@@ -623,10 +573,8 @@ def safe_delete_annotations(delete_annotation_list: list[int], client: CogniteCl
 
     Args:
         delete_annotation_list: list of annotation IDs to be deleted
-        client: Dict of files found based on filter
+        client: CogniteClient
     """
-    if not delete_annotation_list:
-        return
     try:
         client.annotations.delete(list(set(delete_annotation_list)))
     except Exception as e:
