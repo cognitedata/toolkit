@@ -1,0 +1,4 @@
+# Add common requirements in this file
+# python-dotenv and cognite-sdk are used by CDFClientTool in tool.py
+python-dotenv >= 1.0.0
+cognite-sdk>=7.13.8

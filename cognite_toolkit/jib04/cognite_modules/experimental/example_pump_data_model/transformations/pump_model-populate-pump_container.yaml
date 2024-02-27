@@ -1,0 +1,23 @@
+externalId: tr_pump_model-populate-pump_container
+name: pump_model-populate-pump_container
+destination:
+  dataModel:
+    space: {{model_space}}
+    externalId: {{data_model}}
+    version: '{{view_Pump_version}}'
+    destinationType: Pump
+  instanceSpace: {{instance_space}}
+  type: instances
+dataSetExternalId: {{data_set}}
+ignoreNullFields: false
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the audience
+  audience: {{cicd_audience}}

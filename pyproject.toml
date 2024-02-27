@@ -12,6 +12,7 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 python = "^3.9"
 python-dotenv = "^1.0.0"
 cognite-sdk = {version = ">=7.17.1, <7.18", extras = ["pandas"]}
+cognite-extractor-utils = "^7.0.1"
 pandas = "^2.1.1"
 pyyaml = "^6.0.1"
 chardet = "^5.1.0"

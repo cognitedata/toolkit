@@ -1,0 +1,37 @@
+externalId: 'ep_src_timeseries_{{location_name}}_{{source_name}}'
+name: 'src:timeseries:{{location_name}}:{{source_name}}'
+dataSetExternalId: 'ds_timeseries_{{location_name}}'
+description: 'Time Series source extraction pipeline with configuration for OPC-UA reading data from and OPC-UA simulator'
+
+
+source: '{{source_name}}'
+documentation: >
+  # OPC UA Test simulator extraction pipeline
+
+  OPC Unified Architecture (OPC UA) is a machine-to-machine communication protocol developed by the OPC Foundation. Cognites OPC-UA Extractor is an 
+  open-source program designed to copy the OPC-UA node-hierarchy to CDF, then stream data and events to timeseries in CDF.
+
+  
+  Extractor service installation location example: C:\Cognite\OpcUaExtractor\bin\OpcuaExtractor.exe
+
+  
+  Config file: ...\config\config.yml (only contains the credentials as it should read the configuration in this extraction pipeline)
+
+
+  Extracted data are stored directly as Assets, Timeseries and Events in CDF  dataset
+
+  
+  More on OPC-UA extractor: see https://docs.cognite.com/cdf/integration/guides/extraction/opc_ua/
+
+
+
+  ## Simulator
+
+  Prosys OPC UA Simulator Server, set endpint in the configuration file before deployment
+
+  
+
+  ```
+  Example Connection Adress: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer
+  ```
+
