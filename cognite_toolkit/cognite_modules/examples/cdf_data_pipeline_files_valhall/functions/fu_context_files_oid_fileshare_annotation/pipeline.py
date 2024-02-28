@@ -12,7 +12,6 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     Annotation,
     AnnotationFilter,
-    AnnotationList,
     ExtractionPipelineRun,
     FileMetadata,
     FileMetadataList,
@@ -89,7 +88,7 @@ def annotate_pnid(client: CogniteClient, config: AnnotationConfig) -> None:
                 f"file not annotaded due to errors: {error_count}"
             )
             print(f"[INFO] {msg}")
-            update_extpipe_run(config.extpipe_xid, "success", msg)
+            update_extpipe_run(client, config.extpipe_xid, "success", msg)
 
         except Exception as e:
             msg = (
@@ -97,7 +96,7 @@ def annotate_pnid(client: CogniteClient, config: AnnotationConfig) -> None:
                 f"Message: {e!s}, traceback:\n{traceback.format_exc()}"
             )
             print(f"[ERROR] {msg}")
-            update_extpipe_run(config.extpipe_xid, "failure", shorten(msg, 1000))
+            update_extpipe_run(client, config.extpipe_xid, "failure", shorten(msg, 1000))
 
 
 def update_extpipe_run(client, xid, status, message):
@@ -126,7 +125,6 @@ def get_files(
 
     :returns: dict of files
     """
-    doc_count = 0
     all_pnid_files: dict[str, FileMetadata] = {}
     pnids_to_process: dict[str, FileMetadata] = {}
     meta_file_update: list[FileMetadataUpdate] = []
@@ -136,7 +134,6 @@ def get_files(
     )
     file_list = get_file_list(client, asset_root_xid, config)
     for file in file_list:
-        doc_count += 1
         all_pnid_files[file.external_id] = file
 
         if file.external_id is not None and FILE_ANNOTATED_META_KEY not in (file.metadata or {}):
@@ -167,10 +164,8 @@ def get_files_entities(pnid_files: dict[str, FileMetadata]) -> list[Entity]:
         pnid_files: Dict of files found based on filter
     """
     entities: list[Entity] = []
-    doc_count = 0
 
     for file_xid, file_meta in pnid_files.items():
-        doc_count += 1
         fname_list = []
         if file_meta.name is None:
             print(f"[WARNING] No name found for file with external ID: {file_xid}, and metadata: {file_meta}")
@@ -229,7 +224,6 @@ def get_existing_annotations(client: CogniteClient, entities: list[Entity]) -> d
 
     :returns: dictionary of annotations
     """
-    annotation_list = AnnotationList([])
     annotated_file_text: dict[Optional[int], list[Optional[int]]] = defaultdict(list)
 
     print("[INFO] Get existing annotations based on annotated_resource_type= file, and filtered by found files")
@@ -335,7 +329,7 @@ def process_files(
 
             annotated_count += 1
             # Note: add a minute to make sure annotation time is larger than last update time:
-            timestamp = datetime.now(timezone.utc) + timedelta(minutes=1).strftime(ISO_8601)
+            timestamp = (datetime.now(timezone.utc) + timedelta(minutes=1)).strftime(ISO_8601)
             my_update = (
                 FileMetadataUpdate(id=file.id)
                 .asset_ids.set(asset_ids_list)
@@ -510,9 +504,9 @@ def get_coordinates(vertices: list[dict]) -> dict[str, int]:
 
     # Adjust if min and max are equal
     if x_min == x_max:
-        x_min, x_max = x_min - 0.001, x_max if x_min > 0.001 else x_min, x_max + 0.001
+        x_min, x_max = (x_min - 0.001, x_max) if x_min > 0.001 else (x_min, x_max + 0.001)
     if y_min == y_max:
-        y_min, y_max = y_min - 0.001, y_max if y_min > 0.001 else y_min, y_max + 0.001
+        y_min, y_max = (y_min - 0.001, y_max) if y_min > 0.001 else (y_min, y_max + 0.001)
 
     return {"xMax": x_max, "xMin": x_min, "yMax": y_max, "yMin": y_min}
 
