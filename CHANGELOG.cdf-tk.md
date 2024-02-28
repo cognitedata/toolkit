@@ -26,7 +26,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
-- In the function deployment the hashing function used of the directory was independent of the location of the files
+- In the function deployment, the hashing function used of the directory was independent of the location of the files
   within the function directory. This caused moving files not to trigger a redeployment of the function. This is now
   fixed.
 
