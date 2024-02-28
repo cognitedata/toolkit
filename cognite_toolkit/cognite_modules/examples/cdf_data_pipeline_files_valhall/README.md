@@ -1,9 +1,9 @@
-# cdf_data_pipeline_files_valhall
+# `cdf_data_pipeline_files_valhall`
 
 This module relies on these example data modules being loaded:
 
-- cdf_oid_example_data
-- cdf_data_pipeline_asset_valhall
+- `cdf_oid_example_data`
+- `cdf_data_pipeline_asset_valhall`
 
 The module creates a simple data pipeline for processing files from the OID example module.
 The processing here is related to the annotation/contextualization mapping of tags in P&ID documents
@@ -16,7 +16,6 @@ Required example data in the module `cdf_oid_example_data` is a small data set f
 [Open Industrial Data](https://learn.cognite.com/open-industrial-data), the Valhall platform.
 
 ## Managed resources
-
 This module manages the following resources:
 
 1. auth:
@@ -77,7 +76,11 @@ You should copy and rename an example module into the `custom_modules` directory
 your own modifications. You should then update the `selected_modules_and_packages:` section in your `config.[env].yaml`
 file to install the module.
 
-`NOTE: Using Cognite Functions to run workloads will be limited by the underlying resources in the cloud provider functions.
-Hence processing many P&ID documents will not be optimal in a CDF function since it will time out and fail.`
+### Note:
+Using Cognite Functions to run workloads will be limited by the underlying resources in the cloud provider functions.
+Hence processing many P&ID documents will not be optimal in a CDF function since it will time out and fail. One solution for this is to do the initial one-time job locally and let the function deal with all new and updated files.
+
+### Warning:
+...
 
 See [Using Templates](https://developer.cognite.com/sdks/toolkit/templates)

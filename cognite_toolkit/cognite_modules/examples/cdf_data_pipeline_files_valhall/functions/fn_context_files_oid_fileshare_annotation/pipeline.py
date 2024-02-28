@@ -133,8 +133,8 @@ def get_files(
     pnids_to_process: dict[str, FileMetadata] = {}
     meta_file_update: list[FileMetadataUpdate] = []
     print(
-        f"[INFO] Get files to annotate data set: {config.doc_data_set_xid}, asset root: {asset_root_xid} "
-        f"doc_type: {config.pnid_doc_type} and mime_type: {ORG_MIME_TYPE}"
+        f"[INFO] Get files to annotate data set: {config.doc_data_set_xid!r}, asset root: {asset_root_xid!r}, "
+        f"doc_type: {config.pnid_doc_type!r} and mime_type: {ORG_MIME_TYPE!r}"
     )
     file_list = get_file_list(client, asset_root_xid, config)
     for file in file_list:

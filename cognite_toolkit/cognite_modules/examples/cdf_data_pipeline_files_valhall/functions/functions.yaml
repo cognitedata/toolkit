@@ -14,6 +14,6 @@
   # Number of cores, not available in Azure
   cpu: 0.60
   runtime: 'py311'
-  functionPath: './handler.py'
+  functionPath: 'handler.py'
   # Data set id for the zip file with the code that is uploaded.
   externalDataSetId: 'ds_files_{{location_name}}'
