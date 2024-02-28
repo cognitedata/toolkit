@@ -47,7 +47,7 @@ This module manages the following resources:
        function will not be able to find the files to contextualize.
 
 5. function:
-   - ID: `fu_context_files_oid_fileshare_annotation`
+   - ID: `fn_context_files_oid_fileshare_annotation`
      - Content: Extracts all tags in P&ID that matches tags from Asset Hierarchy and creates CDF annotations used for linking
        found objects in document to other resource types in CDF
 
