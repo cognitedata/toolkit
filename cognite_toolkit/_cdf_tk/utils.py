@@ -806,6 +806,8 @@ def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None 
             continue
         if exclude_prefixes and any(filepath.name.startswith(prefix) for prefix in exclude_prefixes):
             continue
+        relative_path = filepath.relative_to(directory)
+        sha256_hash.update(relative_path.as_posix().encode("utf-8"))
         # Open each file and update the hash
         with filepath.open("rb") as file:
             while chunk := file.read(8192):
