@@ -35,7 +35,7 @@ Changes are grouped as follows:
 ### Added
 
 - Introduced `cdf-tk pull transformation` and `cdf-tk pull node` commands to pull transformation or nodes
-  form CDF to the local module.
+  from CDF to the local module.
 - Support for using a template for file names `name: prefix_$FILENAME_suffix` in the `files` resource. The files will
   be processed and renamed as part of the build step.
 
