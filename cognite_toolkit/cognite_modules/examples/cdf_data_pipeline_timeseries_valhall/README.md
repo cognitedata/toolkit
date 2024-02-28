@@ -20,20 +20,6 @@ This will remap all manual mappings and run entity mapping on all other time ser
 
 
 
-
-### contextualization process flow
-
-Read configuration and start process by
-
-    1. Read RAW table with manual mappings and extract all rows not contextualized. 
-    2. Apply manual mappings from TS to Asset - this will overwrite any existing mapping 
-    3. Read all time series not matched (or all if runAll is True)
-    4. Read all assets 
-    5. Run ML contextualization to match TS -> Assets 
-    6. Update TS with mapping 
-    7. Write results matched (good) not matched (bad) to RAW
-    8. Output in good/bad table can then be used in workflow to update manual mappings
-
 ## test data
 
 The data for the mapping are from the module `cdf_oid_example_data` is a small data set from [Open Industrial
@@ -71,11 +57,21 @@ This module manages the following resources:
      - Content: Documentation and configuration for a CDF function running example PI data and OPC-UA time series contextualization against assets
        (see function form more description)
 
-4. transformations:
-   - ID: `tr_files_oid_fileshare_file_metadata`
-     - Content: update of metadata for example file metadata, prepping for contextualization / annotation
-     - NOTE: the transformation must run before the contextualization function. Without the transformation the
-       function will not be able to find the files to contextualize.
+4. functions:
+   - ID: `fn_context_timeseries_oid_opcua_asset`
+
+      Read configuration and start process by
+
+        ```
+        1. Read RAW table with manual mappings and extract all rows not contextualized. 
+        2. Apply manual mappings from TS to Asset - this will overwrite any existing mapping 
+        3. Read all time series not matched (or all if runAll is True)
+        4. Read all assets 
+        5. Run ML contextualization to match TS -> Assets 
+        6. Update TS with mapping 
+        7. Write results matched (good) not matched (bad) to RAW
+        8. Output in good/bad table can then be used in workflow to update manual mappings
+        ```
 
 5. raw:
    - db/table: `timeseries_oid_opcua/contextualization_good`
