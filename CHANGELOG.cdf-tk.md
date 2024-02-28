@@ -24,6 +24,12 @@ Changes are grouped as follows:
 - A Python package API for the cdf-tk. This allows for programmatic access to the cdf-tk functionality. This
   is limited to the `build` and `deploy` functionality. You can start by `from cognite_toolkit import CogniteToolkit`.
 
+### Fixed
+
+- In the function deployment, the hashing function used of the directory was independent of the location of the files
+  within the function directory. This caused moving files not to trigger a redeployment of the function. This is now
+  fixed.
+
 ## [0.1.0b9] - 2024-02-20
 
 ### Added
