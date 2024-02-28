@@ -89,7 +89,7 @@ def annotate_pnid(client: CogniteClient, config: AnnotationConfig) -> None:
                 )
             msg = (
                 f"Annotated P&ID files for asset: {asset_root_xid} number of files annotated: {annotated_count}, "
-                f"file not annotaded due to errors: {error_count}"
+                f"file not annotated due to errors: {error_count}"
             )
             print(f"[INFO] {msg}")
             update_extpipe_run(client, config.extpipe_xid, "success", msg)

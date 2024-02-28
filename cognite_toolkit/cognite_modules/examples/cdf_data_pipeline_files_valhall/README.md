@@ -16,6 +16,7 @@ Required example data in the module `cdf_oid_example_data` is a small data set f
 [Open Industrial Data](https://learn.cognite.com/open-industrial-data), the Valhall platform.
 
 ## Managed resources
+
 This module manages the following resources:
 
 1. auth:
@@ -30,25 +31,25 @@ This module manages the following resources:
 
 2. data set:
    - ID: `ds_files_oid`
-     - Content: Data lineage, used Links to used extraction pipelines, transformation and raw tables
+     - Content: Data lineage, used Links to used extraction pipelines, transformation, and raw tables
 
 3. extraction pipeline:
    - ID: `ep_src_files_oid_fileshare`
      - Content: Documentation and configuration example for the file extractor
    - ID: `ep_ctx_files_oid_pandid_annotation`
-     - Content: Documentation and configuration for a CDF function running P&ID contextualization / annotation
-       (see function form more description)
+     - Content: Documentation and configuration for a CDF function running P&ID contextualization/annotation
+       (see function for more description)
 
 4. transformations:
    - ID: `tr_files_oid_fileshare_file_metadata`
-     - Content: update of metadata for example file metadata, prepping for contextualization / annotation
+     - Content: update of metadata for example file metadata, prepping for contextualization/annotation
      - NOTE: the transformation must run before the contextualization function. Without the transformation the
        function will not be able to find the files to contextualize.
 
 5. function:
    - ID: `fn_context_files_oid_fileshare_annotation`
-     - Content: Extracts all tags in P&ID that matches tags from Asset Hierarchy and creates CDF annotations used for linking
-       found objects in document to other resource types in CDF
+     - Content: Extracts all tags in P&ID that match tags from Asset Hierarchy and create CDF annotations used for linking
+       found objects in the document to other resource types in CDF
 
 ### Illustration of the files data pipeline
 
@@ -60,10 +61,10 @@ The following variables are required and defined in this module:
 
 | Variable | Description |
 |----------|-------------|
-| location_name | The location for your data, name used in all resource type related to data pipeline. We use oid (Open Industrial Data) |
+| location_name | The location for your data, the name used in all resource types related to the data pipeline. We use oid (Open Industrial Data) |
 | source_name | The name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..|
-| files_dataset | The name of data set used for files in this example, must correspond to name used in example data|
-| pause_transformations | Whether transformations should be created as paused.        |
+| files_dataset | The name of the data set used for files in this example, must correspond to the name used in the example data|
+| pause_transformations | Whether transformations should be created as paused.|
 | files_raw_input_db | CDF RAW DB name used for files metadata, must correspond to name used in example data|
 | files_raw_input_table | CDF RAW DB name used for files metadata, must correspond to name used in example data|
 | files_location_extractor_group_source_id | Object/ Source ID for security group in IdP. Used to run integration/extractor|
@@ -76,11 +77,43 @@ You should copy and rename an example module into the `custom_modules` directory
 your own modifications. You should then update the `selected_modules_and_packages:` section in your `config.[env].yaml`
 file to install the module.
 
-### Note:
-Using Cognite Functions to run workloads will be limited by the underlying resources in the cloud provider functions.
-Hence processing many P&ID documents will not be optimal in a CDF function since it will time out and fail. One solution for this is to do the initial one-time job locally and let the function deal with all new and updated files.
+### Notes
 
-### Warning:
-...
+#### Running functions locally
 
-See [Using Templates](https://developer.cognite.com/sdks/toolkit/templates)
+First of all, let it be said: _The toolkit repository is not an ideal environment for active code development_. A
+suggested solution from the toolkit developers is to work with your functions elsewhere and just copy in the files
+whenever testing and development is done.
+
+With that disclaimer out of the way, let's have a look at how you may run locally:
+
+To run `fn_context_files_oid_fileshare_annotation`, simply call the `handler.py` normally from the root folder of
+the toolkit - or any subsequent folder, as long as you don't enter into the "package" itself, i.e.
+`fn_context_files_oid_fileshare_annotation`:
+
+```txt
+cognite_toolkit/
+  cognite_modules/
+    examples/
+      cdf_data_pipeline_files_valhall/
+        functions/
+```
+
+Assuming you have navigated to `functions`, you would do:
+
+```bash
+poetry run python fn_context_files_oid_fileshare_annotation/handler.py
+```
+
+This works because a special `run_locally` method has been added (imports also magically work). A list of
+required environment variables, mostly for authentication towards CDF will be raised if not set correctly
+(we won't list them here in case of changes).
+
+#### Cognite Function runtime
+
+Using Cognite Functions to run workloads will be limited by the underlying resources in the cloud provider
+functions. Hence processing many P&ID documents will not be optimal in a CDF function since it will time
+out and fail. One solution for this is to do the initial one-time job locally and let the function deal
+with all new and updated files.
+
+See also: [Using Templates](https://developer.cognite.com/sdks/toolkit/templates)
