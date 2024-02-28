@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
 
-from .config import load_config_parameters
-from .pipeline import annotate_pnid
+sys.path.append(str(Path(__file__).parent))
+
+from config import load_config_parameters
+from pipeline import annotate_pnid
 
 
 def handle(data: dict, client: CogniteClient) -> dict:

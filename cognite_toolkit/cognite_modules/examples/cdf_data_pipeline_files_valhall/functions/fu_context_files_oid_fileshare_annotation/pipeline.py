@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import re
+import sys
 import time
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 from cognite.client import CogniteClient
@@ -21,8 +23,10 @@ from cognite.client.data_classes.contextualization import DiagramDetectResults
 from cognite.client.utils._auxiliary import split_into_chunks
 from cognite.client.utils._text import shorten
 
-from .config import AnnotationConfig
-from .constants import (
+sys.path.append(str(Path(__file__).parent))
+
+from config import AnnotationConfig
+from constants import (
     ANNOTATION_RESOURCE_TYPE,
     ANNOTATION_STATUS_APPROVED,
     ANNOTATION_STATUS_SUGGESTED,
