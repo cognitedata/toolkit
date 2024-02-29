@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import tempfile
 import time
-import venv
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +17,7 @@ from cognite.client.data_classes.transformations.common import NonceCredentials
 from rich import print
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.templates import (
     COGNITE_MODULES,
@@ -173,6 +173,14 @@ def run_local_function(
     verbose: bool = False,
     no_cleanup: bool = False,
 ) -> bool:
+    try:
+        import venv
+    except ImportError:
+        if _RUNNING_IN_BROWSER:
+            print("  [bold red]ERROR:[/] This functionality is not supported in a browser environment.")
+            return False
+        raise
+
     system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, build_env)
     config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(f"[bold]Building for environment {build_env} using {source_path!s} as sources...[/bold]")
