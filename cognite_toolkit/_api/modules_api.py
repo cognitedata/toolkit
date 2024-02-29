@@ -93,6 +93,8 @@ class ModulesAPI:
         context = MagicMock(spec=typer.Context)
         cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
         cdf_tool_config = CDFToolConfig()
+        cdf_tool_config._cluster = cluster
+        cdf_tool_config._project = self._client.config.project
         cdf_tool_config._client = self._client
 
         context.obj = Common(
