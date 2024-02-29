@@ -105,6 +105,7 @@ To release a new version of the `cdf-tk` tool and the templates, you need to do 
       - `pyproject.toml`
       - `cognite_toolkit/cognite_modules/_system.yaml`
       - `tests/tests_unit/tests_cdf_tk/run_data/cognite_modules/_system.yaml`.
+      - `tests/tests_unit/test_cdf_tk/project_for_test/cognite_modules/_system.yaml`
    4. Run `poetry lock` to update the `poetry.lock` file.
    5. Run `pytest tests` locally to ensure that tests pass.
    6. Follow the guide in [tests_migration](tests_migration/README.md) do detect breaking changes, and
