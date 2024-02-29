@@ -35,14 +35,14 @@ class AnnotationConfig:
         )
 
 
-def load_config_parameters(cognite_client: CogniteClient, function_data: dict[str, Any]) -> AnnotationConfig:
+def load_config_parameters(client: CogniteClient, function_data: dict[str, Any]) -> AnnotationConfig:
     """Retrieves the configuration parameters from the function data and loads the configuration from CDF."""
     if "ExtractionPipelineExtId" not in function_data:
         raise ValueError("Missing key 'ExtractionPipelineExtId' in input data to the function")
 
     extpipe_xid = function_data["ExtractionPipelineExtId"]
     try:
-        extpipe_config = cognite_client.extraction_pipelines.config.retrieve(extpipe_xid)
+        extpipe_config = client.extraction_pipelines.config.retrieve(extpipe_xid)
     except CogniteAPIError:
         raise RuntimeError(f"Not able to retrieve pipeline config for extraction pipeline: {extpipe_xid!r}")
 
