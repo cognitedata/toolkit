@@ -32,7 +32,7 @@ Changes are grouped as follows:
 
 ### Changed
 
-- Removed unused dependencies `mypy`, `cognite-logger`, `pyarrow` and `chardet` from `cognite-toolkit` package.
+- Removed unused dependencies `mypy`, `pyarrow` and `chardet` from `cognite-toolkit` package.
 - Lowered the required version of `pandas` to `1.5.3` in the `cognite-toolkit` package.
 
 ## [0.1.0b9] - 2024-02-20
