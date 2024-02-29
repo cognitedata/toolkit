@@ -18,6 +18,7 @@ from rich.panel import Panel
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk import bootstrap
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.describe import describe_datamodel
 from cognite_toolkit._cdf_tk.dump import dump_datamodel_command
 from cognite_toolkit._cdf_tk.load import (
@@ -320,7 +321,8 @@ def deploy(
         exit(1)
 
     include = _process_include(include, interactive)
-    print(ToolGlobals.as_string())
+    if not _RUNNING_IN_BROWSER:
+        print(ToolGlobals.as_string())
 
     # The 'auth' loader is excluded, as it is run twice,
     # once with all_scoped_only and once with resource_scoped_only

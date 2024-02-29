@@ -102,6 +102,9 @@ class CDFToolConfig:
                 print(
                     "[bold yellow]WARNING[/] Not able to successfully configure a Cognite client. Requirements: CDF_CLUSTER and CDF_PROJECT environment variables or CDF_TOKEN to a valid OAuth2 token."
                 )
+            self._cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
+            self._project = self._client.config.project
+            self._cdf_url = self._client.config.base_url
             return
 
         # CDF_CLUSTER and CDF_PROJECT are minimum requirements to know where to connect.
