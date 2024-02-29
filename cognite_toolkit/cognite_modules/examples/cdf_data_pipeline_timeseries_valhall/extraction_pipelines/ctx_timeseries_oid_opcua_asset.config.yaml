@@ -9,7 +9,7 @@ config:
     rawTableGood: 'contextualization_good'
     rawTableBad: 'contextualization_bad'
     rawTableManual: 'contextualization_manual_input'
-    timeSereisPrefix: "pi_"
+    timeSeriesPrefix: "pi_"
     timeSeriesDataSetExtId: 'ds_timeseries_{{location_name}}'
     assetRootExtIds: [workmate:VAL]
     matchThreshold: 0.85

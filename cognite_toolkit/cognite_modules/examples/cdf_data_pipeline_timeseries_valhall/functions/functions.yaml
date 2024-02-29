@@ -1,7 +1,7 @@
 # The dire with the function code should have the same name
 # and externalId as the function itself as defined below.
 - name: 'context:timeseries:{{location_name}}:{{source_name}}:asset'
-  externalId: 'fu_context_timeseries_{{location_name}}_{{source_name}}_asset'
+  externalId: 'fn_context_timeseries_{{location_name}}_{{source_name}}_asset'
   fileId: <will_be_generated>
   owner: 'Anonymous'
   description: 'Contextualization of timeseries and asset data for {{location_name}}:{{source_name}}'

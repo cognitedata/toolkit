@@ -15,7 +15,7 @@ documentation: >
   # Time series and assets Contextualization
  
 
-  The Time series and assets Contextualization runs as a process in CDF Functions. Process triggers on new time serieses that not is connected to an asset.
+  The Time series and assets Contextualization runs as a process in CDF Functions. Process triggers on new time series that not is connected to an asset.
   The process stages are as follows:
 
   ```
@@ -33,23 +33,23 @@ documentation: >
   ```
    # if True, run without writing any annotations to CDF
    debug: False
-   # if True run contextualization on all time serieses, if False only run on time sereis that not is linked to an asset
+   # if True run contextualization on all time series, if False only run on time series that not is linked to an asset
    runAll: False
    # RAW DB used to store input and results for contextualization
    rawdb: 'timeseries_{{location_name}}_{{source_name}}'
    # RAW table used to store all manual input for mapping that should be used in contextualization
-   # This table could be poulated from earier mappings that are approved or used for manual override
+   # This table could be populated from earlier mappings that are approved or used for manual override
    rawTableManual: 'contextualization_manual_input'
    # RAW table used to store all mapping that was automatically approved as good
    rawTableGood: 'contextualization_good'
    # RAW table used to store all mapping that NOT was automatically approved
    rawTableBad: 'contextualization_bad'
-   # Prefix used for all time serieses that is used in contextualization
-   timeSereisPrefix: "pi_"
+   # Prefix used for all time series that is used in contextualization
+   timeSeriesPrefix: "pi_"
    # List of externalId for root assets to be used for contextualization
    assetRootExtIds: [workmate:VAL]
    # Number between 0 and 1, indication of strict the matching should be 1 = only exact matches
-   matchTreshold: 0.85
+   matchThreshold: 0.85
 
   ```
 

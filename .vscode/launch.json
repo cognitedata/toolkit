@@ -73,7 +73,7 @@
             "name": "Python: P&ID annotation function test",
             "type": "debugpy",
             "request": "launch",
-            "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_files_valhall/functions/fu_context_files_oid_fileshare_annotation/handler.py",
+            "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_files_valhall/functions/fn_context_files_oid_fileshare_annotation/handler.py",
             "console": "integratedTerminal",
             "justMyCode": false
         },
@@ -81,7 +81,7 @@
             "name": "Python: TS - Asset Contextualization function test",
             "type": "debugpy",
             "request": "launch",
-            "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_timeseries_valhall/functions/fu_context_timeseries_oid_opcua_asset/handler.py",
+            "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_timeseries_valhall/functions/fn_context_timeseries_oid_opcua_asset/handler.py",
             "console": "integratedTerminal",
             "justMyCode": false
         }
