@@ -20,10 +20,10 @@ def handle(data: dict, client: CogniteClient) -> dict:
 
 
 def run_locally():
-    """
-    Code used for local Test & Debug
-    update local .env file to set variables to connect to CDF
-    """
+    required_envvars = ("CDF_PROJECT", "CDF_CLUSTER", "IDP_CLIENT_ID", "IDP_CLIENT_SECRET", "IDP_TOKEN_URL")
+    if missing := [envvar for envvar in required_envvars if envvar not in os.environ]:
+        raise ValueError(f"Missing one or more env.vars: {missing}")
+
     cdf_project_name = os.environ["CDF_PROJECT"]
     cdf_cluster = os.environ["CDF_CLUSTER"]
     client_id = os.environ["IDP_CLIENT_ID"]
@@ -33,7 +33,7 @@ def run_locally():
 
     client = CogniteClient(
         ClientConfig(
-            client_name=cdf_project_name,
+            client_name="Toolkit user: Manual P&ID pipeline",
             base_url=base_url,
             project=cdf_project_name,
             credentials=OAuthClientCredentials(
@@ -45,8 +45,6 @@ def run_locally():
         )
     )
     data = {"ExtractionPipelineExtId": "ep_ctx_files_oid_fileshare_pandid_annotation"}
-
-    # Locally test function handler:
     handle(data, client)
 
 

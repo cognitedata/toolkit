@@ -1,5 +1,5 @@
 - name: every 30 min
-  functionExternalId: fu_context_files_{{location_name}}_{{source_name}}_annotation
+  functionExternalId: fn_context_files_{{location_name}}_{{source_name}}_annotation
   description: Run every 30 minute
   cronExpression: "0,30 * * * *"
   data:
