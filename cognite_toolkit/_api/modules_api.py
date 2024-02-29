@@ -8,7 +8,6 @@ from typing import Any, overload
 from unittest.mock import MagicMock
 
 import typer
-from cognite.client import CogniteClient
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._api.data_classes import _DUMMY_ENVIRONMENT, ModuleMeta, ModuleMetaList
@@ -16,12 +15,11 @@ from cognite_toolkit._cdf import Common, clean, deploy
 from cognite_toolkit._cdf_tk.load import ResourceTypes
 from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES, COGNITE_MODULES_PATH, build_config, iterate_modules
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, Environment, InitConfigYAML, SystemYAML
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 
 class ModulesAPI:
-    def __init__(self, client: CogniteClient, url: str | None = None) -> None:
-        self._client = client
+    def __init__(self, project_name: str, url: str | None = None) -> None:
+        self._project_name = project_name
         self._url = url
         self._build_dir = Path(tempfile.gettempdir()) / "cognite-toolkit" / "build"
         if self._build_dir.exists():
@@ -72,7 +70,7 @@ class ModulesAPI:
         config = BuildConfigYAML(
             environment=Environment(
                 name=self._build_env,
-                project=self._client.config.project,
+                project=self._project_name,
                 build_type=self._build_env,
                 selected_modules_and_packages=[module.name for module in modules],
                 common_function_code="./common_function_code",
@@ -91,18 +89,14 @@ class ModulesAPI:
 
     def _create_context(self, verbose: bool) -> typer.Context:
         context = MagicMock(spec=typer.Context)
-        cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
-        cdf_tool_config = CDFToolConfig()
-        cdf_tool_config._cluster = cluster
-        cdf_tool_config._project = self._client.config.project
-        cdf_tool_config._client = self._client
-
         context.obj = Common(
             verbose=verbose,
-            override_env=True,
-            cluster=cluster,
-            project=self._client.config.project,
-            mockToolGlobals=cdf_tool_config,
+            # This means that any variables found in an .env file will NOT override the current environment variables.
+            override_env=False,
+            # These are only for CLI override, they are picked up from environment or .env file or context in pyodide notebook.
+            cluster=None,
+            project=None,
+            mockToolGlobals=None,
         )
         return context
 

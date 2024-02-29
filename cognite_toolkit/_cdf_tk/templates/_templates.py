@@ -18,6 +18,7 @@ from cognite.client.data_classes.files import FileMetadataList
 from cognite.client.data_classes.functions import FunctionList
 from rich import print
 
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
 
@@ -38,10 +39,11 @@ def build_config(
     if is_populated and clean:
         shutil.rmtree(build_dir)
         build_dir.mkdir()
-        print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
-    elif is_populated:
+        if not _RUNNING_IN_BROWSER:
+            print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
+    elif is_populated and not _RUNNING_IN_BROWSER:
         print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
-    elif build_dir.exists():
+    elif build_dir.exists() and not _RUNNING_IN_BROWSER:
         print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
     else:
         build_dir.mkdir(exist_ok=True)
@@ -63,7 +65,8 @@ def build_config(
 
     build_environment = config.create_build_environment()
     build_environment.dump_to_file(build_dir)
-    print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
+    if not _RUNNING_IN_BROWSER:
+        print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
     return source_by_build_path
 
 

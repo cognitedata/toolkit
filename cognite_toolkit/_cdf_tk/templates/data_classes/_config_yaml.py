@@ -13,6 +13,7 @@ from typing import Any, Literal, cast
 import yaml
 from rich import print
 
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.templates._constants import (
     BUILD_ENVIRONMENT_FILE,
@@ -96,6 +97,8 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         os.environ["CDF_BUILD_TYPE"] = self.environment.build_type
 
     def validate_environment(self) -> None:
+        if _RUNNING_IN_BROWSER:
+            return None
         file_name = self._file_name(self.environment.name)
         if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != self.environment.project:
             if self.environment.name in {"dev", "local", "demo"}:
