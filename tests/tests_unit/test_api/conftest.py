@@ -6,4 +6,6 @@ from tests.tests_unit.approval_client import ApprovalCogniteClient
 
 @pytest.fixture
 def cognite_toolkit(cognite_client_approval: ApprovalCogniteClient) -> CogniteToolkit:
-    return CogniteToolkit(cognite_client_approval.client)
+    toolkit = CogniteToolkit()
+    toolkit.client = cognite_client_approval.client
+    return toolkit
