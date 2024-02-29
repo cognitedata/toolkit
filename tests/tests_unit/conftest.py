@@ -11,8 +11,8 @@ import typer
 from cognite.client.testing import monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
-from cognite_toolkit.cdf import Common, main_init
-from cognite_toolkit.cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf import Common, main_init
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 

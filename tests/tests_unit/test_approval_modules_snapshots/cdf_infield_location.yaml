@@ -396,29 +396,6 @@ Group:
     origin: cdf-project-templates
   name: gp_infield_oid_viewers
   sourceId: <change_me>
-Node:
-- externalId: default_infield_config_minimal
-  instanceType: node
-  sources:
-  - properties:
-      customerDataSpaceId: APM_SourceData
-      customerDataSpaceVersion: '1'
-      featureConfiguration:
-        rootLocationConfigurations:
-        - appDataInstanceSpace: sp_infield_oid_app_data
-          assetExternalId: WMT:VAL
-          checklistAdmins:
-          - gp_infield_oid_checklist_admins
-          sourceDataInstanceSpace: sp_asset_oid_source
-          templateAdmins:
-          - gp_infield_oid_template_admins
-      name: Default location
-    source:
-      externalId: APM_Config
-      space: APM_Config
-      type: view
-      version: '1'
-  space: APM_Config
 Space:
 - description: Space for Infield Location App Data
   name: sp:infield:oid:app_data

@@ -19,7 +19,7 @@ from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 
-from cognite_toolkit.cdf_tk.utils import (
+from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     DataSetMissingWarning,
     SnakeCaseWarning,
@@ -162,7 +162,7 @@ def test_calculate_hash_on_folder():
     print(hash1)
 
     assert (
-        hash1 == "4f8d111764625a3fbb9ec07e6c4ffae20d4578cabc9fdccedaf6e52b1cca53ff"
+        hash1 == "e60120ed03ebc1de314222a6a330dce08b7e2d77ec0929cd3c603cfdc08999ad"
     ), f"The hash should not change as long as content in {folder} is not changed."
     assert hash1 == hash2
     tempdir = Path(tempfile.mkdtemp())

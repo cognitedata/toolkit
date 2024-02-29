@@ -105,16 +105,17 @@ To release a new version of the `cdf-tk` tool and the templates, you need to do 
       - `pyproject.toml`
       - `cognite_toolkit/cognite_modules/_system.yaml`
       - `tests/tests_unit/tests_cdf_tk/run_data/cognite_modules/_system.yaml`.
+      - `tests/tests_unit/test_cdf_tk/project_for_test/cognite_modules/_system.yaml`
    4. Run `poetry lock` to update the `poetry.lock` file.
    5. Run `pytest tests` locally to ensure that tests pass.
    6. Follow the guide in [tests_migration](tests_migration/README.md) do detect breaking changes, and
       update the migration instructions in `cognite_toolkit/templates/_migration.py` if necessary.
-2. Get approval to merge the branch into `main`:
+2. Get approval to squash merge the branch into `main`:
    1. Verify that all Github actions pass.
 3. Create a release branch: `release-x.y.z` from `main`:
    1. Create a new tag on the branch with the version number, e.g. `v0.1.0b3`.
    2. Open a PR with the existing `release` branch as base comparing to your new `release-x.y.z` branch.
-   3. Get approval and merge.
+   3. Get approval and merge (do not squash).
    4. Verify that the Github action `release` passes and pushes to PyPi.
 4. Create a new release on github.com with the tag and release notes:
    1. Find the tag you created and create the new release.

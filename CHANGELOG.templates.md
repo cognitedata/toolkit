@@ -15,6 +15,23 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0] - 2024-02-29
+
+### Changed
+
+- In the `infield` section, the `infield_apm_app_config.node.yaml` was moved from `cdf_infield_location` to `cdf_infield_common`
+  module. In addition, the module `cdf_infield_second_location` was added to the `infield` section. This is to demonstrate
+  how multiple locations in Infield should be handled.
+- In the `cdf_data_pipeline_files_valhall` example, the Cognite Function `fu_context_files_oid_fileshare_annotation`
+  has been renamed to `fn_context_files_oid_fileshare_annotation`. It has also been split into several files, to be
+  easier to understand. It has also been changed to using `print`s (over `logging`), as that is unfortunately a hard
+  requirement from the API.
+
+### Added
+
+- In the `cdf_data_pipeline_files_valhall` example, the `README.md` file has been updated with instructions on how to
+  run and test Cognite Functions locally.
+
 ## [0.1.0b9] - 2024-02-20
 
 ### Changed
@@ -84,7 +101,7 @@ No changes to templates.
   Extractor, monitor the status of the Extraction Pipeline, and load the data into the asset hierarchy using Transformations.
 - DataSet to all example modules: `cdf_apm_simple_data_model`, `cdf_asset_source_model`, `cdf_oid_example_data`,
   `example_pump_data_model`, `example_pump_asset_hierarchy`.
-  
+
 ### Changed
 
 - **BREAKING** All externalIds and names have been changed to follow the naming conventions for resources
