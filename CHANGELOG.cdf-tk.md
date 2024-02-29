@@ -30,6 +30,11 @@ Changes are grouped as follows:
   within the function directory. This caused moving files not to trigger a redeployment of the function. This is now
   fixed.
 
+### Changed
+
+- Removed unused dependencies `mypy`, `cognite-logger`, `pyarrow` and `chardet` from `cognite-toolkit` package.
+- Lowered the required version of `pandas` to `1.5.3` in the `cognite-toolkit` package.
+
 ## [0.1.0b9] - 2024-02-20
 
 ### Added
