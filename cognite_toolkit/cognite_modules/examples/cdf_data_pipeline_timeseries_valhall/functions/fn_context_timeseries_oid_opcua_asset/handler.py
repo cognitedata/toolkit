@@ -4,19 +4,16 @@ import logging
 import os
 import re
 import traceback
-
 from dataclasses import dataclass
 from typing import Any
 
 import yaml
-
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import ContextualizationJob, ExtractionPipelineRun, Row, TimeSeries, TimeSeriesUpdate
 from cognite.client.exceptions import CogniteAPIError
 from cognite.extractorutils.uploader import RawUploadQueue
 from cognite.logger import configure_logger
-
 
 # defaults
 TS_CONTEXTUALIZED_METADATA_KEY = "TS_CONTEXTUALIZED"
@@ -165,7 +162,7 @@ def contextualize_ts_and_asset(cognite_client: CogniteClient, config: ContextCon
     len_good_matches = 0
     len_bad_matches = 0
     manual_mappings = []
-    
+
     numAsset = -1
     if config.debug:
         numAsset = 10000
@@ -309,9 +306,9 @@ def apply_manual_mappings(
             if time_series.metadata is None:
                 time_series.metadata = {}
 
-            time_series.metadata[
-                TS_CONTEXTUALIZED_METADATA_KEY
-            ] = f"Manual matched from raw: {config.rawdb} / {config.raw_table_manual}"
+            time_series.metadata[TS_CONTEXTUALIZED_METADATA_KEY] = (
+                f"Manual matched from raw: {config.rawdb} / {config.raw_table_manual}"
+            )
 
             asset_id = asset_id_ext_id_mapping[mapping_dict[time_series.external_id]]
 
@@ -436,7 +433,9 @@ def get_time_series(
                 if ts.external_id in ts_ext_id_manual_match_list:
                     continue
 
-                if TS_CONTEXTUALIZED_METADATA_KEY is not None and TS_CONTEXTUALIZED_METADATA_KEY not in (ts.metadata or {}):
+                if TS_CONTEXTUALIZED_METADATA_KEY is not None and TS_CONTEXTUALIZED_METADATA_KEY not in (
+                    ts.metadata or {}
+                ):
                     if ts.external_id is not None:
                         entities = get_ts_entities(ts, entities)
                         ts_meta_dict[ts.id] = ts.metadata
