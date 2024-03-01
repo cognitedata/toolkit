@@ -291,7 +291,7 @@ def process_function_directory(
     verbose: bool = False,
 ) -> None:
     try:
-        functions = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
+        functions: FunctionList = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
     except KeyError as e:
         print(f"      [bold red]ERROR:[/] Failed to load function file {yaml_source_path}, error in key: {e}")
         exit(1)
@@ -328,11 +328,16 @@ def process_function_directory(
                         )
                     # Run validations on the function using the SDK's validation function
                     try:
-                        validate_function_folder(
-                            root_path=destination.as_posix(),
-                            function_path=func.function_path,
-                            skip_folder_validation=False,
-                        )
+                        if func.function_path:
+                            validate_function_folder(
+                                root_path=destination.as_posix(),
+                                function_path=func.function_path,
+                                skip_folder_validation=False,
+                            )
+                        else:
+                            print(
+                                f"        [bold yellow]WARNING:[/] Function {func.external_id} in {yaml_source_path} has no function_path defined."
+                            )
                     except Exception as e:
                         print(
                             f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {function_dir}, python module is not loadable:\n{e}"
@@ -369,15 +374,18 @@ def process_files_directory(
         exit(1)
     # We only support one file template definition per module.
     if len(file_def) == 1:
-        if "$FILENAME" in file_def[0].name and file_def[0].name != "$FILENAME":
+        if file_def[0].name and "$FILENAME" in file_def[0].name and file_def[0].name != "$FILENAME":
             if verbose:
                 print(
                     f"      [bold green]INFO:[/] Found file template {file_def[0].name} in {module_dir}, renaming files..."
                 )
             for filepath in files:
-                destination = build_dir / filepath.parent.name / re.sub(r"\$FILENAME", filepath.name, file_def[0].name)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(filepath, destination)
+                if file_def[0].name:
+                    destination = (
+                        build_dir / filepath.parent.name / re.sub(r"\$FILENAME", filepath.name, file_def[0].name)
+                    )
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(filepath, destination)
             return
     for filepath in files:
         destination = build_dir / filepath.parent.name / filepath.name
