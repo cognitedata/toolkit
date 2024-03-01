@@ -623,7 +623,7 @@ class FunctionScheduleLoader(
         for item in items:
             for func in functions:
                 if func.external_id == item.function_external_id:
-                    item.function_id = func.id
+                    item.function_id = func.id  # type: ignore[assignment]
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
@@ -687,7 +687,8 @@ class FunctionScheduleLoader(
         schedules = self.retrieve(ids)
         count = 0
         for schedule in schedules:
-            self.client.functions.schedules.delete(id=schedule.id)
+            if schedule.id:
+                self.client.functions.schedules.delete(id=schedule.id)
             count += 1
         return count
 
@@ -735,7 +736,7 @@ class RawDatabaseLoader(
 
     def create(self, items: RawTableList) -> RawTableList:
         database_list = self.client.raw.databases.create(items.as_db_names())
-        return RawTableList([RawDatabaseTable(db_name=db.name) for db in database_list])
+        return RawTableList([RawDatabaseTable(db_name=db.name) for db in database_list if db.name])
 
     def retrieve(self, ids: SequenceNotStr[RawDatabaseTable]) -> RawTableList:
         database_list = self.client.raw.databases.list(limit=-1)
