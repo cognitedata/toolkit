@@ -60,7 +60,7 @@ def dump_datamodel_command(
         space_file = resource_folder / f"{space.space}.space.yaml"
         space_file.write_text(space.as_write().dump_yaml())
         if verbose:
-            print(f"  [bold green]INFO:[/] Dumped space {space.external_id} to {space_file!s}.")
+            print(f"  [bold green]INFO:[/] Dumped space {space.space} to {space_file!s}.")
 
     prefix_space = len(containers) != len({container.external_id for container in containers})
     for container in containers:

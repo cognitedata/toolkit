@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.1] - 2024-03-01
+
+### Fixed
+
+- When running `cdf-tk clean` or `cdf-tk deploy --drop-data` for a data model with more than 10 containers,
+  the command would raise an APIError. This is now fixed.
+- A few minor potential `AttributeError` and `KeyError` bugs have been fixed.
+
 ## [0.1.0] - 2024-02-29
 
 ### Added

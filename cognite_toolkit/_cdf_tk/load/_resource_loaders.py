@@ -131,6 +131,7 @@ from .data_classes import LoadedNode, LoadedNodeList, RawDatabaseTable, RawTable
 
 _MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
+_HAS_DATA_FILTER_LIMIT = 10
 
 
 @final
@@ -622,7 +623,7 @@ class FunctionScheduleLoader(
         for item in items:
             for func in functions:
                 if func.external_id == item.function_external_id:
-                    item.function_id = func.id
+                    item.function_id = func.id  # type: ignore[assignment]
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
@@ -686,7 +687,8 @@ class FunctionScheduleLoader(
         schedules = self.retrieve(ids)
         count = 0
         for schedule in schedules:
-            self.client.functions.schedules.delete(id=schedule.id)
+            if schedule.id:
+                self.client.functions.schedules.delete(id=schedule.id)
             count += 1
         return count
 
@@ -734,7 +736,7 @@ class RawDatabaseLoader(
 
     def create(self, items: RawTableList) -> RawTableList:
         database_list = self.client.raw.databases.create(items.as_db_names())
-        return RawTableList([RawDatabaseTable(db_name=db.name) for db in database_list])
+        return RawTableList([RawDatabaseTable(db_name=db.name) for db in database_list if db.name])
 
     def retrieve(self, ids: SequenceNotStr[RawDatabaseTable]) -> RawTableList:
         database_list = self.client.raw.databases.list(limit=-1)
@@ -1626,21 +1628,28 @@ class ContainerLoader(
         container_ids = [container.as_id() for container in containers if container.used_for in ["node", "all"]]
         if not container_ids:
             return
-        is_container = filters.HasData(containers=container_ids)
-        for instances in self.client.data_modeling.instances(
-            chunk_size=1000, instance_type="node", filter=is_container, limit=-1
-        ):
-            yield instances.as_ids()
+        for container_id_chunk in self._chunker(container_ids, _HAS_DATA_FILTER_LIMIT):
+            is_container = filters.HasData(containers=container_id_chunk)
+            for instances in self.client.data_modeling.instances(
+                chunk_size=1000, instance_type="node", filter=is_container, limit=-1
+            ):
+                yield instances.as_ids()
 
     def _iterate_over_edges(self, containers: ContainerList) -> Iterable[list[EdgeId]]:
         container_ids = [container.as_id() for container in containers if container.used_for in ["edge", "all"]]
         if not container_ids:
             return
-        is_container = filters.HasData(containers=container_ids)
-        for instances in self.client.data_modeling.instances(
-            chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
-        ):
-            yield instances.as_ids()
+
+        for container_id_chunk in self._chunker(container_ids, _HAS_DATA_FILTER_LIMIT):
+            is_container = filters.HasData(containers=container_id_chunk)
+            for instances in self.client.data_modeling.instances(
+                chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
+            ):
+                yield instances.as_ids()
+
+    @staticmethod
+    def _chunker(seq: Sequence, size: int) -> Iterable[Sequence]:
+        return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
