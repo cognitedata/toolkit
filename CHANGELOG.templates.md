@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.0b9] - 2024-03-01
+
+No changes to templates.
+
+- Added a new module `cognite_modules/example/cdf_data_pipeline_timeseries_valhall` opcua / time series extractor pipeline,
+  CDF function running contextualization of time series to assets.
+
 ## [0.1.0b8] - 2024-02-14
 
 No changes to templates.
