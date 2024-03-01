@@ -1,0 +1,3 @@
+space: sp_infield_{{default_location}}_app_data
+name: sp:infield:{{default_location}}:app_data
+description: Space for Infield Location App Data

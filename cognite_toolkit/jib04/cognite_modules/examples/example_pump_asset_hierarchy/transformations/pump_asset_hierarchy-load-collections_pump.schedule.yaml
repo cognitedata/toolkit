@@ -1,0 +1,3 @@
+externalId: tr_pump_asset_hierarchy-load-collections_pump
+interval: '{{scheduleHourly}}'
+isPaused: true

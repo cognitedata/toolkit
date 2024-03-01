@@ -1,0 +1,23 @@
+externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
+name: sync-asset_hierarchy_cdf_asset_source_model
+destination:
+  dataModel:
+    space: {{model_space}}
+    externalId: ExtendedSourceData
+    version: '{{data_model_version}}'
+    destinationType: Asset
+  instanceSpace: {{instance_space}}
+  type: instances
+dataSetExternalId: {{data_set}}
+ignoreNullFields: false
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the audience
+  audience: {{cicd_audience}}
