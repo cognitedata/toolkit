@@ -13,6 +13,8 @@ SUPPORTED_TOOLKIT_VERSIONS = [
     "0.1.0b5",
     "0.1.0b6",
     "0.1.0b7",
+    "0.1.0b8",
+    "0.1.0b9",
 ]
 
 

@@ -26,6 +26,39 @@ No changes to templates.
 
 No changes to templates.
 
+## [0.1.0] - 2024-02-29
+
+### Changed
+
+- In the `infield` section, the `infield_apm_app_config.node.yaml` was moved from `cdf_infield_location` to `cdf_infield_common`
+  module. In addition, the module `cdf_infield_second_location` was added to the `infield` section. This is to demonstrate
+  how multiple locations in Infield should be handled.
+- In the `cdf_data_pipeline_files_valhall` example, the Cognite Function `fu_context_files_oid_fileshare_annotation`
+  has been renamed to `fn_context_files_oid_fileshare_annotation`. It has also been split into several files, to be
+  easier to understand. It has also been changed to using `print`s (over `logging`), as that is unfortunately a hard
+  requirement from the API.
+
+### Added
+
+- In the `cdf_data_pipeline_files_valhall` example, the `README.md` file has been updated with instructions on how to
+  run and test Cognite Functions locally.
+
+## [0.1.0b9] - 2024-02-20
+
+### Changed
+
+- In cdf_oid_example_data, the filename prefixes have been removed from the filenames and instead the new name template
+  functionality is used to prefix the filenames as part of the build step.
+
+### Fixed
+
+- Replaced `shared: True` to `isPublic: True` and `action: upsert` to `conflictMode: upsert` in all
+  transformation configurations to match the CDF API specification.
+
+## [0.1.0b8] - 2024-02-14
+
+### Added
+
 - Added a new module `cognite_modules/example/cdf_data_pipeline_files_valhall` file extractor pipeline, transformation
   and CDF function running annotation on P&ID documents.
 
@@ -43,7 +76,7 @@ No changes to templates.
 ### Fixed
 
 - In module `cognite_modules/example/example_pump_asset_hierarchy`, in the transformation
-  `pump_asst_hierarchy_load-collections_pump.sql` the value `pump_assets` was hardcoded instead of using the variable
+  `pump_asset_hierarchy_load-collections_pump.sql` the value `pump_assets` was hardcoded instead of using the variable
   `{{raw_db}}`. This has been fixed.
 
 ## [0.1.0b6] - 2024-01-26
@@ -79,7 +112,7 @@ No changes to templates.
   Extractor, monitor the status of the Extraction Pipeline, and load the data into the asset hierarchy using Transformations.
 - DataSet to all example modules: `cdf_apm_simple_data_model`, `cdf_asset_source_model`, `cdf_oid_example_data`,
   `example_pump_data_model`, `example_pump_asset_hierarchy`.
-  
+
 ### Changed
 
 - **BREAKING** All externalIds and names have been changed to follow the naming conventions for resources

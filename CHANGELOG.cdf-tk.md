@@ -15,12 +15,42 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.1.1] - 2024-03-01
+
+### Fixed
+
+- When running `cdf-tk clean` or `cdf-tk deploy --drop-data` for a data model with more than 10 containers,
+  the command would raise an APIError. This is now fixed.
+- A few minor potential `AttributeError` and `KeyError` bugs have been fixed.
+
+## [0.1.0] - 2024-02-29
+
+### Added
+
+- Command `cdf-tk dump datamodel` for dumping data models from CDF into a local folder. The use case for this is to
+  dump an existing data model from CDF and use it as a basis for building a new custom module with that data model.
+- A Python package API for the cdf-tk. This allows for programmatic access to the cdf-tk functionality. This
+  is limited to the `build` and `deploy` functionality. You can start by `from cognite_toolkit import CogniteToolkit`.
+
+### Fixed
+
+- In the function deployment, the hashing function used of the directory was independent of the location of the files
+  within the function directory. This caused moving files not to trigger a redeployment of the function. This is now
+  fixed.
+
+### Changed
+
+- Removed unused dependencies `mypy`, `pyarrow` and `chardet` from `cognite-toolkit` package.
+- Lowered the required version of `pandas` to `1.5.3` in the `cognite-toolkit` package.
+
+## [0.1.0b9] - 2024-02-20
 
 ### Added
 
 - Introduced `cdf-tk pull transformation` and `cdf-tk pull node` commands to pull transformation or nodes
-  form CDF to the local module.
+  from CDF to the local module.
+- Support for using a template for file names `name: prefix_$FILENAME_suffix` in the `files` resource. The files will
+  be processed and renamed as part of the build step.
 
 ### Fixed
 
@@ -38,6 +68,10 @@ Changes are grouped as follows:
   supported yet.
 - `cdf-tk deploy`/`cdf-tk clean` now deploys all config files in one go, instead of one by one. This means batching
   is no longer done based on the number of resource files, but instead based on the limit of the CDF API.
+- Files in module directories that do not live in a recognised resource directory will be skipped when building. If
+  verbose is enabled, a warning will be printed for each skipped file.
+- Only .yaml files in functions resource folders and the defined function sub-directories will be processed as part of
+  building.
 
 ## [0.1.0b8] - 2024-02-14
 

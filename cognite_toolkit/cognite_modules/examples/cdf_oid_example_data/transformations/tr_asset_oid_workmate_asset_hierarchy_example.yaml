@@ -3,7 +3,7 @@ name: asset:{{default_location}}:{{source_asset}}:asset_hierarchy:example
 destination:
   type: "asset_hierarchy"
 ignoreNullFields: true
-shared: true
+isPublic: true
 conflictMode: upsert
 dataSetExternalId: ds_transformations_{{default_location}}
 # Specify credentials separately like this:

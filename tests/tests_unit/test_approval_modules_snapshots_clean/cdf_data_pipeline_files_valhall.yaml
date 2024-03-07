@@ -3,6 +3,6 @@ deleted:
   - externalId: ep_ctx_files_oid_fileshare_pandid_annotation
   - externalId: ep_src_files_oid_fileshare
   Function:
-  - externalId: fu_context_files_oid_fileshare_annotation
+  - externalId: fn_context_files_oid_fileshare_annotation
   TransformationSchedule:
   - externalId: tr_files_oid_fileshare_file_metadata

@@ -14,6 +14,8 @@ from cognite.client import CogniteClient
 from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import (
     Database,
+    DataSet,
+    ExtractionPipeline,
     ExtractionPipelineConfig,
     ExtractionPipelineConfigWrite,
     FileMetadata,
@@ -22,8 +24,10 @@ from cognite.client.data_classes import (
     FunctionWrite,
     Group,
     GroupList,
+    capabilities,
 )
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
+from cognite.client.data_classes.capabilities import AllProjectsScope, ProjectCapability, ProjectCapabilityList
 from cognite.client.data_classes.data_modeling import (
     EdgeApply,
     EdgeApplyResultList,
@@ -34,11 +38,13 @@ from cognite.client.data_classes.data_modeling import (
     NodeApplyResult,
     NodeApplyResultList,
     NodeId,
+    Space,
     VersionedDataModelingId,
     View,
 )
 from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
+from cognite.client.data_classes.iam import ProjectSpec, TokenInspection
 from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case
 from requests import Response
@@ -47,6 +53,15 @@ from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
 
 TEST_FOLDER = Path(__file__).resolve().parent.parent
+
+_ALL_CAPABILITIES = []
+for cap, (scopes, names) in capabilities._VALID_SCOPES_BY_CAPABILITY.items():
+    for action, scope in itertools.product(cap.Action, scopes):
+        try:
+            _ALL_CAPABILITIES.append(cap([action], scope=scope()))
+        except TypeError:
+            pass
+del cap, scopes, names, action, scope
 
 
 class ApprovalCogniteClient:
@@ -59,6 +74,7 @@ class ApprovalCogniteClient:
     """
 
     def __init__(self, mock_client: CogniteClientMock):
+        self._return_verify_resources = False
         self.mock_client = mock_client
         # This is used to simulate the existing resources in CDF
         self._existing_resources: dict[str, list[CogniteResource]] = defaultdict(list)
@@ -80,6 +96,9 @@ class ApprovalCogniteClient:
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
         # Activate authorization_header()
         self.mock_client.config.credentials.authorization_header.return_value = ("Bearer", "123")
+        # Set project
+        self.mock_client.config.project = "test_project"
+        self.mock_client.config.base_url = "https://bluefield.cognitedata.com"
 
         # Setup all mock methods
         for resource in API_RESOURCES:
@@ -120,6 +139,20 @@ class ApprovalCogniteClient:
     def client(self) -> CogniteClient:
         """Returns a mock CogniteClient"""
         return cast(CogniteClient, self.mock_client)
+
+    @property
+    def return_verify_resources(self) -> bool:
+        return self._return_verify_resources
+
+    @return_verify_resources.setter
+    def return_verify_resources(self, value: bool) -> None:
+        """This is used to return the resource that are used for verication.
+
+        Caveat: This only applies to Spaces, DataSets, and ExtractionPipeline.
+
+        The use case is that these are used in verification of other resources.
+        """
+        self._return_verify_resources = value
 
     def append(self, resource_cls: type[CogniteResource], items: CogniteResource | Sequence[CogniteResource]) -> None:
         """This is used to simulate existing resources in CDF.
@@ -325,7 +358,10 @@ class ApprovalCogniteClient:
             name = ""
             for k, v in kwargs.items():
                 if isinstance(v, Path) or (isinstance(v, str) and Path(v).exists()):
-                    kwargs[k] = "/".join(Path(v).relative_to(TEST_FOLDER).parts)
+                    try:
+                        kwargs[k] = "/".join(Path(v).relative_to(TEST_FOLDER).parts)
+                    except ValueError:
+                        kwargs[k] = "/".join(Path(v).parts)
                     name = Path(v).name
 
             created_resources[resource_cls.__name__].append(
@@ -412,12 +448,72 @@ class ApprovalCogniteClient:
         resource_cls = resource.resource_cls
         read_list_cls = resource.list_cls
 
+        def _create_verification_resource(*args, **kwargs):
+            # Note that the written version of the resource does not contain the serves set variables,
+            # so we need to set these manually
+            if resource_cls is Space:
+                ids = list(*args)
+                spaces = [
+                    Space(
+                        space=space,
+                        is_global=False,
+                        last_updated_time=1,
+                        created_time=1,
+                    )
+                    for space in ids
+                ]
+                return read_list_cls(spaces, cognite_client=client)
+            elif resource_cls is DataSet:
+                if "external_ids" in kwargs:
+                    external_ids = kwargs["external_ids"]
+                elif "external_id" in kwargs:
+                    external_ids = [kwargs["external_id"]]
+                else:
+                    raise RuntimeError("No external_ids or external_id in kwargs")
+                datasets = [
+                    DataSet(
+                        external_id=external_id,
+                        name=external_id,
+                        id=42,
+                        last_updated_time=1,
+                        created_time=1,
+                    )
+                    for external_id in external_ids
+                ]
+                return read_list_cls(datasets, cognite_client=client)
+            elif resource_cls is ExtractionPipeline:
+                if "external_ids" in kwargs:
+                    external_ids = kwargs["external_ids"]
+                elif "external_id" in kwargs:
+                    external_ids = [kwargs["external_id"]]
+                else:
+                    raise RuntimeError("No external_ids or external_id in kwargs")
+                pipelines = [
+                    ExtractionPipeline(
+                        external_id=external_id,
+                        name=external_id,
+                        data_set_id=42,
+                        id=722,
+                        last_updated_time=1,
+                        created_time=1,
+                    )
+                    for external_id in external_ids
+                ]
+                return read_list_cls(pipelines, cognite_client=client)
+
+            raise NotImplementedError(f"Return values not implemented for {resource_cls}")
+
         def return_values(*args, **kwargs):
+            if self._return_verify_resources and resource_cls in {Space, DataSet, ExtractionPipeline}:
+                return _create_verification_resource(*args, **kwargs)
+
             return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
 
         def return_value(*args, **kwargs):
             if value := existing_resources[resource_cls.__name__]:
                 return read_list_cls(value, cognite_client=client)[0]
+            elif self.return_verify_resources and resource_cls in {Space, DataSet, ExtractionPipeline}:
+                return _create_verification_resource(*args, **kwargs)[0]
             else:
                 return None
 
@@ -449,7 +545,20 @@ class ApprovalCogniteClient:
         resource_cls = resource.resource_cls
 
         def return_value(*args, **kwargs):
-            return existing_resources[resource_cls.__name__][0]
+            if value := existing_resources[resource_cls.__name__]:
+                return value[0]
+
+            return TokenInspection(
+                subject="test",
+                projects=[ProjectSpec(url_name="test_project", groups=[123, 456])],
+                capabilities=ProjectCapabilityList(
+                    [
+                        ProjectCapability(capability=capability, project_scope=AllProjectsScope())
+                        for capability in _ALL_CAPABILITIES
+                    ],
+                    cognite_client=client,
+                ),
+            )
 
         available_inspect_methods = {
             fn.__name__: fn
