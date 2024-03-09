@@ -62,20 +62,14 @@ def contextualize_ts_and_asset(cognite_client: CogniteClient, config: ContextCon
     Args:
         cognite_client: An instantiated CogniteClient
         config: A dataclass containing the configuration for the annotation process
-
-    Returns:
-        None
     """
-
     print("INFO: Initiating contextualization of Time Series and Assets")
 
     len_good_matches = 0
     len_bad_matches = 0
     manual_mappings = []
 
-    numAsset = -1
-    if config.debug:
-        numAsset = 10000
+    numAsset = -1 if not config.debug else 10_000
 
     raw_uploader = RawUploadQueue(cdf_client=cognite_client, max_queue_size=500_000, trigger_log_level="INFO")
 
@@ -89,7 +83,8 @@ def contextualize_ts_and_asset(cognite_client: CogniteClient, config: ContextCon
             apply_manual_mappings(cognite_client, config, raw_uploader, manual_mappings)
 
             print(
-                f"INFO: Read time series for contextualization data set: {config.time_series_data_set_ext_id}, asset root: {asset_root_ext_id} - read and process all = {config.run_all}"
+                f"INFO: Read time series for contextualization data set: {config.time_series_data_set_ext_id}, "
+                f"asset root: {asset_root_ext_id} - read and process all = {config.run_all}"
             )
             ts_entities, ts_meta_dict = get_time_series(cognite_client, config, manual_mappings)
 
@@ -144,10 +139,8 @@ def read_manual_mappings(cognite_client: CogniteClient, config: ContextConfig) -
     Returns:
         list of manual mappings or empty list if no mappings are found
     """
-
     manual_mappings = []
     man_table_true = False
-
     try:
         table_list = cognite_client.raw.tables.list(config.rawdb, limit=-1)
         for table in table_list:
@@ -191,15 +184,10 @@ def apply_manual_mappings(
         config: Instance of ContextConfig
         raw_uploader : Instance of RawUploadQueue
         manual_mappings: list of manual mappings
-
-    Returns:
-        None
     """
-
     ts_meta_update_list = []
     mapping = {}
     mapping_dict = {}
-
     try:
         asset_id_ext_id_mapping = get_asset_id_ext_id_mapping(cognite_client, manual_mappings)
         ts_list_manual_mapping = get_ts_list_manual_mapping(cognite_client, manual_mappings)
@@ -259,7 +247,6 @@ def get_asset_id_ext_id_mapping(cognite_client: CogniteClient, manual_mappings: 
         dictionary with asset external id as key and asset id as value
 
     """
-
     asset_ext_id_mapping = {}
     try:
 
@@ -286,9 +273,7 @@ def get_ts_list_manual_mapping(cognite_client: CogniteClient, manual_mappings: l
     Returns:
         list of TimeSeries
     """
-
     ts_list_manual_mapping = []
-
     try:
         ts_ext_id_list = [mapping[COL_KEY_MAN_MAPPING_TS_EXTID] for mapping in manual_mappings]
 
@@ -296,7 +281,8 @@ def get_ts_list_manual_mapping(cognite_client: CogniteClient, manual_mappings: l
 
         if len(ts_list_manual_mapping) != len(ts_ext_id_list):
             raise ValueError(
-                f"Number of time series found {len(ts_list_manual_mapping)} does not match number of time series in input list {len(ts_ext_id_list)}"
+                f"Number of time series found {len(ts_list_manual_mapping)} does not match number of "
+                f"time series in input list {len(ts_ext_id_list)}"
             )
 
     except Exception as e:
@@ -321,22 +307,18 @@ def get_time_series(
         list of entities
         list of dict with time series id and metadata
     """
-
     meta_ts_update: list[TimeSeries] = []
     entities: list[dict[str, Any]] = []
     ts_meta_dict = {}
-
     try:
         for ts_prefix in config.time_series_prefix:
             ts_list = cognite_client.time_series.list(
                 data_set_external_ids=[config.time_series_data_set_ext_id], external_id_prefix=ts_prefix
             )
-
             # get list of time series in manual mappings to exclude from matching
             ts_ext_id_manual_match_list = [m_match[COL_KEY_MAN_MAPPING_TS_EXTID] for m_match in manual_matches]
 
             for ts in ts_list:
-
                 # if manual match exists, skip matching based on entity matching
                 if ts.external_id in ts_ext_id_manual_match_list:
                     continue
@@ -364,7 +346,8 @@ def get_time_series(
 
     except Exception as e:
         print(
-            f"ERROR: Not able to get entities for time series in data set: {config.time_series_data_set_ext_id} with prefix: {config.time_series_prefix}- error: {e}"
+            f"ERROR: Not able to get entities for time series in data set: {config.time_series_data_set_ext_id} "
+            f"with prefix: {config.time_series_prefix}- error: {e}"
         )
 
     return entities, ts_meta_dict
@@ -409,11 +392,8 @@ def get_assets(cognite_client: CogniteClient, asset_root_ext_id: str, numAsset: 
     Returns:
         list of entities
     """
-
     entities: list[dict[str, Any]] = []
-
     try:
-
         assets = cognite_client.assets.list(asset_subtree_external_ids=[asset_root_ext_id], limit=numAsset)
 
         # clean up dummy tags and system numbers
@@ -433,10 +413,8 @@ def get_assets(cognite_client: CogniteClient, asset_root_ext_id: str, numAsset: 
 
             # ignore if no value in name and if system asset names (01, 02, ...) and if at least 3 tokens in name
             if name is not None and len(name) > 3 and len(split_name) >= 3:
-
                 # Do any manual updates changes to name to clean up and make it easier to match
                 modName = name
-
                 entities.append(
                     {
                         "id": asset.id,
@@ -446,7 +424,6 @@ def get_assets(cognite_client: CogniteClient, asset_root_ext_id: str, numAsset: 
                         "type": "asset",
                     }
                 )
-
     except Exception as e:
         print(f"ERROR: Not able to get entities for asset extId root: {asset_root_ext_id} - error: {e}")
 
@@ -467,16 +444,13 @@ def get_matches(
     Returns:
         list of matches
     """
-
     try:
-
         model = cognite_client.entity_matching.fit(
             sources=match_from,
             targets=match_to,
             match_fields=[(COL_MATCH_KEY, COL_MATCH_KEY)],
             feature_type="bigram-combo",
         )
-
         print("INFO: Run prediction based on model")
         job = model.predict(sources=match_from, targets=match_to, num_matches=1)
         matches = job.result
@@ -503,11 +477,9 @@ def select_and_apply_matches(
         list of good matches
         list of bad matches
     """
-
     good_matches = []
     bad_matches = []
     time_series_list = []
-
     try:
         for match in mRes:
             if len(match["matches"]) > 0:
@@ -528,16 +500,13 @@ def select_and_apply_matches(
             score = match["score"]
             ts_id = match["ts_id"]
             asset_id = match["asset_id"]
-            metadata = ts_meta_dict[ts_id]
-
-            if metadata is None:
-                metadata = {}
+            metadata = ts_meta_dict[ts_id] or {}
 
             metadata[TS_CONTEXTUALIZED_METADATA_KEY] = f"Entity matched based on score {score} with asset {asset}"
 
-            tsElem = TimeSeries(id=ts_id, asset_id=asset_id, metadata=metadata)
+            ts_elem = TimeSeries(id=ts_id, asset_id=asset_id, metadata=metadata)
 
-            time_series_list.append(tsElem)
+            time_series_list.append(ts_elem)
 
         if not config.debug:
             cognite_client.time_series.update(time_series_list)
@@ -557,9 +526,6 @@ def add_to_dict(match: dict[Any]) -> dict[Any]:
     Returns:
         dictionary with match information
     """
-
-    row = {}
-
     try:
         source = match["source"]
 
@@ -575,7 +541,7 @@ def add_to_dict(match: dict[Any]) -> dict[Any]:
             asset_id = None
             asset_ext_id = None
 
-        row = {
+        return {
             "ts_id": source["id"],
             "ts_ext_id": source["external_id"],
             "ts_name": source["org_name"],
@@ -584,11 +550,9 @@ def add_to_dict(match: dict[Any]) -> dict[Any]:
             "asset_ext_id": asset_ext_id,
             "asset_id": asset_id,
         }
-
     except Exception as e:
         print(f"ERROR: Not able to parse return object: {match} - error: {e}")
-
-    return row
+        return {}
 
 
 def write_mapping_to_raw(
@@ -607,9 +571,6 @@ def write_mapping_to_raw(
         raw_uploader : Instance of RawUploadQueue
         good_matches: list of good matches
         bad_matches: list of bad matches
-
-    Returns:
-        None
     """
 
     print(f"INFO: Clean up BAD table: {config.rawdb}/{config.raw_table_bad} before writing new status")
