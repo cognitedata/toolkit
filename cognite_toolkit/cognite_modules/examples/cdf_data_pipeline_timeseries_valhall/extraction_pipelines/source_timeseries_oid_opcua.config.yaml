@@ -1,8 +1,8 @@
 externalId: 'ep_src_timeseries_{{location_name}}_{{source_name}}'
 name: 'src:timeseries:{{location_name}}:{{source_name}}'
 dataSetExternalId: 'ds_timeseries_{{location_name}}'
-config:  
-    # Version of the config schema  
+config:
+    # Version of the config schema
     version: 1
 
     source:
@@ -28,7 +28,7 @@ config:
         # The project to connect to in the API, uses the environment variable COGNITE_PROJECT.
         project: ${CDF_PROJECT}
         host: ${CDF_URL}
-        
+
         # If this is set to true, credentials can be left out, and the extractor
         # will read data without pushing it to CDF.
         debug: false
@@ -37,11 +37,11 @@ config:
         cdf-chunking:
             data-point-time-series: 500
             data-points: 10000
-    
+
     extraction:
         # Global prefix for externalId in destinations. Should be unique to prevent name conflicts.
         id-prefix: '{{opcua_id_prefix}}'
-    
+
         # Source node in the OPC-UA server. Leave empty to use the top level Objects node.
         # If root-nodes is set, this is added to the list of root nodes.
         root-node:

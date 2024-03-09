@@ -5,23 +5,21 @@ sourceId: '{{timeseries_location_read_group_source_id}}'
 metadata:
   origin: 'cdf-project-templates'
 capabilities:
-  - annotationsAcl: 
-      actions: 
+  - annotationsAcl:
+      actions:
         - READ
         - REVIEW
       scope:
         all: {}
-  - labelsAcl: 
-      actions: 
+  - labelsAcl:
+      actions:
         - READ
       scope:
         all: {}
-  - timeSeriesAcl: 
-      actions:      
+  - timeSeriesAcl:
+      actions:
         - READ
-      scope: 
+      scope:
         datasetScope: {
             ids: ['ds_timeseries_{{location_name}}']
         }
-
-               

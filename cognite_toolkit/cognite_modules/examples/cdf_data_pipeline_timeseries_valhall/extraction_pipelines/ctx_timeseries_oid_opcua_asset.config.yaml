@@ -13,4 +13,3 @@ config:
     timeSeriesDataSetExtId: 'ds_timeseries_{{location_name}}'
     assetRootExtIds: [workmate:VAL]
     matchThreshold: 0.85
-   
