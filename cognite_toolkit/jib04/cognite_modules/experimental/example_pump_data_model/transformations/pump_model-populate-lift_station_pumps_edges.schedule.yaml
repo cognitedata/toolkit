@@ -1,3 +1,0 @@
-externalId: tr_pump_model-populate-lift_station_pumps_edges
-interval: '{{scheduleHourly}}'
-isPaused: true
