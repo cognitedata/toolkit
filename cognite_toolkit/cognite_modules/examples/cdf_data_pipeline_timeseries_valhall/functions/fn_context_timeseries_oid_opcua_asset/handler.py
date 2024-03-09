@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import logging
 import os
 import re
-import traceback
-from dataclasses import dataclass
+import sys
+from pathlib import Path
 from typing import Any
 
-import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import ContextualizationJob, ExtractionPipelineRun, Row, TimeSeries, TimeSeriesUpdate
-from cognite.client.exceptions import CogniteAPIError
 from cognite.extractorutils.uploader import RawUploadQueue
-from cognite.logger import configure_logger
+
+sys.path.append(str(Path(__file__).parent))
+
+from config import ContextConfig, load_config_parameters
 
 # defaults
 TS_CONTEXTUALIZED_METADATA_KEY = "TS_CONTEXTUALIZED"
@@ -27,46 +27,8 @@ COL_KEY_MAN_CONTEXTUALIZED = "contextualized"  # Col name for if mapping is done
 # static variables
 FUNCTION_NAME = "TS & Asset contextualization"
 
-# Configure application logger (only done ONCE):
-configure_logger(logger_name="func", log_json=False, log_level="INFO")
 
-# The following line must be added to all python modules (after imports):
-logger = logging.getLogger(f"func.{__name__}")
-logger.info("---------------------------------------START--------------------------------------------")
-
-
-@dataclass
-class ContextConfig:
-    extraction_pipeline_ext_id: str
-    debug: bool
-    run_all: bool
-    rawdb: str
-    raw_table_good: str
-    raw_table_bad: str
-    raw_table_manual: str
-    time_series_prefix: str
-    time_series_data_set_ext_id: str
-    asset_root_ext_ids: list[str]
-    match_threshold: float
-
-    @classmethod
-    def load(cls, data: dict[str, Any]) -> ContextConfig:
-        return cls(
-            extraction_pipeline_ext_id=data["ExtractionPipelineExtId"],
-            debug=data["debug"],
-            run_all=data["runAll"],
-            rawdb=data["rawdb"],
-            raw_table_good=data["rawTableGood"],
-            raw_table_bad=data["rawTableBad"],
-            raw_table_manual=data["rawTableManual"],
-            time_series_prefix=data["timeSeriesPrefix"],
-            time_series_data_set_ext_id=data["timeSeriesDataSetExtId"],
-            asset_root_ext_ids=data["assetRootExtIds"],
-            match_threshold=data["matchThreshold"],
-        )
-
-
-def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info: dict) -> dict:
+def handle(data: dict, client: CogniteClient) -> dict:
     """
     Function handler for contextualization of Time Series and Assets
     Note that the name in the definition needs to be handle related to CDF Function usage
@@ -78,63 +40,11 @@ def handle(data: dict, client: CogniteClient, secrets: dict, function_call_info:
         function_call_info: dictionary containing the function call information
 
     Returns:
-        dict containing the function output data
+        dict containing the function input data
     """
-    try:
-        config = load_config_parameters(client, data)
-        contextualize_ts_and_asset(client, config)
-    except Exception as e:
-        tb = traceback.format_exc()
-        logger.error(f"Function: {FUNCTION_NAME}: failed - Message: {e!r} - {tb}")
-        return {
-            "error": e.__str__(),
-            "status": "failed",
-            "data": data,
-            "secrets": mask_secrets(secrets),
-            "functionInfo": function_call_info,
-        }
-
-    return {
-        "status": "succeeded",
-        "data": data,
-        "secrets": mask_secrets(secrets),
-        "functionInfo": function_call_info,
-    }
-
-
-def mask_secrets(secrets: dict) -> dict:
-    return {k: "***" for k in secrets}
-
-
-def load_config_parameters(cognite_client: CogniteClient, function_data: dict[str, Any]) -> ContextConfig:
-    """
-    Retrieves the configuration parameters from the function data and loads the configuration from CDF.
-    Configuration is loaded from the extraction pipeline configuration and the function data.
-
-    Args:
-        cognite_client: Instance of CogniteClient
-        function_data: dictionary containing the function input configuration data
-
-    Returns:
-        ContextConfig object
-    """
-
-    try:
-        extraction_pipeline_ext_id = function_data["ExtractionPipelineExtId"]
-    except KeyError:
-        raise ValueError("Missing parameter 'ExtractionPipelineExtId' in function data")
-
-    try:
-        pipeline_config_str = cognite_client.extraction_pipelines.config.retrieve(extraction_pipeline_ext_id)
-        if pipeline_config_str and pipeline_config_str != "":
-            data = yaml.safe_load(pipeline_config_str.config)["data"]
-        else:
-            raise Exception("No configuration found in pipeline")
-    except Exception as e:
-        raise Exception(f"Not able to load pipeline : {extraction_pipeline_ext_id} configuration - {e}")
-
-    data["ExtractionPipelineExtId"] = extraction_pipeline_ext_id
-    return ContextConfig.load(data)
+    config = load_config_parameters(client, data)
+    contextualize_ts_and_asset(client, config)
+    return {"status": "succeeded", "data": data}
 
 
 def contextualize_ts_and_asset(cognite_client: CogniteClient, config: ContextConfig) -> None:
@@ -157,7 +67,7 @@ def contextualize_ts_and_asset(cognite_client: CogniteClient, config: ContextCon
         None
     """
 
-    logger.info("Initiating contextualization of Time Series and Assets")
+    print("INFO: Initiating contextualization of Time Series and Assets")
 
     len_good_matches = 0
     len_bad_matches = 0
@@ -167,42 +77,41 @@ def contextualize_ts_and_asset(cognite_client: CogniteClient, config: ContextCon
     if config.debug:
         numAsset = 10000
 
-    raw_uploader = RawUploadQueue(cdf_client=cognite_client, max_queue_size=500000, trigger_log_level="INFO")
+    raw_uploader = RawUploadQueue(cdf_client=cognite_client, max_queue_size=500_000, trigger_log_level="INFO")
 
     for asset_root_ext_id in config.asset_root_ext_ids:
         try:
-
-            logger.info(f"Reading manual mapping table from from db: {config.rawdb} table {config.raw_table_manual}")
+            print(f"INFO: Reading manual mapping table from from db: {config.rawdb} table {config.raw_table_manual}")
             manual_mappings = read_manual_mappings(cognite_client, config)
 
             # Start by applying manual mappings - NOTE manual mappings will write over existing mappings
-            logger.info("Applying manual mappings")
+            print("INFO: Applying manual mappings")
             apply_manual_mappings(cognite_client, config, raw_uploader, manual_mappings)
 
-            logger.info(
-                f"Read time series for contextualization data set: {config.time_series_data_set_ext_id}, asset root: {asset_root_ext_id} - read and process all = {config.run_all}"
+            print(
+                f"INFO: Read time series for contextualization data set: {config.time_series_data_set_ext_id}, asset root: {asset_root_ext_id} - read and process all = {config.run_all}"
             )
             ts_entities, ts_meta_dict = get_time_series(cognite_client, config, manual_mappings)
 
             # If there is any TS to be contextualized
             if len(ts_entities) > 0:
 
-                logger.info(f"Get assets based on asset_subtree_external_ids = {asset_root_ext_id}")
+                print(f"INFO: Get assets based on asset_subtree_external_ids = {asset_root_ext_id}")
                 asset_entities = get_assets(cognite_client, asset_root_ext_id, numAsset)
 
-                logger.info(f"Get and run ML model: {ML_MODEL_FEATURE_TYPE}, for matching and TS & Assets")
+                print(f"INFO: Get and run ML model: {ML_MODEL_FEATURE_TYPE}, for matching and TS & Assets")
                 mRes = get_matches(cognite_client, asset_entities, ts_entities)
 
-                logger.info("Select and apply matches")
+                print("INFO: Select and apply matches")
                 good_matches, bad_matches = select_and_apply_matches(cognite_client, config, mRes, ts_meta_dict)
 
-                logger.info("Write mapped and unmapped entities to RAW")
+                print("INFO: Write mapped and unmapped entities to RAW")
                 write_mapping_to_raw(cognite_client, config, raw_uploader, good_matches, bad_matches)
                 len_good_matches = len(good_matches)
                 len_bad_matches = len(bad_matches)
 
             msg = f"Contextualization of TS to asset root: {asset_root_ext_id}, num manual mappings: {len(manual_mappings)}, num TS contextualized: {len_good_matches}, num TS NOT contextualized : {len_bad_matches} (score below {config.match_threshold})"
-            logger.info(msg)
+            print(f"INFO: {msg}")
             cognite_client.extraction_pipelines.runs.create(
                 ExtractionPipelineRun(
                     extpipe_external_id=config.extraction_pipeline_ext_id,
@@ -211,9 +120,8 @@ def contextualize_ts_and_asset(cognite_client: CogniteClient, config: ContextCon
                 )
             )
 
-        except (CogniteAPIError, Exception) as e:
+        except Exception as e:
             msg = f"Contextualization of time series for root asset: {asset_root_ext_id} failed - Message: {e!s}"
-            logger.exception(msg)
             if len(msg) > 1000:
                 msg = msg[0:995] + "..."
             cognite_client.extraction_pipelines.runs.create(
@@ -264,10 +172,10 @@ def read_manual_mappings(cognite_client: CogniteClient, config: ContextConfig) -
 
                     manual_mappings.append(strip_value_rows)
 
-            logger.info(f"Number of manual mappings: {len(manual_mappings)}")
+            print(f"INFO: Number of manual mappings: {len(manual_mappings)}")
 
     except Exception as e:
-        logger.error(f"Read manual mappings. Error: {e}")
+        print(f"ERROR: Read manual mappings. Error: {e}")
 
     return manual_mappings
 
@@ -335,7 +243,7 @@ def apply_manual_mappings(
             raw_uploader.upload()
 
     except Exception as e:
-        logger.error(f"[FAILED] Applying manual mappings. Error: {e}")
+        print(f"ERROR: [FAILED] Applying manual mappings. Error: {e}")
 
 
 def get_asset_id_ext_id_mapping(cognite_client: CogniteClient, manual_mappings: list[Row]) -> dict[str, int]:
@@ -362,7 +270,7 @@ def get_asset_id_ext_id_mapping(cognite_client: CogniteClient, manual_mappings: 
         asset_ext_id_mapping = {asset.external_id: asset.id for asset in asset_list}
 
     except Exception as e:
-        logger.error(f"Not able read list of assets from {manual_mappings} - error: {e}")
+        print(f"ERROR: Not able read list of assets from {manual_mappings} - error: {e}")
 
     return asset_ext_id_mapping
 
@@ -392,7 +300,7 @@ def get_ts_list_manual_mapping(cognite_client: CogniteClient, manual_mappings: l
             )
 
     except Exception as e:
-        logger.error(f"Not able read list of time series from {manual_mappings} - error: {e}")
+        print(f"ERROR: Not able read list of time series from {manual_mappings} - error: {e}")
 
     return ts_list_manual_mapping
 
@@ -455,8 +363,8 @@ def get_time_series(
             cognite_client.time_series.update(meta_ts_update)
 
     except Exception as e:
-        logger.error(
-            f"Not able to get entities for time series in data set: {config.time_series_data_set_ext_id} with prefix: {config.time_series_prefix}- error: {e}"
+        print(
+            f"ERROR: Not able to get entities for time series in data set: {config.time_series_data_set_ext_id} with prefix: {config.time_series_prefix}- error: {e}"
         )
 
     return entities, ts_meta_dict
@@ -473,9 +381,8 @@ def get_ts_entities(ts: TimeSeries, entities: list[dict[str, Any]]) -> list[dict
     Returns:
         list of entities
     """
-
     if ts.name is None:
-        logger.warning(f"No name found for time series with external ID: {ts.external_id}, and metadata: {ts}")
+        print(f"WARNING: No name found for time series with external ID: {ts.external_id}, and metadata: {ts}")
         return entities
 
     # build list with possible file name variations used in P&ID to refer to other P&ID
@@ -541,7 +448,7 @@ def get_assets(cognite_client: CogniteClient, asset_root_ext_id: str, numAsset: 
                 )
 
     except Exception as e:
-        logger.error(f"Not able to get entities for asset extId root: {asset_root_ext_id} - error: {e}")
+        print(f"ERROR: Not able to get entities for asset extId root: {asset_root_ext_id} - error: {e}")
 
     return entities
 
@@ -570,13 +477,13 @@ def get_matches(
             feature_type="bigram-combo",
         )
 
-        logger.info("Run prediction based on model")
+        print("INFO: Run prediction based on model")
         job = model.predict(sources=match_from, targets=match_to, num_matches=1)
         matches = job.result
         return matches["items"]
 
     except Exception as e:
-        logger.error(f"Failed to get matching model and run prediction - error: {e}")
+        print(f"ERROR: Failed to get matching model and run prediction - error: {e}")
 
 
 def select_and_apply_matches(
@@ -612,8 +519,8 @@ def select_and_apply_matches(
                 bad_matches.append(add_to_dict(match))
                 continue
 
-        logger.info(f"Got {len(good_matches)} matches with score >= {config.match_threshold}")
-        logger.info(f"Got {len(bad_matches)} matches with score < {config.match_threshold}")
+        print(f"INFO: Got {len(good_matches)} matches with score >= {config.match_threshold}")
+        print(f"INFO: Got {len(bad_matches)} matches with score < {config.match_threshold}")
 
         # Update time series with matches
         for match in good_matches:
@@ -638,7 +545,7 @@ def select_and_apply_matches(
         return good_matches, bad_matches
 
     except Exception as e:
-        logger.error(f"Failed to parse results from entity matching - error: {e}")
+        print(f"ERROR: Failed to parse results from entity matching - error: {e}")
 
 
 def add_to_dict(match: dict[Any]) -> dict[Any]:
@@ -679,7 +586,7 @@ def add_to_dict(match: dict[Any]) -> dict[Any]:
         }
 
     except Exception as e:
-        logger.error(f"ERROR: Not able to parse return object: {match} - error: {e}")
+        print(f"ERROR: Not able to parse return object: {match} - error: {e}")
 
     return row
 
@@ -705,7 +612,7 @@ def write_mapping_to_raw(
         None
     """
 
-    logger.info(f"Clean up BAD table: {config.rawdb}/{config.raw_table_bad} before writing new status")
+    print(f"INFO: Clean up BAD table: {config.rawdb}/{config.raw_table_bad} before writing new status")
     try:
         cognite_client.raw.tables.delete(config.rawdb, [config.raw_table_bad])
     except Exception:
@@ -713,8 +620,8 @@ def write_mapping_to_raw(
 
     # if reset mapping, clean up good matches in table
     if config.run_all and not config.debug:
-        logger.info(
-            f"ResetMapping - Cleaning up GOOD table: {config.rawdb}/{config.raw_table_good} before writing new status"
+        print(
+            f"INFO: ResetMapping - Cleaning up GOOD table: {config.rawdb}/{config.raw_table_good} before writing new status"
         )
         try:
             cognite_client.raw.tables.delete(config.rawdb, [config.raw_table_good])
@@ -724,12 +631,12 @@ def write_mapping_to_raw(
     for match in good_matches:
         # Add to RAW upload queue
         raw_uploader.add_to_upload_queue(config.rawdb, config.raw_table_good, Row(match["ts_ext_id"], match))
-    logger.info(f"Added {len(good_matches)} to {config.rawdb}/{config.raw_table_good}")
+    print(f"INFO: Added {len(good_matches)} to {config.rawdb}/{config.raw_table_good}")
 
     for not_match in bad_matches:
         # Add to RAW upload queue
         raw_uploader.add_to_upload_queue(config.rawdb, config.raw_table_bad, Row(not_match["ts_ext_id"], not_match))
-    logger.info(f"Added {len(bad_matches)} to {config.rawdb}/{config.raw_table_bad}")
+    print(f"INFO: Added {len(bad_matches)} to {config.rawdb}/{config.raw_table_bad}")
 
     # Upload any remaining RAW cols in queue
     raw_uploader.upload()
