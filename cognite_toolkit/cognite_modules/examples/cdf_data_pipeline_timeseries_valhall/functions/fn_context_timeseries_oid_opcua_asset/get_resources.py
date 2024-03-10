@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite.client import CogniteClient
-from cognite.client.data_classes import ContextualizationJob, Row, TimeSeries, TimeSeriesUpdate
+from cognite.client.data_classes import Asset, ContextualizationJob, Row, TimeSeries, TimeSeriesUpdate
 
 sys.path.append(str(Path(__file__).parent))
 
@@ -16,6 +16,7 @@ from constants import (
     COL_KEY_MAN_MAPPING_ASSET_EXTID,
     COL_KEY_MAN_MAPPING_TS_EXTID,
     COL_MATCH_KEY,
+    ML_MODEL_FEATURE_TYPE,
     TS_CONTEXTUALIZED_METADATA_KEY,
 )
 
@@ -186,61 +187,53 @@ def get_ts_entities(ts: TimeSeries, entities: list[dict[str, Any]]) -> list[dict
 
     # build list with possible file name variations used in P&ID to refer to other P&ID
     split_name = re.split("[,._ \\-!?:]+", ts.name)
-    modName = ts.name[len(split_name[0]) + 1 :]  # remove prefix
-    modName = modName[: -(len(split_name[-1]) + 1)]  # remove postfix
+    mod_name = ts.name[len(split_name[0]) + 1 :]  # remove prefix
+    mod_name = mod_name[: -(len(split_name[-1]) + 1)]  # remove postfix
 
     # add entities for files used to match between file references in P&ID to other files
-    entities.append({"id": ts.id, "name": modName, "external_id": ts.external_id, "org_name": ts.name, "type": "ts"})
+    entities.append({"id": ts.id, "name": mod_name, "external_id": ts.external_id, "org_name": ts.name, "type": "ts"})
     return entities
 
 
-def get_assets(client: CogniteClient, asset_root_ext_id: str, numAsset: int) -> list[dict[str, Any]]:
+def tag_is_dummy(asset: Asset) -> bool:
+    custom_description = (asset.metadata or {}).get("Description", "")
+    return "DUMMY TAG" in custom_description.upper()
+
+
+def get_assets(client: CogniteClient, asset_root_ext_id: str, read_limit: int) -> list[dict[str, Any]]:
     """
     Get Asset used as input to contextualization and build list of entities
 
     Args:
         client: Instance of CogniteClient
         asset_root_ext_id: external root asset ID
-        numAsset : number of assets to read
+        read_limit : number of assets to read
 
     Returns:
         list of entities
     """
     entities: list[dict[str, Any]] = []
     try:
-        assets = client.assets.list(asset_subtree_external_ids=[asset_root_ext_id], limit=numAsset)
-
-        # clean up dummy tags and system numbers
+        assets = client.assets.list(asset_subtree_external_ids=[asset_root_ext_id], limit=read_limit)
         for asset in assets:
-            name = asset.name
-
-            # Exclude if Description in metadata contains "DUMMY TAG"
-            if (
-                asset.metadata is not None
-                and "Description" in asset.metadata
-                and "DUMMY TAG" in asset.metadata.get("Description", "").upper()
-            ):
+            if tag_is_dummy(asset):
                 continue
 
-            # Split name - and if a system number is used also add name without system number to list
+            # Do any manual updates changes to name to clean up and make it easier to match
+            name = asset.name
             split_name = re.split("[,._ \\-:]+", name)
-
-            # ignore if no value in name and if system asset names (01, 02, ...) and if at least 3 tokens in name
-            if name is not None and len(name) > 3 and len(split_name) >= 3:
-                # Do any manual updates changes to name to clean up and make it easier to match
-                modName = name
+            if len(name) > 3 and len(split_name) >= 3:
                 entities.append(
                     {
                         "id": asset.id,
-                        "name": modName,
+                        "name": name,
                         "external_id": asset.external_id,
                         "org_name": asset.name,
                         "type": "asset",
                     }
                 )
     except Exception as e:
-        print(f"ERROR: Not able to get entities for asset extId root: {asset_root_ext_id} - error: {e}")
-
+        print(f"ERROR: Not able to get entities for asset extId root: {asset_root_ext_id}. Error: {type(e)}({e})")
     return entities
 
 
@@ -263,12 +256,11 @@ def get_matches(
             sources=match_from,
             targets=match_to,
             match_fields=[(COL_MATCH_KEY, COL_MATCH_KEY)],
-            feature_type="bigram-combo",
+            feature_type=ML_MODEL_FEATURE_TYPE,
         )
-        print("INFO: Run prediction based on model")
         job = model.predict(sources=match_from, targets=match_to, num_matches=1)
-        matches = job.result
-        return matches["items"]
+        return job.result["items"]
 
     except Exception as e:
-        print(f"ERROR: Failed to get matching model and run prediction - error: {e}")
+        print(f"ERROR: Failed to get matching model and run prediction. Error: {type(e)}({e})")
+        raise
