@@ -38,13 +38,13 @@ class ContextConfig:
         )
 
 
-def load_config_parameters(cognite_client: CogniteClient, function_data: dict[str, Any]) -> ContextConfig:
+def load_config_parameters(client: CogniteClient, function_data: dict[str, Any]) -> ContextConfig:
     """
     Retrieves the configuration parameters from the function data and loads the configuration from CDF.
     Configuration is loaded from the extraction pipeline configuration and the function data.
 
     Args:
-        cognite_client: Instance of CogniteClient
+        client: Instance of CogniteClient
         function_data: dictionary containing the function input configuration data
 
     Returns:
@@ -55,7 +55,7 @@ def load_config_parameters(cognite_client: CogniteClient, function_data: dict[st
     except KeyError:
         raise ValueError("Missing parameter 'ExtractionPipelineExtId' in function data")
 
-    serialized_config = cognite_client.extraction_pipelines.config.retrieve(extraction_pipeline_ext_id)
+    serialized_config = client.extraction_pipelines.config.retrieve(extraction_pipeline_ext_id)
     if serialized_config:
         data = yaml.safe_load(serialized_config.config)["data"]
         data["ExtractionPipelineExtId"] = extraction_pipeline_ext_id
