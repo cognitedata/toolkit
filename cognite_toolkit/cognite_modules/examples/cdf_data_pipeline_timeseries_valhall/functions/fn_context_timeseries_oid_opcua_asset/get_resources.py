@@ -38,6 +38,7 @@ def read_manual_mappings(client: CogniteClient, config: ContextConfig) -> list[R
         list of manual mappings or empty list if no mappings are found
     """
     manual_mappings = []
+    added_mappings = []
     try:
         if not manual_table_exists(client, config):
             return manual_mappings
@@ -51,7 +52,16 @@ def read_manual_mappings(client: CogniteClient, config: ContextConfig) -> list[R
             ):
                 continue
 
-            manual_mappings.append({k.strip(): v.strip() if isinstance(v, str) else v for k, v in row.columns.items()})
+            # Make sure we don't add duplicate TS external IDs
+            if row.columns[COL_KEY_MAN_MAPPING_TS_EXTID].strip() not in added_mappings:
+                added_mappings.append(row.columns[COL_KEY_MAN_MAPPING_TS_EXTID].strip())
+                manual_mappings.append(
+                    {
+                        COL_KEY_MAN_MAPPING_TS_EXTID: row.columns[COL_KEY_MAN_MAPPING_TS_EXTID].strip(),
+                        COL_KEY_MAN_MAPPING_ASSET_EXTID: row.columns[COL_KEY_MAN_MAPPING_ASSET_EXTID].strip(),
+                    }
+                )
+
         print(f"INFO: Number of manual mappings: {len(manual_mappings)}")
 
     except Exception as e:
