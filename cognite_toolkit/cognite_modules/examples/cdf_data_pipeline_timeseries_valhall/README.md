@@ -95,7 +95,7 @@ This module manages the following resources:
        - manual tuning based on results from process - wrong mappings in good/bad table can be
          corrected by adding it to this table
 
-### Illustration of the files data pipeline
+### Illustration of the time series data pipeline
 
 ![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/5da18c06-8324-4f9f-a9e9-ce61e87e1a51)
 
@@ -107,7 +107,7 @@ The following variables are required and defined in this module:
 |----------|-------------|
 | location_name | The location for your data, name used in all resource type related to data pipeline. We use oid (Open Industrial Data) |
 | source_name | The name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..|
-| timeseries_dataset | The name of data set used for files in this example, must correspond to name used in example data|
+| timeseries_dataset | The name of data set used for time series in this example, must correspond to name used in example data|
 | opcua_endpoint_url |  endpoint for OPC-UA server, simulator example: `opc.tcp://<host>:53530/OPCUA/SimulationServer`|
 | opcua_id_prefix |  prefix used for time series external ID, ex: `opc-ua:`|
 | opcua_root_namespace_uri |  Namespace URI, simulator example : `http://www.prosysopc.com/OPCUA/SimulationNodes/`|
