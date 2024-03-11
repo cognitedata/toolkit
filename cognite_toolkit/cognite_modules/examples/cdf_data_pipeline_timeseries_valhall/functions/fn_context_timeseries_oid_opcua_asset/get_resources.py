@@ -38,7 +38,7 @@ def read_manual_mappings(client: CogniteClient, config: ContextConfig) -> list[R
         list of manual mappings or empty list if no mappings are found
     """
     manual_mappings = []
-    added_mappings = []
+    seen_mappings = set()
     try:
         if not manual_table_exists(client, config):
             return manual_mappings
@@ -53,11 +53,12 @@ def read_manual_mappings(client: CogniteClient, config: ContextConfig) -> list[R
                 continue
 
             # Make sure we don't add duplicate TS external IDs
-            if row.columns[COL_KEY_MAN_MAPPING_TS_EXTID].strip() not in added_mappings:
-                added_mappings.append(row.columns[COL_KEY_MAN_MAPPING_TS_EXTID].strip())
+            ts_xid = row.columns[COL_KEY_MAN_MAPPING_TS_EXTID].strip()
+            if ts_xid not in seen_mappings:
+                seen_mappings.add(ts_xid)
                 manual_mappings.append(
                     {
-                        COL_KEY_MAN_MAPPING_TS_EXTID: row.columns[COL_KEY_MAN_MAPPING_TS_EXTID].strip(),
+                        COL_KEY_MAN_MAPPING_TS_EXTID: ts_xid,
                         COL_KEY_MAN_MAPPING_ASSET_EXTID: row.columns[COL_KEY_MAN_MAPPING_ASSET_EXTID].strip(),
                     }
                 )
