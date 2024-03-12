@@ -321,11 +321,13 @@ class ApprovalCogniteClient:
                     args.remove(arg)
                     dataframe_hash = int(
                         hashlib.sha256(
-                            pd.util.hash_pandas_object(arg, index=False, encoding="utf-8").values
+                            pd.util.hash_pandas_object(
+                                arg.sort_index().sort_index(axis=1), index=False, encoding="utf-8"
+                            ).values
                         ).hexdigest(),
                         16,
                     )
-                    dataframe_cols = list(arg.columns)
+                    dataframe_cols = sorted(arg.columns)
                     break
 
             for key in list(kwargs):
@@ -333,11 +335,13 @@ class ApprovalCogniteClient:
                     value = kwargs.pop(key)
                     dataframe_hash = int(
                         hashlib.sha256(
-                            pd.util.hash_pandas_object(value, index=False, encoding="utf-8").values
+                            pd.util.hash_pandas_object(
+                                value.sort_index().sort_index(axis=1), index=False, encoding="utf-8"
+                            ).values
                         ).hexdigest(),
                         16,
                     )
-                    dataframe_cols = list(value.columns)
+                    dataframe_cols = sorted(value.columns)
                     break
             if not dataframe_hash:
                 raise ValueError("No dataframe found in arguments")

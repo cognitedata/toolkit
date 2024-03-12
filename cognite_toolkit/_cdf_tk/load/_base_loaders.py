@@ -87,7 +87,7 @@ class Loader(ABC):
             dir_or_file (Path): The directory or file to search in.
 
         Returns:
-            list[Path]: A list of all files that are supported by this loader.
+            list[Path]: A sorted list of all files that are supported by this loader.
 
         """
         if dir_or_file.is_file():
@@ -107,7 +107,7 @@ class Loader(ABC):
             if cls.exclude_filetypes:
                 file_paths = (file for file in file_paths if file.suffix[1:] not in cls.exclude_filetypes)
 
-            return list(file_paths)
+            return sorted(list(file_paths))
         else:
             return []
 
