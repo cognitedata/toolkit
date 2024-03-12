@@ -60,6 +60,7 @@ def test_deploy_module_approval(
     typer_context: typer.Context,
     init_project: Path,
     data_regression,
+    freezer,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
