@@ -289,11 +289,11 @@ Group:
 Row:
 - args: []
   columns:
-  - key
   - assetExternalId
-  - timeSeriesExternalId
   - contextualized
-  dataframe: 43187373043409076032308215777802073901295205776792517882013585533477256342173
+  - key
+  - timeSeriesExternalId
+  dataframe: 9078343689182423651389940353470843953491326160899249126411759952436401285960
   kwargs:
     db_name: timeseries_oid_opcua
     ensure_parent: false
