@@ -14,6 +14,7 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     Annotation,
     AnnotationFilter,
+    Asset,
     ExtractionPipelineRun,
     FileMetadata,
     FileMetadataList,
@@ -276,7 +277,7 @@ def append_asset_entities(entities: list[Entity], client: CogniteClient, asset_r
             )
 
 
-def tag_is_dummy(asset):
+def tag_is_dummy(asset: Asset) -> bool:
     custom_description = (asset.metadata or {}).get("Description", "")
     return "DUMMY TAG" in custom_description.upper()
 

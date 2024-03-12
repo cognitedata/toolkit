@@ -1,5 +1,10 @@
-Checking current service principal/application and environment configurations...
-  OK
+Checking current service principal/application and environment
+configurations...
+  WARNING: CDF_URL is set to https://greenfield.cognitedata.com, are you sure
+it shouldn't be https://bluefield.cognitedata.com?
+  WARNING: IDP_SCOPES is set to https://greenfield.cognitedata.com/.default,
+are you sure it shouldn't be https://bluefield.cognitedata.com/.default?
+
 Checking basic project configuration...
   OK
 Checking projects that the service principal/application has access to...
@@ -15,9 +20,9 @@ identity provider: ['groups', 'roles']
 Checking CDF group memberships for the current client configured...
 CDF Group ids, Names, and Source
               Ids
-┏━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┓
-┃ Id   ┃ Name      ┃ Source Id ┃
-┡━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━┩
+┌──────┬───────────┬───────────┐
+│ Id   │ Name      │ Source Id │
+├──────┼───────────┼───────────┤
 │ None │ gp_test   │ source-id │
 │ None │ 2nd group │ source-id │
 └──────┴───────────┴───────────┘

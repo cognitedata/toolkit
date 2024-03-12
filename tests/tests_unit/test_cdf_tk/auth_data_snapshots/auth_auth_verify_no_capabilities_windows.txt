@@ -1,5 +1,10 @@
-Checking current service principal/application and environment configurations...
-  OK
+Checking current service principal/application and environment
+configurations...
+  WARNING: CDF_URL is set to https://greenfield.cognitedata.com, are you sure
+it shouldn't be https://bluefield.cognitedata.com?
+  WARNING: IDP_SCOPES is set to https://greenfield.cognitedata.com/.default,
+are you sure it shouldn't be https://bluefield.cognitedata.com/.default?
+
 Checking basic project configuration...
   OK
 Checking projects that the service principal/application has access to...
@@ -7,8 +12,8 @@ Checking projects that the service principal/application has access to...
 Focusing on current project pytest-project only from here on.
 Checking basic project and group manipulation access rights (projectsAcl: LIST,
 READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)...
-  WARNING: The service principal/application configured for this client does not
-have the basic group write access rights.
+  WARNING: The service principal/application configured for this client does
+not have the basic group write access rights.
 Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl:
 LIST, READ)...
     ERROR: Unable to continue, the service principal/application configured for
