@@ -425,6 +425,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             functions = [functions]
 
         for func in functions:
+            if func.get("externalId") is None:
+                continue
             if self.extra_configs.get(func["externalId"]) is None:
                 self.extra_configs[func["externalId"]] = {}
             if func.get("externalDataSetId") is not None:

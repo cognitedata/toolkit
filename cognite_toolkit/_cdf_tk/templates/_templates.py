@@ -79,7 +79,7 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
     """
     if parsed is None or filepath_src is None or filepath_build is None:
         return False
-    resource_type = filepath_src.parent.name
+    resource_type = resource_folder_from_path(filepath_src)
     ext_id = None
     if resource_type == "data_models" and ".space." in filepath_src.name:
         if isinstance(parsed, list):
@@ -470,6 +470,10 @@ def process_config_files(
                     and filepath.suffix.lower() == ".yaml"
                     and re.match(FunctionLoader.filename_pattern, filepath.stem)
                 ):
+                    # We don't want to process yml files in sub-folders of a functions folder as these belong
+                    # to the function code
+                    if filepath.parent.name != "functions":
+                        continue
                     if not printed_function_warning and sys.version_info >= (3, 12):
                         print(
                             "      [bold yellow]WARNING:[/] The functions API does not support Python 3.12. "
