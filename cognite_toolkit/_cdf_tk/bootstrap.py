@@ -210,10 +210,11 @@ def check_auth(
         print(auth_vars.info)
         ToolGlobals.failed = True
         return None
-    if auth_vars.warning:
+    elif auth_vars.warning:
         print(auth_vars.info)
     else:
         print("  [bold green]OK[/]")
+    ToolGlobals.reinitialize_from_auth_variables(auth_vars)
     print("Checking basic project configuration...")
     try:
         # Using the token/inspect endpoint to check if the client has access to the project.
