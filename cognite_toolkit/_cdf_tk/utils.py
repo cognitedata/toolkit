@@ -218,13 +218,11 @@ class CDFToolConfig:
                 self._scopes = [auth.scopes]
             if auth.audience:
                 self._audience = auth.audience
-            if auth.token_url is None or auth.client_id is None or auth.client_secret is None:
-                raise ValueError("Missing required OAuth2 client credentials.")
 
             self.oauth_credentials = OAuthClientCredentials(
-                token_url=auth.token_url,
-                client_id=auth.client_id,
-                client_secret=auth.client_secret,
+                token_url=auth.token_url or self.oauth_credentials.token_url,
+                client_id=auth.client_id or self.oauth_credentials.client_id,
+                client_secret=auth.client_secret or self.oauth_credentials.client_secret,
                 scopes=self._scopes,
                 audience=self._audience,
             )
