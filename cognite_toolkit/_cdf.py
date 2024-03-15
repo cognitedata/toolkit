@@ -621,7 +621,7 @@ def auth_verify(
     As a minimum, you need the CDF project name, the CDF cluster, an identity provider token URL, and a service account client ID
     and client secret (or an OAuth2 token set in CDF_TOKEN environment variable).
 
-    Needed capabilites for bootstrapping:
+    Needed capabilities for bootstrapping:
     "projectsAcl": ["LIST", "READ"],
     "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
 

@@ -17,6 +17,12 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Fixed
+
+- Running the command `cdf-tk auth verify --interactive` without a `.env` would raise a
+  `AttributeError: 'CDFToolConfig' object has no attribute '_client'` error. This is now fixed and instead the user
+  gets a guided experience to set up the `.env` file.
+
 ### Changed
 
 - `cognite-toolkit` have moved the upper bound on the `cognite-sdk` dependency from `7.27` to `8.0`.
