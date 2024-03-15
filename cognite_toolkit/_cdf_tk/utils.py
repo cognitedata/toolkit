@@ -53,6 +53,24 @@ from cognite_toolkit._version import __version__
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class AuthVariables:
+    cluster: str | None
+    project: str | None
+    token: str | None
+    client_id: str | None
+    client_secret: str | None
+    cdf_url: str | None = None
+    token_url: str | None = None
+    tenant_id: str | None = None
+    audience: str | None = None
+    scopes: str | None = None
+    ok: bool = False
+    info: str = ""
+    error: bool = False
+    warning: bool = False
+
+
 class CDFToolConfig:
     """Configurations for how to store data in CDF
 

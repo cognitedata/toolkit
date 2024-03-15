@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -28,25 +27,7 @@ from rich.markup import escape
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from .utils import CDFToolConfig
-
-
-@dataclass
-class AuthVariables:
-    cluster: str | None
-    project: str | None
-    token: str | None
-    client_id: str | None
-    client_secret: str | None
-    cdf_url: str | None = None
-    token_url: str | None = None
-    tenant_id: str | None = None
-    audience: str | None = None
-    scopes: str | None = None
-    ok: bool = False
-    info: str = ""
-    error: bool = False
-    warning: bool = False
+from .utils import AuthVariables, CDFToolConfig
 
 
 def get_auth_variables(interactive: bool = False, verbose: bool = False) -> AuthVariables:
