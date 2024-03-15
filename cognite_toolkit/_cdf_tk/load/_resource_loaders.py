@@ -1470,11 +1470,6 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
                 [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
                 DataModelsAcl.Scope.All(),
             ),
-            # Needed to delete instances
-            DataModelInstancesAcl(
-                [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
-                DataModelInstancesAcl.Scope.All(),
-            ),
         ]
 
     @classmethod
