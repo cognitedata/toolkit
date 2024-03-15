@@ -71,25 +71,39 @@ class CDFToolConfig:
         self._environ: dict[str, str | None] = {}
         self._data_set_id_by_external_id: dict[str, int] = {}
         self._existing_spaces: set[str] = set()
+        # ClientName is used for logging usage of the CDF-Toolkit.
+        self._client_name = f"CDF-Toolkit:{__version__}"
+        self._cluster: str | None = cluster
+        self._project: str | None = project
+        self._cdf_url: str | None = None
+        self._scopes: list[str] = []
+        self._audience: str | None = None
+        self._client: CogniteClient | None = None
+
         self.oauth_credentials = OAuthClientCredentials(
             token_url="",
             client_id="",
             client_secret="",
             scopes=[],
         )
-        # ClientName is used for logging usage of the CDF-Toolkit.
-        client_name = f"CDF-Toolkit:{__version__}"
+        self._initialize_from_environment_variables(cluster=cluster, project=project, token=token)
 
+    def _initialize_from_environment_variables(
+        self, cluster: str | None = None, project: str | None = None, token: str | None = None
+    ) -> None:
         # CDF_CLUSTER and CDF_PROJECT are minimum requirements and can be overridden
-        # when instansiating the class.
+        # when instantiating the class.
         if cluster is not None and len(cluster) > 0:
             self._cluster = cluster
             self._environ["CDF_CLUSTER"] = cluster
+
         if project is not None and len(project) > 0:
             self._project = project
             self._environ["CDF_PROJECT"] = project
+
         if token is not None:
             self._environ["CDF_TOKEN"] = token
+
         if (
             self.environ("CDF_URL", default=None, fail=False) is None
             and self.environ("CDF_CLUSTER", default=None, fail=False) is None
@@ -100,7 +114,9 @@ class CDFToolConfig:
                 self._client = CogniteClient()
             except Exception:
                 print(
-                    "[bold yellow]WARNING[/] Not able to successfully configure a Cognite client. Requirements: CDF_CLUSTER and CDF_PROJECT environment variables or CDF_TOKEN to a valid OAuth2 token."
+                    "[bold yellow]WARNING[/] Not able to successfully configure a Cognite client from "
+                    "environment variables. Requirements: CDF_CLUSTER and CDF_PROJECT environment variables or "
+                    "CDF_TOKEN to a valid OAuth2 token."
                 )
             else:
                 self._cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
@@ -119,7 +135,7 @@ class CDFToolConfig:
         if self.environ("CDF_TOKEN", default=None, fail=False) is not None or token is not None:
             self._client = CogniteClient(
                 ClientConfig(
-                    client_name=client_name,
+                    client_name=self._client_name,
                     base_url=self._cdf_url,
                     project=self._project,
                     credentials=Token(token or self.environ("CDF_TOKEN")),
@@ -131,7 +147,7 @@ class CDFToolConfig:
             # We can infer scopes and audience from the cluster value.
             # However, the URL to use to retrieve the token, as well as
             # the client id and secret, must be set as environment variables.
-            self._scopes: list[str] = [
+            self._scopes = [
                 self.environ(
                     "IDP_SCOPES",
                     f"https://{self._cluster}.cognitedata.com/.default",
@@ -149,7 +165,7 @@ class CDFToolConfig:
             global_config.disable_pypi_version_check = True
             self._client = CogniteClient(
                 ClientConfig(
-                    client_name=client_name,
+                    client_name=self._client_name,
                     base_url=self._cdf_url,
                     project=self._project,
                     credentials=self.oauth_credentials,
@@ -199,10 +215,14 @@ class CDFToolConfig:
 
     @property
     def client(self) -> CogniteClient:
+        if self._client is None:
+            raise ValueError("Client is not initialized.")
         return self._client
 
     @property
     def project(self) -> str:
+        if self._project is None:
+            raise ValueError("Project is not initialized.")
         return self._project
 
     @property
@@ -324,13 +344,13 @@ class CDFToolConfig:
         if len(comp) > 0:
             print(f"Missing necessary CDF access capabilities: {comp}")
             raise CogniteAuthError("Don't have correct access rights.")
-        return self._client
+        return self.client
 
     def verify_capabilities(self, capability: Capability | Sequence[Capability]) -> CogniteClient:
-        missing_capabilities = self._client.iam.verify_capabilities(capability)
+        missing_capabilities = self.client.iam.verify_capabilities(capability)
         if len(missing_capabilities) > 0:
             raise CogniteAuthError(f"Missing capabilities: {missing_capabilities}")
-        return self._client
+        return self.client
 
     def verify_dataset(self, data_set_external_id: str, skip_validation: bool = False) -> int:
         """Verify that the configured data set exists and is accessible
