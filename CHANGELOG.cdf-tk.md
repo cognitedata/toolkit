@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Running the command `cdf-tk auth verify --interactive` without a `.env` would raise a
+  `AttributeError: 'CDFToolConfig' object has no attribute '_client'` error. This is now fixed and instead the user
+  gets a guided experience to set up the `.env` file.
+
 ## [0.1.1] - 2024-03-01
 
 ### Fixed
