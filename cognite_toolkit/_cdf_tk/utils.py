@@ -190,6 +190,53 @@ class CDFToolConfig:
                 )
             )
 
+    def reinitialize_from_auth_variables(self, auth: AuthVariables) -> None:
+        if auth.cluster:
+            self._cluster = auth.cluster
+            self._environ["CDF_CLUSTER"] = auth.cluster
+        if auth.project:
+            self._project = auth.project
+            self._environ["CDF_PROJECT"] = auth.project
+        if auth.cdf_url:
+            self._cdf_url = auth.cdf_url
+
+        if self._project is None:
+            raise ValueError("Project must be set to initialize a CogniteClient")
+
+        if auth.token:
+            self._environ["CDF_TOKEN"] = auth.token
+            self._client = CogniteClient(
+                ClientConfig(
+                    client_name=self._client_name,
+                    base_url=self._cdf_url,
+                    project=self._project,
+                    credentials=Token(auth.token),
+                )
+            )
+        else:
+            if auth.scopes:
+                self._scopes = [auth.scopes]
+            if auth.audience:
+                self._audience = auth.audience
+            if auth.token_url is None or auth.client_id is None or auth.client_secret is None:
+                raise ValueError("Missing required OAuth2 client credentials.")
+
+            self.oauth_credentials = OAuthClientCredentials(
+                token_url=auth.token_url,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                scopes=self._scopes,
+                audience=self._audience,
+            )
+            self._client = CogniteClient(
+                ClientConfig(
+                    client_name=self._client_name,
+                    base_url=self._cdf_url,
+                    project=self._project,
+                    credentials=self.oauth_credentials,
+                )
+            )
+
     @classmethod
     def from_context(cls, ctx: typer.Context) -> CDFToolConfig:
         if ctx.obj.mockToolGlobals is not None:
