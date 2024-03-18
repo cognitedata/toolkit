@@ -26,6 +26,7 @@ Changes are grouped as follows:
 ### Changed
 
 - `cognite-toolkit` have moved the upper bound on the `cognite-sdk` dependency from `7.27` to `8.0`.
+- Creating/Removing `spaces` no longer requires `DataModelingInstances` capability.
 
 ## [0.1.1] - 2024-03-01
 
