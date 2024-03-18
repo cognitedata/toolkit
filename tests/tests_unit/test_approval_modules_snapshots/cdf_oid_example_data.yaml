@@ -296,10 +296,7 @@ TimeSeries:
     compmax: '3600'
     compmin: '0'
     compressing: '0'
-    contextAgent: PI contextualization pipeline
-    contextAlgorithm: Exact match
     contextClass: VAL
-    contextConfidenceScore: '1'
     contextMatchString: 23-PDT-92602
     convers: '1'
     descriptor: PH 1st Stg Disch Gas Coolers
@@ -355,10 +352,7 @@ TimeSeries:
     compmax: '3600'
     compmin: '0'
     compressing: '0'
-    contextAgent: PI contextualization pipeline
-    contextAlgorithm: Exact match
     contextClass: VAL
-    contextConfidenceScore: '1'
     contextMatchString: 23-PT-92504
     convers: '1'
     descriptor: PH 1stStgSuctCool Gas Out
@@ -414,10 +408,7 @@ TimeSeries:
     compmax: '3600'
     compmin: '0'
     compressing: '0'
-    contextAgent: PI contextualization pipeline
-    contextAlgorithm: Exact match
     contextClass: VAL
-    contextConfidenceScore: '1'
     contextMatchString: 23-PT-92536
     convers: '1'
     descriptor: PH 1stStgComp Discharge
@@ -474,10 +465,7 @@ TimeSeries:
     compmax: '3600'
     compmin: '0'
     compressing: '0'
-    contextAgent: PI contextualization pipeline
-    contextAlgorithm: Exact match
     contextClass: VAL
-    contextConfidenceScore: '1'
     contextMatchString: 23-TIC-92504
     convers: '1'
     descriptor: PH 1stStgSuctCool Gas Out Measured Value
@@ -534,10 +522,7 @@ TimeSeries:
     compmax: '3600'
     compmin: '0'
     compressing: '0'
-    contextAgent: PI contextualization pipeline
-    contextAlgorithm: Exact match
     contextClass: VAL
-    contextConfidenceScore: '1'
     contextMatchString: 45-PT-92608
     convers: '1'
     descriptor: PH 1stStgDiscCool CM Out
@@ -593,10 +578,7 @@ TimeSeries:
     compmax: '3600'
     compmin: '0'
     compressing: '0'
-    contextAgent: PI contextualization pipeline
-    contextAlgorithm: Exact match
     contextClass: VAL
-    contextConfidenceScore: '1'
     contextMatchString: 45-TT-92606
     convers: '1'
     descriptor: PH 1stStgDiscClr CoolMed Sply
@@ -652,10 +634,7 @@ TimeSeries:
     compmax: '3600'
     compmin: '0'
     compressing: '0'
-    contextAgent: PI contextualization pipeline
-    contextAlgorithm: Exact match
     contextClass: VAL
-    contextConfidenceScore: '1'
     contextMatchString: 23-TT-92604A
     convers: '1'
     descriptor: PH 1stStgDiscCool Gas Out Output
