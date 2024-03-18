@@ -22,7 +22,6 @@
     excdev: '0'
     userreal2: '0'
     userreal1: '0'
-    contextAlgorithm: Exact match
     totalcode: '0'
     ptclassname: classic
     typicalvalue: '50'
@@ -46,9 +45,7 @@
     squareroot: '0'
     sourcetag: ''
     excmin: '0'
-    contextConfidenceScore: '1'
     exdesc: ''
-    contextAgent: PI contextualization pipeline
     future: '0'
     excmax: '0'
     step: '0'
@@ -80,7 +77,6 @@
     excdev: '0'
     userreal2: '0'
     userreal1: '0'
-    contextAlgorithm: Exact match
     totalcode: '0'
     ptclassname: classic
     typicalvalue: '50'
@@ -104,9 +100,7 @@
     squareroot: '0'
     sourcetag: ''
     excmin: '0'
-    contextConfidenceScore: '1'
     exdesc: ''
-    contextAgent: PI contextualization pipeline
     future: '0'
     excmax: '0'
     step: '0'
@@ -139,7 +133,6 @@
     excdev: '0'
     userreal2: '0'
     userreal1: '0'
-    contextAlgorithm: Exact match
     totalcode: '0'
     ptclassname: classic
     typicalvalue: '50'
@@ -163,9 +156,7 @@
     squareroot: '0'
     sourcetag: ''
     excmin: '0'
-    contextConfidenceScore: '1'
     exdesc: ''
-    contextAgent: PI contextualization pipeline
     future: '0'
     excmax: '0'
     step: '0'
@@ -197,7 +188,6 @@
     excdev: '0'
     userreal2: '0'
     userreal1: '0'
-    contextAlgorithm: Exact match
     totalcode: '0'
     ptclassname: classic
     typicalvalue: '50'
@@ -221,9 +211,7 @@
     squareroot: '0'
     sourcetag: ''
     excmin: '0'
-    contextConfidenceScore: '1'
     exdesc: ''
-    contextAgent: PI contextualization pipeline
     future: '0'
     excmax: '0'
     step: '0'
@@ -255,7 +243,6 @@
     excdev: '0'
     userreal2: '0'
     userreal1: '0'
-    contextAlgorithm: Exact match
     totalcode: '0'
     ptclassname: classic
     typicalvalue: '50'
@@ -279,9 +266,7 @@
     squareroot: '0'
     sourcetag: ''
     excmin: '0'
-    contextConfidenceScore: '1'
     exdesc: ''
-    contextAgent: PI contextualization pipeline
     future: '0'
     excmax: '0'
     step: '0'
@@ -313,7 +298,6 @@
     excdev: '0'
     userreal2: '0'
     userreal1: '0'
-    contextAlgorithm: Exact match
     totalcode: '0'
     ptclassname: classic
     typicalvalue: '50'
@@ -337,9 +321,7 @@
     squareroot: '0'
     sourcetag: ''
     excmin: '0'
-    contextConfidenceScore: '1'
     exdesc: ''
-    contextAgent: PI contextualization pipeline
     future: '0'
     excmax: '0'
     step: '0'
@@ -372,7 +354,6 @@
     excdev: '0'
     userreal2: '0'
     userreal1: '0'
-    contextAlgorithm: Exact match
     totalcode: '0'
     ptclassname: classic
     typicalvalue: '50'
@@ -396,9 +377,7 @@
     squareroot: '0'
     sourcetag: ''
     excmin: '0'
-    contextConfidenceScore: '1'
     exdesc: ''
-    contextAgent: PI contextualization pipeline
     future: '0'
     excmax: '0'
     step: '0'

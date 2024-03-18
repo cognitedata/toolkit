@@ -50,14 +50,14 @@ class TestModulesAPI:
 
         cognite_toolkit.modules.deploy(module)
 
-        dumped = cognite_client_approval.dump(sort=False)
+        dumped = cognite_client_approval.dump(sort=True)
         groups = dumped["Group"]
 
         assert len(groups) == 2
-        assert groups[0]["name"] == "gp_admin_readonly"
-        assert groups[0]["sourceId"] == "456"
-        assert groups[1]["name"] == "gp_admin_read_write"
-        assert groups[1]["sourceId"] == "123"
+        assert groups[0]["name"] == "gp_admin_read_write"
+        assert groups[0]["sourceId"] == "123"
+        assert groups[1]["name"] == "gp_admin_readonly"
+        assert groups[1]["sourceId"] == "456"
 
     def test_deploy_module_only_auth(
         # THE CDFToolConfig fixture is used as it sets the necessary environment variables
