@@ -913,11 +913,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         return TimeSeriesAcl(
             [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
-            (
-                TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
-                if ToolGlobals.data_set_id
-                else TimeSeriesAcl.Scope.All()
-            ),
+            TimeSeriesAcl.Scope.All(),
         )
 
     @classmethod
@@ -993,11 +989,7 @@ class TransformationLoader(
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope: capabilities.AllScope | capabilities.DataSetScope = (
-            TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id])
-            if ToolGlobals.data_set_id
-            else TransformationsAcl.Scope.All()
-        )
+        scope: capabilities.AllScope | capabilities.DataSetScope = TransformationsAcl.Scope.All()
         return TransformationsAcl(
             [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
             scope,
@@ -1105,11 +1097,7 @@ class TransformationScheduleLoader(
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope: capabilities.AllScope | capabilities.DataSetScope = (
-            TransformationsAcl.Scope.DataSet([ToolGlobals.data_set_id])
-            if ToolGlobals.data_set_id
-            else TransformationsAcl.Scope.All()
-        )
+        scope: capabilities.AllScope | capabilities.DataSetScope = TransformationsAcl.Scope.All()
         return TransformationsAcl(
             [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
             scope,
@@ -1342,10 +1330,7 @@ class FileMetadataLoader(
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         scope: capabilities.AllScope | capabilities.DataSetScope
-        if ToolGlobals.data_set_id is None:
-            scope = FilesAcl.Scope.All()
-        else:
-            scope = FilesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+        scope = FilesAcl.Scope.All()
 
         return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)
 
