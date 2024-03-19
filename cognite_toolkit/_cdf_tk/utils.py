@@ -82,13 +82,18 @@ class CDFToolConfig:
 
     """
 
+    @dataclass
+    class _Cache:
+        existing_spaces: set[str] = field(default_factory=set)
+        data_set_id_by_external_id: dict[str, int] = field(default_factory=dict)
+
     def __init__(self, token: str | None = None, cluster: str | None = None, project: str | None = None) -> None:
+        self._cache = self._Cache()
         self._data_set_id: int = 0
         self._data_set: str | None = None
         self._failed = False
         self._environ: dict[str, str | None] = {}
-        self._data_set_id_by_external_id: dict[str, int] = {}
-        self._existing_spaces: set[str] = set()
+
         # ClientName is used for logging usage of the CDF-Toolkit.
         self._client_name = f"CDF-Toolkit:{__version__}"
         self._cluster: str | None = cluster
@@ -427,8 +432,8 @@ class CDFToolConfig:
             data_set_id (int)
             Re-raises underlying SDK exception
         """
-        if data_set_external_id in self._data_set_id_by_external_id:
-            return self._data_set_id_by_external_id[data_set_external_id]
+        if data_set_external_id in self._cache.data_set_id_by_external_id:
+            return self._cache.data_set_id_by_external_id[data_set_external_id]
 
         if not skip_validation:
             self.verify_client(capabilities={"datasetsAcl": ["READ"]})
@@ -443,7 +448,7 @@ class CDFToolConfig:
                 return -1
             raise e
         if data_set is not None and data_set.id is not None:
-            self._data_set_id_by_external_id[data_set_external_id] = data_set.id
+            self._cache.data_set_id_by_external_id[data_set_external_id] = data_set.id
             return data_set.id
         if skip_validation:
             return -1
@@ -500,7 +505,7 @@ class CDFToolConfig:
         else:
             spaces = space
 
-        if all([s in self._existing_spaces for s in spaces]):
+        if all([s in self._cache.existing_spaces for s in spaces]):
             return spaces
 
         self.verify_client(capabilities={"dataModelsAcl": ["READ"]})
@@ -513,7 +518,7 @@ class CDFToolConfig:
             raise ValueError(
                 f"Space {missing} does not exist, you need to create it first. Do this by adding a config file to the data model folder."
             )
-        self._existing_spaces.update([space.space for space in existing])
+        self._cache.existing_spaces.update([space.space for space in existing])
         return [space.space for space in existing]
 
 
