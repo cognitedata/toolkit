@@ -31,7 +31,7 @@ from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesVie
 from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, TypeAlias, TypeVar, get_args, get_origin, overload
+from typing import Any, ClassVar, Generic, Literal, TypeVar, get_args, get_origin, overload
 
 import typer
 import yaml
@@ -51,6 +51,11 @@ from rich.prompt import Confirm, Prompt
 from cognite_toolkit._cdf_tk._get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._version import __version__
+
+if sys.version_info < (3, 10):
+    from typing_extensions import TypeAlias
+else:
+    from typing import TypeAlias
 
 logger = logging.getLogger(__name__)
 
