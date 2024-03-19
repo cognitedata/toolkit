@@ -205,12 +205,16 @@ class CDFToolConfig:
                 )
             )
         else:
+            if not (auth.token_url and auth.client_id and auth.client_secret):
+                print(
+                    "  [bold yellow]Warning[/] Missing required authentication variables. Cannot reinitialize client."
+                )
+                return
+
             if auth.scopes:
                 self._scopes = [auth.scopes]
             if auth.audience:
                 self._audience = auth.audience
-            if not (auth.token_url and auth.client_id and auth.client_secret):
-                raise ValueError("Token URL, client id, and client secret must be set to initialize a CogniteClient")
             oauth_credentials = OAuthClientCredentials(
                 token_url=auth.token_url,
                 client_id=auth.client_id,
