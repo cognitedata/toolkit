@@ -237,7 +237,7 @@ class AuthReaderValidation:
     def __init__(self, auth_vars: AuthVariables, verbose: bool, skip_prompt: bool = False):
         self._auth_vars = auth_vars
         self.status: Literal["ok", "error", "warning"] = "ok"
-        self.messages: list[str] = field(default_factory=list)
+        self.messages: list[str] = []
         self.verbose = verbose
         self.skip_prompt = skip_prompt
 
