@@ -48,6 +48,7 @@ from cognite.client.utils._text import to_camel_case, to_snake_case
 from rich import print
 
 from cognite_toolkit._cdf_tk._get_type_hints import _TypeHints
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._version import __version__
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,7 @@ class CDFToolConfig:
 
         # ClientName is used for logging usage of the CDF-Toolkit.
         self._client_name = f"CDF-Toolkit:{__version__}"
+
         self._cluster: str | None = cluster
         self._project: str | None = project
         self._cdf_url: str | None = None
@@ -101,13 +103,28 @@ class CDFToolConfig:
         self._audience: str | None = None
         self._client: CogniteClient | None = None
 
+        if _RUNNING_IN_BROWSER:
+            self._initialize_in_browser()
+            return
+
         self.oauth_credentials = OAuthClientCredentials(
             token_url="",
             client_id="",
             client_secret="",
             scopes=[],
         )
+
         self._initialize_from_environment_variables(cluster=cluster, project=project, token=token)
+
+    def _initialize_in_browser(self) -> None:
+        try:
+            self._client = CogniteClient()
+        except Exception as e:
+            print(f"[bold red]Error[/] Failed to initialize CogniteClient in browser: {e}")
+        else:
+            self._cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
+            self._project = self._client.config.project
+            self._cdf_url = self._client.config.base_url
 
     def _initialize_from_environment_variables(
         self, cluster: str | None = None, project: str | None = None, token: str | None = None
@@ -124,26 +141,6 @@ class CDFToolConfig:
 
         if token is not None:
             self._environ["CDF_TOKEN"] = token
-
-        if (
-            self.environ("CDF_URL", default=None, fail=False) is None
-            and self.environ("CDF_CLUSTER", default=None, fail=False) is None
-        ):
-            # If CDF_URL and CDF_CLUSTER are not set, we may be in a Jupyter notebook in Fusion,
-            # and credentials are preset to logged in user (no env vars are set!).
-            try:
-                self._client = CogniteClient()
-            except Exception:
-                print(
-                    "[bold yellow]WARNING[/] Not able to successfully configure a Cognite client from "
-                    "environment variables. Requirements: CDF_CLUSTER and CDF_PROJECT environment variables or "
-                    "CDF_TOKEN to a valid OAuth2 token."
-                )
-            else:
-                self._cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
-                self._project = self._client.config.project
-                self._cdf_url = self._client.config.base_url
-            return
 
         # CDF_CLUSTER and CDF_PROJECT are minimum requirements to know where to connect.
         # Above they were forced default to None and fail was False, here we
