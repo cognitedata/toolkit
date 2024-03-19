@@ -38,7 +38,7 @@ DATA_FOLDER = THIS_FOLDER / "load_data"
 
 def mocked_init(self):
     self._client = CogniteClientMock()
-    self._client._cache = CDFToolConfig._Cache()
+    self._cache = CDFToolConfig._Cache()
 
 
 def test_init():
