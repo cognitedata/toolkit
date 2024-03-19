@@ -79,7 +79,13 @@ class AuthVariables:
     )
     login_flow: LoginFlow = field(
         default="client_credentials",
-        metadata=dict(env_name="LOGIN_FLOW", display_name="Login flow", required=False, example="client_credentials"),
+        metadata=dict(
+            env_name="LOGIN_FLOW",
+            display_name="Login flow",
+            required=False,
+            example="client_credentials",
+            default="client_credentials",
+        ),
     )
     token: str | None = field(
         default=None, metadata=dict(env_name="CDF_TOKEN", display_name="OAuth2 token", required=False, example="")
@@ -196,7 +202,7 @@ class AuthVariables:
             self._write_var("project"),
             self._write_var("login_flow"),
         ]
-        if self.login_flow == "toen":
+        if self.login_flow == "token":
             lines.append("# When using a token, the IDP variables are not needed, so they are not included.")
             lines.append(self._write_var("token"))
         elif self.login_flow == "client_credentials":
