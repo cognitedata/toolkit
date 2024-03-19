@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import cast
 
@@ -31,79 +30,71 @@ from .utils import AuthVariables, CDFToolConfig
 
 
 def get_auth_variables(interactive: bool = False, verbose: bool = False) -> AuthVariables:
-    vars = AuthVariables(
-        cluster=os.environ.get("CDF_CLUSTER"),
-        project=os.environ.get("CDF_PROJECT"),
-        token=os.environ.get("CDF_TOKEN"),
-        client_id=os.environ.get("IDP_CLIENT_ID"),
-        client_secret=os.environ.get("IDP_CLIENT_SECRET"),
-        cdf_url=os.environ.get("CDF_URL"),
-        tenant_id=os.environ.get("IDP_TENANT_ID"),
-        audience=os.environ.get("IDP_AUDIENCE"),
-        scopes=os.environ.get("IDP_SCOPES"),
-    )
+    auth_vars = AuthVariables.from_env()
     if interactive:
-        if vars.cluster is None or len(vars.cluster) == 0:
-            vars.cluster = "westeurope-1"
-        vars.cluster = Prompt.ask("CDF project cluster (e.g. [italic]westeurope-1[/])? ", default=vars.cluster)
-    if vars.cluster is None or len(vars.cluster) == 0:
-        vars.error = True
-        vars.info += "  [bold red]ERROR[/]: Environment variable CDF_CLUSTER must be set or use --interactive.\n"
-        return vars
-    if vars.cluster is not None and len(vars.cluster) > 0:
+        if auth_vars.cluster is None or len(auth_vars.cluster) == 0:
+            auth_vars.cluster = "westeurope-1"
+        auth_vars.cluster = Prompt.ask(
+            "CDF project cluster (e.g. [italic]westeurope-1[/])? ", default=auth_vars.cluster
+        )
+    if auth_vars.cluster is None or len(auth_vars.cluster) == 0:
+        auth_vars.error = True
+        auth_vars.info += "  [bold red]ERROR[/]: Environment variable CDF_CLUSTER must be set or use --interactive.\n"
+        return auth_vars
+    if auth_vars.cluster is not None and len(auth_vars.cluster) > 0:
         if verbose:
-            vars.info += f"  CDF_CLUSTER={vars.cluster} is set correctly.\n"
-    default_cdf_url = f"https://{vars.cluster}.cognitedata.com"
-    default_audience = f"https://{vars.cluster}.cognitedata.com"
-    default_scopes = f"https://{vars.cluster}.cognitedata.com/.default"
-    if vars.cdf_url is None:
-        vars.cdf_url = default_cdf_url
-    if vars.audience is None:
-        vars.audience = default_audience
-    if vars.scopes is None:
-        vars.scopes = default_scopes
+            auth_vars.info += f"  CDF_CLUSTER={auth_vars.cluster} is set correctly.\n"
+    default_cdf_url = f"https://{auth_vars.cluster}.cognitedata.com"
+    default_audience = f"https://{auth_vars.cluster}.cognitedata.com"
+    default_scopes = f"https://{auth_vars.cluster}.cognitedata.com/.default"
+    if auth_vars.cdf_url is None:
+        auth_vars.cdf_url = default_cdf_url
+    if auth_vars.audience is None:
+        auth_vars.audience = default_audience
+    if auth_vars.scopes is None:
+        auth_vars.scopes = default_scopes
     if interactive:
-        vars.cdf_url = Prompt.ask(
-            f"What is your CDF URL (recommended: [italic]{default_cdf_url}[/]) ? ", default=vars.cdf_url
+        auth_vars.cdf_url = Prompt.ask(
+            f"What is your CDF URL (recommended: [italic]{default_cdf_url}[/]) ? ", default=auth_vars.cdf_url
         )
-        vars.audience = Prompt.ask(
-            f"What is your IDP audience (recommended: [italic]{default_audience}[/])? ", default=vars.audience
+        auth_vars.audience = Prompt.ask(
+            f"What is your IDP audience (recommended: [italic]{default_audience}[/])? ", default=auth_vars.audience
         )
-        vars.scopes = Prompt.ask(
-            f"What are your IDP scopes (recommended: [italic]{default_scopes}[/]) ? ", default=vars.scopes
+        auth_vars.scopes = Prompt.ask(
+            f"What are your IDP scopes (recommended: [italic]{default_scopes}[/]) ? ", default=auth_vars.scopes
         )
-        vars.project = Prompt.ask("CDF project URL name (e.g. [italic]publicdata[/])? ", default=vars.project)
-    if vars.cdf_url != f"https://{vars.cluster}.cognitedata.com":
-        vars.warning = True
-        vars.info += f"  [bold yellow]WARNING[/]: CDF_URL is set to {vars.cdf_url}, are you sure it shouldn't be https://{vars.cluster}.cognitedata.com?\n"
+        auth_vars.project = Prompt.ask("CDF project URL name (e.g. [italic]publicdata[/])? ", default=auth_vars.project)
+    if auth_vars.cdf_url != f"https://{auth_vars.cluster}.cognitedata.com":
+        auth_vars.warning = True
+        auth_vars.info += f"  [bold yellow]WARNING[/]: CDF_URL is set to {auth_vars.cdf_url}, are you sure it shouldn't be https://{auth_vars.cluster}.cognitedata.com?\n"
     elif verbose:
-        vars.info += "  CDF_URL is set correctly.\n"
-    if vars.project is not None and len(vars.project) > 0:
+        auth_vars.info += "  CDF_URL is set correctly.\n"
+    if auth_vars.project is not None and len(auth_vars.project) > 0:
         if verbose:
-            vars.info += f"  CDF_PROJECT={vars.project} is set correctly.\n"
+            auth_vars.info += f"  CDF_PROJECT={auth_vars.project} is set correctly.\n"
     else:
-        vars.error = True
-        vars.info += "  [bold red]ERROR[/]: Environment variable CDF_PROJECT must be set or use --interactive.\n"
-        return vars
-    if vars.audience != f"https://{vars.cluster}.cognitedata.com":
-        vars.warning = True
-        vars.info += f"  [bold yellow]WARNING[/]: IDP_AUDIENCE is set to {vars.audience}, are you sure it shouldn't be https://{vars.cluster}.cognitedata.com?\n"
+        auth_vars.error = True
+        auth_vars.info += "  [bold red]ERROR[/]: Environment variable CDF_PROJECT must be set or use --interactive.\n"
+        return auth_vars
+    if auth_vars.audience != f"https://{auth_vars.cluster}.cognitedata.com":
+        auth_vars.warning = True
+        auth_vars.info += f"  [bold yellow]WARNING[/]: IDP_AUDIENCE is set to {auth_vars.audience}, are you sure it shouldn't be https://{auth_vars.cluster}.cognitedata.com?\n"
     elif verbose:
-        vars.info += f"  IDP_AUDIENCE = {vars.audience} is set correctly.\n"
-    if vars.scopes != f"https://{vars.cluster}.cognitedata.com/.default":
-        vars.warning = True
-        vars.info += f"  [bold yellow]WARNING[/]: IDP_SCOPES is set to {vars.scopes}, are you sure it shouldn't be https://{vars.cluster}.cognitedata.com/.default?\n"
+        auth_vars.info += f"  IDP_AUDIENCE = {auth_vars.audience} is set correctly.\n"
+    if auth_vars.scopes != f"https://{auth_vars.cluster}.cognitedata.com/.default":
+        auth_vars.warning = True
+        auth_vars.info += f"  [bold yellow]WARNING[/]: IDP_SCOPES is set to {auth_vars.scopes}, are you sure it shouldn't be https://{auth_vars.cluster}.cognitedata.com/.default?\n"
     elif verbose:
-        vars.info += f"  IDP_SCOPES = {vars.scopes} is set correctly.\n"
+        auth_vars.info += f"  IDP_SCOPES = {auth_vars.scopes} is set correctly.\n"
     if interactive:
         token = False
-        if vars.token is None or len(vars.token) == 0:
+        if auth_vars.token is None or len(auth_vars.token) == 0:
             token = Confirm.ask(
                 "Do you have client id and client secret for a service principal/application? ",
                 choices=["y", "n"],
             )
             if not token:
-                vars.token = Prompt.ask("OAuth2 token (CDF_TOKEN)? ", password=True)
+                auth_vars.token = Prompt.ask("OAuth2 token (CDF_TOKEN)? ", password=True)
         else:
             new_token = Prompt.ask(
                 "You have set an OAuth2 token (CDF_TOKEN), change it (press ENTER to keep current) ? ",
@@ -111,7 +102,7 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
                 default="",
             )
             if len(new_token) > 0:
-                vars.token = new_token
+                auth_vars.token = new_token
             else:
                 print("  Keeping existing token.")
         if token:
@@ -120,46 +111,48 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
             )
             name_of_principal = "Service principal/application"
             if azure:
-                vars.tenant_id = Prompt.ask(
+                auth_vars.tenant_id = Prompt.ask(
                     "What is your Entra tenant id (e.g. [italic]12345678-1234-1234-1234-123456789012[/])? ",
-                    default=vars.tenant_id,
+                    default=auth_vars.tenant_id,
                 )
                 name_of_principal = "Application"
-                vars.token_url = f"https://login.microsoftonline.com/{vars.tenant_id}/oauth2/v2.0/token"
+                auth_vars.token_url = f"https://login.microsoftonline.com/{auth_vars.tenant_id}/oauth2/v2.0/token"
             else:
-                vars.token_url = Prompt.ask(
+                auth_vars.token_url = Prompt.ask(
                     "What is your identity provider token endpoint (e.g. [italic]https://myidp.com/oauth2/token[/])? "
                 )
-            vars.client_id = Prompt.ask(f"{name_of_principal} client id (CDF_CLIENT_ID)? ", default=vars.client_id)
-            if vars.client_secret is not None and len(vars.client_secret) > 0:
+            auth_vars.client_id = Prompt.ask(
+                f"{name_of_principal} client id (CDF_CLIENT_ID)? ", default=auth_vars.client_id
+            )
+            if auth_vars.client_secret is not None and len(auth_vars.client_secret) > 0:
                 new_secret = Prompt.ask(
                     "You have set a client secret (CDF_CLIENT_SECRET), change it (press ENTER to keep current) ? ",
                     password=True,
                     default="",
                 )
                 if len(new_secret) > 0:
-                    vars.client_secret = new_secret
+                    auth_vars.client_secret = new_secret
                 else:
                     print("  Keeping existing client secret.")
             else:
-                vars.client_secret = Prompt.ask(
+                auth_vars.client_secret = Prompt.ask(
                     f"{name_of_principal} client secret (CDF_CLIENT_SECRET)",
                     password=True,
                 )
         if (
-            vars.client_id is None
-            or len(vars.client_id) == 0
-            or vars.client_secret is None
-            or len(vars.client_secret) == 0
+            auth_vars.client_id is None
+            or len(auth_vars.client_id) == 0
+            or auth_vars.client_secret is None
+            or len(auth_vars.client_secret) == 0
         ):
-            if vars.token is None or len(vars.token) == 0:
-                vars.error = True
-                vars.info += "  [bold red]ERROR[/]: Environment variables IDP_CLIENT_ID and IDP_CLIENT_SECRET (or CDF_TOKEN) must be set.\n"
-                return vars
+            if auth_vars.token is None or len(auth_vars.token) == 0:
+                auth_vars.error = True
+                auth_vars.info += "  [bold red]ERROR[/]: Environment variables IDP_CLIENT_ID and IDP_CLIENT_SECRET (or CDF_TOKEN) must be set.\n"
+                return auth_vars
             elif verbose:
-                vars.info += "  CDF_TOKEN is set, using it as Bearer token for authorization.\n"
+                auth_vars.info += "  CDF_TOKEN is set, using it as Bearer token for authorization.\n"
         elif verbose:
-            vars.info += "  IDP_CLIENT_ID and IDP_CLIENT_SECRET are set correctly.\n"
+            auth_vars.info += "  IDP_CLIENT_ID and IDP_CLIENT_SECRET are set correctly.\n"
     if interactive:
         # Write .env file
         if Path(".env").exists():
@@ -173,24 +166,24 @@ def get_auth_variables(interactive: bool = False, verbose: bool = False) -> Auth
         if write:
             with open(Path(".env"), "w") as f:
                 f.write("# .env file generated by cognite-toolkit\n")
-                f.write("CDF_CLUSTER=" + vars.cluster + "\n")
-                f.write("CDF_PROJECT=" + vars.project + "\n")
-                if vars.token is not None and len(vars.token) > 0:
+                f.write("CDF_CLUSTER=" + auth_vars.cluster + "\n")
+                f.write("CDF_PROJECT=" + auth_vars.project + "\n")
+                if auth_vars.token is not None and len(auth_vars.token) > 0:
                     f.write("# When using a token, the IDP variables are not needed, so they are not included.\n")
-                    f.write("CDF_TOKEN=" + vars.token + "\n")
+                    f.write("CDF_TOKEN=" + auth_vars.token + "\n")
                 else:
-                    f.write("IDP_CLIENT_ID=" + (vars.client_id or "") + "\n")
-                    f.write("IDP_CLIENT_SECRET=" + (vars.client_secret or "") + "\n")
-                    if vars.tenant_id is not None and len(vars.tenant_id) > 0:
-                        f.write("IDP_TENANT_ID=" + vars.tenant_id + "\n")
-                    f.write("IDP_TOKEN_URL=" + (vars.token_url or "") + "\n")
+                    f.write("IDP_CLIENT_ID=" + (auth_vars.client_id or "") + "\n")
+                    f.write("IDP_CLIENT_SECRET=" + (auth_vars.client_secret or "") + "\n")
+                    if auth_vars.tenant_id is not None and len(auth_vars.tenant_id) > 0:
+                        f.write("IDP_TENANT_ID=" + auth_vars.tenant_id + "\n")
+                    f.write("IDP_TOKEN_URL=" + (auth_vars.token_url or "") + "\n")
                 f.write("# The below variables don't have to be set if you have just accepted the defaults.\n")
                 f.write("# They are automatically constructed unless they are set.\n")
-                f.write("CDF_URL=" + vars.cdf_url + "\n")
-                if vars.token is None:
-                    f.write("IDP_AUDIENCE=" + vars.audience + "\n")
-                    f.write("IDP_SCOPES=" + vars.scopes + "\n")
-    return vars
+                f.write("CDF_URL=" + auth_vars.cdf_url + "\n")
+                if auth_vars.token is None:
+                    f.write("IDP_AUDIENCE=" + auth_vars.audience + "\n")
+                    f.write("IDP_SCOPES=" + auth_vars.scopes + "\n")
+    return auth_vars
 
 
 def check_auth(

@@ -28,7 +28,7 @@ import typing
 from abc import abstractmethod
 from collections import UserDict, UserList, defaultdict
 from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesView
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, TypeVar, get_origin, overload
@@ -56,20 +56,28 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AuthVariables:
-    cluster: str | None
-    project: str | None
-    token: str | None
-    client_id: str | None
-    client_secret: str | None
-    cdf_url: str | None = None
-    token_url: str | None = None
-    tenant_id: str | None = None
-    audience: str | None = None
-    scopes: str | None = None
+    cluster: str | None = field(metadata={"env_name": "CDF_CLUSTER"})
+    project: str | None = field(metadata={"env_name": "CDF_PROJECT"})
+    token: str | None = field(metadata={"env_name": "CDF_TOKEN"})
+    client_id: str | None = field(metadata={"env_name": "IDP_CLIENT_ID"})
+    client_secret: str | None = field(metadata={"env_name": "IDP_CLIENT_SECRET"})
+    cdf_url: str | None = field(default=None, metadata={"env_name": "CDF_URL"})
+    token_url: str | None = field(default=None, metadata={"env_name": "IDP_TOKEN_URL"})
+    tenant_id: str | None = field(default=None, metadata={"env_name": "IDP_TENANT_ID"})
+    audience: str | None = field(default=None, metadata={"env_name": "IDP_AUDIENCE"})
+    scopes: str | None = field(default=None, metadata={"env_name": "IDP_SCOPES"})
     ok: bool = False
     info: str = ""
     error: bool = False
     warning: bool = False
+
+    @classmethod
+    def from_env(cls) -> AuthVariables:
+        args: dict[str, Any] = {}
+        for field_ in fields(cls):
+            if env_name := field_.metadata.get("env_name"):
+                args[field_.name] = os.environ.get(env_name)
+        return cls(**args)
 
 
 class CDFToolConfig:
