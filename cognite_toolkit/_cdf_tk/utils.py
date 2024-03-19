@@ -89,8 +89,6 @@ class CDFToolConfig:
 
     def __init__(self, token: str | None = None, cluster: str | None = None, project: str | None = None) -> None:
         self._cache = self._Cache()
-        self._data_set_id: int = 0
-        self._data_set: str | None = None
         self._failed = False
         self._environ: dict[str, str | None] = {}
 
@@ -293,15 +291,6 @@ class CDFToolConfig:
             raise ValueError("Project is not initialized.")
         return self._project
 
-    @property
-    def data_set_id(self) -> int | None:
-        return self._data_set_id if self._data_set_id > 0 else None
-
-    # Use this to ignore the data set when verifying the client's access capabilities
-    def clear_dataset(self) -> None:
-        self._data_set_id = 0
-        self._data_set = None
-
     @overload
     def environ(self, attr: str, default: str | None = None, fail: Literal[True] = True) -> str: ...
 
@@ -339,18 +328,6 @@ class CDFToolConfig:
 
         self._environ[attr] = var
         return var
-
-    @property
-    def data_set(self) -> str | None:
-        return self._data_set
-
-    @data_set.setter
-    def data_set(self, value: str) -> None:
-        if value is None:
-            raise ValueError("Please provide an externalId of a dataset.")
-        self._data_set = value
-        # Since we now have a new configuration, check the dataset and set the id
-        self._data_set_id = self.verify_dataset(data_set_external_id=value)
 
     def verify_client(
         self,
