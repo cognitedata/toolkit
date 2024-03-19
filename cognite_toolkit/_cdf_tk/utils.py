@@ -146,9 +146,6 @@ class AuthVariables:
                 args[field_.name] = os.environ.get(env_name)
         return cls(**args)
 
-    def write_dotenv_files(self) -> None:
-        raise NotImplementedError()
-
     def from_interactive(self, verbose: bool = False) -> AuthVariablesInteractiveReader:
         reader = AuthVariablesInteractiveReader(self, verbose)
         self.cluster = reader.prompt_user("cluster")
@@ -270,6 +267,8 @@ class AuthVariablesInteractiveReader:
             prompt = f"{display_name} (e.g. [italic]{example}[/])? "
         response = Prompt.ask(prompt, **extra_args)
         if not expected or response == expected:
+            if self.verbose:
+                self.messages.append(f"  {display_name}={response} is set correctly.")
             return response
         self.messages.append(
             f"[bold yellow]WARNING[/]: {display_name} is set to {response}, are you sure it shouldn't be {expected}?"
