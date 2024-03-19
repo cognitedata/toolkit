@@ -59,12 +59,6 @@ LoginFlow: TypeAlias = Literal["client_credentials", "token"]
 
 
 @dataclass
-class AuthVariablesReadResult:
-    status: Literal["ok", "error", "warning"]
-    messages: list[str] = field(default_factory=list)
-
-
-@dataclass
 class AuthVariables:
     cluster: str | None = field(
         metadata=dict(env_name="CDF_CLUSTER", display_name="CDF project cluster", required=True, example="westeurope-1")
