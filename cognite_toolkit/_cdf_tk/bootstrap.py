@@ -47,7 +47,7 @@ def check_auth(
             ToolGlobals.failed = True
             return None
         print("  [bold green]Auth Variables captured successfully[/]")
-
+    print(" [bold green]OK[/]")
     ToolGlobals.reinitialize_from_auth_variables(auth_vars)
     print("Checking basic project configuration...")
     try:
