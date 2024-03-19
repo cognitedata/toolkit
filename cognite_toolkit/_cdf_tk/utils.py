@@ -37,7 +37,7 @@ import typer
 import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
-from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, Token
+from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.capabilities import Capability
@@ -146,10 +146,34 @@ class CDFToolConfig:
         # CDF_URL is optional, but if set, we use that instead of the default URL using cluster.
         self._cdf_url = self.environ("CDF_URL", f"https://{self._cluster}.cognitedata.com")
 
+        login_flow = self.environ("LOGIN_FLOW", fail=False)
         credentials_provider: CredentialProvider
         # If CDF_TOKEN is set, we want to use that token instead of client credentials.
         if (token := self.environ("CDF_TOKEN", fail=False)) is not None:
+            if login_flow is not None:
+                print(
+                    f"  [bold yellow]Warning[/] CDF_TOKEN detected. This will override LOGIN_FLOW, "
+                    f"thus LOGIN_FLOW={login_flow} will be ignored"
+                )
             credentials_provider = Token(token)
+        elif login_flow and login_flow.lower() == "interactive":
+            self._scopes = [
+                self.environ(
+                    "IDP_SCOPES",
+                    f"https://{self._cluster}.cognitedata.com/.default",
+                )
+            ]
+            tenant_id = self.environ("IDP_TENANT_ID", fail=False)
+            authority_url = self.environ("IDP_AUTHORITY_URL", fail=False)
+            if tenant_id is None and authority_url is None:
+                raise ValueError("IDP_TENANT_ID or IDP_AUTHORITY_URL must be set to use interactive login flow.")
+            authority_url = authority_url or f"https://login.microsoftonline.com/{tenant_id}"
+
+            credentials_provider = OAuthInteractive(
+                authority_url=authority_url,
+                client_id=self.environ("IDP_CLIENT_ID"),
+                scopes=self._scopes,
+            )
         else:
             # We are now doing OAuth2 client credentials flow, so we need to set the
             # required variables.
@@ -162,6 +186,7 @@ class CDFToolConfig:
                     f"https://{self._cluster}.cognitedata.com/.default",
                 )
             ]
+
             self._audience = self.environ("IDP_AUDIENCE", f"https://{self._cluster}.cognitedata.com")
             credentials_provider = OAuthClientCredentials(
                 token_url=self.environ("IDP_TOKEN_URL"),
