@@ -129,11 +129,6 @@ class AuthVariables:
         ),
     )
 
-    ok: bool = False
-    info: str = ""
-    error: bool = False
-    warning: bool = False
-
     @classmethod
     def login_flow_options(cls) -> list[str]:
         return list(get_args(LoginFlow))
