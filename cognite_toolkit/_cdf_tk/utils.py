@@ -37,7 +37,7 @@ import typer
 import yaml
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
-from cognite.client.credentials import OAuthClientCredentials, Token
+from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, Token
 from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.capabilities import Capability
@@ -92,6 +92,15 @@ class CDFToolConfig:
         self._cache = self._Cache()
         self._failed = False
         self._environ: dict[str, str | None] = {}
+        # If cluster, project, or token are passed as arguments, we override the environment variables.
+        # This means these will be used when we initialize the CogniteClient when we initialize from
+        # environment variables. Note if we are running in the browser, we will not use these arguments.
+        if project:
+            self._environ["CDF_PROJECT"] = project
+        if cluster:
+            self._environ["CDF_CLUSTER"] = cluster
+        if token:
+            self._environ["CDF_TOKEN"] = token
 
         # ClientName is used for logging usage of the CDF-Toolkit.
         self._client_name = f"CDF-Toolkit:{__version__}"
@@ -107,14 +116,8 @@ class CDFToolConfig:
             self._initialize_in_browser()
             return
 
-        self.oauth_credentials = OAuthClientCredentials(
-            token_url="",
-            client_id="",
-            client_secret="",
-            scopes=[],
-        )
-
-        self._initialize_from_environment_variables(cluster=cluster, project=project, token=token)
+        self._initialize_from_environment_variables()
+        global_config.disable_pypi_version_check = True
 
     def _initialize_in_browser(self) -> None:
         try:
@@ -122,43 +125,31 @@ class CDFToolConfig:
         except Exception as e:
             print(f"[bold red]Error[/] Failed to initialize CogniteClient in browser: {e}")
         else:
+            if self._cluster or self._project:
+                print("[bold yellow]Warning[/] Cluster and project are arguments ignored when running in the browser.")
             self._cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
             self._project = self._client.config.project
             self._cdf_url = self._client.config.base_url
 
-    def _initialize_from_environment_variables(
-        self, cluster: str | None = None, project: str | None = None, token: str | None = None
-    ) -> None:
-        # CDF_CLUSTER and CDF_PROJECT are minimum requirements and can be overridden
-        # when instantiating the class.
-        if cluster is not None and len(cluster) > 0:
-            self._cluster = cluster
-            self._environ["CDF_CLUSTER"] = cluster
+    def _initialize_from_environment_variables(self) -> None:
+        # CDF_CLUSTER and CDF_PROJECT are minimum requirements.
+        # We check that whether we miss any of them, so we can give a better error message.
 
-        if project is not None and len(project) > 0:
-            self._project = project
-            self._environ["CDF_PROJECT"] = project
+        missing = {key: self.environ(key, fail=False) for key in ["CDF_CLUSTER", "CDF_PROJECT"]}
+        if any(value is None for value in missing.values()):
+            raise ValueError(
+                f"The environment variables {list(missing)} are required. Missing: {[key for key, value in missing.items() if value is None]}"
+            )
 
-        if token is not None:
-            self._environ["CDF_TOKEN"] = token
-
-        # CDF_CLUSTER and CDF_PROJECT are minimum requirements to know where to connect.
-        # Above they were forced default to None and fail was False, here we
-        # will fail with an exception if they are not set.
         self._cluster = self.environ("CDF_CLUSTER")
         self._project = self.environ("CDF_PROJECT")
         # CDF_URL is optional, but if set, we use that instead of the default URL using cluster.
         self._cdf_url = self.environ("CDF_URL", f"https://{self._cluster}.cognitedata.com")
+
+        credentials_provider: CredentialProvider
         # If CDF_TOKEN is set, we want to use that token instead of client credentials.
-        if self.environ("CDF_TOKEN", default=None, fail=False) is not None or token is not None:
-            self._client = CogniteClient(
-                ClientConfig(
-                    client_name=self._client_name,
-                    base_url=self._cdf_url,
-                    project=self._project,
-                    credentials=Token(token or self.environ("CDF_TOKEN")),
-                )
-            )
+        if (token := self.environ("CDF_TOKEN", fail=False)) is not None:
+            credentials_provider = Token(token)
         else:
             # We are now doing OAuth2 client credentials flow, so we need to set the
             # required variables.
@@ -172,7 +163,7 @@ class CDFToolConfig:
                 )
             ]
             self._audience = self.environ("IDP_AUDIENCE", f"https://{self._cluster}.cognitedata.com")
-            self.oauth_credentials = OAuthClientCredentials(
+            credentials_provider = OAuthClientCredentials(
                 token_url=self.environ("IDP_TOKEN_URL"),
                 client_id=self.environ("IDP_CLIENT_ID"),
                 # client secret should not be stored in-code, so we load it from an environment variable
@@ -180,15 +171,15 @@ class CDFToolConfig:
                 scopes=self._scopes,
                 audience=self._audience,
             )
-            global_config.disable_pypi_version_check = True
-            self._client = CogniteClient(
-                ClientConfig(
-                    client_name=self._client_name,
-                    base_url=self._cdf_url,
-                    project=self._project,
-                    credentials=self.oauth_credentials,
-                )
+
+        self._client = CogniteClient(
+            ClientConfig(
+                client_name=self._client_name,
+                base_url=self._cdf_url,
+                project=self._project,
+                credentials=credentials_provider,
             )
+        )
 
     def reinitialize_from_auth_variables(self, auth: AuthVariables) -> None:
         if auth.cluster:
@@ -218,11 +209,12 @@ class CDFToolConfig:
                 self._scopes = [auth.scopes]
             if auth.audience:
                 self._audience = auth.audience
-
-            self.oauth_credentials = OAuthClientCredentials(
-                token_url=auth.token_url or self.oauth_credentials.token_url,
-                client_id=auth.client_id or self.oauth_credentials.client_id,
-                client_secret=auth.client_secret or self.oauth_credentials.client_secret,
+            if not (auth.token_url and auth.client_id and auth.client_secret):
+                raise ValueError("Token URL, client id, and client secret must be set to initialize a CogniteClient")
+            oauth_credentials = OAuthClientCredentials(
+                token_url=auth.token_url,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
                 scopes=self._scopes,
                 audience=self._audience,
             )
@@ -231,7 +223,7 @@ class CDFToolConfig:
                     client_name=self._client_name,
                     base_url=self._cdf_url,
                     project=self._project,
-                    credentials=self.oauth_credentials,
+                    credentials=oauth_credentials,
                 )
             )
 
