@@ -41,13 +41,14 @@ def check_auth(
     print("[bold]Checking current service principal/application and environment configurations...[/]")
     auth_vars = AuthVariables.from_env()
     if interactive:
-        result = auth_vars.from_interactive(verbose)
-        print("\n".join(result.messages))
-        if result.status == "error":
-            ToolGlobals.failed = True
-            return None
-        print("  [bold green]Auth Variables captured successfully[/]")
-    print(" [bold green]OK[/]")
+        result = auth_vars.from_interactive_with_validation(verbose)
+    else:
+        result = auth_vars.validate(verbose)
+    print("\n".join(result.messages))
+    if result.status == "error":
+        ToolGlobals.failed = True
+        return None
+    print("  [bold green]OK[/]")
     ToolGlobals.reinitialize_from_auth_variables(auth_vars)
     print("Checking basic project configuration...")
     try:

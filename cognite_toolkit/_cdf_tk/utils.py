@@ -140,8 +140,14 @@ class AuthVariables:
                 args[field_.name] = os.environ.get(env_name)
         return cls(**args)
 
-    def from_interactive(self, verbose: bool = False) -> AuthVariablesInteractiveReader:
-        reader = AuthVariablesInteractiveReader(self, verbose)
+    def validate(self, verbose: bool) -> AuthReaderValidation:
+        return self._read_and_validate(verbose, skip_prompt=True)
+
+    def from_interactive_with_validation(self, verbose: bool = False) -> AuthReaderValidation:
+        return self._read_and_validate(verbose, skip_prompt=False)
+
+    def _read_and_validate(self, verbose: bool = False, skip_prompt: bool = False) -> AuthReaderValidation:
+        reader = AuthReaderValidation(self, verbose, skip_prompt)
         self.cluster = reader.prompt_user("cluster")
         self.project = reader.prompt_user("project")
         if not (self.cluster or self.project):
@@ -156,7 +162,7 @@ class AuthVariables:
             else:
                 print("  Keeping existing token.")
         elif self.login_flow == "client_credentials":
-            self.audience = reader.prompt_user("audience")
+            self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
             self.scopes = reader.prompt_user("scopes")
             self.tenant_id = reader.prompt_user("tenant_id")
             self.token_url = reader.prompt_user("token_url")
@@ -169,16 +175,17 @@ class AuthVariables:
             reader.status = "error"
             reader.messages.append(f"The login flow {self.login_flow} is not supported")
 
-        if Path(".env").exists():
-            print(
-                "[bold yellow]WARNING[/]: .env file already exists and values have been retrieved from it. It will be overwritten."
+        if not skip_prompt:
+            if Path(".env").exists():
+                print(
+                    "[bold yellow]WARNING[/]: .env file already exists and values have been retrieved from it. It will be overwritten."
+                )
+            write = Confirm.ask(
+                "Do you want to save these to .env file for next time ? ",
+                choices=["y", "n"],
             )
-        write = Confirm.ask(
-            "Do you want to save these to .env file for next time ? ",
-            choices=["y", "n"],
-        )
-        if write:
-            self.write_dotenv_file()
+            if write:
+                self.write_dotenv_file()
 
         return reader
 
@@ -216,12 +223,23 @@ class AuthVariables:
         return f"{field_['env_name']}={value}"
 
 
-class AuthVariablesInteractiveReader:
-    def __init__(self, auth_vars: AuthVariables, verbose: bool):
+class AuthReaderValidation:
+    """Reads and validate the auth variables
+
+    Args:
+        auth_vars (AuthVariables): The auth variables to validate
+        verbose (bool): If True, print additional information
+        skip_prompt (bool): If True, skip prompting the user for input
+            and only do the validation.
+
+    """
+
+    def __init__(self, auth_vars: AuthVariables, verbose: bool, skip_prompt: bool = False):
         self._auth_vars = auth_vars
         self.status: Literal["ok", "error", "warning"] = "ok"
         self.messages: list[str] = field(default_factory=list)
         self.verbose = verbose
+        self.skip_prompt = skip_prompt
 
     def prompt_user(
         self,
@@ -253,13 +271,17 @@ class AuthVariablesInteractiveReader:
             extra_args["choices"] = choices
         if password is not None:
             extra_args["password"] = password
+
         if password and current_value:
             prompt = f"You have set {display_name}, change it? (press Enter to keep current value)"
         elif example == default:
             prompt = f"{display_name}? "
         else:
             prompt = f"{display_name} (e.g. [italic]{example}[/])? "
-        response = Prompt.ask(prompt, **extra_args)
+        if self.skip_prompt:
+            response = current_value
+        else:
+            response = Prompt.ask(prompt, **extra_args)
         if not expected or response == expected:
             if self.verbose:
                 self.messages.append(f"  {display_name}={response} is set correctly.")
