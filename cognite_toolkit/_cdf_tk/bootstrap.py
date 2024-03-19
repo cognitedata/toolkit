@@ -197,8 +197,17 @@ def check_auth(
     verbose: bool = False,
 ) -> CogniteClient | None:
     print("[bold]Checking current service principal/application and environment configurations...[/]")
+    auth_vars = AuthVariables.from_env()
+    if interactive:
+        result = auth_vars.from_interactive(verbose)
+        print("\n".join(result.messages))
+        if result.status == "error":
+            ToolGlobals.failed = True
+            return None
+        print("  [bold green]Auth Variables captured successfully[/]")
     if auth_vars is None:
         auth_vars = get_auth_variables(verbose=verbose, interactive=interactive)
+
     if auth_vars.error:
         print(auth_vars.info)
         ToolGlobals.failed = True
