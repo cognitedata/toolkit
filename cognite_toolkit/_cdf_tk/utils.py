@@ -186,10 +186,16 @@ class CDFToolConfig:
                     f"https://{self._cluster}.cognitedata.com/.default",
                 )
             ]
-
             self._audience = self.environ("IDP_AUDIENCE", f"https://{self._cluster}.cognitedata.com")
+
+            token_url = self.environ("IDP_TOKEN_URL", fail=False)
+            tenant_id = self.environ("IDP_TENANT_ID", fail=False)
+            if token_url is None and tenant_id is None:
+                raise ValueError("IDP_TOKEN_URL or IDP_TENANT_ID must be set to use client_credentials flow.")
+            token_url = token_url or f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+
             credentials_provider = OAuthClientCredentials(
-                token_url=self.environ("IDP_TOKEN_URL"),
+                token_url=token_url,
                 client_id=self.environ("IDP_CLIENT_ID"),
                 # client secret should not be stored in-code, so we load it from an environment variable
                 client_secret=self.environ("IDP_CLIENT_SECRET"),
