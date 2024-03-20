@@ -28,10 +28,10 @@ import typing
 from abc import abstractmethod
 from collections import UserDict, UserList, defaultdict
 from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesView
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, TypeVar, get_origin, overload
+from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, cast, get_args, get_origin, overload
 
 import typer
 import yaml
@@ -46,30 +46,270 @@ from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case, to_snake_case
 from rich import print
+from rich.prompt import Confirm, Prompt
 
 from cognite_toolkit._cdf_tk._get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._version import __version__
 
+if sys.version_info < (3, 10):
+    from typing_extensions import TypeAlias
+else:
+    from typing import TypeAlias
+
 logger = logging.getLogger(__name__)
+
+
+LoginFlow: TypeAlias = Literal["client_credentials", "token"]
 
 
 @dataclass
 class AuthVariables:
-    cluster: str | None
-    project: str | None
-    token: str | None
-    client_id: str | None
-    client_secret: str | None
-    cdf_url: str | None = None
-    token_url: str | None = None
-    tenant_id: str | None = None
-    audience: str | None = None
-    scopes: str | None = None
-    ok: bool = False
-    info: str = ""
-    error: bool = False
-    warning: bool = False
+    cluster: str | None = field(
+        metadata=dict(env_name="CDF_CLUSTER", display_name="CDF project cluster", example="westeurope-1")
+    )
+    project: str | None = field(
+        metadata=dict(env_name="CDF_PROJECT", display_name="CDF project URL name", example="publicdata")
+    )
+    cdf_url: str | None = field(
+        default=None,
+        metadata=dict(env_name="CDF_URL", display_name="CDF URL", example="https://CDF_CLUSTER.cognitedata.com"),
+    )
+    login_flow: LoginFlow = field(
+        default="client_credentials",
+        metadata=dict(
+            env_name="LOGIN_FLOW",
+            display_name="Login flow",
+            example="client_credentials",
+        ),
+    )
+    token: str | None = field(
+        default=None, metadata=dict(env_name="CDF_TOKEN", display_name="OAuth2 token", example="")
+    )
+    client_id: str | None = field(
+        default=None, metadata=dict(env_name="IDP_CLIENT_ID", display_name="client id", example="")
+    )
+    client_secret: str | None = field(
+        default=None,
+        metadata=dict(env_name="IDP_CLIENT_SECRET", display_name="client secret", example=""),
+    )
+    token_url: str | None = field(
+        default=None,
+        metadata=dict(
+            env_name="IDP_TOKEN_URL",
+            display_name="token URL",
+            example="https://login.microsoftonline.com/IDP_TENANT_ID/oauth2/v2.0/token",
+        ),
+    )
+    tenant_id: str | None = field(
+        default=None,
+        metadata=dict(
+            env_name="IDP_TENANT_ID",
+            display_name="tenant id",
+            example="12345678-1234-1234-1234-123456789012",
+        ),
+    )
+    audience: str | None = field(
+        default=None,
+        metadata=dict(
+            env_name="IDP_AUDIENCE",
+            display_name="IDP audience",
+            example="https://CDF_CLUSTER.cognitedata.com",
+        ),
+    )
+    scopes: str | None = field(
+        default=None,
+        metadata=dict(
+            env_name="IDP_SCOPES",
+            display_name="IDP scopes",
+            example="https://CDF_CLUSTER.cognitedata.com/.default",
+        ),
+    )
+
+    def __post_init__(self) -> None:
+        # Set defaults based on cluster and tenant_id
+        if self.cluster:
+            self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
+            self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
+            self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
+        if self.tenant_id:
+            self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
+
+    @classmethod
+    def login_flow_options(cls) -> list[str]:
+        return list(get_args(LoginFlow))
+
+    @classmethod
+    def from_env(cls) -> AuthVariables:
+        args: dict[str, Any] = {}
+        for field_ in fields(cls):
+            if env_name := field_.metadata.get("env_name"):
+                args[field_.name] = os.environ.get(env_name)
+        return cls(**args)
+
+    def validate(self, verbose: bool) -> AuthReaderValidation:
+        return self._read_and_validate(verbose, skip_prompt=True)
+
+    def from_interactive_with_validation(self, verbose: bool = False) -> AuthReaderValidation:
+        return self._read_and_validate(verbose, skip_prompt=False)
+
+    def _read_and_validate(self, verbose: bool = False, skip_prompt: bool = False) -> AuthReaderValidation:
+        reader = AuthReaderValidation(self, verbose, skip_prompt)
+        self.cluster = reader.prompt_user("cluster")
+        self.project = reader.prompt_user("project")
+        if not (self.cluster or self.project):
+            reader.status = "error"
+            reader.messages.append("  [bold red]ERROR[/]: CDF Cluster and project are required.")
+            return reader
+        self.cdf_url = reader.prompt_user("cdf_url", expected=f"https://{self.cluster}.cognitedata.com")
+        self.login_flow = reader.prompt_user("login_flow", choices=self.login_flow_options())  # type: ignore[assignment]
+        if self.login_flow == "token":
+            if new_token := reader.prompt_user("token", password=True):
+                self.token = new_token
+            else:
+                print("  Keeping existing token.")
+        elif self.login_flow == "client_credentials":
+            self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
+            self.scopes = reader.prompt_user("scopes")
+            self.tenant_id = reader.prompt_user("tenant_id")
+            self.token_url = reader.prompt_user("token_url")
+            self.client_id = reader.prompt_user("client_id")
+            if new_secret := reader.prompt_user("client_secret", password=True):
+                self.client_secret = new_secret
+            else:
+                print("  Keeping existing client secret.")
+        else:
+            reader.status = "error"
+            reader.messages.append(f"The login flow {self.login_flow} is not supported")
+
+        if not skip_prompt:
+            if Path(".env").exists():
+                print(
+                    "[bold yellow]WARNING[/]: .env file already exists and values have been retrieved from it. It will be overwritten."
+                )
+            write = Confirm.ask(
+                "Do you want to save these to .env file for next time ? ",
+                choices=["y", "n"],
+            )
+            if write:
+                self.write_dotenv_file()
+
+        return reader
+
+    def write_dotenv_file(self) -> None:
+        lines = [
+            "# .env file generated by cognite-toolkit",
+            self._write_var("cluster"),
+            self._write_var("project"),
+            self._write_var("login_flow"),
+        ]
+        if self.login_flow == "token":
+            lines += [
+                "# When using a token, the IDP variables are not needed, so they are not included.",
+                self._write_var("token"),
+            ]
+        elif self.login_flow == "client_credentials":
+            lines += [
+                self._write_var("client_id"),
+                self._write_var("client_secret"),
+            ]
+        else:
+            raise ValueError(f"Login flow {self.login_flow} is not supported.")
+        lines += [
+            "# The below variables don't have to be set if you have just accepted the defaults.",
+            "# They are automatically constructed unless they are set.",
+            self._write_var("cdf_url"),
+        ]
+        if self.login_flow == "client_credentials":
+            lines += [
+                "# Note: Either the TENANT_ID or the TENANT_URL must be written.",
+                self._write_var("tenant_id"),
+                self._write_var("token_url"),
+                self._write_var("audience"),
+                self._write_var("scopes"),
+            ]
+
+        Path(".env").write_text("\n".join(lines))
+        return None
+
+    def _write_var(self, var_name: str) -> str:
+        value = getattr(self, var_name)
+        field_ = _field_by_name[var_name].metadata
+        return f"{field_['env_name']}={value}"
+
+
+class AuthReaderValidation:
+    """Reads and validate the auth variables
+
+    Args:
+        auth_vars (AuthVariables): The auth variables to validate
+        verbose (bool): If True, print additional information
+        skip_prompt (bool): If True, skip prompting the user for input
+            and only do the validation.
+
+    """
+
+    def __init__(self, auth_vars: AuthVariables, verbose: bool, skip_prompt: bool = False):
+        self._auth_vars = auth_vars
+        self.status: Literal["ok", "error", "warning"] = "ok"
+        self.messages: list[str] = []
+        self.verbose = verbose
+        self.skip_prompt = skip_prompt
+
+    def prompt_user(
+        self,
+        field_name: str,
+        choices: list[str] | None = None,
+        password: bool | None = None,
+        expected: str | None = None,
+    ) -> str | None:
+        try:
+            current_value = getattr(self._auth_vars, field_name)
+            field_ = _field_by_name[field_name]
+            metadata = field_.metadata
+            example = (
+                metadata["example"]
+                .replace("CDF_CLUSTER", self._auth_vars.cluster or "<cluster>")
+                .replace("IDP_TENANT_ID", self._auth_vars.tenant_id or "<tenant_id>")
+            )
+            display_name = metadata["display_name"]
+            default = cast(Union[str, None], current_value or field_.default)
+        except Exception as e:
+            raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
+
+        extra_args: dict[str, Any] = {}
+        if password is False:
+            extra_args["default"] = ""
+        else:
+            extra_args["default"] = default
+        if choices:
+            extra_args["choices"] = choices
+        if password is not None:
+            extra_args["password"] = password
+
+        if password and current_value:
+            prompt = f"You have set {display_name}, change it? (press Enter to keep current value)"
+        elif example == default:
+            prompt = f"{display_name}? "
+        else:
+            prompt = f"{display_name} (e.g. [italic]{example}[/])? "
+        response: str | None
+        if self.skip_prompt:
+            response = default
+        else:
+            response = Prompt.ask(prompt, **extra_args)
+        if not expected or response == expected:
+            if self.verbose:
+                self.messages.append(f"  {display_name}={response} is set correctly.")
+            return response
+        self.messages.append(
+            f"[bold yellow]WARNING[/]: {display_name} is set to {response}, are you sure it shouldn't be {expected}?"
+        )
+        self.status = "warning"
+        return response
+
+
+_field_by_name = {field.name: field for field in fields(AuthVariables)}
 
 
 class CDFToolConfig:
