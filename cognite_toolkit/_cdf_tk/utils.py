@@ -655,8 +655,6 @@ class CDFToolConfig:
         if data_set_external_id in self._cache.data_set_id_by_external_id:
             return self._cache.data_set_id_by_external_id[data_set_external_id]
 
-        if not skip_validation:
-            self.verify_client(capabilities={"datasetsAcl": ["READ"]})
         try:
             data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
         except CogniteAPIError as e:
