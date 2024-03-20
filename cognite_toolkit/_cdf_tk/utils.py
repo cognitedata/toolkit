@@ -133,6 +133,15 @@ class AuthVariables:
         ),
     )
 
+    def __post_init__(self) -> None:
+        # Set defaults based on cluster and tenant_id
+        if self.cluster:
+            self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
+            self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
+            self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
+        if self.tenant_id:
+            self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
+
     @classmethod
     def login_flow_options(cls) -> list[str]:
         return list(get_args(LoginFlow))
