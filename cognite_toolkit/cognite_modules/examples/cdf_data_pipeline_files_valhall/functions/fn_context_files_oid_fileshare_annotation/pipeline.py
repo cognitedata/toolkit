@@ -261,15 +261,30 @@ def append_asset_entities(entities: list[Entity], client: CogniteClient, asset_r
         name = asset.name
         try:
             # clean up dummy tags and system numbers (ignore system asset names (01, 02, ...))
-            if name is None or len(name) != 3 or tag_is_dummy(asset):
+            if name is None or len(name) < 3 or tag_is_dummy(asset):
                 continue
+
             # Split name - and if a system number is used also add name without system number to list
-            names = [name]
             split_name = re.split("[,._ \\-:]+", name)
+            # ignore system asset if there are less than 3 tokens, ex Blind falnge, Skipp Tray, etc
+            if len(split_name) < 3:
+                continue
+
+            # Add core name to list of synonyms used for name detection in P&ID
+            names = [name]
+
             if split_name[0].isnumeric():
                 names.append(name[len(split_name[0]) + 1 :])
 
+            # add wildcards as second element to tag
+            names.append(f"{split_name[0]}-xxx-{name[len(split_name[0])+1:]}")
+
+            # if name ends with 4 or more digits - add a new name with x instead of last third digit as a wild card
+            if split_name[-1].isnumeric() and len(split_name[-1]) > 3:
+                names.append(name[0 : (len(name) - 3)] + "x" + name[(len(name) - 2) :])
+
             entities.append(Entity(external_id=asset.external_id, org_name=name, name=name, id=asset.id, type="asset"))
+
         except Exception as e:
             print(
                 f"[ERROR] Not able to get entities for asset name: {name}, id {asset.external_id}. "
@@ -328,7 +343,7 @@ def process_files(
                 asset_ids_list = asset_ids_list[:1000]
 
             if config.debug:
-                print(f"[INFO] Converted and created (not upload due to DEBUG) file: {file_xid}")
+
                 print(f"[INFO] Assets found: {asset_names}")
                 continue
 
@@ -369,6 +384,7 @@ def detect_create_annotation(
     Returns:
         list of found entities and list of found entities ids
     """
+    print(f"[INFO] Detect annotations for file : {file_xid}")
     job = retrieve_diagram_with_retry(client, entities, file_xid)
     if "items" not in job.result or not job.result["items"]:
         return [], []
@@ -384,64 +400,73 @@ def detect_create_annotation(
     if annotated_resource_id in annotation_list:
         to_delete_annotation_list.extend(annotation_list[annotated_resource_id])
 
-    detected_sytem_num, detected_count = get_sys_nums(job.result["items"][0]["annotations"], detected_count)
+    detected_system_num, detected_count = get_sys_nums(job.result["items"][0]["annotations"], detected_count)
     for item in job.result["items"][0]["annotations"]:
-        entity = item["entities"][0]
-        if entity["type"] == "file":
-            annotation_type, ref_type, txt_value = FILE_ANNOTATION_TYPE, "fileRef", entity["orgName"]
-        else:
-            annotation_type, ref_type, txt_value = ASSET_ANNOTATION_TYPE, "assetRef", entity["orgName"]
 
-        # logic to create suggestions for annotations if system number is missing from tag in P&ID
-        # but a suggestion matches the most frequent system number from P&ID
-        tokens = item["text"].split("-")
-        if len(tokens) == 2 and item["confidence"] >= match_threshold and len(item["entities"]) == 1:
-            sys_token_found = entity["name"][0].split("-")
-            if len(sys_token_found) == 3:
-                sys_num_found = sys_token_found[0]
-                # if missing system number is in > 30% of the tag assume that it's correct -
-                # else create a suggestion
-                if sys_num_found in detected_sytem_num and detected_sytem_num[sys_num_found] / detected_count > 0.3:
-                    annotation_status = ANNOTATION_STATUS_APPROVED
+        textRegion = get_coordinates(item["region"]["vertices"])
+
+        for entity in item["entities"]:
+            if entity["type"] == "file":
+                annotation_type, ref_type, txt_value = FILE_ANNOTATION_TYPE, "fileRef", entity["orgName"]
+            else:
+                annotation_type, ref_type, txt_value = ASSET_ANNOTATION_TYPE, "assetRef", entity["orgName"]
+
+            # default status is suggested
+            annotation_status = ANNOTATION_STATUS_SUGGESTED
+            # logic to create suggestions for annotations if system number is missing from tag in P&ID
+            # but a suggestion matches the most frequent system number from P&ID
+            tokens = item["text"].split("-")
+            if len(tokens) == 2 and item["confidence"] >= match_threshold and len(item["entities"]) == 1:
+                sys_token_found = txt_value.split("-")
+                if len(sys_token_found) == 3:
+                    sys_num_found = sys_token_found[0]
+                    # if missing system number is in > 30% of the tag assume that it's correct -
+                    # else create a suggestion
+                    if (
+                        sys_num_found in detected_system_num
+                        and detected_system_num[sys_num_found] / detected_count > 0.3
+                    ):
+                        annotation_status = ANNOTATION_STATUS_APPROVED
+                    else:
+                        annotation_status = ANNOTATION_STATUS_SUGGESTED
                 else:
-                    annotation_status = ANNOTATION_STATUS_SUGGESTED
+                    continue
+
+            elif item["confidence"] >= match_threshold:
+                annotation_status = ANNOTATION_STATUS_APPROVED
+
+            # If there are long asset names a lower confidence is ok to create a suggestion
+            elif item["confidence"] >= 0.5 and entity["type"] == "asset" and len(tokens) > 5:
+                annotation_status = ANNOTATION_STATUS_SUGGESTED
             else:
                 continue
 
-        elif item["confidence"] >= match_threshold and len(item["entities"]) == 1:
-            annotation_status = ANNOTATION_STATUS_APPROVED
+            if annotation_status == ANNOTATION_STATUS_APPROVED and annotation_type == ASSET_ANNOTATION_TYPE:
+                entities_name_found.append(txt_value)
+                entities_id_found.append(entity["id"])
 
-        # If there are long asset names a lower confidence is ok to create a suggestion
-        elif item["confidence"] >= 0.5 and entity["type"] == "asset" and len(tokens) > 5:
-            annotation_status = ANNOTATION_STATUS_SUGGESTED
-        else:
-            continue
-
-        if annotation_status == ANNOTATION_STATUS_APPROVED and annotation_type == ASSET_ANNOTATION_TYPE:
-            entities_name_found.append(entity["orgName"])
-            entities_id_found.append(entity["id"])
-
-        create_annotation_list.append(
-            Annotation(
-                annotation_type=annotation_type,
-                data={
-                    ref_type: {"id": entity["id"]},
-                    "pageNumber": item["region"]["page"],
-                    "text": txt_value,
-                    "textRegion": get_coordinates(item["region"]["vertices"]),
-                },
-                status=annotation_status,
-                annotated_resource_type=ANNOTATION_RESOURCE_TYPE,
-                annotated_resource_id=annotated_resource_id,
-                creating_app=CREATING_APP,
-                creating_app_version=CREATING_APPVERSION,
-                creating_user=f"job.{job.job_id}",
+            create_annotation_list.append(
+                Annotation(
+                    annotation_type=annotation_type,
+                    data={
+                        ref_type: {"id": entity["id"]},
+                        "pageNumber": item["region"]["page"],
+                        "text": txt_value,
+                        "textRegion": textRegion,
+                    },
+                    status=annotation_status,
+                    annotated_resource_type=ANNOTATION_RESOURCE_TYPE,
+                    annotated_resource_id=annotated_resource_id,
+                    creating_app=CREATING_APP,
+                    creating_app_version=CREATING_APPVERSION,
+                    creating_user=f"job.{job.job_id}",
+                )
             )
-        )
-        # Create annotations once we hit 1k (to spread insertion over time):
-        if len(create_annotation_list) == 1000:
-            client.annotations.create(create_annotation_list)
-            create_annotation_list.clear()
+
+            # Create annotations once we hit 1k (to spread insertion over time):
+            if len(create_annotation_list) == 1000:
+                client.annotations.create(create_annotation_list)
+                create_annotation_list.clear()
 
     client.annotations.create(create_annotation_list)
     safe_delete_annotations(to_delete_annotation_list, client)
@@ -484,14 +509,14 @@ def get_sys_nums(annotations: Any, detected_count: int) -> tuple[dict[str, int],
     Returns:
         tuple[dict[str, int], int]: dict of system numbers and number of times used
     """
-    detected_sytem_num = defaultdict(int)
+    detected_system_num = defaultdict(int)
     for item in annotations:
         tokens = item["text"].split("-")
         if len(tokens) == 3:
             detected_count += 1
-            detected_sytem_num[tokens[0]] += 1
+            detected_system_num[tokens[0]] += 1
 
-    return dict(detected_sytem_num), detected_count
+    return dict(detected_system_num), detected_count
 
 
 def get_coordinates(vertices: list[dict]) -> dict[str, int]:
