@@ -393,7 +393,7 @@ class CDFToolConfig:
         project = auth.project or self._project
 
         if cluster is None or project is None:
-            print("  [bold red]Error[/] Cluster and project must be set to initialize a CogniteClient.")
+            print("  [bold red]Error[/] Cluster and Project must be set to authenticate the client.")
             return False
 
         self._cluster = cluster
@@ -416,7 +416,8 @@ class CDFToolConfig:
                 self._scopes = [auth.scopes]
             if not (auth.client_id and auth.authority_url and auth.scopes):
                 print(
-                    "  [bold red]Error[/] Login flow=interactive is set but missing required authentication variables. Cannot initialize cognite client."
+                    "  [bold red]Error[/] Login flow=interactive is set but missing required authentication "
+                    "variables. Cannot initialize Cognite client."
                 )
                 return False
             credentials_provider = OAuthInteractive(
@@ -469,6 +470,8 @@ class CDFToolConfig:
                 field_ = _auth_field_by_name[field_name]
                 env_name = field_.metadata["env_name"]
             except Exception as e:
+                # This means that the attribute is not set correctly in AuthVariables,
+                # ensure that 'env_name' is set in the metadata for all fields in AuthVariables.
                 raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
             self.environ(env_name, fail=False)
 
