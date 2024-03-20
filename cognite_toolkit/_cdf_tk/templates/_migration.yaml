@@ -1,8 +1,13 @@
-- version: 0.1.2
+- version: 0.2.0a1
   cognite_modules: {}
   resources: {}
   tool: {}
   cognite_modules_hash: ""
+- version: 0.1.2
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: "2ba2d52530d69a2ad23d5fedd1c5ccc58c28f7ac0d11b7f57552ea930bf982f2"
 - version: 0.1.1
   cognite_modules: {}
   resources: {}
