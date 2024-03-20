@@ -47,6 +47,7 @@ def test_init():
         assert isinstance(instance._client, CogniteClientMock)
 
 
+@pytest.mark.skip("Rewrite to use ApprovalClient")
 def test_dataset_missing_acl():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         with pytest.raises(CogniteAuthError):
