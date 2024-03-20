@@ -64,6 +64,7 @@ def test_loader_class(
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
     cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+    cdf_tool.client = cognite_client_approval.mock_client
     cdf_tool.data_set_id = 999
 
     loader_cls.create_loader(cdf_tool).deploy_resources(directory, cdf_tool, dry_run=False)
@@ -102,6 +103,7 @@ class TestDataSetsLoader:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.client = cognite_client_approval.mock_client
 
         loader = DataSetsLoader.create_loader(cdf_tool)
         loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", cdf_tool, skip_validation=False)
@@ -127,6 +129,7 @@ class TestViewLoader:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.client = cognite_client_approval.mock_client
         prop1 = dm.MappedProperty(
             dm.ContainerId(space="sp_space", external_id="container_id"),
             "prop1",
@@ -187,6 +190,7 @@ class TestDataModelLoader:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.client = cognite_client_approval.mock_client
         cdf_data_model = dm.DataModel(
             space="sp_space",
             external_id="my_model",
@@ -438,6 +442,7 @@ class TestDeployResources:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.client = cognite_client_approval.mock_client
 
         ViewLoader.create_loader(cdf_tool).deploy_resources(BUILD_DIR, cdf_tool, dry_run=False)
 

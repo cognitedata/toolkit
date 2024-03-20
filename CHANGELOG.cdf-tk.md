@@ -15,6 +15,19 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0a1] - 2024-03-20
+
+### Added
+
+- Support for interactive login. The user can now set `LOGIN_FLOW=interactive` in the `.env` file
+  to use interactive login.
+
+### Changed
+
+- The verification of access by the tool is now scoped to the resources that are being deployed instead of
+  the entire project. This means that if the user only has access to a subset of the resources in the project,
+  the tool will still be able to deploy those resources.
+
 ## [0.1.2] - 2024-03-18
 
 ### Fixed

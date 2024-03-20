@@ -67,13 +67,7 @@ class Loader(ABC):
 
     @classmethod
     def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig) -> T_Loader:
-        client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client)
-
-    @classmethod
-    @abstractmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
-        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
+        return cls(ToolGlobals.client)
 
     @property
     def display_name(self) -> str:
@@ -198,6 +192,11 @@ class ResourceLoader(
         raise NotImplementedError
 
     @classmethod
+    @abstractmethod
+    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
+
+    @classmethod
     def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource]) -> list[T_ID]:
         return [cls.get_id(item) for item in items]
 
@@ -295,6 +294,13 @@ class ResourceLoader(
         # but in case any of them slip through, we do it here as well to
         # avoid an error.
         loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
+
+        if not loaded_resources:
+            return ResourceDeployResult(name=self.display_name)
+
+        capabilities = self.get_required_capability(loaded_resources)
+        if capabilities:
+            ToolGlobals.verify_capabilities(capabilities)
 
         nr_of_items = len(loaded_resources)
         if nr_of_items == 0:
@@ -401,6 +407,10 @@ class ResourceLoader(
         # but in case any of them slip through, we do it here as well to
         # avoid an error.
         loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
+
+        capabilities = self.get_required_capability(loaded_resources)
+        if capabilities:
+            ToolGlobals.verify_capabilities(capabilities)
 
         nr_of_items = len(loaded_resources)
         if nr_of_items == 0:

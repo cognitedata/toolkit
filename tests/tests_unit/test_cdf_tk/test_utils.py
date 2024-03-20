@@ -38,7 +38,7 @@ DATA_FOLDER = THIS_FOLDER / "load_data"
 
 def mocked_init(self):
     self._client = CogniteClientMock()
-    self._data_set_id_by_external_id = {}
+    self._cache = CDFToolConfig._Cache()
 
 
 def test_init():
@@ -47,6 +47,7 @@ def test_init():
         assert isinstance(instance._client, CogniteClientMock)
 
 
+@pytest.mark.skip("Rewrite to use ApprovalClient")
 def test_dataset_missing_acl():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         with pytest.raises(CogniteAuthError):

@@ -15,6 +15,11 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0a1] - 2024-03-20
+
+- Added functionality for wildcard detection of tags in P&ID
+- Added functionality for multiple overlapping annotation to same tag - related to wildcards
+
 ## [0.1.2] - 2024-03-18
 
 No changes to templates.
