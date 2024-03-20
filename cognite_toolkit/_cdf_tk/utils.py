@@ -60,7 +60,7 @@ else:
 logger = logging.getLogger(__name__)
 
 
-LoginFlow: TypeAlias = Literal["client_credentials", "token"]
+LoginFlow: TypeAlias = Literal["client_credentials", "token", "interactive"]
 
 
 @dataclass
@@ -168,16 +168,17 @@ class AuthVariables:
                 self.token = new_token
             else:
                 print("  Keeping existing token.")
-        elif self.login_flow == "client_credentials":
+        elif self.login_flow in ("client_credentials", "interactive"):
             self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
             self.scopes = reader.prompt_user("scopes")
             self.tenant_id = reader.prompt_user("tenant_id")
             self.token_url = reader.prompt_user("token_url")
             self.client_id = reader.prompt_user("client_id")
-            if new_secret := reader.prompt_user("client_secret", password=True):
-                self.client_secret = new_secret
-            else:
-                print("  Keeping existing client secret.")
+            if self.login_flow == "client_credentials":
+                if new_secret := reader.prompt_user("client_secret", password=True):
+                    self.client_secret = new_secret
+                else:
+                    print("  Keeping existing client secret.")
         else:
             reader.status = "error"
             reader.messages.append(f"The login flow {self.login_flow} is not supported")
@@ -212,6 +213,10 @@ class AuthVariables:
             lines += [
                 self._write_var("client_id"),
                 self._write_var("client_secret"),
+            ]
+        elif self.login_flow == "interactive":
+            lines += [
+                self._write_var("client_id"),
             ]
         else:
             raise ValueError(f"Login flow {self.login_flow} is not supported.")
