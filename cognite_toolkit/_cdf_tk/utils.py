@@ -474,11 +474,12 @@ class CDFToolConfig:
             try:
                 field_ = _auth_field_by_name[field_name]
                 env_name = field_.metadata["env_name"]
+                value = getattr(self, f"_{field_name}")
             except Exception as e:
                 # This means that the attribute is not set correctly in AuthVariables,
                 # ensure that 'env_name' is set in the metadata for all fields in AuthVariables.
                 raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
-            self.environ(env_name, fail=False)
+            self._environ[env_name] = value[0] if isinstance(value, list) else value
 
     @classmethod
     def from_context(cls, ctx: typer.Context) -> CDFToolConfig:
