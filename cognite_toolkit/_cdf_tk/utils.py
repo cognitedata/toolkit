@@ -425,7 +425,12 @@ class CDFToolConfig:
                 client_id=auth.client_id,
                 scopes=self._scopes,
             )
-        elif auth.login_flow == "client_credentials":
+        elif auth.login_flow == "client_credentials" or auth.login_flow is None:
+            if auth.login_flow is None:
+                print(
+                    "  [bold yellow]Warning[/] No login flow is set. Defaulting to client_credentials. "
+                    "Set LOGIN_FLOW to 'client_credentials', 'token', or 'interactive' to avoid this warning."
+                )
             if auth.scopes:
                 self._scopes = [auth.scopes]
             if auth.audience:
