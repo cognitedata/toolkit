@@ -272,13 +272,13 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cognite-extractor-utils"
-version = "7.1.0"
+version = "7.1.1"
 description = "Utilities for easier development of extractors for CDF"
 optional = false
 python-versions = ">=3.8.0,<4.0.0"
 files = [
-    {file = "cognite_extractor_utils-7.1.0-py3-none-any.whl", hash = "sha256:9c318d12fecad2c6c772a8911106debe381c8d8fad3ebfd12148f06b029ed19f"},
-    {file = "cognite_extractor_utils-7.1.0.tar.gz", hash = "sha256:57998e8860628b8f3047f2d738767f3f974afd42ca40cbf3521c0aee7e18c4ca"},
+    {file = "cognite_extractor_utils-7.1.1-py3-none-any.whl", hash = "sha256:bafac98be68fd414e2c11cd4a2d4fb2cee2cbd0fa614c009eace075c7e3f8f31"},
+    {file = "cognite_extractor_utils-7.1.1.tar.gz", hash = "sha256:0d3578422964bef44f6651bf0736685e44de476a606aa56bcb48c277b8c82e56"},
 ]
 
 [package.dependencies]
@@ -311,13 +311,13 @@ python-json-logger = ">=2.0.7,<3.0.0"
 
 [[package]]
 name = "cognite-sdk"
-version = "7.28.2"
+version = "7.29.0"
 description = "Cognite Python SDK"
 optional = false
-python-versions = ">=3.8,<4.0"
+python-versions = "<4.0,>=3.8"
 files = [
-    {file = "cognite_sdk-7.28.2-py3-none-any.whl", hash = "sha256:5bd054f08c6dd68638d8eed80a3766b3a3111ccea7f4cf1fb08bd4fb257d9897"},
-    {file = "cognite_sdk-7.28.2.tar.gz", hash = "sha256:07bbf2b375e7486290d5b9dcd17aba59f20001e5b55af90b0bf46ca44719b4f5"},
+    {file = "cognite_sdk-7.29.0-py3-none-any.whl", hash = "sha256:db882336ad891517cec1faf89175e8efc9afaeba3fb7bbc77afa3645d3997962"},
+    {file = "cognite_sdk-7.29.0.tar.gz", hash = "sha256:09a39c856d67f40106e882a988911a75587a28c0880701dcaae0d7e77739a29b"},
 ]
 
 [package.dependencies]
@@ -772,13 +772,13 @@ files = [
 
 [[package]]
 name = "msal"
-version = "1.27.0"
+version = "1.28.0"
 description = "The Microsoft Authentication Library (MSAL) for Python library enables your app to access the Microsoft Cloud by supporting authentication of users with Microsoft Azure Active Directory accounts (AAD) and Microsoft Accounts (MSA) using industry standard OAuth2 and OpenID Connect."
 optional = false
-python-versions = ">=2.7"
+python-versions = ">=3.7"
 files = [
-    {file = "msal-1.27.0-py2.py3-none-any.whl", hash = "sha256:572d07149b83e7343a85a3bcef8e581167b4ac76befcbbb6eef0c0e19643cdc0"},
-    {file = "msal-1.27.0.tar.gz", hash = "sha256:3109503c038ba6b307152b0e8d34f98113f2e7a78986e28d0baf5b5303afda52"},
+    {file = "msal-1.28.0-py3-none-any.whl", hash = "sha256:3064f80221a21cd535ad8c3fafbb3a3582cd9c7e9af0bb789ae14f726a0ca99b"},
+    {file = "msal-1.28.0.tar.gz", hash = "sha256:80bbabe34567cb734efd2ec1869b2d98195c927455369d8077b3c542088c5c9d"},
 ]
 
 [package.dependencies]
@@ -1647,13 +1647,13 @@ jeepney = ">=0.6"
 
 [[package]]
 name = "sentry-sdk"
-version = "1.42.0"
+version = "1.43.0"
 description = "Python client for Sentry (https://sentry.io)"
 optional = false
 python-versions = "*"
 files = [
-    {file = "sentry-sdk-1.42.0.tar.gz", hash = "sha256:4a8364b8f7edbf47f95f7163e48334c96100d9c098f0ae6606e2e18183c223e6"},
-    {file = "sentry_sdk-1.42.0-py2.py3-none-any.whl", hash = "sha256:a654ee7e497a3f5f6368b36d4f04baeab1fe92b3105f7f6965d6ef0de35a9ba4"},
+    {file = "sentry-sdk-1.43.0.tar.gz", hash = "sha256:41df73af89d22921d8733714fb0fc5586c3461907e06688e6537d01a27e0e0f6"},
+    {file = "sentry_sdk-1.43.0-py2.py3-none-any.whl", hash = "sha256:8d768724839ca18d7b4c7463ef7528c40b7aa2bfbf7fe554d5f9a7c044acfd36"},
 ]
 
 [package.dependencies]
@@ -1667,6 +1667,7 @@ asyncpg = ["asyncpg (>=0.23)"]
 beam = ["apache-beam (>=2.12)"]
 bottle = ["bottle (>=0.12.13)"]
 celery = ["celery (>=3)"]
+celery-redbeat = ["celery-redbeat (>=2)"]
 chalice = ["chalice (>=1.16.0)"]
 clickhouse-driver = ["clickhouse-driver (>=0.2.0)"]
 django = ["django (>=1.8)"]
