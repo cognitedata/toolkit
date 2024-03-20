@@ -16,6 +16,7 @@ from __future__ import annotations
 import itertools
 import json
 import re
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from numbers import Number
 from pathlib import Path
@@ -185,7 +186,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         return AuthLoader(ToolGlobals.client, target_scopes)
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
         return GroupsAcl(
             [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
             GroupsAcl.Scope.All(),
@@ -324,7 +325,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     list_write_cls = DataSetWriteList
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+    def get_required_capability(cls, items: DataSetWriteList) -> Capability:
         return DataSetsAcl(
             [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write],
             DataSetsAcl.Scope.All(),
@@ -401,7 +402,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         super().__init__(client)
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+    def get_required_capability(cls, items: FunctionWriteList) -> list[Capability]:
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
             FilesAcl(
@@ -584,7 +585,7 @@ class FunctionScheduleLoader(
         super().__init__(client)
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+    def get_required_capability(cls, items: FunctionScheduleWriteList) -> list[Capability]:
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
             SessionsAcl(
@@ -710,8 +711,14 @@ class RawDatabaseLoader(
         self._loaded_db_names: set[str] = set()
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
+    def get_required_capability(cls, items: RawTableList) -> Capability:
+        tables_by_database = defaultdict(list)
+        for item in items:
+            tables_by_database[item.db_name].append(item.table_name)
+
+        scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
+
+        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], scope)  # type: ignore[arg-type]
 
     @classmethod
     def get_id(cls, item: RawDatabaseTable) -> RawDatabaseTable:
@@ -805,8 +812,14 @@ class RawTableLoader(
         self._printed_warning = False
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
+    def get_required_capability(cls, items: RawTableList) -> Capability:
+        tables_by_database = defaultdict(list)
+        for item in items:
+            tables_by_database[item.db_name].append(item.table_name)
+
+        scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
+
+        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], scope)  # type: ignore[arg-type]
 
     @classmethod
     def get_id(cls, item: RawDatabaseTable) -> RawDatabaseTable:
@@ -909,10 +922,14 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     dependencies = frozenset({DataSetsLoader})
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+    def get_required_capability(cls, items: TimeSeriesWriteList) -> Capability:
+        dataset_ids = {item.data_set_id for item in items if item.data_set_id}
+
+        scope = TimeSeriesAcl.Scope.DataSet(list(dataset_ids)) if dataset_ids else TimeSeriesAcl.Scope.All()
+
         return TimeSeriesAcl(
             [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
-            TimeSeriesAcl.Scope.All(),
+            scope,  # type: ignore[arg-type]
         )
 
     @classmethod
@@ -987,11 +1004,14 @@ class TransformationLoader(
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader})
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope: capabilities.AllScope | capabilities.DataSetScope = TransformationsAcl.Scope.All()
+    def get_required_capability(cls, items: TransformationWriteList) -> Capability:
+        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
+
+        scope = TransformationsAcl.Scope.DataSet(list(data_set_ids)) if data_set_ids else TransformationsAcl.Scope.All()
+
         return TransformationsAcl(
             [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
-            scope,
+            scope,  # type: ignore[arg-type]
         )
 
     @classmethod
@@ -1095,12 +1115,10 @@ class TransformationScheduleLoader(
     dependencies = frozenset({TransformationLoader})
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope: capabilities.AllScope | capabilities.DataSetScope = TransformationsAcl.Scope.All()
-        return TransformationsAcl(
-            [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
-            scope,
-        )
+    def get_required_capability(cls, items: TransformationScheduleWriteList) -> list[Capability]:
+        # Access for transformations schedules is checked by the transformation that is deployed
+        # first, so we don't need to check for any capabilities here.
+        return []
 
     @classmethod
     def get_id(cls, item: TransformationSchedule | TransformationScheduleWrite) -> str:
@@ -1154,10 +1172,18 @@ class ExtractionPipelineLoader(
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader})
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
+    def get_required_capability(cls, items: ExtractionPipelineWriteList) -> Capability:
+        data_set_id = {item.data_set_id for item in items if item.data_set_id}
+
+        scope = (
+            ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
+            if data_set_id
+            else ExtractionPipelinesAcl.Scope.All()
+        )
+
         return ExtractionPipelinesAcl(
             [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
-            ExtractionPipelinesAcl.Scope.All(),
+            scope,  # type: ignore[arg-type]
         )
 
     @classmethod
@@ -1235,11 +1261,10 @@ class ExtractionPipelineConfigLoader(
     dependencies = frozenset({ExtractionPipelineLoader})
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        return ExtractionPipelinesAcl(
-            [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
-            ExtractionPipelinesAcl.Scope.All(),
-        )
+    def get_required_capability(cls, items: ExtractionPipelineConfigWriteList) -> list[Capability]:
+        # Access for extraction pipeline configs is checked by the extraction pipeline that is deployed
+        # first, so we don't need to check for any capabilities here.
+        return []
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineConfig | ExtractionPipelineConfigWrite) -> str:
@@ -1327,11 +1352,12 @@ class FileMetadataLoader(
         return "file_metadata"
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope: capabilities.AllScope | capabilities.DataSetScope
-        scope = FilesAcl.Scope.All()
+    def get_required_capability(cls, items: FileMetadataWriteList) -> Capability:
+        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
 
-        return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)
+        scope = FilesAcl.Scope.DataSet(list(data_set_ids)) if data_set_ids else FilesAcl.Scope.All()
+
+        return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)  # type: ignore[arg-type]
 
     @classmethod
     def get_id(cls, item: FileMetadata | FileMetadataWrite) -> str:
@@ -1448,7 +1474,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     _display_name = "spaces"
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> list[Capability]:
+    def get_required_capability(cls, items: SpaceApplyList) -> list[Capability]:
         return [
             DataModelsAcl(
                 [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
@@ -1543,11 +1569,10 @@ class ContainerLoader(
     _display_name = "containers"
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        # Todo Scoped to spaces
+    def get_required_capability(cls, items: ContainerApplyList) -> Capability:
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.All(),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
         )
 
     @classmethod
@@ -1649,11 +1674,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         self._interfaces_by_id: dict[ViewId, View] = {}
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        # Todo Scoped to spaces
+    def get_required_capability(cls, items: ViewApplyList) -> Capability:
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.All(),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
         )
 
     @classmethod
@@ -1728,11 +1752,10 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     _display_name = "data models"
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        # Todo Scoped to spaces
+    def get_required_capability(cls, items: DataModelApplyList) -> Capability:
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.All(),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
         )
 
     @classmethod
@@ -1784,11 +1807,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     _display_name = "nodes"
 
     @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        # Todo Scoped to spaces
+    def get_required_capability(cls, items: LoadedNodeList) -> Capability:
         return DataModelInstancesAcl(
             [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
-            DataModelInstancesAcl.Scope.All(),
+            DataModelInstancesAcl.Scope.SpaceID(list({item.node.space for item in items})),
         )
 
     @classmethod

@@ -69,11 +69,6 @@ class Loader(ABC):
     def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig) -> T_Loader:
         return cls(ToolGlobals.client)
 
-    @classmethod
-    @abstractmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
-        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
-
     @property
     def display_name(self) -> str:
         return self.folder_name
@@ -195,6 +190,11 @@ class ResourceLoader(
     @abstractmethod
     def get_id(cls, item: T_WriteClass | T_WritableCogniteResource) -> T_ID:
         raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
     @classmethod
     def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource]) -> list[T_ID]:
