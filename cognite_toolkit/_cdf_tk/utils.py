@@ -211,22 +211,30 @@ class AuthVariables:
             self._write_var("login_flow"),
         ]
         if self.login_flow == "token":
-            lines.append("# When using a token, the IDP variables are not needed, so they are not included.")
-            lines.append(self._write_var("token"))
+            lines += [
+                "# When using a token, the IDP variables are not needed, so they are not included.",
+                self._write_var("token"),
+            ]
         elif self.login_flow == "client_credentials":
-            lines.append(self._write_var("client_id"))
-            lines.append(self._write_var("client_secret"))
+            lines += [
+                self._write_var("client_id"),
+                self._write_var("client_secret"),
+            ]
         else:
             raise ValueError(f"Login flow {self.login_flow} is not supported.")
-        lines.append("# The below variables don't have to be set if you have just accepted the defaults.")
-        lines.append("# They are automatically constructed unless they are set.")
-        lines.append(self._write_var("cdf_url"))
+        lines += [
+            "# The below variables don't have to be set if you have just accepted the defaults.",
+            "# They are automatically constructed unless they are set.",
+            self._write_var("cdf_url"),
+        ]
         if self.login_flow == "client_credentials":
-            lines.append("# Note: Either the TENANT_ID or the TENANT_URL must be written.")
-            lines.append(self._write_var("tenant_id"))
-            lines.append(self._write_var("token_url"))
-            lines.append(self._write_var("audience"))
-            lines.append(self._write_var("scopes"))
+            lines += [
+                "# Note: Either the TENANT_ID or the TENANT_URL must be written.",
+                self._write_var("tenant_id"),
+                self._write_var("token_url"),
+                self._write_var("audience"),
+                self._write_var("scopes"),
+            ]
 
         Path(".env").write_text("\n".join(lines))
         return None
