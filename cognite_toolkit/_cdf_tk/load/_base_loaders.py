@@ -295,6 +295,10 @@ class ResourceLoader(
         # avoid an error.
         loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
 
+        capabilities = self.get_required_capability(loaded_resources)
+        if capabilities:
+            ToolGlobals.verify_capabilities(capabilities)
+
         nr_of_items = len(loaded_resources)
         if nr_of_items == 0:
             return ResourceDeployResult(name=self.display_name)
@@ -400,6 +404,10 @@ class ResourceLoader(
         # but in case any of them slip through, we do it here as well to
         # avoid an error.
         loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
+
+        capabilities = self.get_required_capability(loaded_resources)
+        if capabilities:
+            ToolGlobals.verify_capabilities(capabilities)
 
         nr_of_items = len(loaded_resources)
         if nr_of_items == 0:
