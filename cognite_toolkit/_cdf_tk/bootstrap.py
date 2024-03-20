@@ -44,7 +44,8 @@ def check_auth(
         result = auth_vars.from_interactive_with_validation(verbose)
     else:
         result = auth_vars.validate(verbose)
-    print("\n".join(result.messages))
+    if result.messages:
+        print("\n".join(result.messages))
     if result.status == "error":
         ToolGlobals.failed = True
         return None
