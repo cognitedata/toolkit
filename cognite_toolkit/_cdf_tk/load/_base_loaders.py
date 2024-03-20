@@ -295,6 +295,9 @@ class ResourceLoader(
         # avoid an error.
         loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
 
+        if not loaded_resources:
+            return ResourceDeployResult(name=self.display_name)
+
         capabilities = self.get_required_capability(loaded_resources)
         if capabilities:
             ToolGlobals.verify_capabilities(capabilities)
