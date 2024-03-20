@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Support for interactive login. The user can now set `LOGIN_FLOW=interactive` in the `.env` file
+  to use interactive login.
+
 ## [0.1.2] - 2024-03-18
 
 ### Fixed

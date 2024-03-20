@@ -27,11 +27,7 @@ class DatapointsLoader(DataLoader):
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope: capabilities.AllScope | capabilities.DataSetScope = (
-            TimeSeriesAcl.Scope.DataSet([ToolGlobals.data_set_id])
-            if ToolGlobals.data_set_id
-            else TimeSeriesAcl.Scope.All()
-        )
+        scope: capabilities.AllScope | capabilities.DataSetScope = TimeSeriesAcl.Scope.All()
 
         return TimeSeriesAcl(
             [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
@@ -89,10 +85,7 @@ class FileLoader(DataLoader):
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
         scope: capabilities.AllScope | capabilities.DataSetScope
-        if ToolGlobals.data_set_id is None:
-            scope = FilesAcl.Scope.All()
-        else:
-            scope = FilesAcl.Scope.DataSet([ToolGlobals.data_set_id])
+        scope = FilesAcl.Scope.All()
 
         return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)
 
