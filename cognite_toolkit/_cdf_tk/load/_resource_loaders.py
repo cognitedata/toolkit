@@ -182,8 +182,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
             "resource_scoped_only",
         ] = "all",
     ) -> AuthLoader:
-        client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return AuthLoader(client, target_scopes)
+        return AuthLoader(ToolGlobals.client, target_scopes)
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:

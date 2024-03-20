@@ -67,8 +67,7 @@ class Loader(ABC):
 
     @classmethod
     def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig) -> T_Loader:
-        client = ToolGlobals.verify_capabilities(capability=cls.get_required_capability(ToolGlobals))
-        return cls(client)
+        return cls(ToolGlobals.client)
 
     @classmethod
     @abstractmethod
