@@ -149,11 +149,12 @@ class AuthVariables:
         return list(get_args(LoginFlow))
 
     @classmethod
-    def from_env(cls) -> AuthVariables:
+    def from_env(cls, override: dict[str, Any] | None = None) -> AuthVariables:
+        override = override or {}
         args: dict[str, Any] = {}
         for field_ in fields(cls):
             if env_name := field_.metadata.get("env_name"):
-                args[field_.name] = os.environ.get(env_name)
+                args[field_.name] = override.get(env_name, os.environ.get(env_name))
         return cls(**args)
 
     def validate(self, verbose: bool) -> AuthReaderValidation:
@@ -248,7 +249,7 @@ class AuthVariables:
 
     def _write_var(self, var_name: str) -> str:
         value = getattr(self, var_name)
-        field_ = _field_by_name[var_name].metadata
+        field_ = _auth_field_by_name[var_name].metadata
         return f"{field_['env_name']}={value}"
 
 
@@ -279,7 +280,7 @@ class AuthReaderValidation:
     ) -> str | None:
         try:
             current_value = getattr(self._auth_vars, field_name)
-            field_ = _field_by_name[field_name]
+            field_ = _auth_field_by_name[field_name]
             metadata = field_.metadata
             example = (
                 metadata["example"]
@@ -323,7 +324,7 @@ class AuthReaderValidation:
         return response
 
 
-_field_by_name = {field.name: field for field in fields(AuthVariables)}
+_auth_field_by_name = {field.name: field for field in fields(AuthVariables)}
 
 
 class CDFToolConfig:
@@ -366,12 +367,13 @@ class CDFToolConfig:
         self._audience: str | None = None
         self._client: CogniteClient | None = None
 
+        global_config.disable_pypi_version_check = True
         if _RUNNING_IN_BROWSER:
             self._initialize_in_browser()
             return
 
-        self._initialize_from_environment_variables()
-        global_config.disable_pypi_version_check = True
+        auth_vars = AuthVariables.from_env(self._environ)
+        self.initialize_from_auth_variables(auth_vars)
 
     def _initialize_in_browser(self) -> None:
         try:
@@ -385,99 +387,18 @@ class CDFToolConfig:
             self._project = self._client.config.project
             self._cdf_url = self._client.config.base_url
 
-    def _initialize_from_environment_variables(self) -> None:
-        # CDF_CLUSTER and CDF_PROJECT are minimum requirements.
-        # We check that whether we miss any of them, so we can give a better error message.
+    def initialize_from_auth_variables(self, auth: AuthVariables) -> bool:
+        """Initialize the CDFToolConfig from the AuthVariables and returns whether it was successful or not."""
+        cluster = auth.cluster or self._cluster
+        project = auth.project or self._project
 
-        missing = {key: self.environ(key, fail=False) for key in ["CDF_CLUSTER", "CDF_PROJECT"]}
-        if any(value is None for value in missing.values()):
-            raise ValueError(
-                f"The environment variables {list(missing)} are required. Missing: {[key for key, value in missing.items() if value is None]}"
-            )
+        if cluster is None or project is None:
+            print("  [bold red]Error[/] Cluster and project must be set to initialize a CogniteClient.")
+            return False
 
-        self._cluster = self.environ("CDF_CLUSTER")
-        self._project = self.environ("CDF_PROJECT")
-        # CDF_URL is optional, but if set, we use that instead of the default URL using cluster.
-        self._cdf_url = self.environ("CDF_URL", f"https://{self._cluster}.cognitedata.com")
-
-        login_flow = self.environ("LOGIN_FLOW", fail=False)
-        credentials_provider: CredentialProvider
-        # If CDF_TOKEN is set, we want to use that token instead of client credentials.
-        if (token := self.environ("CDF_TOKEN", fail=False)) is not None:
-            if login_flow is not None:
-                print(
-                    f"  [bold yellow]Warning[/] CDF_TOKEN detected. This will override LOGIN_FLOW, "
-                    f"thus LOGIN_FLOW={login_flow} will be ignored"
-                )
-            credentials_provider = Token(token)
-        elif login_flow and login_flow.lower() == "interactive":
-            self._scopes = [
-                self.environ(
-                    "IDP_SCOPES",
-                    f"https://{self._cluster}.cognitedata.com/.default",
-                )
-            ]
-            tenant_id = self.environ("IDP_TENANT_ID", fail=False)
-            authority_url = self.environ("IDP_AUTHORITY_URL", fail=False)
-            if tenant_id is None and authority_url is None:
-                raise ValueError("IDP_TENANT_ID or IDP_AUTHORITY_URL must be set to use interactive login flow.")
-            authority_url = authority_url or f"https://login.microsoftonline.com/{tenant_id}"
-
-            credentials_provider = OAuthInteractive(
-                authority_url=authority_url,
-                client_id=self.environ("IDP_CLIENT_ID"),
-                scopes=self._scopes,
-            )
-        else:
-            # We are now doing OAuth2 client credentials flow, so we need to set the
-            # required variables.
-            # We can infer scopes and audience from the cluster value.
-            # However, the URL to use to retrieve the token, as well as
-            # the client id and secret, must be set as environment variables.
-            self._scopes = [
-                self.environ(
-                    "IDP_SCOPES",
-                    f"https://{self._cluster}.cognitedata.com/.default",
-                )
-            ]
-            self._audience = self.environ("IDP_AUDIENCE", f"https://{self._cluster}.cognitedata.com")
-
-            token_url = self.environ("IDP_TOKEN_URL", fail=False)
-            tenant_id = self.environ("IDP_TENANT_ID", fail=False)
-            if token_url is None and tenant_id is None:
-                raise ValueError("IDP_TOKEN_URL or IDP_TENANT_ID must be set to use client_credentials flow.")
-            token_url = token_url or f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
-
-            credentials_provider = OAuthClientCredentials(
-                token_url=token_url,
-                client_id=self.environ("IDP_CLIENT_ID"),
-                # client secret should not be stored in-code, so we load it from an environment variable
-                client_secret=self.environ("IDP_CLIENT_SECRET"),
-                scopes=self._scopes,
-                audience=self._audience,
-            )
-
-        self._client = CogniteClient(
-            ClientConfig(
-                client_name=self._client_name,
-                base_url=self._cdf_url,
-                project=self._project,
-                credentials=credentials_provider,
-            )
-        )
-
-    def reinitialize_from_auth_variables(self, auth: AuthVariables) -> None:
-        if auth.cluster:
-            self._cluster = auth.cluster
-            self._environ["CDF_CLUSTER"] = auth.cluster
-        if auth.project:
-            self._project = auth.project
-            self._environ["CDF_PROJECT"] = auth.project
-        if auth.cdf_url:
-            self._cdf_url = auth.cdf_url
-
-        if self._project is None or self._cluster is None:
-            raise ValueError("Project and Cluster must be set to initialize a CogniteClient")
+        self._cluster = cluster
+        self._project = project
+        self._cdf_url = auth.cdf_url or self._cdf_url
 
         credentials_provider: CredentialProvider
         if auth.token or auth.login_flow == "token":
@@ -487,33 +408,34 @@ class CDFToolConfig:
                     f"thus LOGIN_FLOW={auth.login_flow} will be ignored"
                 )
             if not auth.token:
-                print("  [bold yellow]Warning[/] No token found in auth variables. Cannot reinitialize client.")
-                return
-            self._environ["CDF_TOKEN"] = auth.token
+                print("  [bold red]Error[/] Login flow=token is set but no token is provided.")
+                return False
             credentials_provider = Token(auth.token)
         elif auth.login_flow == "interactive":
-            if not (auth.client_id and auth.authority_url and auth.scopes):
-                print(
-                    "  [bold yellow]Warning[/] Missing required authentication variables. Cannot reinitialize client."
-                )
-                return
             if auth.scopes:
                 self._scopes = [auth.scopes]
+            if not (auth.client_id and auth.authority_url and auth.scopes):
+                print(
+                    "  [bold red]Error[/] Login flow=interactive is set but missing required authentication variables. Cannot initialize cognite client."
+                )
+                return False
             credentials_provider = OAuthInteractive(
                 authority_url=auth.authority_url,
                 client_id=auth.client_id,
                 scopes=self._scopes,
             )
         elif auth.login_flow == "client_credentials":
-            if not (auth.token_url and auth.client_id and auth.client_secret):
-                print(
-                    "  [bold yellow]Warning[/] Missing required authentication variables. Cannot reinitialize client."
-                )
-                return
             if auth.scopes:
                 self._scopes = [auth.scopes]
             if auth.audience:
                 self._audience = auth.audience
+
+            if not (auth.token_url and auth.client_id and auth.client_secret and self._scopes and self._audience):
+                print(
+                    "  [bold yellow]Error[/] Login flow=client_credentials is set but missing required authentication variables. Cannot initialize cognite client."
+                )
+                return False
+
             credentials_provider = OAuthClientCredentials(
                 token_url=auth.token_url,
                 client_id=auth.client_id,
@@ -522,8 +444,8 @@ class CDFToolConfig:
                 audience=self._audience,
             )
         else:
-            print(f"  [bold yellow]Warning[/] Login flow {auth.login_flow} is not supported.")
-            return
+            print(f"  [bold red]Error[/] Login flow {auth.login_flow} is not supported.")
+            return False
 
         self._client = CogniteClient(
             ClientConfig(
@@ -533,6 +455,22 @@ class CDFToolConfig:
                 credentials=credentials_provider,
             )
         )
+        self._update_environment_variables()
+        return True
+
+    def _update_environment_variables(self) -> None:
+        """This updates the cache environment variables with the auth
+        variables.
+
+        This is necessary for the .as_string() method to dump correctly.
+        """
+        for field_name in ["cluster", "project", "cdf_url", "scopes", "audience"]:
+            try:
+                field_ = _auth_field_by_name[field_name]
+                env_name = field_.metadata["env_name"]
+            except Exception as e:
+                raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
+            self.environ(env_name, fail=False)
 
     @classmethod
     def from_context(cls, ctx: typer.Context) -> CDFToolConfig:
