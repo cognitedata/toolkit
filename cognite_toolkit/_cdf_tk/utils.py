@@ -66,42 +66,38 @@ LoginFlow: TypeAlias = Literal["client_credentials", "token"]
 @dataclass
 class AuthVariables:
     cluster: str | None = field(
-        metadata=dict(env_name="CDF_CLUSTER", display_name="CDF project cluster", required=True, example="westeurope-1")
+        metadata=dict(env_name="CDF_CLUSTER", display_name="CDF project cluster", example="westeurope-1")
     )
     project: str | None = field(
-        metadata=dict(env_name="CDF_PROJECT", display_name="CDF project URL name", required=True, example="publicdata")
+        metadata=dict(env_name="CDF_PROJECT", display_name="CDF project URL name", example="publicdata")
     )
     cdf_url: str | None = field(
         default=None,
-        metadata=dict(
-            env_name="CDF_URL", display_name="CDF URL", required=False, example="https://CDF_CLUSTER.cognitedata.com"
-        ),
+        metadata=dict(env_name="CDF_URL", display_name="CDF URL", example="https://CDF_CLUSTER.cognitedata.com"),
     )
     login_flow: LoginFlow = field(
         default="client_credentials",
         metadata=dict(
             env_name="LOGIN_FLOW",
             display_name="Login flow",
-            required=False,
             example="client_credentials",
         ),
     )
     token: str | None = field(
-        default=None, metadata=dict(env_name="CDF_TOKEN", display_name="OAuth2 token", required=False, example="")
+        default=None, metadata=dict(env_name="CDF_TOKEN", display_name="OAuth2 token", example="")
     )
     client_id: str | None = field(
-        default=None, metadata=dict(env_name="IDP_CLIENT_ID", display_name="client id", required=False, example="")
+        default=None, metadata=dict(env_name="IDP_CLIENT_ID", display_name="client id", example="")
     )
     client_secret: str | None = field(
         default=None,
-        metadata=dict(env_name="IDP_CLIENT_SECRET", display_name="client secret", required=False, example=""),
+        metadata=dict(env_name="IDP_CLIENT_SECRET", display_name="client secret", example=""),
     )
     token_url: str | None = field(
         default=None,
         metadata=dict(
             env_name="IDP_TOKEN_URL",
             display_name="token URL",
-            required=False,
             example="https://login.microsoftonline.com/IDP_TENANT_ID/oauth2/v2.0/token",
         ),
     )
@@ -110,7 +106,6 @@ class AuthVariables:
         metadata=dict(
             env_name="IDP_TENANT_ID",
             display_name="tenant id",
-            required=False,
             example="12345678-1234-1234-1234-123456789012",
         ),
     )
@@ -119,7 +114,6 @@ class AuthVariables:
         metadata=dict(
             env_name="IDP_AUDIENCE",
             display_name="IDP audience",
-            required=False,
             example="https://CDF_CLUSTER.cognitedata.com",
         ),
     )
@@ -128,7 +122,6 @@ class AuthVariables:
         metadata=dict(
             env_name="IDP_SCOPES",
             display_name="IDP scopes",
-            required=False,
             example="https://CDF_CLUSTER.cognitedata.com/.default",
         ),
     )
