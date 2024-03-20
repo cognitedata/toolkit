@@ -31,7 +31,7 @@ from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesVie
 from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, TypeVar, get_args, get_origin, overload
+from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, cast, get_args, get_origin, overload
 
 import typer
 import yaml
@@ -84,7 +84,6 @@ class AuthVariables:
             display_name="Login flow",
             required=False,
             example="client_credentials",
-            default="client_credentials",
         ),
     )
     token: str | None = field(
@@ -264,15 +263,15 @@ class AuthReaderValidation:
                 .replace("IDP_TENANT_ID", self._auth_vars.tenant_id or "<tenant_id>")
             )
             display_name = metadata["display_name"]
+            default = cast(Union[str, None], current_value or field_.default)
         except Exception as e:
             raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
 
         extra_args: dict[str, Any] = {}
-        if default := metadata.get("default", current_value if password is not False else None):
-            if password:
-                extra_args["default"] = ""
-            else:
-                extra_args["default"] = default
+        if password is False:
+            extra_args["default"] = ""
+        else:
+            extra_args["default"] = default
         if choices:
             extra_args["choices"] = choices
         if password is not None:
@@ -284,8 +283,9 @@ class AuthReaderValidation:
             prompt = f"{display_name}? "
         else:
             prompt = f"{display_name} (e.g. [italic]{example}[/])? "
+        response: str | None
         if self.skip_prompt:
-            response = current_value
+            response = default
         else:
             response = Prompt.ask(prompt, **extra_args)
         if not expected or response == expected:
