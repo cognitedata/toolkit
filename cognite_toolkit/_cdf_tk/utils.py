@@ -386,7 +386,7 @@ class CDFToolConfig:
             return
 
         auth_vars = AuthVariables.from_env(self._environ)
-        self._failed = self.initialize_from_auth_variables(auth_vars)
+        self._failed = not self.initialize_from_auth_variables(auth_vars)
 
     def _initialize_in_browser(self) -> None:
         try:
