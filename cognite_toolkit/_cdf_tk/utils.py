@@ -359,7 +359,6 @@ class CDFToolConfig:
 
     def __init__(self, token: str | None = None, cluster: str | None = None, project: str | None = None) -> None:
         self._cache = self._Cache()
-        self._failed = False
         self._environ: dict[str, str | None] = {}
         # If cluster, project, or token are passed as arguments, we override the environment variables.
         # This means these will be used when we initialize the CogniteClient when we initialize from
@@ -387,7 +386,7 @@ class CDFToolConfig:
             return
 
         auth_vars = AuthVariables.from_env(self._environ)
-        self.initialize_from_auth_variables(auth_vars)
+        self._failed = self.initialize_from_auth_variables(auth_vars)
 
     def _initialize_in_browser(self) -> None:
         try:
