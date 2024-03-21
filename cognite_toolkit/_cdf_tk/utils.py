@@ -143,6 +143,12 @@ class AuthVariables:
         if self.tenant_id:
             self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
             self.authority_url = self.authority_url or f"https://login.microsoftonline.com/{self.tenant_id}"
+        if self.token and self.login_flow != "token":
+            print(
+                f"  [bold yellow]Warning[/] CDF_TOKEN detected. This will override LOGIN_FLOW, "
+                f"thus LOGIN_FLOW={self.login_flow} will be ignored"
+            )
+            self.login_flow = "token"
 
     @classmethod
     def login_flow_options(cls) -> list[str]:
@@ -409,12 +415,7 @@ class CDFToolConfig:
         self._cdf_url = auth.cdf_url or self._cdf_url
 
         credentials_provider: CredentialProvider
-        if auth.token or auth.login_flow == "token":
-            if auth.login_flow != "token":
-                print(
-                    f"  [bold yellow]Warning[/] CDF_TOKEN detected. This will override LOGIN_FLOW, "
-                    f"thus LOGIN_FLOW={auth.login_flow} will be ignored"
-                )
+        if auth.login_flow == "token":
             if not auth.token:
                 print("  [bold red]Error[/] Login flow=token is set but no token is provided.")
                 return False
