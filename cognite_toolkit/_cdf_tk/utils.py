@@ -230,18 +230,27 @@ class AuthVariables:
             ]
         else:
             raise ValueError(f"Login flow {self.login_flow} is not supported.")
-        lines += [
-            "# The below variables don't have to be set if you have just accepted the defaults.",
-            "# They are automatically constructed unless they are set.",
-            self._write_var("cdf_url"),
-        ]
-        if self.login_flow == "client_credentials":
+        if self.login_flow in ("client_credentials", "interactive"):
             lines += [
                 "# Note: Either the TENANT_ID or the TENANT_URL must be written.",
                 self._write_var("tenant_id"),
                 self._write_var("token_url"),
-                self._write_var("audience"),
+            ]
+        lines += [
+            "# The below variables are the defaults, they are automatically constructed unless they are set.",
+            self._write_var("cdf_url"),
+        ]
+        if self.login_flow in ("client_credentials", "interactive"):
+            lines += [
                 self._write_var("scopes"),
+            ]
+        if self.login_flow == "interactive":
+            lines += [
+                self._write_var("authority_url"),
+            ]
+        if self.login_flow == "client_credentials":
+            lines += [
+                self._write_var("audience"),
             ]
 
         return "\n".join(lines)
