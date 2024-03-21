@@ -87,7 +87,10 @@ class AuthVariables:
         default=None, metadata=dict(env_name="CDF_TOKEN", display_name="OAuth2 token", example="")
     )
     client_id: str | None = field(
-        default=None, metadata=dict(env_name="IDP_CLIENT_ID", display_name="client id", example="")
+        default=None,
+        metadata=dict(
+            env_name="IDP_CLIENT_ID", display_name="client id", example="XXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+        ),
     )
     client_secret: str | None = field(
         default=None,
