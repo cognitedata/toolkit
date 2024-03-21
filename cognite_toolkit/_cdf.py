@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations
+import contextlib
 import os
 import sys
 from collections.abc import Sequence
@@ -630,7 +631,13 @@ def auth_verify(
     if create_group is not None and update_group != 0:
         print("[bold red]ERROR: [/] --create-group and --update-group are mutually exclusive.")
         exit(1)
-    ToolGlobals = CDFToolConfig.from_context(ctx)
+    if interactive:
+        with contextlib.redirect_stdout(None):
+            # Remove the Error message from failing to load the config
+            ToolGlobals = CDFToolConfig.from_context(ctx)
+    else:
+        ToolGlobals = CDFToolConfig.from_context(ctx)
+
     if group_file is None:
         template_dir = cast(Path, resources.files("cognite_toolkit"))
         group_path = template_dir.joinpath(
