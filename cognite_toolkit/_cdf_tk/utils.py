@@ -480,7 +480,8 @@ class CDFToolConfig:
                 # ensure that 'env_name' is set in the metadata for all fields in AuthVariables.
                 raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
 
-            self._environ[env_name] = value[0] if isinstance(value, list) else value
+            if value:
+                self._environ[env_name] = value[0] if isinstance(value, list) else value
 
     @classmethod
     def from_context(cls, ctx: typer.Context) -> CDFToolConfig:
