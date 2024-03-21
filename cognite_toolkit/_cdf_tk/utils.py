@@ -479,6 +479,7 @@ class CDFToolConfig:
                 # This means that the attribute is not set correctly in AuthVariables,
                 # ensure that 'env_name' is set in the metadata for all fields in AuthVariables.
                 raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
+
             self._environ[env_name] = value[0] if isinstance(value, list) else value
 
     @classmethod
