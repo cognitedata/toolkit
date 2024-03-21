@@ -31,7 +31,7 @@ from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesVie
 from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, cast, get_args, get_origin, overload
+from typing import Any, ClassVar, Generic, Literal, TypeVar, get_args, get_origin, overload
 
 import typer
 import yaml
@@ -173,7 +173,7 @@ class AuthVariables:
         reader = AuthReaderValidation(self, verbose, skip_prompt)
         self.cluster = reader.prompt_user("cluster")
         self.project = reader.prompt_user("project")
-        if not (self.cluster or self.project):
+        if not (self.cluster and self.project):
             reader.status = "error"
             reader.messages.append("  [bold red]ERROR[/]: CDF Cluster and project are required.")
             return reader
@@ -302,7 +302,7 @@ class AuthReaderValidation:
                 .replace("IDP_TENANT_ID", self._auth_vars.tenant_id or "<tenant_id>")
             )
             display_name = metadata["display_name"]
-            default = cast(Union[str, None], current_value or field_.default)
+            default = current_value or (field_.default if isinstance(field_.default, str) else None)
         except Exception as e:
             raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
 
