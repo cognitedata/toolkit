@@ -192,17 +192,21 @@ class AuthVariables:
             else:
                 print("  Keeping existing token.")
         elif self.login_flow in ("client_credentials", "interactive"):
-            self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
-            self.scopes = reader.prompt_user("scopes")
             self.tenant_id = reader.prompt_user("tenant_id")
             self._set_token_id_defaults()
-            self.token_url = reader.prompt_user("token_url")
             self.client_id = reader.prompt_user("client_id")
             if self.login_flow == "client_credentials":
                 if new_secret := reader.prompt_user("client_secret", password=True):
                     self.client_secret = new_secret
                 else:
                     print("  Keeping existing client secret.")
+
+            self.token_url = reader.prompt_user("token_url")
+            self.scopes = reader.prompt_user("scopes")
+            if self.login_flow == "interactive":
+                self.authority_url = reader.prompt_user("authority_url")
+            if self.login_flow == "client_credentials":
+                self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
         else:
             reader.status = "error"
             reader.messages.append(f"The login flow {self.login_flow} is not supported")
