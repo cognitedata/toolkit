@@ -137,18 +137,24 @@ class AuthVariables:
     def __post_init__(self) -> None:
         # Set defaults based on cluster and tenant_id
         if self.cluster:
-            self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
-            self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
-            self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
+            self._set_cluster_defaults()
         if self.tenant_id:
-            self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
-            self.authority_url = self.authority_url or f"https://login.microsoftonline.com/{self.tenant_id}"
+            self._set_token_id_defaults()
         if self.token and self.login_flow != "token":
             print(
                 f"  [bold yellow]Warning[/] CDF_TOKEN detected. This will override LOGIN_FLOW, "
                 f"thus LOGIN_FLOW={self.login_flow} will be ignored"
             )
             self.login_flow = "token"
+
+    def _set_token_id_defaults(self) -> None:
+        self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
+        self.authority_url = self.authority_url or f"https://login.microsoftonline.com/{self.tenant_id}"
+
+    def _set_cluster_defaults(self) -> None:
+        self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
+        self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
+        self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
 
     @classmethod
     def login_flow_options(cls) -> list[str]:
@@ -172,6 +178,7 @@ class AuthVariables:
     def _read_and_validate(self, verbose: bool = False, skip_prompt: bool = False) -> AuthReaderValidation:
         reader = AuthReaderValidation(self, verbose, skip_prompt)
         self.cluster = reader.prompt_user("cluster")
+        self._set_cluster_defaults()
         self.project = reader.prompt_user("project")
         if not (self.cluster and self.project):
             reader.status = "error"
@@ -188,6 +195,7 @@ class AuthVariables:
             self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
             self.scopes = reader.prompt_user("scopes")
             self.tenant_id = reader.prompt_user("tenant_id")
+            self._set_token_id_defaults()
             self.token_url = reader.prompt_user("token_url")
             self.client_id = reader.prompt_user("client_id")
             if self.login_flow == "client_credentials":
