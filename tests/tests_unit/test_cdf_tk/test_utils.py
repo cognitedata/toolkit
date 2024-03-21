@@ -238,7 +238,7 @@ IDP_AUDIENCE=https://my_cluster.cognitedata.com"""
             mp.setenv("CDF_PROJECT", "my_project")
             mp.setenv("IDP_TENANT_ID", "12345")
             mp.setenv("IDP_CLIENT_ID", "7890")
-            mp.setenv("IDP_CLIENT_ID", "12345")
+            mp.setenv("IDP_CLIENT_SECRET", "12345")
             mp.setattr("cognite_toolkit._cdf_tk.utils.OAuthClientCredentials", MagicMock(spec=OAuthClientCredentials))
             with monkeypatch_cognite_client() as _:
                 config = CDFToolConfig()
