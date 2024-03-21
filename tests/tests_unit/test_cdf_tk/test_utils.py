@@ -244,3 +244,125 @@ IDP_AUDIENCE=https://my_cluster.cognitedata.com"""
                 config = CDFToolConfig()
                 env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
         assert env_file == expected
+
+
+def auth_variables_validate_test_cases():
+    yield pytest.param(
+        {
+            "CDF_CLUSTER": "my_cluster",
+            "CDF_PROJECT": "my_project",
+            "LOGIN_FLOW": "token",
+            "CDF_TOKEN": "12345",
+        },
+        False,
+        "ok",
+        [],
+        {
+            "cluster": "my_cluster",
+            "project": "my_project",
+            "cdf_url": "https://my_cluster.cognitedata.com",
+            "login_flow": "token",
+            "token": "12345",
+            "client_id": None,
+            "client_secret": None,
+            "token_url": None,
+            "tenant_id": None,
+            "audience": "https://my_cluster.cognitedata.com",
+            "scopes": "https://my_cluster.cognitedata.com/.default",
+            "authority_url": None,
+        },
+        id="Happy path Token login",
+    )
+
+    yield pytest.param(
+        {
+            "CDF_CLUSTER": "my_cluster",
+            "CDF_PROJECT": "my_project",
+            "LOGIN_FLOW": "interactive",
+            "IDP_CLIENT_ID": "7890",
+            "IDP_TENANT_ID": "12345",
+        },
+        False,
+        "ok",
+        [],
+        {
+            "cluster": "my_cluster",
+            "project": "my_project",
+            "cdf_url": "https://my_cluster.cognitedata.com",
+            "login_flow": "interactive",
+            "token": None,
+            "client_id": "7890",
+            "client_secret": None,
+            "token_url": "https://login.microsoftonline.com/12345/oauth2/v2.0/token",
+            "tenant_id": "12345",
+            "audience": "https://my_cluster.cognitedata.com",
+            "scopes": "https://my_cluster.cognitedata.com/.default",
+            "authority_url": "https://login.microsoftonline.com/12345",
+        },
+        id="Happy path Interactive login",
+    )
+    yield pytest.param(
+        {
+            "CDF_CLUSTER": "my_cluster",
+            "CDF_PROJECT": "my_project",
+            "LOGIN_FLOW": "client_credentials",
+            "IDP_CLIENT_ID": "7890",
+            "IDP_CLIENT_SECRET": "12345",
+            "IDP_TENANT_ID": "12345",
+        },
+        False,
+        "ok",
+        [],
+        {
+            "cluster": "my_cluster",
+            "project": "my_project",
+            "cdf_url": "https://my_cluster.cognitedata.com",
+            "login_flow": "client_credentials",
+            "token": None,
+            "client_id": "7890",
+            "client_secret": "12345",
+            "token_url": "https://login.microsoftonline.com/12345/oauth2/v2.0/token",
+            "tenant_id": "12345",
+            "audience": "https://my_cluster.cognitedata.com",
+            "scopes": "https://my_cluster.cognitedata.com/.default",
+            "authority_url": "https://login.microsoftonline.com/12345",
+        },
+        id="Happy path Client credentials login",
+    )
+
+    yield pytest.param(
+        {
+            "CDF_CLUSTER": "my_cluster",
+        },
+        False,
+        "error",
+        ["  [bold red]ERROR[/]: CDF Cluster and project are required."],
+        {},
+        id="Missing project",
+    )
+
+
+class TestAuthVariables:
+    @pytest.mark.parametrize(
+        "environment_variables, verbose, expected_status, expected_messages, expected_vars",
+        auth_variables_validate_test_cases(),
+    )
+    def test_validate(
+        self,
+        environment_variables: dict[str, str],
+        verbose: bool,
+        expected_status: str,
+        expected_messages: list[str],
+        expected_vars: dict[str, str],
+    ) -> None:
+        with MonkeyPatch.context() as mp:
+            for key, value in environment_variables.items():
+                mp.setenv(key, value)
+            auth_var = AuthVariables.from_env()
+            results = auth_var.validate(verbose)
+
+            assert results.status == expected_status
+            assert results.messages == expected_messages
+            if expected_vars:
+                # Can be skipped for some test cases.
+                assert vars(auth_var) == expected_vars
