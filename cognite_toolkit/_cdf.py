@@ -176,8 +176,10 @@ def common(
                 path_str = dotenv_file.relative_to(Path.cwd())
             except ValueError:
                 path_str = dotenv_file.absolute()
-            print(f"Loading .env file: {path_str!s}")
-        load_dotenv(dotenv_file, override=override_env)
+            print(f"Loading .env file: {path_str!s}...")
+        has_loaded = load_dotenv(dotenv_file, override=override_env)
+        if not has_loaded:
+            print("  [bold yellow]WARNING:[/] No environment variables found in .env file.")
 
     ctx.obj = Common(
         verbose=verbose,
