@@ -200,17 +200,17 @@ CDF_PROJECT=my_project
 LOGIN_FLOW=interactive
 IDP_CLIENT_ID=7890
 # Note: Either the TENANT_ID or the TENANT_URL must be written.
-IDP_TENANT_ID=12345
-IDP_TOKEN_URL=https://login.microsoftonline.com/12345/oauth2/v2.0/token
+IDP_TENANT_ID={tenant}
+IDP_TOKEN_URL=https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
 # The below variables are the defaults, they are automatically constructed unless they are set.
 CDF_URL=https://my_cluster.cognitedata.com
 IDP_SCOPES=https://my_cluster.cognitedata.com/.default
-IDP_AUTHORITY_URL=https://login.microsoftonline.com/12345"""
+IDP_AUTHORITY_URL=https://login.microsoftonline.com/{tenant}"""
         with MonkeyPatch.context() as mp:
             mp.setenv("LOGIN_FLOW", "interactive")
             mp.setenv("CDF_CLUSTER", "my_cluster")
             mp.setenv("CDF_PROJECT", "my_project")
-            mp.setenv("IDP_TENANT_ID", "12345")
+            mp.setenv("IDP_TENANT_ID", "{tenant}")
             mp.setenv("IDP_CLIENT_ID", "7890")
             mp.setattr("cognite_toolkit._cdf_tk.utils.OAuthInteractive", MagicMock(spec=OAuthInteractive))
             with monkeypatch_cognite_client() as _:
