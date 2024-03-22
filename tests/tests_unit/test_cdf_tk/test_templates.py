@@ -324,17 +324,19 @@ class TestModuleFromPath:
 
 
 class TestBuildConfigYAML:
-    def test_build_config(self, config_yaml: str) -> None:
+    def test_build_config_create_valid_build_folder(self, config_yaml: str) -> None:
         build_env = "dev"
         system_config = SystemYAML.load_from_directory(PYTEST_PROJECT / COGNITE_MODULES, build_env)
         config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
         config.environment.selected_modules_and_packages = ["another_module"]
+
         build_config(BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False)
 
+        # The resulting build folder should only have subfolders that are matching the folder name
+        # used by the loaders.
         invalid_resource_folders = [
             dir_.name for dir_ in BUILD_DIR.iterdir() if dir_.is_dir() and dir_.name not in LOADER_BY_FOLDER_NAME
         ]
-
         assert not invalid_resource_folders, f"Invalid resource folders after build: {invalid_resource_folders}"
 
     @pytest.mark.parametrize(
