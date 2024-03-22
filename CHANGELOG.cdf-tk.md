@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Variables can now have extra spaces between curly braces and the variable name. For example, `{{  my_variable }}` is now
+  a valid variable. Before this change, you would have to write `{{my_variable}}`.
+
 ## [0.2.0a1] - 2024-03-20
 
 ### Added
