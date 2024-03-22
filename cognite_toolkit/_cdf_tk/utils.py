@@ -431,7 +431,7 @@ class CDFToolConfig:
         credentials_provider: CredentialProvider
         if auth.login_flow == "token":
             if not auth.token:
-                print("  [bold red]Error[/] Login flow=token is set but no token is provided.")
+                print("  [bold red]Error[/] Login flow=token is set but no CDF_TOKEN is not provided.")
                 return False
             credentials_provider = Token(auth.token)
         elif auth.login_flow == "interactive":
@@ -440,7 +440,7 @@ class CDFToolConfig:
             if not (auth.client_id and auth.authority_url and auth.scopes):
                 print(
                     "  [bold red]Error[/] Login flow=interactive is set but missing required authentication "
-                    "variables. Cannot initialize Cognite client."
+                    "variables: IDP_CLIENT_ID and IDP_TENANT_ID (or IDP_AUTHORITY_URL). Cannot authenticate the client."
                 )
                 return False
             credentials_provider = OAuthInteractive(
@@ -461,7 +461,9 @@ class CDFToolConfig:
 
             if not (auth.token_url and auth.client_id and auth.client_secret and self._scopes and self._audience):
                 print(
-                    "  [bold yellow]Error[/] Login flow=client_credentials is set but missing required authentication variables. Cannot initialize cognite client."
+                    "  [bold yellow]Error[/] Login flow=client_credentials is set but missing required authentication "
+                    "variables: IDP_CLIENT_ID, IDP_CLIENT_SECRET and IDP_TENANT_ID (or IDP_TOKEN_URL). "
+                    "Cannot authenticate the client."
                 )
                 return False
 
