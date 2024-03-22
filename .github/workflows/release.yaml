@@ -45,6 +45,8 @@ jobs:
       - name: Install core dependencies
         run: poetry install
       - name: Run pytest
+        env:
+          IS_GITHUB_ACTIONS: "true"
         run: pytest tests
   build:
     runs-on: ubuntu-latest

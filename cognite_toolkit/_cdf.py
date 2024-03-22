@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations
+import contextlib
 import os
 import sys
 from collections.abc import Sequence
@@ -175,8 +176,10 @@ def common(
                 path_str = dotenv_file.relative_to(Path.cwd())
             except ValueError:
                 path_str = dotenv_file.absolute()
-            print(f"Loading .env file: {path_str!s}")
-        load_dotenv(dotenv_file, override=override_env)
+            print(f"Loading .env file: {path_str!s}.")
+        has_loaded = load_dotenv(dotenv_file, override=override_env)
+        if not has_loaded:
+            print("  [bold yellow]WARNING:[/] No environment variables found in .env file.")
 
     ctx.obj = Common(
         verbose=verbose,
@@ -630,7 +633,11 @@ def auth_verify(
     if create_group is not None and update_group != 0:
         print("[bold red]ERROR: [/] --create-group and --update-group are mutually exclusive.")
         exit(1)
-    ToolGlobals = CDFToolConfig.from_context(ctx)
+    with contextlib.redirect_stdout(None):
+        # Remove the Error message from failing to load the config
+        # This is verified in check_auth
+        ToolGlobals = CDFToolConfig.from_context(ctx)
+
     if group_file is None:
         template_dir = cast(Path, resources.files("cognite_toolkit"))
         group_path = template_dir.joinpath(
