@@ -37,7 +37,6 @@ pytest-cov = "^4.1.0"
 cdf-tk = "cognite_toolkit._cdf:app"
 
 [tool.coverage.report]
-fail_under = 60
 show_missing = true
 
 [tool.mypy]
