@@ -328,7 +328,8 @@ class TestBuildConfigYAML:
         build_env = "dev"
         system_config = SystemYAML.load_from_directory(PYTEST_PROJECT / COGNITE_MODULES, build_env)
         config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
-        config.environment.selected_modules_and_packages = ["another_module"]
+        available_modules = {module.name for module, _ in iterate_modules(PYTEST_PROJECT)}
+        config.environment.selected_modules_and_packages = list(available_modules)
 
         build_config(BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False)
 
