@@ -631,11 +631,9 @@ def auth_verify(
     if create_group is not None and update_group != 0:
         print("[bold red]ERROR: [/] --create-group and --update-group are mutually exclusive.")
         exit(1)
-    if interactive:
-        with contextlib.redirect_stdout(None):
-            # Remove the Error message from failing to load the config
-            ToolGlobals = CDFToolConfig.from_context(ctx)
-    else:
+    with contextlib.redirect_stdout(None):
+        # Remove the Error message from failing to load the config
+        # This is verified in check_auth
         ToolGlobals = CDFToolConfig.from_context(ctx)
 
     if group_file is None:
