@@ -343,8 +343,10 @@ class AuthReaderValidation:
         else:
             response = Prompt.ask(prompt, **extra_args)
         if not expected or response == expected:
-            if self.verbose:
+            if isinstance(response, str) and self.verbose:
                 self.messages.append(f"  {display_name}={response} is set correctly.")
+            elif response is None:
+                self.messages.append(f"  {display_name} is not set.")
             return response
         self.messages.append(
             f"[bold yellow]WARNING[/]: {display_name} is set to {response}, are you sure it shouldn't be {expected}?"
