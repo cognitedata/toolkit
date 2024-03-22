@@ -569,7 +569,7 @@ def create_file_name(filepath: Path, number_by_resource_type: dict[str, int]) ->
 
 def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
     for name, variable in local_config.items():
-        content = content.replace(f"{{{{{name}}}}}", str(variable))
+        content = re.sub(rf"{{{{\s*{name}\s*}}}}", str(variable), content)
     return content
 
 
