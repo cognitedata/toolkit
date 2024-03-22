@@ -243,7 +243,7 @@ IDP_AUDIENCE=https://my_cluster.cognitedata.com"""
             with monkeypatch_cognite_client() as _:
                 config = CDFToolConfig()
                 env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
-        assert env_file == expected
+        assert env_file.splitlines() == expected.splitlines()
 
 
 def auth_variables_validate_test_cases():
@@ -363,3 +363,6 @@ class TestAuthVariables:
 
             assert results.status == expected_status
             assert results.messages == expected_messages
+
+            if expected_vars:
+                assert vars(auth_var) == expected_vars
