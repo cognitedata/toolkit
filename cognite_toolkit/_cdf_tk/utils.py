@@ -31,7 +31,7 @@ from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesVie
 from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, cast, get_args, get_origin, overload
+from typing import Any, ClassVar, Generic, Literal, TypeVar, get_args, get_origin, overload
 
 import typer
 import yaml
@@ -87,7 +87,10 @@ class AuthVariables:
         default=None, metadata=dict(env_name="CDF_TOKEN", display_name="OAuth2 token", example="")
     )
     client_id: str | None = field(
-        default=None, metadata=dict(env_name="IDP_CLIENT_ID", display_name="client id", example="")
+        default=None,
+        metadata=dict(
+            env_name="IDP_CLIENT_ID", display_name="client id", example="XXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+        ),
     )
     client_secret: str | None = field(
         default=None,
@@ -137,12 +140,24 @@ class AuthVariables:
     def __post_init__(self) -> None:
         # Set defaults based on cluster and tenant_id
         if self.cluster:
-            self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
-            self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
-            self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
+            self._set_cluster_defaults()
         if self.tenant_id:
-            self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
-            self.authority_url = self.authority_url or f"https://login.microsoftonline.com/{self.tenant_id}"
+            self._set_token_id_defaults()
+        if self.token and self.login_flow != "token":
+            print(
+                f"  [bold yellow]Warning[/] CDF_TOKEN detected. This will override LOGIN_FLOW, "
+                f"thus LOGIN_FLOW={self.login_flow} will be ignored"
+            )
+            self.login_flow = "token"
+
+    def _set_token_id_defaults(self) -> None:
+        self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
+        self.authority_url = self.authority_url or f"https://login.microsoftonline.com/{self.tenant_id}"
+
+    def _set_cluster_defaults(self) -> None:
+        self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
+        self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
+        self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
 
     @classmethod
     def login_flow_options(cls) -> list[str]:
@@ -166,8 +181,9 @@ class AuthVariables:
     def _read_and_validate(self, verbose: bool = False, skip_prompt: bool = False) -> AuthReaderValidation:
         reader = AuthReaderValidation(self, verbose, skip_prompt)
         self.cluster = reader.prompt_user("cluster")
+        self._set_cluster_defaults()
         self.project = reader.prompt_user("project")
-        if not (self.cluster or self.project):
+        if not (self.cluster and self.project):
             reader.status = "error"
             reader.messages.append("  [bold red]ERROR[/]: CDF Cluster and project are required.")
             return reader
@@ -179,16 +195,21 @@ class AuthVariables:
             else:
                 print("  Keeping existing token.")
         elif self.login_flow in ("client_credentials", "interactive"):
-            self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
-            self.scopes = reader.prompt_user("scopes")
             self.tenant_id = reader.prompt_user("tenant_id")
-            self.token_url = reader.prompt_user("token_url")
+            self._set_token_id_defaults()
             self.client_id = reader.prompt_user("client_id")
             if self.login_flow == "client_credentials":
                 if new_secret := reader.prompt_user("client_secret", password=True):
                     self.client_secret = new_secret
                 else:
                     print("  Keeping existing client secret.")
+
+            self.token_url = reader.prompt_user("token_url")
+            self.scopes = reader.prompt_user("scopes")
+            if self.login_flow == "interactive":
+                self.authority_url = reader.prompt_user("authority_url")
+            if self.login_flow == "client_credentials":
+                self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
         else:
             reader.status = "error"
             reader.messages.append(f"The login flow {self.login_flow} is not supported")
@@ -203,11 +224,11 @@ class AuthVariables:
                 choices=["y", "n"],
             )
             if write:
-                self.write_dotenv_file()
+                Path(".env").write_text(self.create_dotenv_file())
 
         return reader
 
-    def write_dotenv_file(self) -> None:
+    def create_dotenv_file(self) -> str:
         lines = [
             "# .env file generated by cognite-toolkit",
             self._write_var("cluster"),
@@ -230,22 +251,30 @@ class AuthVariables:
             ]
         else:
             raise ValueError(f"Login flow {self.login_flow} is not supported.")
-        lines += [
-            "# The below variables don't have to be set if you have just accepted the defaults.",
-            "# They are automatically constructed unless they are set.",
-            self._write_var("cdf_url"),
-        ]
-        if self.login_flow == "client_credentials":
+        if self.login_flow in ("client_credentials", "interactive"):
             lines += [
                 "# Note: Either the TENANT_ID or the TENANT_URL must be written.",
                 self._write_var("tenant_id"),
                 self._write_var("token_url"),
-                self._write_var("audience"),
+            ]
+        lines += [
+            "# The below variables are the defaults, they are automatically constructed unless they are set.",
+            self._write_var("cdf_url"),
+        ]
+        if self.login_flow in ("client_credentials", "interactive"):
+            lines += [
                 self._write_var("scopes"),
             ]
+        if self.login_flow == "interactive":
+            lines += [
+                self._write_var("authority_url"),
+            ]
+        if self.login_flow == "client_credentials":
+            lines += [
+                self._write_var("audience"),
+            ]
 
-        Path(".env").write_text("\n".join(lines))
-        return None
+        return "\n".join(lines)
 
     def _write_var(self, var_name: str) -> str:
         value = getattr(self, var_name)
@@ -288,7 +317,7 @@ class AuthReaderValidation:
                 .replace("IDP_TENANT_ID", self._auth_vars.tenant_id or "<tenant_id>")
             )
             display_name = metadata["display_name"]
-            default = cast(Union[str, None], current_value or field_.default)
+            default = current_value or (field_.default if isinstance(field_.default, str) else None)
         except Exception as e:
             raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
 
@@ -314,8 +343,10 @@ class AuthReaderValidation:
         else:
             response = Prompt.ask(prompt, **extra_args)
         if not expected or response == expected:
-            if self.verbose:
+            if isinstance(response, str) and self.verbose:
                 self.messages.append(f"  {display_name}={response} is set correctly.")
+            elif response is None:
+                self.messages.append(f"  {display_name} is not set.")
             return response
         self.messages.append(
             f"[bold yellow]WARNING[/]: {display_name} is set to {response}, are you sure it shouldn't be {expected}?"
@@ -345,7 +376,6 @@ class CDFToolConfig:
 
     def __init__(self, token: str | None = None, cluster: str | None = None, project: str | None = None) -> None:
         self._cache = self._Cache()
-        self._failed = False
         self._environ: dict[str, str | None] = {}
         # If cluster, project, or token are passed as arguments, we override the environment variables.
         # This means these will be used when we initialize the CogniteClient when we initialize from
@@ -373,7 +403,7 @@ class CDFToolConfig:
             return
 
         auth_vars = AuthVariables.from_env(self._environ)
-        self.initialize_from_auth_variables(auth_vars)
+        self._failed = not self.initialize_from_auth_variables(auth_vars)
 
     def _initialize_in_browser(self) -> None:
         try:
@@ -401,14 +431,9 @@ class CDFToolConfig:
         self._cdf_url = auth.cdf_url or self._cdf_url
 
         credentials_provider: CredentialProvider
-        if auth.token or auth.login_flow == "token":
-            if auth.login_flow != "token":
-                print(
-                    f"  [bold yellow]Warning[/] CDF_TOKEN detected. This will override LOGIN_FLOW, "
-                    f"thus LOGIN_FLOW={auth.login_flow} will be ignored"
-                )
+        if auth.login_flow == "token":
             if not auth.token:
-                print("  [bold red]Error[/] Login flow=token is set but no token is provided.")
+                print("  [bold red]Error[/] Login flow=token is set but no CDF_TOKEN is not provided.")
                 return False
             credentials_provider = Token(auth.token)
         elif auth.login_flow == "interactive":
@@ -417,7 +442,7 @@ class CDFToolConfig:
             if not (auth.client_id and auth.authority_url and auth.scopes):
                 print(
                     "  [bold red]Error[/] Login flow=interactive is set but missing required authentication "
-                    "variables. Cannot initialize Cognite client."
+                    "variables: IDP_CLIENT_ID and IDP_TENANT_ID (or IDP_AUTHORITY_URL). Cannot authenticate the client."
                 )
                 return False
             credentials_provider = OAuthInteractive(
@@ -438,7 +463,9 @@ class CDFToolConfig:
 
             if not (auth.token_url and auth.client_id and auth.client_secret and self._scopes and self._audience):
                 print(
-                    "  [bold yellow]Error[/] Login flow=client_credentials is set but missing required authentication variables. Cannot initialize cognite client."
+                    "  [bold yellow]Error[/] Login flow=client_credentials is set but missing required authentication "
+                    "variables: IDP_CLIENT_ID, IDP_CLIENT_SECRET and IDP_TENANT_ID (or IDP_TOKEN_URL). "
+                    "Cannot authenticate the client."
                 )
                 return False
 
