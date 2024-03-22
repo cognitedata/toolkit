@@ -53,6 +53,8 @@ jobs:
         run: |
           poetry install
       - name: Run pytest
+        env:
+          IS_GITHUB_ACTIONS: "true"
         run: pytest tests
   coverage:
     needs: test
