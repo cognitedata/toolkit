@@ -336,7 +336,7 @@ def auth_variables_validate_test_cases():
         },
         False,
         "error",
-        ["  [bold red]ERROR[/]: CDF Cluster and project are required."],
+        ["  CDF project URL name is not set.", "  [bold red]ERROR[/]: CDF Cluster and project are required."],
         {},
         id="Missing project",
     )
