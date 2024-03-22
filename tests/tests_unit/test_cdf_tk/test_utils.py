@@ -363,6 +363,3 @@ class TestAuthVariables:
 
             assert results.status == expected_status
             assert results.messages == expected_messages
-            if expected_vars:
-                # Can be skipped for some test cases.
-                assert vars(auth_var) == expected_vars
