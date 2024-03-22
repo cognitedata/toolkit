@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -207,11 +208,11 @@ CDF_URL=https://my_cluster.cognitedata.com
 IDP_SCOPES=https://my_cluster.cognitedata.com/.default
 IDP_AUTHORITY_URL=https://login.microsoftonline.com/{tenant}"""
         with MonkeyPatch.context() as mp:
-            mp.setenv("LOGIN_FLOW", "interactive")
-            mp.setenv("CDF_CLUSTER", "my_cluster")
-            mp.setenv("CDF_PROJECT", "my_project")
-            mp.setenv("IDP_TENANT_ID", "{tenant}")
-            mp.setenv("IDP_CLIENT_ID", "7890")
+            os.environ["LOGIN_FLOW"] = "interactive"
+            os.environ["CDF_CLUSTER"] = "my_cluster"
+            os.environ["CDF_PROJECT"] = "my_project"
+            os.environ["IDP_TENANT_ID"] = "{tenant}"
+            os.environ["IDP_CLIENT_ID"] = "7890"
             mp.setattr("cognite_toolkit._cdf_tk.utils.OAuthInteractive", MagicMock(spec=OAuthInteractive))
             with monkeypatch_cognite_client() as _:
                 config = CDFToolConfig()
