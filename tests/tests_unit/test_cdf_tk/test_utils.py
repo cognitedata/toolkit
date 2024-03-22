@@ -17,7 +17,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.data_modeling import ViewApply
 from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
-from cognite.client.testing import CogniteClientMock
+from cognite.client.testing import CogniteClientMock, monkeypatch_cognite_client
 
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -173,3 +173,9 @@ def test_calculate_hash_on_folder():
     shutil.rmtree(tempdir)
 
     assert hash1 == hash3
+
+
+class TestCDFToolConfig:
+    def test_initialize_token(self):
+        with monkeypatch_cognite_client() as _:
+            CDFToolConfig(token="12345", cluster="my_cluster", project="my_project")

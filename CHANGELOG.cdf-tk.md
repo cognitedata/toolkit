@@ -22,6 +22,10 @@ Changes are grouped as follows:
 - Variables can now have extra spaces between curly braces and the variable name. For example, `{{  my_variable }}` is now
   a valid variable. Before this change, you would have to write `{{my_variable}}`.
 
+### Fixed
+
+- When running `cdf-tk` with a Token for initialization, the `cdf-tk` would raise an `IndexError`. This is now fixed.
+
 ## [0.2.0a1] - 2024-03-20
 
 ### Added
