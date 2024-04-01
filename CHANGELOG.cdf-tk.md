@@ -21,6 +21,9 @@ Changes are grouped as follows:
 
 - Variables can now have extra spaces between curly braces and the variable name. For example, `{{  my_variable }}` is now
   a valid variable. Before this change, you would have to write `{{my_variable}}`.
+- The `custom-modules` root directory can now be named `modules`. The motivating use case for this change is when
+  the user want to use the `cognite-toolkit` as a standalone without templates. Then, `modules` is a more intuitive
+  name for the root directory for all modules than `custom-modules`.
 
 ### Fixed
 
