@@ -10,6 +10,7 @@ from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transfo
 from cognite_toolkit._cdf_tk.load import TransformationLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
+from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT
 from tests.tests_unit.utils import mock_read_yaml_file
 
 
@@ -221,3 +222,25 @@ def test_dump_datamodel(
     assert child_loaded.implements[0] == parent_view.as_id()
     # The parent property should have been removed from the child view.
     assert len(child_loaded.properties) == 1
+
+
+def test_build_custom_project(
+    local_tmp_path: Path,
+    typer_context: typer.Context,
+) -> None:
+    expected_resources = {"timeseries", "data_models", "data_sets"}
+    build(
+        typer_context,
+        source_dir=str(CUSTOM_PROJECT),
+        build_dir=str(local_tmp_path),
+        build_env="dev",
+        clean=True,
+    )
+
+    actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}
+
+    missing_resources = expected_resources - actual_resources
+    assert not missing_resources, f"Missing resources: {missing_resources}"
+
+    extra_resources = actual_resources - expected_resources
+    assert not extra_resources, f"Extra resources: {extra_resources}"

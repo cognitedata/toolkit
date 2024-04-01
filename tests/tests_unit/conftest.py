@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -47,6 +48,11 @@ def cognite_client_approval() -> ApprovalCogniteClient:
 
 @pytest.fixture
 def local_tmp_path() -> Path:
+    tmp_folder = THIS_FOLDER / "tmp"
+
+    if tmp_folder.exists():
+        shutil.rmtree(THIS_FOLDER / "tmp", ignore_errors=True)
+        (THIS_FOLDER / "tmp").mkdir(exist_ok=True)
     return THIS_FOLDER / "tmp"
 
 
