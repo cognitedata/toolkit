@@ -1655,6 +1655,15 @@ class ContainerLoader(
     def _chunker(seq: Sequence, size: int) -> Iterable[Sequence]:
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
+    def _is_equal_custom(self, local: ContainerApply, remote: Container) -> bool:
+        local_dumped = local.dump(camel_case=True)
+        if "usedFor" not in local_dumped:
+            # Setting used_for to "node" as it is the default value in the CDF and will be set by
+            # the server side if it is not set.
+            local_dumped["usedFor"] = "node"
+
+        return local_dumped == remote.as_write().dump(camel_case=True)
+
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     api_name = "data_modeling.views"
