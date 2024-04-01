@@ -1,0 +1,16 @@
+environment:
+  name: dev
+  project: <customer-dev>
+  type: dev
+  selected_modules_and_packages:
+    - module1
+
+modules:
+  cognite_modules:
+    examples:
+      module1:
+        space: {{space}}
+    models:
+      module1:
+        my_space:
+          space: {{space}}
