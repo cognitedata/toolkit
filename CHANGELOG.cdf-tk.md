@@ -26,6 +26,11 @@ Changes are grouped as follows:
 
 - When running `cdf-tk` with a Token for initialization, the `cdf-tk` would raise an `IndexError`. This is now fixed.
 
+### Changed
+
+- The `cognite-modules` directory is no longer required. This enables the user to delete all templates and example
+  modules and only use the `cognite-toolkit` CLI as a standalone.
+
 ## [0.2.0a1] - 2024-03-20
 
 ### Added
