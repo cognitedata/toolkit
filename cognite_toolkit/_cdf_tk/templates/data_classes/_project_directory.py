@@ -12,7 +12,10 @@ from typing import ClassVar
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.templates._constants import COGNITE_MODULES, CUSTOM_MODULES
+from cognite_toolkit._cdf_tk.templates._constants import (
+    COGNITE_MODULES,
+    ROOT_MODULES,
+)
 from cognite_toolkit._cdf_tk.templates._utils import _get_cognite_module_version, iterate_modules
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, read_yaml_file
 from cognite_toolkit._version import __version__ as current_version
@@ -39,17 +42,13 @@ class ProjectDirectory:
     _directories_to_copy: ClassVar[list[str]] = [
         "common_function_code",
     ]
-    _root_modules: ClassVar[list[str]] = [
-        COGNITE_MODULES,
-        CUSTOM_MODULES,
-    ]
 
     def __init__(self, project_dir: Path, dry_run: bool):
         self.project_dir = project_dir
         self._dry_run = dry_run
         self._source = Path(resources.files("cognite_toolkit"))  # type: ignore[arg-type]
         self.modules_by_root: dict[str, list[str]] = {}
-        for root_module in self._root_modules:
+        for root_module in ROOT_MODULES:
             self.modules_by_root[root_module] = [
                 f"{module.relative_to(self._source)!s}" for module, _ in iterate_modules(self._source / root_module)
             ]
@@ -91,10 +90,10 @@ class ProjectDirectory:
             if not dry_run:
                 shutil.copytree(self._source / directory, self.project_dir / directory, dirs_exist_ok=True)
 
-        for root_module in self._root_modules:
+        for root_module, modules in self.modules_by_root.items():
             if verbose:
                 print(f"{copy_prefix} the following modules from  {root_module} to {self.target_dir_display}")
-                print(self.modules_by_root[root_module])
+                print(modules)
             if not dry_run:
                 (Path(self.project_dir) / root_module).mkdir(exist_ok=True)
                 # Default files are not copied, as they are only used to setup the config.yaml.

@@ -11,6 +11,10 @@ GLOBAL_CONFIG_FILE = "global.yaml"
 
 COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
+# This is an alternative name for the custom modules folder
+ALT_CUSTOM_MODULES = "modules"
+
+ROOT_MODULES = [COGNITE_MODULES, CUSTOM_MODULES, ALT_CUSTOM_MODULES]
 
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
