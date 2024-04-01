@@ -15,7 +15,7 @@ cognite-sdk = {version = "^7.26", extras = ["pandas"]}
 cognite-extractor-utils = ">=7"
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"
-typer = {version = "^0.9.0", extras = ["all"]}
+typer = {version = "^0.11.0", extras = ["all"]}
 sentry-sdk = "^1.39"
 cognite-logger = "^0.6"
 
