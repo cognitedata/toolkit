@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, Syst
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES
-from tests.tests_unit.utils import mock_read_yaml_file
 from tests.tests_unit.utils import PrintCapture, mock_read_yaml_file
 
 
