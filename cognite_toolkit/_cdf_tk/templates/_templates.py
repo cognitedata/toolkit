@@ -5,7 +5,7 @@ import io
 import re
 import shutil
 import sys
-from collections import ChainMap, defaultdict
+from collections import ChainMap, Counter, defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -50,7 +50,14 @@ def build_config(
 
     config.validate_environment()
 
-    available_modules = {module.name for module, _ in iterate_modules(source_dir)}
+    available_modules_raw = Counter(module.name for module, _ in iterate_modules(source_dir))
+    if duplicate_modules := {module for module, count in available_modules_raw.items() if count > 1}:
+        print(f"  [bold red]ERROR:[/] Found the following duplicated module names in {source_dir.name}:")
+        for module in duplicate_modules:
+            print(f"    {module}")
+        exit(1)
+
+    available_modules = set(available_modules_raw.keys())
     system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
