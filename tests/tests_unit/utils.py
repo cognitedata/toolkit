@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import IO, Any, Literal, Optional
 
 from _pytest.monkeypatch import MonkeyPatch
 
@@ -46,3 +46,18 @@ def mock_read_yaml_file(
     monkeypatch.setattr(
         "cognite_toolkit._cdf_tk.load._resource_loaders.load_yaml_inject_variables", fake_load_yaml_inject_variables
     )
+
+
+class PrintCapture:
+    def __init__(self):
+        self.messages = []
+
+    def __call__(
+        self,
+        *objects: Any,
+        sep: str = " ",
+        end: str = "\n",
+        file: Optional[IO[str]] = None,
+        flush: bool = False,
+    ):
+        self.messages.extend(objects)

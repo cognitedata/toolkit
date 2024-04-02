@@ -32,6 +32,8 @@ Changes are grouped as follows:
 
 - The `cognite-modules` directory is no longer required. This enables the user to delete all templates and example
   modules and only use the `cognite-toolkit` CLI as a standalone.
+- If two modules have the same name, the `cdf-tk build` command will now stop and raise an error. Before this change,
+  the `cdf-tk build` command would continue and overwrite the first module with the second module.
 
 ## [0.2.0a1] - 2024-03-20
 
