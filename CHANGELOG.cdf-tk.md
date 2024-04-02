@@ -25,6 +25,8 @@ Changes are grouped as follows:
 ### Fixed
 
 - When running `cdf-tk` with a Token for initialization, the `cdf-tk` would raise an `IndexError`. This is now fixed.
+- Container resources that did not have set the optional property `usedFor` would always be classified as changed,
+  when, for example, running `cdf-tk deploy --dry-run`. This is now fixed.
 
 ### Changed
 
