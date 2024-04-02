@@ -67,5 +67,5 @@ class PrintCapture:
         for obj in objects:
             if isinstance(obj, str) and (clean := self._pattern.sub("", obj).strip()):
                 # Remove square brackets and whitespace. This is to take
-                # away the styling for rich print.
+                # away the styling from rich print.
                 self.messages.append(clean)

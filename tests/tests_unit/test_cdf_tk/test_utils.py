@@ -97,7 +97,7 @@ class TestLoadYamlInjectVariables:
 
         assert loaded["test"] == "my_injected_value"
 
-    def test_warning_no_missing_variables(self, tmp_path: Path, capture_print: PrintCapture) -> None:
+    def test_warning_when_missing_env_variable(self, tmp_path: Path, capture_print: PrintCapture) -> None:
         my_file = tmp_path / "test.yaml"
         my_file.write_text(yaml.safe_dump({"test": "${TEST}"}))
         expected_warning = f"WARNING: Variable TEST is not set in the environment. It is expected in {my_file.name}."
