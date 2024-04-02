@@ -24,6 +24,9 @@ Changes are grouped as follows:
 - The `custom-modules` root directory can now be named `modules`. The motivating use case for this change is when
   the user want to use the `cognite-toolkit` as a standalone without templates. Then, `modules` is a more intuitive
   name for the root directory for all modules than `custom-modules`.
+- If an environment variable is not found that is expected in a resource file, for example, `${CDF_CLUSTER}`, when
+  running `cdf-tk deploy` the user will now get a warning message that the variable is missing. Before this change,
+  this would pass silently and potentially cause an error when trying to deploy to CDF that war hard to debug.
 
 ### Fixed
 
