@@ -49,6 +49,8 @@ class ProjectDirectory:
         self._source = Path(resources.files("cognite_toolkit"))  # type: ignore[arg-type]
         self.modules_by_root: dict[str, list[str]] = {}
         for root_module in ROOT_MODULES:
+            if not (self._source / root_module).exists():
+                continue
             self.modules_by_root[root_module] = [
                 f"{module.relative_to(self._source)!s}" for module, _ in iterate_modules(self._source / root_module)
             ]
