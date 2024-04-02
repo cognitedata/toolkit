@@ -22,7 +22,11 @@ from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
 
-from ._constants import COGNITE_MODULES, CUSTOM_MODULES, EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX
+from ._constants import (
+    EXCL_INDEX_SUFFIX,
+    PROC_TMPL_VARS_SUFFIX,
+    ROOT_MODULES,
+)
 from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
@@ -541,10 +545,9 @@ def process_config_files(
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
     maps = []
     parts = module_dir.parts
-    if parts[0] != COGNITE_MODULES and COGNITE_MODULES in parts:
-        parts = parts[parts.index(COGNITE_MODULES) :]
-    if parts[0] != CUSTOM_MODULES and CUSTOM_MODULES in parts:
-        parts = parts[parts.index(CUSTOM_MODULES) :]
+    for root_module in ROOT_MODULES:
+        if parts[0] != root_module and root_module in parts:
+            parts = parts[parts.index(root_module) :]
     for no in range(len(parts), -1, -1):
         if c := config.get(".".join(parts[:no])):
             maps.append(c)

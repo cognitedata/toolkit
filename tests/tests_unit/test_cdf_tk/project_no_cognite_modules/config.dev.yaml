@@ -7,7 +7,7 @@ environment:
     - another_module
 
 modules:
-  custom_modules:
+  modules:
     a_module:
       ds_timeseries: ds_timeseries
     another_module:
