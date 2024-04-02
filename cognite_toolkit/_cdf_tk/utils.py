@@ -795,6 +795,13 @@ def load_yaml_inject_variables(
         if value is None:
             continue
         content = content.replace("${%s}" % key, value)
+    for match in re.finditer(r"\$\{([^}]+)\}", content):
+        environment_variable = match.group(1)
+        print(
+            f"[bold yellow]WARNING:[/] Variable {environment_variable} is not set in the environment. "
+            f"It is expected in {filepath.name}."
+        )
+
     result = yaml.safe_load(content)
     if required_return_type == "any":
         return result
