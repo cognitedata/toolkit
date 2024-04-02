@@ -232,15 +232,7 @@ def build(
         exit(1)
     cognite_modules_path = source_path / COGNITE_MODULES
 
-    if cognite_modules_path.exists():
-        system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, build_env)
-    else:
-        system_config = SystemYAML(Path("."), cdf_toolkit_version=current_version)
-        if ctx.obj.verbose:
-            print(
-                f"  [bold]INFO:[/] No {COGNITE_MODULES} directory found in {source_path}. Skipping {SystemYAML.file_name}."
-            )
-
+    system_config = SystemYAML.load_from_directory(cognite_modules_path, build_env)
     config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(
         Panel(

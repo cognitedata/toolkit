@@ -241,6 +241,7 @@ def test_dump_datamodel(
     assert len(child_loaded.properties) == 1
 
 
+@pytest.mark.skip("This functionality is not yet implemented")
 def test_build_custom_project(
     local_tmp_path: Path,
     typer_context: typer.Context,

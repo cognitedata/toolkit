@@ -1,5 +1,4 @@
 from ._constants import (
-    ALT_CUSTOM_MODULES,
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
     COGNITE_MODULES_PATH,
@@ -15,7 +14,6 @@ __all__ = [
     "resource_folder_from_path",
     "COGNITE_MODULES",
     "CUSTOM_MODULES",
-    "ALT_CUSTOM_MODULES",
     "ROOT_MODULES",
     "COGNITE_MODULES_PATH",
     "build_config",
