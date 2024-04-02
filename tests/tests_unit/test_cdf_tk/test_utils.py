@@ -87,13 +87,14 @@ def test_dataset_create():
         assert instance._client.data_sets.retrieve.call_count == 1
 
 
-def test_load_yaml_inject_variables(tmp_path) -> None:
-    my_file = tmp_path / "test.yaml"
-    my_file.write_text(yaml.safe_dump({"test": "${TEST}"}))
+class TestLoadYamlInjectVariables:
+    def test_load_yaml_inject_variables(self, tmp_path) -> None:
+        my_file = tmp_path / "test.yaml"
+        my_file.write_text(yaml.safe_dump({"test": "${TEST}"}))
 
-    loaded = load_yaml_inject_variables(my_file, {"TEST": "my_injected_value"})
+        loaded = load_yaml_inject_variables(my_file, {"TEST": "my_injected_value"})
 
-    assert loaded["test"] == "my_injected_value"
+        assert loaded["test"] == "my_injected_value"
 
 
 def test_validate_raw() -> None:
