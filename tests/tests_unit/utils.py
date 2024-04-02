@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import IO, Any, Literal, Optional
 
@@ -49,6 +50,9 @@ def mock_read_yaml_file(
 
 
 class PrintCapture:
+    # Find all text within square brackets
+    _pattern = re.compile(r"\[([^]]+)\]")
+
     def __init__(self):
         self.messages = []
 
@@ -60,4 +64,8 @@ class PrintCapture:
         file: Optional[IO[str]] = None,
         flush: bool = False,
     ):
-        self.messages.extend(objects)
+        for obj in objects:
+            if isinstance(obj, str) and (clean := self._pattern.sub("", obj).strip()):
+                # Remove square brackets and whitespace. This is to take
+                # away the styling for rich print.
+                self.messages.append(clean)
