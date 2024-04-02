@@ -1,0 +1,14 @@
+environment:
+  name: dev
+  project: some-project
+  type: dev
+  selected_modules_and_packages:
+    - a_module
+    - another_module
+
+modules:
+  custom_modules:
+    a_module:
+      ds_timeseries: ds_timeseries
+    another_module:
+      space: my_space
