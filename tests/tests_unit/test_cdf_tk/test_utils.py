@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.utils import (
     validate_data_set_is_set,
     validate_modules_variables,
 )
+from tests.tests_unit.utils import PrintCapture
 
 THIS_FOLDER = Path(__file__).resolve().parent
 
@@ -87,13 +88,25 @@ def test_dataset_create():
         assert instance._client.data_sets.retrieve.call_count == 1
 
 
-def test_load_yaml_inject_variables(tmp_path) -> None:
-    my_file = tmp_path / "test.yaml"
-    my_file.write_text(yaml.safe_dump({"test": "${TEST}"}))
+class TestLoadYamlInjectVariables:
+    def test_load_yaml_inject_variables(self, tmp_path: Path) -> None:
+        my_file = tmp_path / "test.yaml"
+        my_file.write_text(yaml.safe_dump({"test": "${TEST}"}))
 
-    loaded = load_yaml_inject_variables(my_file, {"TEST": "my_injected_value"})
+        loaded = load_yaml_inject_variables(my_file, {"TEST": "my_injected_value"})
 
-    assert loaded["test"] == "my_injected_value"
+        assert loaded["test"] == "my_injected_value"
+
+    def test_warning_when_missing_env_variable(self, tmp_path: Path, capture_print: PrintCapture) -> None:
+        my_file = tmp_path / "test.yaml"
+        my_file.write_text(yaml.safe_dump({"test": "${TEST}"}))
+        expected_warning = f"WARNING: Variable TEST is not set in the environment. It is expected in {my_file.name}."
+
+        load_yaml_inject_variables(my_file, {})
+
+        assert capture_print.messages, "Nothing was printed"
+        last_message = capture_print.messages[-1]
+        assert last_message == expected_warning
 
 
 def test_validate_raw() -> None:
