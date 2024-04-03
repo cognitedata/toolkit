@@ -99,3 +99,20 @@ capabilities:
         - WRITE
       scope:
         all: {}
+  - annotationsAcl:
+      actions:
+        - WRITE
+      scope:
+        all: {}
+  - eventsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - labelsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
