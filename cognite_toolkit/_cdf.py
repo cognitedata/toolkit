@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations
+import contextlib
 import os
 import sys
 from collections.abc import Sequence
@@ -55,7 +56,24 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         traces_sample_rate=1.0,
     )
 
-app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
+try:
+    app = typer.Typer(
+        pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+    )
+except AttributeError as e:
+    # From Typer version 0.11 -> 0.12, breaks if you have an existing installation.
+    print(
+        "'cognite-toolkit' uses a dependency named 'typer'.",
+        "From 'typer' version 0.11 -> 0.12 there was a breaking change if you have an existing "
+        "installation of 'typer'.",
+        "Workaround is to uninstall 'typer-slim', and then, reinstall 'typer':",
+        "'pip uninstall typer-slim'",
+        "'pip install typer'",
+        sep="\n",
+    )
+    print("\nThis was triggered by the error:", e)
+    exit(1)
+
 auth_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
@@ -175,8 +193,10 @@ def common(
                 path_str = dotenv_file.relative_to(Path.cwd())
             except ValueError:
                 path_str = dotenv_file.absolute()
-            print(f"Loading .env file: {path_str!s}")
-        load_dotenv(dotenv_file, override=override_env)
+            print(f"Loading .env file: {path_str!s}.")
+        has_loaded = load_dotenv(dotenv_file, override=override_env)
+        if not has_loaded:
+            print("  [bold yellow]WARNING:[/] No environment variables found in .env file.")
 
     ctx.obj = Common(
         verbose=verbose,
@@ -227,7 +247,9 @@ def build(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, build_env)
+    cognite_modules_path = source_path / COGNITE_MODULES
+
+    system_config = SystemYAML.load_from_directory(cognite_modules_path, build_env)
     config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(
         Panel(
@@ -630,7 +652,11 @@ def auth_verify(
     if create_group is not None and update_group != 0:
         print("[bold red]ERROR: [/] --create-group and --update-group are mutually exclusive.")
         exit(1)
-    ToolGlobals = CDFToolConfig.from_context(ctx)
+    with contextlib.redirect_stdout(None):
+        # Remove the Error message from failing to load the config
+        # This is verified in check_auth
+        ToolGlobals = CDFToolConfig.from_context(ctx)
+
     if group_file is None:
         template_dir = cast(Path, resources.files("cognite_toolkit"))
         group_path = template_dir.joinpath(

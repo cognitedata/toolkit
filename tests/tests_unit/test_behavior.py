@@ -1,5 +1,7 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
+import pytest
 import typer
 import yaml
 from cognite.client import data_modeling as dm
@@ -8,9 +10,12 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
 from cognite_toolkit._cdf_tk.load import TransformationLoader
+from cognite_toolkit._cdf_tk.templates import build_config
+from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.utils import mock_read_yaml_file
+from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES
+from tests.tests_unit.utils import PrintCapture, mock_read_yaml_file
 
 
 def test_inject_custom_environmental_variables(
@@ -53,6 +58,19 @@ def test_inject_custom_environmental_variables(
 
     transformation = cognite_client_approval.created_resources_of_type(Transformation)[0]
     assert transformation.source_oidc_credentials.client_id == "my_environment_variable_value"
+
+
+def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context, capture_print: PrintCapture) -> None:
+    with pytest.raises(SystemExit):
+        build_config(
+            build_dir=local_tmp_path,
+            source_dir=PROJECT_WITH_DUPLICATES,
+            config=MagicMock(spec=BuildConfigYAML),
+            system_config=MagicMock(spec=SystemYAML),
+        )
+    # Check that the error message is printed
+    assert "module1" in capture_print.messages[-1]
+    assert "duplicated module names" in capture_print.messages[-2]
 
 
 def test_pull_transformation(
@@ -221,3 +239,26 @@ def test_dump_datamodel(
     assert child_loaded.implements[0] == parent_view.as_id()
     # The parent property should have been removed from the child view.
     assert len(child_loaded.properties) == 1
+
+
+@pytest.mark.skip("This functionality is not yet implemented")
+def test_build_custom_project(
+    local_tmp_path: Path,
+    typer_context: typer.Context,
+) -> None:
+    expected_resources = {"timeseries", "data_models", "data_sets"}
+    build(
+        typer_context,
+        source_dir=str(CUSTOM_PROJECT),
+        build_dir=str(local_tmp_path),
+        build_env="dev",
+        clean=True,
+    )
+
+    actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}
+
+    missing_resources = expected_resources - actual_resources
+    assert not missing_resources, f"Missing resources: {missing_resources}"
+
+    extra_resources = actual_resources - expected_resources
+    assert not extra_resources, f"Extra resources: {extra_resources}"

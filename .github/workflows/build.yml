@@ -53,6 +53,8 @@ jobs:
         run: |
           poetry install
       - name: Run pytest
+        env:
+          IS_GITHUB_ACTIONS: "true"
         run: pytest tests
   coverage:
     needs: test
@@ -78,11 +80,14 @@ jobs:
         run: |
           poetry install
       - name: Create test coverage report
+        env:
+          IS_GITHUB_ACTIONS: "true"
         run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/
       - name: Push coverage report to PR
         uses: orgoro/coverage@v3.1
         with:
             coverageFile: coverage.xml
+            thresholdAll: 0.6
             token: ${{ secrets.GITHUB_TOKEN }}
   dry-run-demo:
     runs-on: ubuntu-latest

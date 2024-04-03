@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -15,6 +16,7 @@ from cognite_toolkit._cdf import Common, main_init
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
+from tests.tests_unit.utils import PrintCapture
 
 THIS_FOLDER = Path(__file__).resolve().parent
 
@@ -47,6 +49,11 @@ def cognite_client_approval() -> ApprovalCogniteClient:
 
 @pytest.fixture
 def local_tmp_path() -> Path:
+    tmp_folder = THIS_FOLDER / "tmp"
+
+    if tmp_folder.exists():
+        shutil.rmtree(THIS_FOLDER / "tmp", ignore_errors=True)
+        (THIS_FOLDER / "tmp").mkdir(exist_ok=True)
     return THIS_FOLDER / "tmp"
 
 
@@ -131,3 +138,23 @@ def init_project(typer_context: typer.Context, local_tmp_project_path: Path) -> 
         clean=True,
     )
     return local_tmp_project_path
+
+
+@pytest.fixture
+def capture_print(monkeypatch: MonkeyPatch) -> PrintCapture:
+    capture = PrintCapture()
+    toolkit_path = REPO_ROOT / "cognite_toolkit"
+    monkeypatch.setattr("cognite_toolkit._cdf.print", capture)
+
+    # Monkeypatch all print functions in the toolkit automatically
+    for folder in ["_cdf_tk", "_api"]:
+        for py_file in (toolkit_path / folder).rglob("*.py"):
+            file_path = py_file.relative_to(toolkit_path)
+            module_path = f"{'.'.join(['cognite_toolkit', *file_path.parts[:-1]])}.{file_path.stem}"
+            try:
+                monkeypatch.setattr(f"{module_path}.print", capture)
+            except AttributeError:
+                # The module does not have a print function
+                continue
+
+    return capture

@@ -1,0 +1,5 @@
+- externalId: 'a_timeseries'
+  name: 'a_timeseries'
+  dataSetExternalId: {{ds_timeseries}}
+  isString: false
+  isStep: false
