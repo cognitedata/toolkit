@@ -15,6 +15,10 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0a2] - 2024-04-02
+
+- Added annotationsAcl, eventsAcl and labelsAcl to admin groups
+
 ## [0.2.0a1] - 2024-03-20
 
 - Added functionality for wildcard detection of tags in P&ID
