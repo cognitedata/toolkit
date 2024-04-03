@@ -56,7 +56,24 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         traces_sample_rate=1.0,
     )
 
-app = typer.Typer(pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False)
+try:
+    app = typer.Typer(
+        pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+    )
+except AttributeError as e:
+    # From Typer version 0.11 -> 0.12, breaks if you have an existing installation.
+    print(
+        "'cognite-toolkit' uses a dependency named 'typer'.",
+        "From 'typer' version 0.11 -> 0.12 there was a breaking change if you have an existing "
+        "installation of 'typer'.",
+        "Workaround is to uninstall typer-slim, and then, reinstall typer:",
+        "'pip uninstall typer-slim'",
+        "'pip install typer'",
+        sep="\n",
+    )
+    print("\nOriginal Error:", e)
+    exit(1)
+
 auth_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
