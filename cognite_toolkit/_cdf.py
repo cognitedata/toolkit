@@ -66,12 +66,12 @@ except AttributeError as e:
         "'cognite-toolkit' uses a dependency named 'typer'.",
         "From 'typer' version 0.11 -> 0.12 there was a breaking change if you have an existing "
         "installation of 'typer'.",
-        "Workaround is to uninstall typer-slim, and then, reinstall typer:",
+        "Workaround is to uninstall 'typer-slim', and then, reinstall 'typer':",
         "'pip uninstall typer-slim'",
         "'pip install typer'",
         sep="\n",
     )
-    print("\nOriginal Error:", e)
+    print("\nThis was triggered by the error:", e)
     exit(1)
 
 auth_app = typer.Typer(
