@@ -36,6 +36,8 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
         Iterator[tuple[Path, list[Path]]]: A tuple containing the module directory and a list of all files in the module
 
     """
+    if not root_dir.exists():
+        return
     for module_dir in root_dir.iterdir():
         if not module_dir.is_dir():
             continue

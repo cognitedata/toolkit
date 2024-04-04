@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
-from typing import Any, Literal
+from typing import IO, Any, Literal, Optional
 
 from _pytest.monkeypatch import MonkeyPatch
 
@@ -46,3 +47,25 @@ def mock_read_yaml_file(
     monkeypatch.setattr(
         "cognite_toolkit._cdf_tk.load._resource_loaders.load_yaml_inject_variables", fake_load_yaml_inject_variables
     )
+
+
+class PrintCapture:
+    # Find all text within square brackets
+    _pattern = re.compile(r"\[([^]]+)\]")
+
+    def __init__(self):
+        self.messages = []
+
+    def __call__(
+        self,
+        *objects: Any,
+        sep: str = " ",
+        end: str = "\n",
+        file: Optional[IO[str]] = None,
+        flush: bool = False,
+    ):
+        for obj in objects:
+            if isinstance(obj, str) and (clean := self._pattern.sub("", obj).strip()):
+                # Remove square brackets and whitespace. This is to take
+                # away the styling from rich print.
+                self.messages.append(clean)

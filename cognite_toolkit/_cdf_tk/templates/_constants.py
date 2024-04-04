@@ -12,6 +12,8 @@ GLOBAL_CONFIG_FILE = "global.yaml"
 COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
 
+ROOT_MODULES = [COGNITE_MODULES, CUSTOM_MODULES]
+
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # Which suffixes to exclude when we create indexed files (i.e., they are bundled with their main config file)

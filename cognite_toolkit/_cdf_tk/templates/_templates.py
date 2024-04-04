@@ -22,7 +22,11 @@ from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
 
-from ._constants import COGNITE_MODULES, CUSTOM_MODULES, EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX
+from ._constants import (
+    EXCL_INDEX_SUFFIX,
+    PROC_TMPL_VARS_SUFFIX,
+    ROOT_MODULES,
+)
 from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
@@ -50,7 +54,18 @@ def build_config(
 
     config.validate_environment()
 
-    available_modules = {module.name for module, _ in iterate_modules(source_dir)}
+    module_name_by_path = defaultdict(list)
+    for module, _ in iterate_modules(source_dir):
+        module_name_by_path[module.name].append(module.relative_to(source_dir))
+    if duplicate_modules := {
+        module_name: paths for module_name, paths in module_name_by_path.items() if len(paths) > 1
+    }:
+        print(f"  [bold red]ERROR:[/] Found the following duplicated module names in {source_dir.name}:")
+        for module_name, paths in duplicate_modules.items():
+            print(f"    {module_name}: {paths}")
+        exit(1)
+
+    available_modules = set(module_name_by_path.keys())
     system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
@@ -530,10 +545,9 @@ def process_config_files(
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
     maps = []
     parts = module_dir.parts
-    if parts[0] != COGNITE_MODULES and COGNITE_MODULES in parts:
-        parts = parts[parts.index(COGNITE_MODULES) :]
-    if parts[0] != CUSTOM_MODULES and CUSTOM_MODULES in parts:
-        parts = parts[parts.index(CUSTOM_MODULES) :]
+    for root_module in ROOT_MODULES:
+        if parts[0] != root_module and root_module in parts:
+            parts = parts[parts.index(root_module) :]
     for no in range(len(parts), -1, -1):
         if c := config.get(".".join(parts[:no])):
             maps.append(c)
@@ -569,7 +583,7 @@ def create_file_name(filepath: Path, number_by_resource_type: dict[str, int]) ->
 
 def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
     for name, variable in local_config.items():
-        content = content.replace(f"{{{{{name}}}}}", str(variable))
+        content = re.sub(rf"{{{{\s*{name}\s*}}}}", str(variable), content)
     return content
 
 

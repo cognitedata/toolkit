@@ -23,6 +23,10 @@ Changes are grouped as follows:
 - Fixed: annotation logic with local time stamp for when to reprocess P&ID files
 - Fixed: input to P&ID annotation based on list of synonyms for tag  
 
+## [0.2.0a2] - 2024-04-03
+
+No changes to templates.
+
 ## [0.2.0a1] - 2024-03-20
 
 - Added functionality for wildcard detection of tags in P&ID

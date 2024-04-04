@@ -15,6 +15,27 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0a2] - 2024-04-03
+
+### Added
+
+- Variables can now have extra spaces between curly braces and the variable name. For example, `{{  my_variable }}` is now
+  a valid variable. Before this change, you would have to write `{{my_variable}}`.
+- If an environment variable is not found in a resource file, for example, `${CDF_CLUSTER}`, when
+  running `cdf-tk deploy` the user will now get a warning message that the variable is missing. Before this change,
+  this would pass silently and potentially cause an error when trying to deploy to CDF that was hard to debug.
+
+### Fixed
+
+- When running `cdf-tk` with a Token for initialization, the `cdf-tk` would raise an `IndexError`. This is now fixed.
+- Container resources that did not have set the optional property `usedFor` would always be classified as changed,
+  when, for example, running `cdf-tk deploy --dry-run`. This is now fixed.
+
+### Changed
+
+- If two modules have the same name, the `cdf-tk build` command will now stop and raise an error. Before this change,
+  the `cdf-tk build` command would continue and overwrite the first module with the second module.
+
 ## [0.2.0a1] - 2024-03-20
 
 ### Added
