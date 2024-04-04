@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [TBD] - TBD
+
+- Fixed: align tag name in asset hierarchy between the 2 example transformations
+- Fixed: added default root asset ID to documents for initial annotation
+- Fixed: alined use of asset external ID across contextualization functions
+- Fixed: annotation logic with local time stamp for when to reprocess P&ID files
+- Fixed: input to P&ID annotation based on list of synonyms for tag  
+
 ## [0.2.0a1] - 2024-03-20
 
 - Added functionality for wildcard detection of tags in P&ID
