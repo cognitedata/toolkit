@@ -9,6 +9,6 @@ config:
     docDataSetExtId: "{{files_dataset}}"
     docTypeMetaCol: "doc_type"
     pAndIdDocType: "PNID"
-    assetRootExtIds: [workmate:VAL]
+    assetRootExtIds: [{{external_root_id_asset}}]
     matchThreshold: 0.85
    
