@@ -11,5 +11,5 @@ config:
     rawTableManual: 'contextualization_manual_input'
     timeSeriesPrefix: [pi_, opc-ua]
     timeSeriesDataSetExtId: 'ds_timeseries_{{location_name}}'
-    assetRootExtIds: [workmate:VAL]
-    matchThreshold: 0.85
+    assetRootExtIds: [{{external_root_id_asset}}]
+    matchThreshold: 0.75

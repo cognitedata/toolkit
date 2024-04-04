@@ -695,8 +695,8 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: asset:oid:workmate:asset_hierarchy:example
-  query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`externalId`\
-    \ as STRING) as name,\n  cast(`description` as STRING) as description,\n  cast(`sourceDb`\
+  query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`tag` as STRING)\
+    \ as name,\n  cast(`description` as STRING) as description,\n  cast(`sourceDb`\
     \ as STRING) as source,\n  cast(`parentExternalId` as STRING) as parentExternalId\n\
     from\n  `asset_oid_workmate`.`assets`;\n"
   sourceOidcCredentials:

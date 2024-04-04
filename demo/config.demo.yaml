@@ -88,6 +88,7 @@ modules:
         version: 0.0.1
         # location based on OID example data
         location_name: oid
+        external_root_id_asset: WMT:VAL
         # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
         source_name: fileshare
         files_dataset: ds_files_oid
@@ -106,6 +107,7 @@ modules:
         # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
         source_name: opcua
         timeseries_dataset: ds_timeseries_oid
+        external_root_id_asset: WMT:VAL
         # configuration for local OPC-UA simulator ( not part of CDF)
         opcua_endpoint_url: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer
         opcua_id_prefix: "opc-ua:"
