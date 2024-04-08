@@ -139,6 +139,12 @@ Function:
   name: context:timeseries:oid:opcua:asset
   owner: Anonymous
   runtime: py311
+FunctionSchedule:
+- cronExpression: 0,30 * * * *
+  data:
+    ExtractionPipelineExtId: ep_ctx_timeseries_oid_opcua_asset
+  description: Run every 30 minute
+  name: daily-every-30-min
 Group:
 - capabilities:
   - rawAcl:

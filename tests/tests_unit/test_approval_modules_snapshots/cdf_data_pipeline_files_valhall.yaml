@@ -81,6 +81,12 @@ Function:
   name: context:files:oid:fileshare:annotation
   owner: Anonymous
   runtime: py311
+FunctionSchedule:
+- cronExpression: 0,30 * * * *
+  data:
+    ExtractionPipelineExtId: ep_ctx_files_oid_fileshare_pandid_annotation
+  description: Run every 30 minute
+  name: every 30 min
 Group:
 - capabilities:
   - rawAcl:
