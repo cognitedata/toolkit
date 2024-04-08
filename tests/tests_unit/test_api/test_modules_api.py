@@ -84,7 +84,7 @@ class TestModulesAPI:
         cdf_tool_config: CDFToolConfig,
     ):
         cognite_client_approval.return_verify_resources = True
-        module = cognite_toolkit.modules.retrieve("cdf_data_pipeline_timeseries_valhall")
+        module = cognite_toolkit.modules.retrieve(module_name)
 
         cognite_toolkit.modules.deploy(module, verbose=True)
 
