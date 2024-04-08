@@ -21,6 +21,8 @@ from cognite.client.data_classes import (
     FileMetadata,
     Function,
     FunctionCall,
+    FunctionSchedule,
+    FunctionScheduleWrite,
     FunctionWrite,
     Group,
     GroupList,
@@ -428,6 +430,13 @@ class ApprovalCogniteClient:
             created_resources[resource_cls.__name__].append(created)
             return Function.load(created.dump(camel_case=True))
 
+        def create_function_schedule_api(**kwargs) -> FunctionSchedule:
+            # Function API does not follow the same pattern as the other APIs
+            # So needs special handling
+            created = FunctionScheduleWrite.load({to_camel_case(k): v for k, v in kwargs.items()})
+            created_resources[resource_cls.__name__].append(created)
+            return FunctionSchedule.load(created.dump(camel_case=True))
+
         available_create_methods = {
             fn.__name__: fn
             for fn in [
@@ -438,6 +447,7 @@ class ApprovalCogniteClient:
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
                 create_function_api,
+                create_function_schedule_api,
             ]
         }
         if mock_method not in available_create_methods:
