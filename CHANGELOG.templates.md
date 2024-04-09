@@ -19,7 +19,7 @@ Changes are grouped as follows:
 
 - Fixed: align tag name in asset hierarchy between the 2 example transformations
 - Fixed: added default root asset ID to documents for initial annotation
-- Fixed: alined use of asset external ID across contextualization functions
+- Fixed: aligned use of asset external ID across contextualization functions
 - Fixed: annotation logic with local time stamp for when to reprocess P&ID files
 - Fixed: input to P&ID annotation based on list of synonyms for tag  
 

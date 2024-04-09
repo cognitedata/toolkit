@@ -24,6 +24,10 @@ from cognite.client.data_classes import (
     FileMetadataWriteList,
     Function,
     FunctionList,
+    FunctionSchedule,
+    FunctionSchedulesList,
+    FunctionScheduleWrite,
+    FunctionScheduleWriteList,
     FunctionWrite,
     FunctionWriteList,
     Group,
@@ -197,16 +201,12 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="functions.schedules",
-        resource_cls=Function,
-        _write_cls=FunctionWrite,
-        list_cls=FunctionList,
-        _write_list_cls=FunctionWriteList,
+        resource_cls=FunctionSchedule,
+        _write_cls=FunctionScheduleWrite,
+        list_cls=FunctionSchedulesList,
+        _write_list_cls=FunctionScheduleWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create_function_api")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
-            "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-            ],
+            "create": [Method(api_class_method="create", mock_name="create_function_schedule_api")],
         },
     ),
     APIResource(
