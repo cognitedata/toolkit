@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.3] - 2024-04-28
+
+### Fixed
+
+- Functions that are deployed with schedules no longer uses a short-lived session (before: failed after ~an hour).
+
 ## [0.1.2] - 2024-03-18
 
 ### Fixed
