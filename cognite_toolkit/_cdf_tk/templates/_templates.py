@@ -156,6 +156,17 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
         else:
             print(f"      [bold red]:[/] Raw file {filepath_src} has invalid dataformat.")
             exit(1)
+    elif resource_type == "workflows":
+        if isinstance(parsed, dict):
+            if "version" in filepath_src.stem.lower():
+                ext_id = parsed.get("workflowExternalId")
+                ext_id_type = "workflowExternalId"
+            else:
+                ext_id = parsed.get("externalId") or parsed.get("external_id")
+                ext_id_type = "externalId"
+        else:
+            print(f"      [bold red]:[/] Multiple Workflows in one file {filepath_src} is not supported .")
+            exit(1)
     else:
         if isinstance(parsed, list):
             print(f"      [bold red]:[/] Multiple {resource_type} in one file {filepath_src} is not supported .")

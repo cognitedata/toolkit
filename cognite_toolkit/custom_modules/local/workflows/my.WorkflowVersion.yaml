@@ -1,0 +1,21 @@
+workflowExternalId: wf_{{ workflow_external_id }}
+version: '1'
+workflowDefinition:
+  description: Ipsum lorem dolor sit amet
+  tasks: 
+  - external_id: '{{ workflow_external_id }}_task_1'
+    parameters: []
+    name: task_1
+    decription: Task Ipsum lorem dolor sit amet
+    retries: 3
+    timeout: 3600
+    on_failure: 'abortWorkflow'
+    depends_on: []
+  - external_id: '{{ workflow_external_id }}_task_2'
+    parameters: []
+    name: task_2
+    decription: Task Ipsum lorem dolor sit amet
+    retries: 3
+    timeout: 3600
+    on_failure: 'skipTask'
+    depends_on: ['{{ workflow_external_id }}_task_1']

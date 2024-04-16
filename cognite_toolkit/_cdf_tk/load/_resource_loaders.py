@@ -61,6 +61,10 @@ from cognite.client.data_classes import (
     TransformationScheduleWriteList,
     TransformationWrite,
     TransformationWriteList,
+    Workflow,
+    WorkflowList,
+    WorkflowUpsert,
+    WorkflowUpsertList,
     capabilities,
     filters,
 )
@@ -77,6 +81,7 @@ from cognite.client.data_classes.capabilities import (
     SessionsAcl,
     TimeSeriesAcl,
     TransformationsAcl,
+    WorkflowOrchestrationAcl,
 )
 from cognite.client.data_classes.data_modeling import (
     Container,
@@ -1901,3 +1906,55 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
         # Nodes will be deleted in .delete call.
         return 0
+
+
+@final
+
+
+# class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
+
+#     api_name = "workflows"
+#     folder_name = "workflows"
+#     resource_cls = Workflow
+#     resource_write_cls = WorkflowUpsert
+#     list_cls = WorkflowList
+#     list_write_cls = WorkflowUpsertList
+
+
+class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
+
+    api_name = "workflows"
+    folder_name = "workflows"
+    resource_cls = Workflow
+    resource_write_cls = WorkflowUpsert
+    list_cls = WorkflowList
+    list_write_cls = WorkflowUpsertList
+
+    @classmethod
+    def get_required_capability(cls, items: WorkflowUpsertList) -> Capability:
+        return WorkflowOrchestrationAcl(
+            [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
+            WorkflowOrchestrationAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: Workflow | WorkflowUpsert) -> str:
+        if item.external_id is None:
+            raise ValueError("Workflow must have external_id set.")
+        return item.external_id
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> WorkflowUpsertList:
+        resource = load_yaml_inject_variables(filepath, {})
+
+        workflows = [resource] if isinstance(resource, dict) else resource
+        return WorkflowUpsertList.load(workflows)
+
+    def create(self, items: WorkflowUpsertList) -> WorkflowList:
+
+        return WorkflowList([])
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
+        return WorkflowList([])
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        raise NotImplementedError("Delete is not implemented for workflows")
