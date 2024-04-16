@@ -12,7 +12,7 @@ repos:
           - --select=E,W,F,I,T,RUF,TID,UP
           - --fixable=E,W,F,I,T,RUF,TID,UP
           - --target-version=py39
-    rev: v0.3.4
+    rev: v0.3.5
 
   - repo: https://github.com/psf/black
     rev: 24.3.0
@@ -27,7 +27,7 @@ repos:
           - --include=\.py$
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v4.6.0
     hooks:
       - id: debug-statements
       - id: check-docstring-first
