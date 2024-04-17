@@ -83,7 +83,6 @@ def annotate_pnid(client: CogniteClient, config: AnnotationConfig) -> None:
 
             # if no files to annotate - continue to next asset
             if len(files_to_process) > 0:
-
                 entities = get_files_entities(all_files)
                 annotation_list = get_existing_annotations(client, entities) if entities else {}
 
@@ -353,7 +352,6 @@ def process_files(
                 asset_ids_list = asset_ids_list[:1000]
 
             if config.debug:
-
                 print(f"[INFO] Assets found: {asset_names}")
                 continue
 
@@ -413,7 +411,6 @@ def detect_create_annotation(
 
     detected_system_num, detected_count = get_sys_nums(job.result["items"][0]["annotations"], detected_count)
     for item in job.result["items"][0]["annotations"]:
-
         textRegion = get_coordinates(item["region"]["vertices"])
 
         for entity in item["entities"]:
