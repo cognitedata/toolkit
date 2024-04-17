@@ -3,6 +3,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
+from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -225,18 +226,23 @@ IDP_TOKEN_URL=https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
 CDF_URL=https://my_cluster.cognitedata.com
 IDP_SCOPES=https://my_cluster.cognitedata.com/.default
 IDP_AUTHORITY_URL=https://login.microsoftonline.com/{tenant}"""
-        with MonkeyPatch.context() as mp:
-            mp.setenv("LOGIN_FLOW", "interactive")
-            mp.setenv("CDF_CLUSTER", "my_cluster")
-            mp.setenv("CDF_PROJECT", "my_project")
-            mp.setenv("IDP_TENANT_ID", "{tenant}")
-            mp.setenv("IDP_CLIENT_ID", "7890")
-            mp.setattr("cognite_toolkit._cdf_tk.utils.OAuthInteractive", MagicMock(spec=OAuthInteractive))
-            with monkeypatch_cognite_client() as _:
-                config = CDFToolConfig()
-                env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
-        not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
-        assert not not_equal, "Found differences in the generated .env file: \n" + "\n".join(not_equal)
+
+        envs = {
+            "LOGIN_FLOW": "interactive",
+            "CDF_CLUSTER": "my_cluster",
+            "CDF_PROJECT": "my_project",
+            "IDP_TENANT_ID": "{tenant}",
+            "IDP_CLIENT_ID": "7890",
+        }
+
+        with mock.patch.dict(os.environ, envs, clear=True):
+            with MonkeyPatch.context() as mp:
+                mp.setattr("cognite_toolkit._cdf_tk.utils.OAuthInteractive", MagicMock(spec=OAuthInteractive))
+                with monkeypatch_cognite_client() as _:
+                    config = CDFToolConfig()
+                    env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
+            not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
+            assert not not_equal, "Found differences in the generated .env file: \n" + "\n".join(not_equal)
 
     @pytest.mark.skipif(
         os.environ.get("IS_GITHUB_ACTIONS") == "true",
@@ -256,19 +262,25 @@ IDP_TOKEN_URL=https://login.microsoftonline.com/12345/oauth2/v2.0/token
 CDF_URL=https://my_cluster.cognitedata.com
 IDP_SCOPES=https://my_cluster.cognitedata.com/.default
 IDP_AUDIENCE=https://my_cluster.cognitedata.com"""
-        with MonkeyPatch.context() as mp:
-            mp.setenv("LOGIN_FLOW", "client_credentials")
-            mp.setenv("CDF_CLUSTER", "my_cluster")
-            mp.setenv("CDF_PROJECT", "my_project")
-            mp.setenv("IDP_TENANT_ID", "12345")
-            mp.setenv("IDP_CLIENT_ID", "7890")
-            mp.setenv("IDP_CLIENT_SECRET", "12345")
-            mp.setattr("cognite_toolkit._cdf_tk.utils.OAuthClientCredentials", MagicMock(spec=OAuthClientCredentials))
-            with monkeypatch_cognite_client() as _:
-                config = CDFToolConfig()
-                env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
-        not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
-        assert not not_equal, "Found differences in the generated .env file: \n" + "\n".join(not_equal)
+
+        envs = {
+            "LOGIN_FLOW": "client_credentials",
+            "CDF_CLUSTER": "my_cluster",
+            "CDF_PROJECT": "my_project",
+            "IDP_TENANT_ID": "12345",
+            "IDP_CLIENT_ID": "7890",
+            "IDP_CLIENT_SECRET": "12345",
+        }
+        with mock.patch.dict(os.environ, envs, clear=True):
+            with MonkeyPatch.context() as mp:
+                mp.setattr(
+                    "cognite_toolkit._cdf_tk.utils.OAuthClientCredentials", MagicMock(spec=OAuthClientCredentials)
+                )
+                with monkeypatch_cognite_client() as _:
+                    config = CDFToolConfig()
+                    env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
+            not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
+            assert not not_equal, "Found differences in the generated .env file: \n" + "\n".join(not_equal)
 
 
 def auth_variables_validate_test_cases():
@@ -358,6 +370,7 @@ def auth_variables_validate_test_cases():
     yield pytest.param(
         {
             "CDF_CLUSTER": "my_cluster",
+            "CDF_PROJECT": "",
         },
         False,
         "error",
@@ -365,6 +378,15 @@ def auth_variables_validate_test_cases():
         {},
         id="Missing project",
     )
+
+
+class TestEnvironmentVariables:
+    def test_env_variable(self):
+        with patch.dict(os.environ, {"MY_ENV_VAR": "test_value"}):
+            # Inside this block, MY_ENV_VAR is set to 'test_value'
+            assert os.environ["MY_ENV_VAR"] == "test_value"
+
+        assert os.environ.get("MY_ENV_VAR") is None
 
 
 class TestAuthVariables:
@@ -384,9 +406,8 @@ class TestAuthVariables:
         expected_messages: list[str],
         expected_vars: dict[str, str],
     ) -> None:
-        with MonkeyPatch.context() as mp:
-            for key, value in environment_variables.items():
-                mp.setenv(key, value)
+
+        with mock.patch.dict(os.environ, environment_variables, clear=True):
             auth_var = AuthVariables.from_env()
             results = auth_var.validate(verbose)
 
