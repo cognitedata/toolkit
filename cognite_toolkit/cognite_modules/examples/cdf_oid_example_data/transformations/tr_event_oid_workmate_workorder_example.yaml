@@ -1,0 +1,19 @@
+externalId: tr_event_{{default_location}}_{{source_event}}_workorder_example
+name: event:{{default_location}}:{{source_event}}:workorder:example
+destination:
+  type: "events"
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+dataSetExternalId: ds_transformations_{{default_location}}
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the cicd_scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the cicd_audience
+  audience: {{cicd_audience}}

@@ -22,6 +22,7 @@ Changes are grouped as follows:
 - Fixed: aligned use of asset external ID across contextualization functions
 - Fixed: annotation logic with local time stamp for when to reprocess P&ID files
 - Fixed: input to P&ID annotation based on list of synonyms for tag  
+- Added Transformation for WorkOrder and WorkItems to OID testdata template
 
 ## [0.2.0a2] - 2024-04-03
 

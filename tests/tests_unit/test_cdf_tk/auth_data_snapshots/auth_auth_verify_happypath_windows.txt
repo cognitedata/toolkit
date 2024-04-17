@@ -1,7 +1,7 @@
 Checking current service principal/application and environment
 configurations...
-WARNING: CDF URL is set to https://westeurope-1.cognitedata.com, are you sure
-it shouldn't be https://bluefield.cognitedata.com?
+WARNING: CDF URL is set to https://greenfield.cognitedata.com, are you sure it
+shouldn't be https://bluefield.cognitedata.com?
   OK
 Checking basic project configuration...
   OK
