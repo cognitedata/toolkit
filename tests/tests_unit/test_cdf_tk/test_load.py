@@ -74,9 +74,7 @@ def test_loader_class(
 
 
 class TestFunctionLoader:
-
     def test_load_functions(self, cognite_client_approval: ApprovalCogniteClient):
-
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
@@ -88,7 +86,6 @@ class TestFunctionLoader:
         assert len(loaded) == 2
 
     def test_load_function(self, cognite_client_approval: ApprovalCogniteClient):
-
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
@@ -231,9 +228,7 @@ class TestDataModelLoader:
 
 
 class TestAuthLoader:
-
     def test_load_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
 
         loaded = loader.load_resource(
@@ -254,7 +249,6 @@ class TestAuthLoader:
         assert caps["SessionsAcl"].scope._scope_name == "all"
 
     def test_load_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-
         loader = AuthLoader.create_loader(cdf_tool_config, "all_scoped_only")
         loaded = loader.load_resource(
             DATA_FOLDER / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
@@ -267,7 +261,6 @@ class TestAuthLoader:
         assert loaded is None
 
     def test_load_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-
         loader = AuthLoader.create_loader(cdf_tool_config, "resource_scoped_only")
         loaded = loader.load_resource(
             DATA_FOLDER / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
@@ -289,7 +282,6 @@ class TestAuthLoader:
         assert caps["SessionsAcl"].scope._scope_name == "all"
 
     def test_load_group_list_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
         loaded = loader.load_resource(
             DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
@@ -299,7 +291,6 @@ class TestAuthLoader:
         assert len(loaded) == 2
 
     def test_load_group_list_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-
         loader = AuthLoader.create_loader(cdf_tool_config, "resource_scoped_only")
         loaded = loader.load_resource(
             DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
@@ -309,7 +300,6 @@ class TestAuthLoader:
         assert loaded.name == "scoped_group_name"
 
     def test_load_group_list_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-
         loader = AuthLoader.create_loader(cdf_tool_config, "all_scoped_only")
         loaded = loader.load_resource(
             DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
@@ -321,7 +311,6 @@ class TestAuthLoader:
     def test_unchanged_new_group(
         self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
-
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
         loaded = loader.load_resource(
             DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
@@ -353,7 +342,6 @@ class TestAuthLoader:
     def test_upsert_group(
         self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
-
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
         loaded = loader.load_resource(
             DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
@@ -503,7 +491,6 @@ class TestListDictConsistency:
     def test_loader_takes_list(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
-
         loader = Loader.create_loader(cdf_tool_config)
 
         if loader.resource_cls in [Transformation, FileMetadata]:
