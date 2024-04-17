@@ -65,6 +65,10 @@ from cognite.client.data_classes import (
     WorkflowList,
     WorkflowUpsert,
     WorkflowUpsertList,
+    WorkflowVersion,
+    WorkflowVersionList,
+    WorkflowVersionUpsert,
+    WorkflowVersionUpsertList,
     capabilities,
     filters,
 )
@@ -1909,18 +1913,6 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
 
 
 @final
-
-
-# class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
-
-#     api_name = "workflows"
-#     folder_name = "workflows"
-#     resource_cls = Workflow
-#     resource_write_cls = WorkflowUpsert
-#     list_cls = WorkflowList
-#     list_write_cls = WorkflowUpsertList
-
-
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
 
     api_name = "workflows"
@@ -1955,6 +1947,50 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
         return WorkflowList([])
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        raise NotImplementedError("Delete is not implemented for workflows")
+
+
+@final
+class WorkflowVersionLoader(
+    ResourceLoader[str, WorkflowVersionUpsert, WorkflowVersion, WorkflowVersionUpsertList, WorkflowVersionList]
+):
+
+    api_name = "workflow.versions"
+    folder_name = "workflows"
+    resource_cls = WorkflowVersion
+    resource_write_cls = WorkflowVersionUpsert
+    list_cls = WorkflowVersionList
+    list_write_cls = WorkflowVersionUpsertList
+
+    @classmethod
+    def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability:
+        return WorkflowOrchestrationAcl(
+            [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
+            WorkflowOrchestrationAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: WorkflowVersion | WorkflowVersionUpsert) -> str:
+        if item.workflow_external_id is None:
+            raise ValueError("Workflow version must have workflow_external_id set.")
+        return item.workflow_external_id
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> WorkflowVersionUpsertList:
+        resource = load_yaml_inject_variables(filepath, {})
+
+        workflows = [resource] if isinstance(resource, dict) else resource
+        return WorkflowVersionUpsertList.load(workflows)
+
+    def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+
+        return WorkflowVersionList([])
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowVersionList:
+        return WorkflowVersionList([])
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("Delete is not implemented for workflows")
