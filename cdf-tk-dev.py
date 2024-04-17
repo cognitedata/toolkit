@@ -6,23 +6,23 @@
 # However, when you run the file in Visual Studio Code, the module should not be installed in your
 # python virtual environment, but rather be found in the root of the repo.
 # This workaround allows you to run cdf.py in Visual Studio Code like this:
-"""         {
-            "name": "Python: build",
-            "type": "python",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "--verbose",
-                "--override-env",
-                "build",
-                "--build-dir=build",
-                "--clean",
-                "--env=local",
-                "./cognite_toolkit/"
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
+"""{
+    "name": "Python: build",
+    "type": "python",
+    "request": "launch",
+    "program": "./cdf-tk-dev.py",
+    "args": [
+        "--verbose",
+        "--override-env",
+        "build",
+        "--build-dir=build",
+        "--clean",
+        "--env=local",
+        "./cognite_toolkit/"
+    ],
+    "console": "integratedTerminal",
+    "justMyCode": false
+},
 """
 
 import os
