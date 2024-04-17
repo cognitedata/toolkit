@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Generic, TypeVar, Union
 
 from cognite.client import CogniteClient
+from cognite.client.data_classes import WorkflowVersionId
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
@@ -35,7 +36,10 @@ from .data_classes import (
     UploadDeployResult,
 )
 
-T_ID = TypeVar("T_ID", bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawDatabaseTable])
+T_ID = TypeVar(
+    "T_ID",
+    bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawDatabaseTable, WorkflowVersionId],
+)
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 
 

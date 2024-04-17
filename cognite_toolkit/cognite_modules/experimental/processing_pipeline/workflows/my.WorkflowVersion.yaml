@@ -3,16 +3,25 @@ version: '1'
 workflowDefinition:
   description: Ipsum lorem dolor sit amet
   tasks: 
-  - external_id: '{{ workflow_external_id }}_task_1'
-    parameters: []
+  - externalId: '{{ workflow_external_id }}_task_1'
+    type: 'function'
+    parameters:
+      function:
+        externalId: '{{ workflow_external_id }}_task_1_function'
+        data: {}
+      isAsyncComplete: false
     name: task_1
     decription: Task Ipsum lorem dolor sit amet
     retries: 3
     timeout: 3600
     on_failure: 'abortWorkflow'
     depends_on: []
-  - external_id: '{{ workflow_external_id }}_task_2'
-    parameters: []
+  - externalId: '{{ workflow_external_id }}_task_2'
+    type: 'transformation'
+    parameters:
+      transformation:
+        externalId: '{{ workflow_external_id }}_task_2_transformation'
+        concurrencyPolicy: fail
     name: task_2
     decription: Task Ipsum lorem dolor sit amet
     retries: 3

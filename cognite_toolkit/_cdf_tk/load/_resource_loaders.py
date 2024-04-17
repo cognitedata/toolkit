@@ -66,6 +66,7 @@ from cognite.client.data_classes import (
     WorkflowUpsert,
     WorkflowUpsertList,
     WorkflowVersion,
+    WorkflowVersionId,
     WorkflowVersionList,
     WorkflowVersionUpsert,
     WorkflowVersionUpsertList,
@@ -1912,9 +1913,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
 
 @final
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
-
     api_name = "workflows"
     folder_name = "workflows"
+    filename_pattern = r"^(?!.*\b(version|WorkflowVersion)\b).*"
     resource_cls = Workflow
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
@@ -1940,27 +1941,34 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         return WorkflowUpsertList.load(workflows)
 
     def create(self, items: WorkflowUpsertList) -> WorkflowList:
-
-        return WorkflowList([])
+        upserted = []
+        for item in items:
+            upserted.append(self.client.workflows.upsert(item))
+        return WorkflowList(upserted)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
-        return WorkflowList([])
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        raise NotImplementedError("Delete is not implemented for workflows")
+        workflows = []
+        for ext_id in ids:
+            workflow = self.client.workflows.retrieve(external_id=ext_id)
+            if workflow:
+                workflows.append(workflow)
+        return WorkflowList(workflows)
 
 
 @final
 class WorkflowVersionLoader(
-    ResourceLoader[str, WorkflowVersionUpsert, WorkflowVersion, WorkflowVersionUpsertList, WorkflowVersionList]
+    ResourceLoader[
+        WorkflowVersionId, WorkflowVersionUpsert, WorkflowVersion, WorkflowVersionUpsertList, WorkflowVersionList
+    ]
 ):
-
-    api_name = "workflow.versions"
+    api_name = "workflows.versions"
     folder_name = "workflows"
+    filename_pattern = r"^.*\.?(WorkflowVersion)$"
     resource_cls = WorkflowVersion
     resource_write_cls = WorkflowVersionUpsert
     list_cls = WorkflowVersionList
     list_write_cls = WorkflowVersionUpsertList
+    dependencies = frozenset({WorkflowLoader})
 
     @classmethod
     def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability:
@@ -1970,25 +1978,25 @@ class WorkflowVersionLoader(
         )
 
     @classmethod
-    def get_id(cls, item: WorkflowVersion | WorkflowVersionUpsert) -> str:
-        if item.workflow_external_id is None:
-            raise ValueError("Workflow version must have workflow_external_id set.")
-        return item.workflow_external_id
+    def get_id(cls, item: WorkflowVersion | WorkflowVersionUpsert) -> WorkflowVersionId:
+        return item.as_id()
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> WorkflowVersionUpsertList:
         resource = load_yaml_inject_variables(filepath, {})
 
-        workflows = [resource] if isinstance(resource, dict) else resource
-        return WorkflowVersionUpsertList.load(workflows)
+        workflowversions = [resource] if isinstance(resource, dict) else resource
+        return WorkflowVersionUpsertList.load(workflowversions)
 
     def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+        upserted = []
+        for item in items:
+            upserted.append(self.client.workflows.versions.upsert(item))
+        return WorkflowVersionList(upserted)
 
-        return WorkflowVersionList([])
+    def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
+        return self.client.workflows.versions.list([id for id in ids])
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowVersionList:
-        return WorkflowVersionList([])
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[WorkflowVersionId]) -> int:
         raise NotImplementedError("Delete is not implemented for workflows")
