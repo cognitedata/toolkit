@@ -236,9 +236,7 @@ def build(
     no_clean: Annotated[
         bool,
         typer.Option(
-            "--no-clean",
-            "-c",
-            help="Whether not to delete the build directory before building the configurations"&
+            "--no-clean", "-c", help="Whether not to delete the build directory before building the configurations"
         ),
     ] = False,
 ) -> None:
