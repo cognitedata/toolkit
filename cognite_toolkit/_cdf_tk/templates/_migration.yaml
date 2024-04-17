@@ -1,13 +1,17 @@
 - version: 0.2.0a3
   cognite_modules: {}
   resources: {}
-  tool: {}
+  tool:
+    - title: '`cdf-tk build` command no longer supports the `--clean` flag'
+      steps:
+        - "The build command now cleans the build directory by default."
+        - "To avoid cleaning the build directory use the `--no-clean` flag."
   cognite_modules_hash: ""
 - version: 0.2.0a2
   cognite_modules: {}
   resources: {}
   tool: {}
-  cognite_modules_hash: ""
+  cognite_modules_hash: "07825ba8911c45a52881cf4a7536f9b2919c5f96fa8f6570e61406bc1666d329"
 - version: 0.2.0a1
   cognite_modules: {}
   resources: {}
