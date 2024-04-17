@@ -420,11 +420,3 @@ class TestAuthVariables:
                     assert actual_vars.get(expected_var) == expected_vars.get(
                         expected_var
                     ), f"expected {expected_var} to be {expected_vars.get(expected_var)} but got {actual_vars.get(expected_var)}"
-            # if expected_vars:
-            #    actual_vars = vars(auth_var)
-            #     # Checking that expected_vars is a subset of actual_vars
-            #     for k, v in expected_vars:
-            #         if not actual_vars.get(k, None) == v:
-            #             assert False, f"Expected variable {k} is not equal to {v}."
-
-            #     assert expected_vars.items() <= actual_vars.items()
