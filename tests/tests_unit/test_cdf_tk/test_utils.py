@@ -414,9 +414,5 @@ class TestAuthVariables:
             assert results.status == expected_status
             assert results.messages == expected_messages
 
-            actual_vars = vars(auth_var)
-            for expected_var in expected_vars:
-                if expected_vars.get(expected_var) is not None:
-                    assert actual_vars.get(expected_var) == expected_vars.get(
-                        expected_var
-                    ), f"expected {expected_var} to be {expected_vars.get(expected_var)} but got {actual_vars.get(expected_var)}"
+            if expected_vars:
+                assert vars(auth_var) == expected_vars
