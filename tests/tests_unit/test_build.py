@@ -90,7 +90,7 @@ def test_migration_hash_updated(migrations) -> None:
     missing_hash = {
         version_str
         for entry in migrations
-        if version_package.parse(version_str := entry["version"]) >= version_package.parse(__version__)
+        if version_package.parse(version_str := entry["version"]) < version_package.parse(__version__)
         and not entry.get("cognite_modules_hash")
     }
 
