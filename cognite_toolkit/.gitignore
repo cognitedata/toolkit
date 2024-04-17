@@ -274,3 +274,4 @@ $RECYCLE.BIN/
 */.venv.*
 .venv.*
 build.*
+build/

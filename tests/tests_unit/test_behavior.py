@@ -44,7 +44,7 @@ def test_inject_custom_environmental_variables(
         source_dir=str(init_project),
         build_dir=str(local_tmp_path),
         build_env="dev",
-        clean=True,
+        no_clean=False,
     )
     deploy(
         typer_context,
@@ -252,7 +252,7 @@ def test_build_custom_project(
         source_dir=str(CUSTOM_PROJECT),
         build_dir=str(local_tmp_path),
         build_env="dev",
-        clean=True,
+        no_clean=False,
     )
 
     actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}
