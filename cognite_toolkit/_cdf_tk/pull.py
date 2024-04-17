@@ -17,12 +17,14 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitDuplicatedResourceError,
+    ToolkitMissingResourceError,
+    ToolkitNotADirectoryError,
+)
 from cognite_toolkit._cdf_tk.load import ResourceLoader
 from cognite_toolkit._cdf_tk.load._base_loaders import T_ID, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.templates import (
-    COGNITE_MODULES,
-    build_config,
-)
+from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES, build_config
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments
 
@@ -376,14 +378,12 @@ def pull_command(
         source_dir = "./"
     source_path = Path(source_dir)
     if not source_path.is_dir():
-        print(f"  [bold red]ERROR:[/] {source_path} does not exist")
-        exit(1)
+        raise ToolkitNotADirectoryError(f"{source_path} does not exist")
     if not (source_path / COGNITE_MODULES).is_dir():
-        print(
-            f"  [bold red]ERROR:[/] {source_path} does not contain a {COGNITE_MODULES} directory. "
-            f"Did you pass in a valid source directory?"
+        raise ToolkitNotADirectoryError(
+            f"{source_path} does not contain a {COGNITE_MODULES} directory. "
+            "Did you pass in a valid source directory?"
         )
-        exit(1)
 
     build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))
     system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, env)
@@ -419,18 +419,15 @@ def pull_command(
                 selected[file] = resource
                 break
     if len(selected) == 0:
-        print(
-            f"  [bold red]ERROR:[/] No {loader.display_name} with external id {id_} found in the current "
-            f"configuration in {source_dir}."
+        raise ToolkitMissingResourceError(
+            f"No {loader.display_name} with external id {id_} found in the current configuration in {source_dir}."
         )
-        exit(1)
     elif len(selected) >= 2:
         files = "\n".join(map(str, selected.keys()))
-        print(
-            f"  [bold red]ERROR:[/] Multiple {loader.display_name} with {id_} found in {source_dir}. Delete all but one and try again."
-            f"\nFiles: {files}"
+        raise ToolkitDuplicatedResourceError(
+            f"Multiple {loader.display_name} with {id_} found in {source_dir}. Delete all but one and try again. "
+            f"Files: {files}"
         )
-        exit(1)
     build_file, local_resource = next(iter(selected.items()))
 
     print(f"[bold]Pulling {loader.display_name} {id_}...[/]")
@@ -438,8 +435,7 @@ def pull_command(
     resource_id = loader.get_id(local_resource)
     cdf_resources = loader.retrieve([resource_id])
     if not cdf_resources:
-        print(f"  [bold red]ERROR:[/] No {loader.display_name} with {id_} found in CDF.")
-        exit(1)
+        raise ToolkitMissingResourceError(f"No {loader.display_name} with {id_} found in CDF.")
 
     cdf_resource = cdf_resources[0].as_write()
     if cdf_resource == local_resource:

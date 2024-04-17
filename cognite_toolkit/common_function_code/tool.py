@@ -25,6 +25,8 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
 from dotenv import load_dotenv
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFound
+
 
 class CDFClientTool:
     """Configurations for how to store data in CDF
@@ -48,13 +50,9 @@ class CDFClientTool:
     def init_local_client(self, env_path: str | None = None) -> CogniteClient:
         if env_path is not None:
             if not (dotenv_file := Path(env_path)).is_file():
-                print(f"{env_path} does not exist.")
-                exit(1)
+                raise ToolkitFileNotFound(f"{env_path} does not exist.")
             if dotenv_file.is_file():
-                try:
-                    path_str = dotenv_file.relative_to(Path.cwd())
-                except ValueError:
-                    path_str = dotenv_file.absolute()
+                path_str = dotenv_file.resolve()
                 print(f"Loading .env file: {path_str!s}")
                 load_dotenv(dotenv_file, override=True)
 
@@ -140,8 +138,7 @@ class CDFClientTool:
             envs += f"  {e}={environment[e]}\n"
         return f"CDF URL {self._client.config.base_url} with project {self._client.config.project} and config:\n{envs}"
 
-    def __str__(self) -> str:
-        return self.as_string()
+    __str__ = as_string
 
     @property
     def client(self) -> CogniteClient:
@@ -168,7 +165,9 @@ class CDFClientTool:
 
         Yields:
             Value of the environment variable
-            Raises ValueError if environment variable is not set and fail=True
+
+        Raises:
+            ValueError: If environment variable is not set and fail=True
         """
         if value := self._environ.get(attr):
             return value

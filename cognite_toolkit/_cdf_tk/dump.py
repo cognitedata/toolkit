@@ -8,6 +8,7 @@ from cognite.client.data_classes.data_modeling import DataModelId
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._api.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, retrieve_view_ancestors
 
 
@@ -20,16 +21,11 @@ def dump_datamodel_command(
 ) -> None:
     print(f"Dumping {data_model_id} from project {ToolGlobals.project}...")
     print("Verifying access rights...")
-    client = ToolGlobals.verify_client(
-        capabilities={
-            "dataModelsAcl": ["READ", "WRITE"],
-        }
-    )
+    client = ToolGlobals.verify_client(capabilities={"dataModelsAcl": ["READ", "WRITE"]})
 
     data_models = client.data_modeling.data_models.retrieve(data_model_id, inline_views=True)
     if not data_models:
-        print(f"Data model {data_model_id} does not exist")
-        exit(1)
+        raise ToolkitMissingResourceError(f"Data model {data_model_id} does not exist")
 
     data_model = data_models.latest_version()
     views = dm.ViewList(data_model.views)
@@ -50,7 +46,7 @@ def dump_datamodel_command(
     elif is_populated:
         print("  [bold yellow]WARNING:[/] Output directory is not empty. Use --clean to remove existing files.")
     elif output_dir.exists():
-        ...
+        pass
     else:
         output_dir.mkdir(exist_ok=True)
 

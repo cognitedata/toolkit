@@ -50,6 +50,7 @@ from rich.prompt import Confirm, Prompt
 
 from cognite_toolkit._cdf_tk._get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._version import __version__
 
 if sys.version_info < (3, 10):
@@ -837,12 +838,11 @@ def read_yaml_file(
     except yaml.YAMLError as e:
         print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
         return {}
+
     if expected_output == "list" and isinstance(config_data, dict):
-        print(f"  [bold red]ERROR:[/] {filepath} is not a list")
-        exit(1)
+        ToolkitYAMLFormatError(f"{filepath} did not contain `list` as expected")
     elif expected_output == "dict" and isinstance(config_data, list):
-        print(f"  [bold red]ERROR:[/] {filepath} is not a dict")
-        exit(1)
+        ToolkitYAMLFormatError(f"{filepath} did not contain `dict` as expected")
     return config_data
 
 

@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 
 from rich import print
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.templates.data_classes._base import ConfigCore, _load_version_variable
 
 
@@ -32,7 +33,7 @@ class SystemYAML(ConfigCore):
         )
 
     def validate_modules(self, available_modules: set[str], selected_modules_and_packages: list[str]) -> None:
-        selected_packages = {package for package in selected_modules_and_packages if package in self.packages}
+        selected_packages = set(self.packages).intersection(selected_modules_and_packages)
         for package, modules in self.packages.items():
             if package not in selected_packages:
                 # We do not check packages that are not selected.
@@ -40,8 +41,7 @@ class SystemYAML(ConfigCore):
                 # thus we only check the selected packages.
                 continue
             if missing := set(modules) - available_modules:
-                print(
-                    f"  [bold red]ERROR:[/] Package {package} defined in {self.filepath.name!s} is referring "
+                ToolkitMissingModuleError(
+                    f"Package {package} defined in {self.filepath.name!s} is referring "
                     f"the following missing modules {missing}."
                 )
-                exit(1)
