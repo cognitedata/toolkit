@@ -21,6 +21,12 @@ Changes are grouped as follows:
 
 - Functions that are deployed with schedules no longer uses a short-lived session (before: failed after ~an hour).
 
+### Changed
+
+- The `cdf-tk build` will now clean the build directory by default before building the modules. To stop this behavior,
+  use the `--no-clean` flag.
+- The `.gitignore` file you get by running `cdf-tk init` now ignores the `/build` by default.
+
 ## [0.2.0a2] - 2024-04-03
 
 ### Added
