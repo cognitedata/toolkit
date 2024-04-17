@@ -240,7 +240,6 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
             raw = [raw]
 
         for group in raw:
-
             is_resource_scoped = any(
                 any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
                 for capability in group.get("capabilities", [])
@@ -1023,7 +1022,6 @@ class TransformationLoader(
         transformations = TransformationWriteList([])
 
         for resource in resources:
-
             source_oidc_credentials = (
                 resource.get("authentication", {}).get("read") or resource.get("authentication") or None
             )

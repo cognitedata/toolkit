@@ -406,7 +406,6 @@ class TestAuthVariables:
         expected_messages: list[str],
         expected_vars: dict[str, str],
     ) -> None:
-
         with mock.patch.dict(os.environ, environment_variables, clear=True):
             auth_var = AuthVariables.from_env()
             results = auth_var.validate(verbose)
