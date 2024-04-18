@@ -22,6 +22,15 @@ from cognite_toolkit._cdf_tk import bootstrap
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.describe import describe_datamodel
 from cognite_toolkit._cdf_tk.dump import dump_datamodel_command
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitCleanResourceError,
+    ToolkitDeployResourceError,
+    ToolkitError,
+    ToolkitFileNotFoundError,
+    ToolkitInvalidSettingsError,
+    ToolkitNotADirectoryError,
+    ToolkitValidationError,
+)
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
@@ -56,39 +65,28 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         traces_sample_rate=1.0,
     )
 
+default_typer_kws = dict(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
 try:
-    app = typer.Typer(
-        pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
-    )
+    typer.Typer(**default_typer_kws)
 except AttributeError as e:
     # From Typer version 0.11 -> 0.12, breaks if you have an existing installation.
-    print(
-        "'cognite-toolkit' uses a dependency named 'typer'.",
-        "From 'typer' version 0.11 -> 0.12 there was a breaking change if you have an existing "
-        "installation of 'typer'.",
-        "Workaround is to uninstall 'typer-slim', and then, reinstall 'typer':",
-        "'pip uninstall typer-slim'",
-        "'pip install typer'",
-        sep="\n",
+    raise ToolkitError(
+        "'cognite-toolkit' uses a dependency named 'typer'. From 'typer' version 0.11 -> 0.12 there was a "
+        "breaking change if you have an existing installation of 'typer'. The workaround is to uninstall "
+        "'typer-slim', and then, reinstall 'typer':\n"
+        "pip uninstall typer-slim\n"
+        "pip install typer\n\n"
+        f"This was triggered by the error: {e!r}"
     )
-    print("\nThis was triggered by the error:", e)
-    exit(1)
 
-auth_app = typer.Typer(
-    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
-)
-describe_app = typer.Typer(
-    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
-)
-run_app = typer.Typer(
-    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
-)
-pull_app = typer.Typer(
-    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
-)
-dump_app = typer.Typer(
-    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
-)
+app = typer.Typer(**default_typer_kws)
+auth_app = typer.Typer(**default_typer_kws)
+describe_app = typer.Typer(**default_typer_kws)
+run_app = typer.Typer(**default_typer_kws)
+pull_app = typer.Typer(**default_typer_kws)
+dump_app = typer.Typer(**default_typer_kws)
 app.add_typer(auth_app, name="auth")
 app.add_typer(describe_app, name="describe")
 app.add_typer(run_app, name="run")
@@ -180,8 +178,8 @@ def common(
 
     if env_path is not None:
         if not (dotenv_file := Path(env_path)).is_file():
-            print(f"  [bold red]ERROR:[/] {env_path} does not exist.")
-            exit(1)
+            raise ToolkitFileNotFoundError(env_path)
+
     else:
         if not (dotenv_file := Path.cwd() / ".env").is_file():
             if not (dotenv_file := Path.cwd().parent / ".env").is_file():
@@ -245,8 +243,8 @@ def build(
     """Build configuration files from the module templates to a local build directory."""
     source_path = Path(source_dir)
     if not source_path.is_dir():
-        print(f"  [bold red]ERROR:[/] {source_path} does not exist")
-        exit(1)
+        raise ToolkitNotADirectoryError(str(source_path))
+
     cognite_modules_path = source_path / COGNITE_MODULES
 
     system_config = SystemYAML.load_from_directory(cognite_modules_path, build_env)
@@ -337,10 +335,7 @@ def deploy(
     print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
     build_path = Path(build_dir)
     if not build_path.is_dir():
-        typer.echo(
-            f"  [bold yellow]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?"
-        )
-        exit(1)
+        raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
 
     include = _process_include(include, interactive)
     if not _RUNNING_IN_BROWSER:
@@ -349,10 +344,10 @@ def deploy(
     # The 'auth' loader is excluded, as it is run twice,
     # once with all_scoped_only and once with resource_scoped_only
     selected_loaders = {
-        LoaderCls: LoaderCls.dependencies
+        loader_cls: loader_cls.dependencies
         for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
         if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
-        for LoaderCls in loader_classes
+        for loader_cls in loader_classes
     }
     results = DeployResults([], "deploy", dry_run=dry_run)
     ordered_loaders = list(TopologicalSorter(selected_loaders).static_order())
@@ -366,12 +361,13 @@ def deploy(
             print(Panel("[bold] Cleaning resources as --drop is passed[/]"))
         elif drop_data:
             print(Panel("[bold] Cleaning resources as --drop-data is passed[/]"))
-        for LoaderCls in reversed(ordered_loaders):
-            if not issubclass(LoaderCls, ResourceLoader):
+
+        for loader_cls in reversed(ordered_loaders):
+            if not issubclass(loader_cls, ResourceLoader):
                 continue
-            loader = LoaderCls.create_loader(ToolGlobals)
+            loader = loader_cls.create_loader(ToolGlobals)
             result = loader.clean_resources(
-                build_path / LoaderCls.folder_name,
+                build_path / loader_cls.folder_name,
                 ToolGlobals,
                 drop=drop,
                 dry_run=dry_run,
@@ -381,8 +377,8 @@ def deploy(
             if result:
                 results[result.name] = result
             if ToolGlobals.failed:
-                print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
-                exit(1)
+                raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
+
         if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
             result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
                 directory,
@@ -394,10 +390,11 @@ def deploy(
             if result:
                 results[result.name] = result
             if ToolGlobals.failed:
-                print("[bold red]ERROR: [/] Failure to clean auth as expected.")
-                exit(1)
+                # TODO: Clean auth? What does that mean?
+                raise ToolkitCleanResourceError("Failure to clean auth as expected.")
 
-        print("[bold]...Cleaning Complete[/]")
+        print("[bold]...cleaning complete![/]")
+
     arguments = dict(
         ToolGlobals=ToolGlobals,
         dry_run=dry_run,
@@ -409,47 +406,40 @@ def deploy(
         print(Panel("[bold]DEPLOYING resources...[/]"))
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # First, we need to get all the generic access, so we can create the rest of the resources.
-        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all_scoped_only").deploy_resources(
-            directory,
-            **arguments,
-        )
+        result = (
+            AuthLoader
+            .create_loader(ToolGlobals, target_scopes="all_scoped_only")
+            .deploy_resources(directory, **arguments)
+        )  # fmt: skip
         if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to deploy auth (groups) with ALL scope as expected.")
-            exit(1)
+            raise ToolkitDeployResourceError("Failure to deploy auth (groups) with ALL scope as expected.")
         if result:
             results[result.name] = result
         if ctx.obj.verbose:
-            # Extra newline
-            print("")
-    for LoaderCls in ordered_loaders:
-        result = LoaderCls.create_loader(ToolGlobals).deploy_resources(  # type: ignore[assignment]
-            build_path / LoaderCls.folder_name,
-            **arguments,
+            print("")  # Extra newline
+
+    for loader_cls in ordered_loaders:
+        result = loader_cls.create_loader(ToolGlobals).deploy_resources(  # type: ignore[assignment]
+            build_path / loader_cls.folder_name, **arguments
         )
         if ToolGlobals.failed:
             if results and results.has_counts:
                 print(results.counts_table())
             if results and results.has_uploads:
                 print(results.uploads_table())
-            print(f"[bold red]ERROR: [/] Failure to load {LoaderCls.folder_name} as expected.")
-            exit(1)
+            raise ToolkitDeployResourceError(f"Failure to load/deploy {loader_cls.folder_name} as expected.")
         if result:
             results[result.name] = result
         if ctx.obj.verbose:
-            # Extra newline
-            print("")
+            print("")  # Extra newline
 
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         # Last, we create the Groups again, but this time we do not filter out any capabilities
         # and we do not skip validation as the resources should now have been created.
         loader = AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only")
-        result = loader.deploy_resources(
-            directory,
-            **arguments,
-        )
+        result = loader.deploy_resources(directory, **arguments)
         if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to deploy auth (groups) scoped to resources as expected.")
-            exit(1)
+            raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")
         if result:
             results[result.name] = result
     if results.has_counts:
@@ -457,8 +447,7 @@ def deploy(
     if results.has_uploads:
         print(results.uploads_table())
     if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to deploy auth (groups) scoped to resources as expected.")
-        exit(1)
+        raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")
 
 
 @app.command("clean")
@@ -514,38 +503,35 @@ def clean(
     Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]")
     build_path = Path(build_dir)
     if not build_path.is_dir():
-        typer.echo(
-            f"  [bold yellow]WARNING:[/] {build_dir} does not exists. Did you forget to run `cdf-tk build` first?"
-        )
-        exit(1)
+        raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
 
     include = _process_include(include, interactive)
 
     # The 'auth' loader is excluded, as it is run at the end.
     selected_loaders = {
-        LoaderCls: LoaderCls.dependencies
+        loader_cls: loader_cls.dependencies
         for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
         if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
-        for LoaderCls in loader_classes
+        for loader_cls in loader_classes
     }
 
     print(ToolGlobals.as_string())
     if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to delete data models as expected.")
-        exit(1)
+        raise ToolkitCleanResourceError("Failure to delete data models as expected.")
+
     results = DeployResults([], "clean", dry_run=dry_run)
     resolved_list = list(TopologicalSorter(selected_loaders).static_order())
     if len(resolved_list) > len(selected_loaders):
         print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
-    for LoaderCls in reversed(resolved_list):
-        if not issubclass(LoaderCls, ResourceLoader):
+    for loader_cls in reversed(resolved_list):
+        if not issubclass(loader_cls, ResourceLoader):
             continue
-        loader = LoaderCls.create_loader(ToolGlobals)
+        loader = loader_cls.create_loader(ToolGlobals)
         if type(loader) is DataSetsLoader:
             print("[bold yellow]WARNING:[/] Dataset cleaning is not supported, skipping...")
             continue
         result = loader.clean_resources(
-            build_path / LoaderCls.folder_name,
+            build_path / loader_cls.folder_name,
             ToolGlobals,
             drop=True,
             dry_run=dry_run,
@@ -559,8 +545,8 @@ def clean(
                 print(results.counts_table())
             if results and results.has_uploads:
                 print(results.uploads_table())
-            print(f"[bold red]ERROR: [/] Failure to clean {LoaderCls.folder_name} as expected.")
-            exit(1)
+            raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
+
     if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
         result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
             directory,
@@ -570,8 +556,7 @@ def clean(
             verbose=ctx.obj.verbose,
         )
         if ToolGlobals.failed:
-            print("[bold red]ERROR: [/] Failure to clean auth as expected.")
-            exit(1)
+            raise ToolkitCleanResourceError("Failure to clean auth as expected.")
         if result:
             results[result.name] = result
     if results.has_counts:
@@ -579,8 +564,7 @@ def clean(
     if results.has_uploads:
         print(results.uploads_table())
     if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to clean auth as expected.")
-        exit(1)
+        raise ToolkitCleanResourceError("Failure to clean auth as expected.")
 
 
 @auth_app.callback(invoke_without_command=True)
@@ -649,9 +633,9 @@ def auth_verify(
 
     The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
+    # TODO: Check if groupsAcl.UPDATE does nothing?
     if create_group is not None and update_group != 0:
-        print("[bold red]ERROR: [/] --create-group and --update-group are mutually exclusive.")
-        exit(1)
+        raise ToolkitInvalidSettingsError("--create-group and --update-group are mutually exclusive.")
     with contextlib.redirect_stdout(None):
         # Remove the Error message from failing to load the config
         # This is verified in check_auth
@@ -674,8 +658,7 @@ def auth_verify(
         verbose=ctx.obj.verbose,
     )
     if ToolGlobals.failed:
-        print("[bold red]ERROR: [/] Failure to verify access rights.")
-        exit(1)
+        raise ToolkitValidationError("Failure to verify access rights.")
 
 
 @app.command("init")
@@ -732,7 +715,7 @@ def main_init(
         project_dir = ProjectDirectoryUpgrade(Path.cwd() / f"{init_dir}", dry_run)
         if project_dir.cognite_module_version == current_version:
             print("No changes to the toolkit detected.")
-            exit(0)
+            typer.Exit()
     else:
         project_dir = ProjectDirectoryInit(Path.cwd() / f"{init_dir}", dry_run)
 
@@ -791,8 +774,7 @@ def describe_datamodel_cmd(
     """This command will describe the characteristics of a data model given the space
     name and datamodel name."""
     if space is None or len(space) == 0:
-        print("[bold red]ERROR: [/] --space is required.")
-        exit(1)
+        raise ToolkitValidationError("--space is required.")
     ToolGlobals = CDFToolConfig.from_context(ctx)
     describe_datamodel(ToolGlobals, space, data_model)
     return None
@@ -912,10 +894,9 @@ def run_function_cmd(
     source_path = Path(source_dir)
     system_yaml = Path(source_path / "cognite_modules/_system.yaml")
     if not source_path.is_dir() or not system_yaml.is_file():
-        print(
-            f"  [bold red]ERROR:[/] {source_path} is not a valid project directory. Expecting to find in {system_yaml}."
+        raise ToolkitValidationError(
+            f"{source_path} is not a valid project directory. Expecting to find in {system_yaml}."
         )
-        exit(1)
     ToolGlobals = CDFToolConfig.from_context(ctx)
     run_local_function(
         ToolGlobals=ToolGlobals,
@@ -1093,10 +1074,9 @@ def dump_datamodel_cmd(
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
     if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
-        print(
-            f"  [bold red]ERROR:[/] Invalid resource types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
+        raise ToolkitValidationError(
+            f"Invalid resource types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
         )
-        exit(1)
     include = include or list(_AVAILABLE_DATA_TYPES)
     if interactive:
         include = _select_data_types(include)
@@ -1114,13 +1094,12 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
     if answer.casefold() == "a":
         return list(include)
     elif answer.casefold() == "q":
-        exit(0)
+        raise SystemExit(0)
     else:
         try:
             return [mapping[int(answer)]]
         except ValueError:
-            print(f"Invalid selection: {answer}")
-            exit(1)
+            raise ToolkitInvalidSettingsError(f"Invalid selection: {answer}")
 
 
 if __name__ == "__main__":
