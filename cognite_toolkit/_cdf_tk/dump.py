@@ -45,9 +45,7 @@ def dump_datamodel_command(
         print(f"  [bold green]INFO:[/] Cleaned existing output directory {output_dir!s}.")
     elif is_populated:
         print("  [bold yellow]WARNING:[/] Output directory is not empty. Use --clean to remove existing files.")
-    elif output_dir.exists():
-        pass
-    else:
+    elif not output_dir.exists():
         output_dir.mkdir(exist_ok=True)
 
     resource_folder = output_dir / "data_models"
