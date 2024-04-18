@@ -32,7 +32,6 @@ from cognite_toolkit._cdf_tk.load import (
     ViewLoader,
 )
 from cognite_toolkit._cdf_tk.templates import (
-    COGNITE_MODULES,
     build_config,
 )
 from cognite_toolkit._cdf_tk.templates.data_classes import (
@@ -422,7 +421,7 @@ description: PH 1stStgSuctCool Gas Out
 class TestDeployResources:
     def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
         build_env = "dev"
-        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT / COGNITE_MODULES, build_env)
+        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env)
         config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
         config.environment.selected_modules_and_packages = ["another_module"]
         build_config(BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False)

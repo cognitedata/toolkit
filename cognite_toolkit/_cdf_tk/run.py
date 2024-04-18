@@ -20,7 +20,6 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.templates import (
-    COGNITE_MODULES,
     build_config,
     module_from_path,
 )
@@ -181,7 +180,7 @@ def run_local_function(
             return False
         raise
 
-    system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, build_env)
+    system_config = SystemYAML.load_from_directory(source_path, build_env)
     config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(f"[bold]Building for environment {build_env} using {source_path!s} as sources...[/bold]")
     config.set_environment_variables()

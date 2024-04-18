@@ -9,7 +9,6 @@ import yaml
 
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.templates import (
-    COGNITE_MODULES,
     build_config,
     check_yaml_semantics,
     create_local_config,
@@ -326,7 +325,7 @@ class TestModuleFromPath:
 class TestBuildConfigYAML:
     def test_build_config_create_valid_build_folder(self, config_yaml: str) -> None:
         build_env = "dev"
-        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT / COGNITE_MODULES, build_env)
+        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env)
         config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
         available_modules = {module.name for module, _ in iterate_modules(PYTEST_PROJECT)}
         config.environment.selected_modules_and_packages = list(available_modules)
