@@ -14,8 +14,8 @@ workflowDefinition:
     decription: Task Ipsum lorem dolor sit amet
     retries: 3
     timeout: 3600
-    on_failure: 'abortWorkflow'
-    depends_on: []
+    onFailure: 'abortWorkflow'
+    dependsOn: []
   - externalId: '{{ workflow_external_id }}_task_2'
     type: 'transformation'
     parameters:
@@ -26,5 +26,6 @@ workflowDefinition:
     decription: Task Ipsum lorem dolor sit amet
     retries: 3
     timeout: 3600
-    on_failure: 'skipTask'
-    depends_on: ['{{ workflow_external_id }}_task_1']
+    onFailure: 'skipTask'
+    dependsOn: 
+      - externalId: '{{ workflow_external_id }}_task_1'
