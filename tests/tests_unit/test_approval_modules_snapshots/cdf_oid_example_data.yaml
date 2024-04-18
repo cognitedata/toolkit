@@ -706,10 +706,89 @@ Transformation:
     clientSecret: dummy
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    type: events
+  destinationOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+  externalId: tr_event_oid_workmate_workitem_example
+  ignoreNullFields: true
+  isPublic: true
+  name: event:oid:workmate:workitem:example
+  query: "with assetid (\nselect\n  first(wa.sourceExternalId) as workitemid,\n  collect_list(ai.id)\
+    \        as assetIds\nfrom\n  `workorder_oid_workmate`.`workitem2assets` wa,\n\
+    \  _cdf.assets                                ai\nwhere\n  ai.externalId = wa.targetExternalId\n\
+    GROUP BY sourceExternalId)\nselect\n  wo.externalId,\n  wo.itemInfo,\n  dataset_id('ds_transformations_oid')\
+    \  as dataSetId,\n  cast(from_unixtime(double(wo.`startTime`)/1000)\n        \
+    \                 as TIMESTAMP)  as startTime,\n  cast(from_unixtime(double(wo.`endTime`)/1000)\n\
+    \                         as TIMESTAMP)  as endTime,\n  ai.assetIds          \
+    \                 as assetIds,\n  \"workitem\"                            as type,\n\
+    \  \"OID - workmate\"                      as source,\n  to_metadata_except(\n\
+    \    array(\"key\",\n          \"startTime\",\n          \"endTime\",\n      \
+    \    \"externalId\",\n          \"itemInfo\",\n          \"assetIds\"), *)   \
+    \           as metadata\nfrom \n  `workorder_oid_workmate`.`workitems` wo,\n \
+    \ assetid ai\nwhere\n  ai.workitemid = wo.externalId\n  and wo.`endTime` > wo.`startTime`"
+  sourceOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    type: events
+  destinationOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+  externalId: tr_event_oid_workmate_workorder_example
+  ignoreNullFields: true
+  isPublic: true
+  name: event:oid:workmate:workorder:example
+  query: "with assetid (\nselect\n  first(wa.sourceExternalId) as workorderid,\n \
+    \ collect_list(ai.id)        as assetIds\nfrom\n  `workorder_oid_workmate`.`workorder2assets`\
+    \ wa,\n  _cdf.assets                                 ai\nwhere\n  ai.externalId\
+    \ = wa.targetExternalId\nGROUP BY sourceExternalId)\nselect\n  wo.externalId,\n\
+    \  wo.description,\n  dataset_id('ds_transformations_oid')  as dataSetId,\n  cast(from_unixtime(double(wo.`startTime`)/1000)\n\
+    \                         as TIMESTAMP)  as startTime,\n  cast(from_unixtime(double(wo.`endTime`)/1000)\n\
+    \                         as TIMESTAMP)  as endTime,\n  ai.assetIds          \
+    \                 as assetIds,\n  \"workorder\"                           as type,\n\
+    \  \"OID - workmate\"                      as source,\n  to_metadata_except(\n\
+    \    array(\"key\",\n          \"startTime\",\n          \"endTime\",\n      \
+    \    \"externalId\",\n          \"wo.description\",\n          \"assetIds\"),\
+    \ *)              as metadata\nfrom\n  `workorder_oid_workmate`.`workorders` wo,\n\
+    \  assetid ai\nwhere\n  ai.workorderid = wo.workOrderNumber\n  and wo.`endTime`\
+    \ > wo.`startTime`\n"
+  sourceOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_asset_hierarchy_example
+  interval: 7 * * * *
+  isPaused: false
+- externalId: tr_event_oid_workmate_workitem_example
+  interval: 7 * * * *
+  isPaused: false
+- externalId: tr_event_oid_workmate_workorder_example
   interval: 7 * * * *
   isPaused: false
 deleted:
   TransformationSchedule:
   - externalId: tr_asset_oid_workmate_asset_hierarchy_example
+  - externalId: tr_event_oid_workmate_workitem_example
+  - externalId: tr_event_oid_workmate_workorder_example

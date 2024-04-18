@@ -233,12 +233,10 @@ def build(
             help="Build environment to build for",
         ),
     ] = "dev",
-    clean: Annotated[
+    no_clean: Annotated[
         bool,
         typer.Option(
-            "--clean",
-            "-c",
-            help="Delete the build directory before building the configurations",
+            "--no-clean", "-c", help="Whether not to delete the build directory before building the configurations"
         ),
     ] = False,
 ) -> None:
@@ -264,7 +262,7 @@ def build(
         source_dir=source_path,
         config=config,
         system_config=system_config,
-        clean=clean,
+        clean=not no_clean,
         verbose=ctx.obj.verbose,
     )
 
