@@ -1954,6 +1954,12 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
                 workflows.append(workflow)
         return WorkflowList(workflows)
 
+    def update(self, items: WorkflowUpsertList) -> WorkflowList:
+        upserted = []
+        for item in items:
+            upserted.append(self.client.workflows.upsert(item))
+        return WorkflowList(upserted)
+
 
 @final
 class WorkflowVersionLoader(
@@ -1998,5 +2004,18 @@ class WorkflowVersionLoader(
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
         return self.client.workflows.versions.list([id for id in ids])
 
+    def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+        updated = []
+        for item in items:
+            updated.append(self.client.workflows.versions.upsert(item))
+        return WorkflowVersionList(updated)
+
     def delete(self, ids: SequenceNotStr[WorkflowVersionId]) -> int:
-        raise NotImplementedError("Delete is not implemented for workflows")
+        successes = 0
+        for id in ids:
+            try:
+                self.client.workflows.versions.delete(id)
+                successes += 1
+            except CogniteNotFoundError:
+                print(f"  [bold yellow]WARNING:[/] WorkflowVersion {id} does not exist, skipping delete.")
+        return successes

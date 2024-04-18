@@ -1,31 +1,30 @@
 workflowExternalId: wf_{{ workflow_external_id }}
 version: '1'
 workflowDefinition:
-  description: Ipsum lorem dolor sit amet
-  tasks: 
-  - externalId: '{{ workflow_external_id }}_task_1'
-    type: 'function'
-    parameters:
-      function:
-        externalId: '{{ workflow_external_id }}_task_1_function'
-        data: {}
-      isAsyncComplete: false
-    name: task_1
-    decription: Task Ipsum lorem dolor sit amet
-    retries: 3
-    timeout: 3600
-    onFailure: 'abortWorkflow'
-    dependsOn: []
-  - externalId: '{{ workflow_external_id }}_task_2'
-    type: 'transformation'
-    parameters:
-      transformation:
-        externalId: '{{ workflow_external_id }}_task_2_transformation'
-        concurrencyPolicy: fail
-    name: task_2
-    decription: Task Ipsum lorem dolor sit amet
-    retries: 3
-    timeout: 3600
-    onFailure: 'skipTask'
-    dependsOn: 
-      - externalId: '{{ workflow_external_id }}_task_1'
+  description: 'Execute tasks in sequence'
+  tasks:
+    - externalId: '{{ workflow_external_id }}_function_task'
+      type: 'function'
+      parameters:
+        function:
+          externalId: 'fn_{{ workflow_external_id }}_function'
+          data: {}
+        isAsyncComplete: false
+      name: task_1
+      decription: Task Ipsum lorem dolor sit amet
+      retries: 3
+      timeout: 3600
+      onFailure: 'abortWorkflow'
+    - externalId: '{{ workflow_external_id }}_transformation_task'
+      type: 'transformation'
+      parameters:
+        transformation:
+          externalId: 'tr_{{ workflow_external_id }}_transformation'
+          concurrencyPolicy: fail
+      name: task_2
+      decription: Task Ipsum lorem dolor sit amet
+      retries: 3
+      timeout: 3600
+      onFailure: 'skipTask'
+      dependsOn:
+        - externalId: 'fn_{{ workflow_external_id }}_function'
