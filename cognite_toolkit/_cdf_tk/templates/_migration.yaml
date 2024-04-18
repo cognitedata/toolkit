@@ -6,6 +6,9 @@
       steps:
         - "The build command now cleans the build directory by default."
         - "To avoid cleaning the build directory use the `--no-clean` flag."
+    - title: 'The `_system.yaml` file moved one level up from `cognite_modules`'
+      steps:
+        - "Go into the `cognite_modules` folder and move the `_system.yaml` file one level up."
   cognite_modules_hash: ""
 - version: 0.2.0a2
   cognite_modules: {}
