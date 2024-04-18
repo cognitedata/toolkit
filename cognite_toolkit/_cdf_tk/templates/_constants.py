@@ -24,4 +24,5 @@ SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 # Which suffixes to process for template variable replacement
 PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"])
 
-COGNITE_MODULES_PATH = Path(__file__).parent.parent.parent / COGNITE_MODULES
+ROOT_PATH = Path(__file__).parent.parent.parent
+COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES

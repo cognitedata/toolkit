@@ -37,7 +37,7 @@ class ModulesAPI:
     def _load_modules(self) -> None:
         source_dir = self._source_dir()
 
-        system_yaml = SystemYAML.load_from_directory(source_dir, self._build_env)
+        system_yaml = SystemYAML.load_from_directory(source_dir.parent, self._build_env)
         default_config = InitConfigYAML(_DUMMY_ENVIRONMENT).load_defaults(source_dir)
 
         for module, _ in iterate_modules(source_dir):
@@ -82,7 +82,7 @@ class ModulesAPI:
             self._build_dir,
             self._source_dir().parent,
             config,
-            system_config=SystemYAML.load_from_directory(self._source_dir(), self._build_env),
+            system_config=SystemYAML.load_from_directory(self._source_dir().parent, self._build_env),
             clean=True,
             verbose=verbose,
         )

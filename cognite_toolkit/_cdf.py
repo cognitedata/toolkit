@@ -245,9 +245,7 @@ def build(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    cognite_modules_path = source_path / COGNITE_MODULES
-
-    system_config = SystemYAML.load_from_directory(cognite_modules_path, build_env)
+    system_config = SystemYAML.load_from_directory(source_path, build_env)
     config = BuildConfigYAML.load_from_directory(source_path, build_env)
     print(
         Panel(
