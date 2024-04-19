@@ -27,6 +27,7 @@ from cognite.client.data_classes import (
     Group,
     GroupList,
     Workflow,
+    WorkflowVersion,
     capabilities,
 )
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
@@ -329,13 +330,15 @@ class ApprovalCogniteClient:
 
             if resource_cls is Workflow:
                 return resource_cls.load(
-                    {
-                        "lastUpdatedTime": 0,
-                        "createdTime": 0,
-                        **upserted[0].dump(camel_case=True),
-                    },
-                    cognite_client=client,
+                    {"lastUpdatedTime": 0, "createdTime": 0, **upserted[0].dump(camel_case=True)}, cognite_client=client
                 )
+
+            if resource_cls is WorkflowVersion:
+                resource = {"lastUpdatedTime": 0, "createdTime": 0, **upserted[0].dump(camel_case=True)}
+
+                resource.get("workflowDefinition")["hash"] = "123"
+
+                return resource_cls.load(resource, cognite_client=client)
 
             return resource_list_cls.load(
                 [

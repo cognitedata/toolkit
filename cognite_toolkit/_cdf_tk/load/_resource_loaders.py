@@ -1948,10 +1948,11 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
                 workflows.append(workflow)
         return WorkflowList(workflows)
 
-    def _upsert(self, items: WorkflowUpsertList) -> WorkflowList:
-        return WorkflowList([self.client.workflows.upsert(item) for item in items])
+    def _upsert(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
+        upserts = [items] if isinstance(items, WorkflowUpsert) else items
+        return WorkflowList([self.client.workflows.upsert(upsert) for upsert in upserts])
 
-    def create(self, items: WorkflowUpsertList) -> WorkflowList:
+    def create(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
         return self._upsert(items)
 
     def update(self, items: WorkflowUpsertList) -> WorkflowList:
