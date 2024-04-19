@@ -54,7 +54,16 @@ from cognite.client.data_classes import (
     TransformationScheduleWriteList,
     TransformationWrite,
     TransformationWriteList,
+    Workflow,
+    WorkflowList,
+    WorkflowUpsert,
+    WorkflowUpsertList,
 )
+
+# WorkflowVersion,
+# WorkflowVersionList,
+# WorkflowVersionUpsert,
+# WorkflowVersionUpsertList,
 from cognite.client.data_classes.data_modeling import (
     Container,
     ContainerApply,
@@ -377,4 +386,34 @@ API_RESOURCES = [
             ],
         },
     ),
+    APIResource(
+        api_name="workflows",
+        resource_cls=Workflow,
+        list_cls=WorkflowList,
+        _write_cls=WorkflowUpsert,
+        _write_list_cls=WorkflowUpsertList,
+        methods={
+            "create": [Method(api_class_method="upsert", mock_name="upsert")],
+            # "update": [Method(api_class_method="upsert", mock_name="upsert")],
+            # "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_name="return_value"),
+            ],
+        },
+    ),
+    #     APIResource(
+    #         api_name="workflows.versions",
+    #         resource_cls=WorkflowVersion,
+    #         list_cls=WorkflowVersionList,
+    #         _write_cls=WorkflowVersionUpsert,
+    #         _write_list_cls=WorkflowVersionUpsertList,
+    #         methods={
+    #             "create": [Method(api_class_method="upsert", mock_name="upsert")],
+    #             "update": [Method(api_class_method="upsert", mock_name="upsert")],
+    #             "delete": [Method(api_class_method="delete", mock_name="delete")],
+    #             "retrieve": [
+    #                 Method(api_class_method="retrieve", mock_name="return_value"),
+    #             ],
+    #         },
+    #     ),
 ]

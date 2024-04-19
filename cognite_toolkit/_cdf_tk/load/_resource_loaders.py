@@ -1940,12 +1940,6 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         workflows = [resource] if isinstance(resource, dict) else resource
         return WorkflowUpsertList.load(workflows)
 
-    def create(self, items: WorkflowUpsertList) -> WorkflowList:
-        upserted = []
-        for item in items:
-            upserted.append(self.client.workflows.upsert(item))
-        return WorkflowList(upserted)
-
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
         workflows = []
         for ext_id in ids:
@@ -1954,11 +1948,14 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
                 workflows.append(workflow)
         return WorkflowList(workflows)
 
+    def _upsert(self, items: WorkflowUpsertList) -> WorkflowList:
+        return WorkflowList([self.client.workflows.upsert(item) for item in items])
+
+    def create(self, items: WorkflowUpsertList) -> WorkflowList:
+        return self._upsert(items)
+
     def update(self, items: WorkflowUpsertList) -> WorkflowList:
-        upserted = []
-        for item in items:
-            upserted.append(self.client.workflows.upsert(item))
-        return WorkflowList(upserted)
+        return self._upsert(items)
 
 
 @final
@@ -1995,14 +1992,17 @@ class WorkflowVersionLoader(
         workflowversions = [resource] if isinstance(resource, dict) else resource
         return WorkflowVersionUpsertList.load(workflowversions)
 
+    def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
+        return self.client.workflows.versions.list([id for id in ids])
+
+    def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+        return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
+
     def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         upserted = []
         for item in items:
             upserted.append(self.client.workflows.versions.upsert(item))
         return WorkflowVersionList(upserted)
-
-    def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
-        return self.client.workflows.versions.list([id for id in ids])
 
     def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         updated = []
