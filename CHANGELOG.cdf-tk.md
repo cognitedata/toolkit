@@ -23,6 +23,7 @@ Changes are grouped as follows:
 - When deploying a `FunctionSchedule` that requires an update, the `cdf-tk` would fail with error
   `Failed to update functions.schedules. Error 'FunctionSchedulesAPI' object has no attribute 'update'.`.
   This is now fixed.
+- The dependency `cognite-sdk` must now be `>=7.37.0` to use the `cdf-tk`.
 
 ## [0.1.2] - 2024-03-18
 
