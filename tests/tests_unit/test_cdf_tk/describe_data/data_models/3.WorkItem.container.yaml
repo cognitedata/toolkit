@@ -91,5 +91,6 @@ properties:
     type:
       container: null
       type: direct
+      list: false
 space: test
 usedFor: node
