@@ -1,22 +1,3 @@
-# from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-# Error
-# MigrationError
-# VersionError
-# ModuleVersionError
-# EnvError
-# MissingResourceError
-# CleanResourceError
-# DeployResourceError
-# MissingModuleError
-# DuplicatedResourceError
-# DuplicatedModuleError
-# NotADirectoryError
-# IsADirectoryError
-# FileNotFoundError
-# FileExistsError
-# ValidationError
-# YAMLFormatError
-
 from yaml import YAMLError
 
 
@@ -24,7 +5,7 @@ class ToolkitError(Exception):
     pass
 
 
-class ToolkitInvalidSettingsError(Exception):
+class ToolkitInvalidSettingsError(ToolkitError):
     pass
 
 
