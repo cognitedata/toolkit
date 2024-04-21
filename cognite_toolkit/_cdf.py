@@ -69,7 +69,7 @@ default_typer_kws = dict(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
 )
 try:
-    typer.Typer(**default_typer_kws)
+    typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 except AttributeError as e:
     # From Typer version 0.11 -> 0.12, breaks if you have an existing installation.
     raise ToolkitError(
@@ -81,12 +81,12 @@ except AttributeError as e:
         f"This was triggered by the error: {e!r}"
     )
 
-app = typer.Typer(**default_typer_kws)
-auth_app = typer.Typer(**default_typer_kws)
-describe_app = typer.Typer(**default_typer_kws)
-run_app = typer.Typer(**default_typer_kws)
-pull_app = typer.Typer(**default_typer_kws)
-dump_app = typer.Typer(**default_typer_kws)
+app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+auth_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 app.add_typer(auth_app, name="auth")
 app.add_typer(describe_app, name="describe")
 app.add_typer(run_app, name="run")
