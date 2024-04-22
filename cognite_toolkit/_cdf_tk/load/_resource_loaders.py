@@ -1915,7 +1915,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
     api_name = "workflows"
     folder_name = "workflows"
-    filename_pattern = r"^(?!.*\b(version|WorkflowVersion)\b).*"
+    filename_pattern = r"\.Workflow$"
     resource_cls = Workflow
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
