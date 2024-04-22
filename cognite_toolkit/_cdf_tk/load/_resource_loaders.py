@@ -61,15 +61,6 @@ from cognite.client.data_classes import (
     TransformationScheduleWriteList,
     TransformationWrite,
     TransformationWriteList,
-    Workflow,
-    WorkflowList,
-    WorkflowUpsert,
-    WorkflowUpsertList,
-    WorkflowVersion,
-    WorkflowVersionId,
-    WorkflowVersionList,
-    WorkflowVersionUpsert,
-    WorkflowVersionUpsertList,
     capabilities,
     filters,
 )
@@ -86,7 +77,6 @@ from cognite.client.data_classes.capabilities import (
     SessionsAcl,
     TimeSeriesAcl,
     TransformationsAcl,
-    WorkflowOrchestrationAcl,
 )
 from cognite.client.data_classes.data_modeling import (
     Container,
@@ -1909,115 +1899,3 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
         # Nodes will be deleted in .delete call.
         return 0
-
-
-@final
-class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
-    api_name = "workflows"
-    folder_name = "workflows"
-    filename_pattern = r"^.*\.Workflow$"
-    resource_cls = Workflow
-    resource_write_cls = WorkflowUpsert
-    list_cls = WorkflowList
-    list_write_cls = WorkflowUpsertList
-
-    @classmethod
-    def get_required_capability(cls, items: WorkflowUpsertList) -> Capability:
-        return WorkflowOrchestrationAcl(
-            [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
-            WorkflowOrchestrationAcl.Scope.All(),
-        )
-
-    @classmethod
-    def get_id(cls, item: Workflow | WorkflowUpsert) -> str:
-        if item.external_id is None:
-            raise ValueError("Workflow must have external_id set.")
-        return item.external_id
-
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> WorkflowUpsertList:
-        resource = load_yaml_inject_variables(filepath, {})
-
-        workflows = [resource] if isinstance(resource, dict) else resource
-        return WorkflowUpsertList.load(workflows)
-
-    def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
-        workflows = []
-        for ext_id in ids:
-            workflow = self.client.workflows.retrieve(external_id=ext_id)
-            if workflow:
-                workflows.append(workflow)
-        return WorkflowList(workflows)
-
-    def _upsert(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
-        upserts = [items] if isinstance(items, WorkflowUpsert) else items
-        return WorkflowList([self.client.workflows.upsert(upsert) for upsert in upserts])
-
-    def create(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
-        return self._upsert(items)
-
-    def update(self, items: WorkflowUpsertList) -> WorkflowList:
-        return self._upsert(items)
-
-
-@final
-class WorkflowVersionLoader(
-    ResourceLoader[
-        WorkflowVersionId, WorkflowVersionUpsert, WorkflowVersion, WorkflowVersionUpsertList, WorkflowVersionList
-    ]
-):
-    api_name = "workflows.versions"
-    folder_name = "workflows"
-    filename_pattern = r"^.*\.?(WorkflowVersion)$"
-    resource_cls = WorkflowVersion
-    resource_write_cls = WorkflowVersionUpsert
-    list_cls = WorkflowVersionList
-    list_write_cls = WorkflowVersionUpsertList
-    dependencies = frozenset({WorkflowLoader})
-
-    @classmethod
-    def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability:
-        return WorkflowOrchestrationAcl(
-            [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
-            WorkflowOrchestrationAcl.Scope.All(),
-        )
-
-    @classmethod
-    def get_id(cls, item: WorkflowVersion | WorkflowVersionUpsert) -> WorkflowVersionId:
-        return item.as_id()
-
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> WorkflowVersionUpsertList:
-        resource = load_yaml_inject_variables(filepath, {})
-
-        workflowversions = [resource] if isinstance(resource, dict) else resource
-        return WorkflowVersionUpsertList.load(workflowversions)
-
-    def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
-        return self.client.workflows.versions.list(list(ids))
-
-    def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
-        return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
-
-    def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
-        upserted = []
-        for item in items:
-            upserted.append(self.client.workflows.versions.upsert(item))
-        return WorkflowVersionList(upserted)
-
-    def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
-        updated = []
-        for item in items:
-            updated.append(self.client.workflows.versions.upsert(item))
-        return WorkflowVersionList(updated)
-
-    def delete(self, ids: SequenceNotStr[WorkflowVersionId]) -> int:
-        successes = 0
-        for id in ids:
-            try:
-                self.client.workflows.versions.delete(id)
-            except CogniteNotFoundError:
-                print(f"  [bold yellow]WARNING:[/] WorkflowVersion {id} does not exist, skipping delete.")
-            else:
-                successes += 1
-        return successes
