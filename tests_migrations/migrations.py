@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from packaging import version
 
 from cognite_toolkit._cdf_tk.templates import iterate_modules
 from cognite_toolkit._version import __version__
@@ -34,17 +35,17 @@ def modify_environment_to_run_all_modules(project_path: Path) -> None:
     config_dev_file.write_text(yaml.dump(config_dev))
 
 
-def get_migration(previous_version: str, current_version: str) -> Callable[[Path], None]:
-    previous_version = _version_str_to_tuple(previous_version)
+def get_migration(previous_version_str: str, current_version: str) -> Callable[[Path], None]:
+    previous_version = version.parse(previous_version_str)
     changes = Changes()
-    if (0, 1, 0, "b", 7) <= previous_version:
+    if version.parse("0.1.0b7") <= previous_version:
         changes.append(_update_system_yaml)
 
-    if previous_version <= (0, 1, 0, "b", 4):
+    if previous_version <= version.parse("0.1.0b4"):
         changes.append(_add_name_to_file_configs)
         changes.append(_add_ignore_null_fields_to_transformation_configs)
 
-    if previous_version <= (0, 1, 0, "b", 6):
+    if previous_version <= version.parse("0.1.0b6"):
         changes.append(_to_config_env_yaml)
 
     return changes
