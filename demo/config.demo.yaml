@@ -14,7 +14,7 @@ environment:
 
   common_function_code: ./common_function_code
 
-modules:
+variables:
 
   # Globally defined variables are available to all submodules
     # of the cognite_modules.
