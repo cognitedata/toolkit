@@ -94,7 +94,7 @@ def check_auth(
     try:
         ToolGlobals.verify_client(
             capabilities={
-                # "projectsAcl": ["LIST", "READ"],
+                "projectsAcl": ["LIST", "READ"],
                 "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"],
             }
         )
