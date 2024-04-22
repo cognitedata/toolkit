@@ -29,6 +29,14 @@ Changes are grouped as follows:
 
 - [BREAKING] The `cdf-tk build` will now clean the build directory by default before building the modules to avoid
   unwanted side effects from previous builds. To stop this behavior, use the `--no-clean` flag.
+- [BREAKING] The `_system.yaml` is now required to be on the root level when running any `cdf-tk` command. This
+  means that the `_system.yaml` file must be in the same directory as the `config.[env].yaml` files. This is to
+  support running `cdf-tk` without the `cognite_modules` folder.
+- [BREAKING] In the `config.[env].yaml` files, the `modules` section is now renamed to `variables`. This is to
+  better reflect the content of this section, which is variables that can be used in the resource files.
+- In addition to `cognite_modules` and `custom_modules`, the `cognite-toolkit` now also support `modules` as the
+  top-level folder for modules. This together with the two changes above, is to have a better support for running
+  the `cognite-toolkit` as a standalone CLI without the `cognite_modules`.
 - The `.gitignore` file you get by running `cdf-tk init` now ignores the `/build` by default.
 - The dependency `cognite-sdk` must now be `>=7.37.0` to use the `cdf-tk`.
 

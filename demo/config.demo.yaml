@@ -11,7 +11,7 @@ environment:
     - cdf_data_pipeline_asset_valhall
   common_function_code: ./common_function_code
 
-modules:
+variables:
   cognite_modules:
     # Globally defined variables are available to all submodules
     # of the cognite_modules.
