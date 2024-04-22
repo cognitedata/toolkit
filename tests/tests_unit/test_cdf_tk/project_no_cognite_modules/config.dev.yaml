@@ -6,7 +6,7 @@ environment:
     - a_module
     - another_module
 
-modules:
+variables:
   modules:
     a_module:
       ds_timeseries: ds_timeseries

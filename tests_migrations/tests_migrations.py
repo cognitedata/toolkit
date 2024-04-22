@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
+from packaging import version as version_package
 
 from cognite_toolkit._version import __version__
 from tests_migrations.constants import SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT, chdir
@@ -65,11 +66,12 @@ def tests_init_migrate_build_deploy(
         for cmd in [
             [previous_version, "--version"],
             [previous_version, "init", project_name, "--clean"],
-            [previous_version, "build", project_name, "--env", "dev", "--clean"],
+            [previous_version, "build", project_name, "--env", "dev"]
+            + (["--clean"] if version_package.parse(old_version) < version_package.parse("0.2.0a3") else []),
             [previous_version, "deploy", "--env", "dev", "--dry-run"],
             # This runs the cdf-tk command from the cognite_toolkit package in the ROOT of the repo.
             ["cdf-tk", "--version"],
-            ["cdf-tk", "build", project_name, "--env", "dev", "--build-dir", build_name, "--clean"],
+            ["cdf-tk", "build", project_name, "--env", "dev", "--build-dir", build_name],
             ["cdf-tk", "deploy", "--env", "dev", "--dry-run"],
         ]:
             if cmd[0] == "cdf-tk" and is_upgrade:

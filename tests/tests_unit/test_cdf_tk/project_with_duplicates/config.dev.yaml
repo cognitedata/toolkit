@@ -5,7 +5,7 @@ environment:
   selected_modules_and_packages:
     - module1
 
-modules:
+variables:
   cognite_modules:
     examples:
       module1:

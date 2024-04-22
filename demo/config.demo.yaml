@@ -15,8 +15,8 @@ environment:
   common_function_code: ./common_function_code
 
 modules:
-
-  # Globally defined variables are available to all submodules
+  cognite_modules:
+    # Globally defined variables are available to all submodules
     # of the cognite_modules.
   cdf_cluster: ${CDF_CLUSTER}
   cicd_clientId: ${IDP_CLIENT_ID}
