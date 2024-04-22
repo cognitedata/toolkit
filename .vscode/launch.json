@@ -52,6 +52,19 @@
             "justMyCode": false
         },
         {
+            "name": "Python: auth verify",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "--override-env",
+                "auth",
+                "verify",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
             "name": "Python: cdf.py",
             "type": "debugpy",
             "request": "launch",

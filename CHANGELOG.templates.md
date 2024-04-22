@@ -30,6 +30,7 @@ Changes are grouped as follows:
 ### Added
 
 - Added Transformation for WorkOrder and WorkItems to OID testdata template
+- Added Workflow with a Function and a Transformation to the custom module example
 
 ## [0.2.0a2] - 2024-04-03
 
