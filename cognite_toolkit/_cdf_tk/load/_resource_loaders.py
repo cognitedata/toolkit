@@ -1994,7 +1994,7 @@ class WorkflowVersionLoader(
         return WorkflowVersionUpsertList.load(workflowversions)
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
-        return self.client.workflows.versions.list([id for id in ids])
+        return self.client.workflows.versions.list(ids)
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
