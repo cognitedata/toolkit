@@ -96,6 +96,12 @@ Group:
       - WRITE
       scope:
         all: {}
+  - workflowOrchestrationAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
   metadata:
     origin: cdf-project-templates
   name: gp_admin_read_write
@@ -216,6 +222,11 @@ Group:
       scope:
         all: {}
   - geospatialAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - workflowOrchestrationAcl:
       actions:
       - READ
       scope:

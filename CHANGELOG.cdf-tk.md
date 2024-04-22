@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Support for the Workflow and WorkflowVersion resource type
+
 ### Fixed
 
 - Functions that are deployed with schedules no longer uses a short-lived session (before: failed after ~an hour).
