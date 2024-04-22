@@ -6,7 +6,7 @@ environment:
     - cdf_demo_infield
     - cdf_oid_example_data
 
-modules:
+variables:
   cognite_modules:
     top_variable: <top_variable>
     a_module:

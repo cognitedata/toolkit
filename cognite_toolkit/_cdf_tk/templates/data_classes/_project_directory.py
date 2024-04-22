@@ -38,6 +38,7 @@ class ProjectDirectory:
         "README.md",
         ".gitignore",
         ".env.tmpl",
+        "_system.yaml",
     ]
     _directories_to_copy: ClassVar[list[str]] = [
         "common_function_code",
