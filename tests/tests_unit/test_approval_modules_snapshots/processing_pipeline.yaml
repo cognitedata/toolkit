@@ -1,3 +1,5 @@
+Workflow:
+- externalId: wf_<change_me>
 WorkflowVersion:
 - version: '1'
   workflowDefinition:

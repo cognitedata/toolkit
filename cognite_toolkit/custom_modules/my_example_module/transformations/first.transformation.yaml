@@ -1,4 +1,9 @@
 externalId: tr_first_transformation
-name:name: 'example:first:transformation'
+name: 'example:first:transformation'
 interval: '{{scheduleHourly}}'
 isPaused: true
+destination: 
+  type: None
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
