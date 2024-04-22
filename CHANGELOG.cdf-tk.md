@@ -26,6 +26,7 @@ Changes are grouped as follows:
 - [BREAKING] The `cdf-tk build` will now clean the build directory by default before building the modules to avoid
   unwanted side effects from previous builds. To stop this behavior, use the `--no-clean` flag.
 - The `.gitignore` file you get by running `cdf-tk init` now ignores the `/build` by default.
+- The dependency `cognite-sdk` must now be `>=7.37.0` to use the `cdf-tk`.
 
 ## [0.2.0a2] - 2024-04-03
 

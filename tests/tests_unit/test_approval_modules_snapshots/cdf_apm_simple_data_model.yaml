@@ -66,6 +66,7 @@ Container:
       name: parent
       nullable: true
       type:
+        list: false
         type: direct
     sourceDb:
       autoIncrement: false
@@ -164,6 +165,7 @@ Container:
       name: workOrder
       nullable: true
       type:
+        list: false
         type: direct
   space: sp_apm_simple
   usedFor: node
