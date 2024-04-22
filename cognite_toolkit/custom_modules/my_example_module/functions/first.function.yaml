@@ -1,6 +1,6 @@
 # The dir with the function code should have the same name
 # and externalId as the function itself as defined below.
-- name: 'first:function'
+- name: 'first:example:function'
   externalId: 'fn_first_function'
   fileId: <will_be_generated>
   owner: 'Anonymous'
