@@ -1915,7 +1915,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
     api_name = "workflows"
     folder_name = "workflows"
-    filename_pattern = r"\.Workflow$"
+    filename_pattern = r"^.*\.Workflow$"
     resource_cls = Workflow
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
@@ -1994,7 +1994,7 @@ class WorkflowVersionLoader(
         return WorkflowVersionUpsertList.load(workflowversions)
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
-        return self.client.workflows.versions.list(ids)
+        return self.client.workflows.versions.list(list(ids))
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])

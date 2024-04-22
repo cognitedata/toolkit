@@ -7,11 +7,11 @@ workflowDefinition:
       type: 'function'
       parameters:
         function:
-          externalId: 'fn_{{ workflow_external_id }}_function'
+          externalId: 'fn_first_function'
           data: {}
         isAsyncComplete: false
-      name: task_1
-      decription: Task Ipsum lorem dolor sit amet
+      name: 'Task One'
+      decription: Task One Ipsum lorem dolor sit amet
       retries: 3
       timeout: 3600
       onFailure: 'abortWorkflow'
@@ -19,12 +19,12 @@ workflowDefinition:
       type: 'transformation'
       parameters:
         transformation:
-          externalId: 'tr_{{ workflow_external_id }}_transformation'
+          externalId: 'tr_first_transformation'
           concurrencyPolicy: fail
-      name: task_2
-      decription: Task Ipsum lorem dolor sit amet
+      name: 'Task Two'
+      decription: Task Two Ipsum lorem dolor sit amet
       retries: 3
       timeout: 3600
       onFailure: 'skipTask'
       dependsOn:
-        - externalId: 'fn_{{ workflow_external_id }}_function'
+        - externalId: '{{ workflow_external_id }}_function_task'

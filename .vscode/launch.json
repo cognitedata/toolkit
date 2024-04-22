@@ -14,7 +14,6 @@
                 "--override-env",
                 "build",
                 "--build-dir=build",
-                "--clean",
                 "--env=local",
                 "./cognite_toolkit/"
             ],
@@ -48,6 +47,19 @@
                 //"--dry-run",
                 "--env=local",
                 //"--include=transformations"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: auth verify",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "--override-env",
+                "auth",
+                "verify",
             ],
             "console": "integratedTerminal",
             "justMyCode": false
