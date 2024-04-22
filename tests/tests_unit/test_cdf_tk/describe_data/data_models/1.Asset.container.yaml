@@ -85,6 +85,7 @@ properties:
     nullable: true
     type:
       type: direct
+      list: false
   sourceDb:
     autoIncrement: false
     defaultValue: null

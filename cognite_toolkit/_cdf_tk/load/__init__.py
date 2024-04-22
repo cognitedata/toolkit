@@ -68,6 +68,7 @@ ResourceTypes: TypeAlias = Literal[
     "extraction_pipelines",
     "functions",
     "raw",
+    "workflows",
 ]
 
 __all__ = [
@@ -98,4 +99,6 @@ __all__ = [
     "DeployResult",
     "DeployResults",
     "ResourceTypes",
+    "WorkflowLoader",
+    "WorkflowVersionLoader",
 ]

@@ -14,7 +14,6 @@
                 "--override-env",
                 "build",
                 "--build-dir=build",
-                "--clean",
                 "--env=local",
                 "./cognite_toolkit/"
             ],

@@ -666,7 +666,8 @@ class CDFToolConfig:
     def verify_capabilities(self, capability: Capability | Sequence[Capability]) -> CogniteClient:
         missing_capabilities = self.client.iam.verify_capabilities(capability)
         if len(missing_capabilities) > 0:
-            raise CogniteAuthError(f"Missing capabilities: {missing_capabilities}")
+            print(f"Missing necessary CDF access capabilities: {missing_capabilities}")
+
         return self.client
 
     def verify_dataset(self, data_set_external_id: str, skip_validation: bool = False) -> int:

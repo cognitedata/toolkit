@@ -4,7 +4,7 @@
   tool:
     - title: '`cdf-tk build` command no longer supports the `--clean` flag'
       steps:
-        - "The build command now cleans the build directory by default."
+        - "The build command now cleans the build directory by default to avoid unwanted side effects from previous builds"
         - "To avoid cleaning the build directory use the `--no-clean` flag."
     - title: 'The `_system.yaml` file moved one level up from `cognite_modules`'
       steps:

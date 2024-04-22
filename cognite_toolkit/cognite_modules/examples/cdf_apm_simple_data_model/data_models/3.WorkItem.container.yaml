@@ -88,5 +88,6 @@ properties:
     type:
       container: null
       type: direct
+      list: false
 space: '{{space}}'
 usedFor: node

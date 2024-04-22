@@ -126,6 +126,7 @@ properties:
     name: parent
     type:
       type: direct
+      list: false
     nullable: true
     autoIncrement: false
   sourceDb:
