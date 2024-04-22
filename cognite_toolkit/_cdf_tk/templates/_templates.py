@@ -72,7 +72,7 @@ def build_config(
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
 
-    warnings = validate_modules_variables(config.modules, config.filepath)
+    warnings = validate_modules_variables(config.variables, config.filepath)
     if warnings:
         print(f"  [bold yellow]WARNING:[/] Found the following warnings in config.{config.environment.name}.yaml:")
         for warning in warnings:
@@ -420,7 +420,7 @@ def process_config_files(
     source_by_build_path: dict[Path, Path] = {}
     printed_function_warning = False
     environment = config.environment
-    configs = split_config(config.modules)
+    configs = split_config(config.variables)
     modules_by_variables = defaultdict(list)
     for module_path, variables in configs.items():
         for variable in variables:

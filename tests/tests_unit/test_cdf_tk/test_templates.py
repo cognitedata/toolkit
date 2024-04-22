@@ -367,6 +367,6 @@ class TestBuildConfigYAML:
     def test_available_modules(
         self, modules: dict[str, Any], expected_available_modules: list[str], dummy_environment: Environment
     ) -> None:
-        config = BuildConfigYAML(dummy_environment, filepath=Path("dummy"), modules=modules)
+        config = BuildConfigYAML(dummy_environment, filepath=Path("dummy"), variables=modules)
 
         assert sorted(config.available_modules) == sorted(expected_available_modules)

@@ -71,12 +71,12 @@ class ConfigYAMLCore(ABC):
 class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
     """This is the config.[env].yaml file used in the cdf-tk build command."""
 
-    modules: dict[str, Any]
+    variables: dict[str, Any]
 
     @property
     def available_modules(self) -> list[str]:
         available_modules: list[str] = []
-        to_check = [self.modules]
+        to_check = [self.variables]
         while to_check:
             current = to_check.pop()
             for key, value in current.items():
@@ -117,13 +117,17 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildConfigYAML:
-        try:
-            environment = Environment.load(data["environment"], build_env)
-            modules = data["modules"]
-        except KeyError:
-            print(f"  [bold red]ERROR:[/] Missing 'environment' or 'modules' in {filepath!s}")
+        if missing := [section for section in ["environment", "variables"] if section not in data]:
+            print(f"  [bold red]ERROR:[/] Expected {', '.join(missing)} section(s) in {filepath!s}. ")
+            if "modules" in data and "variables" in missing:
+                print(
+                    "  [bold yellow]WARNING:[/] 'modules' section is deprecated and "
+                    "has been renamed to 'variables' instead."
+                )
             exit(1)
-        return cls(environment=environment, modules=modules, filepath=filepath)
+        environment = Environment.load(data["environment"], build_env)
+        variables = data["variables"]
+        return cls(environment=environment, variables=variables, filepath=filepath)
 
     def create_build_environment(self) -> BuildEnvironment:
         return BuildEnvironment(

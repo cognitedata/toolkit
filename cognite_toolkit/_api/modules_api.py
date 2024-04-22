@@ -76,7 +76,7 @@ class ModulesAPI:
                 common_function_code="./common_function_code",
             ),
             filepath=Path(""),
-            modules=variables,
+            variables=variables,
         )
         build_config(
             self._build_dir,
