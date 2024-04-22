@@ -23,8 +23,8 @@ Changes are grouped as follows:
 
 ### Changed
 
-- [BREAKING] The `cdf-tk build` will now clean the build directory by default before building the modules. To stop this behavior,
-  use the `--no-clean` flag.
+- [BREAKING] The `cdf-tk build` will now clean the build directory by default before building the modules to avoid
+  unwanted side effects from previous builds. To stop this behavior, use the `--no-clean` flag.
 - The `.gitignore` file you get by running `cdf-tk init` now ignores the `/build` by default.
 
 ## [0.2.0a2] - 2024-04-03
