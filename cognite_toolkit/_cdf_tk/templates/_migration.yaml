@@ -9,6 +9,9 @@
     - title: 'The `_system.yaml` file moved one level up from `cognite_modules`'
       steps:
         - "Go into the `cognite_modules` folder and move the `_system.yaml` file one level up."
+    - title: "In all `config.<env>.yaml` the section 'modules' is renamed to 'variables"
+      steps:
+        - For each `config.<env>.yaml` file, rename the section `modules` to `variables`.
   cognite_modules_hash: ""
 - version: 0.2.0a2
   cognite_modules: {}
