@@ -2016,7 +2016,8 @@ class WorkflowVersionLoader(
         for id in ids:
             try:
                 self.client.workflows.versions.delete(id)
-                successes += 1
             except CogniteNotFoundError:
                 print(f"  [bold yellow]WARNING:[/] WorkflowVersion {id} does not exist, skipping delete.")
+            else:
+                successes += 1
         return successes
