@@ -71,12 +71,12 @@ class ConfigYAMLCore(ABC):
 class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
     """This is the config.[env].yaml file used in the cdf-tk build command."""
 
-    modules: dict[str, Any]
+    variables: dict[str, Any]
 
     @property
     def available_modules(self) -> list[str]:
         available_modules: list[str] = []
-        to_check = [self.modules]
+        to_check = [self.variables]
         while to_check:
             current = to_check.pop()
             for key, value in current.items():
@@ -117,12 +117,15 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildConfigYAML:
-        try:
-            environment = Environment.load(data["environment"], build_env)
-            modules = data["modules"]
-        except KeyError as e:
-            raise ToolkitEnvError(f"Missing 'environment' or 'modules' in {filepath!s}") from e
-        return cls(environment=environment, modules=modules, filepath=filepath)
+        if missing := {"environment", "variables"}.difference(data):
+            err_msg = f"Expected {list(missing)} section(s) in {filepath!s}."
+            if "modules" in data and "variables" in missing:
+                err_msg += " Note: The 'modules' section is deprecated and has been renamed to 'variables' instead."
+            raise ToolkitEnvError(err_msg)
+
+        environment = Environment.load(data["environment"], build_env)
+        variables = data["variables"]
+        return cls(environment=environment, variables=variables, filepath=filepath)
 
     def create_build_environment(self) -> BuildEnvironment:
         return BuildEnvironment(
@@ -295,7 +298,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
 
     # Top level keys
     _environment = "environment"
-    _modules = "modules"
+    _variables = "variables"
 
     def __init__(self, environment: Environment, entries: dict[tuple[str, ...], ConfigEntry] | None = None):
         self.environment = environment
@@ -322,7 +325,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
             file_data = yaml.safe_load(raw_file)
             for key, value in file_data.items():
-                key_path = (self._modules, *parts, key)
+                key_path = (self._variables, *parts, key)
                 local_file_path = (*parts, key)
                 if key_path in self:
                     self[key_path].default_value = value
@@ -358,10 +361,10 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         else:
             raise ToolkitEnvError(f"Missing environment in {existing_config_yaml!s}")
 
-        modules = config[cls._modules] if cls._modules in config else config
+        modules = config[cls._variables] if cls._variables in config else config
         entries: dict[tuple[str, ...], ConfigEntry] = {}
         for key_path, value in flatten_dict(modules).items():
-            full_key_path = (cls._modules, *key_path)
+            full_key_path = (cls._variables, *key_path)
             if full_key_path in entries:
                 entries[full_key_path].current_value = value
                 entries[full_key_path].current_comment = comments.get(full_key_path)
@@ -422,12 +425,12 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                         key_parent_list = key_parent_list[:i]
                         break
                 key_parent = tuple(key_parent_list)
-                key_path = (self._modules, *key_parent, variable)
+                key_path = (self._variables, *key_parent, variable)
                 if key_path in self:
                     continue
                 # Search for the first parent that match.
                 for i in range(1, len(key_parent)):
-                    alt_key_path = (self._modules, *key_parent[:i], variable)
+                    alt_key_path = (self._variables, *key_parent[:i], variable)
                     if alt_key_path in self:
                         break
                 else:

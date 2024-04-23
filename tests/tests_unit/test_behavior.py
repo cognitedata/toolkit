@@ -27,7 +27,7 @@ def test_inject_custom_environmental_variables(
     init_project: Path,
 ) -> None:
     config_yaml = yaml.safe_load((init_project / "config.dev.yaml").read_text())
-    config_yaml["modules"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
+    config_yaml["variables"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting a module with a transformation that uses the cicd_clientId variable
     config_yaml["environment"]["selected_modules_and_packages"] = ["cdf_infield_location"]
     config_yaml["environment"]["project"] = "pytest"
@@ -44,7 +44,7 @@ def test_inject_custom_environmental_variables(
         source_dir=str(init_project),
         build_dir=str(local_tmp_path),
         build_env="dev",
-        clean=True,
+        no_clean=False,
     )
     deploy(
         typer_context,
@@ -241,7 +241,6 @@ def test_dump_datamodel(
     assert len(child_loaded.properties) == 1
 
 
-@pytest.mark.skip("This functionality is not yet implemented")
 def test_build_custom_project(
     local_tmp_path: Path,
     typer_context: typer.Context,
@@ -252,7 +251,7 @@ def test_build_custom_project(
         source_dir=str(CUSTOM_PROJECT),
         build_dir=str(local_tmp_path),
         build_env="dev",
-        clean=True,
+        no_clean=False,
     )
 
     actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}

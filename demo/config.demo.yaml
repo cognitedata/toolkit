@@ -6,31 +6,36 @@ environment:
   # You can have multiple deploy commands.
   # Order is important.
   selected_modules_and_packages:
+    - cdf_auth_readwrite_all
     - cdf_demo_infield
     - cdf_oid_example_data
     - cdf_data_pipeline_asset_valhall
+    - my_example_module
+
   common_function_code: ./common_function_code
 
-modules:
-  cognite_modules:
-    # Globally defined variables are available to all submodules
+variables:
+
+  # Globally defined variables are available to all submodules
     # of the cognite_modules.
-    cdf_cluster: ${CDF_CLUSTER}
-    cicd_clientId: ${IDP_CLIENT_ID}
-    cicd_clientSecret: ${IDP_CLIENT_SECRET}
-    cicd_tokenUri: ${IDP_TOKEN_URL}
-    cdfProjectName: ${CDF_PROJECT}
-    # Optional: If idP requires providing the scopes
-    cicd_scopes:
-    - ${IDP_SCOPES}
-    # Optional: If idP requires providing the audience
-    cicd_audience: ${IDP_AUDIENCE}
-    # Seven minutes past each hour
-    scheduleHourly: 7 * * * *
-    # Every fifteen minutes
-    scheduleQuarterly: 0/15 * * * *
-    # Daily at 1:35 AM
-    scheduleDaily: 35 1 * * *
+  cdf_cluster: ${CDF_CLUSTER}
+  cicd_clientId: ${IDP_CLIENT_ID}
+  cicd_clientSecret: ${IDP_CLIENT_SECRET}
+  cicd_tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  # Optional: If idP requires providing the scopes
+  cicd_scopes:
+  - ${IDP_SCOPES}
+  # Optional: If idP requires providing the audience
+  cicd_audience: ${IDP_AUDIENCE}
+  # Seven minutes past each hour
+  scheduleHourly: 7 * * * *
+  # Every fifteen minutes
+  scheduleQuarterly: 0/15 * * * *
+  # Daily at 1:35 AM
+  scheduleDaily: 35 1 * * *
+  
+  cognite_modules:    
     common:
       cdf_auth_readwrite_all:
         readonly_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
@@ -232,5 +237,8 @@ modules:
 
 
   custom_modules:
+    
     my_example_module:
       example_variable: demo_dataset # This is the variable that will be used in the module
+      workflow_external_id: demo_workflow
+      example_secret: '${ENVIRONMENT_SECRET}'

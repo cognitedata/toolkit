@@ -26,6 +26,8 @@ from cognite.client.data_classes import (
     FunctionWrite,
     Group,
     GroupList,
+    Workflow,
+    WorkflowVersion,
     capabilities,
 )
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
@@ -120,6 +122,8 @@ class ApprovalCogniteClient:
                     "retrieve": self._create_retrieve_method,
                     "inspect": self._create_inspect_method,
                     "post": self._create_post_method,
+                    "upsert": self._create_retrieve_method,
+                    "update": self._create_post_method,
                 }[method_type]
                 method_dict = {
                     "create": self._create_methods,
@@ -127,6 +131,8 @@ class ApprovalCogniteClient:
                     "retrieve": self._retrieve_methods,
                     "inspect": self._inspect_methods,
                     "post": self._post_methods,
+                    "upsert": self._retrieve_methods,
+                    "update": self._post_methods,
                 }[method_type]
                 for mock_method in methods:
                     if not hasattr(mock_api, mock_method.api_class_method):
@@ -313,6 +319,40 @@ class ApprovalCogniteClient:
                 cognite_client=client,
             )
 
+        def upsert(*args, **kwargs) -> Any:
+            upserted = []
+            for value in itertools.chain(args, kwargs.values()):
+                if isinstance(value, write_resource_cls):
+                    upserted.append(value)
+                elif isinstance(value, Sequence) and all(isinstance(v, write_resource_cls) for v in value):
+                    upserted.extend(value)
+            created_resources[resource_cls.__name__].extend(upserted)
+
+            if resource_cls is Workflow:
+                return resource_cls.load(
+                    {"lastUpdatedTime": 0, "createdTime": 0, **upserted[0].dump(camel_case=True)}, cognite_client=client
+                )
+
+            if resource_cls is WorkflowVersion:
+                resource = {"lastUpdatedTime": 0, "createdTime": 0, **upserted[0].dump(camel_case=True)}
+
+                resource.get("workflowDefinition")["hash"] = "123"
+
+                return resource_cls.load(resource, cognite_client=client)
+
+            return resource_list_cls.load(
+                [
+                    {
+                        "isGlobal": False,
+                        "lastUpdatedTime": 0,
+                        "createdTime": 0,
+                        **c.dump(camel_case=True),
+                    }
+                    for c in upserted
+                ],
+                cognite_client=client,
+            )
+
         def insert_dataframe(*args, **kwargs) -> None:
             args = list(args)
             kwargs = dict(kwargs)
@@ -441,6 +481,7 @@ class ApprovalCogniteClient:
                 create,
                 insert_dataframe,
                 upload,
+                upsert,
                 create_instances,
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,

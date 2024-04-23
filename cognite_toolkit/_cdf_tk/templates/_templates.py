@@ -49,7 +49,9 @@ def build_config(
         if not _RUNNING_IN_BROWSER:
             print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
     elif is_populated and not _RUNNING_IN_BROWSER:
-        print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
+        print(
+            "  [bold yellow]WARNING:[/] Build directory is not empty. Run without --no-clean to remove existing files."
+        )
     elif build_dir.exists() and not _RUNNING_IN_BROWSER:
         print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
     else:
@@ -73,7 +75,7 @@ def build_config(
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
 
-    warnings = validate_modules_variables(config.modules, config.filepath)
+    warnings = validate_modules_variables(config.variables, config.filepath)
     if warnings:
         print(f"  [bold yellow]WARNING:[/] Found the following warnings in config.{config.environment.name}.yaml:")
         for warning in warnings:
@@ -164,6 +166,16 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
         else:
             raise ToolkitYAMLFormatError(f"Raw file {filepath_src} has invalid dataformat.")
 
+    elif resource_type == "workflows":
+        if isinstance(parsed, dict):
+            if "version" in filepath_src.stem.lower():
+                ext_id = parsed.get("workflowExternalId")
+                ext_id_type = "workflowExternalId"
+            else:
+                ext_id = parsed.get("externalId") or parsed.get("external_id")
+                ext_id_type = "externalId"
+        else:
+            raise ToolkitYAMLFormatError(f"Multiple Workflows in one file ({filepath_src}) is not supported.")
     else:
         if isinstance(parsed, list):
             raise ToolkitYAMLFormatError(f"Multiple {resource_type} in one file {filepath_src} is not supported.")
@@ -417,7 +429,7 @@ def process_config_files(
     source_by_build_path: dict[Path, Path] = {}
     printed_function_warning = False
     environment = config.environment
-    configs = split_config(config.modules)
+    configs = split_config(config.variables)
     modules_by_variables = defaultdict(list)
     for module_path, variables in configs.items():
         for variable in variables:

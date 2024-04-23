@@ -69,7 +69,7 @@ def test_deploy_module_approval(
         source_dir=str(init_project),
         build_dir=str(local_tmp_path),
         build_env="dev",
-        clean=True,
+        no_clean=False,
     )
     deploy(
         typer_context,
@@ -114,7 +114,7 @@ def test_deploy_dry_run_module_approval(
         source_dir=str(init_project),
         build_dir=str(local_tmp_path),
         build_env="dev",
-        clean=True,
+        no_clean=False,
     )
     deploy(
         typer_context,
@@ -160,7 +160,7 @@ def test_clean_module_approval(
         source_dir=str(local_tmp_project_path),
         build_dir=str(local_tmp_path),
         build_env="dev",
-        clean=True,
+        no_clean=False,
     )
     clean(
         typer_context,
