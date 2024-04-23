@@ -69,8 +69,8 @@ def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context, 
             system_config=MagicMock(spec=SystemYAML),
         )
     # Check that the error message is printed
-    assert "module1" in capture_print.messages[-1]
-    assert "duplicated module names" in capture_print.messages[-2]
+    assert "module1" in capture_print.messages[-2]
+    assert "duplicated module names" in capture_print.messages[-3]
 
 
 def test_pull_transformation(

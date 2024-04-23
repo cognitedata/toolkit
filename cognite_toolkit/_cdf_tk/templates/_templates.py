@@ -56,18 +56,22 @@ def build_config(
 
     config.validate_environment()
 
-    module_name_by_path = defaultdict(list)
+    module_name_by_path: dict[str, list[tuple[str]]] = defaultdict(list)
     for module, _ in iterate_modules(source_dir):
-        module_name_by_path[module.name].append(module.relative_to(source_dir))
+        module_name_by_path[module.name].append(module.relative_to(source_dir).parts)
     if duplicate_modules := {
         module_name: paths for module_name, paths in module_name_by_path.items() if len(paths) > 1
     }:
         print(f"  [bold red]ERROR:[/] Found the following duplicated module names in {source_dir.name}:")
         for module_name, paths in duplicate_modules.items():
             print(f"    {module_name}: {paths}")
+        print(
+            "    You can use the path syntax to disambiguate between modules with the same name. Example"
+            "'cognite_modules/core/cdf_apm_base' instead of 'cdf_apm_base'."
+        )
         exit(1)
 
-    available_modules = set(module_name_by_path.keys())
+    available_modules = set(module_name_by_path.keys()) | {paths[0] for paths in module_name_by_path.values()}
     system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)

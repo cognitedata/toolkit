@@ -8,7 +8,7 @@ from collections import UserDict, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Literal, cast
+from typing import Any, Literal, cast
 
 import yaml
 from rich import print
@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.templates._constants import (
     BUILD_ENVIRONMENT_FILE,
     DEFAULT_CONFIG_FILE,
+    MODULE_PATH_SEP,
     SEARCH_VARIABLES_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.templates._utils import flatten_dict
@@ -29,7 +30,6 @@ from ._base import ConfigCore, _load_version_variable
 
 @dataclass
 class Environment:
-    seperator: ClassVar[str] = "/"
     name: str
     project: str
     build_type: str
@@ -44,7 +44,7 @@ class Environment:
                 project=data["project"],
                 build_type=data["type"],
                 selected_modules_and_packages=[
-                    selected.split(cls.seperator) if cls.seperator in selected else selected
+                    selected.split(MODULE_PATH_SEP) if MODULE_PATH_SEP in selected else selected
                     for selected in data["selected_modules_and_packages"]
                 ],
                 common_function_code=data.get("common_function_code", "./common_function_code"),
@@ -62,7 +62,7 @@ class Environment:
             "project": self.project,
             "type": self.build_type,
             "selected_modules_and_packages": [
-                self.seperator.join(selected) if isinstance(selected, tuple) else selected
+                MODULE_PATH_SEP.join(selected) if isinstance(selected, tuple) else selected
                 for selected in self.selected_modules_and_packages
             ],
             "common_function_code": self.common_function_code,
