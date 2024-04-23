@@ -30,7 +30,7 @@ class SystemYAML(ConfigCore):
             filepath=filepath,
             cdf_toolkit_version=version,
             packages={
-                name: [entry.split(MODULE_PATH_SEP) if MODULE_PATH_SEP in entry else entry for entry in package]
+                name: [tuple(entry.split(MODULE_PATH_SEP)) if MODULE_PATH_SEP in entry else entry for entry in package]
                 for name, package in packages.items()
             },
         )
@@ -38,7 +38,11 @@ class SystemYAML(ConfigCore):
     def validate_modules(
         self, available_modules: set[str | tuple[str, ...]], selected_modules_and_packages: list[str | tuple[str, ...]]
     ) -> None:
-        selected_packages = {package for package in selected_modules_and_packages if package in self.packages}
+        selected_packages = {
+            package
+            for package in selected_modules_and_packages
+            if package in self.packages and isinstance(package, str)
+        }
         for package, modules in self.packages.items():
             if package not in selected_packages:
                 # We do not check packages that are not selected.

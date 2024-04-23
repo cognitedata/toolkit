@@ -44,7 +44,7 @@ class Environment:
                 project=data["project"],
                 build_type=data["type"],
                 selected_modules_and_packages=[
-                    selected.split(MODULE_PATH_SEP) if MODULE_PATH_SEP in selected else selected
+                    tuple(selected.split(MODULE_PATH_SEP)) if MODULE_PATH_SEP in selected else selected
                     for selected in data["selected_modules_and_packages"]
                 ],
                 common_function_code=data.get("common_function_code", "./common_function_code"),

@@ -3,8 +3,8 @@ environment:
   project: some-project
   type: dev
   selected_modules_and_packages:
-    - a_module
-    - another_module
+    - modules/a_module
+    - modules/another_module
 
 variables:
   modules:
