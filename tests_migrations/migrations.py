@@ -38,6 +38,10 @@ def modify_environment_to_run_all_modules(project_path: Path) -> None:
 def get_migration(previous_version_str: str, current_version: str) -> Callable[[Path], None]:
     previous_version = version.parse(previous_version_str)
     changes = Changes()
+    if previous_version < version.parse("0.2.0a3"):
+        changes.append(_move_system_yaml_to_root)
+        changes.append(_rename_modules_section_to_variables_in_config_yamls)
+
     if version.parse("0.1.0b7") <= previous_version:
         changes.append(_update_system_yaml)
 
@@ -63,10 +67,27 @@ class Changes:
             change(project_path)
 
 
-def _update_system_yaml(project_path: Path) -> None:
+def _rename_modules_section_to_variables_in_config_yamls(project_path: Path) -> None:
+    for config_yaml in project_path.glob("config.*.yaml"):
+        data = yaml.safe_load(config_yaml.read_text())
+        if "modules" in data:
+            data["variables"] = data.pop("modules")
+            config_yaml.write_text(yaml.dump(data))
+
+
+def _move_system_yaml_to_root(project_path: Path) -> None:
     system_yaml = project_path / "cognite_modules" / "_system.yaml"
     if not system_yaml.exists():
         raise FileNotFoundError(f"Could not find _system.yaml in {project_path}")
+    system_yaml.rename(project_path / "_system.yaml")
+
+
+def _update_system_yaml(project_path: Path) -> None:
+    old_system_yaml = project_path / "cognite_modules" / "_system.yaml"
+    new_system_yaml = project_path / "_system.yaml"
+    if not old_system_yaml.exists() and not new_system_yaml.exists():
+        raise FileNotFoundError(f"Could not find _system.yaml in {project_path}")
+    system_yaml = old_system_yaml if old_system_yaml.exists() else new_system_yaml
     data = yaml.safe_load(system_yaml.read_text())
     data["cdf_toolkit_version"] = __version__
     system_yaml.write_text(yaml.dump(data))
