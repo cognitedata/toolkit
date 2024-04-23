@@ -22,11 +22,7 @@ from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
 
-from ._constants import (
-    EXCL_INDEX_SUFFIX,
-    PROC_TMPL_VARS_SUFFIX,
-    ROOT_MODULES,
-)
+from ._constants import EXCL_INDEX_SUFFIX, MODULE_PATH_SEP, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
@@ -56,26 +52,30 @@ def build_config(
 
     config.validate_environment()
 
-    module_name_by_path: dict[str, list[tuple[str, ...]]] = defaultdict(list)
+    module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
+    available_modules: set[str | tuple[str, ...]] = set()
     for module, _ in iterate_modules(source_dir):
-        module_name_by_path[module.name].append(module.relative_to(source_dir).parts)
+        available_modules.add(module.name)
+        module_parts = module.relative_to(source_dir).parts
+        for i in range(1, len(module_parts) + 1):
+            available_modules.add(module_parts[:i])
+
+        module_parts_by_name[module.name].append(module.relative_to(source_dir).parts)
+
     if duplicate_modules := {
-        module_name: paths for module_name, paths in module_name_by_path.items() if len(paths) > 1
+        module_name: paths
+        for module_name, paths in module_parts_by_name.items()
+        if len(paths) > 1 and module_name in config.environment.selected_modules_and_packages
     }:
-        print(f"  [bold red]ERROR:[/] Found the following duplicated module names in {source_dir.name}:")
+        print(f"  [bold red]ERROR:[/] Ambiguous module selected in config.{config.environment.name}.yaml:")
         for module_name, paths in duplicate_modules.items():
-            print(f"    {module_name}: {paths}")
+            print(f"    {module_name} exists in {[MODULE_PATH_SEP.join(path) for path in paths]}")
         print(
-            "    You can use the path syntax to disambiguate between modules with the same name. Example"
+            "    You can use the path syntax to disambiguate between modules with the same name. For example "
             "'cognite_modules/core/cdf_apm_base' instead of 'cdf_apm_base'."
         )
         exit(1)
 
-    available_modules = (
-        set(module_name_by_path.keys())
-        | {paths[0] for paths in module_name_by_path.values()}
-        | {paths[0][:i] for paths in module_name_by_path.values() for i in range(1, len(paths[0]))}
-    )
     system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
