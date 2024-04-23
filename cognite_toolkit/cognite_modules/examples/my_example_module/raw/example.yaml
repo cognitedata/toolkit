@@ -1,0 +1,2 @@
+dbName: db_{{example_variable}}
+tableName: table_{{example_variable}}

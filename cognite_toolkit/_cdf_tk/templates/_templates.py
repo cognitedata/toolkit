@@ -22,11 +22,7 @@ from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
 
-from ._constants import (
-    EXCL_INDEX_SUFFIX,
-    PROC_TMPL_VARS_SUFFIX,
-    ROOT_MODULES,
-)
+from ._constants import EXCL_INDEX_SUFFIX, MODULE_PATH_SEP, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
@@ -46,7 +42,9 @@ def build_config(
         if not _RUNNING_IN_BROWSER:
             print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
     elif is_populated and not _RUNNING_IN_BROWSER:
-        print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
+        print(
+            "  [bold yellow]WARNING:[/] Build directory is not empty. Run without --no-clean to remove existing files."
+        )
     elif build_dir.exists() and not _RUNNING_IN_BROWSER:
         print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
     else:
@@ -54,23 +52,36 @@ def build_config(
 
     config.validate_environment()
 
-    module_name_by_path = defaultdict(list)
+    module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
+    available_modules: set[str | tuple[str, ...]] = set()
     for module, _ in iterate_modules(source_dir):
-        module_name_by_path[module.name].append(module.relative_to(source_dir))
+        available_modules.add(module.name)
+        module_parts = module.relative_to(source_dir).parts
+        for i in range(1, len(module_parts) + 1):
+            available_modules.add(module_parts[:i])
+
+        module_parts_by_name[module.name].append(module.relative_to(source_dir).parts)
+
     if duplicate_modules := {
-        module_name: paths for module_name, paths in module_name_by_path.items() if len(paths) > 1
+        module_name: paths
+        for module_name, paths in module_parts_by_name.items()
+        if len(paths) > 1 and module_name in config.environment.selected_modules_and_packages
     }:
-        print(f"  [bold red]ERROR:[/] Found the following duplicated module names in {source_dir.name}:")
+        print(f"  [bold red]ERROR:[/] Ambiguous module selected in config.{config.environment.name}.yaml:")
         for module_name, paths in duplicate_modules.items():
-            print(f"    {module_name}: {paths}")
+            locations = "\n        ".join([MODULE_PATH_SEP.join(path) for path in paths])
+            print(f"    {module_name} exists in:\n        {locations}")
+        print(
+            "    You can use the path syntax to disambiguate between modules with the same name. For example "
+            "'cognite_modules/core/cdf_apm_base' instead of 'cdf_apm_base'."
+        )
         exit(1)
 
-    available_modules = set(module_name_by_path.keys())
     system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
 
-    warnings = validate_modules_variables(config.modules, config.filepath)
+    warnings = validate_modules_variables(config.variables, config.filepath)
     if warnings:
         print(f"  [bold yellow]WARNING:[/] Found the following warnings in config.{config.environment.name}.yaml:")
         for warning in warnings:
@@ -155,6 +166,17 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
                 ext_id_type = "dbName and tableName"
         else:
             print(f"      [bold red]:[/] Raw file {filepath_src} has invalid dataformat.")
+            exit(1)
+    elif resource_type == "workflows":
+        if isinstance(parsed, dict):
+            if "version" in filepath_src.stem.lower():
+                ext_id = parsed.get("workflowExternalId")
+                ext_id_type = "workflowExternalId"
+            else:
+                ext_id = parsed.get("externalId") or parsed.get("external_id")
+                ext_id_type = "externalId"
+        else:
+            print(f"      [bold red]:[/] Multiple Workflows in one file {filepath_src} is not supported .")
             exit(1)
     else:
         if isinstance(parsed, list):
@@ -410,7 +432,7 @@ def process_files_directory(
 
 def process_config_files(
     project_config_dir: Path,
-    selected_modules: list[str],
+    selected_modules: list[str | tuple[str, ...]],
     build_dir: Path,
     config: BuildConfigYAML,
     verbose: bool = False,
@@ -418,7 +440,7 @@ def process_config_files(
     source_by_build_path: dict[Path, Path] = {}
     printed_function_warning = False
     environment = config.environment
-    configs = split_config(config.modules)
+    configs = split_config(config.variables)
     modules_by_variables = defaultdict(list)
     for module_path, variables in configs.items():
         for variable in variables:
@@ -426,7 +448,12 @@ def process_config_files(
     number_by_resource_type: dict[str, int] = defaultdict(int)
 
     for module_dir, filepaths in iterate_modules(project_config_dir):
-        if module_dir.name not in selected_modules:
+        module_parts = module_dir.relative_to(project_config_dir).parts
+        is_in_selected_modules = module_dir.name in selected_modules or module_parts in selected_modules
+        is_parent_in_selected_modules = any(
+            parent in selected_modules for parent in (module_parts[:i] for i in range(1, len(module_parts)))
+        )
+        if not is_in_selected_modules and not is_parent_in_selected_modules:
             continue
         if verbose:
             print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
@@ -599,11 +626,10 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
         if modules := modules_by_variable.get(variable):
             module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
             print(
-                f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' are defined in a tree structure, i.e., "
-                "variables defined at a higher level can be used in lower levels."
-                f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str}."
-                f"\n    It needs to be moved up in the config structure to be used"
-                f"in {module!r}."
+                f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
+                f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
+                f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
             )
 
     if destination.suffix in {".yaml", ".yml"}:

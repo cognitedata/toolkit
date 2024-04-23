@@ -20,7 +20,6 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.load import ResourceLoader
 from cognite_toolkit._cdf_tk.load._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.templates import (
-    COGNITE_MODULES,
     build_config,
 )
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
@@ -378,15 +377,9 @@ def pull_command(
     if not source_path.is_dir():
         print(f"  [bold red]ERROR:[/] {source_path} does not exist")
         exit(1)
-    if not (source_path / COGNITE_MODULES).is_dir():
-        print(
-            f"  [bold red]ERROR:[/] {source_path} does not contain a {COGNITE_MODULES} directory. "
-            f"Did you pass in a valid source directory?"
-        )
-        exit(1)
 
     build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))
-    system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, env)
+    system_config = SystemYAML.load_from_directory(source_path, env)
     config = BuildConfigYAML.load_from_directory(source_path, env)
     config.set_environment_variables()
     config.environment.selected_modules_and_packages = config.available_modules

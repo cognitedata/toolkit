@@ -6,7 +6,7 @@ import time
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
 
@@ -64,7 +64,7 @@ def annotate_pnid(client: CogniteClient, config: AnnotationConfig) -> None:
     """
     Read configuration and start P&ID annotation process by
     1. Reading files to annotate
-    2. Get file entities to be matched aganst files in P&ID
+    2. Get file entities to be matched against files in P&ID
     3. Read existing annotations for the found files
     4. Get assets and put it into the list of entities to be found in the P&ID
     5. Process file:
@@ -79,15 +79,18 @@ def annotate_pnid(client: CogniteClient, config: AnnotationConfig) -> None:
     for asset_root_xid in config.asset_root_xids:
         try:
             all_files, files_to_process = get_files(client, asset_root_xid, config)
-            entities = get_files_entities(all_files)
-            annotation_list = get_existing_annotations(client, entities) if entities else {}
-
             error_count, annotated_count = 0, 0
-            if files_to_process:
-                append_asset_entities(entities, client, asset_root_xid)
-                annotated_count, error_count = process_files(
-                    client, entities, files_to_process, annotation_list, config
-                )
+
+            # if no files to annotate - continue to next asset
+            if len(files_to_process) > 0:
+                entities = get_files_entities(all_files)
+                annotation_list = get_existing_annotations(client, entities) if entities else {}
+
+                if files_to_process:
+                    append_asset_entities(entities, client, asset_root_xid)
+                    annotated_count, error_count = process_files(
+                        client, entities, files_to_process, annotation_list, config
+                    )
             msg = (
                 f"Annotated P&ID files for asset: {asset_root_xid} number of files annotated: {annotated_count}, "
                 f"file not annotated due to errors: {error_count}"
@@ -111,6 +114,9 @@ def update_extpipe_run(client, xid, status, message):
 
 
 def get_file_list(client: CogniteClient, asset_root_xid: str, config: AnnotationConfig) -> FileMetadataList:
+    """
+    Get list of files based on doc_type and mime_type to find P&ID files
+    """
     return client.files.list(
         metadata={config.doc_type_meta_col: config.pnid_doc_type},
         data_set_external_ids=[config.doc_data_set_xid],
@@ -276,6 +282,9 @@ def append_asset_entities(entities: list[Entity], client: CogniteClient, asset_r
             if split_name[0].isnumeric():
                 names.append(name[len(split_name[0]) + 1 :])
 
+            if split_name[0] + ":" in name:
+                names.append(name[len(split_name[0]) + 1 :])
+
             # add wildcards as second element to tag
             names.append(f"{split_name[0]}-xxx-{name[len(split_name[0])+1:]}")
 
@@ -283,7 +292,7 @@ def append_asset_entities(entities: list[Entity], client: CogniteClient, asset_r
             if split_name[-1].isnumeric() and len(split_name[-1]) > 3:
                 names.append(name[0 : (len(name) - 3)] + "x" + name[(len(name) - 2) :])
 
-            entities.append(Entity(external_id=asset.external_id, org_name=name, name=name, id=asset.id, type="asset"))
+            entities.append(Entity(external_id=asset.external_id, org_name=name, name=names, id=asset.id, type="asset"))
 
         except Exception as e:
             print(
@@ -343,13 +352,13 @@ def process_files(
                 asset_ids_list = asset_ids_list[:1000]
 
             if config.debug:
-
                 print(f"[INFO] Assets found: {asset_names}")
                 continue
 
             annotated_count += 1
             # Note: add a minute to make sure annotation time is larger than last update time:
-            timestamp = (datetime.now(timezone.utc) + timedelta(minutes=1)).strftime(ISO_8601)
+            # using local time, since file update time also uses local time
+            timestamp = (datetime.now() + timedelta(minutes=1)).strftime(ISO_8601)
             my_update = (
                 FileMetadataUpdate(id=file.id)
                 .asset_ids.set(asset_ids_list)
@@ -402,7 +411,6 @@ def detect_create_annotation(
 
     detected_system_num, detected_count = get_sys_nums(job.result["items"][0]["annotations"], detected_count)
     for item in job.result["items"][0]["annotations"]:
-
         textRegion = get_coordinates(item["region"]["vertices"])
 
         for entity in item["entities"]:

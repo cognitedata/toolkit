@@ -64,6 +64,9 @@ def contextualize_ts_and_asset(client: CogniteClient, config: ContextConfig) -> 
             # If there is any TS to be contextualized
             if len(ts_entities) > 0:
                 asset_entities = get_assets(client, asset_root_ext_id, numAsset)
+                if not asset_entities:
+                    print(f"WARNING: No assets found for root asset: {asset_root_ext_id}")
+                    continue
                 match_results = get_matches(client, asset_entities, ts_entities)
 
                 good_matches, bad_matches = select_and_apply_matches(client, config, match_results, ts_meta_dict)

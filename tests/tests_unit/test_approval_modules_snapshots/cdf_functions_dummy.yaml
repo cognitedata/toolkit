@@ -27,6 +27,21 @@ Function:
   metadata:
     cdf-toolkit-function-hash: e8c92f1b4438f2e6c362b83928e2edd07744cdbc58e6bfd996b13517c464d5c6
   name: test2
+FunctionSchedule:
+- cronExpression: 0 8 * * *
+  data:
+    breakfast: 'today: peanut butter sandwich and coffee'
+    dinner: 'today: steak and red wine'
+    lunch: 'today: greek salad and water'
+  description: Run every day at 8am UTC
+  name: daily-8am-utc
+- cronExpression: 0 20 * * *
+  data:
+    breakfast: 'tomorrow: peanut butter sandwich and coffee'
+    dinner: 'tomorrow: steak and red wine'
+    lunch: 'tomorrow: greek salad and water'
+  description: Run every day at 8pm UTC
+  name: daily-8pm-utc
 deleted:
   Function:
   - externalId: fn_example_repeater

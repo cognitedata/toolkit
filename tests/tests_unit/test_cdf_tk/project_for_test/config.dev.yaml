@@ -3,10 +3,9 @@ environment:
   project: <customer-dev>
   type: dev
   selected_modules_and_packages:
-    - cdf_demo_infield
-    - cdf_oid_example_data
+    - cognite_modules/
 
-modules:
+variables:
   cognite_modules:
     top_variable: <top_variable>
     a_module:

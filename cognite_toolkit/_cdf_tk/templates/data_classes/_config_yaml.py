@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.templates._constants import (
     BUILD_ENVIRONMENT_FILE,
     DEFAULT_CONFIG_FILE,
+    MODULE_PATH_SEP,
     SEARCH_VARIABLES_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.templates._utils import flatten_dict
@@ -32,7 +33,7 @@ class Environment:
     name: str
     project: str
     build_type: str
-    selected_modules_and_packages: list[str]
+    selected_modules_and_packages: list[str | tuple[str, ...]]
     common_function_code: str
 
     @classmethod
@@ -42,7 +43,12 @@ class Environment:
                 name=data["name"],
                 project=data["project"],
                 build_type=data["type"],
-                selected_modules_and_packages=data["selected_modules_and_packages"],
+                selected_modules_and_packages=[
+                    tuple([part for part in selected.split(MODULE_PATH_SEP) if part])
+                    if MODULE_PATH_SEP in selected
+                    else selected
+                    for selected in data["selected_modules_and_packages"]
+                ],
                 common_function_code=data.get("common_function_code", "./common_function_code"),
             )
         except KeyError:
@@ -57,7 +63,10 @@ class Environment:
             "name": self.name,
             "project": self.project,
             "type": self.build_type,
-            "selected_modules_and_packages": self.selected_modules_and_packages,
+            "selected_modules_and_packages": [
+                MODULE_PATH_SEP.join(selected) if isinstance(selected, tuple) else selected
+                for selected in self.selected_modules_and_packages
+            ],
             "common_function_code": self.common_function_code,
         }
 
@@ -71,12 +80,12 @@ class ConfigYAMLCore(ABC):
 class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
     """This is the config.[env].yaml file used in the cdf-tk build command."""
 
-    modules: dict[str, Any]
+    variables: dict[str, Any]
 
     @property
-    def available_modules(self) -> list[str]:
-        available_modules: list[str] = []
-        to_check = [self.modules]
+    def available_modules(self) -> list[str | tuple[str, ...]]:
+        available_modules: list[str | tuple[str, ...]] = []
+        to_check = [self.variables]
         while to_check:
             current = to_check.pop()
             for key, value in current.items():
@@ -117,13 +126,17 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildConfigYAML:
-        try:
-            environment = Environment.load(data["environment"], build_env)
-            modules = data["modules"]
-        except KeyError:
-            print(f"  [bold red]ERROR:[/] Missing 'environment' or 'modules' in {filepath!s}")
+        if missing := [section for section in ["environment", "variables"] if section not in data]:
+            print(f"  [bold red]ERROR:[/] Expected {', '.join(missing)} section(s) in {filepath!s}. ")
+            if "modules" in data and "variables" in missing:
+                print(
+                    "  [bold yellow]WARNING:[/] 'modules' section is deprecated and "
+                    "has been renamed to 'variables' instead."
+                )
             exit(1)
-        return cls(environment=environment, modules=modules, filepath=filepath)
+        environment = Environment.load(data["environment"], build_env)
+        variables = data["variables"]
+        return cls(environment=environment, variables=variables, filepath=filepath)
 
     def create_build_environment(self) -> BuildEnvironment:
         return BuildEnvironment(
@@ -136,13 +149,20 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         )
 
     def get_selected_modules(
-        self, modules_by_package: dict[str, list[str]], available_modules: set[str], verbose: bool
-    ) -> list[str]:
+        self,
+        modules_by_package: dict[str, list[str | tuple[str, ...]]],
+        available_modules: set[str | tuple[str, ...]],
+        verbose: bool,
+    ) -> list[str | tuple[str, ...]]:
         selected_packages = [
-            package for package in self.environment.selected_modules_and_packages if package in modules_by_package
+            package
+            for package in self.environment.selected_modules_and_packages
+            if package in modules_by_package and isinstance(package, str)
         ]
         if verbose:
             print("  [bold green]INFO:[/] Selected packages:")
+            if len(selected_packages) == 0:
+                print("    None")
             for package in selected_packages:
                 print(f"    {package}")
 
@@ -160,7 +180,10 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         if verbose:
             print("  [bold green]INFO:[/] Selected modules:")
             for module in selected_modules:
-                print(f"    {module}")
+                if isinstance(module, str):
+                    print(f"    {module}")
+                else:
+                    print(f"    {MODULE_PATH_SEP.join(module)!s}")
         if not selected_modules:
             print(
                 f"  [bold yellow]WARNING:[/] Found no defined modules in {self.filepath!s}, have you configured the environment ({self.environment.name})?"
@@ -300,7 +323,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
 
     # Top level keys
     _environment = "environment"
-    _modules = "modules"
+    _variables = "variables"
 
     def __init__(self, environment: Environment, entries: dict[tuple[str, ...], ConfigEntry] | None = None):
         self.environment = environment
@@ -327,7 +350,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
             file_data = yaml.safe_load(raw_file)
             for key, value in file_data.items():
-                key_path = (self._modules, *parts, key)
+                key_path = (self._variables, *parts, key)
                 local_file_path = (*parts, key)
                 if key_path in self:
                     self[key_path].default_value = value
@@ -363,10 +386,10 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         else:
             raise ValueError(f"Missing environment in {existing_config_yaml!s}")
 
-        modules = config[cls._modules] if cls._modules in config else config
+        modules = config[cls._variables] if cls._variables in config else config
         entries: dict[tuple[str, ...], ConfigEntry] = {}
         for key_path, value in flatten_dict(modules).items():
-            full_key_path = (cls._modules, *key_path)
+            full_key_path = (cls._variables, *key_path)
             if full_key_path in entries:
                 entries[full_key_path].current_value = value
                 entries[full_key_path].current_comment = comments.get(full_key_path)
@@ -427,12 +450,12 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                         key_parent_list = key_parent_list[:i]
                         break
                 key_parent = tuple(key_parent_list)
-                key_path = (self._modules, *key_parent, variable)
+                key_path = (self._variables, *key_parent, variable)
                 if key_path in self:
                     continue
                 # Search for the first parent that match.
                 for i in range(1, len(key_parent)):
-                    alt_key_path = (self._modules, *key_parent[:i], variable)
+                    alt_key_path = (self._variables, *key_parent[:i], variable)
                     if alt_key_path in self:
                         break
                 else:

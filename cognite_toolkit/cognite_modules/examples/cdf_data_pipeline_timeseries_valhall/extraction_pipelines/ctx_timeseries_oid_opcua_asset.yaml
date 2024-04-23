@@ -49,7 +49,7 @@ documentation: >
    # Prefix used for all time series that is used in contextualization
    timeSeriesPrefix: [pi_, opc-ua]
    # List of externalId for root assets to be used for contextualization
-   assetRootExtIds: [workmate:VAL]
+   assetRootExtIds: [{{external_root_id_asset}}]
    # Number between 0 and 1, indication of strict the matching should be 1 = only exact matches
    matchThreshold: 0.85
 

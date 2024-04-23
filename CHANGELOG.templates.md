@@ -15,6 +15,23 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0a3] - 2024-04-23
+
+### Fixed
+
+- Align tag name in asset hierarchy between the 2 example transformations
+- Added default root asset ID to documents for initial annotation
+- Aligned use of asset external ID across contextualization functions
+- Annotation logic with local time stamp for when to reprocess P&ID files
+- Input to P&ID annotation based on list of synonyms for tag
+- Updated module `apm_simple_data_model` for `cognite-sdk>=7.37`, i.e., container properties
+  of type `direct` have now `list: false` explicitly set.
+
+### Added
+
+- Added Transformation for WorkOrder and WorkItems to OID testdata template
+- Added Workflow with a Function and a Transformation to the custom module example
+
 ## [0.2.0a2] - 2024-04-03
 
 No changes to templates.

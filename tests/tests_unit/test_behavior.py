@@ -11,10 +11,10 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
 from cognite_toolkit._cdf_tk.load import TransformationLoader
 from cognite_toolkit._cdf_tk.templates import build_config
-from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, Environment, SystemYAML
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES
+from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
 from tests.tests_unit.utils import PrintCapture, mock_read_yaml_file
 
 
@@ -27,7 +27,7 @@ def test_inject_custom_environmental_variables(
     init_project: Path,
 ) -> None:
     config_yaml = yaml.safe_load((init_project / "config.dev.yaml").read_text())
-    config_yaml["modules"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
+    config_yaml["variables"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting a module with a transformation that uses the cicd_clientId variable
     config_yaml["environment"]["selected_modules_and_packages"] = ["cdf_infield_location"]
     config_yaml["environment"]["project"] = "pytest"
@@ -44,7 +44,7 @@ def test_inject_custom_environmental_variables(
         source_dir=str(init_project),
         build_dir=str(local_tmp_path),
         build_env="dev",
-        clean=True,
+        no_clean=False,
     )
     deploy(
         typer_context,
@@ -61,16 +61,20 @@ def test_inject_custom_environmental_variables(
 
 
 def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context, capture_print: PrintCapture) -> None:
+    config = MagicMock(spec=BuildConfigYAML)
+    config.environment = MagicMock(spec=Environment)
+    config.environment.name = "dev"
+    config.environment.selected_modules_and_packages = ["module1"]
     with pytest.raises(SystemExit):
         build_config(
             build_dir=local_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
-            config=MagicMock(spec=BuildConfigYAML),
+            config=config,
             system_config=MagicMock(spec=SystemYAML),
         )
     # Check that the error message is printed
-    assert "module1" in capture_print.messages[-1]
-    assert "duplicated module names" in capture_print.messages[-2]
+    assert "module1" in capture_print.messages[-2]
+    assert "Ambiguous module selected in config.dev.yaml:" in capture_print.messages[-3]
 
 
 def test_pull_transformation(
@@ -241,7 +245,6 @@ def test_dump_datamodel(
     assert len(child_loaded.properties) == 1
 
 
-@pytest.mark.skip("This functionality is not yet implemented")
 def test_build_custom_project(
     local_tmp_path: Path,
     typer_context: typer.Context,
@@ -252,7 +255,29 @@ def test_build_custom_project(
         source_dir=str(CUSTOM_PROJECT),
         build_dir=str(local_tmp_path),
         build_env="dev",
-        clean=True,
+        no_clean=False,
+    )
+
+    actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}
+
+    missing_resources = expected_resources - actual_resources
+    assert not missing_resources, f"Missing resources: {missing_resources}"
+
+    extra_resources = actual_resources - expected_resources
+    assert not extra_resources, f"Extra resources: {extra_resources}"
+
+
+def test_build_project_selecting_parent_path(
+    local_tmp_path,
+    typer_context,
+) -> None:
+    expected_resources = {"auth", "data_models", "files", "transformations"}
+    build(
+        typer_context,
+        source_dir=str(PYTEST_PROJECT),
+        build_dir=str(local_tmp_path),
+        build_env="dev",
+        no_clean=False,
     )
 
     actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}

@@ -6,7 +6,7 @@ environment:
   - cdf_functions_dummy
   common_function_code: ../../../../cognite_toolkit/common_function_code
 
-modules:
+variables:
   cognite_modules:
     # Globally defined variables are available to all submodules
     # of the cognite_modules.

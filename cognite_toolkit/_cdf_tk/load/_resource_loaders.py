@@ -26,8 +26,8 @@ from zipfile import ZipFile
 
 import yaml
 from cognite.client import CogniteClient
-from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
+    ClientCredentials,
     DatapointsList,
     DataSet,
     DataSetList,
@@ -61,6 +61,15 @@ from cognite.client.data_classes import (
     TransformationScheduleWriteList,
     TransformationWrite,
     TransformationWriteList,
+    Workflow,
+    WorkflowList,
+    WorkflowUpsert,
+    WorkflowUpsertList,
+    WorkflowVersion,
+    WorkflowVersionId,
+    WorkflowVersionList,
+    WorkflowVersionUpsert,
+    WorkflowVersionUpsertList,
     capabilities,
     filters,
 )
@@ -77,6 +86,7 @@ from cognite.client.data_classes.capabilities import (
     SessionsAcl,
     TimeSeriesAcl,
     TransformationsAcl,
+    WorkflowOrchestrationAcl,
 )
 from cognite.client.data_classes.data_modeling import (
     Container,
@@ -122,7 +132,6 @@ from rich import print
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_directory_hash,
-    get_oneshot_session,
     load_yaml_inject_variables,
     retrieve_view_ancestors,
 )
@@ -232,7 +241,6 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
             raw = [raw]
 
         for group in raw:
-
             is_resource_scoped = any(
                 any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
                 for capability in group.get("capabilities", [])
@@ -638,50 +646,26 @@ class FunctionScheduleLoader(
 
     def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
         items = self._resolve_functions_ext_id(items)
-        (_, bearer) = self.client.config.credentials.authorization_header()
-        created = FunctionSchedulesList([])
+        created = []
         for item in items:
-            if (
-                authentication := self.extra_configs.get(f"{item.function_external_id}:{item.cron_expression}", {}).get(
-                    "authentication"
-                )
-            ) is not None and len(authentication) > 0:
-                new_tool_config = CDFToolConfig()
-                old_credentials = cast(OAuthClientCredentials, new_tool_config.client.config.credentials)
-                new_tool_config.client.config.credentials = OAuthClientCredentials(
-                    client_id=authentication.get("clientId"),
-                    client_secret=authentication.get("clientSecret"),
-                    scopes=old_credentials.scopes,
-                    token_url=old_credentials.token_url,
-                )
-                session = get_oneshot_session(new_tool_config.client)
+            key = f"{item.function_external_id}:{item.cron_expression}"
+            auth_config = self.extra_configs.get(key, {}).get("authentication", {})
+            if "clientId" in auth_config and "clientSecret" in auth_config:
+                client_credentials = ClientCredentials(auth_config["clientId"], auth_config["clientSecret"])
             else:
-                session = get_oneshot_session(self.client)
-            nonce = session.nonce if session is not None else ""
-            try:
-                ret = self.client.post(
-                    url=f"/api/v1/projects/{self.client.config.project}/functions/schedules",
-                    json={
-                        "items": [
-                            {
-                                "name": item.name,
-                                "description": item.description,
-                                "cronExpression": item.cron_expression,
-                                "functionId": item.function_id,
-                                "data": item.data,
-                                "nonce": nonce,
-                            }
-                        ],
-                    },
-                    headers={"Authorization": bearer},
+                client_credentials = None
+
+            created.append(
+                self.client.functions.schedules.create(
+                    name=item.name or "",
+                    description=item.description or "",
+                    cron_expression=cast(str, item.cron_expression),
+                    function_id=cast(int, item.function_id),
+                    data=item.data,
+                    client_credentials=client_credentials,
                 )
-            except CogniteAPIError as e:
-                if e.code == 400 and "Failed to bind session" in e.message:
-                    print("  [bold yellow]WARNING:[/] Failed to bind session because function is not ready.")
-                continue
-            if ret.status_code == 201:
-                created.append(FunctionSchedule.load(ret.json()["items"][0]))
-        return created
+            )
+        return FunctionSchedulesList(created)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         schedules = self.retrieve(ids)
@@ -1039,7 +1023,6 @@ class TransformationLoader(
         transformations = TransformationWriteList([])
 
         for resource in resources:
-
             source_oidc_credentials = (
                 resource.get("authentication", {}).get("read") or resource.get("authentication") or None
             )
@@ -1582,10 +1565,17 @@ class ContainerLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ContainerApply | ContainerApplyList | None:
-        loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
-        if loaded is None:
-            return None
-        items = loaded if isinstance(loaded, ContainerApplyList) else [loaded]
+        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if not isinstance(raw_yaml, list):
+            raw_yaml = [raw_yaml]
+        # When upgrading to SDK 7.37.0 there was a breaking change in the SDK requiring 'list' for direct relations.
+        # This patches the yaml to include the list key for direct relations if it is missing.
+        for raw_instance in raw_yaml:
+            for prop in raw_instance.get("properties", {}).values():
+                type_ = prop.get("type", {})
+                if type_.get("type") == "direct" and "list" not in type_:
+                    type_["list"] = False
+        items = ContainerApplyList.load(raw_yaml)
         if not skip_validation:
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         for item in items:
@@ -1593,11 +1583,11 @@ class ContainerLoader(
             for prop_name in item.properties.keys():
                 prop_dumped = item.properties[prop_name].dump()
                 if prop_dumped.get("nullable") is None:
-                    prop_dumped["nullable"] = False
+                    prop_dumped["nullable"] = False  # type: ignore[assignment]
                 if prop_dumped.get("autoIncrement") is None:
-                    prop_dumped["autoIncrement"] = False
+                    prop_dumped["autoIncrement"] = False  # type: ignore[assignment]
                 item.properties[prop_name] = ContainerProperty.load(prop_dumped)
-        return loaded
+        return items
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)
@@ -1926,3 +1916,115 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
         # Nodes will be deleted in .delete call.
         return 0
+
+
+@final
+class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
+    api_name = "workflows"
+    folder_name = "workflows"
+    filename_pattern = r"^.*\.Workflow$"
+    resource_cls = Workflow
+    resource_write_cls = WorkflowUpsert
+    list_cls = WorkflowList
+    list_write_cls = WorkflowUpsertList
+
+    @classmethod
+    def get_required_capability(cls, items: WorkflowUpsertList) -> Capability:
+        return WorkflowOrchestrationAcl(
+            [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
+            WorkflowOrchestrationAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: Workflow | WorkflowUpsert) -> str:
+        if item.external_id is None:
+            raise ValueError("Workflow must have external_id set.")
+        return item.external_id
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> WorkflowUpsertList:
+        resource = load_yaml_inject_variables(filepath, {})
+
+        workflows = [resource] if isinstance(resource, dict) else resource
+        return WorkflowUpsertList.load(workflows)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
+        workflows = []
+        for ext_id in ids:
+            workflow = self.client.workflows.retrieve(external_id=ext_id)
+            if workflow:
+                workflows.append(workflow)
+        return WorkflowList(workflows)
+
+    def _upsert(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
+        upserts = [items] if isinstance(items, WorkflowUpsert) else items
+        return WorkflowList([self.client.workflows.upsert(upsert) for upsert in upserts])
+
+    def create(self, items: WorkflowUpsert | WorkflowUpsertList) -> WorkflowList:
+        return self._upsert(items)
+
+    def update(self, items: WorkflowUpsertList) -> WorkflowList:
+        return self._upsert(items)
+
+
+@final
+class WorkflowVersionLoader(
+    ResourceLoader[
+        WorkflowVersionId, WorkflowVersionUpsert, WorkflowVersion, WorkflowVersionUpsertList, WorkflowVersionList
+    ]
+):
+    api_name = "workflows.versions"
+    folder_name = "workflows"
+    filename_pattern = r"^.*\.?(WorkflowVersion)$"
+    resource_cls = WorkflowVersion
+    resource_write_cls = WorkflowVersionUpsert
+    list_cls = WorkflowVersionList
+    list_write_cls = WorkflowVersionUpsertList
+    dependencies = frozenset({WorkflowLoader})
+
+    @classmethod
+    def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability:
+        return WorkflowOrchestrationAcl(
+            [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
+            WorkflowOrchestrationAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: WorkflowVersion | WorkflowVersionUpsert) -> WorkflowVersionId:
+        return item.as_id()
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> WorkflowVersionUpsertList:
+        resource = load_yaml_inject_variables(filepath, {})
+
+        workflowversions = [resource] if isinstance(resource, dict) else resource
+        return WorkflowVersionUpsertList.load(workflowversions)
+
+    def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
+        return self.client.workflows.versions.list(list(ids))
+
+    def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+        return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
+
+    def create(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+        upserted = []
+        for item in items:
+            upserted.append(self.client.workflows.versions.upsert(item))
+        return WorkflowVersionList(upserted)
+
+    def update(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
+        updated = []
+        for item in items:
+            updated.append(self.client.workflows.versions.upsert(item))
+        return WorkflowVersionList(updated)
+
+    def delete(self, ids: SequenceNotStr[WorkflowVersionId]) -> int:
+        successes = 0
+        for id in ids:
+            try:
+                self.client.workflows.versions.delete(id)
+            except CogniteNotFoundError:
+                print(f"  [bold yellow]WARNING:[/] WorkflowVersion {id} does not exist, skipping delete.")
+            else:
+                successes += 1
+        return successes

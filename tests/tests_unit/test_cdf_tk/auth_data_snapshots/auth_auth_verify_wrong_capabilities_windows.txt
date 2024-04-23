@@ -1,10 +1,8 @@
 Checking current service principal/application and environment
 configurations...
-  WARNING: CDF_URL is set to https://greenfield.cognitedata.com, are you sure
-it shouldn't be https://bluefield.cognitedata.com?
-  WARNING: IDP_SCOPES is set to https://greenfield.cognitedata.com/.default,
-are you sure it shouldn't be https://bluefield.cognitedata.com/.default?
-
+WARNING: CDF URL is set to https://greenfield.cognitedata.com, are you sure it
+shouldn't be https://bluefield.cognitedata.com?
+  OK
 Checking basic project configuration...
   OK
 Checking projects that the service principal/application has access to...

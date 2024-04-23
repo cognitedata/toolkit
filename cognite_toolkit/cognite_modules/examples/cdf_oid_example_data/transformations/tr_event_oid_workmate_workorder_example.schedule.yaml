@@ -1,0 +1,3 @@
+externalId: tr_event_{{default_location}}_{{source_asset}}_workorder_example
+interval: '{{scheduleHourly}}'
+isPaused: false

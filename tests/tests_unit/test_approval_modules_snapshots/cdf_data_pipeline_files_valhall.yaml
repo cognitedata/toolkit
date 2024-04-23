@@ -27,7 +27,7 @@ ExtractionPipeline:
     \ document metadata, where is location of property for P&ID type documents\n docTypeMetaCol:\
     \ \"doc_type\"\n # Document type for P&ID type documents\n pAndIdDocType: \"PNID\"\
     \n # List of externalId for root assets to be used for annotation of documents.\
-    \ Documents are also extracted based on the root asset ID\n assetRootExtIds: [workmate:VAL]\n\
+    \ Documents are also extracted based on the root asset ID\n assetRootExtIds: [WMT:VAL]\n\
     \ # Number between 0 and 1, indication of strict the matching should be 1 = only\
     \ exact matches\n matchTreshold: 0.85\n```\n"
   externalId: ep_ctx_files_oid_fileshare_pandid_annotation
@@ -53,9 +53,9 @@ ExtractionPipeline:
     tableName: files_metadata
   source: fileshare
 ExtractionPipelineConfig:
-- config: "data:\n    assetRootExtIds:\n    - workmate:VAL\n    debug: false\n   \
-    \ docDataSetExtId: ds_files_oid\n    docLimit: -1\n    docTypeMetaCol: doc_type\n\
-    \    matchThreshold: 0.85\n    pAndIdDocType: PNID\n    runAll: false\n"
+- config: "data:\n    assetRootExtIds:\n    - WMT:VAL\n    debug: false\n    docDataSetExtId:\
+    \ ds_files_oid\n    docLimit: -1\n    docTypeMetaCol: doc_type\n    matchThreshold:\
+    \ 0.85\n    pAndIdDocType: PNID\n    runAll: false\n"
   externalId: ep_ctx_files_oid_fileshare_pandid_annotation
 - config: "cognite:\n    data-set:\n        external-id: ds-files:valhall\nfiles:\n\
     \    extensions:\n    - .pdf\n    file-provider:\n        path: c:/tmp/files\n\
@@ -76,11 +76,17 @@ Function:
   externalId: fn_context_files_oid_fileshare_annotation
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: c8e88f94d5a311c2b5f56f4af42ffa22b774f769b91ef48108122cdea205bd1f
+    cdf-toolkit-function-hash: c5fddc5cb0ccfcac02205cfb3eccfef878e73a75762671ebc6bfeb050e6dc86e
     version: 0.0.1
   name: context:files:oid:fileshare:annotation
   owner: Anonymous
   runtime: py311
+FunctionSchedule:
+- cronExpression: 0,30 * * * *
+  data:
+    ExtractionPipelineExtId: ep_ctx_files_oid_fileshare_pandid_annotation
+  description: Run every 30 minute
+  name: every 30 min
 Group:
 - capabilities:
   - rawAcl:
@@ -246,13 +252,15 @@ Transformation:
   isPublic: true
   name: files:oid:fileshare:file_metadata
   query: "--\n-- Update file metdata using Transformation\n--\n-- Input data from\
-    \ RAW DB table (using example data) and uploaded files\n--\nSELECT\n  file.id\
-    \                          as id,\n  file.name                        as name,\n\
-    \  'oid_'|| file.name as  externalId,\n  meta.source                      as source,\n\
-    \  meta.`mime_type`                 as mimeType,\n  dataset_id('ds_files_oid')\
-    \  as dataSetId,\n  to_metadata(doc_type)            as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
-    \ meta,\n  _cdf.files                                 file \nWHERE \n  file.name\
-    \ = meta.name\n"
+    \ RAW DB table (using example data) and uploaded files\n--\nWith \n  root_id AS\
+    \ (\n     Select id from _cdf.asset where externalId = 'WMT:VAL'\n  )\nSELECT\n\
+    \  file.id                          as id,\n  file.name                      \
+    \  as name,\n  'oid_'|| file.name as  externalId,\n  meta.source             \
+    \         as source,\n  meta.`mime_type`                 as mimeType,\n  array(root_id.id)\
+    \                as assetIds,\n  dataset_id('ds_files_oid')  as dataSetId,\n \
+    \ to_metadata(doc_type)            as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
+    \ meta,\n  _cdf.files                             file,\n  root_id\nWHERE \n \
+    \ file.name = meta.name\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
