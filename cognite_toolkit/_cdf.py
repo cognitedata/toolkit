@@ -10,14 +10,12 @@ from importlib import resources
 from pathlib import Path
 from typing import Annotated, Optional, Union, cast
 
-import sentry_sdk
 import typer
 from cognite.client.data_classes.data_modeling import DataModelId, NodeId
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk import bootstrap
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.describe import describe_datamodel
@@ -49,8 +47,11 @@ from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_file
 from cognite_toolkit._version import __version__ as current_version
 
 if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
+    import sentry_sdk
+
     sentry_sdk.init(
         dsn="https://ea8b03f98a675ce080056f1583ed9ce7@o124058.ingest.sentry.io/4506429021093888",
+        release=current_version,
         # Set traces_sample_rate to 1.0 to capture 100%
         # of transactions for performance monitoring.
         traces_sample_rate=1.0,
@@ -111,7 +112,7 @@ class Common:
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"CDF-Toolkit version: {_version.__version__}.")
+        typer.echo(f"CDF-Toolkit version: {current_version}.")
         raise typer.Exit()
 
 
