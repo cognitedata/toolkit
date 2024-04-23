@@ -52,7 +52,7 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
     ProjectDirectoryUpgrade,
     SystemYAML,
 )
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_file
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_file, sentry_exception_filter
 from cognite_toolkit._version import __version__ as current_version
 
 if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
@@ -61,6 +61,7 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
     sentry_sdk.init(
         dsn="https://ea8b03f98a675ce080056f1583ed9ce7@o124058.ingest.sentry.io/4506429021093888",
         release=current_version,
+        before_send=sentry_exception_filter,
         # Set traces_sample_rate to 1.0 to capture 100%
         # of transactions for performance monitoring.
         traces_sample_rate=1.0,

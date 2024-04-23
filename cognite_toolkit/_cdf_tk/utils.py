@@ -31,7 +31,7 @@ from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesVie
 from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, TypeVar, get_args, get_origin, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, Optional, TypeVar, get_args, get_origin, overload
 
 import typer
 import yaml
@@ -50,13 +50,19 @@ from rich.prompt import Confirm, Prompt
 
 from cognite_toolkit._cdf_tk._get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitYAMLFormatError
 from cognite_toolkit._version import __version__
 
 if sys.version_info < (3, 10):
     from typing_extensions import TypeAlias
 else:
     from typing import TypeAlias
+
+
+if TYPE_CHECKING:
+    from sentry_sdk.types import Event as SentryEvent
+    from sentry_sdk.types import Hint as SentryHint
+
 
 logger = logging.getLogger(__name__)
 
@@ -1341,3 +1347,12 @@ def retrieve_view_ancestors(client: CogniteClient, parents: list[ViewId], cache:
 
         parent_ids = grand_parent_ids
     return found
+
+
+def sentry_exception_filter(event: SentryEvent, hint: SentryHint) -> Optional[SentryEvent]:
+    if "exc_info" in hint:
+        exc_type, exc_value, tb = hint["exc_info"]
+        # Returning None prevents the event from being sent to Sentry
+        if isinstance(exc_value, ToolkitError):
+            return None
+    return event
