@@ -71,7 +71,11 @@ def build_config(
         )
         exit(1)
 
-    available_modules = set(module_name_by_path.keys()) | {paths[0] for paths in module_name_by_path.values()}
+    available_modules = (
+        set(module_name_by_path.keys())
+        | {paths[0] for paths in module_name_by_path.values()}
+        | {paths[0][:i] for paths in module_name_by_path.values() for i in range(1, len(paths[0]))}
+    )
     system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)

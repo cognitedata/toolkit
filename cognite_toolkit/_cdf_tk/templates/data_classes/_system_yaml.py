@@ -30,7 +30,12 @@ class SystemYAML(ConfigCore):
             filepath=filepath,
             cdf_toolkit_version=version,
             packages={
-                name: [tuple(entry.split(MODULE_PATH_SEP)) if MODULE_PATH_SEP in entry else entry for entry in package]
+                name: [
+                    tuple([part for part in entry.split(MODULE_PATH_SEP) if part])
+                    if MODULE_PATH_SEP in entry
+                    else entry
+                    for entry in package
+                ]
                 for name, package in packages.items()
             },
         )
