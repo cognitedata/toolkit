@@ -1103,4 +1103,13 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
 
 
 if __name__ == "__main__":
-    app()
+    # Typer is meddling with sys.excepthook, so this is a workaround for 'app()'
+    # to do some custom exception handling:
+    command = typer.main.get_command(app)
+    try:
+        command(standalone_mode=False)
+    except ToolkitError as err:
+        print(f"  [bold red]ERROR:[/] {err}")
+        sys.exit(1)
+
+    sys.exit(0)
