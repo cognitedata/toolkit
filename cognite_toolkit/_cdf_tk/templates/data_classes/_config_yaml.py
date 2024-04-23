@@ -161,6 +161,8 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         ]
         if verbose:
             print("  [bold green]INFO:[/] Selected packages:")
+            if len(selected_packages) == 0:
+                print("    None")
             for package in selected_packages:
                 print(f"    {package}")
 

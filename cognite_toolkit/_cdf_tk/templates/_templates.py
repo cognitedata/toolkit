@@ -626,11 +626,10 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
         if modules := modules_by_variable.get(variable):
             module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
             print(
-                f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' are defined in a tree structure, i.e., "
-                "variables defined at a higher level can be used in lower levels."
-                f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str}."
-                f"\n    It needs to be moved up in the config structure to be used"
-                f"in {module!r}."
+                f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
+                f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
+                f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
             )
 
     if destination.suffix in {".yaml", ".yml"}:
