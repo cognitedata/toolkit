@@ -153,6 +153,11 @@ variables:
         raw_db: pump_assets
         data_set: src:lift_pump_stations
 
+      my_example_module:
+        example_variable: demo_variable
+        workflow_external_id: demo_workflow
+        example_secret: '${ENVIRONMENT_SECRET}'
+
     experimental:
       cdf_asset_source_model:
         # Only valid for this module, loads template variables from environment
