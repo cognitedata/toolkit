@@ -9,13 +9,14 @@ from cognite.client.data_classes import Transformation, TransformationWrite
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
+from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.load import TransformationLoader
 from cognite_toolkit._cdf_tk.templates import build_config
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES
-from tests.tests_unit.utils import PrintCapture, mock_read_yaml_file
+from tests.tests_unit.utils import mock_read_yaml_file
 
 
 def test_inject_custom_environmental_variables(
@@ -60,17 +61,17 @@ def test_inject_custom_environmental_variables(
     assert transformation.source_oidc_credentials.client_id == "my_environment_variable_value"
 
 
-def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context, capture_print: PrintCapture) -> None:
-    with pytest.raises(SystemExit):
+def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context) -> None:
+    with pytest.raises(ToolkitDuplicatedModuleError) as err:
         build_config(
             build_dir=local_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
             config=MagicMock(spec=BuildConfigYAML),
             system_config=MagicMock(spec=SystemYAML),
         )
-    # Check that the error message is printed
-    assert "module1" in capture_print.messages[-1]
-    assert "duplicated module names" in capture_print.messages[-2]
+    line1, line2 = str(err.value).splitlines()
+    assert line1 == "Found the following duplicated module names in project_with_duplicates:"
+    assert line2.strip() == "module1: ['cognite_modules/models/module1', 'cognite_modules/examples/module1']"
 
 
 def test_pull_transformation(

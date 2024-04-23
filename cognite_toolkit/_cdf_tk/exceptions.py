@@ -51,7 +51,7 @@ class ToolkitDuplicatedModuleError(ToolkitError):
         self.duplicated = duplicated
 
     def __str__(self) -> str:
-        dupe_info = [f"    {module_name}: {paths}" for module_name, paths in self.duplicated.items()]
+        dupe_info = [f"    {module_name}: {list(map(str, paths))}" for module_name, paths in self.duplicated.items()]
         return "\n".join([super().__str__(), *dupe_info])
 
 
