@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.templates import build_config
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES
+from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
 from tests.tests_unit.utils import PrintCapture, mock_read_yaml_file
 
 
@@ -249,6 +249,28 @@ def test_build_custom_project(
     build(
         typer_context,
         source_dir=str(CUSTOM_PROJECT),
+        build_dir=str(local_tmp_path),
+        build_env="dev",
+        no_clean=False,
+    )
+
+    actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}
+
+    missing_resources = expected_resources - actual_resources
+    assert not missing_resources, f"Missing resources: {missing_resources}"
+
+    extra_resources = actual_resources - expected_resources
+    assert not extra_resources, f"Extra resources: {extra_resources}"
+
+
+def test_build_project_selecting_parent_path(
+    local_tmp_path,
+    typer_context,
+) -> None:
+    expected_resources = {"auth", "data_models", "files", "transformations"}
+    build(
+        typer_context,
+        source_dir=str(PYTEST_PROJECT),
         build_dir=str(local_tmp_path),
         build_env="dev",
         no_clean=False,
