@@ -71,7 +71,7 @@ def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context) 
         )
     line1, line2 = str(err.value).splitlines()
     assert line1 == "Found the following duplicated module names in project_with_duplicates:"
-    assert line2.strip() == "module1: ['cognite_modules/models/module1', 'cognite_modules/examples/module1']"
+    assert line2.strip() == "module1: ['cognite_modules/examples/module1', 'cognite_modules/models/module1']"
 
 
 def test_pull_transformation(
