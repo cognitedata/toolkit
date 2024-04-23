@@ -14,6 +14,7 @@ CUSTOM_MODULES = "custom_modules"
 ALT_CUSTOM_MODULES = "modules"
 
 ROOT_MODULES = [COGNITE_MODULES, CUSTOM_MODULES, ALT_CUSTOM_MODULES]
+MODULE_PATH_SEP = "/"
 
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
