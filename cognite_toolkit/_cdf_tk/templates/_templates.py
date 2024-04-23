@@ -69,7 +69,8 @@ def build_config(
     }:
         print(f"  [bold red]ERROR:[/] Ambiguous module selected in config.{config.environment.name}.yaml:")
         for module_name, paths in duplicate_modules.items():
-            print(f"    {module_name} exists in {[MODULE_PATH_SEP.join(path) for path in paths]}")
+            locations = "\t\t\n".join([MODULE_PATH_SEP.join(path) for path in paths])
+            print(f"    {module_name} exists in:\n{locations}")
         print(
             "    You can use the path syntax to disambiguate between modules with the same name. For example "
             "'cognite_modules/core/cdf_apm_base' instead of 'cdf_apm_base'."
