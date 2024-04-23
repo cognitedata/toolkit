@@ -1,4 +1,3 @@
-    my_example_module:
-      example_variable: foo
-      workflow_external_id: baz
-      example_secret: '${ENVIRONMENT_SECRET}'
+example_variable: foo
+workflow_external_id: baz
+example_secret: '${ENVIRONMENT_SECRET}'
