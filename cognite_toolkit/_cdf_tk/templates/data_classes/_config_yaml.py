@@ -178,7 +178,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         if verbose:
             print("  [bold green]INFO:[/] Selected modules:")
             for module in selected_modules:
-                print(f"    {module}")
+                print(f"    {MODULE_PATH_SEP.join(module)!s}")
         if not selected_modules:
             print(
                 f"  [bold yellow]WARNING:[/] Found no defined modules in {self.filepath!s}, have you configured the environment ({self.environment.name})?"
