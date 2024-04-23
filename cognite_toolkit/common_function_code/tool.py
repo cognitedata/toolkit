@@ -25,7 +25,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
 from dotenv import load_dotenv
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFound
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 
 
 class CDFClientTool:
@@ -50,7 +50,7 @@ class CDFClientTool:
     def init_local_client(self, env_path: str | None = None) -> CogniteClient:
         if env_path is not None:
             if not (dotenv_file := Path(env_path)).is_file():
-                raise ToolkitFileNotFound(f"{env_path} does not exist.")
+                raise ToolkitFileNotFoundError(f"{env_path} does not exist.")
             if dotenv_file.is_file():
                 path_str = dotenv_file.resolve()
                 print(f"Loading .env file: {path_str!s}")

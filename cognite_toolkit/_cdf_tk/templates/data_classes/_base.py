@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.exceptions import ToolkitConfigError, ToolkitFileNotFound, ToolkitVersionError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitVersionError
 from cognite_toolkit._cdf_tk.templates import BUILD_ENVIRONMENT_FILE
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
@@ -28,7 +28,7 @@ class ConfigCore(ABC):
         filepath = source_path / file_name
         filepath = filepath if filepath.is_file() else Path.cwd() / file_name
         if not filepath.is_file():
-            raise ToolkitFileNotFound(f"{filepath.name!r} does not exist")
+            raise ToolkitFileNotFoundError(f"{filepath.name!r} does not exist")
 
         return cls.load(read_yaml_file(filepath), build_env, filepath)
 
@@ -47,10 +47,10 @@ def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
     except KeyError:
         err_msg = f"System variables are missing required field 'cdf_toolkit_version' in {file_name!s}. {{}}"
         if file_name == BUILD_ENVIRONMENT_FILE:
-            raise ToolkitConfigError(
+            raise ToolkitVersionError(
                 err_msg.format("Rerun `cdf-tk build` to build the templates again and create it correctly.")
             )
-        raise ToolkitConfigError(
+        raise ToolkitVersionError(
             err_msg.format("Run `cdf-tk init --upgrade` to initialize the templates again to create a correct file.")
         )
 
