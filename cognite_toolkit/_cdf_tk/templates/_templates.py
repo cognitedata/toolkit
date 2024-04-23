@@ -56,7 +56,7 @@ def build_config(
 
     config.validate_environment()
 
-    module_name_by_path: dict[str, list[tuple[str]]] = defaultdict(list)
+    module_name_by_path: dict[str, list[tuple[str, ...]]] = defaultdict(list)
     for module, _ in iterate_modules(source_dir):
         module_name_by_path[module.name].append(module.relative_to(source_dir).parts)
     if duplicate_modules := {
@@ -427,7 +427,7 @@ def process_files_directory(
 
 def process_config_files(
     project_config_dir: Path,
-    selected_modules: list[str],
+    selected_modules: list[str | tuple[str, ...]],
     build_dir: Path,
     config: BuildConfigYAML,
     verbose: bool = False,

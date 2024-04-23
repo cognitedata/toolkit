@@ -33,7 +33,7 @@ class Environment:
     name: str
     project: str
     build_type: str
-    selected_modules_and_packages: list[tuple[str] | str]
+    selected_modules_and_packages: list[str | tuple[str, ...]]
     common_function_code: str
 
     @classmethod
@@ -81,8 +81,8 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
     variables: dict[str, Any]
 
     @property
-    def available_modules(self) -> list[str]:
-        available_modules: list[str] = []
+    def available_modules(self) -> list[str | tuple[str, ...]]:
+        available_modules: list[str | tuple[str, ...]] = []
         to_check = [self.variables]
         while to_check:
             current = to_check.pop()
@@ -147,10 +147,15 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         )
 
     def get_selected_modules(
-        self, modules_by_package: dict[str, list[str]], available_modules: set[str], verbose: bool
-    ) -> list[str]:
+        self,
+        modules_by_package: dict[str, list[str | tuple[str, ...]]],
+        available_modules: set[str | tuple[str, ...]],
+        verbose: bool,
+    ) -> list[str | tuple[str, ...]]:
         selected_packages = [
-            package for package in self.environment.selected_modules_and_packages if package in modules_by_package
+            package
+            for package in self.environment.selected_modules_and_packages
+            if package in modules_by_package and isinstance(package, str)
         ]
         if verbose:
             print("  [bold green]INFO:[/] Selected packages:")

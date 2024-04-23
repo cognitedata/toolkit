@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.templates.data_classes._base import ConfigCore, _lo
 class SystemYAML(ConfigCore):
     file_name: ClassVar[str] = "_system.yaml"
     cdf_toolkit_version: str
-    packages: dict[str, list[str | tuple[str]]] = field(default_factory=dict)
+    packages: dict[str, list[str | tuple[str, ...]]] = field(default_factory=dict)
 
     @classmethod
     def _file_name(cls, build_env: str) -> str:
@@ -36,7 +36,7 @@ class SystemYAML(ConfigCore):
         )
 
     def validate_modules(
-        self, available_modules: set[str | tuple[str]], selected_modules_and_packages: list[str | tuple[str]]
+        self, available_modules: set[str | tuple[str, ...]], selected_modules_and_packages: list[str | tuple[str, ...]]
     ) -> None:
         selected_packages = {package for package in selected_modules_and_packages if package in self.packages}
         for package, modules in self.packages.items():
