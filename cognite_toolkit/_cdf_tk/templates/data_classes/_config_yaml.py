@@ -8,7 +8,7 @@ from collections import UserDict, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, ClassVar, Literal, cast
 
 import yaml
 from rich import print
@@ -29,10 +29,11 @@ from ._base import ConfigCore, _load_version_variable
 
 @dataclass
 class Environment:
+    seperator: ClassVar[str] = "/"
     name: str
     project: str
     build_type: str
-    selected_modules_and_packages: list[str]
+    selected_modules_and_packages: list[tuple[str]]
     common_function_code: str
 
     @classmethod
@@ -42,7 +43,9 @@ class Environment:
                 name=data["name"],
                 project=data["project"],
                 build_type=data["type"],
-                selected_modules_and_packages=data["selected_modules_and_packages"],
+                selected_modules_and_packages=[
+                    selected.split(cls.seperator) for selected in data["selected_modules_and_packages"]
+                ],
                 common_function_code=data.get("common_function_code", "./common_function_code"),
             )
         except KeyError:
@@ -57,7 +60,9 @@ class Environment:
             "name": self.name,
             "project": self.project,
             "type": self.build_type,
-            "selected_modules_and_packages": self.selected_modules_and_packages,
+            "selected_modules_and_packages": [
+                self.seperator.join(selected) for selected in self.selected_modules_and_packages
+            ],
             "common_function_code": self.common_function_code,
         }
 
