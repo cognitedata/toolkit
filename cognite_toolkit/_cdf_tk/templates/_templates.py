@@ -447,10 +447,12 @@ def process_config_files(
     number_by_resource_type: dict[str, int] = defaultdict(int)
 
     for module_dir, filepaths in iterate_modules(project_config_dir):
-        if (
-            module_dir.name not in selected_modules
-            and module_dir.relative_to(project_config_dir).parts not in selected_modules
-        ):
+        module_parts = module_dir.relative_to(project_config_dir).parts
+        is_in_selected_modules = module_dir.name in selected_modules or module_parts in selected_modules
+        is_parent_in_selected_modules = any(
+            parent in selected_modules for parent in (module_parts[:i] for i in range(1, len(module_parts)))
+        )
+        if not is_in_selected_modules and not is_parent_in_selected_modules:
             continue
         if verbose:
             print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
