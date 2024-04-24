@@ -29,6 +29,12 @@ from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, Syst
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
+# The encoding and newline characters to use when writing files
+# These are hardcoded to ensure that running the pull command on different platforms
+# will produce the same output. The motivation is when having local sources in
+# version control, the diff will be easier to read.
+ENCODING = "utf-8"
+NEWLINE = "\n"
 
 
 @dataclass
@@ -464,7 +470,7 @@ def pull_command(
         )
 
     if not dry_run:
-        source_file.write_text(new_content)
+        source_file.write_text(new_content, encoding=ENCODING, newline=NEWLINE)
         print(
             f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
             f"'{source_file.relative_to(source_dir)}'."
@@ -503,7 +509,7 @@ def pull_command(
             )
 
         if not dry_run and has_changed:
-            filepath.write_text(content)
+            filepath.write_text(content, encoding=ENCODING, newline=NEWLINE)
             print(f"[bold green]INFO:[/] File '{filepath.relative_to(source_dir)}' updated.")
 
     shutil.rmtree(build_dir)
