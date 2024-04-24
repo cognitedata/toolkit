@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Literal, overload
 
-from rich import print
-
+from cognite_toolkit._cdf_tk.exceptions import ToolkitModuleVersionError
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
@@ -91,25 +91,21 @@ def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
 
 
 def _get_cognite_module_version(project_dir: Path) -> str:
+    previous_version = None
     cognite_modules = project_dir / "cognite_modules"
     if (cognite_modules / "_system.yaml").exists():
         system_yaml = read_yaml_file(cognite_modules / "_system.yaml")
-        try:
+        with suppress(KeyError):
             previous_version = system_yaml["cdf_toolkit_version"]
-        except KeyError:
-            previous_version = None
+
     elif (project_dir / "environments.yaml").exists():
         environments_yaml = read_yaml_file(project_dir / "environments.yaml")
-        try:
+        with suppress(KeyError):
             previous_version = environments_yaml["__system"]["cdf_toolkit_version"]
-        except KeyError:
-            previous_version = None
-    else:
-        previous_version = None
+
     if previous_version is None:
-        print(
+        raise ToolkitModuleVersionError(
             "Failed to load previous version, have you changed the "
             "'_system.yaml' or 'environments.yaml' (before 0.1.0b6) file?"
         )
-        exit(1)
     return previous_version

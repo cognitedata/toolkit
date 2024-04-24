@@ -134,7 +134,7 @@ Function:
   externalId: fn_context_timeseries_oid_opcua_asset
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 84240c2fa9bbb676b53b4a6f8cd3ceaabbfa646282d7ebf5fc6d12d324a753ce
+    cdf-toolkit-function-hash: 706e21bb09813aa765fa0f10cd183e9fbfa712ffc49cf11e98032c0a18be8773
     version: 0.0.1
   name: context:timeseries:oid:opcua:asset
   owner: Anonymous
