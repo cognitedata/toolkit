@@ -9,13 +9,14 @@ from cognite.client.data_classes import Transformation, TransformationWrite
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
+from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.load import TransformationLoader
 from cognite_toolkit._cdf_tk.templates import build_config
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, Environment, SystemYAML
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
-from tests.tests_unit.utils import PrintCapture, mock_read_yaml_file
+from tests.tests_unit.utils import mock_read_yaml_file
 
 
 def test_inject_custom_environmental_variables(
@@ -60,21 +61,24 @@ def test_inject_custom_environmental_variables(
     assert transformation.source_oidc_credentials.client_id == "my_environment_variable_value"
 
 
-def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context, capture_print: PrintCapture) -> None:
+def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context) -> None:
     config = MagicMock(spec=BuildConfigYAML)
     config.environment = MagicMock(spec=Environment)
     config.environment.name = "dev"
     config.environment.selected_modules_and_packages = ["module1"]
-    with pytest.raises(SystemExit):
+    with pytest.raises(ToolkitDuplicatedModuleError) as err:
         build_config(
             build_dir=local_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
             config=config,
             system_config=MagicMock(spec=SystemYAML),
         )
-    # Check that the error message is printed
-    assert "module1" in capture_print.messages[-2]
-    assert "Ambiguous module selected in config.dev.yaml:" in capture_print.messages[-3]
+    l1, l2, l3, l4, l5 = map(str.strip, str(err.value).splitlines())
+    assert l1 == "Ambiguous module selected in config.dev.yaml:"
+    assert l2 == "module1 exists in:"
+    assert l3 == "cognite_modules/examples/module1"
+    assert l4 == "cognite_modules/models/module1"
+    assert l5.startswith("You can use the path syntax to disambiguate between modules with the same name")
 
 
 def test_pull_transformation(

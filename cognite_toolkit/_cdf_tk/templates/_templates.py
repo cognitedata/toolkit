@@ -19,10 +19,17 @@ from cognite.client.data_classes.functions import FunctionList
 from rich import print
 
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitDuplicatedModuleError,
+    ToolkitFileExistsError,
+    ToolkitNotADirectoryError,
+    ToolkitValidationError,
+    ToolkitYAMLFormatError,
+)
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
 
-from ._constants import EXCL_INDEX_SUFFIX, MODULE_PATH_SEP, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
+from ._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
@@ -67,16 +74,9 @@ def build_config(
         for module_name, paths in module_parts_by_name.items()
         if len(paths) > 1 and module_name in config.environment.selected_modules_and_packages
     }:
-        print(f"  [bold red]ERROR:[/] Ambiguous module selected in config.{config.environment.name}.yaml:")
-        for module_name, paths in duplicate_modules.items():
-            locations = "\n        ".join([MODULE_PATH_SEP.join(path) for path in paths])
-            print(f"    {module_name} exists in:\n        {locations}")
-        print(
-            "    You can use the path syntax to disambiguate between modules with the same name. For example "
-            "'cognite_modules/core/cdf_apm_base' instead of 'cdf_apm_base'."
+        raise ToolkitDuplicatedModuleError(
+            f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
         )
-        exit(1)
-
     system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
@@ -96,12 +96,14 @@ def build_config(
     return source_by_build_path
 
 
+# TODO: Refactor this function into validation parts for each 'resource_type':
 def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
     """Check the yaml file for semantic errors
 
     parsed: the parsed yaml file
     filepath: the path to the yaml file
-    yields: True if the yaml file is semantically acceptable, False if build should fail.
+    yields: True if the yaml file is semantically acceptable, False if no inputs are given and the build should fail.
+        Any format errors are raised as exceptions.
     """
     if parsed is None or filepath_src is None or filepath_build is None:
         return False
@@ -109,37 +111,38 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
     ext_id = None
     if resource_type == "data_models" and ".space." in filepath_src.name:
         if isinstance(parsed, list):
-            print(f"      [bold red]:[/] Multiple spaces in one file {filepath_src} is not supported .")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Multiple spaces in one file {filepath_src} is not supported.")
         elif isinstance(parsed, dict):
             ext_id = parsed.get("space")
         else:
-            print(f"      [bold red]:[/] Space file {filepath_src} has invalid dataformat.")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Space file {filepath_src} has invalid dataformat.")
         ext_id_type = "space"
+
     elif resource_type == "data_models" and ".node." in filepath_src.name:
         if isinstance(parsed, list):
-            print(f"      [bold red]:[/] Nodes YAML must be an object file {filepath_src} is not supported .")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Nodes YAML must be an object file {filepath_src} is not supported.")
         try:
             ext_ids = {source["source"]["externalId"] for node in parsed["nodes"] for source in node["sources"]}
         except KeyError:
-            print(f"      [bold red]:[/] Node file {filepath_src} has invalid dataformat.")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Node file {filepath_src} has invalid dataformat.")
+
         if len(ext_ids) != 1:
-            print(f"      [bold red]:[/] All nodes in {filepath_src} must have the same view.")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"All nodes in {filepath_src} must have the same view.")
+
         ext_id = ext_ids.pop()
         ext_id_type = "view.externalId"
+
     elif resource_type == "auth":
         if isinstance(parsed, list):
-            print(f"      [bold red]:[/] Multiple Groups in one file {filepath_src} is not supported .")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Multiple Groups in one file {filepath_src} is not supported.")
+
         ext_id = parsed.get("name")
         ext_id_type = "name"
+
     elif resource_type in ["data_sets", "timeseries", "files"] and isinstance(parsed, list):
         ext_id = ""
         ext_id_type = "multiple"
+
     elif resource_type in ["functions"] and "schedule" in filepath_src.stem:
         if isinstance(parsed, list):
             ext_id = ""
@@ -147,6 +150,7 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
         elif isinstance(parsed, dict):
             ext_id = parsed.get("functionExternalId") or parsed.get("function_external_id")
             ext_id_type = "functionExternalId"
+
     elif resource_type in ["functions"]:
         if isinstance(parsed, list):
             ext_id = ""
@@ -154,6 +158,7 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
         elif isinstance(parsed, dict):
             ext_id = parsed.get("externalId") or parsed.get("external_id")
             ext_id_type = "externalId"
+
     elif resource_type == "raw":
         if isinstance(parsed, list):
             ext_id = ""
@@ -165,8 +170,8 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
                 ext_id = f"{ext_id}.{parsed.get('tableName')}"
                 ext_id_type = "dbName and tableName"
         else:
-            print(f"      [bold red]:[/] Raw file {filepath_src} has invalid dataformat.")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Raw file {filepath_src} has invalid dataformat.")
+
     elif resource_type == "workflows":
         if isinstance(parsed, dict):
             if "version" in filepath_src.stem.lower():
@@ -176,12 +181,11 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
                 ext_id = parsed.get("externalId") or parsed.get("external_id")
                 ext_id_type = "externalId"
         else:
-            print(f"      [bold red]:[/] Multiple Workflows in one file {filepath_src} is not supported .")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Multiple Workflows in one file ({filepath_src}) is not supported.")
     else:
         if isinstance(parsed, list):
-            print(f"      [bold red]:[/] Multiple {resource_type} in one file {filepath_src} is not supported .")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Multiple {resource_type} in one file {filepath_src} is not supported.")
+
         ext_id = parsed.get("externalId") or parsed.get("external_id")
         ext_id_type = "externalId"
 
@@ -283,30 +287,26 @@ def process_function_directory(
 ) -> None:
     try:
         functions: FunctionList = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
-    except KeyError as e:
-        print(f"      [bold red]ERROR:[/] Failed to load function file {yaml_source_path}, error in key: {e}")
-        exit(1)
-    except Exception as e:
-        print(f"      [bold red]ERROR:[/] Failed to load function file {yaml_source_path}, error:\n{e}")
-        exit(1)
+    except (KeyError, yaml.YAMLError) as e:
+        raise ToolkitYAMLFormatError(f"Failed to load function file {yaml_source_path} due to: {e}")
+
     for func in functions:
         found = False
         for function_subdirs in iterate_functions(module_dir):
             for function_dir in function_subdirs:
-                if func.external_id == function_dir.name:
+                if (fn_xid := func.external_id) == function_dir.name:
                     found = True
                     if verbose:
-                        print(f"      [bold green]INFO:[/] Found function {func.external_id}")
+                        print(f"      [bold green]INFO:[/] Found function {fn_xid}")
                     if func.file_id != "<will_be_generated>":
                         print(
-                            f"        [bold yellow]WARNING:[/] Function {func.external_id} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
+                            f"        [bold yellow]WARNING:[/] Function {fn_xid} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
                         )
-                    destination = build_dir / "functions" / f"{func.external_id}"
+                    destination = build_dir / "functions" / fn_xid
                     if destination.exists():
-                        print(
-                            f"        [bold red]ERROR:[/] Function {func.external_id} is duplicated. If this is unexpected, you want want to use '--clean'."
+                        raise ToolkitFileExistsError(
+                            f"Function {fn_xid} is duplicated. If this is unexpected, you may want to use '--clean'."
                         )
-                        exit(1)
                     shutil.copytree(function_dir, destination)
 
                     # Run validations on the function using the SDK's validation function
@@ -319,26 +319,23 @@ def process_function_directory(
                             )
                         else:
                             print(
-                                f"        [bold yellow]WARNING:[/] Function {func.external_id} in {yaml_source_path} has no function_path defined."
+                                f"        [bold yellow]WARNING:[/] Function {fn_xid} in {yaml_source_path} has no function_path defined."
                             )
                     except Exception as e:
-                        print(
-                            f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {function_dir}, python module is not loadable:\n{e}"
-                        )
-                        print(
-                            "            Note that you need to have any requirements your function uses installed in your current, local python environment."
-                        )
-                        exit(1)
+                        raise ToolkitValidationError(
+                            f"Failed to package function {fn_xid} at {function_dir}, python module is not loadable "
+                            f"due to: {type(e)}({e}). Note that you need to have any requirements your function uses "
+                            "installed in your current, local python environment."
+                        ) from e
                     # Clean up cache files
                     for subdir in destination.iterdir():
                         if subdir.is_dir():
                             shutil.rmtree(subdir / "__pycache__", ignore_errors=True)
                     shutil.rmtree(destination / "__pycache__", ignore_errors=True)
         if not found:
-            print(
-                f"        [bold red]ERROR:[/] Function directory not found for externalId {func.external_id} defined in {yaml_source_path}."
+            raise ToolkitNotADirectoryError(
+                f"Function directory not found for externalId {func.external_id} defined in {yaml_source_path}."
             )
-            exit(1)
 
 
 def process_files_directory(
@@ -353,8 +350,7 @@ def process_files_directory(
     try:
         file_def = FileMetadataList.load(yaml_dest_path.read_text())
     except KeyError as e:
-        print(f"      [bold red]ERROR:[/] Failed to load file definitions file {yaml_dest_path}, error in key: {e}")
-        exit(1)
+        raise ToolkitValidationError(f"Failed to load file definitions file {yaml_dest_path}, error in key: {e}")
     # We only support one file template definition per module.
     if len(file_def) == 1:
         if file_def[0].name and "$FILENAME" in file_def[0].name and file_def[0].name != "$FILENAME":
@@ -580,10 +576,9 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
         try:
             parsed = yaml.safe_load(content)
         except yaml.YAMLError as e:
-            print(
-                f"  [bold red]ERROR:[/] YAML validation error for {destination.name} after substituting config variables: \n{e}"
+            raise ToolkitYAMLFormatError(
+                f"YAML validation error for {destination.name} after substituting config variables: {e}"
             )
-            exit(1)
 
         if isinstance(parsed, dict):
             parsed = [parsed]

@@ -26,7 +26,7 @@ Adding a new module consists of the following steps:
    [YAML reference documentation](https://developer.cognite.com/sdks/toolkit/references/configs).
 3. Add a `default.config.yaml` file to the module root directory if you have variables in the templates.
 4. Add a `README.md` file to the module root directory with a description of the module and variables.
-5. Update `default.packages.yaml`  in cognite_toolkit root with the new module if it is part of a package
+5. Update `default.packages.yaml` in cognite_toolkit root with the new module if it is part of a package
 6. If this is an official module, add a description of the module in the
    [module and package documentation](https://developer.cognite.com/sdks/toolkit/references/module_reference).
 
@@ -67,7 +67,7 @@ as a general rule, templates should contain governed configurations necessary to
 and contextualisations, but not the actual data itself.
 
 Of course, where data population of e.g. data model is part of the configuration, that is fine.
-The scripts are continuosly under development to simplify management of configurations, and
+The scripts are continuously under development to simplify management of configurations, and
 we are pushing the functionality into the Python SDK when that makes sense.
 
 ## Testing
@@ -78,7 +78,7 @@ test framework for scenario based testing can be found in the Cognite private bi
 The `cdf-tk deploy` script command will clean configurations if you specify `--drop`, so you can
 try to apply the configuration multiple times without having to clean up manually. If you want to delete
 everything that is governed by your templates, including data ingested into data models, the  `cdf-tk clean`
-script command can be used to clean up configurations using the scripts/delete.py functions.
+script command can be used to clean up configurations using the `scripts/delete.py` functions.
 
 See [tests](tests/README.md) for more information on how to run tests.
 

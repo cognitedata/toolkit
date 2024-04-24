@@ -14,6 +14,7 @@ import yaml
 from rich import print
 
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.templates._constants import (
     BUILD_ENVIRONMENT_FILE,
@@ -50,11 +51,10 @@ class Environment:
                 ],
             )
         except KeyError:
-            print(
-                f"  [bold red]ERROR:[/] Environment is missing "
-                f"required fields 'name', 'project', 'type', or 'selected_modules_and_packages' in {BuildConfigYAML._file_name(build_env)!s}"
+            raise ToolkitEnvError(
+                "Environment is missing one or more required fields: 'name', 'project', 'type', or "
+                f"'selected_modules_and_packages' in {BuildConfigYAML._file_name(build_env)!s}"
             )
-            exit(1)
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -105,32 +105,30 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
     def validate_environment(self) -> None:
         if _RUNNING_IN_BROWSER:
             return None
-        file_name = self._file_name(self.environment.name)
-        if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != self.environment.project:
-            if self.environment.name in {"dev", "local", "demo"}:
+        env_name, env_project = self.environment.name, self.environment.project
+        file_name = self._file_name(env_name)
+        if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != env_project:
+            if env_name in {"dev", "local", "demo"}:
                 print(
-                    f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between {file_name!s} ({self.environment.project}) and what is defined in environment ({project_env})."
-                )
-                print(
-                    f"  Environment is {self.environment.name}, continuing (would have stopped for staging and prod)..."
+                    f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between {file_name!s} "
+                    f"({env_project}) and what is defined in environment ({project_env}). "
+                    f"Environment is {env_name}, continuing (would have STOPPED for staging and prod)..."
                 )
             else:
-                print(
-                    f"  [bold red]ERROR:[/] Project name mismatch (CDF_PROJECT) between {file_name!s} ({self.environment.project}) and what is defined in environment ({project_env=} != {self.environment.project=})."
+                raise ToolkitEnvError(
+                    f"Project name mismatch (CDF_PROJECT) between {file_name!s} ({env_project}) and what is "
+                    f"defined in environment ({project_env=} != {env_project=})."
                 )
-                exit(1)
         return None
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildConfigYAML:
-        if missing := [section for section in ["environment", "variables"] if section not in data]:
-            print(f"  [bold red]ERROR:[/] Expected {', '.join(missing)} section(s) in {filepath!s}. ")
+        if missing := {"environment", "variables"}.difference(data):
+            err_msg = f"Expected {list(missing)} section(s) in {filepath!s}."
             if "modules" in data and "variables" in missing:
-                print(
-                    "  [bold yellow]WARNING:[/] 'modules' section is deprecated and "
-                    "has been renamed to 'variables' instead."
-                )
-            exit(1)
+                err_msg += " Note: The 'modules' section is deprecated and has been renamed to 'variables' instead."
+            raise ToolkitEnvError(err_msg)
+
         environment = Environment.load(data["environment"], build_env)
         variables = data["variables"]
         return cls(environment=environment, variables=variables, filepath=filepath)
@@ -165,14 +163,11 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         selected_modules = [
             module for module in self.environment.selected_modules_and_packages if module not in modules_by_package
         ]
-        missing = set(selected_modules) - available_modules
-        if missing:
-            print(f"  [bold red]ERROR:[/] The following selected modules are missing: {missing}")
-            exit(1)
+        if missing := set(selected_modules) - available_modules:
+            raise ToolkitMissingModuleError(f"The following selected modules are missing: {missing}")
         selected_modules.extend(
             itertools.chain.from_iterable(modules_by_package[package] for package in selected_packages)
         )
-
         if verbose:
             print("  [bold green]INFO:[/] Selected modules:")
             for module in selected_modules:
@@ -181,11 +176,10 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
                 else:
                     print(f"    {MODULE_PATH_SEP.join(module)!s}")
         if not selected_modules:
-            print(
-                f"  [bold yellow]WARNING:[/] Found no defined modules in {self.filepath!s}, have you configured the environment ({self.environment.name})?"
+            raise ToolkitMissingModuleError(
+                f"Found no defined modules in {self.filepath!s}, have you configured "
+                f"the environment ({self.environment.name})?"
             )
-            exit(1)
-
         return selected_modules
 
 
@@ -206,8 +200,8 @@ class BuildEnvironment(Environment):
         else:
             load_data = data
         if environment is None:
-            print(f"  [bold red]ERROR:[/] Environment {build_env} not found in {BUILD_ENVIRONMENT_FILE!s}")
-            exit(1)
+            raise ToolkitEnvError(f"Environment {build_env} not found in {BUILD_ENVIRONMENT_FILE!s}")
+
         version = _load_version_variable(load_data, BUILD_ENVIRONMENT_FILE)
         try:
             return BuildEnvironment(
@@ -218,10 +212,10 @@ class BuildEnvironment(Environment):
                 cdf_toolkit_version=version,
             )
         except KeyError:
-            print(
-                f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', or 'selected_modules_and_packages' in {BUILD_ENVIRONMENT_FILE!s}"
+            raise ToolkitEnvError(
+                f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', "
+                f"or 'selected_modules_and_packages' in {BUILD_ENVIRONMENT_FILE!s}"
             )
-            exit(1)
 
     def dump(self) -> dict[str, Any]:
         output = super().dump()
@@ -379,7 +373,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         if cls._environment in config:
             environment = Environment.load(config[cls._environment], build_env)
         else:
-            raise ValueError(f"Missing environment in {existing_config_yaml!s}")
+            raise ToolkitEnvError(f"Missing environment in {existing_config_yaml!s}")
 
         modules = config[cls._variables] if cls._variables in config else config
         entries: dict[tuple[str, ...], ConfigEntry] = {}

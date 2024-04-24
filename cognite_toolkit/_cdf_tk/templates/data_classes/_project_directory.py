@@ -12,6 +12,13 @@ from typing import ClassVar
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitError,
+    ToolkitFileNotFoundError,
+    ToolkitIsADirectoryError,
+    ToolkitMigrationError,
+    ToolkitNotADirectoryError,
+)
 from cognite_toolkit._cdf_tk.templates._constants import (
     COGNITE_MODULES,
     ROOT_MODULES,
@@ -109,11 +116,11 @@ class ProjectDirectory:
         # Creating the config.[environment].yaml files
         environment_default = self._source / COGNITE_MODULES / "default.environments.yaml"
         if not environment_default.is_file():
-            print(
-                f"  [bold red]ERROR:[/] Could not find default.environments.yaml in {environment_default.parent.relative_to(Path.cwd())!s}. "
-                f"There is something wrong with your installation, try to reinstall `cognite-tk`, and if the problem persists, please contact support."
+            location = environment_default.parent.relative_to(Path.cwd())
+            raise ToolkitFileNotFoundError(
+                f"Could not find default.environments.yaml in {location!s}. There is something wrong with your "
+                "installation, try to reinstall `cognite-tk`, and if the problem persists, please contact support."
             )
-            exit(1)
 
         config_yamls = ConfigYAMLs.load_default_environments(read_yaml_file(environment_default))
 
@@ -142,8 +149,7 @@ class ProjectDirectoryInit(ProjectDirectory):
 
     def create_project_directory(self, clean: bool) -> None:
         if self.project_dir.exists() and not clean:
-            print(f"Directory {self.target_dir_display} already exists.")
-            exit(1)
+            raise ToolkitIsADirectoryError(f"Directory {self.target_dir_display} already exists.")
         elif self.project_dir.exists() and clean and self._dry_run:
             print(f"Would clean out directory {self.target_dir_display}...")
         elif self.project_dir.exists() and clean:
@@ -168,8 +174,7 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
         super().__init__(project_dir, dry_run)
         if not project_dir.exists():
             # Need to do this check here, as we load version from the project directory.
-            print(f"Found no directory {self.target_dir_display} to upgrade.")
-            exit(1)
+            raise ToolkitNotADirectoryError(f"Found no directory {self.target_dir_display} to upgrade.")
 
         self._cognite_module_version = _get_cognite_module_version(self.project_dir)
         changes = MigrationYAML.load()
@@ -178,8 +183,7 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
             None,
         )
         if version_hash is None:
-            print(f"Failed to find migration from version '{self._cognite_module_version}'.")
-            exit(1)
+            raise ToolkitMigrationError(f"Failed to find migration from version {self._cognite_module_version!s}.")
         current_hash = calculate_directory_hash(self.project_dir / COGNITE_MODULES)
         self._has_changed_cognite_modules = current_hash != version_hash
         self._changes = changes.slice_from(self._cognite_module_version).as_one_change()
@@ -192,8 +196,7 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
         if self.project_dir.exists():
             print(f"[bold]Upgrading directory {self.target_dir_display}...[/b]")
         else:
-            print(f"Found no directory {self.target_dir_display} to upgrade.")
-            exit(1)
+            raise ToolkitNotADirectoryError(f"Found no directory {self.target_dir_display} to upgrade.")
 
     def do_backup(self, no_backup: bool, verbose: bool) -> None:
         if not no_backup and self._has_changed_cognite_modules:
@@ -303,10 +306,9 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
                 zip_path, _ = urllib.request.urlretrieve(toolkit_github_url)
                 with zipfile.ZipFile(zip_path, "r") as f:
                     f.extractall(extract_dir)
-            except Exception:
-                print(
-                    f"Failed to download templates. Are you sure that the branch {git_branch} exists in"
-                    + "the https://github.com/cognitedata/cdf-project-templatesrepository?\n{e}"
-                )
-                exit(1)
+            except Exception as e:
+                raise ToolkitError(
+                    f"Failed to download or extract templates. Are you sure that the branch {git_branch} exists in"
+                    "the `https://github.com/cognitedata/cdf-project-templates` repository?"
+                ) from e
         return Path(extract_dir) / f"cdf-project-templates-{git_branch}" / "cognite_toolkit"
