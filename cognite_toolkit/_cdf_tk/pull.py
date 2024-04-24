@@ -470,7 +470,8 @@ def pull_command(
         )
 
     if not dry_run:
-        source_file.write_text(new_content, encoding=ENCODING, newline=NEWLINE)
+        with source_file.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
+            f.write(new_content)
         print(
             f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
             f"'{source_file.relative_to(source_dir)}'."
@@ -509,7 +510,8 @@ def pull_command(
             )
 
         if not dry_run and has_changed:
-            filepath.write_text(content, encoding=ENCODING, newline=NEWLINE)
+            with filepath.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
+                f.write(content)
             print(f"[bold green]INFO:[/] File '{filepath.relative_to(source_dir)}' updated.")
 
     shutil.rmtree(build_dir)
