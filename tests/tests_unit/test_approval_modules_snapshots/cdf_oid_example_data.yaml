@@ -31,17 +31,29 @@ DataSet:
   writeProtected: false
 Datapoints:
 - args: []
-  columns:
-  - pi_160633
-  - pi_160696
-  - pi_160702
-  - pi_160781
-  - pi_163582
-  - pi_163657
-  - pi_191092
-  dataframe: 75111115425812004176806621799699857630636183615055067181457655101926656558550
+  dataframe:
+    empty_count: 0
+    first_row:
+      pi_160633: 0.0012835122703141
+      pi_160696: 0.9430412044195982
+      pi_160702: 0.921258849058182
+      pi_160781: 7.966557533525912
+      pi_163582: 2.3526631083248954
+      pi_163657: 8.069841457805456
+      pi_191092: .nan
+    last_row:
+      pi_160633: 0.7480550805138148
+      pi_160696: 3.241366151739411
+      pi_160702: 10.551495179640783
+      pi_160781: 40.07480342558218
+      pi_163582: 5.139716777025379
+      pi_163657: 15.081554233383534
+      pi_191092: .nan
+    nan_count: 48407
+    null_count: 48407
+    shape: 92277x7
   kwargs: {}
-  name: pi_160633_pi_160696_pi_160702_pi_160781_pi_163582_pi_163657_pi_191092
+  name: missing
 FileMetadata:
 - args: []
   kwargs:
@@ -144,140 +156,253 @@ FileMetadata:
   source: fileshare
 Row:
 - args: []
-  columns:
-  - externalId
-  - key
-  - sourceExternalId
-  - targetExternalId
-  dataframe: 65132422233352380667621271214779673075306803480403254987707392554277354984239
+  dataframe:
+    empty_count: 0
+    first_row:
+      externalId: WMT:23-1ST STAGE COMP DRY GAS SEAL SYS-PH-WMT:23-CB-9104B
+      key: WMT:23-1ST STAGE COMP DRY GAS SEAL SYS-PH-WMT:23-CB-9104B
+      sourceExternalId: WMT:23-1ST STAGE COMP DRY GAS SEAL SYS-PH
+      targetExternalId: WMT:23-CB-9104B
+    last_row:
+      externalId: WMT:48-XY-96966B-WMT:48-ZSH-96966B
+      key: WMT:48-XY-96966B-WMT:48-ZSH-96966B
+      sourceExternalId: WMT:48-XY-96966B
+      targetExternalId: WMT:48-ZSH-96966B
+    nan_count: 0
+    null_count: 0
+    shape: 1105x4
   kwargs:
     db_name: asset_oid_workmate
     ensure_parent: false
     table_name: asset2children
   name: asset_oid_workmate_asset2children_False
 - args: []
-  columns:
-  - areaId
-  - categoryId
-  - createdDate
-  - description
-  - externalId
-  - isActive
-  - isCriticalLine
-  - key
-  - parentExternalId
-  - sourceDb
-  - tag
-  - updatedDate
-  dataframe: 57891456803121921428976315312364329412619608053939238762257156050724626631544
+  dataframe:
+    empty_count: 7
+    first_row:
+      areaId: '1004'
+      categoryId: '1152'
+      createdDate: '2013-05-16 11:50:16'
+      description: 'VRD - PH STG1 COMP WTR MIST RELEASED : PRESSURE ALARM HIGH HIGH'
+      externalId: WMT:48-PAHH-96960
+      isActive: 'true'
+      isCriticalLine: 'false'
+      key: WMT:48-PAHH-96960
+      parentExternalId: WMT:48-PT-96960
+      sourceDb: workmate
+      tag: 48-PAHH-96960
+      updatedDate: '2015-10-06 12:28:33'
+    last_row:
+      areaId: '1004'
+      categoryId: '1120'
+      createdDate: '2009-06-26 15:36:37'
+      description: VRD - 1ST STAGE SUCTION SCRUBBER
+      externalId: WMT:23-VG-9101
+      isActive: 'true'
+      isCriticalLine: 'false'
+      key: WMT:23-VG-9101
+      parentExternalId: WMT:23-1ST STAGE COMPRESSION-PH
+      sourceDb: workmate
+      tag: 23-VG-9101
+      updatedDate: '2015-10-08 15:05:08'
+    nan_count: 0
+    null_count: 0
+    shape: 1105x12
   kwargs:
     db_name: asset_oid_workmate
     ensure_parent: false
     table_name: assets
   name: asset_oid_workmate_assets_False
 - args: []
-  columns:
-  - doc_type
-  - mime_type
-  - name
-  - source
-  dataframe: 89607466921718646234013188826763988604583252041209841068631982337955335056085
+  dataframe:
+    empty_count: 0
+    first_row:
+      doc_type: PNID
+      mime_type: application/pdf
+      name: PH-25578-P-4110006-001.pdf
+      source: Open Industry Data
+    last_row:
+      doc_type: PNID
+      mime_type: application/pdf
+      name: PH-ME-P-0160-001.pdf
+      source: Open Industry Data
+    nan_count: 0
+    null_count: 0
+    shape: 11x4
   kwargs:
     db_name: files_oid_fileshare
     ensure_parent: false
     table_name: files_metadata
   name: files_oid_fileshare_files_metadata_False
 - args: []
-  columns:
-  - asset
-  - timeseries
-  dataframe: 42238171890592475836414285137261901334839048940119910154669151409359925238991
+  dataframe:
+    empty_count: 0
+    first_row:
+      asset: WMT:23-PT-92504
+      timeseries: pi_160696
+    last_row:
+      asset: WMT:23-TT-92604A
+      timeseries: pi_191092
+    nan_count: 0
+    null_count: 0
+    shape: 7x2
   kwargs:
     db_name: timeseries_oid_fileshare
     ensure_parent: false
     table_name: timeseries2assets
   name: timeseries_oid_fileshare_timeseries2assets_False
 - args: []
-  columns:
-  - externalId
-  - key
-  - sourceExternalId
-  - targetExternalId
-  dataframe: 24070397954107219076297784795815816611399974753013853614532722631741356308279
+  dataframe:
+    empty_count: 0
+    first_row:
+      externalId: FAO-070704-01-WMT:48-LG-96960
+      key: FAO-070704-01-WMT:48-LG-96960
+      sourceExternalId: FAO-070704-01
+      targetExternalId: WMT:48-LG-96960
+    last_row:
+      externalId: KAO-145804--WMT:23-GK-9107A-M01
+      key: KAO-145804--WMT:23-GK-9107A-M01
+      sourceExternalId: KAO-145804-
+      targetExternalId: WMT:23-GK-9107A-M01
+    nan_count: 0
+    null_count: 0
+    shape: 6494x4
   kwargs:
     db_name: workorder_oid_workmate
     ensure_parent: false
     table_name: workitem2assets
   name: workorder_oid_workmate_workitem2assets_False
 - args: []
-  columns:
-  - criticality
-  - description
-  - endTime
-  - externalId
-  - isCompleted
-  - itemInfo
-  - itemName
-  - key
-  - method
-  - startTime
-  - title
-  - toBeDone
-  - workOrder
-  dataframe: 74271825522219822673391372281835016360465760410127510212228070577797944490395
+  dataframe:
+    empty_count: 3998
+    first_row:
+      criticality: HIGH
+      description: ''
+      endTime: '1343472505000'
+      externalId: FAO-074014-
+      isCompleted: 'false'
+      itemInfo: VRD - 1ST STAGE COMPRESSOR
+      itemName: 23-KA-9101
+      key: FAO-074014-
+      method: ''
+      startTime: '1343286000000'
+      title: ''
+      toBeDone: 'false'
+      workOrder: FAO-074014
+    last_row:
+      criticality: ''
+      description: ''
+      endTime: ''
+      externalId: MAO-014277-
+      isCompleted: 'false'
+      itemInfo: VAL,BRIDGES GENERAL
+      itemName: VAL,B00
+      key: MAO-014277-
+      method: ''
+      startTime: '1296816287000'
+      title: ''
+      toBeDone: 'false'
+      workOrder: MAO-014277
+    nan_count: 0
+    null_count: 0
+    shape: 1536x13
   kwargs:
     db_name: workorder_oid_workmate
     ensure_parent: false
     table_name: workitems
   name: workorder_oid_workmate_workitems_False
 - args: []
-  columns:
-  - externalId
-  - key
-  - sourceExternalId
-  - targetExternalId
-  dataframe: 54872058878870172664438852077033356687520504688349312543905325490691467828016
+  dataframe:
+    empty_count: 0
+    first_row:
+      externalId: FAO-073479-WMT:23-KA-9101
+      key: FAO-073479-WMT:23-KA-9101
+      sourceExternalId: FAO-073479
+      targetExternalId: WMT:23-KA-9101
+    last_row:
+      externalId: MAO-011255-WMT:VAL
+      key: MAO-011255-WMT:VAL
+      sourceExternalId: MAO-011255
+      targetExternalId: WMT:VAL
+    nan_count: 0
+    null_count: 0
+    shape: 6493x4
   kwargs:
     db_name: workorder_oid_workmate
     ensure_parent: false
     table_name: workorder2assets
   name: workorder_oid_workmate_workorder2assets_False
 - args: []
-  columns:
-  - externalId
-  - key
-  - sourceExternalId
-  - targetExternalId
-  dataframe: 101951962313922334979646809996559791093296308400263159240134125152577689826887
+  dataframe:
+    empty_count: 0
+    first_row:
+      externalId: FAO-076475-FAO-076475-1
+      key: FAO-076475-FAO-076475-1
+      sourceExternalId: FAO-076475
+      targetExternalId: FAO-076475-1
+    last_row:
+      externalId: FAO-121750-FAO-121750-4
+      key: FAO-121750-FAO-121750-4
+      sourceExternalId: FAO-121750
+      targetExternalId: FAO-121750-4
+    nan_count: 0
+    null_count: 0
+    shape: 1536x4
   kwargs:
     db_name: workorder_oid_workmate
     ensure_parent: false
     table_name: workorder2items
   name: workorder_oid_workmate_workorder2items_False
 - args: []
-  columns:
-  - actualHours
-  - createdDate
-  - description
-  - dueDate
-  - durationHours
-  - endTime
-  - externalId
-  - isActive
-  - isCancelled
-  - isCompleted
-  - isSafetyCritical
-  - key
-  - percentageProgress
-  - plannedStart
-  - priorityDescription
-  - programNumber
-  - startTime
-  - status
-  - title
-  - workOrderNumber
-  - workPackageNumber
-  dataframe: 49635073468911862200780096832567927775381248829805924693025366484996076085436
+  dataframe:
+    empty_count: 1393
+    first_row:
+      actualHours: '4'
+      createdDate: '2012-04-11T13:16:19'
+      description: '<***> Smøreoljeprøve kompressorer  '
+      dueDate: '2012-06-24T00:00:00'
+      durationHours: '0'
+      endTime: '1337790468000'
+      externalId: FAO-071979
+      isActive: 'false'
+      isCancelled: 'false'
+      isCompleted: 'true'
+      isSafetyCritical: 'NO'
+      key: FAO-071979
+      percentageProgress: '100'
+      plannedStart: '2012-05-26T00:00:00'
+      priorityDescription: Ikke kritisk (utføres sammen med planlagt vedlikehold)
+      programNumber: PM-014055
+      startTime: '1338015600000'
+      status: '600'
+      title: <PH> SMØREOLJEPRØVE KOMPRESSORER  (*** month)
+      workOrderNumber: FAO-071979
+      workPackageNumber: WPG-004844
+    last_row:
+      actualHours: ''
+      createdDate: '2009-04-28T14:08:39'
+      description: 'INSTALLASJON - H05 SPOOL ***-***-***-*** MC: ***-***'
+      dueDate: ''
+      durationHours: '0'
+      endTime: '1264182745000'
+      externalId: MAO-011259
+      isActive: 'false'
+      isCancelled: 'false'
+      isCompleted: 'true'
+      isSafetyCritical: 'NO'
+      key: MAO-011259
+      percentageProgress: '100'
+      plannedStart: '2009-06-26T00:00:00'
+      priorityDescription: Ikke kritisk (utføres sammen med planlagt vedlikehold)
+      programNumber: ''
+      startTime: '1240927719000'
+      status: '600'
+      title: ' '
+      workOrderNumber: MAO-011259
+      workPackageNumber: ''
+    nan_count: 0
+    null_count: 0
+    shape: 1314x21
   kwargs:
     db_name: workorder_oid_workmate
     ensure_parent: false

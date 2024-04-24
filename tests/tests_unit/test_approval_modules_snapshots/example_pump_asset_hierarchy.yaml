@@ -6,39 +6,76 @@ DataSet:
   writeProtected: false
 Row:
 - args: []
-  columns:
-  - Comments
-  - DesignPointFlowGPM
-  - DesignPointHeadFT
-  - Enabled
-  - FacilityID
-  - GlobalID
-  - HighHeadShutOff
-  - InstallDate
-  - LastEditor
-  - LastUpdate
-  - LifeCycleStatus
-  - LiftStationID
-  - LocationDescription
-  - LowHeadFT
-  - LowHeadFlowGPM
-  - OBJECTID
-  - Position
-  - PumpControl
-  - PumpHP
-  - PumpModel
-  - PumpNumber
-  - PumpOff
-  - PumpOn
-  - PumpOutDia
-  - Shape__Length
-  - VFD
-  - VFDSetting
-  - created_date
-  - created_user
-  - last_edited_date
-  - last_edited_user
-  dataframe: 43593606280736560691218448898119971656915641052658906164308612197279340608269
+  dataframe:
+    empty_count: 586
+    first_row:
+      Comments: 'Col Lift Sta. #69   Poplar Park - On Honey Pod, behind 60841 Yellow
+        Leaf St.'
+      DesignPointFlowGPM: '150'
+      DesignPointHeadFT: '86'
+      Enabled: '1'
+      FacilityID: CPUMP069A
+      GlobalID: ab4bb18c-ffd6-4392-80bb-4de9e760ec0c
+      HighHeadShutOff: '0'
+      InstallDate: 2004/02/04 00:00:00+00
+      LastEditor: ''
+      LastUpdate: ''
+      LifeCycleStatus: I
+      LiftStationID: Poplar Park
+      LocationDescription: Poplar Park - 60841 Yellow Leaf St., 97702
+      LowHeadFT: '77'
+      LowHeadFlowGPM: '300'
+      OBJECTID: '157'
+      Position: LEAD
+      PumpControl: ' '
+      PumpHP: '10'
+      PumpModel: 3127.090-2569
+      PumpNumber: ' '
+      PumpOff: '3843.25'
+      PumpOn: '3844.42'
+      PumpOutDia: '4'
+      Shape__Length: '5.43071178655461'
+      VFD: ' '
+      VFDSetting: ''
+      created_date: 2022/12/07 18:30:02.971+00
+      created_user: CityofBendOR
+      last_edited_date: 2022/12/07 18:30:02.971+00
+      last_edited_user: CityofBendOR
+    last_row:
+      Comments: ''
+      DesignPointFlowGPM: ''
+      DesignPointHeadFT: ''
+      Enabled: '1'
+      FacilityID: CPUMP094B
+      GlobalID: f376a2ee-406a-4a83-bbea-bb03ad5f7395
+      HighHeadShutOff: ''
+      InstallDate: 2021/06/01 00:00:00+00
+      LastEditor: BEND\dzarate
+      LastUpdate: 2023/03/10 15:54:00+00
+      LifeCycleStatus: I
+      LiftStationID: CLS000001
+      LocationDescription: Rimrock Pump Station Improvements
+      LowHeadFT: ''
+      LowHeadFlowGPM: ''
+      OBJECTID: '1921'
+      Position: ''
+      PumpControl: ''
+      PumpHP: ''
+      PumpModel: ''
+      PumpNumber: ''
+      PumpOff: ''
+      PumpOn: ''
+      PumpOutDia: ''
+      Shape__Length: '2.15722253363218'
+      VFD: 'YES'
+      VFDSetting: ''
+      created_date: 2023/03/10 23:52:51+00
+      created_user: CityofBendOR
+      last_edited_date: 2023/03/10 23:54:00+00
+      last_edited_user: CityofBendOR
+    nan_count: 0
+    null_count: 0
+    shape: 162x31
   kwargs:
     db_name: pump_assets
     ensure_parent: false
