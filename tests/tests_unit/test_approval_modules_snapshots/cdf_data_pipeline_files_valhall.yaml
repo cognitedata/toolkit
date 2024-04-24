@@ -76,7 +76,7 @@ Function:
   externalId: fn_context_files_oid_fileshare_annotation
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: c5fddc5cb0ccfcac02205cfb3eccfef878e73a75762671ebc6bfeb050e6dc86e
+    cdf-toolkit-function-hash: ef732c41127c8ee3bc266c9d7734279d8ea8293912a5243060284d3c37daa7f3
     version: 0.0.1
   name: context:files:oid:fileshare:annotation
   owner: Anonymous
