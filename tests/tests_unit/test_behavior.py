@@ -73,12 +73,12 @@ def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context) 
             config=config,
             system_config=MagicMock(spec=SystemYAML),
         )
-    line1, line2 = str(err.value).splitlines()
-    assert line1 == "Found the following duplicated module names in project_with_duplicates:"
-    assert line2.strip() == "module1: ['cognite_modules/examples/module1', 'cognite_modules/models/module1']"
-    # TODO:
-    # assert "module1" in capture_print.messages[-2]
-    # assert "Ambiguous module selected in config.dev.yaml:" in capture_print.messages[-3]
+    l1, l2, l3, l4, l5 = map(str.strip, str(err.value).splitlines())
+    assert l1 == "Ambiguous module selected in config.dev.yaml:"
+    assert l2 == "module1 exists in:"
+    assert l3 == "cognite_modules/examples/module1"
+    assert l4 == "cognite_modules/models/module1"
+    assert l5.startswith("You can use the path syntax to disambiguate between modules with the same name")
 
 
 def test_pull_transformation(

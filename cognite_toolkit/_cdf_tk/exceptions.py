@@ -1,7 +1,5 @@
 from yaml import YAMLError
 
-from ._constants import MODULE_PATH_SEP
-
 
 class ToolkitError(Exception):
     pass
@@ -53,6 +51,8 @@ class ToolkitDuplicatedModuleError(ToolkitError):
         self.duplicated = duplicated
 
     def __str__(self) -> str:
+        from cognite_toolkit._cdf_tk.templates._constants import MODULE_PATH_SEP
+
         lines = [super().__str__()]
         for module_name, paths in self.duplicated.items():
             locations = "\n        ".join(sorted(MODULE_PATH_SEP.join(path) for path in paths))
