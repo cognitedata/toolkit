@@ -294,12 +294,21 @@ Group:
   sourceId: <change_me>
 Row:
 - args: []
-  columns:
-  - assetExternalId
-  - contextualized
-  - key
-  - timeSeriesExternalId
-  dataframe: 9078343689182423651389940353470843953491326160899249126411759952436401285960
+  dataframe:
+    empty_count: 2
+    first_row:
+      assetExternalId: WMT:23-TT-92604A
+      contextualized: ''
+      key: pi_191092
+      timeSeriesExternalId: pi_191092
+    last_row:
+      assetExternalId: WMT:23-TIC-92504
+      contextualized: ''
+      key: pi_160781
+      timeSeriesExternalId: pi_160781
+    nan_count: 0
+    null_count: 0
+    shape: 2x4
   kwargs:
     db_name: timeseries_oid_opcua
     ensure_parent: false
