@@ -40,9 +40,7 @@ class ProjectDirectory:
         ".env.tmpl",
         "_system.yaml",
     ]
-    _directories_to_copy: ClassVar[list[str]] = [
-        "common_function_code",
-    ]
+    _directories_to_copy: ClassVar[list[str]] = []
 
     def __init__(self, project_dir: Path, dry_run: bool):
         self.project_dir = project_dir

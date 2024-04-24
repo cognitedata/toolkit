@@ -1,1 +1,1 @@
-cognite-sdk>=7.13.8
+cognite-sdk>=7.37.0
