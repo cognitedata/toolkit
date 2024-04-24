@@ -1365,6 +1365,6 @@ def run_app_with_manual_exception_handling(app: typer.Typer) -> int:
     try:
         command(standalone_mode=False)
     except ToolkitError as err:
-        print(f"  [bold red]ERROR:[/] {err}")
+        print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
         return 1
     return 0
