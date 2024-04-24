@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from graphlib import TopologicalSorter
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, Optional, Union, cast
+from typing import Annotated, NoReturn, Optional, Union, cast
 
 import typer
 from cognite.client.data_classes.data_modeling import DataModelId, NodeId
@@ -88,17 +88,24 @@ except AttributeError as e:
         f"This was triggered by the error: {e!r}"
     )
 
-app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 auth_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
-app.add_typer(auth_app, name="auth")
-app.add_typer(describe_app, name="describe")
-app.add_typer(run_app, name="run")
-app.add_typer(pull_app, name="pull")
-app.add_typer(dump_app, name="dump")
+_app.add_typer(auth_app, name="auth")
+_app.add_typer(describe_app, name="describe")
+_app.add_typer(run_app, name="run")
+_app.add_typer(pull_app, name="pull")
+_app.add_typer(dump_app, name="dump")
+
+
+def app() -> NoReturn:
+    # Main entry point.
+    # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
+    exit_code = run_app_with_manual_exception_handling(_app)
+    raise SystemExit(exit_code)
 
 
 _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
@@ -120,7 +127,7 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-@app.callback(invoke_without_command=True)
+@_app.callback(invoke_without_command=True)
 def common(
     ctx: typer.Context,
     verbose: Annotated[
@@ -212,7 +219,7 @@ def common(
     )
 
 
-@app.command("build")
+@_app.command("build")
 def build(
     ctx: typer.Context,
     source_dir: Annotated[
@@ -270,7 +277,7 @@ def build(
     )
 
 
-@app.command("deploy")
+@_app.command("deploy")
 def deploy(
     ctx: typer.Context,
     build_dir: Annotated[
@@ -453,7 +460,7 @@ def deploy(
         raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")
 
 
-@app.command("clean")
+@_app.command("clean")
 def clean(
     ctx: typer.Context,
     build_dir: Annotated[
@@ -664,7 +671,7 @@ def auth_verify(
         raise ToolkitValidationError("Failure to verify access rights.")
 
 
-@app.command("init")
+@_app.command("init")
 def main_init(
     ctx: typer.Context,
     dry_run: Annotated[
@@ -1106,5 +1113,5 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
 
 
 if __name__ == "__main__":
-    exit_code = run_app_with_manual_exception_handling(app)
+    exit_code = run_app_with_manual_exception_handling(_app)
     raise SystemExit(exit_code)
