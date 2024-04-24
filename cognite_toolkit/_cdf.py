@@ -52,7 +52,12 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
     ProjectDirectoryUpgrade,
     SystemYAML,
 )
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_file, sentry_exception_filter
+from cognite_toolkit._cdf_tk.utils import (
+    CDFToolConfig,
+    read_yaml_file,
+    run_app_with_manual_exception_handling,
+    sentry_exception_filter,
+)
 from cognite_toolkit._version import __version__ as current_version
 
 if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
@@ -1101,13 +1106,5 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
 
 
 if __name__ == "__main__":
-    # Typer is meddling with sys.excepthook, so this is a workaround for 'app()'
-    # to do some custom exception handling:
-    command = typer.main.get_command(app)
-    try:
-        command(standalone_mode=False)
-    except ToolkitError as err:
-        print(f"  [bold red]ERROR:[/] {err}")
-        sys.exit(1)
-
-    sys.exit(0)
+    exit_code = run_app_with_manual_exception_handling(app)
+    raise SystemExit(exit_code)
