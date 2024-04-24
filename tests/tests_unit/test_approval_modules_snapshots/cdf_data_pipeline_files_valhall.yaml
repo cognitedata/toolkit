@@ -255,10 +255,10 @@ Transformation:
     \ RAW DB table (using example data) and uploaded files\n--\nWith \n  root_id AS\
     \ (\n     Select id from _cdf.asset where externalId = 'WMT:VAL'\n  )\nSELECT\n\
     \  file.id                          as id,\n  file.name                      \
-    \  as name,\n  'oid_'|| file.name as  externalId,\n  meta.source             \
-    \         as source,\n  meta.`mime_type`                 as mimeType,\n  array(root_id.id)\
-    \                as assetIds,\n  dataset_id('ds_files_oid')  as dataSetId,\n \
-    \ to_metadata(doc_type)            as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
+    \  as name,\n  file.externalId                  as externalId,\n  meta.source\
+    \                      as source,\n  meta.`mime_type`                 as mimeType,\n\
+    \  array(root_id.id)                as assetIds,\n  dataset_id('ds_files_oid')\
+    \  as dataSetId,\n  to_metadata(doc_type)            as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
     \ meta,\n  _cdf.files                             file,\n  root_id\nWHERE \n \
     \ file.name = meta.name\n"
   sourceOidcCredentials:
@@ -272,6 +272,39 @@ TransformationSchedule:
 - externalId: tr_files_oid_fileshare_file_metadata
   interval: 7 * * * *
   isPaused: true
+Workflow:
+- description: Annotation process on files
+  externalId: wf_oid_files_annotation
+WorkflowVersion:
+- version: '1'
+  workflowDefinition:
+    description: Execute tasks in sequence
+    tasks:
+    - externalId: tr_files_oid_fileshare_file_metadata
+      name: Metadata Transformation
+      onFailure: abortWorkflow
+      parameters:
+        transformation:
+          concurrencyPolicy: fail
+          externalId: tr_files_oid_fileshare_file_metadata
+      retries: 3
+      timeout: null
+      type: transformation
+    - dependsOn:
+      - externalId: tr_files_oid_fileshare_file_metadata
+      description: Function for annotating files
+      externalId: fn_context_files_oid_fileshare_annotation
+      name: Annotation Function
+      onFailure: abortWorkflow
+      parameters:
+        function:
+          data:
+            ExtractionPipelineExtId: ep_ctx_files_oid_fileshare_pandid_annotation
+          externalId: fn_context_files_oid_fileshare_annotation
+      retries: 3
+      timeout: null
+      type: function
+  workflowExternalId: wf_oid_files_annotation
 deleted:
   ExtractionPipeline:
   - externalId: ep_ctx_files_oid_fileshare_pandid_annotation

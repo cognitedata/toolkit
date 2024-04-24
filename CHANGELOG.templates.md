@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Added Workflow with a Function and a Transformation to the cdf_data_pipeline_files_valhall example
+
 ## [0.2.0a3] - 2024-04-23
 
 ### Fixed
