@@ -103,6 +103,10 @@ class TestContainerLoader:
             write_container.description = "Updated description"
             updated = loader.update(dm.ContainerApplyList([write_container]))
             assert len(updated) == 1
+            if updated[0].description != write_container.description:
+                # The API is not always consistent in returning the updated description,
+                # so we need to retrieve the container to verify the update
+                updated = loader.retrieve([node_container.as_id()])
             assert updated[0].description == write_container.description
         finally:
             loader.drop_data(container_id)
@@ -151,6 +155,10 @@ class TestContainerLoader:
             write_container.description = "Updated description"
             updated = loader.update(dm.ContainerApplyList([write_container]))
             assert len(updated) == 1
+            if updated[0].description != write_container.description:
+                # The API is not always consistent in returning the updated description,
+                # so we need to retrieve the container to verify the update
+                updated = loader.retrieve([write_container.as_id()])
             assert updated[0].description == write_container.description
         finally:
             cognite_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
