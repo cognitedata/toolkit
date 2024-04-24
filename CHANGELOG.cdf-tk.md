@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+- [BREAKING] `cognite-tookit` no longer supports `common_function_code`. The code used by functions must be in each
+  function directory. The reason for this is that `cognite-toolkit` is a tool for governance and deployment of
+  modules, it is not for development of functions. The `common_function_code` was a feature to support easier
+  development of functions. It is expected that functions are developed in a separate environment and then
+  moved to the `cognite_modules` folder for deployment and promotion between environments.
+
 ## [0.2.0a3] - 2024-04-23
 
 ### Added
