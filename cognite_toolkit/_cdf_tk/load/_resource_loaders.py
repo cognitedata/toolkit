@@ -1023,6 +1023,19 @@ class TransformationLoader(
         transformations = TransformationWriteList([])
 
         for resource in resources:
+            external_id = resource.get("externalId", "Missing")
+            if "action" in resource and "conflictMode" not in resource:
+                print(
+                    f"  [bold yellow]WARNING:[/] In transformation {external_id}: "
+                    "Parameter 'action' is not supported (this is specific for transformation-cli), "
+                    "please use 'conflictMode' instead."
+                )
+            if "shared" in resource and "isPublic" not in resource:
+                print(
+                    f"  [bold yellow]WARNING:[/] In transformation {external_id}: "
+                    "Parameter 'shared' is not supported (this is specific for transformation-cli), "
+                    "please use 'isPublic' instead."
+                )
             source_oidc_credentials = (
                 resource.get("authentication", {}).get("read") or resource.get("authentication") or None
             )
