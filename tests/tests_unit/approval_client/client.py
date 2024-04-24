@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import itertools
 import json as JSON
 from collections import defaultdict
@@ -353,51 +352,37 @@ class ApprovalCogniteClient:
                 cognite_client=client,
             )
 
+        def _create_dataframe_info(dataframe: pd.DataFrame) -> dict[str, Any]:
+            return {
+                "shape": "x".join(map(str, dataframe.shape)),
+                "nan_count": int(dataframe.isna().sum().sum()),
+                "null_count": int(dataframe.isnull().sum().sum()),
+                "empty_count": int(dataframe[dataframe == ""].count().sum()),
+                "first_row": dataframe.iloc[0].to_dict(),
+                "last_row": dataframe.iloc[-1].to_dict(),
+            }
+
         def insert_dataframe(*args, **kwargs) -> None:
             args = list(args)
             kwargs = dict(kwargs)
-            dataframe_hash = ""
-            dataframe_cols = []
+            dataframe_info: dict[str, Any] = {}
             for arg in list(args):
                 if isinstance(arg, pd.DataFrame):
                     args.remove(arg)
-                    dataframe_hash = int(
-                        hashlib.sha256(
-                            pd.util.hash_pandas_object(
-                                arg.sort_index().sort_index(axis=1), index=False, encoding="utf-8"
-                            ).values
-                        ).hexdigest(),
-                        16,
-                    )
-                    dataframe_cols = sorted(arg.columns)
+                    dataframe_info = _create_dataframe_info(arg)
                     break
-
             for key in list(kwargs):
                 if isinstance(kwargs[key], pd.DataFrame):
                     value = kwargs.pop(key)
-                    dataframe_hash = int(
-                        hashlib.sha256(
-                            pd.util.hash_pandas_object(
-                                value.sort_index().sort_index(axis=1), index=False, encoding="utf-8"
-                            ).values
-                        ).hexdigest(),
-                        16,
-                    )
-                    dataframe_cols = sorted(value.columns)
+                    dataframe_info = _create_dataframe_info(value)
                     break
-            if not dataframe_hash:
+            if not dataframe_info:
                 raise ValueError("No dataframe found in arguments")
             name = "_".join([str(arg) for arg in itertools.chain(args, kwargs.values())])
             if not name:
-                name = "_".join(dataframe_cols)
+                name = "missing"
             created_resources[resource_cls.__name__].append(
-                {
-                    "name": name,
-                    "args": args,
-                    "kwargs": kwargs,
-                    "dataframe": dataframe_hash,
-                    "columns": dataframe_cols,
-                }
+                {"name": name, "args": args, "kwargs": kwargs, "dataframe": dataframe_info}
             )
 
         def upload(*args, **kwargs) -> None:
