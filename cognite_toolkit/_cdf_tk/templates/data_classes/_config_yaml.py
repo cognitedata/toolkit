@@ -34,7 +34,6 @@ class Environment:
     project: str
     build_type: str
     selected_modules_and_packages: list[str | tuple[str, ...]]
-    common_function_code: str
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str) -> Environment:
@@ -49,7 +48,6 @@ class Environment:
                     else selected
                     for selected in data["selected_modules_and_packages"]
                 ],
-                common_function_code=data.get("common_function_code", "./common_function_code"),
             )
         except KeyError:
             print(
@@ -67,7 +65,6 @@ class Environment:
                 MODULE_PATH_SEP.join(selected) if isinstance(selected, tuple) else selected
                 for selected in self.selected_modules_and_packages
             ],
-            "common_function_code": self.common_function_code,
         }
 
 
@@ -144,7 +141,6 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
             project=self.environment.project,
             build_type=self.environment.build_type,
             selected_modules_and_packages=self.environment.selected_modules_and_packages,
-            common_function_code=self.environment.common_function_code,
             cdf_toolkit_version=__version__,
         )
 
@@ -220,7 +216,6 @@ class BuildEnvironment(Environment):
                 build_type=load_data["type"],
                 selected_modules_and_packages=load_data["selected_modules_and_packages"],
                 cdf_toolkit_version=version,
-                common_function_code=load_data.get("common_function_code", "./common_function_code"),
             )
         except KeyError:
             print(

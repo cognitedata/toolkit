@@ -274,57 +274,11 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
     return True
 
 
-def copy_common_code(
-    function_source_dir: Path,
-    build_dest_dir: Path,
-    common_code_dir: Path,
-    verbose: bool = False,
-) -> None:
-    # Copies in code from the common folder if it exists
-    if not common_code_dir.exists():
-        return
-
-    common_destination = Path(build_dest_dir / "common")
-    if verbose:
-        print(
-            f"        [bold green]INFO:[/] Copying common function code from "
-            f"{common_code_dir} to {common_destination}"
-        )
-
-    if Path(function_source_dir / "common").is_symlink():
-        # If we had a symlink in the source dir, we can safely delete the copied in common dir
-        shutil.rmtree(common_destination)
-
-    try:
-        shutil.copytree(
-            common_code_dir,
-            common_destination,
-        )
-    except FileExistsError:
-        # The common dir was NOT a symlink, it was actual code, so we risk overwriting code.
-        print(
-            f"        [bold yellow]ERROR:[/] 'common' dir already exists in function code dir:"
-            f" {dir}. This is not supported when common_function_code is set in your config.<env>.yaml file."
-        )
-        exit(1)
-
-    if Path(common_destination / "requirements.txt").exists():
-        reqs = (
-            Path(build_dest_dir / "requirements.txt").read_text()
-            if Path(build_dest_dir / "requirements.txt").exists()
-            else ""
-        )
-        reqs += "\n" + Path(common_destination / "requirements.txt").read_text()
-        Path(build_dest_dir / "requirements.txt").write_text(reqs)
-        Path(common_destination / "requirements.txt").unlink()
-
-
 def process_function_directory(
     yaml_source_path: Path,
     yaml_dest_path: Path,
     module_dir: Path,
     build_dir: Path,
-    common_code_dir: Path,
     verbose: bool = False,
 ) -> None:
     try:
@@ -355,14 +309,6 @@ def process_function_directory(
                         exit(1)
                     shutil.copytree(function_dir, destination)
 
-                    # Copy in common code if it exists
-                    if common_code_dir.is_dir():
-                        copy_common_code(
-                            function_source_dir=function_dir,
-                            build_dest_dir=destination,
-                            common_code_dir=common_code_dir,
-                            verbose=verbose,
-                        )
                     # Run validations on the function using the SDK's validation function
                     try:
                         if func.function_path:
@@ -439,7 +385,6 @@ def process_config_files(
 ) -> dict[Path, Path]:
     source_by_build_path: dict[Path, Path] = {}
     printed_function_warning = False
-    environment = config.environment
     configs = split_config(config.variables)
     modules_by_variables = defaultdict(list)
     for module_path, variables in configs.items():
@@ -523,7 +468,6 @@ def process_config_files(
                         yaml_dest_path=destination,
                         module_dir=module_dir,
                         build_dir=build_dir,
-                        common_code_dir=Path(project_config_dir / environment.common_function_code),
                         verbose=verbose,
                     )
                     files_by_resource_folder[resource_folder].other_files = []

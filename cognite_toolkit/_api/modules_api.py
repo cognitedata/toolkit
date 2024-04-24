@@ -73,7 +73,6 @@ class ModulesAPI:
                 project=self._project_name,
                 build_type=self._build_env,
                 selected_modules_and_packages=[module.name for module in modules],
-                common_function_code="./common_function_code",
             ),
             filepath=Path(""),
             variables=variables,
