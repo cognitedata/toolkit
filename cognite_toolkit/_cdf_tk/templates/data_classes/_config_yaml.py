@@ -8,7 +8,7 @@ from collections import UserDict, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import yaml
 from rich import print
@@ -38,10 +38,10 @@ class Environment:
     common_function_code: str
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env: str) -> Environment:
+    def load(cls, data: dict[str, Any], build_name: str) -> Environment:
         try:
             return Environment(
-                name=data["name"],
+                name=build_name,
                 project=data["project"],
                 build_type=data["type"],
                 selected_modules_and_packages=[
@@ -54,8 +54,8 @@ class Environment:
             )
         except KeyError:
             raise ToolkitEnvError(
-                "Environment is missing one or more required fields: 'name', 'project', 'type', or "
-                f"'selected_modules_and_packages' in {BuildConfigYAML._file_name(build_env)!s}"
+                "environment section is missing one or more required fields: 'project', 'type', or "
+                f"'selected_modules_and_packages' in {BuildConfigYAML._file_name(build_name)!s}"
             )
 
     def dump(self) -> dict[str, Any]:
@@ -193,32 +193,23 @@ class BuildEnvironment(Environment):
 
     @classmethod
     def load(
-        cls, data: dict[str, Any], build_env: str, action: Literal["build", "deploy", "clean"] = "build"
+        cls, data: dict[str, Any], build_name: str, action: Literal["build", "deploy", "clean"] = "build"
     ) -> BuildEnvironment:
-        if build_env is None:
+        if build_name is None:
             raise ValueError("build_env must be specified")
-        environment = data.get("name")
-        if environment is None:
-            environment = build_env
-            load_data = cast(dict[str, Any], data.get(build_env))
-        else:
-            load_data = data
-        if environment is None:
-            raise ToolkitEnvError(f"Environment {build_env} not found in {BUILD_ENVIRONMENT_FILE!s}")
-
-        version = _load_version_variable(load_data, BUILD_ENVIRONMENT_FILE)
+        version = _load_version_variable(data, BUILD_ENVIRONMENT_FILE)
         try:
             return BuildEnvironment(
-                name=cast(Literal["dev", "local", "demo", "staging", "prod"], build_env),
-                project=load_data["project"],
-                build_type=load_data["type"],
-                selected_modules_and_packages=load_data["selected_modules_and_packages"],
+                name=build_name,
+                project=data["project"],
+                build_type=data["type"],
+                selected_modules_and_packages=data["selected_modules_and_packages"],
                 cdf_toolkit_version=version,
-                common_function_code=load_data.get("common_function_code", "./common_function_code"),
+                common_function_code=data.get("common_function_code", "./common_function_code"),
             )
         except KeyError:
             raise ToolkitEnvError(
-                f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', "
+                f"  [bold red]ERROR:[/] Environment {build_name} is missing required fields 'project', 'type', "
                 f"or 'selected_modules_and_packages' in {BUILD_ENVIRONMENT_FILE!s}"
             )
 
