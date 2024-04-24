@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Changed
+
+- In `config.[env].yaml`, in the `environment` section, `name` is no longer required. Instead, the `[env]` part
+  of the `config.[env].yaml` file is used as the `name` of the environment. This is to avoid redundancy.
+
 ## [0.2.0a3] - 2024-04-23
 
 ### Added
