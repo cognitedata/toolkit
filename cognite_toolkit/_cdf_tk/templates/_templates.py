@@ -59,18 +59,25 @@ def build_config(
 
     config.validate_environment()
 
-    module_name_by_path = defaultdict(list)
+    module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
+    available_modules: set[str | tuple[str, ...]] = set()
     for module, _ in iterate_modules(source_dir):
-        module_name_by_path[module.name].append(module.relative_to(source_dir))
+        available_modules.add(module.name)
+        module_parts = module.relative_to(source_dir).parts
+        for i in range(1, len(module_parts) + 1):
+            available_modules.add(module_parts[:i])
+
+        module_parts_by_name[module.name].append(module.relative_to(source_dir).parts)
+
     if duplicate_modules := {
-        module_name: paths for module_name, paths in module_name_by_path.items() if len(paths) > 1
+        module_name: paths
+        for module_name, paths in module_parts_by_name.items()
+        if len(paths) > 1 and module_name in config.environment.selected_modules_and_packages
     }:
         raise ToolkitDuplicatedModuleError(
-            f"Found the following duplicated module names in {source_dir.name}:",
-            duplicate_modules,
+            f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
         )
 
-    available_modules = set(module_name_by_path.keys())
     system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
@@ -421,7 +428,7 @@ def process_files_directory(
 
 def process_config_files(
     project_config_dir: Path,
-    selected_modules: list[str],
+    selected_modules: list[str | tuple[str, ...]],
     build_dir: Path,
     config: BuildConfigYAML,
     verbose: bool = False,
@@ -437,7 +444,12 @@ def process_config_files(
     number_by_resource_type: dict[str, int] = defaultdict(int)
 
     for module_dir, filepaths in iterate_modules(project_config_dir):
-        if module_dir.name not in selected_modules:
+        module_parts = module_dir.relative_to(project_config_dir).parts
+        is_in_selected_modules = module_dir.name in selected_modules or module_parts in selected_modules
+        is_parent_in_selected_modules = any(
+            parent in selected_modules for parent in (module_parts[:i] for i in range(1, len(module_parts)))
+        )
+        if not is_in_selected_modules and not is_parent_in_selected_modules:
             continue
         if verbose:
             print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
@@ -610,11 +622,10 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
         if modules := modules_by_variable.get(variable):
             module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
             print(
-                f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' are defined in a tree structure, i.e., "
-                "variables defined at a higher level can be used in lower levels."
-                f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str}."
-                f"\n    It needs to be moved up in the config structure to be used"
-                f"in {module!r}."
+                f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
+                f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
+                f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
             )
 
     if destination.suffix in {".yaml", ".yml"}:

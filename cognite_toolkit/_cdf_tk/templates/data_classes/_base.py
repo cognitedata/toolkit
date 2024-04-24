@@ -27,7 +27,18 @@ class ConfigCore(ABC):
         file_name = cls._file_name(build_env)
         filepath = source_path / file_name
         filepath = filepath if filepath.is_file() else Path.cwd() / file_name
-        if not filepath.is_file():
+        if (
+            (old_filepath := (source_path / "cognite_modules" / file_name)).is_file()
+            and not filepath.is_file()
+            and file_name == "_system.yaml"
+        ):
+            # This is a fallback for the old location of the system file
+            print(
+                f"  [bold yellow]Warning:[/] {filepath.name!r} does not exist. "
+                f"Using 'cognite_toolkit/{old_filepath.name}' instead."
+            )
+            filepath = old_filepath
+        elif not filepath.is_file():
             raise ToolkitFileNotFoundError(f"{filepath.name!r} does not exist")
 
         return cls.load(read_yaml_file(filepath), build_env, filepath)

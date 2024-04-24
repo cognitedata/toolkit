@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.templates._constants import (
     BUILD_ENVIRONMENT_FILE,
     DEFAULT_CONFIG_FILE,
+    MODULE_PATH_SEP,
     SEARCH_VARIABLES_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.templates._utils import flatten_dict
@@ -33,7 +34,7 @@ class Environment:
     name: str
     project: str
     build_type: str
-    selected_modules_and_packages: list[str]
+    selected_modules_and_packages: list[str | tuple[str, ...]]
     common_function_code: str
 
     @classmethod
@@ -43,7 +44,12 @@ class Environment:
                 name=data["name"],
                 project=data["project"],
                 build_type=data["type"],
-                selected_modules_and_packages=data["selected_modules_and_packages"],
+                selected_modules_and_packages=[
+                    tuple([part for part in selected.split(MODULE_PATH_SEP) if part])
+                    if MODULE_PATH_SEP in selected
+                    else selected
+                    for selected in data["selected_modules_and_packages"]
+                ],
                 common_function_code=data.get("common_function_code", "./common_function_code"),
             )
         except KeyError:
@@ -57,7 +63,10 @@ class Environment:
             "name": self.name,
             "project": self.project,
             "type": self.build_type,
-            "selected_modules_and_packages": self.selected_modules_and_packages,
+            "selected_modules_and_packages": [
+                MODULE_PATH_SEP.join(selected) if isinstance(selected, tuple) else selected
+                for selected in self.selected_modules_and_packages
+            ],
             "common_function_code": self.common_function_code,
         }
 
@@ -74,8 +83,8 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
     variables: dict[str, Any]
 
     @property
-    def available_modules(self) -> list[str]:
-        available_modules: list[str] = []
+    def available_modules(self) -> list[str | tuple[str, ...]]:
+        available_modules: list[str | tuple[str, ...]] = []
         to_check = [self.variables]
         while to_check:
             current = to_check.pop()
@@ -138,13 +147,20 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         )
 
     def get_selected_modules(
-        self, modules_by_package: dict[str, list[str]], available_modules: set[str], verbose: bool
-    ) -> list[str]:
+        self,
+        modules_by_package: dict[str, list[str | tuple[str, ...]]],
+        available_modules: set[str | tuple[str, ...]],
+        verbose: bool,
+    ) -> list[str | tuple[str, ...]]:
         selected_packages = [
-            package for package in self.environment.selected_modules_and_packages if package in modules_by_package
+            package
+            for package in self.environment.selected_modules_and_packages
+            if package in modules_by_package and isinstance(package, str)
         ]
         if verbose:
             print("  [bold green]INFO:[/] Selected packages:")
+            if len(selected_packages) == 0:
+                print("    None")
             for package in selected_packages:
                 print(f"    {package}")
 
@@ -159,7 +175,10 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         if verbose:
             print("  [bold green]INFO:[/] Selected modules:")
             for module in selected_modules:
-                print(f"    {module}")
+                if isinstance(module, str):
+                    print(f"    {module}")
+                else:
+                    print(f"    {MODULE_PATH_SEP.join(module)!s}")
         if not selected_modules:
             raise ToolkitMissingModuleError(
                 f"Found no defined modules in {self.filepath!s}, have you configured "

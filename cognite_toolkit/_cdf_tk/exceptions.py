@@ -1,5 +1,7 @@
 from yaml import YAMLError
 
+from ._constants import MODULE_PATH_SEP
+
 
 class ToolkitError(Exception):
     pass
@@ -51,8 +53,15 @@ class ToolkitDuplicatedModuleError(ToolkitError):
         self.duplicated = duplicated
 
     def __str__(self) -> str:
-        dupe_info = [f"    {module_name}: {sorted(map(str, paths))}" for module_name, paths in self.duplicated.items()]
-        return "\n".join([super().__str__(), *dupe_info])
+        lines = [super().__str__()]
+        for module_name, paths in self.duplicated.items():
+            locations = "\n        ".join(sorted(MODULE_PATH_SEP.join(path) for path in paths))
+            lines.append(f"    {module_name} exists in:\n        {locations}")
+        lines.append(
+            "    You can use the path syntax to disambiguate between modules with the same name. For example "
+            "'cognite_modules/core/cdf_apm_base' instead of 'cdf_apm_base'."
+        )
+        return "\n".join(lines)
 
 
 class ToolkitNotADirectoryError(NotADirectoryError, ToolkitError):

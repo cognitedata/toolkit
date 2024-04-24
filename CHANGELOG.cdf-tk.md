@@ -15,11 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.2.0a3] - 2024-04-23
 
 ### Added
 
 - Support for the Workflow and WorkflowVersion resource type
+- Support for specifying `selected_modules_and_packages` as paths and parent paths. For example, you can
+  now write `cognite_modules/core/cdf_apm_base` instead of just `cdf_apm_base`. This is to support
+  modules that have the same name but are in different parent directories. In addition, this also better reflects
+  the structure of the `cognite_modules` and `custom_modules` folder better.
 
 ### Fixed
 
