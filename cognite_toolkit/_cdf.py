@@ -237,7 +237,7 @@ def build(
             help="Where to save the built module files",
         ),
     ] = "./build",
-    build_name: Annotated[
+    build_env_name: Annotated[
         str,
         typer.Option(
             "--env",
@@ -257,11 +257,11 @@ def build(
     if not source_path.is_dir():
         raise ToolkitNotADirectoryError(str(source_path))
 
-    system_config = SystemYAML.load_from_directory(source_path, build_name)
-    config = BuildConfigYAML.load_from_directory(source_path, build_name)
+    system_config = SystemYAML.load_from_directory(source_path, build_env_name)
+    config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
     print(
         Panel(
-            f"[bold]Building config files from templates into {build_dir!s} for environment {build_name} using {source_path!s} as sources...[/bold]"
+            f"[bold]Building config files from templates into {build_dir!s} for environment {build_env_name} using {source_path!s} as sources...[/bold]"
             f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}'"
         )
     )

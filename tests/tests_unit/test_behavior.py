@@ -44,7 +44,7 @@ def test_inject_custom_environmental_variables(
         typer_context,
         source_dir=str(init_project),
         build_dir=str(local_tmp_path),
-        build_name="dev",
+        build_env_name="dev",
         no_clean=False,
     )
     deploy(
@@ -258,7 +258,7 @@ def test_build_custom_project(
         typer_context,
         source_dir=str(CUSTOM_PROJECT),
         build_dir=str(local_tmp_path),
-        build_name="dev",
+        build_env_name="dev",
         no_clean=False,
     )
 
@@ -280,7 +280,7 @@ def test_build_project_selecting_parent_path(
         typer_context,
         source_dir=str(PYTEST_PROJECT),
         build_dir=str(local_tmp_path),
-        build_name="dev",
+        build_env_name="dev",
         no_clean=False,
     )
 
