@@ -1,7 +1,7 @@
 workflowExternalId: 'wf_{{location_name}}_files_annotation'
 version: '1'
 workflowDefinition:
-  description: 'Execute tasks in sequence'
+  description: 'Workflow that annotate files'
   tasks:
     - externalId: 'tr_files_{{location_name}}_{{source_name}}_file_metadata'
       type: 'transformation'
