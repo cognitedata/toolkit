@@ -568,7 +568,8 @@ class ResourceLoader(
         nr_of_deleted = 0
         resource_ids = self.get_ids(loaded_resources)
         if dry_run:
-            nr_of_deleted += len(resource_ids)
+            existing = self.retrieve(resource_ids)
+            nr_of_deleted += len(existing)
             if verbose:
                 print(f"  Would have deleted {self._print_ids_or_length(resource_ids)}.")
             return nr_of_deleted
