@@ -44,13 +44,12 @@ The `environment` have the following fields:
 - `selected_modules_and_packages` - A list of modules to deploy in this environment.
   You can see the list of packages in `cognite_modules/_system.yaml`. Note
   packages are a collection of modules.
-- `common_function_code` - The path to where common code for functions can be found.
 
 The `modules` section contains the variables for each module. The variables
 are hierarchically structured:
 
 ```yaml
-modules:
+variables:
   cognite_modules:
     cdf_cluster: ${CDF_CLUSTER}
     common:
@@ -75,7 +74,7 @@ as the level above.
 If we move the `cdf_cluster` variable up one level, it will also be available in the `custom_modules`:
 
 ```yaml
-modules:
+variables:
   cdf_cluster: ${CDF_CLUSTER}
   cognite_modules:
     ...
