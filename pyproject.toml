@@ -46,7 +46,6 @@ disallow_incomplete_defs = true
 follow_imports = "normal"
 ignore_missing_imports = true
 exclude = ["cognite_toolkit/cognite_modules",
-            "cognite_toolkit/common_function_code",
             "cognite_toolkit/build*"]
 
 [build-system]
