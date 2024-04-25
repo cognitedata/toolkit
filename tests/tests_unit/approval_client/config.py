@@ -386,7 +386,7 @@ API_RESOURCES = [
             "delete": [Method(api_class_method="delete", mock_name="delete_instances")],
             "retrieve": [
                 Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_instances"),
             ],
         },
     ),
