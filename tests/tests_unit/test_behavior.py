@@ -9,13 +9,14 @@ from cognite.client.data_classes import Transformation, TransformationWrite
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
+from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.load import TransformationLoader
 from cognite_toolkit._cdf_tk.templates import build_config
-from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, Environment, SystemYAML
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES
-from tests.tests_unit.utils import PrintCapture, mock_read_yaml_file
+from tests.tests_unit.test_cdf_tk.constants import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
+from tests.tests_unit.utils import mock_read_yaml_file
 
 
 def test_inject_custom_environmental_variables(
@@ -27,7 +28,7 @@ def test_inject_custom_environmental_variables(
     init_project: Path,
 ) -> None:
     config_yaml = yaml.safe_load((init_project / "config.dev.yaml").read_text())
-    config_yaml["modules"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
+    config_yaml["variables"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting a module with a transformation that uses the cicd_clientId variable
     config_yaml["environment"]["selected_modules_and_packages"] = ["cdf_infield_location"]
     config_yaml["environment"]["project"] = "pytest"
@@ -43,13 +44,13 @@ def test_inject_custom_environmental_variables(
         typer_context,
         source_dir=str(init_project),
         build_dir=str(local_tmp_path),
-        build_env="dev",
-        clean=True,
+        build_env_name="dev",
+        no_clean=False,
     )
     deploy(
         typer_context,
         build_dir=str(local_tmp_path),
-        build_env="dev",
+        build_env_name="dev",
         interactive=False,
         drop=True,
         dry_run=False,
@@ -60,17 +61,24 @@ def test_inject_custom_environmental_variables(
     assert transformation.source_oidc_credentials.client_id == "my_environment_variable_value"
 
 
-def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context, capture_print: PrintCapture) -> None:
-    with pytest.raises(SystemExit):
+def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context) -> None:
+    config = MagicMock(spec=BuildConfigYAML)
+    config.environment = MagicMock(spec=Environment)
+    config.environment.name = "dev"
+    config.environment.selected_modules_and_packages = ["module1"]
+    with pytest.raises(ToolkitDuplicatedModuleError) as err:
         build_config(
             build_dir=local_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
-            config=MagicMock(spec=BuildConfigYAML),
+            config=config,
             system_config=MagicMock(spec=SystemYAML),
         )
-    # Check that the error message is printed
-    assert "module1" in capture_print.messages[-1]
-    assert "duplicated module names" in capture_print.messages[-2]
+    l1, l2, l3, l4, l5 = map(str.strip, str(err.value).splitlines())
+    assert l1 == "Ambiguous module selected in config.dev.yaml:"
+    assert l2 == "module1 exists in:"
+    assert l3 == "cognite_modules/examples/module1"
+    assert l4 == "cognite_modules/models/module1"
+    assert l5.startswith("You can use the path syntax to disambiguate between modules with the same name")
 
 
 def test_pull_transformation(
@@ -241,7 +249,6 @@ def test_dump_datamodel(
     assert len(child_loaded.properties) == 1
 
 
-@pytest.mark.skip("This functionality is not yet implemented")
 def test_build_custom_project(
     local_tmp_path: Path,
     typer_context: typer.Context,
@@ -251,8 +258,30 @@ def test_build_custom_project(
         typer_context,
         source_dir=str(CUSTOM_PROJECT),
         build_dir=str(local_tmp_path),
-        build_env="dev",
-        clean=True,
+        build_env_name="dev",
+        no_clean=False,
+    )
+
+    actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}
+
+    missing_resources = expected_resources - actual_resources
+    assert not missing_resources, f"Missing resources: {missing_resources}"
+
+    extra_resources = actual_resources - expected_resources
+    assert not extra_resources, f"Extra resources: {extra_resources}"
+
+
+def test_build_project_selecting_parent_path(
+    local_tmp_path,
+    typer_context,
+) -> None:
+    expected_resources = {"auth", "data_models", "files", "transformations"}
+    build(
+        typer_context,
+        source_dir=str(PYTEST_PROJECT),
+        build_dir=str(local_tmp_path),
+        build_env_name="dev",
+        no_clean=False,
     )
 
     actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}

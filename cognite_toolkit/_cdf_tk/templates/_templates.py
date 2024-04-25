@@ -19,14 +19,17 @@ from cognite.client.data_classes.functions import FunctionList
 from rich import print
 
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitDuplicatedModuleError,
+    ToolkitFileExistsError,
+    ToolkitNotADirectoryError,
+    ToolkitValidationError,
+    ToolkitYAMLFormatError,
+)
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import validate_case_raw, validate_data_set_is_set, validate_modules_variables
 
-from ._constants import (
-    EXCL_INDEX_SUFFIX,
-    PROC_TMPL_VARS_SUFFIX,
-    ROOT_MODULES,
-)
+from ._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
@@ -46,7 +49,9 @@ def build_config(
         if not _RUNNING_IN_BROWSER:
             print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
     elif is_populated and not _RUNNING_IN_BROWSER:
-        print("  [bold yellow]WARNING:[/] Build directory is not empty. Use --clean to remove existing files.")
+        print(
+            "  [bold yellow]WARNING:[/] Build directory is not empty. Run without --no-clean to remove existing files."
+        )
     elif build_dir.exists() and not _RUNNING_IN_BROWSER:
         print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
     else:
@@ -54,23 +59,29 @@ def build_config(
 
     config.validate_environment()
 
-    module_name_by_path = defaultdict(list)
+    module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
+    available_modules: set[str | tuple[str, ...]] = set()
     for module, _ in iterate_modules(source_dir):
-        module_name_by_path[module.name].append(module.relative_to(source_dir))
-    if duplicate_modules := {
-        module_name: paths for module_name, paths in module_name_by_path.items() if len(paths) > 1
-    }:
-        print(f"  [bold red]ERROR:[/] Found the following duplicated module names in {source_dir.name}:")
-        for module_name, paths in duplicate_modules.items():
-            print(f"    {module_name}: {paths}")
-        exit(1)
+        available_modules.add(module.name)
+        module_parts = module.relative_to(source_dir).parts
+        for i in range(1, len(module_parts) + 1):
+            available_modules.add(module_parts[:i])
 
-    available_modules = set(module_name_by_path.keys())
+        module_parts_by_name[module.name].append(module.relative_to(source_dir).parts)
+
+    if duplicate_modules := {
+        module_name: paths
+        for module_name, paths in module_parts_by_name.items()
+        if len(paths) > 1 and module_name in config.environment.selected_modules_and_packages
+    }:
+        raise ToolkitDuplicatedModuleError(
+            f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
+        )
     system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
 
     selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
 
-    warnings = validate_modules_variables(config.modules, config.filepath)
+    warnings = validate_modules_variables(config.variables, config.filepath)
     if warnings:
         print(f"  [bold yellow]WARNING:[/] Found the following warnings in config.{config.environment.name}.yaml:")
         for warning in warnings:
@@ -85,12 +96,14 @@ def build_config(
     return source_by_build_path
 
 
+# TODO: Refactor this function into validation parts for each 'resource_type':
 def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
     """Check the yaml file for semantic errors
 
     parsed: the parsed yaml file
     filepath: the path to the yaml file
-    yields: True if the yaml file is semantically acceptable, False if build should fail.
+    yields: True if the yaml file is semantically acceptable, False if no inputs are given and the build should fail.
+        Any format errors are raised as exceptions.
     """
     if parsed is None or filepath_src is None or filepath_build is None:
         return False
@@ -98,37 +111,38 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
     ext_id = None
     if resource_type == "data_models" and ".space." in filepath_src.name:
         if isinstance(parsed, list):
-            print(f"      [bold red]:[/] Multiple spaces in one file {filepath_src} is not supported .")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Multiple spaces in one file {filepath_src} is not supported.")
         elif isinstance(parsed, dict):
             ext_id = parsed.get("space")
         else:
-            print(f"      [bold red]:[/] Space file {filepath_src} has invalid dataformat.")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Space file {filepath_src} has invalid dataformat.")
         ext_id_type = "space"
+
     elif resource_type == "data_models" and ".node." in filepath_src.name:
         if isinstance(parsed, list):
-            print(f"      [bold red]:[/] Nodes YAML must be an object file {filepath_src} is not supported .")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Nodes YAML must be an object file {filepath_src} is not supported.")
         try:
             ext_ids = {source["source"]["externalId"] for node in parsed["nodes"] for source in node["sources"]}
         except KeyError:
-            print(f"      [bold red]:[/] Node file {filepath_src} has invalid dataformat.")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Node file {filepath_src} has invalid dataformat.")
+
         if len(ext_ids) != 1:
-            print(f"      [bold red]:[/] All nodes in {filepath_src} must have the same view.")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"All nodes in {filepath_src} must have the same view.")
+
         ext_id = ext_ids.pop()
         ext_id_type = "view.externalId"
+
     elif resource_type == "auth":
         if isinstance(parsed, list):
-            print(f"      [bold red]:[/] Multiple Groups in one file {filepath_src} is not supported .")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Multiple Groups in one file {filepath_src} is not supported.")
+
         ext_id = parsed.get("name")
         ext_id_type = "name"
+
     elif resource_type in ["data_sets", "timeseries", "files"] and isinstance(parsed, list):
         ext_id = ""
         ext_id_type = "multiple"
+
     elif resource_type in ["functions"] and "schedule" in filepath_src.stem:
         if isinstance(parsed, list):
             ext_id = ""
@@ -136,6 +150,7 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
         elif isinstance(parsed, dict):
             ext_id = parsed.get("functionExternalId") or parsed.get("function_external_id")
             ext_id_type = "functionExternalId"
+
     elif resource_type in ["functions"]:
         if isinstance(parsed, list):
             ext_id = ""
@@ -143,6 +158,7 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
         elif isinstance(parsed, dict):
             ext_id = parsed.get("externalId") or parsed.get("external_id")
             ext_id_type = "externalId"
+
     elif resource_type == "raw":
         if isinstance(parsed, list):
             ext_id = ""
@@ -154,12 +170,22 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
                 ext_id = f"{ext_id}.{parsed.get('tableName')}"
                 ext_id_type = "dbName and tableName"
         else:
-            print(f"      [bold red]:[/] Raw file {filepath_src} has invalid dataformat.")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Raw file {filepath_src} has invalid dataformat.")
+
+    elif resource_type == "workflows":
+        if isinstance(parsed, dict):
+            if "version" in filepath_src.stem.lower():
+                ext_id = parsed.get("workflowExternalId")
+                ext_id_type = "workflowExternalId"
+            else:
+                ext_id = parsed.get("externalId") or parsed.get("external_id")
+                ext_id_type = "externalId"
+        else:
+            raise ToolkitYAMLFormatError(f"Multiple Workflows in one file ({filepath_src}) is not supported.")
     else:
         if isinstance(parsed, list):
-            print(f"      [bold red]:[/] Multiple {resource_type} in one file {filepath_src} is not supported .")
-            exit(1)
+            raise ToolkitYAMLFormatError(f"Multiple {resource_type} in one file {filepath_src} is not supported.")
+
         ext_id = parsed.get("externalId") or parsed.get("external_id")
         ext_id_type = "externalId"
 
@@ -252,95 +278,37 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
     return True
 
 
-def copy_common_code(
-    function_source_dir: Path,
-    build_dest_dir: Path,
-    common_code_dir: Path,
-    verbose: bool = False,
-) -> None:
-    # Copies in code from the common folder if it exists
-    if not common_code_dir.exists():
-        return
-
-    common_destination = Path(build_dest_dir / "common")
-    if verbose:
-        print(
-            f"        [bold green]INFO:[/] Copying common function code from "
-            f"{common_code_dir} to {common_destination}"
-        )
-
-    if Path(function_source_dir / "common").is_symlink():
-        # If we had a symlink in the source dir, we can safely delete the copied in common dir
-        shutil.rmtree(common_destination)
-
-    try:
-        shutil.copytree(
-            common_code_dir,
-            common_destination,
-        )
-    except FileExistsError:
-        # The common dir was NOT a symlink, it was actual code, so we risk overwriting code.
-        print(
-            f"        [bold yellow]ERROR:[/] 'common' dir already exists in function code dir:"
-            f" {dir}. This is not supported when common_function_code is set in your config.<env>.yaml file."
-        )
-        exit(1)
-
-    if Path(common_destination / "requirements.txt").exists():
-        reqs = (
-            Path(build_dest_dir / "requirements.txt").read_text()
-            if Path(build_dest_dir / "requirements.txt").exists()
-            else ""
-        )
-        reqs += "\n" + Path(common_destination / "requirements.txt").read_text()
-        Path(build_dest_dir / "requirements.txt").write_text(reqs)
-        Path(common_destination / "requirements.txt").unlink()
-
-
 def process_function_directory(
     yaml_source_path: Path,
     yaml_dest_path: Path,
     module_dir: Path,
     build_dir: Path,
-    common_code_dir: Path,
     verbose: bool = False,
 ) -> None:
     try:
         functions: FunctionList = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
-    except KeyError as e:
-        print(f"      [bold red]ERROR:[/] Failed to load function file {yaml_source_path}, error in key: {e}")
-        exit(1)
-    except Exception as e:
-        print(f"      [bold red]ERROR:[/] Failed to load function file {yaml_source_path}, error:\n{e}")
-        exit(1)
+    except (KeyError, yaml.YAMLError) as e:
+        raise ToolkitYAMLFormatError(f"Failed to load function file {yaml_source_path} due to: {e}")
+
     for func in functions:
         found = False
         for function_subdirs in iterate_functions(module_dir):
             for function_dir in function_subdirs:
-                if func.external_id == function_dir.name:
+                if (fn_xid := func.external_id) == function_dir.name:
                     found = True
                     if verbose:
-                        print(f"      [bold green]INFO:[/] Found function {func.external_id}")
+                        print(f"      [bold green]INFO:[/] Found function {fn_xid}")
                     if func.file_id != "<will_be_generated>":
                         print(
-                            f"        [bold yellow]WARNING:[/] Function {func.external_id} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
+                            f"        [bold yellow]WARNING:[/] Function {fn_xid} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
                         )
-                    destination = build_dir / "functions" / f"{func.external_id}"
+                    destination = build_dir / "functions" / fn_xid
                     if destination.exists():
-                        print(
-                            f"        [bold red]ERROR:[/] Function {func.external_id} is duplicated. If this is unexpected, you want want to use '--clean'."
+                        raise ToolkitFileExistsError(
+                            f"Function {fn_xid} is duplicated. If this is unexpected, you may want to use '--clean'."
                         )
-                        exit(1)
                     shutil.copytree(function_dir, destination)
 
-                    # Copy in common code if it exists
-                    if common_code_dir.is_dir():
-                        copy_common_code(
-                            function_source_dir=function_dir,
-                            build_dest_dir=destination,
-                            common_code_dir=common_code_dir,
-                            verbose=verbose,
-                        )
                     # Run validations on the function using the SDK's validation function
                     try:
                         if func.function_path:
@@ -351,26 +319,23 @@ def process_function_directory(
                             )
                         else:
                             print(
-                                f"        [bold yellow]WARNING:[/] Function {func.external_id} in {yaml_source_path} has no function_path defined."
+                                f"        [bold yellow]WARNING:[/] Function {fn_xid} in {yaml_source_path} has no function_path defined."
                             )
                     except Exception as e:
-                        print(
-                            f"      [bold red]ERROR:[/] Failed to package function {func.external_id} at {function_dir}, python module is not loadable:\n{e}"
-                        )
-                        print(
-                            "            Note that you need to have any requirements your function uses installed in your current, local python environment."
-                        )
-                        exit(1)
+                        raise ToolkitValidationError(
+                            f"Failed to package function {fn_xid} at {function_dir}, python module is not loadable "
+                            f"due to: {type(e)}({e}). Note that you need to have any requirements your function uses "
+                            "installed in your current, local python environment."
+                        ) from e
                     # Clean up cache files
                     for subdir in destination.iterdir():
                         if subdir.is_dir():
                             shutil.rmtree(subdir / "__pycache__", ignore_errors=True)
                     shutil.rmtree(destination / "__pycache__", ignore_errors=True)
         if not found:
-            print(
-                f"        [bold red]ERROR:[/] Function directory not found for externalId {func.external_id} defined in {yaml_source_path}."
+            raise ToolkitNotADirectoryError(
+                f"Function directory not found for externalId {func.external_id} defined in {yaml_source_path}."
             )
-            exit(1)
 
 
 def process_files_directory(
@@ -385,8 +350,7 @@ def process_files_directory(
     try:
         file_def = FileMetadataList.load(yaml_dest_path.read_text())
     except KeyError as e:
-        print(f"      [bold red]ERROR:[/] Failed to load file definitions file {yaml_dest_path}, error in key: {e}")
-        exit(1)
+        raise ToolkitValidationError(f"Failed to load file definitions file {yaml_dest_path}, error in key: {e}")
     # We only support one file template definition per module.
     if len(file_def) == 1:
         if file_def[0].name and "$FILENAME" in file_def[0].name and file_def[0].name != "$FILENAME":
@@ -410,15 +374,14 @@ def process_files_directory(
 
 def process_config_files(
     project_config_dir: Path,
-    selected_modules: list[str],
+    selected_modules: list[str | tuple[str, ...]],
     build_dir: Path,
     config: BuildConfigYAML,
     verbose: bool = False,
 ) -> dict[Path, Path]:
     source_by_build_path: dict[Path, Path] = {}
     printed_function_warning = False
-    environment = config.environment
-    configs = split_config(config.modules)
+    configs = split_config(config.variables)
     modules_by_variables = defaultdict(list)
     for module_path, variables in configs.items():
         for variable in variables:
@@ -426,7 +389,12 @@ def process_config_files(
     number_by_resource_type: dict[str, int] = defaultdict(int)
 
     for module_dir, filepaths in iterate_modules(project_config_dir):
-        if module_dir.name not in selected_modules:
+        module_parts = module_dir.relative_to(project_config_dir).parts
+        is_in_selected_modules = module_dir.name in selected_modules or module_parts in selected_modules
+        is_parent_in_selected_modules = any(
+            parent in selected_modules for parent in (module_parts[:i] for i in range(1, len(module_parts)))
+        )
+        if not is_in_selected_modules and not is_parent_in_selected_modules:
             continue
         if verbose:
             print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
@@ -496,7 +464,6 @@ def process_config_files(
                         yaml_dest_path=destination,
                         module_dir=module_dir,
                         build_dir=build_dir,
-                        common_code_dir=Path(project_config_dir / environment.common_function_code),
                         verbose=verbose,
                     )
                     files_by_resource_folder[resource_folder].other_files = []
@@ -599,21 +566,19 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
         if modules := modules_by_variable.get(variable):
             module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
             print(
-                f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' are defined in a tree structure, i.e., "
-                "variables defined at a higher level can be used in lower levels."
-                f"\n    The variable {variable!r} is defined in the following module{'s' if len(modules) > 1 else ''}: {module_str}."
-                f"\n    It needs to be moved up in the config structure to be used"
-                f"in {module!r}."
+                f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
+                f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
+                f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
             )
 
     if destination.suffix in {".yaml", ".yml"}:
         try:
             parsed = yaml.safe_load(content)
         except yaml.YAMLError as e:
-            print(
-                f"  [bold red]ERROR:[/] YAML validation error for {destination.name} after substituting config variables: \n{e}"
+            raise ToolkitYAMLFormatError(
+                f"YAML validation error for {destination.name} after substituting config variables: {e}"
             )
-            exit(1)
 
         if isinstance(parsed, dict):
             parsed = [parsed]

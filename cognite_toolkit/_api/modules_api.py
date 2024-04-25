@@ -37,7 +37,7 @@ class ModulesAPI:
     def _load_modules(self) -> None:
         source_dir = self._source_dir()
 
-        system_yaml = SystemYAML.load_from_directory(source_dir, self._build_env)
+        system_yaml = SystemYAML.load_from_directory(source_dir.parent, self._build_env)
         default_config = InitConfigYAML(_DUMMY_ENVIRONMENT).load_defaults(source_dir)
 
         for module, _ in iterate_modules(source_dir):
@@ -73,16 +73,15 @@ class ModulesAPI:
                 project=self._project_name,
                 build_type=self._build_env,
                 selected_modules_and_packages=[module.name for module in modules],
-                common_function_code="./common_function_code",
             ),
             filepath=Path(""),
-            modules=variables,
+            variables=variables,
         )
         build_config(
             self._build_dir,
             self._source_dir().parent,
             config,
-            system_config=SystemYAML.load_from_directory(self._source_dir(), self._build_env),
+            system_config=SystemYAML.load_from_directory(self._source_dir().parent, self._build_env),
             clean=True,
             verbose=verbose,
         )
@@ -114,7 +113,7 @@ class ModulesAPI:
         deploy(
             ctx=ctx,
             build_dir=str(self._build_dir),
-            build_env=self._build_env,
+            build_env_name=self._build_env,
             interactive=False,
             drop=False,
             drop_data=False,
@@ -136,7 +135,7 @@ class ModulesAPI:
         clean(
             ctx=ctx,
             build_dir=str(self._build_dir),
-            build_env=self._build_env,
+            build_env_name=self._build_env,
             interactive=False,
             dry_run=dry_run,
             include=list(include) if include is not None else None,

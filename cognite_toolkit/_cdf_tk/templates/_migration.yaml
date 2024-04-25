@@ -1,8 +1,38 @@
+- version: 0.2.0a4
+  cognite_modules: {}
+  resources: {}
+  tool:
+    - title: 'cognite-toolkit no longer supports common_function_code'
+      steps:
+        - For each function that is using code from the `common_function_code`,
+          copy the relevant code for that function from the `common_function_code`
+          into the function folder.
+  cognite_modules_hash: ""
+- version: 0.2.0a3
+  cognite_modules: {}
+  resources: {}
+  tool:
+    - title: '`cdf-tk build` command no longer supports the `--clean` flag'
+      steps:
+        - "The build command now cleans the build directory by default to avoid unwanted side effects from previous builds"
+        - "To avoid cleaning the build directory use the `--no-clean` flag."
+    - title: 'The `_system.yaml` file moved one level up from `cognite_modules`'
+      steps:
+        - "Go into the `cognite_modules` folder and move the `_system.yaml` file one level up."
+    - title: "In all `config.<env>.yaml` the section 'modules' is renamed to 'variables"
+      steps:
+        - For each `config.<env>.yaml` file, rename the section `modules` to `variables`.
+  cognite_modules_hash: "6c19979abb10571a513af8e530f7807a54687fd292b0572ff9c5fa41c82df640"
+- version: 0.2.0a2
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: "07825ba8911c45a52881cf4a7536f9b2919c5f96fa8f6570e61406bc1666d329"
 - version: 0.2.0a1
   cognite_modules: {}
   resources: {}
   tool: {}
-  cognite_modules_hash: ""
+  cognite_modules_hash: "4f782ad5c44e093d618df7844cece762954878bf1e0f576acb32975092131346"
 - version: 0.1.2
   cognite_modules: {}
   resources: {}

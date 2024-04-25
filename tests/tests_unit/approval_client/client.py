@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import itertools
 import json as JSON
 from collections import defaultdict
@@ -21,9 +20,13 @@ from cognite.client.data_classes import (
     FileMetadata,
     Function,
     FunctionCall,
+    FunctionSchedule,
+    FunctionScheduleWrite,
     FunctionWrite,
     Group,
     GroupList,
+    Workflow,
+    WorkflowVersion,
     capabilities,
 )
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
@@ -118,6 +121,8 @@ class ApprovalCogniteClient:
                     "retrieve": self._create_retrieve_method,
                     "inspect": self._create_inspect_method,
                     "post": self._create_post_method,
+                    "upsert": self._create_retrieve_method,
+                    "update": self._create_post_method,
                 }[method_type]
                 method_dict = {
                     "create": self._create_methods,
@@ -125,6 +130,8 @@ class ApprovalCogniteClient:
                     "retrieve": self._retrieve_methods,
                     "inspect": self._inspect_methods,
                     "post": self._post_methods,
+                    "upsert": self._retrieve_methods,
+                    "update": self._post_methods,
                 }[method_type]
                 for mock_method in methods:
                     if not hasattr(mock_api, mock_method.api_class_method):
@@ -311,51 +318,71 @@ class ApprovalCogniteClient:
                 cognite_client=client,
             )
 
+        def upsert(*args, **kwargs) -> Any:
+            upserted = []
+            for value in itertools.chain(args, kwargs.values()):
+                if isinstance(value, write_resource_cls):
+                    upserted.append(value)
+                elif isinstance(value, Sequence) and all(isinstance(v, write_resource_cls) for v in value):
+                    upserted.extend(value)
+            created_resources[resource_cls.__name__].extend(upserted)
+
+            if resource_cls is Workflow:
+                return resource_cls.load(
+                    {"lastUpdatedTime": 0, "createdTime": 0, **upserted[0].dump(camel_case=True)}, cognite_client=client
+                )
+
+            if resource_cls is WorkflowVersion:
+                resource = {"lastUpdatedTime": 0, "createdTime": 0, **upserted[0].dump(camel_case=True)}
+
+                resource.get("workflowDefinition")["hash"] = "123"
+
+                return resource_cls.load(resource, cognite_client=client)
+
+            return resource_list_cls.load(
+                [
+                    {
+                        "isGlobal": False,
+                        "lastUpdatedTime": 0,
+                        "createdTime": 0,
+                        **c.dump(camel_case=True),
+                    }
+                    for c in upserted
+                ],
+                cognite_client=client,
+            )
+
+        def _create_dataframe_info(dataframe: pd.DataFrame) -> dict[str, Any]:
+            return {
+                "shape": "x".join(map(str, dataframe.shape)),
+                "nan_count": int(dataframe.isna().sum().sum()),
+                "null_count": int(dataframe.isnull().sum().sum()),
+                "empty_count": int(dataframe[dataframe == ""].count().sum()),
+                "first_row": dataframe.iloc[0].to_dict(),
+                "last_row": dataframe.iloc[-1].to_dict(),
+            }
+
         def insert_dataframe(*args, **kwargs) -> None:
             args = list(args)
             kwargs = dict(kwargs)
-            dataframe_hash = ""
-            dataframe_cols = []
+            dataframe_info: dict[str, Any] = {}
             for arg in list(args):
                 if isinstance(arg, pd.DataFrame):
                     args.remove(arg)
-                    dataframe_hash = int(
-                        hashlib.sha256(
-                            pd.util.hash_pandas_object(
-                                arg.sort_index().sort_index(axis=1), index=False, encoding="utf-8"
-                            ).values
-                        ).hexdigest(),
-                        16,
-                    )
-                    dataframe_cols = sorted(arg.columns)
+                    dataframe_info = _create_dataframe_info(arg)
                     break
-
             for key in list(kwargs):
                 if isinstance(kwargs[key], pd.DataFrame):
                     value = kwargs.pop(key)
-                    dataframe_hash = int(
-                        hashlib.sha256(
-                            pd.util.hash_pandas_object(
-                                value.sort_index().sort_index(axis=1), index=False, encoding="utf-8"
-                            ).values
-                        ).hexdigest(),
-                        16,
-                    )
-                    dataframe_cols = sorted(value.columns)
+                    dataframe_info = _create_dataframe_info(value)
                     break
-            if not dataframe_hash:
+            if not dataframe_info:
                 raise ValueError("No dataframe found in arguments")
             name = "_".join([str(arg) for arg in itertools.chain(args, kwargs.values())])
             if not name:
-                name = "_".join(dataframe_cols)
+                name = "missing"
             created_resources[resource_cls.__name__].append(
-                {
-                    "name": name,
-                    "args": args,
-                    "kwargs": kwargs,
-                    "dataframe": dataframe_hash,
-                    "columns": dataframe_cols,
-                }
+                {"name": name, "args": args, "kwargs": kwargs, "dataframe": dataframe_info}
             )
 
         def upload(*args, **kwargs) -> None:
@@ -428,16 +455,23 @@ class ApprovalCogniteClient:
             created_resources[resource_cls.__name__].append(created)
             return Function.load(created.dump(camel_case=True))
 
+        def create_function_schedule_api(**kwargs) -> FunctionSchedule:
+            created = FunctionScheduleWrite.load({to_camel_case(k): v for k, v in kwargs.items()})
+            created_resources[resource_cls.__name__].append(created)
+            return FunctionSchedule.load(created.dump(camel_case=True))
+
         available_create_methods = {
             fn.__name__: fn
             for fn in [
                 create,
                 insert_dataframe,
                 upload,
+                upsert,
                 create_instances,
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
                 create_function_api,
+                create_function_schedule_api,
             ]
         }
         if mock_method not in available_create_methods:

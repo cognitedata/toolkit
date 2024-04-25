@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
 
-from rich import print
-
 from cognite_toolkit import _version
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitVersionError
 from cognite_toolkit._cdf_tk.templates import BUILD_ENVIRONMENT_FILE
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
@@ -20,18 +19,29 @@ class ConfigCore(ABC):
 
     @classmethod
     @abstractmethod
-    def _file_name(cls, build_env: str) -> str:
+    def _file_name(cls, build_env_name: str) -> str:
         raise NotImplementedError
 
     @classmethod
-    def load_from_directory(cls: type[T_BuildConfig], source_path: Path, build_env: str) -> T_BuildConfig:
-        file_name = cls._file_name(build_env)
+    def load_from_directory(cls: type[T_BuildConfig], source_path: Path, build_env_name: str) -> T_BuildConfig:
+        file_name = cls._file_name(build_env_name)
         filepath = source_path / file_name
         filepath = filepath if filepath.is_file() else Path.cwd() / file_name
-        if not filepath.is_file():
-            print(f"  [bold red]ERROR:[/] {filepath.name!r} does not exist")
-            exit(1)
-        return cls.load(read_yaml_file(filepath), build_env, filepath)
+        if (
+            (old_filepath := (source_path / "cognite_modules" / file_name)).is_file()
+            and not filepath.is_file()
+            and file_name == "_system.yaml"
+        ):
+            # This is a fallback for the old location of the system file
+            print(
+                f"  [bold yellow]Warning:[/] {filepath.name!r} does not exist. "
+                f"Using 'cognite_toolkit/{old_filepath.name}' instead."
+            )
+            filepath = old_filepath
+        elif not filepath.is_file():
+            raise ToolkitFileNotFoundError(f"{filepath.name!r} does not exist")
+
+        return cls.load(read_yaml_file(filepath), build_env_name, filepath)
 
     @classmethod
     @abstractmethod
@@ -46,21 +56,19 @@ def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
     try:
         cdf_tk_version: str = data["cdf_toolkit_version"]
     except KeyError:
-        print(
-            f"  [bold red]ERROR:[/] System variables are missing required field 'cdf_toolkit_version' in {file_name!s}"
-        )
+        err_msg = f"System variables are missing required field 'cdf_toolkit_version' in {file_name!s}. {{}}"
         if file_name == BUILD_ENVIRONMENT_FILE:
-            print(f"  rerun `cdf-tk build` to build the templates again and create `{file_name!s}` correctly.")
-        else:
-            print(
-                f"  run `cdf-tk init --upgrade` to initialize the templates again and create a correct `{file_name!s}` file."
+            raise ToolkitVersionError(
+                err_msg.format("Rerun `cdf-tk build` to build the templates again and create it correctly.")
             )
-        exit(1)
-    if cdf_tk_version != _version.__version__:
-        print(
-            f"  [bold red]Error:[/] The version of the templates ({cdf_tk_version}) does not match the version of the installed package ({_version.__version__})."
+        raise ToolkitVersionError(
+            err_msg.format("Run `cdf-tk init --upgrade` to initialize the templates again to create a correct file.")
         )
-        print("  Please either run `cdf-tk init --upgrade` to upgrade the templates OR")
-        print(f"  run `pip install cognite-toolkit==={cdf_tk_version}` to downgrade cdf-tk.")
-        exit(1)
+
+    if cdf_tk_version != _version.__version__:
+        raise ToolkitVersionError(
+            "The version of the templates ({cdf_tk_version}) does not match the version of the installed package "
+            f"({_version.__version__}). Please either run `cdf-tk init --upgrade` to upgrade the templates OR "
+            f"run `pip install cognite-toolkit=={cdf_tk_version}` to downgrade cdf-tk."
+        )
     return cdf_tk_version

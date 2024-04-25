@@ -6,7 +6,6 @@ import typer
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import build
-from tests.constants import REPO_ROOT
 from tests.tests_unit.utils import mock_read_yaml_file
 
 
@@ -19,7 +18,6 @@ def mock_environments_yaml_file(module_name: str, monkeypatch: MonkeyPatch) -> N
                     "project": "pytest-project",
                     "type": "dev",
                     "selected_modules_and_packages": [module_name],
-                    "common_function_code": Path(REPO_ROOT / "cognite_toolkit/common_function_code").as_posix(),
                 }
             }
         },
@@ -40,8 +38,8 @@ def test_files_templates(
         typer_context,
         source_dir=str(init_project),
         build_dir=str(local_tmp_path / "files_build"),
-        build_env="dev",
-        clean=True,
+        build_env_name="dev",
+        no_clean=False,
     )
 
     assert Path(local_tmp_path / "files_build").exists()

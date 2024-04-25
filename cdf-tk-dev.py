@@ -6,23 +6,23 @@
 # However, when you run the file in Visual Studio Code, the module should not be installed in your
 # python virtual environment, but rather be found in the root of the repo.
 # This workaround allows you to run cdf.py in Visual Studio Code like this:
-"""         {
-            "name": "Python: build",
-            "type": "python",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "--verbose",
-                "--override-env",
-                "build",
-                "--build-dir=build",
-                "--clean",
-                "--env=local",
-                "./cognite_toolkit/"
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
+"""{
+    "name": "Python: build",
+    "type": "python",
+    "request": "launch",
+    "program": "./cdf-tk-dev.py",
+    "args": [
+        "--verbose",
+        "--override-env",
+        "build",
+        "--build-dir=build",
+        "--clean",
+        "--env=local",
+        "./cognite_toolkit/"
+    ],
+    "console": "integratedTerminal",
+    "justMyCode": false
+},
 """
 
 import os
@@ -47,7 +47,6 @@ if not Path(REPO_ROOT / "cognite_toolkit" / "config.local.yaml").exists():
             project="<my-project>",
             build_type="dev",
             selected_modules_and_packages=["cdf_demo_infield", "cdf_oid_example_data"],
-            common_function_code="./common_function_code",
         )
     ).load_defaults(REPO_ROOT / "cognite_toolkit")
     (REPO_ROOT / "cognite_toolkit" / "config.local.yaml").write_text(config_init.dump_yaml_with_comments())

@@ -31,7 +31,7 @@ from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesVie
 from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, TypeVar, get_args, get_origin, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, Optional, TypeVar, get_args, get_origin, overload
 
 import typer
 import yaml
@@ -50,12 +50,19 @@ from rich.prompt import Confirm, Prompt
 
 from cognite_toolkit._cdf_tk._get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitYAMLFormatError
 from cognite_toolkit._version import __version__
 
 if sys.version_info < (3, 10):
     from typing_extensions import TypeAlias
 else:
     from typing import TypeAlias
+
+
+if TYPE_CHECKING:
+    from sentry_sdk.types import Event as SentryEvent
+    from sentry_sdk.types import Hint as SentryHint
+
 
 logger = logging.getLogger(__name__)
 
@@ -666,7 +673,8 @@ class CDFToolConfig:
     def verify_capabilities(self, capability: Capability | Sequence[Capability]) -> CogniteClient:
         missing_capabilities = self.client.iam.verify_capabilities(capability)
         if len(missing_capabilities) > 0:
-            raise CogniteAuthError(f"Missing capabilities: {missing_capabilities}")
+            print(f"Missing necessary CDF access capabilities: {missing_capabilities}")
+
         return self.client
 
     def verify_dataset(self, data_set_external_id: str, skip_validation: bool = False) -> int:
@@ -837,12 +845,11 @@ def read_yaml_file(
     except yaml.YAMLError as e:
         print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
         return {}
+
     if expected_output == "list" and isinstance(config_data, dict):
-        print(f"  [bold red]ERROR:[/] {filepath} is not a list")
-        exit(1)
+        ToolkitYAMLFormatError(f"{filepath} did not contain `list` as expected")
     elif expected_output == "dict" and isinstance(config_data, list):
-        print(f"  [bold red]ERROR:[/] {filepath} is not a dict")
-        exit(1)
+        ToolkitYAMLFormatError(f"{filepath} did not contain `dict` as expected")
     return config_data
 
 
@@ -1340,3 +1347,24 @@ def retrieve_view_ancestors(client: CogniteClient, parents: list[ViewId], cache:
 
         parent_ids = grand_parent_ids
     return found
+
+
+def sentry_exception_filter(event: SentryEvent, hint: SentryHint) -> Optional[SentryEvent]:
+    if "exc_info" in hint:
+        exc_type, exc_value, tb = hint["exc_info"]
+        # Returning None prevents the event from being sent to Sentry
+        if isinstance(exc_value, ToolkitError):
+            return None
+    return event
+
+
+def run_app_with_manual_exception_handling(app: typer.Typer) -> int:
+    # Typer is meddling with sys.excepthook, so this is a workaround for 'app()'
+    # to do some custom exception handling:
+    command = typer.main.get_command(app)
+    try:
+        command(standalone_mode=False)
+    except ToolkitError as err:
+        print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+        return 1
+    return 0

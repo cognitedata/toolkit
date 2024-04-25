@@ -36,7 +36,7 @@ ExtractionPipeline:
     \ # RAW table used to store all mapping that NOT was automatically approved\n\
     \ rawTableBad: 'contextualization_bad'\n # Prefix used for all time series that\
     \ is used in contextualization\n timeSeriesPrefix: [pi_, opc-ua]\n # List of externalId\
-    \ for root assets to be used for contextualization\n assetRootExtIds: [workmate:VAL]\n\
+    \ for root assets to be used for contextualization\n assetRootExtIds: [WMT:VAL]\n\
     \ # Number between 0 and 1, indication of strict the matching should be 1 = only\
     \ exact matches\n matchThreshold: 0.85\n\n```\n"
   externalId: ep_ctx_timeseries_oid_opcua_asset
@@ -99,11 +99,11 @@ ExtractionPipeline:
   name: src:timeseries:oid:opcua
   source: opcua
 ExtractionPipelineConfig:
-- config: "data:\n    assetRootExtIds:\n    - workmate:VAL\n    debug: false\n   \
-    \ matchThreshold: 0.85\n    rawTableBad: contextualization_bad\n    rawTableGood:\
-    \ contextualization_good\n    rawTableManual: contextualization_manual_input\n\
-    \    rawdb: timeseries_oid_opcua\n    runAll: false\n    timeSeriesDataSetExtId:\
-    \ ds_timeseries_oid\n    timeSeriesPrefix:\n    - pi_\n    - opc-ua\n"
+- config: "data:\n    assetRootExtIds:\n    - WMT:VAL\n    debug: false\n    matchThreshold:\
+    \ 0.75\n    rawTableBad: contextualization_bad\n    rawTableGood: contextualization_good\n\
+    \    rawTableManual: contextualization_manual_input\n    rawdb: timeseries_oid_opcua\n\
+    \    runAll: false\n    timeSeriesDataSetExtId: ds_timeseries_oid\n    timeSeriesPrefix:\n\
+    \    - pi_\n    - opc-ua\n"
   externalId: ep_ctx_timeseries_oid_opcua_asset
 - config: "cognite:\n    cdf-chunking:\n        data-point-time-series: 500\n    \
     \    data-points: 10000\n    data-set-external-id: ds_timeseries_oid\n    debug:\
@@ -134,11 +134,17 @@ Function:
   externalId: fn_context_timeseries_oid_opcua_asset
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: b7107f42a646e392c8212900ed30333d5f70d421cd30602f2c27681a7358d032
+    cdf-toolkit-function-hash: 751c0304548641f6407bfaecbd52b3f1f589a87a17e9799c28a6f77d8cd410b6
     version: 0.0.1
   name: context:timeseries:oid:opcua:asset
   owner: Anonymous
   runtime: py311
+FunctionSchedule:
+- cronExpression: 0,30 * * * *
+  data:
+    ExtractionPipelineExtId: ep_ctx_timeseries_oid_opcua_asset
+  description: Run every 30 minute
+  name: daily-every-30-min
 Group:
 - capabilities:
   - rawAcl:
@@ -288,12 +294,21 @@ Group:
   sourceId: <change_me>
 Row:
 - args: []
-  columns:
-  - assetExternalId
-  - contextualized
-  - key
-  - timeSeriesExternalId
-  dataframe: 9078343689182423651389940353470843953491326160899249126411759952436401285960
+  dataframe:
+    empty_count: 2
+    first_row:
+      assetExternalId: WMT:23-TT-92604A
+      contextualized: ''
+      key: pi_191092
+      timeSeriesExternalId: pi_191092
+    last_row:
+      assetExternalId: WMT:23-TIC-92504
+      contextualized: ''
+      key: pi_160781
+      timeSeriesExternalId: pi_160781
+    nan_count: 0
+    null_count: 0
+    shape: 2x4
   kwargs:
     db_name: timeseries_oid_opcua
     ensure_parent: false

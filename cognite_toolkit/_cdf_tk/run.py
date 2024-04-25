@@ -20,7 +20,6 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.templates import (
-    COGNITE_MODULES,
     build_config,
     module_from_path,
 )
@@ -167,7 +166,7 @@ def run_local_function(
     source_path: Path,
     external_id: str,
     payload: str,
-    build_env: str,
+    build_env_name: str,
     schedule: str | None = None,
     rebuild_env: bool = False,
     verbose: bool = False,
@@ -181,9 +180,9 @@ def run_local_function(
             return False
         raise
 
-    system_config = SystemYAML.load_from_directory(source_path / COGNITE_MODULES, build_env)
-    config = BuildConfigYAML.load_from_directory(source_path, build_env)
-    print(f"[bold]Building for environment {build_env} using {source_path!s} as sources...[/bold]")
+    system_config = SystemYAML.load_from_directory(source_path, build_env_name)
+    config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
+    print(f"[bold]Building for environment {build_env_name} using {source_path!s} as sources...[/bold]")
     config.set_environment_variables()
     build_dir = tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd())
 
@@ -328,10 +327,11 @@ from pathlib import Path
 from handler import handle
 import json
 import inspect
+import os
 from collections import OrderedDict
-from common.tool import CDFClientTool
 
-tool = CDFClientTool()
+from cognite.client import CogniteClient
+
 
 def get_args(fn, handle_args):
     params = inspect.signature(fn).parameters
@@ -342,10 +342,18 @@ def get_args(fn, handle_args):
     return kwargs
 
 if __name__ == "__main__":
+    client = CogniteClient.default_oauth_client_credentials(
+        client_id=os.getenv('IDP_CLIENT_ID'),
+        client_secret=os.getenv('IDP_CLIENT_SECRET'),
+        project=os.getenv('CDF_PROJECT'),
+        cdf_cluster=os.getenv('CDF_CLUSTER'),
+        tenant_id=os.getenv('IDP_TENANT_ID'),
+        client_name="cognite-toolkit",
+    )
     data = json.loads(Path("./in.json").read_text())
     args = get_args(handle, {
+        "client": client,
         "data": data,
-        "client": tool.client,
         "secrets": {},
         "function_call_info": {"local": True}
     })

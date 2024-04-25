@@ -111,6 +111,7 @@ capabilities:
       scope:
         all: {}
   - labelsAcl:
+  - workflowOrchestrationAcl:
       actions:
         - READ
         - WRITE

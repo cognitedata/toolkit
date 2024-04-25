@@ -41,7 +41,6 @@ def mock_environments_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> 
                     "project": "pytest-project",
                     "type": "dev",
                     "selected_modules_and_packages": [module_path.name],
-                    "common_function_code": Path(REPO_ROOT / "cognite_toolkit/common_function_code").as_posix(),
                 }
             }
         },
@@ -68,13 +67,13 @@ def test_deploy_module_approval(
         typer_context,
         source_dir=str(init_project),
         build_dir=str(local_tmp_path),
-        build_env="dev",
-        clean=True,
+        build_env_name="dev",
+        no_clean=False,
     )
     deploy(
         typer_context,
         build_dir=str(local_tmp_path),
-        build_env="dev",
+        build_env_name="dev",
         interactive=False,
         drop=True,
         dry_run=False,
@@ -113,13 +112,13 @@ def test_deploy_dry_run_module_approval(
         typer_context,
         source_dir=str(init_project),
         build_dir=str(local_tmp_path),
-        build_env="dev",
-        clean=True,
+        build_env_name="dev",
+        no_clean=False,
     )
     deploy(
         typer_context,
         build_dir=str(local_tmp_path),
-        build_env="dev",
+        build_env_name="dev",
         interactive=False,
         drop=True,
         dry_run=True,
@@ -159,13 +158,13 @@ def test_clean_module_approval(
         typer_context,
         source_dir=str(local_tmp_project_path),
         build_dir=str(local_tmp_path),
-        build_env="dev",
-        clean=True,
+        build_env_name="dev",
+        no_clean=False,
     )
     clean(
         typer_context,
         build_dir=str(local_tmp_path),
-        build_env="dev",
+        build_env_name="dev",
         interactive=False,
         dry_run=False,
         include=[],

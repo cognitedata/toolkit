@@ -132,3 +132,8 @@ capabilities:
         - READ
       scope:
         all: { }
+  - workflowOrchestrationAcl:
+      actions:
+        - READ
+      scope:
+        all: {}

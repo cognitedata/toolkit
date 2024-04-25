@@ -30,7 +30,7 @@ documentation: >
    # Document type for P&ID type documents
    pAndIdDocType: "PNID"
    # List of externalId for root assets to be used for annotation of documents. Documents are also extracted based on the root asset ID
-   assetRootExtIds: [workmate:VAL]
+   assetRootExtIds: [{{external_root_id_asset}}]
    # Number between 0 and 1, indication of strict the matching should be 1 = only exact matches
    matchTreshold: 0.85
   ```

@@ -36,7 +36,7 @@ def run() -> None:
         )
     except Exception as e:
         log.error(f"Failed to run post-processing activities for demo project:\n{e}")
-        exit(1)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

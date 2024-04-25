@@ -107,7 +107,7 @@ Group:
       - WRITE
       scope:
         all: {}
-  - labelsAcl:
+  - workflowOrchestrationAcl:
       actions:
       - READ
       - WRITE
@@ -237,12 +237,7 @@ Group:
       - READ
       scope:
         all: {}
-  - eventsAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
-  - labelsAcl:
+  - workflowOrchestrationAcl:
       actions:
       - READ
       scope:

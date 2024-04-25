@@ -22,7 +22,6 @@ _DUMMY_ENVIRONMENT = Environment(
     project="not used",
     build_type="not used",
     selected_modules_and_packages=[],
-    common_function_code="",
 )
 
 
@@ -78,7 +77,7 @@ class Variables(UserDict):
             variable_module_key = [*module_key_path, "first_pop"]
             while variable_module_key:
                 variable_module_key.pop()
-                key_path = (InitConfigYAML._modules, *variable_module_key, variable_name)
+                key_path = (InitConfigYAML._variables, *variable_module_key, variable_name)
                 if default := default_variables.get(key_path):
                     value.default_value = default.default_value
                     value.default_comment = default.default_comment

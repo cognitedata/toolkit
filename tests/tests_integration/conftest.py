@@ -10,7 +10,7 @@ from tests.constants import REPO_ROOT
 
 @pytest.fixture(scope="session")
 def cognite_client() -> CogniteClient:
-    load_dotenv(REPO_ROOT / ".env")
+    load_dotenv(REPO_ROOT / ".env", override=True)
     cdf_cluster = os.environ["CDF_CLUSTER"]
     credentials = OAuthClientCredentials(
         token_url=os.environ["IDP_TOKEN_URL"],

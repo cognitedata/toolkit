@@ -17,6 +17,50 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Removed
+
+- [BREAKING] `cognite-tookit` no longer supports `common_function_code`. The code used by functions must be in each
+  function directory. The reason for this is that `cognite-toolkit` is a tool for governance and deployment of
+  modules, it is not for development of functions. The `common_function_code` was a feature to support easier
+  development of functions. It is expected that functions are developed in a separate environment and then
+  moved to the `cognite_modules` folder for deployment and promotion between environments.
+
+### Changed
+
+- In `config.[env].yaml`, in the `environment` section, `name` is no longer required. Instead, the `[env]` part
+  of the `config.[env].yaml` file is used as the `name` of the environment. This is to avoid redundancy.
+
+## [0.2.0a3] - 2024-04-23
+
+### Added
+
+- Support for the Workflow and WorkflowVersion resource type
+- Support for specifying `selected_modules_and_packages` as paths and parent paths. For example, you can
+  now write `cognite_modules/core/cdf_apm_base` instead of just `cdf_apm_base`. This is to support
+  modules that have the same name but are in different parent directories. In addition, this also better reflects
+  the structure of the `cognite_modules` and `custom_modules` folder better.
+
+### Fixed
+
+- Functions that are deployed with schedules no longer uses a short-lived session (before: failed after ~an hour).
+
+### Changed
+
+- [BREAKING] The `cdf-tk build` will now clean the build directory by default before building the modules to avoid
+  unwanted side effects from previous builds. To stop this behavior, use the `--no-clean` flag.
+- [BREAKING] The `_system.yaml` is now required to be on the root level when running any `cdf-tk` command. This
+  means that the `_system.yaml` file must be in the same directory as the `config.[env].yaml` files. This is to
+  support running `cdf-tk` without the `cognite_modules` folder.
+- [BREAKING] In the `config.[env].yaml` files, the `modules` section is now renamed to `variables`. This is to
+  better reflect the content of this section, which is variables that can be used in the resource files.
+- In addition to `cognite_modules` and `custom_modules`, the `cognite-toolkit` now also support `modules` as the
+  top-level folder for modules. This together with the two changes above, is to have a better support for running
+  the `cognite-toolkit` as a standalone CLI without the `cognite_modules`.
+- The `.gitignore` file you get by running `cdf-tk init` now ignores the `/build` by default.
+- The dependency `cognite-sdk` must now be `>=7.37.0` to use the `cdf-tk`.
+
+## [0.2.0a2] - 2024-04-03
+
 ### Added
 
 - Variables can now have extra spaces between curly braces and the variable name. For example, `{{  my_variable }}` is now
