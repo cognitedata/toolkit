@@ -17,6 +17,14 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Removed
+
+- [BREAKING] `cognite-tookit` no longer supports `common_function_code`. The code used by functions must be in each
+  function directory. The reason for this is that `cognite-toolkit` is a tool for governance and deployment of
+  modules, it is not for development of functions. The `common_function_code` was a feature to support easier
+  development of functions. It is expected that functions are developed in a separate environment and then
+  moved to the `cognite_modules` folder for deployment and promotion between environments.
+
 ### Changed
 
 - In `config.[env].yaml`, in the `environment` section, `name` is no longer required. Instead, the `[env]` part

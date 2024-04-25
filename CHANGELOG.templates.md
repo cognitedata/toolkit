@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Changed
+
+- The `cdf_functions_dummy` module now includes codes from the former `common_function_code` directory.
+
 ## [0.2.0a3] - 2024-04-23
 
 ### Fixed
