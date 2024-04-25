@@ -12,8 +12,6 @@ environment:
     - cdf_data_pipeline_asset_valhall
     - my_example_module
 
-  common_function_code: ./common_function_code
-
 variables:
 
   # Globally defined variables are available to all submodules

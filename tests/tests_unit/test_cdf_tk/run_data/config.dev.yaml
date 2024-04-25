@@ -4,7 +4,6 @@ environment:
   type: dev
   selected_modules_and_packages:
   - cdf_functions_dummy
-  common_function_code: ../../../../cognite_toolkit/common_function_code
 
 variables:
   cognite_modules:
