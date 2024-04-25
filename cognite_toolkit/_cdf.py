@@ -55,7 +55,6 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     read_yaml_file,
-    run_app_with_manual_exception_handling,
     sentry_exception_filter,
 )
 from cognite_toolkit._version import __version__ as current_version
@@ -102,10 +101,15 @@ _app.add_typer(dump_app, name="dump")
 
 
 def app() -> NoReturn:
-    # Main entry point.
+    # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
-    exit_code = run_app_with_manual_exception_handling(_app)
-    raise SystemExit(exit_code)
+    try:
+        _app()
+    except ToolkitError as err:
+        print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+        raise SystemExit(1)
+
+    raise SystemExit(0)
 
 
 _AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)

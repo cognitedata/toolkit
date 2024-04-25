@@ -1356,15 +1356,3 @@ def sentry_exception_filter(event: SentryEvent, hint: SentryHint) -> Optional[Se
         if isinstance(exc_value, ToolkitError):
             return None
     return event
-
-
-def run_app_with_manual_exception_handling(app: typer.Typer) -> int:
-    # Typer is meddling with sys.excepthook, so this is a workaround for 'app()'
-    # to do some custom exception handling:
-    command = typer.main.get_command(app)
-    try:
-        command(standalone_mode=False)
-    except ToolkitError as err:
-        print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
-        return 1
-    return 0
