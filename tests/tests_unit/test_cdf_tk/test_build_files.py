@@ -38,7 +38,7 @@ def test_files_templates(
         typer_context,
         source_dir=str(init_project),
         build_dir=str(local_tmp_path / "files_build"),
-        build_env="dev",
+        build_env_name="dev",
         no_clean=False,
     )
 
