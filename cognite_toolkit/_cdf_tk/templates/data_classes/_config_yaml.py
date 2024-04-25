@@ -95,8 +95,8 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         return available_modules
 
     @classmethod
-    def _file_name(cls, build_env: str) -> str:
-        return f"config.{build_env}.yaml"
+    def _file_name(cls, build_env_name: str) -> str:
+        return f"config.{build_env_name}.yaml"
 
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.environment.name
@@ -122,14 +122,14 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         return None
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildConfigYAML:
+    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> BuildConfigYAML:
         if missing := {"environment", "variables"}.difference(data):
             err_msg = f"Expected {list(missing)} section(s) in {filepath!s}."
             if "modules" in data and "variables" in missing:
                 err_msg += " Note: The 'modules' section is deprecated and has been renamed to 'variables' instead."
             raise ToolkitEnvError(err_msg)
 
-        environment = Environment.load(data["environment"], build_env)
+        environment = Environment.load(data["environment"], build_env_name)
         variables = data["variables"]
         return cls(environment=environment, variables=variables, filepath=filepath)
 
@@ -192,7 +192,7 @@ class BuildEnvironment(Environment):
         cls, data: dict[str, Any], build_name: str, action: Literal["build", "deploy", "clean"] = "build"
     ) -> BuildEnvironment:
         if build_name is None:
-            raise ValueError("build_env must be specified")
+            raise ValueError("build_name must be specified")
         version = _load_version_variable(data, BUILD_ENVIRONMENT_FILE)
         try:
             return BuildEnvironment(
@@ -345,14 +345,14 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         return self
 
     @classmethod
-    def load_existing(cls, existing_config_yaml: str, build_env: str = "dev") -> InitConfigYAML:
+    def load_existing(cls, existing_config_yaml: str, build_env_name: str = "dev") -> InitConfigYAML:
         """Loads an existing config.yaml file.
 
         This does a yaml.safe_load, in addition to extracting comments from the file.
 
         Args:
             existing_config_yaml: The existing config.yaml file.
-            build_env: The build environment.
+            build_env_name: The build environment.
 
         Returns:
             self
@@ -362,7 +362,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         comments = cls._extract_comments(raw_file)
         config = yaml.safe_load(raw_file)
         if cls._environment in config:
-            environment = Environment.load(config[cls._environment], build_env)
+            environment = Environment.load(config[cls._environment], build_env_name)
         else:
             raise ToolkitEnvError(f"Missing environment in {existing_config_yaml!s}")
 

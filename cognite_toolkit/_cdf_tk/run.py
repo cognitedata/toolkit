@@ -166,7 +166,7 @@ def run_local_function(
     source_path: Path,
     external_id: str,
     payload: str,
-    build_env: str,
+    build_env_name: str,
     schedule: str | None = None,
     rebuild_env: bool = False,
     verbose: bool = False,
@@ -180,9 +180,9 @@ def run_local_function(
             return False
         raise
 
-    system_config = SystemYAML.load_from_directory(source_path, build_env)
-    config = BuildConfigYAML.load_from_directory(source_path, build_env)
-    print(f"[bold]Building for environment {build_env} using {source_path!s} as sources...[/bold]")
+    system_config = SystemYAML.load_from_directory(source_path, build_env_name)
+    config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
+    print(f"[bold]Building for environment {build_env_name} using {source_path!s} as sources...[/bold]")
     config.set_environment_variables()
     build_dir = tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd())
 

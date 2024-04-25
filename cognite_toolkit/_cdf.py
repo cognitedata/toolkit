@@ -237,12 +237,12 @@ def build(
             help="Where to save the built module files",
         ),
     ] = "./build",
-    build_env: Annotated[
+    build_name: Annotated[
         str,
         typer.Option(
             "--env",
             "-e",
-            help="Build environment to build for",
+            help="The name of the environment to build",
         ),
     ] = "dev",
     no_clean: Annotated[
@@ -257,11 +257,11 @@ def build(
     if not source_path.is_dir():
         raise ToolkitNotADirectoryError(str(source_path))
 
-    system_config = SystemYAML.load_from_directory(source_path, build_env)
-    config = BuildConfigYAML.load_from_directory(source_path, build_env)
+    system_config = SystemYAML.load_from_directory(source_path, build_name)
+    config = BuildConfigYAML.load_from_directory(source_path, build_name)
     print(
         Panel(
-            f"[bold]Building config files from templates into {build_dir!s} for environment {build_env} using {source_path!s} as sources...[/bold]"
+            f"[bold]Building config files from templates into {build_dir!s} for environment {build_name} using {source_path!s} as sources...[/bold]"
             f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}'"
         )
     )
@@ -287,7 +287,7 @@ def deploy(
             allow_dash=True,
         ),
     ] = "./build",
-    build_env: Annotated[
+    build_env_name: Annotated[
         str,
         typer.Option(
             "--env",
@@ -339,10 +339,10 @@ def deploy(
     # Override cluster and project from the options/env variables
     ToolGlobals = CDFToolConfig.from_context(ctx)
 
-    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env, "deploy")
+    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env_name, "deploy")
     build_.set_environment_variables()
 
-    print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env}...[/]"))
+    print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env_name}...[/]"))
     build_path = Path(build_dir)
     if not build_path.is_dir():
         raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
@@ -470,7 +470,7 @@ def clean(
             allow_dash=True,
         ),
     ] = "./build",
-    build_env: Annotated[
+    build_env_name: Annotated[
         str,
         typer.Option(
             "--env",
@@ -507,10 +507,10 @@ def clean(
     # Override cluster and project from the options/env variables
     ToolGlobals = CDFToolConfig.from_context(ctx)
 
-    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env, "clean")
+    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env_name, "clean")
     build_.set_environment_variables()
 
-    Panel(f"[bold]Cleaning environment {build_env} based on config files from {build_dir}...[/]")
+    Panel(f"[bold]Cleaning environment {build_env_name} based on config files from {build_dir}...[/]")
     build_path = Path(build_dir)
     if not build_path.is_dir():
         raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
@@ -882,7 +882,7 @@ def run_function_cmd(
             help="Run the function locally with the credentials from the schedule specified with the cron expression.",
         ),
     ] = None,
-    build_env: Annotated[
+    build_env_name: Annotated[
         str,
         typer.Option(
             "--env",
@@ -914,7 +914,7 @@ def run_function_cmd(
         external_id=external_id,
         payload=payload or "{}",
         schedule=schedule,
-        build_env=build_env,
+        build_env_name=build_env_name,
         rebuild_env=rebuild_env,
         verbose=ctx.obj.verbose,
         no_cleanup=no_cleanup,
