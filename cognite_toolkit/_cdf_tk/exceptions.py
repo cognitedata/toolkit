@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from yaml import YAMLError
 
 
@@ -86,3 +88,20 @@ class ToolkitValidationError(ToolkitError):
 
 class ToolkitYAMLFormatError(YAMLError, ToolkitValidationError):
     pass
+
+
+class ToolkitInvalidParameterError(ToolkitValidationError):
+    def __init__(self, message: str, identifier: str, correct_by_wrong_parameter: Mapping[str, str | None]) -> None:
+        super().__init__(message)
+        self.identifier = identifier
+        self.parameter = correct_by_wrong_parameter
+
+    def __str__(self) -> str:
+        parameters = []
+        for wrong, correct in self.parameter.items():
+            if correct is not None:
+                parameters.append(f"{wrong} should be {correct}")
+            else:
+                parameters.append(f"{wrong} is invalid")
+        parameter_str = "    \n".join(parameters)
+        return f"{super().__str__()}\nIn {self.identifier} the following parameters are invalid: {parameter_str}"
