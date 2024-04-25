@@ -19,12 +19,12 @@ class ConfigCore(ABC):
 
     @classmethod
     @abstractmethod
-    def _file_name(cls, build_env: str) -> str:
+    def _file_name(cls, build_env_name: str) -> str:
         raise NotImplementedError
 
     @classmethod
-    def load_from_directory(cls: type[T_BuildConfig], source_path: Path, build_env: str) -> T_BuildConfig:
-        file_name = cls._file_name(build_env)
+    def load_from_directory(cls: type[T_BuildConfig], source_path: Path, build_env_name: str) -> T_BuildConfig:
+        file_name = cls._file_name(build_env_name)
         filepath = source_path / file_name
         filepath = filepath if filepath.is_file() else Path.cwd() / file_name
         if (
@@ -41,7 +41,7 @@ class ConfigCore(ABC):
         elif not filepath.is_file():
             raise ToolkitFileNotFoundError(f"{filepath.name!r} does not exist")
 
-        return cls.load(read_yaml_file(filepath), build_env, filepath)
+        return cls.load(read_yaml_file(filepath), build_env_name, filepath)
 
     @classmethod
     @abstractmethod

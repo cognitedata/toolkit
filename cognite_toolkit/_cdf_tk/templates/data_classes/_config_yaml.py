@@ -8,7 +8,7 @@ from collections import UserDict, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import yaml
 from rich import print
@@ -37,10 +37,10 @@ class Environment:
     selected_modules_and_packages: list[str | tuple[str, ...]]
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env: str) -> Environment:
+    def load(cls, data: dict[str, Any], build_name: str) -> Environment:
         try:
             return Environment(
-                name=data["name"],
+                name=build_name,
                 project=data["project"],
                 build_type=data["type"],
                 selected_modules_and_packages=[
@@ -52,8 +52,8 @@ class Environment:
             )
         except KeyError:
             raise ToolkitEnvError(
-                "Environment is missing one or more required fields: 'name', 'project', 'type', or "
-                f"'selected_modules_and_packages' in {BuildConfigYAML._file_name(build_env)!s}"
+                "Environment section is missing one or more required fields: 'name', 'project', 'type', or "
+                f"'selected_modules_and_packages' in {BuildConfigYAML._file_name(build_name)!s}"
             )
 
     def dump(self) -> dict[str, Any]:
@@ -95,8 +95,8 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         return available_modules
 
     @classmethod
-    def _file_name(cls, build_env: str) -> str:
-        return f"config.{build_env}.yaml"
+    def _file_name(cls, build_env_name: str) -> str:
+        return f"config.{build_env_name}.yaml"
 
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.environment.name
@@ -122,14 +122,14 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         return None
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildConfigYAML:
+    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> BuildConfigYAML:
         if missing := {"environment", "variables"}.difference(data):
             err_msg = f"Expected {list(missing)} section(s) in {filepath!s}."
             if "modules" in data and "variables" in missing:
                 err_msg += " Note: The 'modules' section is deprecated and has been renamed to 'variables' instead."
             raise ToolkitEnvError(err_msg)
 
-        environment = Environment.load(data["environment"], build_env)
+        environment = Environment.load(data["environment"], build_env_name)
         variables = data["variables"]
         return cls(environment=environment, variables=variables, filepath=filepath)
 
@@ -189,31 +189,22 @@ class BuildEnvironment(Environment):
 
     @classmethod
     def load(
-        cls, data: dict[str, Any], build_env: str, action: Literal["build", "deploy", "clean"] = "build"
+        cls, data: dict[str, Any], build_name: str, action: Literal["build", "deploy", "clean"] = "build"
     ) -> BuildEnvironment:
-        if build_env is None:
-            raise ValueError("build_env must be specified")
-        environment = data.get("name")
-        if environment is None:
-            environment = build_env
-            load_data = cast(dict[str, Any], data.get(build_env))
-        else:
-            load_data = data
-        if environment is None:
-            raise ToolkitEnvError(f"Environment {build_env} not found in {BUILD_ENVIRONMENT_FILE!s}")
-
-        version = _load_version_variable(load_data, BUILD_ENVIRONMENT_FILE)
+        if build_name is None:
+            raise ValueError("build_name must be specified")
+        version = _load_version_variable(data, BUILD_ENVIRONMENT_FILE)
         try:
             return BuildEnvironment(
-                name=cast(Literal["dev", "local", "demo", "staging", "prod"], build_env),
-                project=load_data["project"],
-                build_type=load_data["type"],
-                selected_modules_and_packages=load_data["selected_modules_and_packages"],
+                name=build_name,
+                project=data["project"],
+                build_type=data["type"],
+                selected_modules_and_packages=data["selected_modules_and_packages"],
                 cdf_toolkit_version=version,
             )
         except KeyError:
             raise ToolkitEnvError(
-                f"  [bold red]ERROR:[/] Environment {build_env} is missing required fields 'project', 'type', "
+                f"  [bold red]ERROR:[/] Environment {build_name} is missing required fields 'project', 'type', "
                 f"or 'selected_modules_and_packages' in {BUILD_ENVIRONMENT_FILE!s}"
             )
 
@@ -354,14 +345,14 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         return self
 
     @classmethod
-    def load_existing(cls, existing_config_yaml: str, build_env: str = "dev") -> InitConfigYAML:
+    def load_existing(cls, existing_config_yaml: str, build_env_name: str = "dev") -> InitConfigYAML:
         """Loads an existing config.yaml file.
 
         This does a yaml.safe_load, in addition to extracting comments from the file.
 
         Args:
             existing_config_yaml: The existing config.yaml file.
-            build_env: The build environment.
+            build_env_name: The build environment.
 
         Returns:
             self
@@ -371,7 +362,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         comments = cls._extract_comments(raw_file)
         config = yaml.safe_load(raw_file)
         if cls._environment in config:
-            environment = Environment.load(config[cls._environment], build_env)
+            environment = Environment.load(config[cls._environment], build_env_name)
         else:
             raise ToolkitEnvError(f"Missing environment in {existing_config_yaml!s}")
 

@@ -420,9 +420,9 @@ description: PH 1stStgSuctCool Gas Out
 
 class TestDeployResources:
     def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
-        build_env = "dev"
-        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env)
-        config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
+        build_env_name = "dev"
+        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
+        config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
         config.environment.selected_modules_and_packages = ["another_module"]
         build_config(BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False)
         expected_order = ["MyView", "MyOtherView"]

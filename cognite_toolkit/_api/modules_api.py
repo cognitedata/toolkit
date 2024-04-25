@@ -113,7 +113,7 @@ class ModulesAPI:
         deploy(
             ctx=ctx,
             build_dir=str(self._build_dir),
-            build_env=self._build_env,
+            build_env_name=self._build_env,
             interactive=False,
             drop=False,
             drop_data=False,
@@ -135,7 +135,7 @@ class ModulesAPI:
         clean(
             ctx=ctx,
             build_dir=str(self._build_dir),
-            build_env=self._build_env,
+            build_env_name=self._build_env,
             interactive=False,
             dry_run=dry_run,
             include=list(include) if include is not None else None,

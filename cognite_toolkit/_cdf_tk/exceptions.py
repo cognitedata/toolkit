@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+
 from yaml import YAMLError
 
 
@@ -63,6 +67,10 @@ class ToolkitDuplicatedModuleError(ToolkitError):
         )
         return "\n".join(lines)
 
+    def __repr__(self) -> str:
+        # Repr is what is called by rich when the exception is printed.
+        return str(self)
+
 
 class ToolkitNotADirectoryError(NotADirectoryError, ToolkitError):
     pass
@@ -86,3 +94,25 @@ class ToolkitValidationError(ToolkitError):
 
 class ToolkitYAMLFormatError(YAMLError, ToolkitValidationError):
     pass
+
+
+class ToolkitInvalidParameterNameError(ToolkitValidationError):
+    def __init__(self, message: str, identifier: str, correct_by_wrong_parameter: Mapping[str, str | None]) -> None:
+        super().__init__(message)
+        self.identifier = identifier
+        self.parameter = correct_by_wrong_parameter
+
+    def __str__(self) -> str:
+        parameters = []
+        for wrong, correct in self.parameter.items():
+            if correct is not None:
+                parameters.append(f"{wrong!r} should be {correct!r}")
+            else:
+                parameters.append(f"{wrong!r} is invalid")
+        parameter_str = "    \n".join(parameters)
+        message = super().__str__()
+        return f"{message}\nIn {self.identifier!r} the following parameters are invalid: {parameter_str}"
+
+    def __repr__(self) -> str:
+        # Repr is what is called by rich when the exception is printed.
+        return str(self)
