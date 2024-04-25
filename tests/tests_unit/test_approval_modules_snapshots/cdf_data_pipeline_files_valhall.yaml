@@ -278,7 +278,7 @@ Workflow:
 WorkflowVersion:
 - version: '1'
   workflowDefinition:
-    description: Execute tasks in sequence
+    description: Workflow that annotate files
     tasks:
     - externalId: tr_files_oid_fileshare_file_metadata
       name: Metadata Transformation
