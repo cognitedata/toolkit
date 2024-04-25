@@ -41,7 +41,6 @@ def mock_environments_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> 
                     "project": "pytest-project",
                     "type": "dev",
                     "selected_modules_and_packages": [module_path.name],
-                    "common_function_code": Path(REPO_ROOT / "cognite_toolkit/common_function_code").as_posix(),
                 }
             }
         },

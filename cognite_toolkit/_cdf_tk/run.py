@@ -327,10 +327,11 @@ from pathlib import Path
 from handler import handle
 import json
 import inspect
+import os
 from collections import OrderedDict
-from common.tool import CDFClientTool
 
-tool = CDFClientTool()
+from cognite.client import CogniteClient
+
 
 def get_args(fn, handle_args):
     params = inspect.signature(fn).parameters
@@ -341,10 +342,18 @@ def get_args(fn, handle_args):
     return kwargs
 
 if __name__ == "__main__":
+    client = CogniteClient.default_oauth_client_credentials(
+        client_id=os.getenv('IDP_CLIENT_ID'),
+        client_secret=os.getenv('IDP_CLIENT_SECRET'),
+        project=os.getenv('CDF_PROJECT'),
+        cdf_cluster=os.getenv('CDF_CLUSTER'),
+        tenant_id=os.getenv('IDP_TENANT_ID'),
+        client_name="cognite-toolkit",
+    )
     data = json.loads(Path("./in.json").read_text())
     args = get_args(handle, {
+        "client": client,
         "data": data,
-        "client": tool.client,
         "secrets": {},
         "function_call_info": {"local": True}
     })

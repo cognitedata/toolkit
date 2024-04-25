@@ -5,7 +5,6 @@ dev:
   selected_modules_and_packages:
     - cdf_demo_infield
     - cdf_oid_example_data
-  common_function_code: ./common_function_code
 
 prod:
   name: prod
@@ -13,4 +12,3 @@ prod:
   type: prod
   selected_modules_and_packages:
     - cdf_infield
-  common_function_code: ./common_function_code
