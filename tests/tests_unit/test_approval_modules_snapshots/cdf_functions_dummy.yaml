@@ -42,7 +42,3 @@ FunctionSchedule:
     lunch: 'tomorrow: greek salad and water'
   description: Run every day at 8pm UTC
   name: daily-8pm-utc
-deleted:
-  Function:
-  - externalId: fn_example_repeater
-  - externalId: fn_test2

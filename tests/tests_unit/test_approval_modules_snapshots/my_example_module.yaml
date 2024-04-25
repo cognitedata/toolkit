@@ -111,8 +111,3 @@ WorkflowVersion:
       timeout: 3600
       type: transformation
   workflowExternalId: wf_baz
-deleted:
-  Function:
-  - externalId: fn_first_function
-  TransformationSchedule:
-  - externalId: tr_first_transformation

@@ -147,8 +147,3 @@ TransformationSchedule:
 - externalId: tr_asset_oid_workmate_asset_hierarchy
   interval: 7 * * * *
   isPaused: true
-deleted:
-  ExtractionPipeline:
-  - externalId: ep_src_asset_oid_workmate
-  TransformationSchedule:
-  - externalId: tr_asset_oid_workmate_asset_hierarchy

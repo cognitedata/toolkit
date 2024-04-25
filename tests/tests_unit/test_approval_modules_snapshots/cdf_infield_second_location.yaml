@@ -491,7 +491,3 @@ TransformationSchedule:
 - externalId: tr_workorder_oid2_workmate_infield_sync_workorders_to_apm_activities
   interval: 7 * * * *
   isPaused: false
-deleted:
-  TransformationSchedule:
-  - externalId: tr_asset_oid2_workmate_infield_sync_assets_from_hierarchy_to_apm
-  - externalId: tr_workorder_oid2_workmate_infield_sync_workorders_to_apm_activities

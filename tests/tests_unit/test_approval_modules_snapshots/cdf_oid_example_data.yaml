@@ -912,8 +912,3 @@ TransformationSchedule:
 - externalId: tr_event_oid_workmate_workorder_example
   interval: 7 * * * *
   isPaused: false
-deleted:
-  TransformationSchedule:
-  - externalId: tr_asset_oid_workmate_asset_hierarchy_example
-  - externalId: tr_event_oid_workmate_workitem_example
-  - externalId: tr_event_oid_workmate_workorder_example
