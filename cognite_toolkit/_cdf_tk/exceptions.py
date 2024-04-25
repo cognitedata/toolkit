@@ -65,6 +65,10 @@ class ToolkitDuplicatedModuleError(ToolkitError):
         )
         return "\n".join(lines)
 
+    def __repr__(self) -> str:
+        # Repr is what is called by rich when the exception is printed.
+        return str(self)
+
 
 class ToolkitNotADirectoryError(NotADirectoryError, ToolkitError):
     pass
@@ -100,8 +104,13 @@ class ToolkitInvalidParameterError(ToolkitValidationError):
         parameters = []
         for wrong, correct in self.parameter.items():
             if correct is not None:
-                parameters.append(f"{wrong} should be {correct}")
+                parameters.append(f"{wrong!r} should be {correct!r}")
             else:
-                parameters.append(f"{wrong} is invalid")
+                parameters.append(f"{wrong!r} is invalid")
         parameter_str = "    \n".join(parameters)
-        return f"{super().__str__()}\nIn {self.identifier} the following parameters are invalid: {parameter_str}"
+        message = super().__str__()
+        return f"{message}\nIn {self.identifier!r} the following parameters are invalid: {parameter_str}"
+
+    def __repr__(self) -> str:
+        # Repr is what is called by rich when the exception is printed.
+        return str(self)

@@ -1032,7 +1032,7 @@ class TransformationLoader(
             if parameters:
                 raise ToolkitInvalidParameterError(
                     "Parameters invalid. These are specific for the "
-                    "`transformation-cli` and not supported by cogniet-toolkit",
+                    "'transformation-cli' and not supported by cognite-toolkit",
                     resource.get("externalId", "<Missing>"),
                     parameters,
                 )
