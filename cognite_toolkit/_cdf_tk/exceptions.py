@@ -96,7 +96,7 @@ class ToolkitYAMLFormatError(YAMLError, ToolkitValidationError):
     pass
 
 
-class ToolkitInvalidParameterError(ToolkitValidationError):
+class ToolkitInvalidParameterNameError(ToolkitValidationError):
     def __init__(self, message: str, identifier: str, correct_by_wrong_parameter: Mapping[str, str | None]) -> None:
         super().__init__(message)
         self.identifier = identifier

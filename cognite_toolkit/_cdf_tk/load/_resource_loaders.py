@@ -129,7 +129,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_directory_hash,
@@ -1024,17 +1024,17 @@ class TransformationLoader(
         transformations = TransformationWriteList([])
 
         for resource in resources:
-            parameters: dict[str, str] = {}
+            invalid_parameters: dict[str, str] = {}
             if "action" in resource and "conflictMode" not in resource:
-                parameters["action"] = "conflictMode"
+                invalid_parameters["action"] = "conflictMode"
             if "shared" in resource and "isPublic" not in resource:
-                parameters["shared"] = "isPublic"
-            if parameters:
-                raise ToolkitInvalidParameterError(
+                invalid_parameters["shared"] = "isPublic"
+            if invalid_parameters:
+                raise ToolkitInvalidParameterNameError(
                     "Parameters invalid. These are specific for the "
                     "'transformation-cli' and not supported by cognite-toolkit",
                     resource.get("externalId", "<Missing>"),
-                    parameters,
+                    invalid_parameters,
                 )
 
             source_oidc_credentials = (
