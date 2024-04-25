@@ -1113,5 +1113,4 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
 
 
 if __name__ == "__main__":
-    exit_code = run_app_with_manual_exception_handling(_app)
-    raise SystemExit(exit_code)
+    app()
