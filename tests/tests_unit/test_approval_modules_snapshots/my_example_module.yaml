@@ -18,7 +18,7 @@ Function:
   externalId: fn_first_function
   functionPath: ./src/handler.py
   metadata:
-    cdf-toolkit-function-hash: 3a231306ed26bfcfe6111fbb18c37c0fc6587877d779870174495bf52c42b9e1
+    cdf-toolkit-function-hash: 31407820253d00b05da67d6d9ff7f009df975e0f99e5d08914c0c23e95d7f121
     version: '1'
   name: first:example:function
   owner: Anonymous

@@ -49,7 +49,6 @@ def dummy_environment() -> Environment:
         project="my_project",
         build_type="dev",
         selected_modules_and_packages=["none"],
-        common_function_code="./common_function_code",
     )
 
 

@@ -30,7 +30,6 @@ import sys
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.templates.data_classes import Environment, InitConfigYAML
-from cognite_toolkit._cdf_tk.utils import run_app_with_manual_exception_handling
 
 REPO_ROOT = Path(__file__).resolve().parent
 root_folder = rf"{REPO_ROOT.absolute()}"
@@ -48,11 +47,9 @@ if not Path(REPO_ROOT / "cognite_toolkit" / "config.local.yaml").exists():
             project="<my-project>",
             build_type="dev",
             selected_modules_and_packages=["cdf_demo_infield", "cdf_oid_example_data"],
-            common_function_code="./common_function_code",
         )
     ).load_defaults(REPO_ROOT / "cognite_toolkit")
     (REPO_ROOT / "cognite_toolkit" / "config.local.yaml").write_text(config_init.dump_yaml_with_comments())
 
 if __name__ == "__main__":
-    exit_code = run_app_with_manual_exception_handling(app)
-    raise SystemExit(exit_code)
+    app()

@@ -20,6 +20,9 @@ Changes are grouped as follows:
 ### Added
 
 - Added Workflow with a Function and a Transformation to the cdf_data_pipeline_files_valhall example
+### Changed
+
+- The `cdf_functions_dummy` module now includes codes from the former `common_function_code` directory.
 
 ## [0.2.0a3] - 2024-04-23
 
