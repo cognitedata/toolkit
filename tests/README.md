@@ -210,6 +210,8 @@ We see that the `create` method for RAW rows is mocked by the `insert_dataframe`
 `tests_unit/approval_client/client.py` and find the `insert_dataframe` method inside the private `_create_create_method`
 and set the breakpoint there. This will then stop the code execution when the `insert_dataframe` method is called.
 
+![image](https://github.com/cognitedata/cdf-project-templates/assets/60234212/aa8f72c9-0ecd-4166-bb41-f438fba25b4b)
+
 ### Simulate Existing Resource in CDF
 
 ### Creating a new module
