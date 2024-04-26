@@ -314,9 +314,3 @@ Row:
     ensure_parent: false
     table_name: contextualization_manual_input
   name: timeseries_oid_opcua_contextualization_manual_input_False
-deleted:
-  ExtractionPipeline:
-  - externalId: ep_ctx_timeseries_oid_opcua_asset
-  - externalId: ep_src_timeseries_oid_opcua
-  Function:
-  - externalId: fn_context_timeseries_oid_opcua_asset

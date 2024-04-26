@@ -1,11 +1,1 @@
-deleted:
-  Database:
-  - db_name: db_foo
-  Function:
-  - externalId: fn_first_function
-  Table:
-  - db_name: db_foo
-    name:
-    - table_foo
-  TransformationSchedule:
-  - externalId: tr_first_transformation
+deleted: {}

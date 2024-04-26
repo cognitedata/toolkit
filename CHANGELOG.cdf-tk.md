@@ -30,6 +30,11 @@ Changes are grouped as follows:
 - In `config.[env].yaml`, in the `environment` section, `name` is no longer required. Instead, the `[env]` part
   of the `config.[env].yaml` file is used as the `name` of the environment. This is to avoid redundancy.
 
+### Improved
+
+- When running `cdf-tk clean --dry-run` the output would show local resources regardless of whether they existed
+  in CDF or not. This is now fixed and only resources that exist in CDF are shown in the output.
+
 ## [0.2.0a3] - 2024-04-23
 
 ### Added
