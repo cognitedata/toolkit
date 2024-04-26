@@ -1,0 +1,27 @@
+workflowExternalId: 'wf_{{location_name}}_files_annotation'
+version: '1'
+workflowDefinition:
+  description: 'Workflow that annotate files'
+  tasks:
+    - externalId: 'tr_files_{{location_name}}_{{source_name}}_file_metadata'
+      type: 'transformation'
+      parameters:
+        transformation:
+          externalId: 'tr_files_{{location_name}}_{{source_name}}_file_metadata'
+          concurrencyPolicy: fail
+      name: 'Metadata Transformation'
+      retries: 3
+      onFailure: 'abortWorkflow'
+    - externalId: 'fn_context_files_{{location_name}}_{{source_name}}_annotation'
+      type: 'function'
+      parameters:
+        function:
+          externalId: 'fn_context_files_{{location_name}}_{{source_name}}_annotation'
+          data: { "ExtractionPipelineExtId": "ep_ctx_files_{{location_name}}_{{source_name}}_pandid_annotation" }
+      name: 'Annotation Function'
+      description: Function for annotating files
+      retries: 3
+      timeout: null
+      onFailure: 'abortWorkflow'
+      dependsOn:
+        - externalId: 'tr_files_{{location_name}}_{{source_name}}_file_metadata'

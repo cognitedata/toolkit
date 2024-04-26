@@ -82,13 +82,15 @@ TransformationSchedule:
   interval: 7 * * * *
   isPaused: true
 Workflow:
-- externalId: wf_baz
+- description: A workflow for processing data
+  externalId: wf_baz
 WorkflowVersion:
 - version: '1'
   workflowDefinition:
     description: Execute tasks in sequence
     tasks:
-    - externalId: baz_function_task
+    - description: Task One Ipsum lorem dolor sit amet
+      externalId: baz_function_task
       name: Task One
       onFailure: abortWorkflow
       parameters:
@@ -100,6 +102,7 @@ WorkflowVersion:
       type: function
     - dependsOn:
       - externalId: baz_function_task
+      description: Task Two Ipsum lorem dolor sit amet
       externalId: baz_transformation_task
       name: Task Two
       onFailure: skipTask

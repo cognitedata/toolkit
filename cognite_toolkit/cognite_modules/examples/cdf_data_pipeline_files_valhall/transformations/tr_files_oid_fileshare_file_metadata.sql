@@ -10,7 +10,7 @@ With
 SELECT
   file.id                          as id,
   file.name                        as name,
-  '{{location_name}}_'|| file.name as  externalId,
+  file.externalId                  as externalId,
   meta.source                      as source,
   meta.`mime_type`                 as mimeType,
   array(root_id.id)                as assetIds,
