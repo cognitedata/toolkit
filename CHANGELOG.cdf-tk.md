@@ -35,6 +35,12 @@ Changes are grouped as follows:
 - When running `cdf-tk clean --dry-run` the output would show local resources regardless of whether they existed
   in CDF or not. This is now fixed and only resources that exist in CDF are shown in the output.
 
+### Fixed
+
+- When deploying a `FunctionSchedule` that requires an update, the `cdf-tk` would fail with error
+  `Failed to update functions.schedules. Error 'FunctionSchedulesAPI' object has no attribute 'update'.`.
+  This is now fixed.
+
 ## [0.2.0a3] - 2024-04-23
 
 ### Added
