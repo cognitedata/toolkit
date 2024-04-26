@@ -252,6 +252,15 @@ def test_pull_transformation(
     assert after_loaded.name == "New transformation name"
 ```
 
-### Creating a new module
-
 ### Adding Support for a new Resource Type
+
+When you add support for a new resource type, you need to first add the an entry to the
+`approval_client/config.py` file which defines which methods are mocked by which mock functions.
+
+If none of the existing mock functions can be used, you need to create a new mock function in the
+`approval_client/client.py` file. The mock function should be added to the relevant method in the
+`ApprovalCogniteClient` class.
+
+You can check the following example PR when support was added for `Workflows` in the `ApprovalCogniteClient`:
+
+[PR #453](https://github.com/cognitedata/cdf-project-templates/pull/453/files#diff-57825118cb6e6afb003f556137ba38af9f770c69f7223dfcaa2779413228e2f1R393)
