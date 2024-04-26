@@ -63,6 +63,7 @@ class Loader(ABC):
     filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
+    _doc_url: str = ""
 
     def __init__(self, client: CogniteClient, build_path: Path | None = None):
         self.client = client
@@ -166,6 +167,7 @@ class ResourceLoader(
     identifier_key: str = "externalId"
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     _display_name: str = ""
+    _doc_url: str = "https://developer.cognite.com/api/"
 
     def __init__(self, client: CogniteClient):
         super().__init__(client)

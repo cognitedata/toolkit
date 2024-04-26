@@ -166,6 +166,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         }
     )
     resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})  # type: ignore[attr-defined]
+    _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Groups/operation/createGroups"
 
     def __init__(
         self,
