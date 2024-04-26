@@ -214,6 +214,44 @@ and set the breakpoint there. This will then stop the code execution when the `i
 
 ### Simulate Existing Resource in CDF
 
+You can simulate an existing resource in CDF by using the `append` method in the `ApprovalCogniteClient`. Below
+is an example of a test that simulates an existing `Transformation` in CDF. Note that the `ApprovalCogniteClient`
+does not do any logic when the `.retrieve` or `.list` methods are called, it just returns the resource that has
+been appended to the client.
+
+```python
+def test_pull_transformation(
+    monkeypatch: MonkeyPatch,
+    cognite_client_approval: ApprovalCogniteClient,
+    cdf_tool_config: CDFToolConfig,
+    typer_context: typer.Context,
+    init_project: Path,
+) -> None:
+    loader = TransformationLoader.create_loader(cdf_tool_config)
+
+    loaded = load_transformation()
+
+    # Simulate a change in the transformation in CDF.
+    loaded.name = "New transformation name"
+    read_transformation = Transformation.load(loaded.dump())
+    
+    # Here we append the transformation to the ApprovalCogniteClient which 
+    # simulates that the transformation exists in CDF.
+    cognite_client_approval.append(Transformation, read_transformation)
+
+    pull_transformation_cmd(
+        typer_context,
+        source_dir=str(init_project),
+        external_id=read_transformation.external_id,
+        env="dev",
+        dry_run=False,
+    )
+
+    after_loaded = load_transformation()
+
+    assert after_loaded.name == "New transformation name"
+```
+
 ### Creating a new module
 
 ### Adding Support for a new Resource Type
