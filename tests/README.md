@@ -157,3 +157,61 @@ for most resource is create and takes a single or a list of the resource type `c
 an example of this. However, when creating a `datapoints` the method is `client.time_series.data.insert` and takes a
 `pandas.DataFrame` as input, same for `sequences`. Another exception if `client.files.upload_bytes` which is used
 to upload files to CDF.
+
+## Task Guides
+
+This section contains guides on how to do different tasks related to the ApprovalClient
+
+### Debugging Function Calls to CDF
+
+Sometimes you want to debug the function calls to CDF. This can be to check what is actually written, or try to make
+sense of an error message. It is not easy to use a debugger to step through the call to CDF, as you will be taken
+through a maze of code that is related to the mocked client. In the example below, if you set a breakpoint at
+`print("break here")` and run the code, if the `client` is mocked, you will have trouble stepping into the
+`insert_dataframe` call.
+
+```python
+import pandas as pd
+
+data = pd.DataFrame(
+    {
+        "timestamp": [1, 2, 3],
+        "value": [1, 2, 3],
+    }
+)
+print("break here")
+client.raw.rows.insert_dataframe(
+    db_name="my_db_name", table_name="my_table", dataframe = data, ensure_parent = False
+)
+```
+
+Instead, you can check in the `tests_unit/approval_client/config.py` to figure out which method is used to mock
+the `.insert_dataframe` call, looking through the file you will find this section:
+
+```python
+    APIResource(
+        api_name="raw.rows",
+        resource_cls=Row,
+        _write_cls=RowWrite,
+        list_cls=RowList,
+        _write_list_cls=RowWriteList,
+        methods={
+            "create": [Method(api_class_method="insert_dataframe", mock_name="insert_dataframe")],
+            "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
+            "retrieve": [
+                Method(api_class_method="list", mock_name="return_values"),
+                Method(api_class_method="retrieve", mock_name="return_values"),
+            ],
+        },
+    ),
+```
+
+We see that the `create` method for RAW rows is mocked by the `insert_dataframe` method. We can then go to the
+`tests_unit/approval_client/client.py` and find the `insert_dataframe` method inside the private `_create_create_method`
+and set the breakpoint there. This will then stop the code execution when the `insert_dataframe` method is called.
+
+### Simulate Existing Resource in CDF
+
+### Creating a new module
+
+### Adding Support for a new Resource Type
