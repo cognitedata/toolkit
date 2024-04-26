@@ -20,7 +20,7 @@ To support the integration testing you need to have a `.env` file in the root of
 
 ### Snapshot Testing (Regression Testing)
 
-In `cdf-tk` we use snapshot testing to check that a sequence of CLI commands produces consistent output. This type
+In `cdf-tk`, we use snapshot testing to check that a sequence of CLI commands produces consistent output. This type
 of testing is also called [Regression Testing](https://en.wikipedia.org/wiki/Regression_testing). Note the
 idea of snapshot testing can be used in integration tests as well, but in `cdf-tk` we only use it
 in the unit tests.
