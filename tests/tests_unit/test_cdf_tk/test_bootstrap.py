@@ -31,9 +31,9 @@ SNAPSHOTS_DIR.mkdir(exist_ok=True)
 def to_fullpath(file_name: str) -> Path:
     if platform.system() == "Windows":
         # Windows console use different characters for tables in rich.
-        return SNAPSHOTS_DIR_ALL / f"{file_name}_windows.txt"
+        return SNAPSHOTS_DIR / f"{file_name}_windows.txt"
     else:
-        return SNAPSHOTS_DIR_ALL / f"{file_name}.txt"
+        return SNAPSHOTS_DIR / f"{file_name}.txt"
 
 
 @pytest.fixture
