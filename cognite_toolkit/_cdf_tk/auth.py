@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
@@ -286,10 +285,11 @@ def check_auth(
         try:
             if not dry_run:
                 new = ToolGlobals.client.iam.groups.create(read_write)
-                new = cast(Group, new)  # Missing overload in .create method.
                 print(
                     f"  [bold green]OK[/] - Created new group {new.id} with {len(read_write.capabilities or [])} capabilities."
                 )
+                # Need to reinitialize the client to get the new group in the list of groups
+                ToolGlobals.reinitialize_client()
             else:
                 print(
                     f"  [bold green]OK[/] - Would have created new group with {len(read_write.capabilities or [])} capabilities."
