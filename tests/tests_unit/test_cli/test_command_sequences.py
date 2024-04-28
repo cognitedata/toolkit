@@ -2,7 +2,7 @@
 Approval test takes a snapshot of the results and then compare them to last run, ref https://approvaltests.com/,
 and fails if they have changed.
 
-If the changes are desired, you can update the snapshot by running `pytest --force-regen`.
+If the changes are desired, you can update the snapshot by running `pytest tests/ --force-regen`.
 """
 
 from __future__ import annotations
@@ -21,9 +21,10 @@ from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.utils import mock_read_yaml_file
 
-SNAPSHOTS_DIR = REPO_ROOT / "tests" / "tests_unit" / "test_approval_modules_snapshots"
+THIS_DIR = Path(__file__).resolve().parent
+SNAPSHOTS_DIR = THIS_DIR / "test_build_deploy_snapshots"
 SNAPSHOTS_DIR.mkdir(exist_ok=True)
-SNAPSHOTS_DIR_CLEAN = REPO_ROOT / "tests" / "tests_unit" / "test_approval_modules_snapshots_clean"
+SNAPSHOTS_DIR_CLEAN = THIS_DIR / "test_build_clean_snapshots"
 SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
@@ -50,7 +51,7 @@ def mock_environments_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> 
 
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
-def test_deploy_module_approval(
+def test_build_deploy_module(
     module_path: Path,
     local_tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -97,7 +98,7 @@ def test_deploy_module_approval(
 
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
-def test_deploy_dry_run_module_approval(
+def test_build_deploy_with_dry_run(
     module_path: Path,
     local_tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -132,7 +133,7 @@ def test_deploy_dry_run_module_approval(
 
 
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
-def test_clean_module_approval(
+def test_init_build_clean(
     module_path: Path,
     local_tmp_path: Path,
     local_tmp_project_path: Path,
