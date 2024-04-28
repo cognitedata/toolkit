@@ -15,7 +15,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, TokenInspection
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.bootstrap import check_auth
+from cognite_toolkit._cdf_tk.auth import check_auth
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.conftest import ApprovalCogniteClient
 from tests.tests_unit.data import AUTH_DATA
