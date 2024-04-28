@@ -121,7 +121,6 @@ def check_auth(
     project_info = ToolGlobals.client.get(f"/api/v1/projects/{auth_vars.project}").json()
     print("Checking identity provider settings...")
     oidc = project_info.get("oidcConfiguration", {})
-    tenant_id = None
     if "https://login.windows.net" in oidc.get("tokenUrl"):
         tenant_id = oidc.get("tokenUrl").split("/")[-3]
         print(f"  [bold green]OK[/]: Microsoft Entra ID (aka ActiveDirectory) with tenant id ({tenant_id}).")
