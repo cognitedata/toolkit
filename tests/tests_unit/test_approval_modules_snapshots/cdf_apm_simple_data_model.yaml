@@ -381,7 +381,6 @@ Transformation:
   dataSetId: 42
   destination:
     dataModel:
-      destinationRelationshipFromType: null
       destinationType: Asset
       externalId: apm_simple
       space: sp_apm_simple
@@ -417,7 +416,6 @@ Transformation:
   dataSetId: 42
   destination:
     dataModel:
-      destinationRelationshipFromType: null
       destinationType: Asset
       externalId: apm_simple
       space: sp_apm_simple
@@ -448,7 +446,6 @@ Transformation:
   dataSetId: 42
   destination:
     dataModel:
-      destinationRelationshipFromType: null
       destinationType: WorkItem
       externalId: apm_simple
       space: sp_apm_simple
@@ -559,7 +556,6 @@ Transformation:
   dataSetId: 42
   destination:
     dataModel:
-      destinationRelationshipFromType: null
       destinationType: WorkOrder
       externalId: apm_simple
       space: sp_apm_simple

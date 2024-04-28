@@ -450,7 +450,6 @@ Transformation:
   dataSetId: 42
   destination:
     dataModel:
-      destinationRelationshipFromType: null
       destinationType: APM_Activity
       externalId: APM_SourceData
       space: APM_SourceData
