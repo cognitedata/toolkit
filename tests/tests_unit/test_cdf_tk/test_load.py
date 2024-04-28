@@ -40,9 +40,8 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.fake_generator import FakeCogniteResourceGenerator
 from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT
-from tests.tests_unit.utils import mock_read_yaml_file
+from tests.tests_unit.utils import FakeCogniteResourceGenerator, mock_read_yaml_file
 
 THIS_FOLDER = Path(__file__).resolve().parent
 
