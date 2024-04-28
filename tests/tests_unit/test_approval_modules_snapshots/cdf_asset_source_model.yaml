@@ -42,7 +42,6 @@ Transformation:
   dataSetId: 42
   destination:
     dataModel:
-      destinationRelationshipFromType: null
       destinationType: Asset
       externalId: ExtendedSourceData
       space: sp_extended_source_data_models

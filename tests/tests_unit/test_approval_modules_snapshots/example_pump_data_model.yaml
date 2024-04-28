@@ -109,7 +109,6 @@ Transformation:
   dataSetId: 42
   destination:
     dataModel:
-      destinationRelationshipFromType: null
       destinationType: Pump
       externalId: PumpLiftStations
       space: sp_pump_model_space
