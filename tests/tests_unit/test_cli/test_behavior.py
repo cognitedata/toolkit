@@ -20,7 +20,7 @@ from tests.tests_unit.utils import mock_read_yaml_file
 
 
 def test_inject_custom_environmental_variables(
-    local_tmp_path: Path,
+    build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     cognite_client_approval: ApprovalCogniteClient,
     cdf_tool_config: CDFToolConfig,
@@ -43,13 +43,13 @@ def test_inject_custom_environmental_variables(
     build(
         typer_context,
         source_dir=str(init_project),
-        build_dir=str(local_tmp_path),
+        build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
     )
     deploy(
         typer_context,
-        build_dir=str(local_tmp_path),
+        build_dir=str(build_tmp_path),
         build_env_name="dev",
         interactive=False,
         drop=True,
@@ -61,14 +61,14 @@ def test_inject_custom_environmental_variables(
     assert transformation.source_oidc_credentials.client_id == "my_environment_variable_value"
 
 
-def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context) -> None:
+def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) -> None:
     config = MagicMock(spec=BuildConfigYAML)
     config.environment = MagicMock(spec=Environment)
     config.environment.name = "dev"
     config.environment.selected_modules_and_packages = ["module1"]
     with pytest.raises(ToolkitDuplicatedModuleError) as err:
         build_config(
-            build_dir=local_tmp_path,
+            build_dir=build_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
             config=config,
             system_config=MagicMock(spec=SystemYAML),
@@ -82,7 +82,7 @@ def test_duplicated_modules(local_tmp_path: Path, typer_context: typer.Context) 
 
 
 def test_pull_transformation(
-    local_tmp_path: Path,
+    build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     cognite_client_approval: ApprovalCogniteClient,
     cdf_tool_config: CDFToolConfig,
@@ -138,7 +138,7 @@ def test_pull_transformation(
 
 
 def test_dump_datamodel(
-    local_tmp_path: Path,
+    build_tmp_path: Path,
     cognite_client_approval: ApprovalCogniteClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
@@ -234,13 +234,13 @@ def test_dump_datamodel(
         external_id="my_data_model",
         version="1",
         clean=True,
-        output_dir=str(local_tmp_path),
+        output_dir=str(build_tmp_path),
     )
 
-    assert len(list(local_tmp_path.glob("**/*.datamodel.yaml"))) == 1
-    assert len(list(local_tmp_path.glob("**/*.container.yaml"))) == 1
-    assert len(list(local_tmp_path.glob("**/*.space.yaml"))) == 1
-    view_files = list(local_tmp_path.glob("**/*.view.yaml"))
+    assert len(list(build_tmp_path.glob("**/*.datamodel.yaml"))) == 1
+    assert len(list(build_tmp_path.glob("**/*.container.yaml"))) == 1
+    assert len(list(build_tmp_path.glob("**/*.space.yaml"))) == 1
+    view_files = list(build_tmp_path.glob("**/*.view.yaml"))
     assert len(view_files) == 2
     loaded_views = [dm.ViewApply.load(f.read_text()) for f in view_files]
     child_loaded = next(v for v in loaded_views if v.external_id == "my_view")
@@ -250,19 +250,19 @@ def test_dump_datamodel(
 
 
 def test_build_custom_project(
-    local_tmp_path: Path,
+    build_tmp_path: Path,
     typer_context: typer.Context,
 ) -> None:
     expected_resources = {"timeseries", "data_models", "data_sets"}
     build(
         typer_context,
         source_dir=str(CUSTOM_PROJECT),
-        build_dir=str(local_tmp_path),
+        build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
     )
 
-    actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}
+    actual_resources = {path.name for path in build_tmp_path.iterdir() if path.is_dir()}
 
     missing_resources = expected_resources - actual_resources
     assert not missing_resources, f"Missing resources: {missing_resources}"
@@ -272,19 +272,19 @@ def test_build_custom_project(
 
 
 def test_build_project_selecting_parent_path(
-    local_tmp_path,
+    build_tmp_path,
     typer_context,
 ) -> None:
     expected_resources = {"auth", "data_models", "files", "transformations"}
     build(
         typer_context,
         source_dir=str(PYTEST_PROJECT),
-        build_dir=str(local_tmp_path),
+        build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
     )
 
-    actual_resources = {path.name for path in local_tmp_path.iterdir() if path.is_dir()}
+    actual_resources = {path.name for path in build_tmp_path.iterdir() if path.is_dir()}
 
     missing_resources = expected_resources - actual_resources
     assert not missing_resources, f"Missing resources: {missing_resources}"
