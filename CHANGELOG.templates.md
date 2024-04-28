@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - Updated module `apm_simple_data_model` for `cognite-sdk>=7.37`, i.e., container properties
   of type `direct` have now `list: false` explicitly set.
+- In `example_pump_data_model`, in the `Pump.view.yaml` the property `source` used `external_id` instead of `externalId`.
 
 ## [0.1.2] - 2024-03-18
 
