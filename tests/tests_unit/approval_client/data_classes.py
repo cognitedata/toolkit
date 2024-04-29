@@ -29,7 +29,7 @@ class Method:
 
     Args:
         api_class_method: The name of the method in the CogniteClient, for example, 'create', 'insert_dataframe'
-        mock_name: The name of the method in the ApprovalCogniteClient, for example, 'create', 'insert_dataframe'
+        mock_class_method: The name of the method in the ApprovalCogniteClient, for example, 'create', 'insert_dataframe'
 
     The available mock methods you can see inside
     * ApprovalCogniteClient._create_create_method,
@@ -39,7 +39,7 @@ class Method:
     """
 
     api_class_method: str
-    mock_name: str
+    mock_class_method: str
 
 
 @dataclass
