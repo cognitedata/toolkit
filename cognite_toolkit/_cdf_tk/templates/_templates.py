@@ -610,7 +610,7 @@ def validate(
                 filepath_build=destination,
             ):
                 print(
-                    f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r} is not semantically correct."
+                    f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r}/{destination.name} is not semantically correct."
                 )
                 if verbose:
                     print(
