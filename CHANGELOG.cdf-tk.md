@@ -15,6 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.3] - 2024-04-28
+
+### Fixed
+
+- Functions that are deployed with schedules no longer uses a short-lived session (before: failed after ~an hour).
+- When deploying a `FunctionSchedule` that requires an update, the `cdf-tk` would fail with error
+  `Failed to update functions.schedules. Error 'FunctionSchedulesAPI' object has no attribute 'update'.`.
+  This is now fixed.
+- The dependency `cognite-sdk` must now be `>=7.37.0` to use the `cdf-tk`.
+
 ## [0.1.2] - 2024-03-18
 
 ### Fixed

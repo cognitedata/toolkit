@@ -16,7 +16,7 @@ from __future__ import annotations
 import itertools
 import json
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Sequence, Sized
 from numbers import Number
 from pathlib import Path
 from time import sleep
@@ -25,8 +25,8 @@ from zipfile import ZipFile
 
 import yaml
 from cognite.client import CogniteClient
-from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
+    ClientCredentials,
     DatapointsList,
     DataSet,
     DataSetList,
@@ -121,7 +121,6 @@ from rich import print
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_directory_hash,
-    get_oneshot_session,
     load_yaml_inject_variables,
     retrieve_view_ancestors,
 )
@@ -638,50 +637,31 @@ class FunctionScheduleLoader(
 
     def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
         items = self._resolve_functions_ext_id(items)
-        (_, bearer) = self.client.config.credentials.authorization_header()
-        created = FunctionSchedulesList([])
+        created = []
         for item in items:
-            if (
-                authentication := self.extra_configs.get(f"{item.function_external_id}:{item.cron_expression}", {}).get(
-                    "authentication"
-                )
-            ) is not None and len(authentication) > 0:
-                new_tool_config = CDFToolConfig()
-                old_credentials = cast(OAuthClientCredentials, new_tool_config.client.config.credentials)
-                new_tool_config.client.config.credentials = OAuthClientCredentials(
-                    client_id=authentication.get("clientId"),
-                    client_secret=authentication.get("clientSecret"),
-                    scopes=old_credentials.scopes,
-                    token_url=old_credentials.token_url,
-                )
-                session = get_oneshot_session(new_tool_config.client)
+            key = f"{item.function_external_id}:{item.cron_expression}"
+            auth_config = self.extra_configs.get(key, {}).get("authentication", {})
+            if "clientId" in auth_config and "clientSecret" in auth_config:
+                client_credentials = ClientCredentials(auth_config["clientId"], auth_config["clientSecret"])
             else:
-                session = get_oneshot_session(self.client)
-            nonce = session.nonce if session is not None else ""
-            try:
-                ret = self.client.post(
-                    url=f"/api/v1/projects/{self.client.config.project}/functions/schedules",
-                    json={
-                        "items": [
-                            {
-                                "name": item.name,
-                                "description": item.description,
-                                "cronExpression": item.cron_expression,
-                                "functionId": item.function_id,
-                                "data": item.data,
-                                "nonce": nonce,
-                            }
-                        ],
-                    },
-                    headers={"Authorization": bearer},
+                client_credentials = None
+
+            created.append(
+                self.client.functions.schedules.create(
+                    name=item.name or "",
+                    description=item.description or "",
+                    cron_expression=cast(str, item.cron_expression),
+                    function_id=cast(int, item.function_id),
+                    data=item.data,
+                    client_credentials=client_credentials,
                 )
-            except CogniteAPIError as e:
-                if e.code == 400 and "Failed to bind session" in e.message:
-                    print("  [bold yellow]WARNING:[/] Failed to bind session because function is not ready.")
-                continue
-            if ret.status_code == 201:
-                created.append(FunctionSchedule.load(ret.json()["items"][0]))
-        return created
+            )
+        return FunctionSchedulesList(created)
+
+    def update(self, items: FunctionScheduleWriteList) -> Sized:
+        # Function schedule does not have an update, so we delete and recreate
+        self.delete(self.get_ids(items))
+        return self.create(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         schedules = self.retrieve(ids)
