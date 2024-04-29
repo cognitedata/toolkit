@@ -42,6 +42,10 @@ Changes are grouped as follows:
   This is now fixed.
 - When calling `cdf-tk init --upgrade`, the user is met with a `Failed to load previous version, ...`.
   This is now fixed.
+- When running `cdf-tk auth verify --interactive` and the user want to create a new group with the necessary
+  capabilities, the `cdf-tk` would successfully create a group, but then raise
+  an Error: `cognite.client.exceptions.CogniteAPIError: Insufficient access rights.` when trying to validate.
+  This is now fixed.
 
 ## [0.2.0a3] - 2024-04-23
 
