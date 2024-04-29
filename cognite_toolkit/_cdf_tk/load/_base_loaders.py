@@ -63,6 +63,8 @@ class Loader(ABC):
     filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
+    _doc_base_url: str = "https://developer.cognite.com/api#tag/"
+    _doc_url: str = ""
 
     def __init__(self, client: CogniteClient, build_path: Path | None = None):
         self.client = client
@@ -76,6 +78,10 @@ class Loader(ABC):
     @property
     def display_name(self) -> str:
         return self.folder_name
+
+    @classmethod
+    def doc_url(cls) -> str:
+        return cls._doc_base_url + cls._doc_url
 
     @classmethod
     def find_files(cls, dir_or_file: Path) -> list[Path]:
@@ -534,6 +540,7 @@ class ResourceLoader(
                 # KeyError means that we are missing a required field in the yaml file.
                 print(
                     f"[bold red]ERROR:[/] Failed to load {filepath.name} with {self.display_name}. Missing required field: {e}."
+                    f"[bold red]ERROR:[/] Please compare with the API specification at {self.doc_url()}."
                 )
                 return None
             except Exception as e:

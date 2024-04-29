@@ -35,6 +35,7 @@ Changes are grouped as follows:
 - When running `cdf-tk clean --dry-run` the output would show local resources regardless of whether they existed
   in CDF or not. This is now fixed and only resources that exist in CDF are shown in the output.
 - Better error message (no exception raised) if the config file has `selected_modules_and_packages`, but with no list items.
+- If yaml files are invalid, a link to the API docs for the resource is shown in the error message.
 
 ### Fixed
 

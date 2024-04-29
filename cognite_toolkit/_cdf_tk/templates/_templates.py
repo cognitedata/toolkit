@@ -445,7 +445,7 @@ def process_config_files(
                 destination = build_dir / resource_folder / filename
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 destination.write_text(content)
-                validate(content, destination, filepath, modules_by_variables)
+                validate(content, destination, filepath, modules_by_variables, verbose)
                 source_by_build_path[destination] = filepath
                 # If we have a function definition, we want to process the directory.
                 if (
@@ -554,7 +554,9 @@ def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
     return content
 
 
-def validate(content: str, destination: Path, source_path: Path, modules_by_variable: dict[str, list[str]]) -> None:
+def validate(
+    content: str, destination: Path, source_path: Path, modules_by_variable: dict[str, list[str]], verbose: bool
+) -> None:
     module = module_from_path(source_path)
     resource_folder = resource_folder_from_path(source_path)
 
@@ -580,17 +582,6 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
                 f"YAML validation error for {destination.name} after substituting config variables: {e}"
             )
 
-        if isinstance(parsed, dict):
-            parsed = [parsed]
-        for item in parsed:
-            if not check_yaml_semantics(
-                parsed=item,
-                filepath_src=source_path,
-                filepath_build=destination,
-            ):
-                print(
-                    f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r} is not semantically correct."
-                )
         loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
         loader: type[Loader] | None
         if len(loaders) == 1:
@@ -609,6 +600,22 @@ def validate(content: str, destination: Path, source_path: Path, modules_by_vari
             )
             print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
             return
+
+        if isinstance(parsed, dict):
+            parsed = [parsed]
+        for item in parsed:
+            if not check_yaml_semantics(
+                parsed=item,
+                filepath_src=source_path,
+                filepath_build=destination,
+            ):
+                print(
+                    f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r}/{destination.name} is not semantically correct."
+                )
+                if verbose:
+                    print(
+                        f"  [bold yellow]WARNING:[/] verify file format against the API specification for {destination.parent.name!r} at {loader.doc_url()}"
+                    )
 
         if isinstance(loader, ResourceLoader):
             load_warnings = validate_case_raw(
