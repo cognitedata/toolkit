@@ -47,10 +47,8 @@ class Environment:
                     tuple([part for part in selected.split(MODULE_PATH_SEP) if part])
                     if MODULE_PATH_SEP in selected
                     else selected
-                    for selected in data["selected_modules_and_packages"]
-                ]
-                if data["selected_modules_and_packages"]
-                else [],
+                    for selected in data["selected_modules_and_packages"] or []
+                ],
             )
         except KeyError:
             raise ToolkitEnvError(
