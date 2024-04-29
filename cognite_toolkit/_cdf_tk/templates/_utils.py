@@ -92,9 +92,8 @@ def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
 
 def _get_cognite_module_version(project_dir: Path) -> str:
     previous_version = None
-    cognite_modules = project_dir / "cognite_modules"
-    if (cognite_modules / "_system.yaml").exists():
-        system_yaml = read_yaml_file(cognite_modules / "_system.yaml")
+    if (project_dir / "_system.yaml").exists():
+        system_yaml = read_yaml_file(project_dir / "_system.yaml")
         with suppress(KeyError):
             previous_version = system_yaml["cdf_toolkit_version"]
 

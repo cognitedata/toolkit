@@ -35,11 +35,8 @@ from cognite_toolkit._cdf_tk.utils import (
     validate_data_set_is_set,
     validate_modules_variables,
 )
+from tests.tests_unit.data import DATA_FOLDER, LOAD_DATA
 from tests.tests_unit.utils import PrintCapture
-
-THIS_FOLDER = Path(__file__).resolve().parent
-
-DATA_FOLDER = THIS_FOLDER / "load_data"
 
 
 def mocked_init(self):
@@ -111,7 +108,7 @@ class TestLoadYamlInjectVariables:
 
 
 def test_validate_raw() -> None:
-    raw_file = DATA_FOLDER / "timeseries" / "wrong_case.yaml"
+    raw_file = LOAD_DATA / "timeseries" / "wrong_case.yaml"
 
     warnings = validate_case_raw(yaml.safe_load(raw_file.read_text()), TimeSeries, raw_file)
 
@@ -125,7 +122,7 @@ def test_validate_raw() -> None:
 
 
 def test_validate_raw_nested() -> None:
-    raw_file = DATA_FOLDER / "datamodels" / "snake_cased_view_property.yaml"
+    raw_file = LOAD_DATA / "datamodels" / "snake_cased_view_property.yaml"
     warnings = validate_case_raw(yaml.safe_load(raw_file.read_text()), ViewApply, raw_file)
 
     assert len(warnings) == 1
@@ -174,7 +171,7 @@ def test_validate_data_set_is_set():
 
 
 def test_calculate_hash_on_folder():
-    folder = Path(THIS_FOLDER / "calc_hash_data")
+    folder = Path(DATA_FOLDER / "calc_hash_data")
     hash1 = calculate_directory_hash(folder)
     hash2 = calculate_directory_hash(folder)
 

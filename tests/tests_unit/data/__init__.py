@@ -1,0 +1,11 @@
+from pathlib import Path
+
+DATA_FOLDER = Path(__file__).resolve().parent
+
+DESCRIPTIONS_FOLDER = DATA_FOLDER / "describe_data"
+AUTH_DATA = DATA_FOLDER / "auth_data"
+CUSTOM_PROJECT = DATA_FOLDER / "project_no_cognite_modules"
+PROJECT_WITH_DUPLICATES = DATA_FOLDER / "project_with_duplicates"
+PYTEST_PROJECT = DATA_FOLDER / "project_for_test"
+LOAD_DATA = DATA_FOLDER / "load_data"
+RUN_DATA = DATA_FOLDER / "run_data"

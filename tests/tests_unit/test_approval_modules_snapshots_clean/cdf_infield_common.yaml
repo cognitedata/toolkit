@@ -1,7 +1,0 @@
-deleted:
-  Node:
-  - externalId: default_infield_config_minimal
-    instanceType: node
-    space: APM_Config
-  Space:
-  - cognite_app_data

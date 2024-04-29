@@ -19,6 +19,8 @@ from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.utils import PrintCapture
 
 THIS_FOLDER = Path(__file__).resolve().parent
+TMP_FOLDER = THIS_FOLDER / "tmp"
+TMP_FOLDER.mkdir(exist_ok=True)
 
 
 @contextlib.contextmanager
@@ -48,18 +50,18 @@ def cognite_client_approval() -> ApprovalCogniteClient:
 
 
 @pytest.fixture
-def local_tmp_path() -> Path:
-    tmp_folder = THIS_FOLDER / "tmp"
+def build_tmp_path() -> Path:
+    build_folder = TMP_FOLDER / "build"
 
-    if tmp_folder.exists():
-        shutil.rmtree(THIS_FOLDER / "tmp", ignore_errors=True)
-        (THIS_FOLDER / "tmp").mkdir(exist_ok=True)
-    return THIS_FOLDER / "tmp"
+    if build_folder.exists():
+        shutil.rmtree(build_folder, ignore_errors=True)
+        build_folder.mkdir(exist_ok=True)
+    return build_folder
 
 
 @pytest.fixture(scope="session")
 def local_tmp_project_path() -> Path:
-    project_path = THIS_FOLDER / "pytest-project"
+    project_path = TMP_FOLDER / "pytest-project"
     project_path.mkdir(exist_ok=True)
     return project_path
 

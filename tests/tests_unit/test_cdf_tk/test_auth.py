@@ -15,15 +15,16 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, TokenInspection
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.bootstrap import check_auth
+from cognite_toolkit._cdf_tk.auth import check_auth
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.conftest import ApprovalCogniteClient
+from tests.tests_unit.data import AUTH_DATA
+from tests.tests_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 
 THIS_FOLDER = Path(__file__).resolve().parent
 
 TEST_PREFIX = "auth"
-DATA_FOLDER = THIS_FOLDER / f"{TEST_PREFIX}_data"
-SNAPSHOTS_DIR = THIS_FOLDER / f"{TEST_PREFIX}_data_snapshots"
+SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / f"{TEST_PREFIX}_data_snapshots"
 SNAPSHOTS_DIR.mkdir(exist_ok=True)
 
 
@@ -56,7 +57,7 @@ def cdf_tool_config(
 @pytest.fixture
 def cdf_resources() -> dict[CogniteResource, Union[CogniteResource, CogniteResourceList]]:
     # Load the rw-group and add it to the mock client as an existing resource
-    group = Group.load(yaml.safe_load((DATA_FOLDER / "rw-group.yaml").read_text()))
+    group = Group.load(yaml.safe_load((AUTH_DATA / "rw-group.yaml").read_text()))
     project_capabilities: ProjectCapabilityList = []
     for cap in group.capabilities:
         project_capabilities.append(ProjectCapability(capability=cap, project_scope=AllProjectsScope()))
@@ -79,7 +80,7 @@ def auth_cognite_approval_client(
     # Mock the get call to return the project info
     def mock_get_json(*args, **kwargs):
         mock = MagicMock()
-        mock.json.return_value = json.loads(Path(DATA_FOLDER / "project_info.json").read_text())
+        mock.json.return_value = json.loads(Path(AUTH_DATA / "project_info.json").read_text())
         return mock
 
     # Set the mock get call to return the project info
@@ -100,7 +101,7 @@ def test_auth_verify_happypath(
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    check_auth(cdf_tool_config, group_file=Path(DATA_FOLDER / "rw-group.yaml"))
+    check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])
@@ -127,7 +128,7 @@ def test_auth_verify_wrong_capabilities(
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    check_auth(cdf_tool_config, group_file=Path(DATA_FOLDER / "rw-group.yaml"))
+    check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])
@@ -145,7 +146,7 @@ def test_auth_verify_two_groups(
     capfd,
 ):
     # Add another group
-    cdf_resources[Group].append(Group.load(yaml.safe_load((DATA_FOLDER / "rw-group.yaml").read_text())))
+    cdf_resources[Group].append(Group.load(yaml.safe_load((AUTH_DATA / "rw-group.yaml").read_text())))
     cdf_resources[Group][1].name = "2nd group"
     # Add the pre-loaded data to the approval_client
     for resource, data in cdf_resources.items():
@@ -153,7 +154,7 @@ def test_auth_verify_two_groups(
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    check_auth(cdf_tool_config, group_file=Path(DATA_FOLDER / "rw-group.yaml"))
+    check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])
@@ -182,7 +183,7 @@ def test_auth_verify_no_capabilities(
 
     cdf_tool_config.verify_client.side_effect = mock_verify_client
 
-    check_auth(cdf_tool_config, group_file=Path(DATA_FOLDER / "rw-group.yaml"))
+    check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])

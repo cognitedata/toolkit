@@ -30,6 +30,19 @@ Changes are grouped as follows:
 - In `config.[env].yaml`, in the `environment` section, `name` is no longer required. Instead, the `[env]` part
   of the `config.[env].yaml` file is used as the `name` of the environment. This is to avoid redundancy.
 
+### Improved
+
+- When running `cdf-tk clean --dry-run` the output would show local resources regardless of whether they existed
+  in CDF or not. This is now fixed and only resources that exist in CDF are shown in the output.
+
+### Fixed
+
+- When deploying a `FunctionSchedule` that requires an update, the `cdf-tk` would fail with error
+  `Failed to update functions.schedules. Error 'FunctionSchedulesAPI' object has no attribute 'update'.`.
+  This is now fixed.
+- When calling `cdf-tk init --upgrade`, the user is met with a `Failed to load previous version, ...`.
+  This is now fixed.
+
 ## [0.2.0a3] - 2024-04-23
 
 ### Added
