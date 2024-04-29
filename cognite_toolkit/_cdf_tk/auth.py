@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from time import sleep
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
@@ -288,7 +289,9 @@ def check_auth(
                 print(
                     f"  [bold green]OK[/] - Created new group {new.id} with {len(read_write.capabilities or [])} capabilities."
                 )
-                # Need to reinitialize the client to get the new group in the list of groups
+                # Need to reinitialize the client to update the token with the new capabilities
+                # In addition sleep for a second to allow the IAM service to update the group
+                sleep(1.0)
                 ToolGlobals.reinitialize_client()
             else:
                 print(
