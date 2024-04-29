@@ -25,7 +25,8 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
     SystemYAML,
 )
 from cognite_toolkit._cdf_tk.utils import YAMLComment
-from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT
+from tests.tests_unit.data import PYTEST_PROJECT
+from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR
 
 
 def dict_keys(d: dict[str, Any]) -> set[str]:
@@ -49,7 +50,6 @@ def dummy_environment() -> Environment:
         project="my_project",
         build_type="dev",
         selected_modules_and_packages=["none"],
-        common_function_code="./common_function_code",
     )
 
 
@@ -324,9 +324,9 @@ class TestModuleFromPath:
 
 class TestBuildConfigYAML:
     def test_build_config_create_valid_build_folder(self, config_yaml: str) -> None:
-        build_env = "dev"
-        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env)
-        config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
+        build_env_name = "dev"
+        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
+        config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
         available_modules = {module.name for module, _ in iterate_modules(PYTEST_PROJECT)}
         config.environment.selected_modules_and_packages = list(available_modules)
 

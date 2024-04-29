@@ -31,7 +31,7 @@ from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesVie
 from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, TypeVar, get_args, get_origin, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, Optional, TypeVar, get_args, get_origin, overload
 
 import typer
 import yaml
@@ -50,12 +50,19 @@ from rich.prompt import Confirm, Prompt
 
 from cognite_toolkit._cdf_tk._get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitYAMLFormatError
 from cognite_toolkit._version import __version__
 
 if sys.version_info < (3, 10):
     from typing_extensions import TypeAlias
 else:
     from typing import TypeAlias
+
+
+if TYPE_CHECKING:
+    from sentry_sdk.types import Event as SentryEvent
+    from sentry_sdk.types import Hint as SentryHint
+
 
 logger = logging.getLogger(__name__)
 
@@ -395,6 +402,7 @@ class CDFToolConfig:
         self._cdf_url: str | None = None
         self._scopes: list[str] = []
         self._audience: str | None = None
+        self._credentials_provider: CredentialProvider | None = None
         self._client: CogniteClient | None = None
 
         global_config.disable_pypi_version_check = True
@@ -430,12 +438,11 @@ class CDFToolConfig:
         self._project = project
         self._cdf_url = auth.cdf_url or self._cdf_url
 
-        credentials_provider: CredentialProvider
         if auth.login_flow == "token":
             if not auth.token:
                 print("  [bold red]Error[/] Login flow=token is set but no CDF_TOKEN is not provided.")
                 return False
-            credentials_provider = Token(auth.token)
+            self._credentials_provider = Token(auth.token)
         elif auth.login_flow == "interactive":
             if auth.scopes:
                 self._scopes = [auth.scopes]
@@ -445,7 +452,7 @@ class CDFToolConfig:
                     "variables: IDP_CLIENT_ID and IDP_TENANT_ID (or IDP_AUTHORITY_URL). Cannot authenticate the client."
                 )
                 return False
-            credentials_provider = OAuthInteractive(
+            self._credentials_provider = OAuthInteractive(
                 authority_url=auth.authority_url,
                 client_id=auth.client_id,
                 scopes=self._scopes,
@@ -469,7 +476,7 @@ class CDFToolConfig:
                 )
                 return False
 
-            credentials_provider = OAuthClientCredentials(
+            self._credentials_provider = OAuthClientCredentials(
                 token_url=auth.token_url,
                 client_id=auth.client_id,
                 client_secret=auth.client_secret,
@@ -485,11 +492,24 @@ class CDFToolConfig:
                 client_name=self._client_name,
                 base_url=self._cdf_url,
                 project=self._project,
-                credentials=credentials_provider,
+                credentials=self._credentials_provider,
             )
         )
         self._update_environment_variables()
         return True
+
+    def reinitialize_client(self) -> None:
+        """Reinitialize the client with the current configuration."""
+        if self._client is None or self._credentials_provider is None or self._cdf_url is None or self._project is None:
+            raise ValueError("Client is not initialized.")
+        self._client = CogniteClient(
+            ClientConfig(
+                client_name=self._client_name,
+                base_url=self._cdf_url,
+                project=self._project,
+                credentials=self._credentials_provider,
+            )
+        )
 
     def _update_environment_variables(self) -> None:
         """This updates the cache environment variables with the auth
@@ -795,7 +815,7 @@ def load_yaml_inject_variables(
     for key, value in variables.items():
         if value is None:
             continue
-        content = content.replace("${%s}" % key, value)
+        content = content.replace(f"${{{key}}}", value)
     for match in re.finditer(r"\$\{([^}]+)\}", content):
         environment_variable = match.group(1)
         print(
@@ -838,12 +858,11 @@ def read_yaml_file(
     except yaml.YAMLError as e:
         print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
         return {}
+
     if expected_output == "list" and isinstance(config_data, dict):
-        print(f"  [bold red]ERROR:[/] {filepath} is not a list")
-        exit(1)
+        ToolkitYAMLFormatError(f"{filepath} did not contain `list` as expected")
     elif expected_output == "dict" and isinstance(config_data, list):
-        print(f"  [bold red]ERROR:[/] {filepath} is not a dict")
-        exit(1)
+        ToolkitYAMLFormatError(f"{filepath} did not contain `dict` as expected")
     return config_data
 
 
@@ -1341,3 +1360,12 @@ def retrieve_view_ancestors(client: CogniteClient, parents: list[ViewId], cache:
 
         parent_ids = grand_parent_ids
     return found
+
+
+def sentry_exception_filter(event: SentryEvent, hint: SentryHint) -> Optional[SentryEvent]:
+    if "exc_info" in hint:
+        exc_type, exc_value, tb = hint["exc_info"]
+        # Returning None prevents the event from being sent to Sentry
+        if isinstance(exc_value, ToolkitError):
+            return None
+    return event

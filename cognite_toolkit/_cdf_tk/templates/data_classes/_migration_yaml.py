@@ -10,6 +10,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES
 from cognite_toolkit._cdf_tk.templates._utils import iterate_modules
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
@@ -121,8 +122,7 @@ class MigrationYAML(UserList[VersionChanges]):
     def slice_from(self, previous_version: str) -> MigrationYAML:
         from_version = next((no for no, entry in enumerate(self) if entry.version == previous_version), None)
         if from_version is None:
-            print(f"Failed to find migration from version '{previous_version}'.")
-            exit(1)
+            raise ToolkitMigrationError(f"Failed to find migration from version '{previous_version}'.")
 
         return self[:from_version]
 

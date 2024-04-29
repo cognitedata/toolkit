@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
@@ -40,21 +41,18 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.fake_generator import FakeCogniteResourceGenerator
-from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, PYTEST_PROJECT
-from tests.tests_unit.utils import mock_read_yaml_file
+from tests.tests_unit.data import LOAD_DATA, PYTEST_PROJECT
+from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
+from tests.tests_unit.utils import FakeCogniteResourceGenerator, mock_read_yaml_file
 
-THIS_FOLDER = Path(__file__).resolve().parent
-
-DATA_FOLDER = THIS_FOLDER / "load_data"
-SNAPSHOTS_DIR = THIS_FOLDER / "load_data_snapshots"
+SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 
 
 @pytest.mark.parametrize(
     "loader_cls, directory",
     [
-        (FileMetadataLoader, DATA_FOLDER / "files"),
-        (DatapointsLoader, DATA_FOLDER / "timeseries_datapoints"),
+        (FileMetadataLoader, LOAD_DATA / "files"),
+        (DatapointsLoader, LOAD_DATA / "timeseries_datapoints"),
     ],
 )
 def test_loader_class(
@@ -79,9 +77,7 @@ class TestFunctionLoader:
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
 
         loader = FunctionLoader.create_loader(cdf_tool)
-        loaded = loader.load_resource(
-            DATA_FOLDER / "functions" / "1.my_functions.yaml", cdf_tool, skip_validation=False
-        )
+        loaded = loader.load_resource(LOAD_DATA / "functions" / "1.my_functions.yaml", cdf_tool, skip_validation=False)
         assert len(loaded) == 2
 
     def test_load_function(self, cognite_client_approval: ApprovalCogniteClient):
@@ -90,7 +86,7 @@ class TestFunctionLoader:
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
 
         loader = FunctionLoader.create_loader(cdf_tool)
-        loaded = loader.load_resource(DATA_FOLDER / "functions" / "1.my_function.yaml", cdf_tool, skip_validation=False)
+        loaded = loader.load_resource(LOAD_DATA / "functions" / "1.my_function.yaml", cdf_tool, skip_validation=False)
         assert isinstance(loaded, FunctionWrite)
 
 
@@ -102,7 +98,7 @@ class TestDataSetsLoader:
         cdf_tool.client = cognite_client_approval.mock_client
 
         loader = DataSetsLoader.create_loader(cdf_tool)
-        loaded = loader.load_resource(DATA_FOLDER / "data_sets" / "1.my_datasets.yaml", cdf_tool, skip_validation=False)
+        loaded = loader.load_resource(LOAD_DATA / "data_sets" / "1.my_datasets.yaml", cdf_tool, skip_validation=False)
         assert len(loaded) == 2
 
         first = DataSet.load(loaded[0].dump())
@@ -231,12 +227,12 @@ class TestAuthLoader:
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
 
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
         )
         assert loaded.name == "unscoped_group_name"
 
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )
         assert loaded.name == "scoped_group_name"
 
@@ -250,25 +246,25 @@ class TestAuthLoader:
     def test_load_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = AuthLoader.create_loader(cdf_tool_config, "all_scoped_only")
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
         )
         assert loaded.name == "unscoped_group_name"
 
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=False
         )
         assert loaded is None
 
     def test_load_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = AuthLoader.create_loader(cdf_tool_config, "resource_scoped_only")
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
         )
 
         assert loaded is None
 
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=False
         )
         assert loaded.name == "scoped_group_name"
         assert len(loaded.capabilities) == 4
@@ -283,7 +279,7 @@ class TestAuthLoader:
     def test_load_group_list_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
         )
 
         assert isinstance(loaded, GroupWriteList)
@@ -292,7 +288,7 @@ class TestAuthLoader:
     def test_load_group_list_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = AuthLoader.create_loader(cdf_tool_config, "resource_scoped_only")
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
         )
 
         assert isinstance(loaded, GroupWrite)
@@ -301,7 +297,7 @@ class TestAuthLoader:
     def test_load_group_list_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = AuthLoader.create_loader(cdf_tool_config, "all_scoped_only")
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
         )
 
         assert isinstance(loaded, GroupWrite)
@@ -312,7 +308,7 @@ class TestAuthLoader:
     ):
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )
 
         # Simulate that one group is is already in CDF
@@ -343,7 +339,7 @@ class TestAuthLoader:
     ):
         loader = AuthLoader.create_loader(cdf_tool_config, "all")
         loaded = loader.load_resource(
-            DATA_FOLDER / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )
 
         # Simulate that the group is is already in CDF, but with fewer capabilities
@@ -420,9 +416,9 @@ description: PH 1stStgSuctCool Gas Out
 
 class TestDeployResources:
     def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
-        build_env = "dev"
-        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env)
-        config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env)
+        build_env_name = "dev"
+        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
+        config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
         config.environment.selected_modules_and_packages = ["another_module"]
         build_config(BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False)
         expected_order = ["MyView", "MyOtherView"]
@@ -450,7 +446,7 @@ def find_subclasses(cls):
     return subclasses
 
 
-class TestListDictConsistency:
+class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
     def test_fake_resource_generator(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
@@ -510,6 +506,21 @@ class TestListDictConsistency:
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
+
+    def check_url(self, url) -> bool:
+        try:
+            response = requests.get(url, allow_redirects=True)
+            return response.status_code >= 200 and response.status_code <= 300
+        except requests.exceptions.RequestException:
+            return False
+
+    @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
+    def test_loader_has_doc_url(
+        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+    ):
+        loader = Loader.create_loader(cdf_tool_config)
+        assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
+        assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"
 
 
 def test_resource_types_is_up_to_date() -> None:

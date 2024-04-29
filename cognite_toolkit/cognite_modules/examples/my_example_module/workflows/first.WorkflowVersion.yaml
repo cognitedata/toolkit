@@ -11,7 +11,7 @@ workflowDefinition:
           data: {}
         isAsyncComplete: false
       name: 'Task One'
-      decription: Task One Ipsum lorem dolor sit amet
+      description: Task One Ipsum lorem dolor sit amet
       retries: 3
       timeout: 3600
       onFailure: 'abortWorkflow'
@@ -22,7 +22,7 @@ workflowDefinition:
           externalId: 'tr_first_transformation'
           concurrencyPolicy: fail
       name: 'Task Two'
-      decription: Task Two Ipsum lorem dolor sit amet
+      description: Task Two Ipsum lorem dolor sit amet
       retries: 3
       timeout: 3600
       onFailure: 'skipTask'

@@ -20,7 +20,7 @@ To support the integration testing you need to have a `.env` file in the root of
 
 ### Snapshot Testing (Regression Testing)
 
-In `cdf-tk` we use snapshot testing to check that a sequence of CLI commands produces consistent output. This type
+In `cdf-tk`, we use snapshot testing to check that a sequence of CLI commands produces consistent output. This type
 of testing is also called [Regression Testing](https://en.wikipedia.org/wiki/Regression_testing). Note the
 idea of snapshot testing can be used in integration tests as well, but in `cdf-tk` we only use it
 in the unit tests.
@@ -157,3 +157,124 @@ for most resource is create and takes a single or a list of the resource type `c
 an example of this. However, when creating a `datapoints` the method is `client.time_series.data.insert` and takes a
 `pandas.DataFrame` as input, same for `sequences`. Another exception if `client.files.upload_bytes` which is used
 to upload files to CDF.
+
+## Task Guides
+
+This section contains guides on how to do different tasks related to the ApprovalClient
+
+### Debugging Function Calls to CDF
+
+Sometimes you want to debug the function calls to CDF. This can be to check what is actually written, or try to make
+sense of an error message. It is not easy to use a debugger to step through the call to CDF, as you will be taken
+through a maze of code that is related to the mocked client. In the example below, if you set a breakpoint at
+`print("break here")` and run the code, if the `client` is mocked, you will have trouble stepping into the
+`insert_dataframe` call.
+
+```python
+import pandas as pd
+
+data = pd.DataFrame(
+    {
+        "timestamp": [1, 2, 3],
+        "value": [1, 2, 3],
+    }
+)
+print("break here")
+client.raw.rows.insert_dataframe(
+    db_name="my_db_name", table_name="my_table", dataframe = data, ensure_parent = False
+)
+```
+
+Instead, you can check in the `tests_unit/approval_client/config.py` to figure out which method is used to mock
+the `.insert_dataframe` call, looking through the file you will find this section:
+
+```python
+    APIResource(
+        api_name="raw.rows",
+        resource_cls=Row,
+        _write_cls=RowWrite,
+        list_cls=RowList,
+        _write_list_cls=RowWriteList,
+        methods={
+            "create": [Method(api_class_method="insert_dataframe", mock_class_method="insert_dataframe")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_raw")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+```
+
+Some extra explanation of the code above:
+
+* The `_write_cls` and `_write_list_cls` are the private, as the `write_cls` and `write_list_cls` are properties
+  which uses the `resoruce_cls` and `list_cls` as fallbacks if the `_write_cls` and `_write_list_cls` are not set.
+* In the methods dictionary, the key is the Loader classification. This is used to classify the type of method
+  you are mocking. This is, for example, used to check `cdf-tk deploy --dry-run` do not make any `create` or `delete`
+  calls. Note as of writing this `update` is not used in any tests, and have thus not been implemented.
+* In the methods dictionary, the value is a linking between the method in the `cognite-sdk` and the mock function
+  that is used to mock the method. The reason for this is to easily reuse mock methods for different `cognite-sdk`
+  methods (very many of the `cognite-sdk` methods can be mocked in exactly the same way). You can see what mock methods
+  are available by checking the functions inside each of the `_create_create_method`, `_create_delete_method`,
+  and `_create_retrieve_method` methods in the `ApprovalCogniteClient`.
+
+We see that the `create` method in the cognite-sdk for RAW rows is mocked by the `insert_dataframe` method in the mock
+class. We can then go to the `tests_unit/approval_client/client.py` and find the `insert_dataframe` method inside the
+private `_create_create_method` and set the breakpoint there. This will then stop the code execution when the
+`insert_dataframe` method is called.
+
+![image](https://github.com/cognitedata/cdf-project-templates/assets/60234212/aa8f72c9-0ecd-4166-bb41-f438fba25b4b)
+
+### Simulate Existing Resource in CDF
+
+You can simulate an existing resource in CDF by using the `append` method in the `ApprovalCogniteClient`. Below
+is an example of a test that simulates an existing `Transformation` in CDF. Note that the `ApprovalCogniteClient`
+does not do any logic when the `.retrieve` or `.list` methods are called, it just returns the resource that has
+been appended to the client.
+
+```python
+def test_pull_transformation(
+    monkeypatch: MonkeyPatch,
+    cognite_client_approval: ApprovalCogniteClient,
+    cdf_tool_config: CDFToolConfig,
+    typer_context: typer.Context,
+    init_project: Path,
+) -> None:
+    loader = TransformationLoader.create_loader(cdf_tool_config)
+
+    loaded = load_transformation()
+
+    # Simulate a change in the transformation in CDF.
+    loaded.name = "New transformation name"
+    read_transformation = Transformation.load(loaded.dump())
+    
+    # Here we append the transformation to the ApprovalCogniteClient which 
+    # simulates that the transformation exists in CDF.
+    cognite_client_approval.append(Transformation, read_transformation)
+
+    pull_transformation_cmd(
+        typer_context,
+        source_dir=str(init_project),
+        external_id=read_transformation.external_id,
+        env="dev",
+        dry_run=False,
+    )
+
+    after_loaded = load_transformation()
+
+    assert after_loaded.name == "New transformation name"
+```
+
+### Adding Support for a new Resource Type
+
+When you add support for a new resource type, you need to first add the an entry to the
+`approval_client/config.py` file which defines which methods are mocked by which mock functions.
+
+If none of the existing mock functions can be used, you need to create a new mock function in the
+`approval_client/client.py` file. The mock function should be added to the relevant method in the
+`ApprovalCogniteClient` class.
+
+You can check the following example PR when support was added for `Workflows` in the `ApprovalCogniteClient`:
+
+[PR #453](https://github.com/cognitedata/cdf-project-templates/pull/453/files#diff-57825118cb6e6afb003f556137ba38af9f770c69f7223dfcaa2779413228e2f1R393)

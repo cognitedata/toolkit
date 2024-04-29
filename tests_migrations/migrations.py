@@ -1,4 +1,5 @@
 import re
+import shutil
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
@@ -30,7 +31,11 @@ def modify_environment_to_run_all_modules(project_path: Path) -> None:
         raise FileNotFoundError(f"Could not find config.dev.yaml in {project_path}")
     config_dev = yaml.safe_load(config_dev_file.read_text())
     config_dev["environment"]["selected_modules_and_packages"] = [
-        module_path.name for module_path, _ in iterate_modules(project_path)
+        # The 'cdf_functions_dummy' module uses the common functions code, which is no longer available
+        # so simply skipping it.
+        module_path.name
+        for module_path, _ in iterate_modules(project_path)
+        if module_path.name != "cdf_functions_dummy"
     ]
     config_dev_file.write_text(yaml.dump(config_dev))
 
@@ -38,6 +43,10 @@ def modify_environment_to_run_all_modules(project_path: Path) -> None:
 def get_migration(previous_version_str: str, current_version: str) -> Callable[[Path], None]:
     previous_version = version.parse(previous_version_str)
     changes = Changes()
+    if previous_version < version.parse("0.2.0b4"):
+        changes.append(_move_common_functions_code)
+        changes.append(_fix_pump_view_external_id)
+
     if previous_version < version.parse("0.2.0a3"):
         changes.append(_move_system_yaml_to_root)
         changes.append(_rename_modules_section_to_variables_in_config_yamls)
@@ -73,6 +82,31 @@ def _rename_modules_section_to_variables_in_config_yamls(project_path: Path) -> 
         if "modules" in data:
             data["variables"] = data.pop("modules")
             config_yaml.write_text(yaml.dump(data))
+
+
+def _move_common_functions_code(project_path: Path) -> None:
+    # It is complex to move the common functions code, so we will just remove
+    # the one module that uses it
+    cdf_functions_dummy = project_path / "cognite_modules" / "examples" / "cdf_functions_dummy"
+
+    if not cdf_functions_dummy.exists():
+        return
+    shutil.rmtree(cdf_functions_dummy)
+
+
+def _fix_pump_view_external_id(project_path: Path) -> None:
+    pump_view = (
+        project_path
+        / "cognite_modules"
+        / "experimental"
+        / "example_pump_data_model"
+        / "data_models"
+        / "4.Pump.view.yaml"
+    )
+    if not pump_view.exists():
+        raise FileNotFoundError(f"Could not find Pump.view.yaml in {project_path}")
+
+    pump_view.write_text(pump_view.read_text().replace("external_id", "externalId"))
 
 
 def _move_system_yaml_to_root(project_path: Path) -> None:

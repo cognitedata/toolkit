@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 
 from rich import print
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.templates._constants import MODULE_PATH_SEP
 from cognite_toolkit._cdf_tk.templates.data_classes._base import ConfigCore, _load_version_variable
 
@@ -17,11 +18,11 @@ class SystemYAML(ConfigCore):
     packages: dict[str, list[str | tuple[str, ...]]] = field(default_factory=dict)
 
     @classmethod
-    def _file_name(cls, build_env: str) -> str:
+    def _file_name(cls, build_env_name: str) -> str:
         return cls.file_name
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> SystemYAML:
+    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> SystemYAML:
         version = _load_version_variable(data, filepath.name)
         packages = data.get("packages", {})
         if not packages:
@@ -55,8 +56,7 @@ class SystemYAML(ConfigCore):
                 # thus we only check the selected packages.
                 continue
             if missing := set(modules) - available_modules:
-                print(
-                    f"  [bold red]ERROR:[/] Package {package} defined in {self.filepath.name!s} is referring "
+                ToolkitMissingModuleError(
+                    f"Package {package} defined in {self.filepath.name!s} is referring "
                     f"the following missing modules {missing}."
                 )
-                exit(1)

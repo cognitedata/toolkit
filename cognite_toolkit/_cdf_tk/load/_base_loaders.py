@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Collection, Sequence, Sized
 from pathlib import Path
-from typing import Any, Generic, TypeVar, Union
+from typing import Any, Generic, TypeVar, Union, cast
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes import WorkflowVersionId
@@ -63,6 +63,8 @@ class Loader(ABC):
     filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
+    _doc_base_url: str = "https://developer.cognite.com/api#tag/"
+    _doc_url: str = ""
 
     def __init__(self, client: CogniteClient, build_path: Path | None = None):
         self.client = client
@@ -76,6 +78,10 @@ class Loader(ABC):
     @property
     def display_name(self) -> str:
         return self.folder_name
+
+    @classmethod
+    def doc_url(cls) -> str:
+        return cls._doc_base_url + cls._doc_url
 
     @classmethod
     def find_files(cls, dir_or_file: Path) -> list[Path]:
@@ -420,21 +426,24 @@ class ResourceLoader(
         if nr_of_items == 0:
             return ResourceDeployResult(name=self.display_name)
 
+        existing_resources = cast(T_CogniteResourceList, self.retrieve(self.get_ids(loaded_resources)).as_write())
+        nr_of_existing = len(existing_resources)
+
         if drop:
             prefix = "Would clean" if dry_run else "Cleaning"
             with_data = "with data " if isinstance(self, ResourceContainerLoader) else ""
         else:
             prefix = "Would drop data from" if dry_run else "Dropping data from"
             with_data = ""
-        print(f"[bold]{prefix} {nr_of_items} {self.display_name} {with_data} from CDF...[/]")
+        print(f"[bold]{prefix} {nr_of_existing} {self.display_name} {with_data}from CDF...[/]")
         for duplicate in duplicates:
             print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
 
         # Deleting resources.
         if isinstance(self, ResourceContainerLoader) and drop_data:
-            nr_of_dropped_datapoints = self._drop_data(loaded_resources, dry_run, verbose)
+            nr_of_dropped_datapoints = self._drop_data(existing_resources, dry_run, verbose)
             if drop:
-                nr_of_deleted = self._delete_resources(loaded_resources, dry_run, verbose)
+                nr_of_deleted = self._delete_resources(existing_resources, dry_run, verbose)
             else:
                 nr_of_deleted = 0
             if verbose:
@@ -447,7 +456,7 @@ class ResourceLoader(
                 item_name=self.item_name,
             )
         elif not isinstance(self, ResourceContainerLoader) and drop:
-            nr_of_deleted = self._delete_resources(loaded_resources, dry_run, verbose)
+            nr_of_deleted = self._delete_resources(existing_resources, dry_run, verbose)
             if verbose:
                 print("")
             return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
@@ -531,6 +540,7 @@ class ResourceLoader(
                 # KeyError means that we are missing a required field in the yaml file.
                 print(
                     f"[bold red]ERROR:[/] Failed to load {filepath.name} with {self.display_name}. Missing required field: {e}."
+                    f"[bold red]ERROR:[/] Please compare with the API specification at {self.doc_url()}."
                 )
                 return None
             except Exception as e:
