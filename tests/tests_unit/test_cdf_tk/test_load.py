@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
@@ -505,6 +506,21 @@ class TestListDictConsistency:
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
+
+    def check_url(self, url) -> bool:
+        try:
+            response = requests.head(url)
+            return response.status_code >= 200 and response.status_code <= 301
+        except requests.exceptions.RequestException:
+            return False
+
+    @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
+    def test_loader_has_doc_url(
+        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+    ):
+        loader = Loader.create_loader(cdf_tool_config)
+        assert loader.doc_url is not None, f"{Loader.folder_name} is missing doc_url"
+        assert self.check_url(loader.doc_url), f"{Loader.folder_name} doc_url is not accessible"
 
 
 def test_resource_types_is_up_to_date() -> None:

@@ -63,6 +63,7 @@ class Loader(ABC):
     filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
+    _doc_base_url: str = "https://developer.cognite.com/api#tag/"
     _doc_url: str = ""
 
     def __init__(self, client: CogniteClient, build_path: Path | None = None):
@@ -77,6 +78,12 @@ class Loader(ABC):
     @property
     def display_name(self) -> str:
         return self.folder_name
+
+    @property
+    def doc_url(self) -> str:
+        return self._doc_base_url
+
+    property
 
     @classmethod
     def find_files(cls, dir_or_file: Path) -> list[Path]:
@@ -167,7 +174,6 @@ class ResourceLoader(
     identifier_key: str = "externalId"
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     _display_name: str = ""
-    _doc_url: str = "https://developer.cognite.com/api/"
 
     def __init__(self, client: CogniteClient):
         super().__init__(client)
@@ -178,7 +184,7 @@ class ResourceLoader(
 
     @property
     def display_name(self) -> str:
-        return self._display_name or self.api_name
+        return self._doc_base_url
 
     @staticmethod
     def _get_api_class(client: CogniteClient, api_name: str) -> Any:
