@@ -25,6 +25,11 @@ Changes are grouped as follows:
 
 - The `cdf_functions_dummy` module now includes codes from the former `common_function_code` directory.
 
+### Fixed
+
+- In `example_pump_data_model`, in the `Pump.view.yaml` the property `source` used `external_id` instead of
+  `externalId`.
+
 ## [0.2.0a3] - 2024-04-23
 
 ### Fixed

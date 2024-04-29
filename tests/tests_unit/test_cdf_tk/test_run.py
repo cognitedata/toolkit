@@ -1,5 +1,4 @@
 from datetime import datetime
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from cognite.client.data_classes.functions import Function
@@ -8,9 +7,7 @@ from cognite.client.data_classes.transformations import Transformation
 from cognite_toolkit._cdf_tk.run import run_function, run_local_function, run_transformation
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
 from tests.tests_unit.approval_client import ApprovalCogniteClient
-
-THIS_FOLDER = Path(__file__).resolve().parent
-DATA_FOLDER = THIS_FOLDER / "run_data"
+from tests.tests_unit.data import RUN_DATA
 
 
 def test_get_oneshot_session(cognite_client_approval: ApprovalCogniteClient):
@@ -83,7 +80,7 @@ def test_run_local_function(cognite_client_approval: ApprovalCogniteClient) -> N
     assert (
         run_local_function(
             ToolGlobals=cdf_tool,
-            source_path=DATA_FOLDER,
+            source_path=RUN_DATA,
             rebuild_env=True,
             build_env_name="dev",
             external_id="fn_test2",

@@ -35,8 +35,10 @@ from cognite.client.data_classes.data_modeling import (
     EdgeApply,
     EdgeApplyResultList,
     EdgeId,
+    EdgeList,
     InstancesApplyResult,
     InstancesDeleteResult,
+    InstancesResult,
     NodeApply,
     NodeApplyResult,
     NodeApplyResultList,
@@ -547,6 +549,10 @@ class ApprovalCogniteClient:
 
             return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
 
+        def return_instances(*args, **kwargs) -> InstancesResult:
+            read_list = return_values(*args, **kwargs)
+            return InstancesResult(nodes=read_list, edges=EdgeList([]))
+
         def return_value(*args, **kwargs):
             if value := existing_resources[resource_cls.__name__]:
                 return read_list_cls(value, cognite_client=client)[0]
@@ -569,6 +575,7 @@ class ApprovalCogniteClient:
                 return_values,
                 return_value,
                 data_model_retrieve,
+                return_instances,
             ]
         }
         if mock_method not in available_retrieve_methods:
