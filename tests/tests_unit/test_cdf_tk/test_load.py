@@ -509,8 +509,8 @@ class TestFormatConsistency:
 
     def check_url(self, url) -> bool:
         try:
-            response = requests.head(url)
-            return response.status_code >= 200 and response.status_code <= 301
+            response = requests.get(url, allow_redirects=True)
+            return response.status_code >= 200 and response.status_code <= 300
         except requests.exceptions.RequestException:
             return False
 

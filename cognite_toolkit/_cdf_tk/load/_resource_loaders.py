@@ -333,7 +333,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     resource_write_cls = DataSetWrite
     list_cls = DataSetList
     list_write_cls = DataSetWriteList
-    _doc_url = "/Data-sets/operation/createDataSets"
+    _doc_url = "Data-sets/operation/createDataSets"
 
     @classmethod
     def get_required_capability(cls, items: DataSetWriteList) -> Capability:
