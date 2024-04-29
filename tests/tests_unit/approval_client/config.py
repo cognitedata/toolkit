@@ -103,7 +103,7 @@ API_RESOURCES = [
         resource_cls=TokenInspection,
         list_cls=list[TokenInspection],
         methods={
-            "post": [Method(api_class_method="post", mock_name="post_method")],
+            "post": [Method(api_class_method="post", mock_class_method="post_method")],
         },
     ),
     APIResource(
@@ -113,9 +113,9 @@ API_RESOURCES = [
         _write_list_cls=GroupWriteList,
         list_cls=GroupList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
-            "retrieve": [Method(api_class_method="list", mock_name="return_values")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
+            "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
         },
     ),
     APIResource(
@@ -123,7 +123,7 @@ API_RESOURCES = [
         resource_cls=TokenInspection,
         list_cls=list[TokenInspection],
         methods={
-            "inspect": [Method(api_class_method="inspect", mock_name="return_value")],
+            "inspect": [Method(api_class_method="inspect", mock_class_method="return_value")],
         },
     ),
     APIResource(
@@ -133,11 +133,11 @@ API_RESOURCES = [
         _write_list_cls=DataSetWriteList,
         list_cls=DataSetList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
         },
     ),
@@ -148,12 +148,12 @@ API_RESOURCES = [
         list_cls=TimeSeriesList,
         _write_list_cls=TimeSeriesWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
         },
     ),
@@ -164,9 +164,9 @@ API_RESOURCES = [
         list_cls=DatabaseList,
         _write_list_cls=DatabaseWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "retrieve": [Method(api_class_method="list", mock_name="return_values")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_raw")],
         },
     ),
     APIResource(
@@ -176,9 +176,9 @@ API_RESOURCES = [
         list_cls=TableList,
         _write_list_cls=TableWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "retrieve": [Method(api_class_method="list", mock_name="return_values")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_raw")],
         },
     ),
     APIResource(
@@ -188,11 +188,11 @@ API_RESOURCES = [
         list_cls=RowList,
         _write_list_cls=RowWriteList,
         methods={
-            "create": [Method(api_class_method="insert_dataframe", mock_name="insert_dataframe")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_raw")],
+            "create": [Method(api_class_method="insert_dataframe", mock_class_method="insert_dataframe")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_raw")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),
@@ -203,12 +203,12 @@ API_RESOURCES = [
         list_cls=FunctionList,
         _write_list_cls=FunctionWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create_function_api")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "create": [Method(api_class_method="create", mock_class_method="create_function_api")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
         },
     ),
@@ -219,7 +219,7 @@ API_RESOURCES = [
         list_cls=FunctionSchedulesList,
         _write_list_cls=FunctionScheduleWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create_function_schedule_api")],
+            "create": [Method(api_class_method="create", mock_class_method="create_function_schedule_api")],
         },
     ),
     APIResource(
@@ -229,12 +229,12 @@ API_RESOURCES = [
         list_cls=TransformationList,
         _write_list_cls=TransformationWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
         },
     ),
@@ -245,11 +245,11 @@ API_RESOURCES = [
         list_cls=TransformationScheduleList,
         _write_list_cls=TransformationScheduleWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
             ],
         },
     ),
@@ -260,12 +260,12 @@ API_RESOURCES = [
         list_cls=ExtractionPipelineList,
         _write_list_cls=ExtractionPipelineWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
         },
     ),
@@ -276,10 +276,10 @@ API_RESOURCES = [
         list_cls=ExtractionPipelineConfigList,
         _write_list_cls=ExtractionPipelineConfigWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_name="create_extraction_pipeline_config")],
+            "create": [Method(api_class_method="create", mock_class_method="create_extraction_pipeline_config")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
             ],
         },
     ),
@@ -290,11 +290,11 @@ API_RESOURCES = [
         _write_cls=ContainerApply,
         _write_list_cls=ContainerApplyList,
         methods={
-            "create": [Method(api_class_method="apply", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
+            "create": [Method(api_class_method="apply", mock_class_method="create")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_data_modeling")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),
@@ -305,11 +305,11 @@ API_RESOURCES = [
         _write_cls=ViewApply,
         _write_list_cls=ViewApplyList,
         methods={
-            "create": [Method(api_class_method="apply", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
+            "create": [Method(api_class_method="apply", mock_class_method="create")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_data_modeling")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="data_model_retrieve"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="data_model_retrieve"),
             ],
         },
     ),
@@ -320,11 +320,11 @@ API_RESOURCES = [
         _write_cls=DataModelApply,
         _write_list_cls=DataModelApplyList,
         methods={
-            "create": [Method(api_class_method="apply", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_data_modeling")],
+            "create": [Method(api_class_method="apply", mock_class_method="create")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_data_modeling")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),
@@ -335,11 +335,11 @@ API_RESOURCES = [
         _write_cls=SpaceApply,
         _write_list_cls=SpaceApplyList,
         methods={
-            "create": [Method(api_class_method="apply", mock_name="create")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_space")],
+            "create": [Method(api_class_method="apply", mock_class_method="create")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_space")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),
@@ -349,8 +349,8 @@ API_RESOURCES = [
         list_cls=DatapointsList,
         methods={
             "create": [
-                Method(api_class_method="insert", mock_name="create"),
-                Method(api_class_method="insert_dataframe", mock_name="insert_dataframe"),
+                Method(api_class_method="insert", mock_class_method="create"),
+                Method(api_class_method="insert_dataframe", mock_class_method="insert_dataframe"),
             ],
         },
     ),
@@ -362,16 +362,16 @@ API_RESOURCES = [
         _write_list_cls=FileMetadataWriteList,
         methods={
             "create": [
-                Method(api_class_method="upload", mock_name="upload"),
-                Method(api_class_method="create", mock_name="create"),
+                Method(api_class_method="upload", mock_class_method="upload"),
+                Method(api_class_method="create", mock_class_method="create"),
                 # This is used by functions to upload the file used for deployment.
-                Method(api_class_method="upload_bytes", mock_name="upload_bytes_files_api"),
+                Method(api_class_method="upload_bytes", mock_class_method="upload_bytes_files_api"),
             ],
-            "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_value"),
-                Method(api_class_method="retrieve_multiple", mock_name="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
         },
     ),
@@ -382,11 +382,11 @@ API_RESOURCES = [
         _write_cls=NodeApply,
         _write_list_cls=NodeApplyList,
         methods={
-            "create": [Method(api_class_method="apply", mock_name="create_instances")],
-            "delete": [Method(api_class_method="delete", mock_name="delete_instances")],
+            "create": [Method(api_class_method="apply", mock_class_method="create_instances")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_instances")],
             "retrieve": [
-                Method(api_class_method="list", mock_name="return_values"),
-                Method(api_class_method="retrieve", mock_name="return_instances"),
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="return_instances"),
             ],
         },
     ),
@@ -397,11 +397,11 @@ API_RESOURCES = [
         _write_cls=WorkflowUpsert,
         _write_list_cls=WorkflowUpsertList,
         methods={
-            "create": [Method(api_class_method="upsert", mock_name="upsert")],
+            "create": [Method(api_class_method="upsert", mock_class_method="upsert")],
             # "update": [Method(api_class_method="upsert", mock_name="upsert")],
             # "delete": [Method(api_class_method="delete", mock_name="delete_id_external_id")],
             "retrieve": [
-                Method(api_class_method="retrieve", mock_name="return_value"),
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
             ],
         },
     ),
@@ -412,11 +412,11 @@ API_RESOURCES = [
         _write_cls=WorkflowVersionUpsert,
         _write_list_cls=WorkflowVersionUpsertList,
         methods={
-            "create": [Method(api_class_method="upsert", mock_name="upsert")],
+            "create": [Method(api_class_method="upsert", mock_class_method="upsert")],
             # "update": [Method(api_class_method="upsert", mock_name="upsert")],
             # "delete": [Method(api_class_method="delete", mock_name="delete")],
             "retrieve": [
-                Method(api_class_method="retrieve", mock_name="return_value"),
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
             ],
         },
     ),
