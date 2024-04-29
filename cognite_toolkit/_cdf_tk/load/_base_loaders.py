@@ -79,11 +79,9 @@ class Loader(ABC):
     def display_name(self) -> str:
         return self.folder_name
 
-    @property
-    def doc_url(self) -> str:
-        return self._doc_base_url + self._doc_url
-
-    property
+    @classmethod
+    def doc_url(cls) -> str:
+        return cls._doc_base_url + cls._doc_url
 
     @classmethod
     def find_files(cls, dir_or_file: Path) -> list[Path]:
@@ -542,7 +540,7 @@ class ResourceLoader(
                 # KeyError means that we are missing a required field in the yaml file.
                 print(
                     f"[bold red]ERROR:[/] Failed to load {filepath.name} with {self.display_name}. Missing required field: {e}."
-                    f"[bold red]ERROR:[/] Please compare with the API specification at {self.doc_url}."
+                    f"[bold red]ERROR:[/] Please compare with the API specification at {self.doc_url()}."
                 )
                 return None
             except Exception as e:
