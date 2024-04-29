@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from time import sleep
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
@@ -121,7 +121,6 @@ def check_auth(
     project_info = ToolGlobals.client.get(f"/api/v1/projects/{auth_vars.project}").json()
     print("Checking identity provider settings...")
     oidc = project_info.get("oidcConfiguration", {})
-    tenant_id = None
     if "https://login.windows.net" in oidc.get("tokenUrl"):
         tenant_id = oidc.get("tokenUrl").split("/")[-3]
         print(f"  [bold green]OK[/]: Microsoft Entra ID (aka ActiveDirectory) with tenant id ({tenant_id}).")
@@ -287,10 +286,13 @@ def check_auth(
         try:
             if not dry_run:
                 new = ToolGlobals.client.iam.groups.create(read_write)
-                new = cast(Group, new)  # Missing overload in .create method.
                 print(
                     f"  [bold green]OK[/] - Created new group {new.id} with {len(read_write.capabilities or [])} capabilities."
                 )
+                # Need to reinitialize the client to update the token with the new capabilities
+                # In addition sleep for a second to allow the IAM service to update the group
+                sleep(1.0)
+                ToolGlobals.reinitialize_client()
             else:
                 print(
                     f"  [bold green]OK[/] - Would have created new group with {len(read_write.capabilities or [])} capabilities."
