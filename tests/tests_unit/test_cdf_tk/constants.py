@@ -1,6 +1,5 @@
 from pathlib import Path
 
-PYTEST_PROJECT = Path(__file__).parent / "project_for_test"
-BUILD_DIR = PYTEST_PROJECT.parent / "tmp"
-CUSTOM_PROJECT = Path(__file__).parent / "project_no_cognite_modules"
-PROJECT_WITH_DUPLICATES = Path(__file__).parent / "project_with_duplicates"
+_THIS_FOLDER = Path(__file__).resolve().parent
+BUILD_DIR = _THIS_FOLDER / "tmp"
+SNAPSHOTS_DIR_ALL = _THIS_FOLDER / "snapshots"

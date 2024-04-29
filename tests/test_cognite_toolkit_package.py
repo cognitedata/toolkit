@@ -1,3 +1,6 @@
+"""These tests are meant to ensure that the package version is consistent across all files and that the changelog is
+properly formatted."""
+
 import re
 import sys
 from collections.abc import Iterator
