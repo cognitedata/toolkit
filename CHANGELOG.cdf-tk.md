@@ -46,6 +46,7 @@ Changes are grouped as follows:
   capabilities, the `cdf-tk` would successfully create a group, but then raise
   an Error: `cognite.client.exceptions.CogniteAPIError: Insufficient access rights.` when trying to validate.
   This is now fixed.
+- Better error message (no exception raised) if the config file has `selected_modules_and_packages`, but with no list items.
 
 ## [0.2.0a3] - 2024-04-23
 
