@@ -519,8 +519,8 @@ class TestFormatConsistency:
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
         loader = Loader.create_loader(cdf_tool_config)
-        assert loader.doc_url != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
-        assert self.check_url(loader.doc_url), f"{Loader.folder_name} doc_url is not accessible"
+        assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
+        assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"
 
 
 def test_resource_types_is_up_to_date() -> None:
