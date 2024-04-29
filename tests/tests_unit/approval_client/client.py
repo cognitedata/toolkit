@@ -141,7 +141,7 @@ class ApprovalCogniteClient:
                             f"Invalid api method {mock_method.api_class_method} for resource {resource.api_name}"
                         )
                     method = getattr(mock_api, mock_method.api_class_method)
-                    method.side_effect = method_factory(resource, mock_method.mock_name, mock_client)
+                    method.side_effect = method_factory(resource, mock_method.mock_class_method, mock_client)
                     method_dict[resource.resource_cls.__name__].append(method)
 
     @property
