@@ -40,6 +40,8 @@ Changes are grouped as follows:
 - When deploying a `FunctionSchedule` that requires an update, the `cdf-tk` would fail with error
   `Failed to update functions.schedules. Error 'FunctionSchedulesAPI' object has no attribute 'update'.`.
   This is now fixed.
+- When calling `cdf-tk init --upgrade`, the user is met with a `Failed to load previous version, ...`.
+  This is now fixed.
 - When running `cdf-tk auth verify --interactive` and the user want to create a new group with the necessary
   capabilities, the `cdf-tk` would successfully create a group, but then raise
   an Error: `cognite.client.exceptions.CogniteAPIError: Insufficient access rights.` when trying to validate.

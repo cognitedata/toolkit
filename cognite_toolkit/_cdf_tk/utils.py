@@ -815,7 +815,7 @@ def load_yaml_inject_variables(
     for key, value in variables.items():
         if value is None:
             continue
-        content = content.replace("${%s}" % key, value)
+        content = content.replace(f"${{{key}}}", value)
     for match in re.finditer(r"\$\{([^}]+)\}", content):
         environment_variable = match.group(1)
         print(
