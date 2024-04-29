@@ -214,10 +214,10 @@ Some extra explanation of the code above:
   you are mocking. This is, for example, used to check `cdf-tk deploy --dry-run` do not make any `create` or `delete`
   calls. Note as of writing this `update` is not used in any tests, and have thus not been implemented.
 * In the methods dictionary, the value is a linking between the method in the `cognite-sdk` and the mock function
-  that is used to mock the method. This is setup this way to easily reuse mock methods for different `cognite-sdk`
-  methods. You can see what mock methods are available by checking the functions inside each of the
-  `_create_create_method`, `_create_delete_method`, and `_create_retrieve_method` methods in the
-  `ApprovalCogniteClient`.
+  that is used to mock the method. The reason for this is to easily reuse mock methods for different `cognite-sdk`
+  methods (very many of the `cognite-sdk` methods can be mocked in exactly the same way). You can see what mock methods
+  are available by checking the functions inside each of the `_create_create_method`, `_create_delete_method`,
+  and `_create_retrieve_method` methods in the `ApprovalCogniteClient`.
 
 We see that the `create` method in the cognite-sdk for RAW rows is mocked by the `insert_dataframe` method in the mock
 class. We can then go to the `tests_unit/approval_client/client.py` and find the `insert_dataframe` method inside the
