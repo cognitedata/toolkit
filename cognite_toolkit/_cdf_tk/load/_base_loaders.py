@@ -184,7 +184,6 @@ class ResourceLoader(
     def display_name(self) -> str:
         return self._display_name or self.api_name
 
-
     @staticmethod
     def _get_api_class(client: CogniteClient, api_name: str) -> Any:
         parent = client
