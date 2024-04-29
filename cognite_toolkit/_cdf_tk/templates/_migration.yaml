@@ -33,6 +33,11 @@
   resources: {}
   tool: {}
   cognite_modules_hash: "4f782ad5c44e093d618df7844cece762954878bf1e0f576acb32975092131346"
+- version: 0.1.3
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: "17bcaf19125e228caf6801f390ceefa82e1b942f3f158bf23ef150a2dc3cefc1"
 - version: 0.1.2
   cognite_modules: {}
   resources: {}
