@@ -81,7 +81,7 @@ class Loader(ABC):
 
     @property
     def doc_url(self) -> str:
-        return self._doc_base_url
+        return self._doc_base_url + self._doc_url
 
     property
 

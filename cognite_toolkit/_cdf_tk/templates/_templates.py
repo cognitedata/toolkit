@@ -614,7 +614,7 @@ def validate(
                 )
                 if verbose:
                     print(
-                        f"  [bold yellow]WARNING:[/] verify file format with tha API specification for {destination.parent.name!r} at {loader._doc_url}"
+                        f"  [bold yellow]WARNING:[/] verify file format against the API specification for {destination.parent.name!r} at {loader._doc_url}"
                     )
 
         if isinstance(loader, ResourceLoader):
