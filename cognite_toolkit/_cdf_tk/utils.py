@@ -402,6 +402,7 @@ class CDFToolConfig:
         self._cdf_url: str | None = None
         self._scopes: list[str] = []
         self._audience: str | None = None
+        self._credentials_provider: CredentialProvider | None = None
         self._client: CogniteClient | None = None
 
         global_config.disable_pypi_version_check = True
@@ -437,12 +438,11 @@ class CDFToolConfig:
         self._project = project
         self._cdf_url = auth.cdf_url or self._cdf_url
 
-        credentials_provider: CredentialProvider
         if auth.login_flow == "token":
             if not auth.token:
                 print("  [bold red]Error[/] Login flow=token is set but no CDF_TOKEN is not provided.")
                 return False
-            credentials_provider = Token(auth.token)
+            self._credentials_provider = Token(auth.token)
         elif auth.login_flow == "interactive":
             if auth.scopes:
                 self._scopes = [auth.scopes]
@@ -452,7 +452,7 @@ class CDFToolConfig:
                     "variables: IDP_CLIENT_ID and IDP_TENANT_ID (or IDP_AUTHORITY_URL). Cannot authenticate the client."
                 )
                 return False
-            credentials_provider = OAuthInteractive(
+            self._credentials_provider = OAuthInteractive(
                 authority_url=auth.authority_url,
                 client_id=auth.client_id,
                 scopes=self._scopes,
@@ -476,7 +476,7 @@ class CDFToolConfig:
                 )
                 return False
 
-            credentials_provider = OAuthClientCredentials(
+            self._credentials_provider = OAuthClientCredentials(
                 token_url=auth.token_url,
                 client_id=auth.client_id,
                 client_secret=auth.client_secret,
@@ -492,11 +492,24 @@ class CDFToolConfig:
                 client_name=self._client_name,
                 base_url=self._cdf_url,
                 project=self._project,
-                credentials=credentials_provider,
+                credentials=self._credentials_provider,
             )
         )
         self._update_environment_variables()
         return True
+
+    def reinitialize_client(self) -> None:
+        """Reinitialize the client with the current configuration."""
+        if self._client is None or self._credentials_provider is None or self._cdf_url is None or self._project is None:
+            raise ValueError("Client is not initialized.")
+        self._client = CogniteClient(
+            ClientConfig(
+                client_name=self._client_name,
+                base_url=self._cdf_url,
+                project=self._project,
+                credentials=self._credentials_provider,
+            )
+        )
 
     def _update_environment_variables(self) -> None:
         """This updates the cache environment variables with the auth
