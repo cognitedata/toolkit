@@ -14,11 +14,10 @@ from cognite_toolkit._cdf_tk.load import (
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.conftest import ApprovalCogniteClient
+from tests.tests_unit.data import DESCRIPTIONS_FOLDER
+from tests.tests_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 
-THIS_FOLDER = Path(__file__).resolve().parent
-
-DATA_FOLDER = THIS_FOLDER / "describe_data"
-SNAPSHOTS_DIR = THIS_FOLDER / "describe_data_snapshots"
+SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "describe_data_snapshots"
 SNAPSHOTS_DIR.mkdir(exist_ok=True)
 
 
@@ -44,7 +43,7 @@ def test_describe_datamodel(
         for filepath in [
             file
             for type_ in space_loader.filetypes
-            for file in Path(DATA_FOLDER, "data_models").glob(f"**/*.{type_}")
+            for file in Path(DESCRIPTIONS_FOLDER, "data_models").glob(f"**/*.{type_}")
             if re.compile(space_loader.filename_pattern).match(file.stem)
         ]
     ]
@@ -53,7 +52,7 @@ def test_describe_datamodel(
         for filepath in [
             file
             for type_ in data_model_loader.filetypes
-            for file in Path(DATA_FOLDER, "data_models").glob(f"**/*.{type_}")
+            for file in Path(DESCRIPTIONS_FOLDER, "data_models").glob(f"**/*.{type_}")
             if re.compile(data_model_loader.filename_pattern).match(file.stem)
         ]
     ]
@@ -62,7 +61,7 @@ def test_describe_datamodel(
         for filepath in [
             file
             for type_ in container_loader.filetypes
-            for file in Path(DATA_FOLDER, "data_models").glob(f"**/*.{type_}")
+            for file in Path(DESCRIPTIONS_FOLDER, "data_models").glob(f"**/*.{type_}")
             if re.compile(container_loader.filename_pattern).match(file.stem)
         ]
     ]
@@ -71,7 +70,7 @@ def test_describe_datamodel(
         for filepath in [
             file
             for type_ in view_loader.filetypes
-            for file in Path(DATA_FOLDER, "data_models").glob(f"**/*.{type_}")
+            for file in Path(DESCRIPTIONS_FOLDER, "data_models").glob(f"**/*.{type_}")
             if re.compile(view_loader.filename_pattern).match(file.stem)
         ]
     ]

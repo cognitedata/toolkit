@@ -1,0 +1,116 @@
+DataSet:
+- description: This is an example dataset used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: ds_timeseries_foo
+  metadata: {}
+  name: Example dataset.
+  writeProtected: false
+FileMetadata:
+- data_set_id: 42
+  external_id: fn_first_function
+  name: fn_first_function.zip
+  overwrite: true
+Function:
+- description: Returns the input data, secrets, and function info.
+  envVars:
+    CDF_ENV: dev
+    ENV_TYPE: dev
+  externalId: fn_first_function
+  functionPath: ./src/handler.py
+  metadata:
+    cdf-toolkit-function-hash: 31407820253d00b05da67d6d9ff7f009df975e0f99e5d08914c0c23e95d7f121
+    version: '1'
+  name: first:example:function
+  owner: Anonymous
+  runtime: py311
+  secrets:
+    mysecret: ${ENVIRONMENT_SECRET}
+FunctionSchedule:
+- cronExpression: 0 8 * * *
+  data:
+    breakfast: 'today: peanut butter sandwich and coffee'
+    dinner: 'today: steak and red wine'
+    lunch: 'today: greek salad and water'
+  description: Run every day at 8am UTC
+  name: daily-8am-utc
+TimeSeries:
+- dataSetId: 42
+  description: This is an example timeseries used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: cdf_tooklit:example_timeseries
+  isStep: false
+  isString: false
+  metadata:
+    foo: bar
+  name: CDF Toolkit Example Timeseries
+  securityCategories: []
+- dataSetId: 42
+  description: This is an example timeseries used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: cdf_tooklit:example_timeseries:2
+  isStep: false
+  isString: false
+  metadata:
+    bar: foo
+  name: CDF Toolkit Example Timeseries 2
+  securityCategories: []
+Transformation:
+- conflictMode: upsert
+  destination:
+    type: assets
+  destinationOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+  externalId: tr_first_transformation
+  ignoreNullFields: true
+  isPublic: true
+  name: example:first:transformation
+  query: "select\n  cast(`externalId` as STRING) as externalId\nfrom\n  `db_foo`.`table_foo`;\n"
+  sourceOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+TransformationSchedule:
+- externalId: tr_first_transformation
+  interval: 7 * * * *
+  isPaused: true
+Workflow:
+- description: A workflow for processing data
+  externalId: wf_baz
+WorkflowVersion:
+- version: '1'
+  workflowDefinition:
+    description: Execute tasks in sequence
+    tasks:
+    - description: Task One Ipsum lorem dolor sit amet
+      externalId: baz_function_task
+      name: Task One
+      onFailure: abortWorkflow
+      parameters:
+        function:
+          externalId: fn_first_function
+        isAsyncComplete: false
+      retries: 3
+      timeout: 3600
+      type: function
+    - dependsOn:
+      - externalId: baz_function_task
+      description: Task Two Ipsum lorem dolor sit amet
+      externalId: baz_transformation_task
+      name: Task Two
+      onFailure: skipTask
+      parameters:
+        transformation:
+          concurrencyPolicy: fail
+          externalId: tr_first_transformation
+      retries: 3
+      timeout: 3600
+      type: transformation
+  workflowExternalId: wf_baz

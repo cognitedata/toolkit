@@ -17,7 +17,7 @@ import itertools
 import json
 import re
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Sequence, Sized
 from numbers import Number
 from pathlib import Path
 from time import sleep
@@ -667,6 +667,11 @@ class FunctionScheduleLoader(
                 )
             )
         return FunctionSchedulesList(created)
+
+    def update(self, items: FunctionScheduleWriteList) -> Sized:
+        # Function schedule does not have an update, so we delete and recreate
+        self.delete(self.get_ids(items))
+        return self.create(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         schedules = self.retrieve(ids)

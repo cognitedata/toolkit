@@ -20,7 +20,7 @@ properties:
    containerPropertyIdentifier: parent
    name: liftStation
    source:
-     external_id: LiftStation
+     externalId: LiftStation
      space: '{{model_space}}'
      version: '{{view_LiftStation_version}}'
   DesignPointFlowGPM:

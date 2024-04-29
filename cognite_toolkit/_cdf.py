@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk import bootstrap
+from cognite_toolkit._cdf_tk import auth
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.describe import describe_datamodel
 from cognite_toolkit._cdf_tk.dump import dump_datamodel_command
@@ -662,7 +662,7 @@ def auth_verify(
         )
     else:
         group_path = Path(group_file)
-    bootstrap.check_auth(
+    auth.check_auth(
         ToolGlobals,
         group_file=group_path,
         update_group=update_group,
