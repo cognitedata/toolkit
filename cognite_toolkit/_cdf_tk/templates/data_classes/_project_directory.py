@@ -286,7 +286,7 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
 
         print(
             Panel(
-                f"[bold red]Change the version in {COGNITE_MODULES}/_system.yaml from {self._cognite_module_version} to {current_version}[/]",
+                f"[bold red]Change the version in _system.yaml from {self._cognite_module_version} to {current_version}[/]",
                 title="When you are done with the manual updates",
             )
         )
