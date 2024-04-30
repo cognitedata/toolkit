@@ -15,7 +15,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.2.0a4] - 2024-04-29
 
 ### Removed
 
@@ -29,6 +29,25 @@ Changes are grouped as follows:
 
 - In `config.[env].yaml`, in the `environment` section, `name` is no longer required. Instead, the `[env]` part
   of the `config.[env].yaml` file is used as the `name` of the environment. This is to avoid redundancy.
+
+### Improved
+
+- When running `cdf-tk clean --dry-run` the output would show local resources regardless of whether they existed
+  in CDF or not. This is now fixed and only resources that exist in CDF are shown in the output.
+- Better error message (no exception raised) if the config file has `selected_modules_and_packages`, but with no list items.
+- If yaml files are invalid, a link to the API docs for the resource is shown in the error message.
+
+### Fixed
+
+- When deploying a `FunctionSchedule` that requires an update, the `cdf-tk` would fail with error
+  `Failed to update functions.schedules. Error 'FunctionSchedulesAPI' object has no attribute 'update'.`.
+  This is now fixed.
+- When calling `cdf-tk init --upgrade`, the user is met with a `Failed to load previous version, ...`.
+  This is now fixed.
+- When running `cdf-tk auth verify --interactive` and the user want to create a new group with the necessary
+  capabilities, the `cdf-tk` would successfully create a group, but then raise
+  an Error: `cognite.client.exceptions.CogniteAPIError: Insufficient access rights.` when trying to validate.
+  This is now fixed.
 
 ## [0.2.0a3] - 2024-04-23
 

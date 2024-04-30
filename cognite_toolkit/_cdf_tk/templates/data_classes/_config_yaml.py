@@ -47,7 +47,7 @@ class Environment:
                     tuple([part for part in selected.split(MODULE_PATH_SEP) if part])
                     if MODULE_PATH_SEP in selected
                     else selected
-                    for selected in data["selected_modules_and_packages"]
+                    for selected in data["selected_modules_and_packages"] or []
                 ],
             )
         except KeyError:
@@ -164,10 +164,15 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
             module for module in self.environment.selected_modules_and_packages if module not in modules_by_package
         ]
         if missing := set(selected_modules) - available_modules:
-            raise ToolkitMissingModuleError(f"The following selected modules are missing: {missing}")
+            raise ToolkitMissingModuleError(f"The following selected modules are missing, please check path: {missing}")
         selected_modules.extend(
             itertools.chain.from_iterable(modules_by_package[package] for package in selected_packages)
         )
+        if not selected_modules:
+            raise ToolkitEnvError(
+                f"No selected modules specified in {self.filepath!s}, have you configured "
+                f"the environment ({self.environment.name})?"
+            )
         if verbose:
             print("  [bold green]INFO:[/] Selected modules:")
             for module in selected_modules:
@@ -175,11 +180,6 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
                     print(f"    {module}")
                 else:
                     print(f"    {MODULE_PATH_SEP.join(module)!s}")
-        if not selected_modules:
-            raise ToolkitMissingModuleError(
-                f"Found no defined modules in {self.filepath!s}, have you configured "
-                f"the environment ({self.environment.name})?"
-            )
         return selected_modules
 
 

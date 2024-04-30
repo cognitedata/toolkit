@@ -35,8 +35,10 @@ from cognite.client.data_classes.data_modeling import (
     EdgeApply,
     EdgeApplyResultList,
     EdgeId,
+    EdgeList,
     InstancesApplyResult,
     InstancesDeleteResult,
+    InstancesResult,
     NodeApply,
     NodeApplyResult,
     NodeApplyResultList,
@@ -139,7 +141,7 @@ class ApprovalCogniteClient:
                             f"Invalid api method {mock_method.api_class_method} for resource {resource.api_name}"
                         )
                     method = getattr(mock_api, mock_method.api_class_method)
-                    method.side_effect = method_factory(resource, mock_method.mock_name, mock_client)
+                    method.side_effect = method_factory(resource, mock_method.mock_class_method, mock_client)
                     method_dict[resource.resource_cls.__name__].append(method)
 
     @property
@@ -547,6 +549,10 @@ class ApprovalCogniteClient:
 
             return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
 
+        def return_instances(*args, **kwargs) -> InstancesResult:
+            read_list = return_values(*args, **kwargs)
+            return InstancesResult(nodes=read_list, edges=EdgeList([]))
+
         def return_value(*args, **kwargs):
             if value := existing_resources[resource_cls.__name__]:
                 return read_list_cls(value, cognite_client=client)[0]
@@ -569,6 +575,7 @@ class ApprovalCogniteClient:
                 return_values,
                 return_value,
                 data_model_retrieve,
+                return_instances,
             ]
         }
         if mock_method not in available_retrieve_methods:

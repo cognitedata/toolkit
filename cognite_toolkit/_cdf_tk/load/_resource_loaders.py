@@ -17,7 +17,7 @@ import itertools
 import json
 import re
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Sequence, Sized
 from numbers import Number
 from pathlib import Path
 from time import sleep
@@ -166,6 +166,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         }
     )
     resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})  # type: ignore[attr-defined]
+    _doc_url = "Groups/operation/createGroups"
 
     def __init__(
         self,
@@ -332,6 +333,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     resource_write_cls = DataSetWrite
     list_cls = DataSetList
     list_write_cls = DataSetWriteList
+    _doc_url = "Data-sets/operation/createDataSets"
 
     @classmethod
     def get_required_capability(cls, items: DataSetWriteList) -> Capability:
@@ -406,6 +408,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     list_cls = FunctionList
     list_write_cls = FunctionWriteList
     dependencies = frozenset({DataSetsLoader})
+    _doc_url = "Functions/operation/postFunctions"
 
     def __init__(self, client: CogniteClient):
         super().__init__(client)
@@ -589,6 +592,7 @@ class FunctionScheduleLoader(
     list_cls = FunctionSchedulesList
     list_write_cls = FunctionScheduleWriteList
     dependencies = frozenset({FunctionLoader})
+    _doc_url = "Function-schedules/operation/postFunctionSchedules"
 
     def __init__(self, client: CogniteClient):
         super().__init__(client)
@@ -668,6 +672,11 @@ class FunctionScheduleLoader(
             )
         return FunctionSchedulesList(created)
 
+    def update(self, items: FunctionScheduleWriteList) -> Sized:
+        # Function schedule does not have an update, so we delete and recreate
+        self.delete(self.get_ids(items))
+        return self.create(items)
+
     def delete(self, ids: SequenceNotStr[str]) -> int:
         schedules = self.retrieve(ids)
         count = 0
@@ -690,6 +699,7 @@ class RawDatabaseLoader(
     list_cls = RawTableList
     list_write_cls = RawTableList
     identifier_key = "table_name"
+    _doc_url = "Raw/operation/createDBs"
 
     def __init__(self, client: CogniteClient):
         super().__init__(client)
@@ -791,6 +801,7 @@ class RawTableLoader(
     list_write_cls = RawTableList
     identifier_key = "table_name"
     dependencies = frozenset({RawDatabaseLoader})
+    _doc_url = "Raw/operation/createTables"
 
     def __init__(self, client: CogniteClient):
         super().__init__(client)
@@ -905,6 +916,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     list_cls = TimeSeriesList
     list_write_cls = TimeSeriesWriteList
     dependencies = frozenset({DataSetsLoader})
+    _doc_url = "Time-series/operation/postTimeSeries"
 
     @classmethod
     def get_required_capability(cls, items: TimeSeriesWriteList) -> Capability:
@@ -987,6 +999,7 @@ class TransformationLoader(
     list_cls = TransformationList
     list_write_cls = TransformationWriteList
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader})
+    _doc_url = "Transformations/operation/createTransformations"
 
     @classmethod
     def get_required_capability(cls, items: TransformationWriteList) -> Capability:
@@ -1110,6 +1123,7 @@ class TransformationScheduleLoader(
     list_cls = TransformationScheduleList
     list_write_cls = TransformationScheduleWriteList
     dependencies = frozenset({TransformationLoader})
+    _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
 
     @classmethod
     def get_required_capability(cls, items: TransformationScheduleWriteList) -> list[Capability]:
@@ -1167,6 +1181,7 @@ class ExtractionPipelineLoader(
     list_cls = ExtractionPipelineList
     list_write_cls = ExtractionPipelineWriteList
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader})
+    _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @classmethod
     def get_required_capability(cls, items: ExtractionPipelineWriteList) -> Capability:
@@ -1256,6 +1271,7 @@ class ExtractionPipelineConfigLoader(
     list_cls = ExtractionPipelineConfigList
     list_write_cls = ExtractionPipelineConfigWriteList
     dependencies = frozenset({ExtractionPipelineLoader})
+    _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
 
     @classmethod
     def get_required_capability(cls, items: ExtractionPipelineConfigWriteList) -> list[Capability]:
@@ -1343,6 +1359,8 @@ class FileMetadataLoader(
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
     dependencies = frozenset({DataSetsLoader})
+
+    _doc_url = "Files/operation/initFileUpload"
 
     @property
     def display_name(self) -> str:
@@ -1469,6 +1487,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     list_write_cls = SpaceApplyList
     list_cls = SpaceList
     _display_name = "spaces"
+    _doc_url = "Spaces/operation/ApplySpaces"
 
     @classmethod
     def get_required_capability(cls, items: SpaceApplyList) -> list[Capability]:
@@ -1564,6 +1583,7 @@ class ContainerLoader(
     dependencies = frozenset({SpaceLoader})
 
     _display_name = "containers"
+    _doc_url = "Containers/operation/ApplyContainers"
 
     @classmethod
     def get_required_capability(cls, items: ContainerApplyList) -> Capability:
@@ -1680,6 +1700,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
 
     _display_name = "views"
+    _doc_url = "Views/operation/ApplyViews"
 
     def __init__(self, client: CogniteClient):
         super().__init__(client)
@@ -1763,6 +1784,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     list_write_cls = DataModelApplyList
     dependencies = frozenset({SpaceLoader, ViewLoader})
     _display_name = "data models"
+    _doc_url = "Data-models/operation/createDataModels"
 
     @classmethod
     def get_required_capability(cls, items: DataModelApplyList) -> Capability:
@@ -1818,6 +1840,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     list_write_cls = LoadedNodeList
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _display_name = "nodes"
+    _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @classmethod
     def get_required_capability(cls, items: LoadedNodeList) -> Capability:
@@ -1942,6 +1965,9 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     list_cls = WorkflowList
     list_write_cls = WorkflowUpsertList
 
+    _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
+    _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
+
     @classmethod
     def get_required_capability(cls, items: WorkflowUpsertList) -> Capability:
         return WorkflowOrchestrationAcl(
@@ -1994,6 +2020,9 @@ class WorkflowVersionLoader(
     list_cls = WorkflowVersionList
     list_write_cls = WorkflowVersionUpsertList
     dependencies = frozenset({WorkflowLoader})
+
+    _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
+    _doc_url = "Workflow-versions/operation/CreateOrUpdateWorkflowVersion"
 
     @classmethod
     def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability:
