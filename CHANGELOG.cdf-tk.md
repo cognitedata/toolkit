@@ -15,6 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.1.4] - 2024-04-30
+
+### Fixed
+
+- When running `cdf-tk deploy` with container `YAML` from before `cogniet-sdk<7.37`, the user would get an error
+  `Missing required field: 'list'.` for the `direct` container properties. This is now fixed.
+- When running `cdf-tk init --upgrade`, the user would get an error `IndexError: list index out of range`.
+  This is now fixed.
+
 ## [0.1.3] - 2024-04-28
 
 ### Fixed
