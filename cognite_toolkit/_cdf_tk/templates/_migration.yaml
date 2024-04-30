@@ -1,8 +1,13 @@
+- version: 0.1.3
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: "de5b3ba4639c9e8fca4c0b33622ce706cce2cd9f9347fbf5770de3f9097a366f"
 - version: 0.1.2
   cognite_modules: {}
   resources: {}
   tool: {}
-  cognite_modules_hash: ""
+  cognite_modules_hash: "2ba2d52530d69a2ad23d5fedd1c5ccc58c28f7ac0d11b7f57552ea930bf982f2"
 - version: 0.1.1
   cognite_modules: {}
   resources: {}

@@ -1553,10 +1553,17 @@ class ContainerLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ContainerApply | ContainerApplyList | None:
-        loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
-        if loaded is None:
-            return None
-        items = loaded if isinstance(loaded, ContainerApplyList) else [loaded]
+        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        if not isinstance(raw_yaml, list):
+            raw_yaml = [raw_yaml]
+        # When upgrading to SDK 7.37.0 there was a breaking change in the SDK requiring 'list' for direct relations.
+        # This patches the yaml to include the list key for direct relations if it is missing.
+        for raw_instance in raw_yaml:
+            for prop in raw_instance.get("properties", {}).values():
+                type_ = prop.get("type", {})
+                if type_.get("type") == "direct" and "list" not in type_:
+                    type_["list"] = False
+        items = ContainerApplyList.load(raw_yaml)
         if not skip_validation:
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         for item in items:
@@ -1564,11 +1571,11 @@ class ContainerLoader(
             for prop_name in item.properties.keys():
                 prop_dumped = item.properties[prop_name].dump()
                 if prop_dumped.get("nullable") is None:
-                    prop_dumped["nullable"] = False
+                    prop_dumped["nullable"] = False  # type: ignore[assignment]
                 if prop_dumped.get("autoIncrement") is None:
-                    prop_dumped["autoIncrement"] = False
+                    prop_dumped["autoIncrement"] = False  # type: ignore[assignment]
                 item.properties[prop_name] = ContainerProperty.load(prop_dumped)
-        return loaded
+        return items
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)
