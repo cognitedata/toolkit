@@ -4,12 +4,11 @@ import sys
 import time
 import traceback
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from datetime import datetime, timezone
 
 from cognite.client import CogniteClient
-
 
 sys.path.append(str(Path(__file__).parent))
 
@@ -44,31 +43,31 @@ def run_workflow(client: CogniteClient, config: WorkflowRunConfig) -> None:
     """
 
     workflow_log_msg = f"Workflow for with external ID : {config.workflow_xid} and version : {config.workflow_ver}"
-    
+
     try:
         t_end = time.time() + 60 * 8
-        
+
         res = client.workflows.executions.trigger(config.workflow_xid, config.workflow_ver)
 
         workflow_execution_id = res.id
-        
-        start_time = datetime.fromtimestamp(int(res.start_time/1000), timezone.utc).strftime('%d %b %Y %H:%M:%S')
+
+        start_time = datetime.fromtimestamp(int(res.start_time / 1000), timezone.utc).strftime("%d %b %Y %H:%M:%S")
         msg = f"{workflow_log_msg} started: {start_time}  status: {res.status}."
 
         while time.time() < t_end:
             res = client.workflows.executions.retrieve_detailed(workflow_execution_id)
 
             if res.status != "running":
-                break        
-            
-            # wait for 5 seconds before checking again    
+                break
+
+            # wait for 5 seconds before checking again
             time.sleep(5)
-        
+
         if res.status == "running":
             msg = f"{workflow_log_msg} function timing out - not able to wait for completion of workflow .... se workflow UI for status."
             print(f"[INFO] {msg}")
         elif res.status == "completed":
-            end_time = datetime.fromtimestamp(int(res.end_time/1000), timezone.utc).strftime('%d %b %Y %H:%M:%S')
+            end_time = datetime.fromtimestamp(int(res.end_time / 1000), timezone.utc).strftime("%d %b %Y %H:%M:%S")
             msg = f"{workflow_log_msg} finished at : {end_time} status: {res.status}."
             print(f"[INFO] {msg}")
         else:

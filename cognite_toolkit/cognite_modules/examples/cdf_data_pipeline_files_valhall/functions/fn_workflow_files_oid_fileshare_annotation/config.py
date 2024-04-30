@@ -24,8 +24,7 @@ def load_config_parameters(function_data: dict[str, Any]) -> WorkflowRunConfig:
     if "WorkflowExtId" not in function_data:
         raise ValueError("Missing key 'WorkflowExtId' in input data to the function")
 
-        
     data["WorkflowExtId"] = function_data["WorkflowExtId"]
     data["WorkflowVersion"] = function_data["WorkflowVersion"]
-    
+
     return WorkflowRunConfig.load(data)

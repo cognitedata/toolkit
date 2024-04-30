@@ -67,6 +67,10 @@ FileMetadata:
   external_id: fn_context_files_oid_fileshare_annotation
   name: fn_context_files_oid_fileshare_annotation.zip
   overwrite: true
+- data_set_id: 42
+  external_id: fn_workflow_files_oid_fileshare_annotation
+  name: fn_workflow_files_oid_fileshare_annotation.zip
+  overwrite: true
 Function:
 - cpu: 0.6
   description: Contextualization of P&ID files creating annotations
@@ -81,10 +85,24 @@ Function:
   name: context:files:oid:fileshare:annotation
   owner: Anonymous
   runtime: py311
+- cpu: 0.6
+  description: Workflow scheduler for Contextualization of P&ID files creating annotations
+  envVars:
+    CDF_ENV: dev
+    ENV_TYPE: dev
+  externalId: fn_workflow_files_oid_fileshare_annotation
+  functionPath: handler.py
+  metadata:
+    cdf-toolkit-function-hash: cfa9ec6e696d5808a168543386720265a010ef63e9b87ad8e1b5d40fedb2fc1c
+    version: 0.0.1
+  name: workflow:files:oid:fileshare:annotation
+  owner: Anonymous
+  runtime: py311
 FunctionSchedule:
 - cronExpression: 0,30 * * * *
   data:
-    ExtractionPipelineExtId: ep_ctx_files_oid_fileshare_pandid_annotation
+    WorkflowExtId: wf_oid_files_annotation
+    WorkflowVersion: 1
   description: Run every 30 minute
   name: every 30 min
 Group:
