@@ -224,19 +224,19 @@ class ResourceLoader(
 
     @abstractmethod
     def create(self, items: T_CogniteResourceList) -> Sized:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @abstractmethod
     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @abstractmethod
     def update(self, items: T_CogniteResourceList) -> Sized:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @abstractmethod
     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def deploy_resources(
         self,
