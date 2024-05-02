@@ -391,6 +391,9 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
             external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
         )
 
+    def update(self, items: DataSetWriteList) -> DataSetList:
+        return self.client.data_sets.update(items)
+
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
@@ -948,10 +951,16 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
                 resource["securityCategories"] = []
         return TimeSeriesWriteList.load(resources)
 
+    def create(self, items: TimeSeriesWriteList) -> TimeSeriesList:
+        return self.client.time_series.create(items)
+
     def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(
             external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
         )
+
+    def update(self, items: TimeSeriesWriteList) -> TimeSeriesList:
+        return self.client.time_series.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
@@ -1105,6 +1114,15 @@ class TransformationLoader(
         dumped.pop("destinationOidcCredentials", None)
         return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
 
+    def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
+        return self.client.transformations.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> TransformationList:
+        return self.client.transformations.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: TransformationWriteList) -> TransformationList:
+        return self.client.transformations.update(items)
+
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
         if existing:
@@ -1163,6 +1181,12 @@ class TransformationScheduleLoader(
             )
             new_items = [item for item in items if item.external_id not in existing]
             return self.client.transformations.schedules.create(new_items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> TransformationScheduleList:
+        return self.client.transformations.schedules.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: TransformationScheduleWriteList) -> TransformationScheduleList:
+        return self.client.transformations.schedules.update(items)
 
     def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
         try:
@@ -1245,6 +1269,12 @@ class ExtractionPipelineLoader(
 
                 return self.client.extraction_pipelines.create(items)
         return ExtractionPipelineList([])
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineList:
+        return self.client.extraction_pipelines.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: ExtractionPipelineWriteList) -> ExtractionPipelineList:
+        return self.client.extraction_pipelines.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         id_list = list(ids)
@@ -1463,6 +1493,12 @@ class FileMetadataLoader(
                     print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
         return created
 
+    def retrieve(self, ids: SequenceNotStr[str]) -> FileMetadataList:
+        return self.client.files.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: FileMetadataWriteList) -> FileMetadataList:
+        return self.client.files.update(items)
+
     def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
         self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
         return len(cast(SequenceNotStr[str], ids))
@@ -1511,6 +1547,9 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
 
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> SpaceList:
+        return self.client.data_modeling.spaces.retrieve(ids)
 
     def update(self, items: Sequence[SpaceApply]) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
@@ -1632,6 +1671,9 @@ class ContainerLoader(
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)
+
+    def retrieve(self, ids: SequenceNotStr[ContainerId]) -> ContainerList:
+        return self.client.data_modeling.containers.retrieve(cast(Sequence, ids))
 
     def update(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.create(items)
@@ -1760,6 +1802,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     def create(self, items: Sequence[ViewApply]) -> ViewList:
         return self.client.data_modeling.views.apply(items)
 
+    def retrieve(self, ids: SequenceNotStr[ViewId]) -> ViewList:
+        return self.client.data_modeling.views.retrieve(cast(Sequence, ids))
+
     def update(self, items: Sequence[ViewApply]) -> ViewList:
         return self.create(items)
 
@@ -1831,8 +1876,14 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     def create(self, items: DataModelApplyList) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
 
+    def retrieve(self, ids: SequenceNotStr[DataModelId]) -> DataModelList:
+        return self.client.data_modeling.data_models.retrieve(cast(Sequence, ids))
+
     def update(self, items: DataModelApplyList) -> DataModelList:
         return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
+        return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))
 
 
 @final
@@ -2011,6 +2062,17 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
 
     def update(self, items: WorkflowUpsertList) -> WorkflowList:
         return self._upsert(items)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        successes = 0
+        for id_ in ids:
+            try:
+                self.client.workflows.delete(external_id=id_)
+            except CogniteNotFoundError:
+                print(f"  [bold yellow]WARNING:[/] Workflow {id_} does not exist, skipping delete.")
+            else:
+                successes += 1
+        return successes
 
 
 @final
