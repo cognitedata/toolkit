@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import inspect
 import re
 import traceback
 from abc import ABC, abstractmethod
-from collections import Counter
-from collections.abc import Collection, Sequence, Sized
+from collections.abc import Sequence, Sized
 from pathlib import Path
 from typing import Any, Generic, TypeVar, Union, cast
 
