@@ -47,7 +47,7 @@ jobs:
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: pytest tests
+        run: pytest tests -n8
   build:
     runs-on: ubuntu-latest
     environment: dev
