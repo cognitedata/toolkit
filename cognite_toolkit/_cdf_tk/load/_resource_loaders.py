@@ -129,7 +129,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_directory_hash,
@@ -1065,22 +1065,29 @@ class TransformationLoader(
 
             transformation = TransformationWrite.load(resource)
 
-            transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-                source_oidc_credentials
-            )
-            transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-                destination_oidc_credentials
-            )
-            # Find the non-integer prefixed filename
+            try:
+                transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+                    source_oidc_credentials
+                )
+
+                transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+                    destination_oidc_credentials
+                )
+            except KeyError as e:
+                raise ToolkitYAMLFormatError("authentication property is missing required fields", filepath, e)
+
+                # Find the non-integer prefixed filename
             file_name = re.sub(r"\d+\.", "", filepath.stem)
+            # todo: CDF-
             sql_file = filepath.parent / f"{file_name}.sql"
-            if not sql_file.exists():
+
+            if not transformation.query:
                 sql_file = filepath.parent / f"{transformation.external_id}.sql"
                 if not sql_file.exists():
                     raise FileNotFoundError(
                         f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
                     )
-            transformation.query = sql_file.read_text()
+                transformation.query = sql_file.read_text()
             transformations.append(transformation)
 
         if len(transformations) == 1:

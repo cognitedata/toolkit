@@ -19,6 +19,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
@@ -30,6 +31,7 @@ from cognite_toolkit._cdf_tk.load import (
     ResourceLoader,
     ResourceTypes,
     TimeSeriesLoader,
+    TransformationLoader,
     ViewLoader,
 )
 from cognite_toolkit._cdf_tk.templates import (
@@ -412,6 +414,79 @@ description: PH 1stStgSuctCool Gas Out
 
         assert len(loaded) == 1
         assert loaded[0].data_set_id == 12345
+
+
+class TestTransformationAuthLoader:
+    trafo_yaml = """
+externalId: tr_first_transformation
+name: 'example:first:transformation'
+interval: '{{scheduleHourly}}'
+isPaused: true
+query: 'SELECT * FROM assets'
+destination:
+  type: 'assets'
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+"""
+
+    trafo_sql = ""
+
+    def test_no_auth_load(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+        mock_read_yaml_file({"transformation.yaml": yaml.safe_load(self.trafo_yaml)}, monkeypatch)
+
+        loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+        assert loaded.destination_oidc_credentials is None
+        assert loaded.source_oidc_credentials is None
+
+    def test_oidc_auth_load(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+
+        resource = yaml.safe_load(self.trafo_yaml)
+        resource["authentication"] = {
+            "clientId": "{{cicd_clientId}}",
+            "clientSecret": "{{cicd_clientSecret}}",
+            "tokenUri": "{{cicd_tokenUri}}",
+            "cdfProjectName": "{{cdfProjectName}}",
+            "scopes": "{{cicd_scopes}}",
+            "audience": "{{cicd_audience}}",
+        }
+
+        mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
+
+        loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+        assert loaded.destination_oidc_credentials.__eq__(loaded.source_oidc_credentials)
+        assert loaded.destination is not None
+
+    def test_oidc_raise_if_invalid(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+
+        resource = yaml.safe_load(self.trafo_yaml)
+        resource["authentication"] = {
+            "clientId": "{{cicd_clientId}}",
+            "clientSecret": "{{cicd_clientSecret}}",
+        }
+
+        mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
+
+        with pytest.raises(ToolkitYAMLFormatError):
+            loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
 
 
 class TestDeployResources:
