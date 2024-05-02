@@ -60,8 +60,17 @@ def build_tmp_path() -> Path:
 
 
 @pytest.fixture(scope="session")
-def local_tmp_project_path() -> Path:
+def local_tmp_project_path_immutable() -> Path:
     project_path = TMP_FOLDER / "pytest-project"
+    project_path.mkdir(exist_ok=True)
+    return project_path
+
+
+@pytest.fixture
+def local_tmp_project_path_mutable() -> Path:
+    project_path = TMP_FOLDER / "pytest-project"
+    if project_path.exists():
+        shutil.rmtree(project_path, ignore_errors=True)
     project_path.mkdir(exist_ok=True)
     return project_path
 
@@ -128,18 +137,41 @@ def typer_context(cdf_tool_config: CDFToolConfig) -> typer.Context:
     return context
 
 
-@pytest.fixture
-def init_project(typer_context: typer.Context, local_tmp_project_path: Path) -> Path:
+@pytest.fixture(scope="session")
+def typer_context_no_cdf_tool_config() -> typer.Context:
+    context = MagicMock(spec=typer.Context)
+    context.obj = Common(
+        verbose=False, override_env=True, cluster="pytest", project="pytest-project", mockToolGlobals=None
+    )
+    return context
+
+
+@pytest.fixture(scope="session")
+def init_project(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_immutable: Path) -> Path:
     main_init(
-        typer_context,
+        typer_context_no_cdf_tool_config,
         dry_run=False,
         upgrade=False,
         git_branch=None,
-        init_dir=str(local_tmp_project_path),
+        init_dir=str(local_tmp_project_path_immutable),
         no_backup=True,
         clean=True,
     )
-    return local_tmp_project_path
+    return local_tmp_project_path_immutable
+
+
+@pytest.fixture
+def init_project_mutable(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_mutable: Path) -> Path:
+    main_init(
+        typer_context_no_cdf_tool_config,
+        dry_run=False,
+        upgrade=False,
+        git_branch=None,
+        init_dir=str(local_tmp_project_path_mutable),
+        no_backup=True,
+        clean=True,
+    )
+    return local_tmp_project_path_mutable
 
 
 @pytest.fixture
