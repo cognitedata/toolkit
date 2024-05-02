@@ -63,7 +63,7 @@ class Loader(ABC):
     filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
-    _doc_base_url: str = "https://developer.cognite.com/api#tag/"
+    _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
 
     def __init__(self, client: CogniteClient, build_path: Path | None = None):
