@@ -173,28 +173,9 @@ class ResourceLoader(
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     _display_name: str = ""
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
-        try:
-            self.api_class = self._get_api_class(client, self.api_name)
-        except AttributeError:
-            raise AttributeError(f"Invalid api_name {self.api_name}.")
-
     @property
     def display_name(self) -> str:
         return self._display_name or self.api_name
-
-    @staticmethod
-    def _get_api_class(client: CogniteClient, api_name: str) -> Any:
-        parent = client
-        if (dot_count := Counter(api_name)["."]) == 1:
-            parent_name, api_name = api_name.split(".")
-            parent = getattr(client, parent_name)
-        elif dot_count == 0:
-            pass
-        else:
-            raise AttributeError(f"Invalid api_name {api_name}.")
-        return getattr(parent, api_name)
 
     @classmethod
     @abstractmethod
@@ -243,34 +224,21 @@ class ResourceLoader(
         """
         return resource.dump(), {}
 
+    @abstractmethod
     def create(self, items: T_CogniteResourceList) -> Sized:
-        return self.api_class.create(items)
+        raise NotImplementedError()
 
+    @abstractmethod
     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
-        if hasattr(self.api_class, "retrieve_multiple"):
-            if inspect.signature(self.api_class.retrieve_multiple).parameters.get("ignore_unknown_ids"):
-                retrieved = self.api_class.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
-            else:
-                retrieved = self.api_class.retrieve_multiple(external_ids=ids)
-        else:
-            retrieved = self.api_class.retrieve(ids)
-        if retrieved is None:
-            return self.list_cls([])
-        elif isinstance(retrieved, self.list_cls):
-            return retrieved
-        elif isinstance(retrieved, Collection):
-            return self.list_cls(retrieved)
-        else:
-            return self.list_cls([retrieved])
+        raise NotImplementedError()
 
+    @abstractmethod
     def update(self, items: T_CogniteResourceList) -> Sized:
-        return self.api_class.update(items)
+        raise NotImplementedError()
 
+    @abstractmethod
     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
-        existing = self.retrieve(ids)
-        if existing:
-            self.api_class.delete(ids)
-        return len(existing)
+        raise NotImplementedError()
 
     def deploy_resources(
         self,
