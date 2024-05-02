@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0a5] - TBD
+
+### Improved
+
+- Gives a more informative error message when the authentication segment of a transformation resource file is
+  missing a required field.
+
 ## [0.2.0a4] - 2024-04-29
 
 ### Removed
