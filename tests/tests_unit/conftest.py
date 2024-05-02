@@ -49,21 +49,36 @@ def cognite_client_approval() -> ApprovalCogniteClient:
         yield approval_client
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def build_tmp_path() -> Path:
-    build_folder = TMP_FOLDER / "build"
+    pidid = os.getpid()
+    build_folder = TMP_FOLDER / f"build-{pidid}"
 
     if build_folder.exists():
         shutil.rmtree(build_folder, ignore_errors=True)
         build_folder.mkdir(exist_ok=True)
-    return build_folder
+    yield build_folder
+    shutil.rmtree(build_folder, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")
-def local_tmp_project_path() -> Path:
-    project_path = TMP_FOLDER / "pytest-project"
+def local_tmp_project_path_immutable() -> Path:
+    pidid = os.getpid()
+    project_path = TMP_FOLDER / f"pytest-project-{pidid}"
     project_path.mkdir(exist_ok=True)
-    return project_path
+    yield project_path
+    shutil.rmtree(project_path, ignore_errors=True)
+
+
+@pytest.fixture
+def local_tmp_project_path_mutable() -> Path:
+    pidid = os.getpid()
+    project_path = TMP_FOLDER / f"pytest-project-mutable-{pidid}"
+    if project_path.exists():
+        shutil.rmtree(project_path, ignore_errors=True)
+    project_path.mkdir(exist_ok=True)
+    yield project_path
+    shutil.rmtree(project_path, ignore_errors=True)
 
 
 @pytest.fixture
@@ -128,18 +143,41 @@ def typer_context(cdf_tool_config: CDFToolConfig) -> typer.Context:
     return context
 
 
-@pytest.fixture
-def init_project(typer_context: typer.Context, local_tmp_project_path: Path) -> Path:
+@pytest.fixture(scope="session")
+def typer_context_no_cdf_tool_config() -> typer.Context:
+    context = MagicMock(spec=typer.Context)
+    context.obj = Common(
+        verbose=False, override_env=True, cluster="pytest", project="pytest-project", mockToolGlobals=None
+    )
+    return context
+
+
+@pytest.fixture(scope="session")
+def init_project(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_immutable: Path) -> Path:
     main_init(
-        typer_context,
+        typer_context_no_cdf_tool_config,
         dry_run=False,
         upgrade=False,
         git_branch=None,
-        init_dir=str(local_tmp_project_path),
+        init_dir=str(local_tmp_project_path_immutable),
         no_backup=True,
         clean=True,
     )
-    return local_tmp_project_path
+    return local_tmp_project_path_immutable
+
+
+@pytest.fixture
+def init_project_mutable(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_mutable: Path) -> Path:
+    main_init(
+        typer_context_no_cdf_tool_config,
+        dry_run=False,
+        upgrade=False,
+        git_branch=None,
+        init_dir=str(local_tmp_project_path_mutable),
+        no_backup=True,
+        clean=True,
+    )
+    return local_tmp_project_path_mutable
 
 
 @pytest.fixture

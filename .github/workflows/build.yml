@@ -55,7 +55,7 @@ jobs:
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: pytest tests
+        run: pytest tests -n8
   coverage:
     needs: test
     name: Create coverage report
@@ -82,7 +82,7 @@ jobs:
       - name: Create test coverage report
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/
+        run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/ -n8
       - name: Push coverage report to PR
         uses: orgoro/coverage@v3.1
         with:

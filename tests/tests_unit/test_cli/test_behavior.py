@@ -87,11 +87,11 @@ def test_pull_transformation(
     cognite_client_approval: ApprovalCogniteClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
-    init_project: Path,
+    init_project_mutable: Path,
 ) -> None:
     # Loading a selected transformation to be pulled
     transformation_yaml = (
-        init_project
+        init_project_mutable
         / "cognite_modules"
         / "examples"
         / "example_pump_asset_hierarchy"
@@ -126,7 +126,7 @@ def test_pull_transformation(
 
     pull_transformation_cmd(
         typer_context,
-        source_dir=str(init_project),
+        source_dir=str(init_project_mutable),
         external_id=read_transformation.external_id,
         env="dev",
         dry_run=False,
