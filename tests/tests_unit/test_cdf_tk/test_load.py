@@ -441,7 +441,6 @@ conflictMode: upsert
     ) -> None:
         loader = TransformationLoader(cognite_client_approval.mock_client)
         mock_read_yaml_file({"transformation.yaml": yaml.safe_load(self.trafo_yaml)}, monkeypatch)
-
         loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
         assert loaded.destination_oidc_credentials is None
         assert loaded.source_oidc_credentials is None

@@ -1085,17 +1085,16 @@ class TransformationLoader(
             except KeyError as e:
                 raise ToolkitYAMLFormatError("authentication property is missing required fields", filepath, e)
 
-                # Find the non-integer prefixed filename
-            file_name = re.sub(r"\d+\.", "", filepath.stem)
-            # todo: CDF-
-            sql_file = filepath.parent / f"{file_name}.sql"
-
             if not transformation.query:
-                sql_file = filepath.parent / f"{transformation.external_id}.sql"
+                # Find the non-integer prefixed filename
+                file_name = re.sub(r"\d+\.", "", filepath.stem)
+                sql_file = filepath.parent / f"{file_name}.sql"
                 if not sql_file.exists():
-                    raise FileNotFoundError(
-                        f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
-                    )
+                    sql_file = filepath.parent / f"{transformation.external_id}.sql"
+                    if not sql_file.exists():
+                        raise FileNotFoundError(
+                            f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
+                        )
                 transformation.query = sql_file.read_text()
             transformations.append(transformation)
 
