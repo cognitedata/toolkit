@@ -68,7 +68,7 @@ def local_tmp_project_path_immutable() -> Path:
 
 @pytest.fixture
 def local_tmp_project_path_mutable() -> Path:
-    project_path = TMP_FOLDER / "pytest-project"
+    project_path = TMP_FOLDER / "pytest-project-mutable"
     if project_path.exists():
         shutil.rmtree(project_path, ignore_errors=True)
     project_path.mkdir(exist_ok=True)
