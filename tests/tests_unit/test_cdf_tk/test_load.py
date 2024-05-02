@@ -1,17 +1,21 @@
-import abc
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     DataSet,
+    FileMetadata,
     FunctionWrite,
     Group,
     GroupWrite,
     GroupWriteList,
+    Transformation,
+    TransformationSchedule,
 )
+from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.load import (
@@ -22,6 +26,8 @@ from cognite_toolkit._cdf_tk.load import (
     DataSetsLoader,
     FileMetadataLoader,
     FunctionLoader,
+    Loader,
+    ResourceContainerLoader,
     ResourceLoader,
     ResourceTypes,
     TimeSeriesLoader,
@@ -38,7 +44,7 @@ from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.data import LOAD_DATA, PYTEST_PROJECT
 from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
-from tests.tests_unit.utils import mock_read_yaml_file
+from tests.tests_unit.utils import FakeCogniteResourceGenerator, mock_read_yaml_file
 
 SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 
@@ -431,92 +437,109 @@ class TestDeployResources:
         assert actual_order == expected_order
 
 
-def find_subclasses(cls):
-    subclasses = set()
-    for subclass in cls.__subclasses__():
-        subclasses |= find_subclasses(subclass)  # Recursive call to find indirect subclasses
-        if abc.ABC in subclass.__bases__:
-            continue
-        subclasses.add(subclass)
-    return subclasses
+RESOURCE_LOADERS = sorted(
+    [
+        pytest.param(loader, id=loader.__name__)
+        for loaders in LOADER_BY_FOLDER_NAME.values()
+        for loader in loaders
+        if issubclass(loader, ResourceLoader)
+    ],
+    key=lambda x: x.id,
+)
+RESOURCE_CONTAINER_LOADERS = sorted(
+    [
+        pytest.param(loader, id=loader.__name__)
+        for loaders in LOADER_BY_FOLDER_NAME.values()
+        for loader in loaders
+        if issubclass(loader, ResourceContainerLoader)
+    ],
+    key=lambda x: x.id,
+)
+ALL_LOADERS = sorted(
+    [
+        pytest.param(loader, id=loader.__name__)
+        for loaders in LOADER_BY_FOLDER_NAME.values()
+        for loader in loaders
+        if issubclass(loader, Loader)
+    ],
+    key=lambda x: x.id,
+)
 
 
-# class TestFormatConsistency:
-#     @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
-#     def test_fake_resource_generator(
-#         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
-#     ):
-#         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
-#
-#         loader = Loader.create_loader(cdf_tool_config)
-#         instance = fakegenerator.create_instance(loader.resource_write_cls)
-#
-#         assert isinstance(instance, loader.resource_write_cls)
-#
-#     @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
-#     def test_loader_takes_dict(
-#         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
-#     ):
-#         loader = Loader.create_loader(cdf_tool_config)
-#
-#         if loader.resource_cls in [Transformation, FileMetadata]:
-#             pytest.skip("Skipped loaders that require secondary files")
-#         elif loader.resource_cls in [Edge, Node]:
-#             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
-#
-#         instance = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_write_cls)
-#
-#         # special case
-#         if isinstance(instance, TransformationSchedule):
-#             del instance.id  # Client validation does not allow id and externalid to be set simultaneously
-#
-#         mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
-#
-#         loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
-#         assert isinstance(
-#             loaded, (loader.resource_write_cls, loader.list_write_cls)
-#         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
-#
-#     @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
-#     def test_loader_takes_list(
-#         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
-#     ):
-#         loader = Loader.create_loader(cdf_tool_config)
-#
-#         if loader.resource_cls in [Transformation, FileMetadata]:
-#             pytest.skip("Skipped loaders that require secondary files")
-#         elif loader.resource_cls in [Edge, Node]:
-#             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
-#
-#         instances = FakeCogniteResourceGenerator(seed=1337).create_instances(loader.list_write_cls)
-#
-#         # special case
-#         if isinstance(loader.resource_cls, TransformationSchedule):
-#             for instance in instances:
-#                 del instance.id  # Client validation does not allow id and externalid to be set simultaneously
-#
-#         mock_read_yaml_file({"dict.yaml": instances.dump()}, monkeypatch)
-#
-#         loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
-#         assert isinstance(
-#             loaded, (loader.resource_write_cls, loader.list_write_cls)
-#         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
-#
-#     @staticmethod
-#     def check_url(url) -> bool:
-#         try:
-#             response = requests.get(url, allow_redirects=True)
-#             return response.status_code >= 200 and response.status_code <= 300
-#         except requests.exceptions.RequestException:
-#             return False
-#
-#     @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
-#     def test_loader_has_doc_url(
-#         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
-#     ):
-#         loader = Loader.create_loader(cdf_tool_config)
-#         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
-#         assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"
+class TestFormatConsistency:
+    @pytest.mark.parametrize("Loader", RESOURCE_LOADERS)
+    def test_fake_resource_generator(
+        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+    ):
+        fakegenerator = FakeCogniteResourceGenerator(seed=1337)
+
+        loader = Loader.create_loader(cdf_tool_config)
+        instance = fakegenerator.create_instance(loader.resource_write_cls)
+
+        assert isinstance(instance, loader.resource_write_cls)
+
+    @pytest.mark.parametrize("Loader", RESOURCE_LOADERS)
+    def test_loader_takes_dict(
+        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+    ):
+        loader = Loader.create_loader(cdf_tool_config)
+
+        if loader.resource_cls in [Transformation, FileMetadata]:
+            pytest.skip("Skipped loaders that require secondary files")
+        elif loader.resource_cls in [Edge, Node]:
+            pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
+
+        instance = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_write_cls)
+
+        # special case
+        if isinstance(instance, TransformationSchedule):
+            del instance.id  # Client validation does not allow id and externalid to be set simultaneously
+
+        mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
+
+        loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
+        assert isinstance(
+            loaded, (loader.resource_write_cls, loader.list_write_cls)
+        ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
+
+    @pytest.mark.parametrize("Loader", RESOURCE_LOADERS)
+    def test_loader_takes_list(
+        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+    ):
+        loader = Loader.create_loader(cdf_tool_config)
+
+        if loader.resource_cls in [Transformation, FileMetadata]:
+            pytest.skip("Skipped loaders that require secondary files")
+        elif loader.resource_cls in [Edge, Node]:
+            pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
+
+        instances = FakeCogniteResourceGenerator(seed=1337).create_instances(loader.list_write_cls)
+
+        # special case
+        if isinstance(loader.resource_cls, TransformationSchedule):
+            for instance in instances:
+                del instance.id  # Client validation does not allow id and externalid to be set simultaneously
+
+        mock_read_yaml_file({"dict.yaml": instances.dump()}, monkeypatch)
+
+        loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
+        assert isinstance(
+            loaded, (loader.resource_write_cls, loader.list_write_cls)
+        ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
+
+    @staticmethod
+    def check_url(url) -> bool:
+        try:
+            response = requests.get(url, allow_redirects=True)
+            return response.status_code >= 200 and response.status_code <= 300
+        except requests.exceptions.RequestException:
+            return False
+
+    @pytest.mark.parametrize("Loader", ALL_LOADERS)
+    def test_loader_has_doc_url(self, Loader: type[Loader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
+        loader = Loader.create_loader(cdf_tool_config)
+        assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
+        assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"
 
 
 def test_resource_types_is_up_to_date() -> None:

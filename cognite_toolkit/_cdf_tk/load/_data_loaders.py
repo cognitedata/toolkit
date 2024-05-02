@@ -24,6 +24,7 @@ class DatapointsLoader(DataLoader):
     folder_name = "timeseries_datapoints"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({TimeSeriesLoader})
+    _doc_url = "Time-series/operation/postMultiTimeSeriesDatapoints"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -72,6 +73,7 @@ class FileLoader(DataLoader):
     filetypes = frozenset()
     exclude_filetypes = frozenset({"yml", "yaml"})
     dependencies = frozenset({FileMetadataLoader})
+    _doc_url = "Files/operation/initFileUpload"
 
     @property
     def display_name(self) -> str:
@@ -121,6 +123,7 @@ class RawFileLoader(DataLoader):
     folder_name = "raw"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({RawDatabaseLoader, RawTableLoader})
+    _doc_url = "Raw/operation/postRows"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
