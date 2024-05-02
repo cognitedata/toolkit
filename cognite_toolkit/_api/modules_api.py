@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 from collections.abc import Sequence
@@ -21,7 +22,11 @@ class ModulesAPI:
     def __init__(self, project_name: str, url: str | None = None) -> None:
         self._project_name = project_name
         self._url = url
-        self._build_dir = Path(tempfile.gettempdir()) / "cognite-toolkit" / "build"
+        try:
+            pid = os.getpid()
+        except AttributeError:
+            pid = 0
+        self._build_dir = Path(tempfile.gettempdir()) / "cognite-toolkit" / f"build-{pid}"
         if self._build_dir.exists():
             shutil.rmtree(self._build_dir)
         self._build_dir.mkdir(parents=True, exist_ok=True)

@@ -49,30 +49,36 @@ def cognite_client_approval() -> ApprovalCogniteClient:
         yield approval_client
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def build_tmp_path() -> Path:
-    build_folder = TMP_FOLDER / "build"
+    pidid = os.getpid()
+    build_folder = TMP_FOLDER / f"build-{pidid}"
 
     if build_folder.exists():
         shutil.rmtree(build_folder, ignore_errors=True)
         build_folder.mkdir(exist_ok=True)
-    return build_folder
+    yield build_folder
+    shutil.rmtree(build_folder, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")
 def local_tmp_project_path_immutable() -> Path:
-    project_path = TMP_FOLDER / "pytest-project"
+    pidid = os.getpid()
+    project_path = TMP_FOLDER / f"pytest-project-{pidid}"
     project_path.mkdir(exist_ok=True)
-    return project_path
+    yield project_path
+    shutil.rmtree(project_path, ignore_errors=True)
 
 
 @pytest.fixture
 def local_tmp_project_path_mutable() -> Path:
-    project_path = TMP_FOLDER / "pytest-project-mutable"
+    pidid = os.getpid()
+    project_path = TMP_FOLDER / f"pytest-project-mutable-{pidid}"
     if project_path.exists():
         shutil.rmtree(project_path, ignore_errors=True)
     project_path.mkdir(exist_ok=True)
-    return project_path
+    yield project_path
+    shutil.rmtree(project_path, ignore_errors=True)
 
 
 @pytest.fixture
