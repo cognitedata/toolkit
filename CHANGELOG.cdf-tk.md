@@ -21,7 +21,8 @@ Changes are grouped as follows:
 
 - Gives a more informative error message when the authentication segment of a transformation resource file is
   missing a required field.
-- Transformation queries can be inline, i.e. set in the Transformation `query` property in the yaml instead of a separate file.
+- Transformation queries can be inline, i.e. set in the Transformation `query` property in the yaml instead of
+- as a separate file.
 
 ## [0.2.0a4] - 2024-04-29
 
