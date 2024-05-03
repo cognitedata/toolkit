@@ -1034,6 +1034,15 @@ class TransformationLoader(
 
         return local_dumped == cdf_resource.as_write().dump()
 
+    def _get_query_file(self, filepath: Path, transformation_external_id: str | None) -> Path | None:
+        file_name = re.sub(r"\d+\.", "", filepath.stem)
+        query_file = filepath.parent / f"{file_name}.sql"
+        if not query_file.exists() and transformation_external_id:
+            query_file = filepath.parent / f"{transformation_external_id}.sql"
+            if not query_file.exists():
+                return None
+        return query_file
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationWrite | TransformationWriteList:
@@ -1085,17 +1094,20 @@ class TransformationLoader(
             except KeyError as e:
                 raise ToolkitYAMLFormatError("authentication property is missing required fields", filepath, e)
 
-            if not transformation.query:
-                # Find the non-integer prefixed filename
-                file_name = re.sub(r"\d+\.", "", filepath.stem)
-                sql_file = filepath.parent / f"{file_name}.sql"
-                if not sql_file.exists():
-                    sql_file = filepath.parent / f"{transformation.external_id}.sql"
-                    if not sql_file.exists():
-                        raise FileNotFoundError(
-                            f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
-                        )
-                transformation.query = sql_file.read_text()
+            query_file = self._get_query_file(filepath, transformation.external_id)
+
+            if transformation.query is None:
+                if query_file is None:
+                    raise ToolkitYAMLFormatError(
+                        f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {transformation.external_id}.sql",
+                        filepath,
+                    )
+                transformation.query = query_file.read_text()
+            elif transformation.query is not None and query_file is not None:
+                raise ToolkitYAMLFormatError(
+                    f"query property is abiguously defined in both the yaml file and a separate file named {query_file}"
+                )
+
             transformations.append(transformation)
 
         if len(transformations) == 1:
