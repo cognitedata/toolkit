@@ -1,5 +1,6 @@
+import pathlib
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -417,13 +418,13 @@ description: PH 1stStgSuctCool Gas Out
         assert loaded[0].data_set_id == 12345
 
 
-class TestTransformationAuthLoader:
+class TestTransformationLoader:
     trafo_yaml = """
 externalId: tr_first_transformation
 name: 'example:first:transformation'
 interval: '{{scheduleHourly}}'
 isPaused: true
-query: 'SELECT * FROM assets'
+query: "INLINE"
 destination:
   type: 'assets'
 ignoreNullFields: true
@@ -431,7 +432,7 @@ isPublic: true
 conflictMode: upsert
 """
 
-    trafo_sql = ""
+    trafo_sql = "FILE"
 
     def test_no_auth_load(
         self,
@@ -440,7 +441,7 @@ conflictMode: upsert
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(cognite_client_approval.mock_client)
-        mock_read_yaml_file({"transformation.yaml": yaml.safe_load(self.trafo_yaml)}, monkeypatch)
+        mock_read_yaml_file({"transformation.yaml": yaml.CSafeLoader(self.trafo_yaml).get_data()}, monkeypatch)
         loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
         assert loaded.destination_oidc_credentials is None
         assert loaded.source_oidc_credentials is None
@@ -453,7 +454,8 @@ conflictMode: upsert
     ) -> None:
         loader = TransformationLoader(cognite_client_approval.mock_client)
 
-        resource = yaml.safe_load(self.trafo_yaml)
+        resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
+
         resource["authentication"] = {
             "clientId": "{{cicd_clientId}}",
             "clientSecret": "{{cicd_clientSecret}}",
@@ -477,7 +479,8 @@ conflictMode: upsert
     ) -> None:
         loader = TransformationLoader(cognite_client_approval.mock_client)
 
-        resource = yaml.safe_load(self.trafo_yaml)
+        resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
+
         resource["authentication"] = {
             "clientId": "{{cicd_clientId}}",
             "clientSecret": "{{cicd_clientSecret}}",
@@ -487,6 +490,54 @@ conflictMode: upsert
 
         with pytest.raises(ToolkitYAMLFormatError):
             loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+
+    def test_sql_file(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+
+        resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
+        resource.pop("query")
+        mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
+
+        with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
+            with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
+                loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+                assert loaded.query == self.trafo_sql
+
+    def test_sql_inline(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+
+        resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
+
+        mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
+
+        with patch.object(TransformationLoader, "_get_query_file", return_value=None):
+            loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+            assert loaded.query == resource["query"]
+
+    def test_if_ambiguous(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+
+        mock_read_yaml_file({"transformation.yaml": yaml.CSafeLoader(self.trafo_yaml).get_data()}, monkeypatch)
+
+        with pytest.raises(ToolkitYAMLFormatError):
+            with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
+                with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
+                    loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
 
 
 class TestDeployResources:
