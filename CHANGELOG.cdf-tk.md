@@ -17,6 +17,12 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Fixed
+
+- In a `function` config, if you did not set `fileId` you would get an error when running `cdf-tk deploy`,
+  `Missing required field: 'fileId'.`. The `fileId` is generated automatically when the function is created,
+  so it is not necessary to set it in the config file. This is now fixed.
+
 ### Improved
 
 - Gives a more informative error message when the authentication segment of a transformation resource file is
