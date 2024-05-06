@@ -22,12 +22,15 @@ import json
 import logging
 import os
 import re
+import shutil
 import sys
+import tempfile
 import types
 import typing
 from abc import abstractmethod
 from collections import UserDict, UserList, defaultdict
 from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesView
+from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
@@ -1371,3 +1374,12 @@ def sentry_exception_filter(event: SentryEvent, hint: SentryHint) -> Optional[Se
         if isinstance(exc_value, ToolkitError):
             return None
     return event
+
+
+@contextmanager
+def tmp_build_directory() -> typing.Generator[Path, None, None]:
+    build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))
+    try:
+        yield build_dir
+    finally:
+        shutil.rmtree(build_dir)
