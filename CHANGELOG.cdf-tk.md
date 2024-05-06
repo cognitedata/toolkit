@@ -25,6 +25,11 @@ Changes are grouped as follows:
   as a separate file. If set in both, an error is raised because it is ambiguous which query to use.
 - In the `cdf-tk pull` command, if an error occurs, the temporary directory was not removed. This is now fixed.
 
+### Fixed
+
+- If you do `cdf-tk init --upgrade`, on a pre `0.2.0a3` version, you are met with
+  `ERROR (ToolkitModuleVersionError): Failed to load previous version, ...`. This is now fixed.
+
 ## [0.2.0a4] - 2024-04-29
 
 ### Removed
