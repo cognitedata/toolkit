@@ -721,7 +721,7 @@ def main_init(
         typer.Argument(
             help="Directory path to project to initialize or upgrade with templates.",
         ),
-    ] = "new_project",
+    ] = ".",
 ) -> None:
     """Initialize or upgrade a new CDF project with templates."""
     project_dir: Union[ProjectDirectoryUpgrade, ProjectDirectoryInit]
