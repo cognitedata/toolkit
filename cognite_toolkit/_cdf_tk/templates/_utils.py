@@ -92,8 +92,9 @@ def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
 
 def _get_cognite_module_version(project_dir: Path) -> str:
     previous_version = None
-    if (project_dir / "_system.yaml").exists():
-        system_yaml = read_yaml_file(project_dir / "_system.yaml")
+    system_yaml_file = _search_system_yaml(project_dir)
+    if system_yaml_file is not None:
+        system_yaml = read_yaml_file(system_yaml_file)
         with suppress(KeyError):
             previous_version = system_yaml["cdf_toolkit_version"]
 
@@ -108,3 +109,11 @@ def _get_cognite_module_version(project_dir: Path) -> str:
             "'_system.yaml' or 'environments.yaml' (before 0.1.0b6) file?"
         )
     return previous_version
+
+
+def _search_system_yaml(project_dir: Path) -> Path | None:
+    if (project_dir / "_system.yaml").exists():
+        return project_dir / "_system.yaml"
+    for path in project_dir.glob("**/_system.yaml"):
+        return path
+    return None
