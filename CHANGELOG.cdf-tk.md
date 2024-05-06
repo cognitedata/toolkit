@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Changed
+
+- The command `cdf-tk init` now has the current directory as the default instead of `new_project`.
+
 ### Improved
 
 - Gives a more informative error message when the authentication segment of a transformation resource file is
