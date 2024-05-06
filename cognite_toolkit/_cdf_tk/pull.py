@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import difflib
 import re
-import shutil
-import tempfile
 import uuid
 from collections import UserList
 from collections.abc import Sequence
@@ -26,7 +24,7 @@ from cognite_toolkit._cdf_tk.load import ResourceLoader
 from cognite_toolkit._cdf_tk.load._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.templates import build_config
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, tmp_build_directory
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # The encoding and newline characters to use when writing files
@@ -386,133 +384,134 @@ def pull_command(
     if not source_path.is_dir():
         raise ToolkitNotADirectoryError(str(source_path))
 
-    build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))
-    system_config = SystemYAML.load_from_directory(source_path, env)
-    config = BuildConfigYAML.load_from_directory(source_path, env)
-    config.set_environment_variables()
-    config.environment.selected_modules_and_packages = config.available_modules
-    print(
-        Panel.fit(
-            f"[bold]Building all modules found in {config.filepath} (not only the modules under "
-            f"'selected_modules_and_packages') from {source_path}...[/]"
-        )
-    )
-    source_by_build_path = build_config(
-        build_dir=build_dir,
-        source_dir=source_path,
-        config=config,
-        system_config=system_config,
-        clean=True,
-        verbose=False,
-    )
-
-    loader = Loader.create_loader(ToolGlobals)
-    resource_files = loader.find_files(build_dir / loader.folder_name)
-    resource_by_file = {file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in resource_files}
-    selected: dict[Path, T_WriteClass] = {}
-    for file, resources in resource_by_file.items():
-        if not isinstance(resources, Sequence):
-            if loader.get_id(resources) == id_:  # type: ignore[arg-type]
-                selected[file] = resources  # type: ignore[assignment]
-            continue
-        for resource in resources:
-            if loader.get_id(resource) == id_:
-                selected[file] = resource
-                break
-    if len(selected) == 0:
-        raise ToolkitMissingResourceError(
-            f"No {loader.display_name} with external id {id_} found in the current configuration in {source_dir}."
-        )
-    elif len(selected) >= 2:
-        files = "\n".join(map(str, selected.keys()))
-        raise ToolkitDuplicatedResourceError(
-            f"Multiple {loader.display_name} with {id_} found in {source_dir}. Delete all but one and try again. "
-            f"Files: {files}"
-        )
-    build_file, local_resource = next(iter(selected.items()))
-
-    print(f"[bold]Pulling {loader.display_name} {id_}...[/]")
-
-    resource_id = loader.get_id(local_resource)
-    cdf_resources = loader.retrieve([resource_id])
-    if not cdf_resources:
-        raise ToolkitMissingResourceError(f"No {loader.display_name} with {id_} found in CDF.")
-
-    cdf_resource = cdf_resources[0].as_write()
-    if cdf_resource == local_resource:
-        print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} is up to date.")
-        return
-
-    source_file = source_by_build_path[build_file]
-
-    cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)
-
-    # Using the ResourceYAML class to load and dump the file to preserve comments and detect changes
-    resource = ResourceYAMLDifference.load(build_file.read_text(), source_file.read_text())
-    resource.update_cdf_resource(cdf_dumped)
-
-    resource.display(title=f"Resource differences for {loader.display_name} {id_}")
-    new_content = resource.dump_yaml_with_comments()
-
-    if dry_run:
+    with tmp_build_directory() as build_dir:
+        system_config = SystemYAML.load_from_directory(source_path, env)
+        config = BuildConfigYAML.load_from_directory(source_path, env)
+        config.set_environment_variables()
+        config.environment.selected_modules_and_packages = config.available_modules
         print(
-            f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_!r} will be updated in file "
-            f"'{source_file.relative_to(source_dir)}'."
-        )
-
-    if verbose:
-        old_content = source_file.read_text()
-        print(
-            Panel(
-                "\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())),
-                title=f"Updates to file {source_file.name!r}",
+            Panel.fit(
+                f"[bold]Building all modules found in {config.filepath} (not only the modules under "
+                f"'selected_modules_and_packages') from {source_path}...[/]"
             )
         )
-
-    if not dry_run:
-        with source_file.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
-            f.write(new_content)
-        print(
-            f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
-            f"'{source_file.relative_to(source_dir)}'."
+        source_by_build_path = build_config(
+            build_dir=build_dir,
+            source_dir=source_path,
+            config=config,
+            system_config=system_config,
+            clean=True,
+            verbose=False,
         )
 
-    for filepath, content in extra_files.items():
-        if not filepath.exists():
-            print(f"[bold red]ERROR:[/] {filepath} does not exist.")
-            continue
+        loader = Loader.create_loader(ToolGlobals)
+        resource_files = loader.find_files(build_dir / loader.folder_name)
+        resource_by_file = {
+            file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in resource_files
+        }
+        selected: dict[Path, T_WriteClass] = {}
+        for file, resources in resource_by_file.items():
+            if not isinstance(resources, Sequence):
+                if loader.get_id(resources) == id_:  # type: ignore[arg-type]
+                    selected[file] = resources  # type: ignore[assignment]
+                continue
+            for resource in resources:
+                if loader.get_id(resource) == id_:
+                    selected[file] = resource
+                    break
+        if len(selected) == 0:
+            raise ToolkitMissingResourceError(
+                f"No {loader.display_name} with external id {id_} found in the current configuration in {source_dir}."
+            )
+        elif len(selected) >= 2:
+            files = "\n".join(map(str, selected.keys()))
+            raise ToolkitDuplicatedResourceError(
+                f"Multiple {loader.display_name} with {id_} found in {source_dir}. Delete all but one and try again. "
+                f"Files: {files}"
+            )
+        build_file, local_resource = next(iter(selected.items()))
 
-        build_extra_file = Path(build_dir / loader.folder_name / filepath.name)
-        if not build_extra_file.exists():
-            print(f"[bold red]ERROR:[/] {build_extra_file} does not exist.")
-            continue
+        print(f"[bold]Pulling {loader.display_name} {id_}...[/]")
 
-        file_diffs = TextFileDifference.load(build_extra_file.read_text(), filepath.read_text())
-        file_diffs.update_cdf_content(content)
+        resource_id = loader.get_id(local_resource)
+        cdf_resources = loader.retrieve([resource_id])
+        if not cdf_resources:
+            raise ToolkitMissingResourceError(f"No {loader.display_name} with {id_} found in CDF.")
 
-        has_changed = any(line.is_added or line.is_changed for line in file_diffs)
+        cdf_resource = cdf_resources[0].as_write()
+        if cdf_resource == local_resource:
+            print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} is up to date.")
+            return
+
+        source_file = source_by_build_path[build_file]
+
+        cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)
+
+        # Using the ResourceYAML class to load and dump the file to preserve comments and detect changes
+        resource = ResourceYAMLDifference.load(build_file.read_text(), source_file.read_text())
+        resource.update_cdf_resource(cdf_dumped)
+
+        resource.display(title=f"Resource differences for {loader.display_name} {id_}")
+        new_content = resource.dump_yaml_with_comments()
+
         if dry_run:
-            if has_changed:
-                print(f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(source_dir)}'.")
-            else:
-                print(
-                    f"[bold green]INFO:[/] File '{filepath.relative_to(source_dir)}' has not changed, "
-                    "thus no update would have been done."
-                )
+            print(
+                f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_!r} will be updated in file "
+                f"'{source_file.relative_to(source_dir)}'."
+            )
 
         if verbose:
-            old_content = filepath.read_text()
+            old_content = source_file.read_text()
             print(
                 Panel(
-                    "\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())),
-                    title=f"Difference between local and CDF resource {filepath.name!r}",
+                    "\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())),
+                    title=f"Updates to file {source_file.name!r}",
                 )
             )
 
-        if not dry_run and has_changed:
-            with filepath.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
-                f.write(content)
-            print(f"[bold green]INFO:[/] File '{filepath.relative_to(source_dir)}' updated.")
+        if not dry_run:
+            with source_file.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
+                f.write(new_content)
+            print(
+                f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
+                f"'{source_file.relative_to(source_dir)}'."
+            )
 
-    shutil.rmtree(build_dir)
+        for filepath, content in extra_files.items():
+            if not filepath.exists():
+                print(f"[bold red]ERROR:[/] {filepath} does not exist.")
+                continue
+
+            build_extra_file = Path(build_dir / loader.folder_name / filepath.name)
+            if not build_extra_file.exists():
+                print(f"[bold red]ERROR:[/] {build_extra_file} does not exist.")
+                continue
+
+            file_diffs = TextFileDifference.load(build_extra_file.read_text(), filepath.read_text())
+            file_diffs.update_cdf_content(content)
+
+            has_changed = any(line.is_added or line.is_changed for line in file_diffs)
+            if dry_run:
+                if has_changed:
+                    print(f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(source_dir)}'.")
+                else:
+                    print(
+                        f"[bold green]INFO:[/] File '{filepath.relative_to(source_dir)}' has not changed, "
+                        "thus no update would have been done."
+                    )
+
+            if verbose:
+                old_content = filepath.read_text()
+                print(
+                    Panel(
+                        "\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())),
+                        title=f"Difference between local and CDF resource {filepath.name!r}",
+                    )
+                )
+
+            if not dry_run and has_changed:
+                with filepath.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
+                    f.write(content)
+                print(f"[bold green]INFO:[/] File '{filepath.relative_to(source_dir)}' updated.")
+
     print("[bold green]INFO:[/] Pull complete. Cleaned up temporary files.")
