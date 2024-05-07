@@ -26,8 +26,7 @@ jobs:
       - name: Linting and static code checks
         continue-on-error: true
         id: pre-commit-first-run
-        run: |
-          pre-commit run --all-files
+        uses: pre-commit/action@v3.0.1
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         id: auto-commit-action
@@ -37,8 +36,7 @@ jobs:
       # If the first run failed, run the checks again to ensure that the changes fixed the issue.
       - name: Linting and static code checks try 2
         if: steps.pre-commit-first-run.outcome != 'success'
-        run: |
-          pre-commit run --all-files
+        uses: pre-commit/action@v3.0.1
   
 
   test:
