@@ -15,13 +15,12 @@ from cognite.client.utils._text import to_camel_case, to_snake_case
 
 from cognite_toolkit._cdf_tk._get_type_hints import _TypeHints
 
+from .warning import DataSetMissingWarningList
+from .warning._base import SnakeCaseWarningList, TemplateVariableWarningList
 from .warning.fileread import (
     DataSetMissingWarning,
-    DataSetMissingWarningList,
     SnakeCaseWarning,
-    SnakeCaseWarningList,
     TemplateVariableWarning,
-    TemplateVariableWarningList,
 )
 
 
