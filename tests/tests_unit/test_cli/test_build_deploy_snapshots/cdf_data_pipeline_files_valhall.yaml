@@ -93,11 +93,14 @@ Function:
   externalId: fn_workflow_files_oid_fileshare_annotation
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: cfa9ec6e696d5808a168543386720265a010ef63e9b87ad8e1b5d40fedb2fc1c
+    cdf-toolkit-function-hash: 7b68045787ca15c1eea63c2cbb30237870f794ca4a64e23a31d113e5d488bf2d
     version: 0.0.1
   name: workflow:files:oid:fileshare:annotation
   owner: Anonymous
   runtime: py311
+  secrets:
+    client-id: dummy
+    client-secret: dummy
 FunctionSchedule:
 - cronExpression: 0,30 * * * *
   data:

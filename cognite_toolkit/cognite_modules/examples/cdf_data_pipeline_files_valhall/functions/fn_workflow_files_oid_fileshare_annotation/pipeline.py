@@ -12,6 +12,7 @@ from cognite.client import CogniteClient
 
 sys.path.append(str(Path(__file__).parent))
 
+from cognite.client.data_classes import ClientCredentials
 from config import WorkflowRunConfig
 
 
@@ -33,7 +34,7 @@ class Entity:
         }
 
 
-def run_workflow(client: CogniteClient, config: WorkflowRunConfig) -> None:
+def run_workflow(client: CogniteClient, config: WorkflowRunConfig, secrets: dict) -> None:
     """
     Read configuration and start Workflow
 
@@ -47,7 +48,11 @@ def run_workflow(client: CogniteClient, config: WorkflowRunConfig) -> None:
     try:
         t_end = time.time() + 60 * 8
 
-        res = client.workflows.executions.trigger(config.workflow_xid, config.workflow_ver)
+        res = client.workflows.executions.trigger(
+            config.workflow_xid,
+            config.workflow_ver,
+            client_credentials=ClientCredentials(secrets["client-id"], secrets["client-secret"]),
+        )
 
         workflow_execution_id = res.id
 

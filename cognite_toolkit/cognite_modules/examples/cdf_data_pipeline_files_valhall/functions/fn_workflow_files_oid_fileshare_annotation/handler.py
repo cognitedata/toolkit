@@ -12,9 +12,10 @@ from config import load_config_parameters
 from pipeline import run_workflow
 
 
-def handle(data: dict, client: CogniteClient) -> dict:
+def handle(data: dict, client: CogniteClient, secrets: dict) -> dict:
     config = load_config_parameters(data)
-    run_workflow(client, config)
+    print(secrets)
+    run_workflow(client, config, secrets)
     return {"status": "succeeded", "data": data}
 
 
@@ -30,21 +31,20 @@ def run_locally():
     token_uri = os.environ["IDP_TOKEN_URL"]
     base_url = f"https://{cdf_cluster}.cognitedata.com"
 
+    secrets = {"client-id": client_id, "client-secret": client_secret, "project": cdf_project_name}
+
     client = CogniteClient(
         ClientConfig(
             client_name="Toolkit user: Manual start of workflow",
             base_url=base_url,
             project=cdf_project_name,
             credentials=OAuthClientCredentials(
-                token_url=token_uri,
-                client_id=client_id,
-                client_secret=client_secret,
-                scopes=[f"{base_url}/.default"],
+                token_url=token_uri, client_id=client_id, client_secret=client_secret, scopes=[f"{base_url}/.default"]
             ),
         )
     )
     data = {"WorkflowExtId": "wf_oid_files_annotation", "WorkflowVersion": "1"}
-    handle(data, client)
+    handle(data, client, secrets)
 
 
 if __name__ == "__main__":
