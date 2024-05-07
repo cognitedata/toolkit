@@ -115,6 +115,7 @@ def _search_system_yaml(project_dir: Path) -> Path | None:
     if (project_dir / "_system.yaml").exists():
         return project_dir / "_system.yaml"
     if (project_dir / COGNITE_MODULES / "_system.yaml").exists():
+        # This is here to ensure that we check this path first
         return project_dir / COGNITE_MODULES / "_system.yaml"
     for path in project_dir.rglob("_system.yaml"):
         return path
