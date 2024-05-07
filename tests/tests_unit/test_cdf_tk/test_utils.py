@@ -26,15 +26,11 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf_tk.utils import (
     AuthVariables,
     CDFToolConfig,
-    DataSetMissingWarning,
-    SnakeCaseWarning,
-    TemplateVariableWarning,
     calculate_directory_hash,
     load_yaml_inject_variables,
-    validate_case_raw,
-    validate_data_set_is_set,
-    validate_modules_variables,
 )
+from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set, validate_modules_variables
+from cognite_toolkit._cdf_tk.validation.warning import DataSetMissingWarning, SnakeCaseWarning, TemplateVariableWarning
 from tests.tests_unit.data import DATA_FOLDER, LOAD_DATA
 from tests.tests_unit.utils import PrintCapture
 
