@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Function used to schedule & trigger workflow
+
 ### Removed
 
 - The parameter `fileId` is removed from all `function` configurations
@@ -27,7 +31,6 @@ Changes are grouped as follows:
 ### Added
 
 - Workflow with a Function and a Transformation to the cdf_data_pipeline_files_valhall example
-- Function used to schedule & trigger workflow
   
 ### Changed
 
