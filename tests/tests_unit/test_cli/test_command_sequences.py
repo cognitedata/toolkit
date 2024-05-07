@@ -60,7 +60,6 @@ def test_build_deploy_module(
     typer_context: typer.Context,
     init_project: Path,
     data_regression,
-    freezer,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
@@ -136,7 +135,7 @@ def test_build_deploy_with_dry_run(
 def test_init_build_clean(
     module_path: Path,
     build_tmp_path: Path,
-    local_tmp_project_path: Path,
+    local_tmp_project_path_immutable: Path,
     monkeypatch: MonkeyPatch,
     cognite_client_approval: ApprovalCogniteClient,
     cdf_tool_config: CDFToolConfig,
@@ -150,14 +149,14 @@ def test_init_build_clean(
         dry_run=False,
         upgrade=False,
         git_branch=None,
-        init_dir=str(local_tmp_project_path),
+        init_dir=str(local_tmp_project_path_immutable),
         no_backup=True,
         clean=True,
     )
 
     build(
         typer_context,
-        source_dir=str(local_tmp_project_path),
+        source_dir=str(local_tmp_project_path_immutable),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,

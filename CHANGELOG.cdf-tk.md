@@ -15,6 +15,22 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- In a `function` config, if you did not set `fileId` you would get an error when running `cdf-tk deploy`,
+  `Missing required field: 'fileId'.`. The `fileId` is generated automatically when the function is created,
+  so it is not necessary to set it in the config file. This is now fixed.
+
+### Improved
+
+- Gives a more informative error message when the authentication segment of a transformation resource file is
+  missing a required field.
+- Transformation queries can be inline, i.e. set in either the Transformation `query` property in the yaml or
+  as a separate file. If set in both, an error is raised because it is ambiguous which query to use.
+- In the `cdf-tk pull` command, if an error occurs, the temporary directory was not removed. This is now fixed.
+
 ## [0.2.0a4] - 2024-04-29
 
 ### Removed

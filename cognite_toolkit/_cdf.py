@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# The Typer parameters get mixed up if we use the __future__ import annotations
+# The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
 import contextlib
 import os
 import sys

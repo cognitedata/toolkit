@@ -1,6 +1,6 @@
-import abc
+import pathlib
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -19,6 +19,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
@@ -27,9 +28,12 @@ from cognite_toolkit._cdf_tk.load import (
     DataSetsLoader,
     FileMetadataLoader,
     FunctionLoader,
+    Loader,
+    ResourceContainerLoader,
     ResourceLoader,
     ResourceTypes,
     TimeSeriesLoader,
+    TransformationLoader,
     ViewLoader,
 )
 from cognite_toolkit._cdf_tk.templates import (
@@ -414,6 +418,128 @@ description: PH 1stStgSuctCool Gas Out
         assert loaded[0].data_set_id == 12345
 
 
+class TestTransformationLoader:
+    trafo_yaml = """
+externalId: tr_first_transformation
+name: 'example:first:transformation'
+interval: '{{scheduleHourly}}'
+isPaused: true
+query: "INLINE"
+destination:
+  type: 'assets'
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+"""
+
+    trafo_sql = "FILE"
+
+    def test_no_auth_load(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+        mock_read_yaml_file({"transformation.yaml": yaml.CSafeLoader(self.trafo_yaml).get_data()}, monkeypatch)
+        loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+        assert loaded.destination_oidc_credentials is None
+        assert loaded.source_oidc_credentials is None
+
+    def test_oidc_auth_load(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+
+        resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
+
+        resource["authentication"] = {
+            "clientId": "{{cicd_clientId}}",
+            "clientSecret": "{{cicd_clientSecret}}",
+            "tokenUri": "{{cicd_tokenUri}}",
+            "cdfProjectName": "{{cdfProjectName}}",
+            "scopes": "{{cicd_scopes}}",
+            "audience": "{{cicd_audience}}",
+        }
+
+        mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
+
+        loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+        assert loaded.destination_oidc_credentials.__eq__(loaded.source_oidc_credentials)
+        assert loaded.destination is not None
+
+    def test_oidc_raise_if_invalid(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+
+        resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
+
+        resource["authentication"] = {
+            "clientId": "{{cicd_clientId}}",
+            "clientSecret": "{{cicd_clientSecret}}",
+        }
+
+        mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
+
+        with pytest.raises(ToolkitYAMLFormatError):
+            loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+
+    def test_sql_file(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+
+        resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
+        resource.pop("query")
+        mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
+
+        with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
+            with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
+                loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+                assert loaded.query == self.trafo_sql
+
+    def test_sql_inline(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+
+        resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
+
+        mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
+
+        with patch.object(TransformationLoader, "_get_query_file", return_value=None):
+            loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+            assert loaded.query == resource["query"]
+
+    def test_if_ambiguous(
+        self,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = TransformationLoader(cognite_client_approval.mock_client)
+
+        mock_read_yaml_file({"transformation.yaml": yaml.CSafeLoader(self.trafo_yaml).get_data()}, monkeypatch)
+
+        with pytest.raises(ToolkitYAMLFormatError):
+            with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
+                with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
+                    loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+
+
 class TestDeployResources:
     def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
         build_env_name = "dev"
@@ -436,18 +562,37 @@ class TestDeployResources:
         assert actual_order == expected_order
 
 
-def find_subclasses(cls):
-    subclasses = set()
-    for subclass in cls.__subclasses__():
-        subclasses |= find_subclasses(subclass)  # Recursive call to find indirect subclasses
-        if abc.ABC in subclass.__bases__:
-            continue
-        subclasses.add(subclass)
-    return subclasses
+RESOURCE_LOADERS = sorted(
+    [
+        pytest.param(loader, id=loader.__name__)
+        for loaders in LOADER_BY_FOLDER_NAME.values()
+        for loader in loaders
+        if issubclass(loader, ResourceLoader)
+    ],
+    key=lambda x: x.id,
+)
+RESOURCE_CONTAINER_LOADERS = sorted(
+    [
+        pytest.param(loader, id=loader.__name__)
+        for loaders in LOADER_BY_FOLDER_NAME.values()
+        for loader in loaders
+        if issubclass(loader, ResourceContainerLoader)
+    ],
+    key=lambda x: x.id,
+)
+ALL_LOADERS = sorted(
+    [
+        pytest.param(loader, id=loader.__name__)
+        for loaders in LOADER_BY_FOLDER_NAME.values()
+        for loader in loaders
+        if issubclass(loader, Loader)
+    ],
+    key=lambda x: x.id,
+)
 
 
 class TestFormatConsistency:
-    @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
+    @pytest.mark.parametrize("Loader", RESOURCE_LOADERS)
     def test_fake_resource_generator(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
@@ -458,7 +603,7 @@ class TestFormatConsistency:
 
         assert isinstance(instance, loader.resource_write_cls)
 
-    @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
+    @pytest.mark.parametrize("Loader", RESOURCE_LOADERS)
     def test_loader_takes_dict(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
@@ -482,7 +627,7 @@ class TestFormatConsistency:
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
 
-    @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
+    @pytest.mark.parametrize("Loader", RESOURCE_LOADERS)
     def test_loader_takes_list(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
@@ -507,17 +652,16 @@ class TestFormatConsistency:
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
 
-    def check_url(self, url) -> bool:
+    @staticmethod
+    def check_url(url) -> bool:
         try:
             response = requests.get(url, allow_redirects=True)
             return response.status_code >= 200 and response.status_code <= 300
         except requests.exceptions.RequestException:
             return False
 
-    @pytest.mark.parametrize("Loader", sorted(find_subclasses(ResourceLoader), key=lambda x: x.folder_name))
-    def test_loader_has_doc_url(
-        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
-    ):
+    @pytest.mark.parametrize("Loader", ALL_LOADERS)
+    def test_loader_has_doc_url(self, Loader: type[Loader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = Loader.create_loader(cdf_tool_config)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
         assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"

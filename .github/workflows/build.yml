@@ -21,8 +21,24 @@ jobs:
       - name: Install dependencies and run lints
         run: |
           # Necessary for running the mypy pre-commit hook
+          poetry config virtualenvs.create false
           poetry install
-      - uses: pre-commit/action@v3.0.1
+      - name: Linting and static code checks
+        continue-on-error: true
+        id: pre-commit-first-run
+        uses: pre-commit/action@v3.0.1
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        id: auto-commit-action
+        with:
+          create_branch: false
+          commit_message: Linting and static code checks
+      # If the first run failed, run the checks again to ensure that the changes fixed the issue.
+      - name: Linting and static code checks try 2
+        if: steps.pre-commit-first-run.outcome != 'success'
+        uses: pre-commit/action@v3.0.1
+  
+
   test:
     name: Run tests
     runs-on: ubuntu-latest
@@ -55,7 +71,7 @@ jobs:
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: pytest tests
+        run: pytest tests -n8
   coverage:
     needs: test
     name: Create coverage report
@@ -82,7 +98,7 @@ jobs:
       - name: Create test coverage report
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/
+        run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/ -n8
       - name: Push coverage report to PR
         uses: orgoro/coverage@v3.1
         with:

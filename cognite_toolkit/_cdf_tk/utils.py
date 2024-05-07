@@ -22,12 +22,15 @@ import json
 import logging
 import os
 import re
+import shutil
 import sys
+import tempfile
 import types
 import typing
 from abc import abstractmethod
 from collections import UserDict, UserList, defaultdict
 from collections.abc import Collection, ItemsView, KeysView, Sequence, ValuesView
+from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from functools import total_ordering
 from pathlib import Path
@@ -823,7 +826,8 @@ def load_yaml_inject_variables(
             f"It is expected in {filepath.name}."
         )
 
-    result = yaml.safe_load(content)
+    # CSafeLoader is faster than yaml.safe_load
+    result = yaml.CSafeLoader(content).get_data()
     if required_return_type == "any":
         return result
     elif required_return_type == "list":
@@ -854,7 +858,8 @@ def read_yaml_file(
     filepath: path to the YAML file
     """
     try:
-        config_data = yaml.safe_load(filepath.read_text())
+        # CSafeLoader is faster than yaml.safe_load
+        config_data = yaml.CSafeLoader(filepath.read_text()).get_data()
     except yaml.YAMLError as e:
         print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
         return {}
@@ -1369,3 +1374,12 @@ def sentry_exception_filter(event: SentryEvent, hint: SentryHint) -> Optional[Se
         if isinstance(exc_value, ToolkitError):
             return None
     return event
+
+
+@contextmanager
+def tmp_build_directory() -> typing.Generator[Path, None, None]:
+    build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))
+    try:
+        yield build_dir
+    finally:
+        shutil.rmtree(build_dir)

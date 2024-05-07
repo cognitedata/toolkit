@@ -690,6 +690,11 @@ class ApprovalCogniteClient:
                 else:
                     dumped[key] = list(dumped_resource)
 
+        # Standardize file paths
+        for filemedata in dumped.get("FileMetadata", []):
+            if "kwargs" in filemedata and "path" in filemedata["kwargs"] and "/" in filemedata["kwargs"]["path"]:
+                filemedata["kwargs"]["path"] = filemedata["kwargs"]["path"].split("/")[-1]
+
         if self._deleted_resources:
             dumped["deleted"] = {}
             if sort:
