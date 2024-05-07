@@ -447,6 +447,7 @@ def process_config_files(
                 destination.write_text(content)
                 validate(content, destination, filepath, modules_by_variables, verbose)
                 source_by_build_path[destination] = filepath
+
                 # If we have a function definition, we want to process the directory.
                 if (
                     resource_folder == "functions"
@@ -574,56 +575,55 @@ def validate(
                 f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
             )
 
-    if destination.suffix in {".yaml", ".yml"}:
+    if destination.suffix not in {".yaml", ".yml"}:
+        return None
+    try:
+        parsed = yaml.safe_load(content)
+    except yaml.YAMLError as e:
+        raise ToolkitYAMLFormatError(
+            f"YAML validation error for {destination.name} after substituting config variables: {e}"
+        )
+
+    loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
+    loader: type[Loader] | None
+    if len(loaders) == 1:
+        loader = loaders[0]
+    else:
         try:
-            parsed = yaml.safe_load(content)
-        except yaml.YAMLError as e:
-            raise ToolkitYAMLFormatError(
-                f"YAML validation error for {destination.name} after substituting config variables: {e}"
-            )
+            loader = next((loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)), None)
+        except Exception as e:
+            raise NotImplementedError(f"Loader not found for {source_path}\n{e}")
 
-        loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
-        loader: type[Loader] | None
-        if len(loaders) == 1:
-            loader = loaders[0]
-        else:
-            try:
-                loader = next(
-                    (loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)), None
-                )
-            except Exception as e:
-                raise NotImplementedError(f"Loader not found for {source_path}\n{e}")
+    if loader is None:
+        print(
+            f"  [bold yellow]WARNING:[/] In module {module!r}, the resource {resource_folder!r} is not supported by the toolkit."
+        )
+        print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
+        return
 
-        if loader is None:
+    if isinstance(parsed, dict):
+        parsed = [parsed]
+    for item in parsed:
+        if not check_yaml_semantics(
+            parsed=item,
+            filepath_src=source_path,
+            filepath_build=destination,
+        ):
             print(
-                f"  [bold yellow]WARNING:[/] In module {module!r}, the resource {resource_folder!r} is not supported by the toolkit."
+                f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r}/{destination.name} is not semantically correct."
             )
-            print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
-            return
-
-        if isinstance(parsed, dict):
-            parsed = [parsed]
-        for item in parsed:
-            if not check_yaml_semantics(
-                parsed=item,
-                filepath_src=source_path,
-                filepath_build=destination,
-            ):
+            if verbose:
                 print(
-                    f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r}/{destination.name} is not semantically correct."
+                    f"  [bold yellow]WARNING:[/] verify file format against the API specification for {destination.parent.name!r} at {loader.doc_url()}"
                 )
-                if verbose:
-                    print(
-                        f"  [bold yellow]WARNING:[/] verify file format against the API specification for {destination.parent.name!r} at {loader.doc_url()}"
-                    )
 
-        if isinstance(loader, ResourceLoader):
-            load_warnings = validate_case_raw(
-                parsed, loader.resource_cls, destination, identifier_key=loader.identifier_key
-            )
-            if load_warnings:
-                print(f"  [bold yellow]WARNING:[/] Found potential snake_case issues: {load_warnings!s}")
+    if isinstance(loader, ResourceLoader):
+        load_warnings = validate_case_raw(
+            parsed, loader.resource_cls, destination, identifier_key=loader.identifier_key
+        )
+        if load_warnings:
+            print(f"  [bold yellow]WARNING:[/] Found potential snake_case issues: {load_warnings!s}")
 
-            data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, source_path)
-            if data_set_warnings:
-                print(f"  [bold yellow]WARNING:[/] Found missing data_sets: {data_set_warnings!s}")
+        data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, source_path)
+        if data_set_warnings:
+            print(f"  [bold yellow]WARNING:[/] Found missing data_sets: {data_set_warnings!s}")
