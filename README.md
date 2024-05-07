@@ -1,7 +1,8 @@
 # Cognite Data Fusion Toolkit
 
-The CDF Toolkit is a command-line interface (`cdf-tk`) used for configuring and administrating Cognite Data
-Fusion (CDF) projects. It ships with modularised `templates` that helps you configure Cognite Data Fusion according to best practices
+The CDF Toolkit is a command-line interface (`cdf-tk`) used for configuring and administrating
+Cognite Data Fusion (CDF) projects. It ships with modularised `templates` that helps you
+configure Cognite Data Fusion according to best practices.
 
 It supports three different modes of operation:
 
