@@ -22,6 +22,8 @@ Changes are grouped as follows:
 - In a `function` config, if you did not set `fileId` you would get an error when running `cdf-tk deploy`,
   `Missing required field: 'fileId'.`. The `fileId` is generated automatically when the function is created,
   so it is not necessary to set it in the config file. This is now fixed.
+- If you do `cdf-tk init --upgrade`, on a pre `0.2.0a3` version, you are met with
+  `ERROR (ToolkitModuleVersionError): Failed to load previous version, ...`. This is now fixed.
 
 ### Improved
 
@@ -30,11 +32,6 @@ Changes are grouped as follows:
 - Transformation queries can be inline, i.e. set in either the Transformation `query` property in the yaml or
   as a separate file. If set in both, an error is raised because it is ambiguous which query to use.
 - In the `cdf-tk pull` command, if an error occurs, the temporary directory was not removed. This is now fixed.
-
-### Fixed
-
-- If you do `cdf-tk init --upgrade`, on a pre `0.2.0a3` version, you are met with
-  `ERROR (ToolkitModuleVersionError): Failed to load previous version, ...`. This is now fixed.
 
 ## [0.2.0a4] - 2024-04-29
 
