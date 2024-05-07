@@ -14,7 +14,6 @@ from pipeline import run_workflow
 
 def handle(data: dict, client: CogniteClient, secrets: dict) -> dict:
     config = load_config_parameters(data)
-    print(secrets)
     run_workflow(client, config, secrets)
     return {"status": "succeeded", "data": data}
 
