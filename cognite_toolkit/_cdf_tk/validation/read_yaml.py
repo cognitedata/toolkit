@@ -15,12 +15,11 @@ from cognite.client.utils._text import to_camel_case, to_snake_case
 
 from cognite_toolkit._cdf_tk._get_type_hints import _TypeHints
 
-from .warning import DataSetMissingWarningList
-from .warning._base import SnakeCaseWarningList, TemplateVariableWarningList
-from .warning.fileread import (
+from .warning import (
     DataSetMissingWarning,
     SnakeCaseWarning,
     TemplateVariableWarning,
+    WarningList,
 )
 
 
@@ -29,7 +28,7 @@ def validate_case_raw(
     resource_cls: type[CogniteObject],
     filepath: Path,
     identifier_key: str = "externalId",
-) -> SnakeCaseWarningList:
+) -> WarningList:
     """Checks whether camel casing the raw data would match a parameter in the resource class.
 
     Args:
@@ -53,14 +52,14 @@ def _validate_case_raw(
     filepath: Path,
     identifier_key: str = "externalId",
     identifier_value: str = "",
-) -> SnakeCaseWarningList:
-    warnings = SnakeCaseWarningList()
+) -> WarningList:
+    warning_list: WarningList = WarningList()
     if isinstance(raw, list):
         for item in raw:
-            warnings.extend(_validate_case_raw(item, resource_cls, filepath, identifier_key))
-        return warnings
+            warning_list.extend(_validate_case_raw(item, resource_cls, filepath, identifier_key))
+        return warning_list
     elif not isinstance(raw, dict):
-        return warnings
+        return warning_list
 
     signature = inspect.signature(resource_cls.__init__)
 
@@ -87,13 +86,13 @@ def _validate_case_raw(
 
     for key in snake_cased:
         if (camel_key := to_camel_case(key)) in expected:
-            warnings.append(SnakeCaseWarning(filepath, identifier_value, identifier_key, str(key), str(camel_key)))
+            warning_list.append(SnakeCaseWarning(filepath, identifier_value, identifier_key, str(key), str(camel_key)))
 
     try:
         type_hints_by_name = _TypeHints.get_type_hints_by_name(signature, resource_cls)
     except Exception:
         # If we cannot get type hints, we cannot check if the type is correct.
-        return warnings
+        return warning_list
 
     for key, value in raw.items():
         if not isinstance(value, dict):
@@ -102,7 +101,7 @@ def _validate_case_raw(
             type_hint := type_hints_by_name.get(parameter.name)
         ):
             if inspect.isclass(type_hint) and issubclass(type_hint, CogniteObject):
-                warnings.extend(_validate_case_raw(value, type_hint, filepath, identifier_key, identifier_value))
+                warning_list.extend(_validate_case_raw(value, type_hint, filepath, identifier_key, identifier_value))
                 continue
 
             container_type = get_origin(type_hint)
@@ -124,14 +123,14 @@ def _validate_case_raw(
             container_key, container_value = args
             if inspect.isclass(container_value) and issubclass(container_value, CogniteObject):
                 for sub_key, sub_value in value.items():
-                    warnings.extend(
+                    warning_list.extend(
                         _validate_case_raw(sub_value, container_value, filepath, identifier_key, identifier_value)
                     )
 
-    return warnings
+    return warning_list
 
 
-def validate_modules_variables(config: dict[str, Any], filepath: Path, path: str = "") -> TemplateVariableWarningList:
+def validate_modules_variables(config: dict[str, Any], filepath: Path, path: str = "") -> WarningList:
     """Checks whether the config file has any issues.
 
     Currently, this checks for:
@@ -142,16 +141,16 @@ def validate_modules_variables(config: dict[str, Any], filepath: Path, path: str
         filepath: The filepath of the config.yaml.
         path: The path in the config.yaml. This is used recursively by this function.
     """
-    warnings = TemplateVariableWarningList()
+    warning_list: WarningList = WarningList()
     pattern = re.compile(r"<.*?>")
     for key, value in config.items():
         if isinstance(value, str) and pattern.match(value):
-            warnings.append(TemplateVariableWarning(filepath, value, key, path))
+            warning_list.append(TemplateVariableWarning(filepath, value, key, path))
         elif isinstance(value, dict):
             if path:
                 path += "."
-            warnings.extend(validate_modules_variables(value, filepath, f"{path}{key}"))
-    return warnings
+            warning_list.extend(validate_modules_variables(value, filepath, f"{path}{key}"))
+    return warning_list
 
 
 def validate_data_set_is_set(
@@ -159,20 +158,20 @@ def validate_data_set_is_set(
     resource_cls: type[CogniteObject],
     filepath: Path,
     identifier_key: str = "externalId",
-) -> DataSetMissingWarningList:
-    warnings = DataSetMissingWarningList()
+) -> WarningList:
+    warning_list: WarningList = WarningList()
     signature = inspect.signature(resource_cls.__init__)
     if "data_set_id" not in set(signature.parameters.keys()):
-        return warnings
+        return warning_list
 
     if isinstance(raw, list):
         for item in raw:
-            warnings.extend(validate_data_set_is_set(item, resource_cls, filepath, identifier_key))
-        return warnings
+            warning_list.extend(validate_data_set_is_set(item, resource_cls, filepath, identifier_key))
+        return warning_list
 
     if "dataSetExternalId" in raw or "dataSetId" in raw:
-        return warnings
+        return warning_list
 
     value = raw.get(identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}"))
-    warnings.append(DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__))
-    return warnings
+    warning_list.append(DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__))
+    return warning_list

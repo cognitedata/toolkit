@@ -1,82 +1,58 @@
 from __future__ import annotations
 
+from abc import ABC
 from dataclasses import dataclass
-from functools import total_ordering
 from pathlib import Path
-from typing import ClassVar
+from typing import Any
+
+from ._base import ToolkitWarning
 
 
 @dataclass(frozen=True)
-class FileReadWarning:
-    _type: ClassVar[str]
+class FileReadWarning(ToolkitWarning, ABC):
     filepath: Path
     id_value: str
     id_name: str
 
 
-@total_ordering
 @dataclass(frozen=True)
 class SnakeCaseWarning(FileReadWarning):
     actual: str
     expected: str
 
-    def __lt__(self, other: object) -> bool:
-        if not isinstance(other, SnakeCaseWarning):
-            return NotImplemented
-        return (self.filepath, self.id_value, self.expected, self.actual) < (
-            other.filepath,
-            other.id_value,
-            other.expected,
-            other.actual,
-        )
+    def group_key(self) -> tuple[Any, ...]:
+        return self.filepath, self.id_value, self.id_name
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SnakeCaseWarning):
-            return NotImplemented
-        return (self.filepath, self.id_value, self.expected, self.actual) == (
-            other.filepath,
-            other.id_value,
-            other.expected,
-            other.actual,
-        )
+    def group_header(self) -> str:
+        return f"    In File {str(self.filepath)!r}\n    In entry {self.id_name}={self.id_value!r}"
 
     def __str__(self) -> str:
         return f"CaseWarning: Got {self.actual!r}. Did you mean {self.expected!r}?"
 
 
-@total_ordering
 @dataclass(frozen=True)
 class TemplateVariableWarning(FileReadWarning):
     path: str
 
-    def __lt__(self, other: object) -> bool:
-        if not isinstance(other, TemplateVariableWarning):
-            return NotImplemented
-        return (self.id_name, self.id_value, self.path) < (other.id_name, other.id_value, other.path)
+    def group_key(self) -> tuple[Any, ...]:
+        return (self.path,)
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, TemplateVariableWarning):
-            return NotImplemented
-        return (self.id_name, self.id_value, self.path) == (other.id_name, other.id_value, other.path)
+    def group_header(self) -> str:
+        return f"    In Section {str(self.path)!r}"
 
     def __str__(self) -> str:
         return f"{type(self).__name__}: Variable {self.id_name!r} has value {self.id_value!r} in file: {self.filepath.name}. Did you forget to change it?"
 
 
-@total_ordering
 @dataclass(frozen=True)
 class DataSetMissingWarning(FileReadWarning):
     resource_name: str
 
-    def __lt__(self, other: object) -> bool:
-        if not isinstance(other, DataSetMissingWarning):
-            return NotImplemented
-        return (self.id_name, self.id_value, self.filepath) < (other.id_name, other.id_value, other.filepath)
+    def group_key(self) -> tuple[Any, ...]:
+        return (self.filepath,)
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, DataSetMissingWarning):
-            return NotImplemented
-        return (self.id_name, self.id_value, self.filepath) == (other.id_name, other.id_value, other.filepath)
+    def group_header(self) -> str:
+        return f"    In File {str(self.filepath)!r}"
 
     def __str__(self) -> str:
         # Avoid circular import
