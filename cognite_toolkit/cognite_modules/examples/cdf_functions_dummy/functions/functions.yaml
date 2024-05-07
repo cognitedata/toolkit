@@ -2,7 +2,6 @@
 # and externalId as the function itself as defined below.
 - name: 'example:repeater'
   externalId: 'fn_example_repeater'
-  fileId: <will_be_generated>
   owner: 'Anonymous'
   description: 'Returns the input data, secrets, and function info.'
   metadata:
@@ -23,5 +22,4 @@
   externalDataSetId: 'ds_files_{{default_location}}'
 - name: 'test2'
   externalId: 'fn_test2'
-  fileId: <will_be_generated>
   functionPath: './handler.py'
