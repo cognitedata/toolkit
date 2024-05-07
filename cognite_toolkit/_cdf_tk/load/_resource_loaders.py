@@ -446,6 +446,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
                     func.get("externalDataSetId", ""), skip_validation=skip_validation
                 )
+            if "fileId" not in func:
+                # The fileID is required for the function to be created, but in the `.create` method
+                # we first create that file and then set the fileID.
+                func["fileId"] = "<will_be_generated>"
 
         if len(functions) == 1:
             return FunctionWrite.load(functions[0])
