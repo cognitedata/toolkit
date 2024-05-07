@@ -53,7 +53,7 @@ This module manages the following resources:
 
 ### Illustration of the files data pipeline
 
-![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/32c5d53f-5fdb-44a8-9362-35e8152b83e3)
+![image](https://github.com/cognitedata/toolkit/assets/31886431/32c5d53f-5fdb-44a8-9362-35e8152b83e3)
 
 ## Variables
 
