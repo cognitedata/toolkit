@@ -21,8 +21,26 @@ jobs:
       - name: Install dependencies and run lints
         run: |
           # Necessary for running the mypy pre-commit hook
+          poetry config virtualenvs.create false
           poetry install
-      - uses: pre-commit/action@v3.0.1
+      - name: Linting and static code checks
+        continue-on-error: true
+        id: pre-commit-first-run
+        run: |
+          pre-commit run --all-files
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        id: auto-commit-action
+        with:
+          create_branch: false
+          commit_message: Linting and static code checks
+      # If the first run failed, run the checks again to ensure that the changes fixed the issue.
+      - name: Linting and static code checks try 2
+        if: steps.pre-commit-first-run.outcome != 'success'
+        run: |
+          pre-commit run --all-files
+  
+
   test:
     name: Run tests
     runs-on: ubuntu-latest
