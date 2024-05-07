@@ -22,6 +22,8 @@ Changes are grouped as follows:
 - In a `function` config, if you did not set `fileId` you would get an error when running `cdf-tk deploy`,
   `Missing required field: 'fileId'.`. The `fileId` is generated automatically when the function is created,
   so it is not necessary to set it in the config file. This is now fixed.
+- If you do `cdf-tk init --upgrade`, on a pre `0.2.0a3` version, you are met with
+  `ERROR (ToolkitModuleVersionError): Failed to load previous version, ...`. This is now fixed.
 
 ### Improved
 

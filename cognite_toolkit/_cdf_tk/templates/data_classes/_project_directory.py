@@ -293,10 +293,10 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
 
     @staticmethod
     def _download_templates(git_branch: str, dry_run: bool) -> Path:
-        toolkit_github_url = f"https://github.com/cognitedata/cdf-project-templates/archive/refs/heads/{git_branch}.zip"
+        toolkit_github_url = f"https://github.com/cognitedata/toolkit/archive/refs/heads/{git_branch}.zip"
         extract_dir = tempfile.mkdtemp(prefix="git.", suffix=".tmp", dir=Path.cwd())
         prefix = "Would download" if dry_run else "Downloading"
-        print(f"{prefix} templates from https://github.com/cognitedata/cdf-project-templates, branch {git_branch}...")
+        print(f"{prefix} templates from https://github.com/cognitedata/toolkit, branch {git_branch}...")
         print(
             "  [bold yellow]WARNING:[/] You are only upgrading templates, not the cdf-tk tool. "
             "Your current version may not support the new templates."
@@ -309,6 +309,6 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
             except Exception as e:
                 raise ToolkitError(
                     f"Failed to download or extract templates. Are you sure that the branch {git_branch} exists in"
-                    "the `https://github.com/cognitedata/cdf-project-templates` repository?"
+                    "the `https://github.com/cognitedata/toolkit` repository?"
                 ) from e
         return Path(extract_dir) / f"cdf-project-templates-{git_branch}" / "cognite_toolkit"

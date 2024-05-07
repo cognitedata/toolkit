@@ -29,7 +29,7 @@ This module manages the following resources:
 
 ### Illustration of the asset data pipeline
 
-![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/ba534b90-cc8f-4825-9692-d44dad58da6e)
+![image](https://github.com/cognitedata/toolkit/assets/31886431/ba534b90-cc8f-4825-9692-d44dad58da6e)
 
 ## Variables
 
