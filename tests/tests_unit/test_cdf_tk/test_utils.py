@@ -10,14 +10,12 @@ import pytest
 import yaml
 from cognite.client._api.iam import TokenAPI, TokenInspection
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
-from cognite.client.data_classes import TimeSeries
 from cognite.client.data_classes.capabilities import (
     DataSetsAcl,
     ProjectCapability,
     ProjectCapabilityList,
     ProjectsScope,
 )
-from cognite.client.data_classes.data_modeling import ViewApply
 from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock, monkeypatch_cognite_client
@@ -26,16 +24,12 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf_tk.utils import (
     AuthVariables,
     CDFToolConfig,
-    DataSetMissingWarning,
-    SnakeCaseWarning,
-    TemplateVariableWarning,
     calculate_directory_hash,
     load_yaml_inject_variables,
-    validate_case_raw,
-    validate_data_set_is_set,
-    validate_modules_variables,
 )
-from tests.tests_unit.data import DATA_FOLDER, LOAD_DATA
+from cognite_toolkit._cdf_tk.validation import validate_modules_variables
+from cognite_toolkit._cdf_tk.validation.warning import TemplateVariableWarning
+from tests.tests_unit.data import DATA_FOLDER
 from tests.tests_unit.utils import PrintCapture
 
 
@@ -107,32 +101,6 @@ class TestLoadYamlInjectVariables:
         assert last_message == expected_warning
 
 
-def test_validate_raw() -> None:
-    raw_file = LOAD_DATA / "timeseries" / "wrong_case.yaml"
-
-    warnings = validate_case_raw(yaml.safe_load(raw_file.read_text()), TimeSeries, raw_file)
-
-    assert len(warnings) == 2
-    assert sorted(warnings) == sorted(
-        [
-            SnakeCaseWarning(raw_file, "wrong_case", "externalId", "is_string", "isString"),
-            SnakeCaseWarning(raw_file, "wrong_case", "externalId", "is_step", "isStep"),
-        ]
-    )
-
-
-def test_validate_raw_nested() -> None:
-    raw_file = LOAD_DATA / "datamodels" / "snake_cased_view_property.yaml"
-    warnings = validate_case_raw(yaml.safe_load(raw_file.read_text()), ViewApply, raw_file)
-
-    assert len(warnings) == 1
-    assert warnings == [
-        SnakeCaseWarning(
-            raw_file, "WorkItem", "externalId", "container_property_identifier", "containerPropertyIdentifier"
-        )
-    ]
-
-
 @pytest.mark.parametrize(
     "config_yaml, expected_warnings",
     [
@@ -158,16 +126,6 @@ def test_validate_config_yaml(config_yaml: dict[str, Any], expected_warnings: li
     warnings = validate_modules_variables(config_yaml, Path("config.yaml"))
 
     assert sorted(warnings) == sorted(expected_warnings)
-
-
-def test_validate_data_set_is_set():
-    warnings = validate_data_set_is_set(
-        {"externalId": "myTimeSeries", "name": "My Time Series"}, TimeSeries, Path("timeseries.yaml")
-    )
-
-    assert sorted(warnings) == sorted(
-        [DataSetMissingWarning(Path("timeseries.yaml"), "myTimeSeries", "externalId", "TimeSeries")]
-    )
 
 
 def test_calculate_hash_on_folder():
