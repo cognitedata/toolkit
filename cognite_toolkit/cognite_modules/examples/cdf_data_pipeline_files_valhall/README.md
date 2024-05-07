@@ -63,6 +63,7 @@ This module manages the following resources:
 
 ![image](https://github.com/cognitedata/toolkit/assets/31886431/3722b1ad-ecb6-4251-84d0-ae31ee63e676)
 
+
 ## Variables
 
 The following variables are required and defined in this module:

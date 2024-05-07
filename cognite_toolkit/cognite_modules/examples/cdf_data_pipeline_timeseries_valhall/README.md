@@ -35,7 +35,7 @@ from [Open IndustrialData](https://learn.cognite.com/open-industrial-data), the 
 Related to integration with the OPC-UA simulator you can modify the names of the time series
 that the simulator will use making it possible to run the
 contextualization process on it by modifying the names used on the variable in the OPC-UA simulator UI, ex:
-![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/34525295-1cd7-4f11-8aec-bc4f9db0bc8b)
+![image](https://github.com/cognitedata/toolkit/assets/31886431/34525295-1cd7-4f11-8aec-bc4f9db0bc8b)
 
 Note that the external ID of the time series from the simulator is related to the setup in the server,
 and will not match the example data from OID. So the time series from the simulator server should not
@@ -97,7 +97,7 @@ This module manages the following resources:
 
 ### Illustration of the time series data pipeline
 
-![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/5da18c06-8324-4f9f-a9e9-ce61e87e1a51)
+![image](https://github.com/cognitedata/toolkit/assets/31886431/5da18c06-8324-4f9f-a9e9-ce61e87e1a51)
 
 ## Variables
 
