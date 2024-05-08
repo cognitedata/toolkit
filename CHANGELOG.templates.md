@@ -26,6 +26,10 @@ Changes are grouped as follows:
 - The parameter `fileId` is removed from all `function` configurations
   (`cdf_functions_dummy` and `cdf_data_pipeline_files_valhall`) as it is no longer required.
 
+### Changed
+
+- Removed schedule from annotation function `context:files:oid:fileshare:annotation`
+
 ## [0.2.0a4] - 2024-04-29
 
 ### Added
