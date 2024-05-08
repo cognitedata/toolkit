@@ -6,7 +6,11 @@ from cognite.client.data_classes import TimeSeries
 from cognite.client.data_classes.data_modeling import SpaceApply, ViewApply
 
 from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set
-from cognite_toolkit._cdf_tk.validation.read_yaml import ParameterSet, ParameterSpec, read_parameter_from_type_hints
+from cognite_toolkit._cdf_tk.validation.read_yaml import (
+    ParameterSpec,
+    ParameterSpecSet,
+    read_parameter_from_init_type_hints,
+)
 from cognite_toolkit._cdf_tk.validation.warning import DataSetMissingWarning, SnakeCaseWarning
 from tests.tests_unit.data import LOAD_DATA
 
@@ -53,17 +57,17 @@ class TestParameterSet:
         [
             (
                 SpaceApply,
-                ParameterSet[ParameterSpec](
+                ParameterSpecSet(
                     {
-                        ParameterSpec(("space",), str, True),
-                        ParameterSpec(("description",), str, False),
-                        ParameterSpec(("name",), str, False),
+                        ParameterSpec(("space",), "str", True),
+                        ParameterSpec(("description",), "str", False),
+                        ParameterSpec(("name",), "str", False),
                     }
                 ),
             ),
         ],
     )
-    def test_read_parameter_from_type_hints(self, cls_: type, expected_parameters: ParameterSet[ParameterSpec]) -> None:
-        actual_parameters = read_parameter_from_type_hints(cls_)
+    def test_read_parameter_from_type_hints(self, cls_: type, expected_parameters: ParameterSpecSet) -> None:
+        actual_parameters = read_parameter_from_init_type_hints(cls_)
 
         assert actual_parameters == expected_parameters

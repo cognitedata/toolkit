@@ -184,7 +184,7 @@ def validate_data_set_is_set(
 @dataclass(frozen=True)
 class Parameter:
     path: tuple[str | int, ...]
-    type: type
+    type: str
 
     def __lt__(self, other: Parameter) -> bool:
         if not isinstance(other, Parameter):
@@ -199,7 +199,7 @@ class Parameter:
 
 @dataclass(frozen=True)
 class ParameterSpec(Parameter):
-    required: bool
+    is_required: bool
 
 
 @dataclass(frozen=True)
@@ -236,5 +236,38 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
         self.data.discard(item)
 
 
-def read_parameter_from_type_hints(cls: type) -> ParameterSet[ParameterSpec]:
-    raise NotImplementedError("This function is not implemented yet.")
+class ParameterSpecSet(ParameterSet[ParameterSpec]):
+    def __init__(self, iterable: Iterable[ParameterSpec] = ()) -> None:
+        super().__init__(iterable)
+        self.is_complete = True
+
+    @property
+    def required(self) -> ParameterSet[ParameterSpec]:
+        return ParameterSet[ParameterSpec](parameter for parameter in self if parameter.is_required)
+
+
+_BASE_TYPES = {f"{t.__name__}{extra}" for t in (str, int, float, bool) for extra in ("", " | None")}
+_CONTAINER_TYPES = {t.__name__ for t in (list, dict)}
+
+
+def read_parameter_from_init_type_hints(cls: type) -> ParameterSpecSet:
+    parameter_set = ParameterSpecSet()
+    if not hasattr(cls, "__init__"):
+        return parameter_set
+    init_signature = inspect.signature(cls.__init__)  # type: ignore[misc]
+    stack = [((name,), parameter) for name, parameter in init_signature.parameters.items()]
+    while stack:
+        path, parameter = stack.pop()
+        if path == "self":
+            continue
+        if parameter.annotation is inspect.Parameter.empty:
+            parameter_set.is_complete = False
+            continue
+        elif parameter.annotation in _BASE_TYPES:
+            annotation = typing.cast(str, parameter.annotation)
+            cleaned = annotation.removesuffix(" | None")
+            is_required = parameter.default is inspect.Parameter.empty
+            parameter_set.add(ParameterSpec(path, cleaned, is_required))
+        else:
+            raise NotImplementedError()
+    return parameter_set
