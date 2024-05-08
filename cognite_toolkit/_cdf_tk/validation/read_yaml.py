@@ -200,6 +200,11 @@ class Parameter:
 @dataclass(frozen=True)
 class ParameterSpec(Parameter):
     is_required: bool
+    _is_nullable: bool | None = None
+
+    @property
+    def is_nullable(self) -> bool:
+        return self._is_nullable or not self.is_required
 
 
 @dataclass(frozen=True)
@@ -263,11 +268,16 @@ def read_parameter_from_init_type_hints(cls: type) -> ParameterSpecSet:
         if parameter.annotation is inspect.Parameter.empty:
             parameter_set.is_complete = False
             continue
-        elif parameter.annotation in _BASE_TYPES:
-            annotation = typing.cast(str, parameter.annotation)
-            cleaned = annotation.removesuffix(" | None")
-            is_required = parameter.default is inspect.Parameter.empty
-            parameter_set.add(ParameterSpec(path, cleaned, is_required))
+        if not isinstance(parameter.annotation, str):
+            # Python 3.9 and below...
+            raise NotImplementedError()
+        annotation = typing.cast(str, parameter.annotation)
+        is_nullable = annotation.endswith(" | None")
+        annotation = annotation.removesuffix(" | None")
+        is_required = parameter.default is inspect.Parameter.empty
+
+        if annotation in _BASE_TYPES:
+            parameter_set.add(ParameterSpec(path, annotation, is_required, is_nullable))
         else:
             raise NotImplementedError()
     return parameter_set

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import yaml
 from cognite.client.data_classes import TimeSeries
-from cognite.client.data_classes.data_modeling import SpaceApply, ViewApply
+from cognite.client.data_classes.data_modeling import ContainerApply, SpaceApply, ViewApply
 
 from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set
 from cognite_toolkit._cdf_tk.validation.read_yaml import (
@@ -59,9 +59,24 @@ class TestParameterSet:
                 SpaceApply,
                 ParameterSpecSet(
                     {
-                        ParameterSpec(("space",), "str", True),
-                        ParameterSpec(("description",), "str", False),
-                        ParameterSpec(("name",), "str", False),
+                        ParameterSpec(("space",), "str", True, False),
+                        ParameterSpec(("description",), "str", False, True),
+                        ParameterSpec(("name",), "str", False, True),
+                    }
+                ),
+            ),
+            (
+                ContainerApply,
+                ParameterSpecSet(
+                    {
+                        ParameterSpec(("space",), "str", True, False),
+                        ParameterSpec(("external_id",), "str", True, True),
+                        ParameterSpec(("properties",), "dict", True, False),
+                        # ParameterSpec(("properties", "type")),
+                        ParameterSpec(("properties", "nullable"), "bool", False, True),
+                        ParameterSpec(("description",), "str", False, True),
+                        ParameterSpec(("name",), "str", False, True),
+                        ParameterSpec(("used_for",), "str", False, True),
                     }
                 ),
             ),
