@@ -39,7 +39,6 @@ Changes are grouped as follows:
 ### Changed
 
 - The `cdf_functions_dummy` module now includes codes from the former `common_function_code` directory.
-- Removed schedule from annotation function `context:files:oid:fileshare:annotation`
 
 ### Fixed
 
