@@ -7,8 +7,11 @@ import re
 import sys
 import types
 import typing
+from collections.abc import Hashable, Iterable, MutableSet
+from dataclasses import dataclass
+from functools import total_ordering
 from pathlib import Path
-from typing import Any, get_origin
+from typing import Any, Generic, TypeVar, get_origin
 
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
@@ -174,3 +177,64 @@ def validate_data_set_is_set(
     value = raw.get(identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}"))
     warning_list.append(DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__))
     return warning_list
+
+
+# These are internal classes that are used by the
+@total_ordering
+@dataclass(frozen=True)
+class Parameter:
+    path: tuple[str | int, ...]
+    type: type
+
+    def __lt__(self, other: Parameter) -> bool:
+        if not isinstance(other, Parameter):
+            return NotImplemented
+        return self.path < other.path
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Parameter):
+            return NotImplemented
+        return self.path == other.path and self.type == other.type
+
+
+@dataclass(frozen=True)
+class ParameterSpec(Parameter):
+    required: bool
+
+
+@dataclass(frozen=True)
+class ParameterValue(Parameter):
+    value: str | int | float | bool | list | dict
+
+
+T_Parameter = TypeVar("T_Parameter", bound=Parameter)
+
+
+class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
+    def __init__(self, iterable: Iterable[T_Parameter] = ()) -> None:
+        self.data: set[T_Parameter] = set(iterable)
+
+    def __hash__(self) -> int:
+        return hash(self.data)
+
+    def __contains__(self, value: object) -> bool:
+        return value in self.data
+
+    def __iter__(self) -> typing.Iterator[T_Parameter]:
+        return iter(self.data)
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __repr__(self) -> str:
+        return repr(self.data)
+
+    def add(self, item: T_Parameter) -> None:
+        self.data.add(item)
+
+    def discard(self, item: T_Parameter) -> None:
+        self.data.discard(item)
+
+
+def read_parameter_from_type_hints(cls: type) -> ParameterSet[ParameterSpec]:
+    raise NotImplementedError("This function is not implemented yet.")
