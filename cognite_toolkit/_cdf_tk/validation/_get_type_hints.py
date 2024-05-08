@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import abc
 import importlib
 import inspect
 import typing
 from collections import Counter
 from typing import Any, get_type_hints
-
-from cognite.client.data_classes._base import CogniteObject
 
 
 class _TypeHints:
@@ -17,7 +16,25 @@ class _TypeHints:
     """
 
     @classmethod
-    def get_type_hints_by_name(cls, signature: inspect.Signature, resource_cls: type[CogniteObject]) -> dict[str, Any]:
+    def get_concrete_classes(cls, resource_cls: type) -> list[type]:
+        """If the resource class is a ABC class, then, this function will return all the concrete classes
+        that are subclasses of the resource class."""
+        is_base_class = inspect.isclass(resource_cls) and any(base is abc.ABC for base in resource_cls.__bases__)
+        if not is_base_class:
+            # Easy case
+            return [resource_cls]
+        concrete_classes = []
+        to_check = list(resource_cls.__subclasses__())
+        while to_check:
+            cls_ = to_check.pop()
+            to_check.extend(cls_.__subclasses__())
+            is_base_class = inspect.isclass(cls_) and any(base is abc.ABC for base in cls_.__bases__)
+            if not is_base_class:
+                concrete_classes.append(cls_)
+        return concrete_classes
+
+    @classmethod
+    def get_type_hints_by_name(cls, resource_cls: type | list[type]) -> dict[str, Any]:
         """
         Get type hints from the init function of a CogniteObject.
 
@@ -25,13 +42,18 @@ class _TypeHints:
             signature: The signature of the init function.
             resource_cls: The resource class to get type hints from.
         """
+        if isinstance(resource_cls, list):
+            return {name: hint for cls_ in resource_cls for name, hint in cls.get_type_hints_by_name(cls_).items()}
+        if not hasattr(resource_cls, "__init__"):
+            return {}
         try:
-            type_hint_by_name = get_type_hints(resource_cls.__init__, localns=cls._type_checking())
+            type_hint_by_name = get_type_hints(resource_cls.__init__, localns=cls._type_checking())  # type: ignore[misc]
         except TypeError:
             # Python 3.10 Type hints cannot be evaluated with get_type_hints,
             # ref https://stackoverflow.com/questions/66006087/how-to-use-typing-get-type-hints-with-pep585-in-python3-8
             resource_module_vars = vars(importlib.import_module(resource_cls.__module__))
             resource_module_vars.update(cls._type_checking())
+            signature = inspect.signature(resource_cls.__init__)  # type: ignore[misc]
             type_hint_by_name = cls._get_type_hints_3_10(resource_module_vars, signature, dict(vars(resource_cls)))
         return type_hint_by_name
 

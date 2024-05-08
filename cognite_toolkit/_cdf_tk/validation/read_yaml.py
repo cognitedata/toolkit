@@ -11,7 +11,7 @@ from collections.abc import Hashable, Iterable, MutableSet
 from dataclasses import dataclass
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, Generic, TypeVar, get_origin
+from typing import Any, ClassVar, Generic, TypeVar, get_origin
 
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
@@ -91,7 +91,7 @@ def _validate_case_raw(
             warning_list.append(SnakeCaseWarning(filepath, identifier_value, identifier_key, str(key), str(camel_key)))
 
     try:
-        type_hints_by_name = _TypeHints.get_type_hints_by_name(signature, resource_cls)
+        type_hints_by_name = _TypeHints.get_type_hints_by_name(resource_cls)
     except Exception:
         # If we cannot get type hints, we cannot check if the type is correct.
         return warning_list
@@ -179,7 +179,7 @@ def validate_data_set_is_set(
     return warning_list
 
 
-# These are internal classes that are used by the
+# These are internal classes that are used by the validate parameter functions.
 @total_ordering
 @dataclass(frozen=True)
 class Parameter:
@@ -240,6 +240,9 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
     def discard(self, item: T_Parameter) -> None:
         self.data.discard(item)
 
+    def update(self, other: ParameterSet[T_Parameter]) -> None:
+        self.data.update(other.data)
+
 
 class ParameterSpecSet(ParameterSet[ParameterSpec]):
     def __init__(self, iterable: Iterable[ParameterSpec] = ()) -> None:
@@ -250,34 +253,103 @@ class ParameterSpecSet(ParameterSet[ParameterSpec]):
     def required(self) -> ParameterSet[ParameterSpec]:
         return ParameterSet[ParameterSpec](parameter for parameter in self if parameter.is_required)
 
+    def update(self, other: ParameterSet[ParameterSpec]) -> None:
+        if isinstance(other, ParameterSpecSet):
+            self.is_complete &= other.is_complete
+        super().update(other)
 
-_BASE_TYPES = {f"{t.__name__}{extra}" for t in (str, int, float, bool) for extra in ("", " | None")}
-_CONTAINER_TYPES = {t.__name__ for t in (list, dict)}
+
+class _TypeHint:
+    _BASE_TYPES: ClassVar[set[str]] = {t.__name__ for t in (str, int, float, bool)}
+    _CONTAINER_TYPES: ClassVar[set[str]] = {t.__name__ for t in (list, dict)}
+
+    def __init__(self, raw: Any) -> None:
+        self.hint = raw
+        self._container_type = get_origin(raw)
+        self.args = typing.get_args(raw)
+        self._inner_container = None
+        if self._container_type:
+            self._inner_container = typing.get_origin(self._container_type)
+            self._inner_args = typing.get_args(self._inner_container)
+
+    def __str__(self) -> str:
+        if self._container_type and self._container_type not in [types.UnionType, typing.Union]:
+            value = self._container_type.__name__
+        else:
+            value = self.arg.__name__
+        if value in self._CONTAINER_TYPES or value in self._BASE_TYPES:
+            return value
+        elif value == "Literal":
+            return "str"
+        return "dict"
+
+    @property
+    def arg(self) -> Any:
+        if (self._container_type in [typing.Union, types.UnionType]) and self.args:
+            if (self._inner_container in [typing.Union, types.UnionType]) and self._inner_args:
+                return self._inner_args[0]
+            else:
+                return self.args[0]
+        return self.hint
+
+    @property
+    def is_base_type(self) -> bool:
+        if self._container_type:
+            if self._container_type is types.UnionType and self.args:
+                return self.args[0].__name__ in self._BASE_TYPES
+            return False
+        return self.hint.__name__ in self._BASE_TYPES
+
+    @property
+    def is_nullable(self) -> bool:
+        return any(arg is None or arg is types.NoneType for arg in self.args)
+
+    @property
+    def is_class(self) -> bool:
+        return inspect.isclass(self.arg)
+
+    @property
+    def is_dict_type(self) -> bool:
+        return self._container_type is dict
+
+    @property
+    def is_list_type(self) -> bool:
+        return self._container_type is list
+
+    def __repr__(self) -> str:
+        return repr(self.arg)
 
 
-def read_parameter_from_init_type_hints(cls: type) -> ParameterSpecSet:
+def read_parameter_from_init_type_hints(cls_: type, path: tuple[str, ...] | None = None) -> ParameterSpecSet:
+    path = tuple() if path is None else path
     parameter_set = ParameterSpecSet()
-    if not hasattr(cls, "__init__"):
-        return parameter_set
-    init_signature = inspect.signature(cls.__init__)  # type: ignore[misc]
-    stack = [((name,), parameter) for name, parameter in init_signature.parameters.items()]
-    while stack:
-        path, parameter = stack.pop()
-        if path == "self":
+    if not hasattr(cls_, "__init__"):
+        return parameter_set  # type: ignore[misc]
+
+    classes = _TypeHints.get_concrete_classes(cls_)
+    type_hints_by_name = _TypeHints.get_type_hints_by_name(classes)
+    parameters = {k: v for cls in classes for k, v in inspect.signature(cls.__init__).parameters.items()}  # type: ignore[misc]
+    for name, parameter in parameters.items():
+        if name == "self":
             continue
-        if parameter.annotation is inspect.Parameter.empty:
+        if name not in type_hints_by_name:
+            # This is a parameter that is not in the type hints.
             parameter_set.is_complete = False
             continue
-        if not isinstance(parameter.annotation, str):
-            # Python 3.9 and below...
-            raise NotImplementedError()
-        annotation = typing.cast(str, parameter.annotation)
-        is_nullable = annotation.endswith(" | None")
-        annotation = annotation.removesuffix(" | None")
+        hint = _TypeHint(type_hints_by_name[name])
         is_required = parameter.default is inspect.Parameter.empty
-
-        if annotation in _BASE_TYPES:
-            parameter_set.add(ParameterSpec(path, annotation, is_required, is_nullable))
-        else:
+        is_nullable = hint.is_nullable
+        parameter_set.add(ParameterSpec((*path, name), str(hint), is_required, is_nullable))
+        if hint.is_base_type:
+            continue
+        elif hint.is_dict_type:
+            key, value = hint.args
+            dict_set = read_parameter_from_init_type_hints(value, (*path, name))
+            parameter_set.update(dict_set)
+        if hint.is_list_type:
             raise NotImplementedError()
+        elif hint.is_class:
+            cls_set = read_parameter_from_init_type_hints(hint.arg, (*path, name))
+            parameter_set.update(cls_set)
+
     return parameter_set
