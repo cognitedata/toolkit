@@ -101,8 +101,12 @@ class TestParameterSet:
                         ),
                         ParameterSpec(("constraints", "require", "space"), "str", True, False),
                         ParameterSpec(("constraints", "require", "external_id"), "str", True, False),
-                        ParameterSpec(("constraints", "require", "type"), "str", True, False),
+                        ParameterSpec(("constraints", "properties"), "list", True, False),
+                        ParameterSpec(("constraints", "properties", 0), "str", True, False),
                         ParameterSpec(("indexes",), "dict", False, True),
+                        ParameterSpec(("indexes", "properties"), "list", True, False),
+                        ParameterSpec(("indexes", "properties", 0), "str", True, False),
+                        ParameterSpec(("indexes", "cursorable"), "bool", False, False),
                     }
                 ),
             ),

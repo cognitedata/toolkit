@@ -264,13 +264,16 @@ class _TypeHint:
     _CONTAINER_TYPES: ClassVar[set[str]] = {t.__name__ for t in (list, dict)}
 
     def __init__(self, raw: Any) -> None:
-        self.hint = raw
+        self.raw = raw
         self._container_type = get_origin(raw)
         self.args = typing.get_args(raw)
-        self._inner_container = None
-        if self._container_type:
-            self._inner_container = typing.get_origin(self._container_type)
-            self._inner_args = typing.get_args(self._inner_container)
+        self._is_nullable = False
+        if self._container_type in [types.UnionType, typing.Union] and self.args:
+            inner_container = typing.get_origin(self.args[0])
+            if inner_container:
+                self._is_nullable = any(arg in [None, types.NoneType] for arg in self.args)
+                self._container_type = inner_container
+                self.args = typing.get_args(self.args[0])
 
     def __str__(self) -> str:
         if self._container_type and self._container_type not in [types.UnionType, typing.Union]:
@@ -286,23 +289,16 @@ class _TypeHint:
     @property
     def arg(self) -> Any:
         if (self._container_type in [typing.Union, types.UnionType]) and self.args:
-            if (self._inner_container in [typing.Union, types.UnionType]) and self._inner_args:
-                return self._inner_args[0]
-            else:
-                return self.args[0]
-        return self.hint
+            return self.args[0]
+        return self.raw
 
     @property
     def is_base_type(self) -> bool:
-        if self._container_type:
-            if self._container_type is types.UnionType and self.args:
-                return self.args[0].__name__ in self._BASE_TYPES
-            return False
-        return self.hint.__name__ in self._BASE_TYPES
+        return str(self) in self._BASE_TYPES
 
     @property
     def is_nullable(self) -> bool:
-        return any(arg is None or arg is types.NoneType for arg in self.args)
+        return self._is_nullable or any(arg is None or arg is types.NoneType for arg in self.args)
 
     @property
     def is_class(self) -> bool:
@@ -320,7 +316,7 @@ class _TypeHint:
         return repr(self.arg)
 
 
-def read_parameter_from_init_type_hints(cls_: type, path: tuple[str, ...] | None = None) -> ParameterSpecSet:
+def read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...] | None = None) -> ParameterSpecSet:
     path = tuple() if path is None else path
     parameter_set = ParameterSpecSet()
     if not hasattr(cls_, "__init__"):
@@ -330,13 +326,14 @@ def read_parameter_from_init_type_hints(cls_: type, path: tuple[str, ...] | None
     type_hints_by_name = _TypeHints.get_type_hints_by_name(classes)
     parameters = {k: v for cls in classes for k, v in inspect.signature(cls.__init__).parameters.items()}  # type: ignore[misc]
     for name, parameter in parameters.items():
-        if name == "self":
+        if name == "self" or parameter.kind is parameter.VAR_POSITIONAL or parameter.kind is parameter.VAR_KEYWORD:
             continue
-        if name not in type_hints_by_name:
-            # This is a parameter that is not in the type hints.
+        try:
+            hint = _TypeHint(type_hints_by_name[name])
+        except KeyError:
+            # Missing type hint
             parameter_set.is_complete = False
             continue
-        hint = _TypeHint(type_hints_by_name[name])
         is_required = parameter.default is inspect.Parameter.empty
         is_nullable = hint.is_nullable
         parameter_set.add(ParameterSpec((*path, name), str(hint), is_required, is_nullable))
@@ -347,7 +344,12 @@ def read_parameter_from_init_type_hints(cls_: type, path: tuple[str, ...] | None
             dict_set = read_parameter_from_init_type_hints(value, (*path, name))
             parameter_set.update(dict_set)
         if hint.is_list_type:
-            raise NotImplementedError()
+            item_hint = _TypeHint(hint.args[0])
+            if item_hint.is_base_type:
+                parameter_set.add(ParameterSpec((*path, name, 0), str(item_hint), is_required, is_nullable))
+            else:
+                list_set = read_parameter_from_init_type_hints(hint.args[0], (*path, name, 0))
+                parameter_set.update(list_set)
         elif hint.is_class:
             cls_set = read_parameter_from_init_type_hints(hint.arg, (*path, name))
             parameter_set.update(cls_set)
