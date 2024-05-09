@@ -6,7 +6,7 @@ from typing import Any
 from .constants import BASE_TYPES, CONTAINER_TYPES
 from .data_classes import ParameterSet, ParameterSpec, ParameterSpecSet, ParameterValue
 from .get_type_hints import _TypeHints
-from .type_hint import TypeHint
+from .type_hint import ANY_INT, ANY_STR, TypeHint
 
 
 def read_parameter_from_init_type_hints(cls_: type) -> ParameterSpecSet:
@@ -47,31 +47,39 @@ def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...]
         # We iterate as we might have union types
         for sub_hint in hint.sub_hints:
             if sub_hint.is_dict_type:
-                key, value = sub_hint.container_args
-                dict_set = _read_parameter_from_init_type_hints(value, (*path, name), seen.copy())
+                _, value = sub_hint.container_args
+                dict_set = _read_parameter_from_init_type_hints(value, (*path, name, ANY_STR), seen.copy())
                 parameter_set.update(dict_set)
             if sub_hint.is_list_type:
                 item = sub_hint.container_args[0]
                 item_hint = TypeHint(item)
                 if item_hint.is_base_type:
-                    parameter_set.add(ParameterSpec((*path, name, 0), item_hint.frozen_types, is_required, is_nullable))
+                    parameter_set.add(
+                        ParameterSpec((*path, name, ANY_INT), item_hint.frozen_types, is_required, is_nullable)
+                    )
                 elif item_hint.is_union:
                     for subsub_hint in item_hint.sub_hints:
                         if subsub_hint.is_class:
                             cls_set = _read_parameter_from_init_type_hints(
-                                subsub_hint.args[0], (*path, name, 0), seen.copy()
+                                subsub_hint.args[0], (*path, name, ANY_INT), seen.copy()
                             )
                             parameter_set.update(cls_set)
                         elif subsub_hint.is_dict_type:
-                            key, value = subsub_hint.container_args
-                            dict_set = _read_parameter_from_init_type_hints(value, (*path, name, 0), seen.copy())
+                            _, value = subsub_hint.container_args
+                            dict_set = _read_parameter_from_init_type_hints(
+                                value, (*path, name, ANY_STR, ANY_INT), seen.copy()
+                            )
                             parameter_set.update(dict_set)
                         else:
                             raise NotImplementedError()
                 elif item.__name__ in seen:
-                    parameter_set.add(ParameterSpec((*path, name, 0), frozenset({"dict"}), is_required, is_nullable))
+                    parameter_set.add(
+                        ParameterSpec((*path, name, ANY_INT), frozenset({"dict"}), is_required, is_nullable)
+                    )
                 else:
-                    list_set = _read_parameter_from_init_type_hints(sub_hint.args[0], (*path, name, 0), seen.copy())
+                    list_set = _read_parameter_from_init_type_hints(
+                        sub_hint.args[0], (*path, name, ANY_INT), seen.copy()
+                    )
                     parameter_set.update(list_set)
             elif sub_hint.is_class:
                 arg = sub_hint.args[0]

@@ -100,3 +100,21 @@ class TypeHint:
             if self._is_none_type(arg):
                 continue
             yield TypeHint(arg)
+
+
+class AnyInt(int):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, int):
+            return True
+        return NotImplemented
+
+
+class AnyStr(str):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, str):
+            return True
+        return NotImplemented
+
+
+ANY_INT = AnyInt()
+ANY_STR = AnyStr()
