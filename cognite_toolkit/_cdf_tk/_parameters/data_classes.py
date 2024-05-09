@@ -10,7 +10,7 @@ from typing import AbstractSet, Generic, TypeVar, final  # noqa: UP035
 
 from cognite.client.utils._text import to_camel_case
 
-from .type_hint import ANY_INT, ANY_STR
+from .constants import SINGLETONS
 
 
 @total_ordering
@@ -30,7 +30,7 @@ class Parameter:
 
     @property
     def has_any_type(self) -> bool:
-        return any(name in {ANY_STR, ANY_INT} for name in self.path)
+        return any(name in SINGLETONS for name in self.path)
 
 
 @final
@@ -161,7 +161,7 @@ class ParameterSpecSet(ParameterSet[ParameterSpec]):
     def as_camel_case(self) -> ParameterSpecSet:
         output = ParameterSpecSet(
             ParameterSpec(
-                tuple(to_camel_case(name) if name not in {ANY_STR, ANY_INT} else name for name in parameter.path),
+                tuple(to_camel_case(name) if name not in SINGLETONS else name for name in parameter.path),
                 parameter.types,
                 parameter.is_required,
                 parameter._is_nullable,

@@ -3,10 +3,10 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-from .constants import BASE_TYPES, CONTAINER_TYPES
+from .constants import ANY_INT, ANY_STR, ANYTHING, BASE_TYPES, CONTAINER_TYPES
 from .data_classes import ParameterSet, ParameterSpec, ParameterSpecSet, ParameterValue
 from .get_type_hints import _TypeHints
-from .type_hint import ANY_INT, ANY_STR, TypeHint
+from .type_hint import TypeHint
 
 
 def read_parameter_from_init_type_hints(cls_: type) -> ParameterSpecSet:
@@ -70,7 +70,14 @@ class ParameterFromInitTypeHints:
     def _create_parameter_spec_dict(
         self, hint: TypeHint, parent_name: str, path: tuple[str | int, ...], seen: set[str]
     ) -> None:
-        key, value = hint.container_args
+        try:
+            key, value = hint.container_args
+        except ValueError:
+            # There are no type hints for the dict
+            self.parameter_set.add(
+                ParameterSpec((*path, parent_name, ANYTHING), frozenset({"dict"}), is_required=False, _is_nullable=True)
+            )
+            return
         if key is not str:
             raise NotImplementedError("Only string keys are supported")
         value_hint = TypeHint(value)
