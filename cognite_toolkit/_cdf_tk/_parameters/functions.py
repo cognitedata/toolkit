@@ -53,10 +53,15 @@ class ParameterFromInitTypeHints:
             is_nullable = hint.is_nullable or parameter.default is None
             self.parameter_set.add(ParameterSpec((*path, name), hint.frozen_types, is_required, is_nullable))
             if not hint.is_base_type:
-                self._create_nested_parameters(name, is_required, hint, path, seen)
+                self._create_nested_parameters((name,), is_required, hint, path, seen)
 
     def _create_nested_parameters(
-        self, parent_name: str, is_parent_required: bool, hint: TypeHint, path: tuple[str | int, ...], seen: set[str]
+        self,
+        parent_name: tuple[str | int, ...],
+        is_parent_required: bool,
+        hint: TypeHint,
+        path: tuple[str | int, ...],
+        seen: set[str],
     ) -> None:
         for sub_hint in hint.sub_hints:
             if sub_hint.is_dict_type:
@@ -68,7 +73,7 @@ class ParameterFromInitTypeHints:
         return None
 
     def _create_parameter_spec_dict(
-        self, hint: TypeHint, parent_name: str, path: tuple[str | int, ...], seen: set[str]
+        self, hint: TypeHint, parent_name: tuple[str | int, ...], path: tuple[str | int, ...], seen: set[str]
     ) -> None:
         try:
             key, value = hint.container_args
@@ -76,7 +81,7 @@ class ParameterFromInitTypeHints:
             # There are no type hints for the dict
             self.parameter_set.add(
                 ParameterSpec(
-                    (*path, parent_name, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=True
+                    (*path, *parent_name, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=True
                 )
             )
             return
@@ -86,17 +91,22 @@ class ParameterFromInitTypeHints:
         if value_hint.is_base_type:
             self.parameter_set.add(
                 ParameterSpec(
-                    (*path, parent_name, ANY_STR),
+                    (*path, *parent_name, ANY_STR),
                     value_hint.frozen_types,
                     is_required=False,
                     _is_nullable=value_hint.is_nullable,
                 )
             )
         else:
-            self._read(value, (*path, parent_name, ANY_STR), seen.copy())
+            self._read(value, (*path, *parent_name, ANY_STR), seen.copy())
 
     def _create_parameter_spec_list(
-        self, hint: TypeHint, parent_name: str, parent_is_required: bool, path: tuple[str | int, ...], seen: set[str]
+        self,
+        hint: TypeHint,
+        parent_name: tuple[str | int, ...],
+        parent_is_required: bool,
+        path: tuple[str | int, ...],
+        seen: set[str],
     ) -> None:
         try:
             item = hint.container_args[0]
@@ -104,7 +114,7 @@ class ParameterFromInitTypeHints:
             # There are no type hints for the list
             self.parameter_set.add(
                 ParameterSpec(
-                    (*path, parent_name, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=True
+                    (*path, *parent_name, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=True
                 )
             )
             return
@@ -112,7 +122,7 @@ class ParameterFromInitTypeHints:
         if item_hint.is_base_type:
             self.parameter_set.add(
                 ParameterSpec(
-                    (*path, parent_name, ANY_INT),
+                    (*path, *parent_name, ANY_INT),
                     item_hint.frozen_types,
                     is_required=False,
                     _is_nullable=item_hint.is_nullable,
@@ -120,22 +130,27 @@ class ParameterFromInitTypeHints:
             )
         else:
             self._create_nested_parameters(
-                parent_name, parent_is_required, item_hint, (*path, parent_name, ANY_INT), seen.copy()
+                tuple(), parent_is_required, item_hint, (*path, *parent_name, ANY_INT), seen.copy()
             )
 
     def _create_parameter_spec_class(
-        self, hint: TypeHint, parent_name: str, parent_is_required: bool, path: tuple[str | int, ...], seen: set[str]
+        self,
+        hint: TypeHint,
+        parent_name: tuple[str | int, ...],
+        parent_is_required: bool,
+        path: tuple[str | int, ...],
+        seen: set[str],
     ) -> None:
         cls_ = hint.args[0]
         if cls_.__name__ in seen:
             # This is to avoid infinite recursion
             self.parameter_set.add(
                 ParameterSpec(
-                    (*path, parent_name), frozenset({"dict"}), parent_is_required, _is_nullable=hint.is_nullable
+                    (*path, *parent_name), frozenset({"dict"}), parent_is_required, _is_nullable=hint.is_nullable
                 )
             )
         else:
-            self._read(cls_, (*path, parent_name), seen.copy())
+            self._read(cls_, (*path, *parent_name), seen.copy())
 
 
 def read_parameters_from_dict(raw: dict) -> ParameterSet[ParameterValue]:
