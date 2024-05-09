@@ -76,6 +76,13 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
     def __init__(self, iterable: Iterable[T_Parameter] = ()) -> None:
         self.data: set[T_Parameter] = set(iterable)
 
+    def subset(self, path: tuple[str | int, ...] | int) -> ParameterSet[T_Parameter]:
+        if isinstance(path, tuple):
+            return type(self)(parameter for parameter in self if parameter.path[: len(path)] == path)
+        elif isinstance(path, int):
+            return type(self)(parameter for parameter in self if len(parameter.path) <= path)
+        raise TypeError(f"Expected tuple or int, got {type(path)}")
+
     def __hash__(self) -> int:
         return hash(self.data)
 
