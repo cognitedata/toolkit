@@ -6,7 +6,7 @@ import typing
 from typing import Any, ClassVar, get_origin
 
 
-class _TypeHint:
+class TypeHint:
     _BASE_TYPES: ClassVar[set[str]] = {t.__name__ for t in (str, int, float, bool)}
     _CONTAINER_TYPES: ClassVar[set[str]] = {t.__name__ for t in (list, dict)}
 

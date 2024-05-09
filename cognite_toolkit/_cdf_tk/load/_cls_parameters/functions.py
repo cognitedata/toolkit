@@ -4,7 +4,7 @@ import inspect
 
 from .data_classes import ParameterSpec, ParameterSpecSet
 from .get_type_hints import _TypeHints
-from .type_hint import _TypeHint
+from .type_hint import TypeHint
 
 
 def read_parameter_from_init_type_hints(cls_: type) -> ParameterSpecSet:
@@ -25,7 +25,7 @@ def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...]
         if name == "self" or parameter.kind is parameter.VAR_POSITIONAL or parameter.kind is parameter.VAR_KEYWORD:
             continue
         try:
-            hint = _TypeHint(type_hints_by_name[name])
+            hint = TypeHint(type_hints_by_name[name])
         except KeyError:
             # Missing type hint
             parameter_set.is_complete = False
@@ -40,7 +40,7 @@ def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...]
             dict_set = _read_parameter_from_init_type_hints(value, (*path, name), seen.copy())
             parameter_set.update(dict_set)
         if hint.is_list_type:
-            item_hint = _TypeHint(hint.args[0])
+            item_hint = TypeHint(hint.args[0])
             if item_hint.is_base_type:
                 parameter_set.add(ParameterSpec((*path, name, 0), str(item_hint), is_required, is_nullable))
             elif hint.arg.__name__ in seen:
