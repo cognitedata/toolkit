@@ -22,6 +22,8 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
+    LOADER_LIST,
+    RESOURCE_LOADER_LIST,
     AuthLoader,
     DataModelLoader,
     DatapointsLoader,
@@ -29,7 +31,6 @@ from cognite_toolkit._cdf_tk.load import (
     FileMetadataLoader,
     FunctionLoader,
     Loader,
-    ResourceContainerLoader,
     ResourceLoader,
     ResourceTypes,
     TimeSeriesLoader,
@@ -562,37 +563,8 @@ class TestDeployResources:
         assert actual_order == expected_order
 
 
-RESOURCE_LOADERS = sorted(
-    [
-        pytest.param(loader, id=loader.__name__)
-        for loaders in LOADER_BY_FOLDER_NAME.values()
-        for loader in loaders
-        if issubclass(loader, ResourceLoader)
-    ],
-    key=lambda x: x.id,
-)
-RESOURCE_CONTAINER_LOADERS = sorted(
-    [
-        pytest.param(loader, id=loader.__name__)
-        for loaders in LOADER_BY_FOLDER_NAME.values()
-        for loader in loaders
-        if issubclass(loader, ResourceContainerLoader)
-    ],
-    key=lambda x: x.id,
-)
-ALL_LOADERS = sorted(
-    [
-        pytest.param(loader, id=loader.__name__)
-        for loaders in LOADER_BY_FOLDER_NAME.values()
-        for loader in loaders
-        if issubclass(loader, Loader)
-    ],
-    key=lambda x: x.id,
-)
-
-
 class TestFormatConsistency:
-    @pytest.mark.parametrize("Loader", RESOURCE_LOADERS)
+    @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_fake_resource_generator(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
@@ -603,7 +575,7 @@ class TestFormatConsistency:
 
         assert isinstance(instance, loader.resource_write_cls)
 
-    @pytest.mark.parametrize("Loader", RESOURCE_LOADERS)
+    @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_dict(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
@@ -627,7 +599,7 @@ class TestFormatConsistency:
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
 
-    @pytest.mark.parametrize("Loader", RESOURCE_LOADERS)
+    @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_list(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
@@ -660,7 +632,7 @@ class TestFormatConsistency:
         except requests.exceptions.RequestException:
             return False
 
-    @pytest.mark.parametrize("Loader", ALL_LOADERS)
+    @pytest.mark.parametrize("Loader", LOADER_LIST)
     def test_loader_has_doc_url(self, Loader: type[Loader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = Loader.create_loader(cdf_tool_config)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
@@ -675,3 +647,10 @@ def test_resource_types_is_up_to_date() -> None:
     extra = actual - expected
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"
+
+
+class TestResourceLoaders:
+    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
+    def test_get_container_spec(self, loader_cls: type[ResourceLoader]):
+        _ = FakeCogniteResourceGenerator(seed=1337).create_instance(loader_cls.resource_write_cls)
+        assert True

@@ -4,6 +4,7 @@ import re
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Sequence, Sized
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Generic, TypeVar, Union, cast
 
@@ -25,6 +26,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
+from ._cls_parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from .data_classes import (
     DatapointDeployResult,
     DeployResult,
@@ -237,6 +239,11 @@ class ResourceLoader(
     @abstractmethod
     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        return read_parameter_from_init_type_hints(cls.resource_write_cls)
 
     def deploy_resources(
         self,
