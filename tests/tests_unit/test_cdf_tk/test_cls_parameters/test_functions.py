@@ -128,6 +128,16 @@ class TestReadParameterFromDict:
                         ParameterValue(("name",), frozenset({"str"}), "Asset"),
                         ParameterValue(("space",), frozenset({"str"}), "sp_asset_space"),
                         ParameterValue(("usedFor",), frozenset({"str"}), "node"),
+                        ParameterValue(("properties",), frozenset({"dict"}), None),
+                        ParameterValue(
+                            (
+                                "properties",
+                                "metadata",
+                            ),
+                            frozenset({"dict"}),
+                            None,
+                        ),
+                        ParameterValue(("properties", "metadata", "type"), frozenset({"dict"}), None),
                         ParameterValue(("properties", "metadata", "type", "list"), frozenset({"bool"}), False),
                         ParameterValue(("properties", "metadata", "type", "type"), frozenset({"str"}), "json"),
                         ParameterValue(("properties", "metadata", "nullable"), frozenset({"bool"}), False),
@@ -144,4 +154,4 @@ class TestReadParameterFromDict:
     def test_read_expected(self, raw: dict, expected: ParameterSet[ParameterValue]):
         actual = read_parameters_from_dict(raw)
 
-        assert actual == expected
+        assert sorted(actual) == sorted(expected)

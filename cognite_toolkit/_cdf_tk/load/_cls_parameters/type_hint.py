@@ -4,14 +4,12 @@ import inspect
 import types
 import typing
 from collections.abc import Iterable
-from typing import Any, ClassVar, get_origin
+from typing import Any, get_origin
+
+from .constants import BASE_TYPES, TYPES
 
 
 class TypeHint:
-    _BASE_TYPES: ClassVar[set[str]] = {t.__name__ for t in (str, int, float, bool)}
-    _CONTAINER_TYPES: ClassVar[set[str]] = {t.__name__ for t in (list, dict)}
-    _TYPES: ClassVar[set[str]] = _BASE_TYPES | _CONTAINER_TYPES
-
     def __init__(self, raw: Any) -> None:
         self.raw = raw
         self._container_type = get_origin(raw)
@@ -35,7 +33,7 @@ class TypeHint:
     @classmethod
     def _as_str(cls, arg: Any) -> str:
         value = arg.__name__
-        if value in cls._TYPES:
+        if value in TYPES:
             return value
         elif value == "Literal":
             return "str"
@@ -51,7 +49,7 @@ class TypeHint:
 
     @property
     def is_base_type(self) -> bool:
-        return any(type_ in self._BASE_TYPES for type_ in self.types)
+        return any(type_ in BASE_TYPES for type_ in self.types)
 
     @property
     def is_nullable(self) -> bool:

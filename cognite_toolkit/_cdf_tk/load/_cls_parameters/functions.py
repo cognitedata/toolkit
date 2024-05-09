@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import inspect
+from typing import Any
 
+from .constants import BASE_TYPES, CONTAINER_TYPES
 from .data_classes import ParameterSet, ParameterSpec, ParameterSpecSet, ParameterValue
 from .get_type_hints import _TypeHints
 from .type_hint import TypeHint
@@ -64,4 +66,29 @@ def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...]
 
 
 def read_parameters_from_dict(raw: dict) -> ParameterSet[ParameterValue]:
-    raise NotImplementedError()
+    return _read_parameters_from_raw(raw, tuple())
+
+
+def _read_parameters_from_raw(raw: dict | list | Any, path: tuple[str | int, ...]) -> ParameterSet[ParameterValue]:
+    parameter_set = ParameterSet[ParameterValue]()
+    if type(raw).__name__ in BASE_TYPES:
+        parameter_set.add(ParameterValue(path, frozenset({type(raw).__name__}), raw))  # type: ignore[arg-type]
+        return parameter_set
+    if isinstance(raw, list):
+        for i, item in enumerate(raw):
+            parameter_set.update(_read_parameters_from_raw(item, (*path, i)))
+        return parameter_set
+    if isinstance(raw, dict):
+        for key, value in raw.items():
+            type_ = type(value).__name__
+            if type_ in BASE_TYPES:
+                parameter_set.add(ParameterValue((*path, key), frozenset({type_}), value))
+            elif type_ in CONTAINER_TYPES:
+                # We cannot include the value type for containers as it is not hashable
+                parameter_set.add(ParameterValue((*path, key), frozenset({type_}), None))
+            if isinstance(value, dict):
+                parameter_set.update(_read_parameters_from_raw(value, (*path, key)))
+            elif isinstance(value, list):
+                for i, item in enumerate(value):
+                    parameter_set.update(_read_parameters_from_raw(item, (*path, key, i)))
+    return parameter_set

@@ -36,7 +36,7 @@ class ParameterSpec(Parameter):
 
 @dataclass(frozen=True)
 class ParameterValue(Parameter):
-    value: str | int | float | bool | list | dict
+    value: str | int | float | bool | None
 
 
 T_Parameter = TypeVar("T_Parameter", bound=Parameter)
