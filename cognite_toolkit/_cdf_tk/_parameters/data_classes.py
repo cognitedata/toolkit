@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from functools import total_ordering
 from typing import Generic, TypeVar, final
 
+from cognite.client.utils._text import to_camel_case
+
 
 @total_ordering
 @dataclass(frozen=True)
@@ -119,6 +121,19 @@ class ParameterSpecSet(ParameterSet[ParameterSpec]):
     @property
     def required(self) -> ParameterSet[ParameterSpec]:
         return ParameterSet[ParameterSpec](parameter for parameter in self if parameter.is_required)
+
+    def as_camel_case(self) -> ParameterSpecSet:
+        output = ParameterSpecSet(
+            ParameterSpec(
+                tuple(to_camel_case(name) for name in parameter.path),
+                parameter.types,
+                parameter.is_required,
+                parameter._is_nullable,
+            )
+            for parameter in self
+        )
+        output.is_complete = self.is_complete
+        return output
 
     def update(self, other: ParameterSet[ParameterSpec]) -> None:
         if isinstance(other, ParameterSpecSet):

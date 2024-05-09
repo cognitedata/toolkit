@@ -243,7 +243,7 @@ class ResourceLoader(
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        return read_parameter_from_init_type_hints(cls.resource_write_cls)
+        return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
 
     def deploy_resources(
         self,

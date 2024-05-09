@@ -19,6 +19,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk._parameters import ParameterSet, ParameterValue, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
@@ -653,6 +654,13 @@ class TestResourceLoaders:
     @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
     def test_get_container_spec(self, loader_cls: type[ResourceLoader]):
         resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader_cls.resource_write_cls)
-        _ = resource.dump(camel_case=True)
 
-        _ = loader_cls.get_write_cls_parameter_spec()
+        dumped = read_parameters_from_dict(resource.dump(camel_case=True))
+        spec = loader_cls.get_write_cls_parameter_spec()
+
+        extra = dumped - spec
+
+        # The spec is calculated based on the resource class __init__ method.
+        # There can be deviations in the output from the dump. If that is the case
+        # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the ContainerLoader.
+        assert sorted(extra) == sorted(ParameterSet[ParameterValue]({}))
