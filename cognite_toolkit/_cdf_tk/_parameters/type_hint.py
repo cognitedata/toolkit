@@ -102,11 +102,20 @@ class TypeHint:
             yield TypeHint(arg)
 
 
-class AnyInt(int):
+class _AnyInt(int):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, int):
             return True
         return NotImplemented
+
+    def __hash__(self) -> int:
+        return id(ANY_INT)
+
+    def __str__(self) -> str:
+        return "AnyInt"
+
+    def __repr__(self) -> str:
+        return "AnyInt"
 
 
 class AnyStr(str):
@@ -115,6 +124,15 @@ class AnyStr(str):
             return True
         return NotImplemented
 
+    def __hash__(self) -> int:
+        return id(ANY_STR)
 
-ANY_INT = AnyInt()
+    def __str__(self) -> str:
+        return "AnyStr"
+
+    def __repr__(self) -> str:
+        return "AnyStr"
+
+
+ANY_INT = _AnyInt()
 ANY_STR = AnyStr()
