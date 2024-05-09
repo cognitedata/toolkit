@@ -100,8 +100,8 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
     def update(self, other: ParameterSet[T_Parameter]) -> None:
         self.data.update(other.data)
 
-    # def difference(self, other: ParameterSet[T_Parameter]) -> ParameterSet[T_Parameter]:
-    #     return type(self)(self.data.difference(other.data))
+    def difference(self, other: ParameterSet[T_Parameter]) -> ParameterSet[T_Parameter]:
+        return type(self)(self.data.difference(other.data))
 
 
 class ParameterSpecSet(ParameterSet[ParameterSpec]):
