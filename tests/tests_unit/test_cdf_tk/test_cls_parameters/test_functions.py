@@ -34,7 +34,7 @@ class TestReadParameterFromTypeHints:
                         ParameterSpec(("properties", "nullable"), frozenset({"bool"}), False, False),
                         ParameterSpec(("properties", "auto_increment"), frozenset({"bool"}), False, False),
                         ParameterSpec(("properties", "name"), frozenset({"str"}), False, True),
-                        ParameterSpec(("properties", "default_value"), frozenset({"str"}), False, True),
+                        ParameterSpec(("properties", "default_value"), frozenset({"str", "int", "dict"}), False, True),
                         ParameterSpec(("properties", "description"), frozenset({"str"}), False, True),
                         ParameterSpec(("properties", "type", "collation"), frozenset({"str"}), False, False),
                         ParameterSpec(("properties", "type", "container"), frozenset({"dict"}), False, True),

@@ -39,7 +39,7 @@ def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...]
         # We iterate as we might have union types
         for sub_hint in hint.sub_hints:
             if sub_hint.is_dict_type:
-                key, value = hint.container_args
+                key, value = sub_hint.container_args
                 dict_set = _read_parameter_from_init_type_hints(value, (*path, name), seen.copy())
                 parameter_set.update(dict_set)
             if sub_hint.is_list_type:

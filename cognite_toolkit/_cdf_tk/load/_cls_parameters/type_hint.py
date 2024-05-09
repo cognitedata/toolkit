@@ -77,7 +77,7 @@ class TypeHint:
 
     @property
     def container_args(self) -> tuple[Any, ...]:
-        return typing.get_args(get_origin(self.args[0]))
+        return typing.get_args(self.args[0])
 
     def __repr__(self) -> str:
         return repr(self.raw)
@@ -87,7 +87,4 @@ class TypeHint:
         for arg in self.args:
             if self._is_none_type(arg):
                 continue
-            if origin := get_origin(arg):
-                yield TypeHint(origin)
-            else:
-                yield TypeHint(arg)
+            yield TypeHint(arg)
