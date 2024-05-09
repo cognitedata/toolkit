@@ -25,7 +25,7 @@ class TypeHint:
     @classmethod
     def _is_union(cls, x: Any) -> bool:
         try:
-            return x in [types.UnionType, typing.Union]
+            return x in [types.UnionType, typing.Union]  # type: ignore[attr-defined]
         except AttributeError:
             # Python 3.9
             return x is typing.Union
@@ -33,7 +33,7 @@ class TypeHint:
     @classmethod
     def _is_none_type(cls, x: Any) -> bool:
         try:
-            return x in [None, types.NoneType]
+            return x in [None, types.NoneType]  # type: ignore[attr-defined]
         except AttributeError:
             # Python 3.9
             return x is None
