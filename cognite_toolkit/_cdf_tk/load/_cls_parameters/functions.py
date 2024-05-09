@@ -49,6 +49,19 @@ def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...]
                 item_hint = TypeHint(item)
                 if item_hint.is_base_type:
                     parameter_set.add(ParameterSpec((*path, name, 0), item_hint.frozen_types, is_required, is_nullable))
+                elif item_hint.is_union:
+                    for subsub_hint in item_hint.sub_hints:
+                        if subsub_hint.is_class:
+                            cls_set = _read_parameter_from_init_type_hints(
+                                subsub_hint.args[0], (*path, name, 0), seen.copy()
+                            )
+                            parameter_set.update(cls_set)
+                        elif subsub_hint.is_dict_type:
+                            key, value = subsub_hint.container_args
+                            dict_set = _read_parameter_from_init_type_hints(value, (*path, name, 0), seen.copy())
+                            parameter_set.update(dict_set)
+                        else:
+                            raise NotImplementedError()
                 elif item.__name__ in seen:
                     parameter_set.add(ParameterSpec((*path, name, 0), frozenset({"dict"}), is_required, is_nullable))
                 else:
