@@ -293,3 +293,4 @@ cognite_toolkit/config.local.yaml
 **/.venv*
 .venv.*
 build.*
+cognite_toolkit/.env.*
