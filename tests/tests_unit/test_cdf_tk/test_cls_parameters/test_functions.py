@@ -1,8 +1,7 @@
 import pytest
 from cognite.client.data_classes.data_modeling import ContainerApply, SpaceApply
 
-from cognite_toolkit._cdf_tk.load import RESOURCE_LOADER_LIST, ResourceLoader
-from cognite_toolkit._cdf_tk.load._cls_parameters import (
+from cognite_toolkit._cdf_tk._cls_parameters import (
     ParameterSet,
     ParameterSpec,
     ParameterSpecSet,
@@ -10,6 +9,7 @@ from cognite_toolkit._cdf_tk.load._cls_parameters import (
     read_parameter_from_init_type_hints,
     read_parameters_from_dict,
 )
+from cognite_toolkit._cdf_tk.load import RESOURCE_LOADER_LIST, ResourceLoader
 
 
 class TestReadParameterFromTypeHints:
