@@ -17,9 +17,9 @@ class TestReadParameterFromTypeHints:
                 SpaceApply,
                 ParameterSpecSet(
                     {
-                        ParameterSpec(("space",), "str", True, False),
-                        ParameterSpec(("description",), "str", False, True),
-                        ParameterSpec(("name",), "str", False, True),
+                        ParameterSpec(("space",), frozenset({"str"}), True, False),
+                        ParameterSpec(("description",), frozenset({"str"}), False, True),
+                        ParameterSpec(("name",), frozenset({"str"}), False, True),
                     }
                 ),
             ),

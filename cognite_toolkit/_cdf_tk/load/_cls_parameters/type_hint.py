@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import types
 import typing
+from collections.abc import Iterable
 from typing import Any, ClassVar, get_origin
 
 
@@ -19,14 +20,6 @@ class TypeHint:
             self.args = typing.get_args(raw)
         else:
             self.args = (raw,)
-
-        # self._is_nullable = False
-        # if self._is_union(self._container_type) and self.args:
-        #     inner_container = typing.get_origin(self.args[0])
-        #     if inner_container:
-        #         self._is_nullable = any(arg in [None, types.NoneType] for arg in self.args)
-        #         self._container_type = inner_container
-        #         self.args = typing.get_args(self.args[0])
 
     def __str__(self) -> str:
         return ",".join(self.types)
@@ -52,15 +45,9 @@ class TypeHint:
     def types(self) -> list[str]:
         return [self._as_str(arg) for arg in self.args if not self._is_none_type(arg)]
 
-    # @property
-    # def arg(self) -> Any:
-    #     if self._is_union(self._container_type) and self.args:
-    #         value = self.args[0]
-    #     else:
-    #         value = self.raw
-    #     if self._is_union(value):
-    #         value = value.__args__[0]
-    #     return value
+    @property
+    def frozen_types(self) -> frozenset[str]:
+        return frozenset(self.types)
 
     @property
     def is_base_type(self) -> bool:
@@ -88,5 +75,19 @@ class TypeHint:
     def is_list_type(self) -> bool:
         return any(arg is list for arg in self._get_origins)
 
+    @property
+    def container_args(self) -> tuple[Any, ...]:
+        return typing.get_args(get_origin(self.args[0]))
+
     def __repr__(self) -> str:
         return repr(self.raw)
+
+    @property
+    def sub_hints(self) -> Iterable[TypeHint]:
+        for arg in self.args:
+            if self._is_none_type(arg):
+                continue
+            if origin := get_origin(arg):
+                yield TypeHint(origin)
+            else:
+                yield TypeHint(arg)

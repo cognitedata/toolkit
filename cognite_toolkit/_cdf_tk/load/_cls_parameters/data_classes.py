@@ -11,7 +11,7 @@ from typing import Generic, TypeVar
 @dataclass(frozen=True)
 class Parameter:
     path: tuple[str | int, ...]
-    type: str
+    types: frozenset[str]
 
     def __lt__(self, other: Parameter) -> bool:
         if not isinstance(other, Parameter):
@@ -21,7 +21,7 @@ class Parameter:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Parameter):
             return NotImplemented
-        return self.path == other.path and self.type == other.type
+        return self.path == other.path and self.types == other.types
 
 
 @dataclass(frozen=True)
