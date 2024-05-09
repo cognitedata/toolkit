@@ -175,6 +175,3 @@ def validate_data_set_is_set(
     value = raw.get(identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}"))
     warning_list.append(DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__))
     return warning_list
-
-
-# Todo: Add caching at this level
