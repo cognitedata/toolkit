@@ -118,7 +118,7 @@ class _AnyInt(int):
         return "AnyInt"
 
 
-class AnyStr(str):
+class _AnyStr(str):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, str):
             return True
@@ -135,4 +135,4 @@ class AnyStr(str):
 
 
 ANY_INT = _AnyInt()
-ANY_STR = AnyStr()
+ANY_STR = _AnyStr()

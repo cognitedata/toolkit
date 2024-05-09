@@ -47,9 +47,18 @@ def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...]
         # We iterate as we might have union types
         for sub_hint in hint.sub_hints:
             if sub_hint.is_dict_type:
-                _, value = sub_hint.container_args
-                dict_set = _read_parameter_from_init_type_hints(value, (*path, name, ANY_STR), seen.copy())
-                parameter_set.update(dict_set)
+                key, value = sub_hint.container_args
+                if key is not str:
+                    raise NotImplementedError("Only string keys are supported")
+                value_hint = TypeHint(value)
+                if value_hint.is_base_type:
+                    parameter_set.add(
+                        ParameterSpec((*path, name, ANY_STR), value_hint.frozen_types, False, value_hint.is_nullable)
+                    )
+                else:
+                    raise NotImplementedError("Only base types are supported for dict values")
+                    # dict_set = _read_parameter_from_init_type_hints(value, (*path, name, ANY_STR), seen.copy())
+                    # parameter_set.update(dict_set)
             if sub_hint.is_list_type:
                 item = sub_hint.container_args[0]
                 item_hint = TypeHint(item)

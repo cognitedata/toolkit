@@ -64,3 +64,19 @@ class TestAnyStrInt:
         is_equal = ANY_INT == other
 
         assert is_int == is_equal
+
+    @pytest.mark.parametrize(
+        "dump, spec, expected",
+        [
+            (("metadata",), ("metadata", ANY_STR), False),
+            (("metadata",), ("metadata", ANY_INT), False),
+            (("metadata", 0), ("metadata", ANY_INT), True),
+            (("metadata",), ("metadata",), True),
+            (("metadata",), ("metadata", "a"), False),
+            (("metadata", "a"), ("metadata", ANY_STR), True),
+        ],
+    )
+    def test_any_str_tuple_equals(self, dump: tuple, spec: tuple, expected: bool) -> None:
+        actual = dump == spec
+
+        assert actual == expected

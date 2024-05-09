@@ -8,6 +8,8 @@ from typing import Generic, TypeVar, final
 
 from cognite.client.utils._text import to_camel_case
 
+from .type_hint import ANY_INT, ANY_STR
+
 
 @total_ordering
 @dataclass(frozen=True)
@@ -125,7 +127,7 @@ class ParameterSpecSet(ParameterSet[ParameterSpec]):
     def as_camel_case(self) -> ParameterSpecSet:
         output = ParameterSpecSet(
             ParameterSpec(
-                tuple(to_camel_case(name) for name in parameter.path),
+                tuple(to_camel_case(name) if name not in {ANY_STR, ANY_INT} else name for name in parameter.path),
                 parameter.types,
                 parameter.is_required,
                 parameter._is_nullable,
