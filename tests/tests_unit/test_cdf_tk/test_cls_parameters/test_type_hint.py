@@ -7,7 +7,7 @@ from typing import Any, Literal, Union
 import pytest
 from _pytest.mark import ParameterSet
 
-from cognite_toolkit._cdf_tk._cls_parameters import TypeHint
+from cognite_toolkit._cdf_tk._parameters.type_hint import TypeHint
 
 
 def type_hint_test_cases() -> Iterable[ParameterSet]:
