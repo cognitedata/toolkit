@@ -75,7 +75,9 @@ class ParameterFromInitTypeHints:
         except ValueError:
             # There are no type hints for the dict
             self.parameter_set.add(
-                ParameterSpec((*path, parent_name, ANYTHING), frozenset({"dict"}), is_required=False, _is_nullable=True)
+                ParameterSpec(
+                    (*path, parent_name, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=True
+                )
             )
             return
         if key is not str:
@@ -96,7 +98,16 @@ class ParameterFromInitTypeHints:
     def _create_parameter_spec_list(
         self, hint: TypeHint, parent_name: str, parent_is_required: bool, path: tuple[str | int, ...], seen: set[str]
     ) -> None:
-        item = hint.container_args[0]
+        try:
+            item = hint.container_args[0]
+        except IndexError:
+            # There are no type hints for the list
+            self.parameter_set.add(
+                ParameterSpec(
+                    (*path, parent_name, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=True
+                )
+            )
+            return
         item_hint = TypeHint(item)
         if item_hint.is_base_type:
             self.parameter_set.add(
