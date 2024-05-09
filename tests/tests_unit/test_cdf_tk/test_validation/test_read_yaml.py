@@ -5,6 +5,7 @@ import yaml
 from cognite.client.data_classes import TimeSeries
 from cognite.client.data_classes.data_modeling import ContainerApply, SpaceApply, ViewApply
 
+from cognite_toolkit._cdf_tk.load import RESOURCE_LOADER_LIST, ResourceLoader
 from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set
 from cognite_toolkit._cdf_tk.validation.read_yaml import (
     ParameterSpec,
@@ -116,3 +117,10 @@ class TestParameterSet:
         actual_parameters = read_parameter_from_init_type_hints(cls_)
 
         assert sorted(actual_parameters) == sorted(expected_parameters)
+
+    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
+    def test_read_parameter_from_type_hints_compatible_with_loaders(self, loader_cls: type[ResourceLoader]) -> None:
+        parameter_set = read_parameter_from_init_type_hints(loader_cls.resource_write_cls)
+
+        assert isinstance(parameter_set, ParameterSpecSet)
+        assert len(parameter_set) > 0
