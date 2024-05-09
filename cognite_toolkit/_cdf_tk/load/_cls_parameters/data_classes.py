@@ -11,7 +11,6 @@ from typing import Generic, TypeVar
 @dataclass(frozen=True)
 class Parameter:
     path: tuple[str | int, ...]
-    types: frozenset[str]
 
     def __lt__(self, other: Parameter) -> bool:
         if not isinstance(other, Parameter):
@@ -21,11 +20,12 @@ class Parameter:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Parameter):
             return NotImplemented
-        return self.path == other.path and self.types == other.types
+        return self.path == other.path
 
 
 @dataclass(frozen=True)
 class ParameterSpec(Parameter):
+    types: frozenset[str]
     is_required: bool
     _is_nullable: bool | None = None
 
@@ -36,6 +36,7 @@ class ParameterSpec(Parameter):
 
 @dataclass(frozen=True)
 class ParameterValue(Parameter):
+    type: str
     value: str | int | float | bool | None
 
 

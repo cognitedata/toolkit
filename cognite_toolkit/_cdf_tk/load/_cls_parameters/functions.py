@@ -91,7 +91,7 @@ def read_parameters_from_dict(raw: dict) -> ParameterSet[ParameterValue]:
 def _read_parameters_from_raw(raw: dict | list | Any, path: tuple[str | int, ...]) -> ParameterSet[ParameterValue]:
     parameter_set = ParameterSet[ParameterValue]()
     if type(raw).__name__ in BASE_TYPES:
-        parameter_set.add(ParameterValue(path, frozenset({type(raw).__name__}), raw))  # type: ignore[arg-type]
+        parameter_set.add(ParameterValue(path, type(raw).__name__, raw))  # type: ignore[arg-type]
         return parameter_set
     if isinstance(raw, list):
         for i, item in enumerate(raw):
@@ -101,10 +101,10 @@ def _read_parameters_from_raw(raw: dict | list | Any, path: tuple[str | int, ...
         for key, value in raw.items():
             type_ = type(value).__name__
             if type_ in BASE_TYPES:
-                parameter_set.add(ParameterValue((*path, key), frozenset({type_}), value))
+                parameter_set.add(ParameterValue((*path, key), type_, value))
             elif type_ in CONTAINER_TYPES:
                 # We cannot include the value type for containers as it is not hashable
-                parameter_set.add(ParameterValue((*path, key), frozenset({type_}), None))
+                parameter_set.add(ParameterValue((*path, key), type_, None))
             if isinstance(value, dict):
                 parameter_set.update(_read_parameters_from_raw(value, (*path, key)))
             elif isinstance(value, list):
