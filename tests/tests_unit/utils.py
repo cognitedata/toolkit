@@ -138,12 +138,20 @@ T_Object = TypeVar("T_Object", bound=object)
 class FakeCogniteResourceGenerator:
     _error_msg: typing.ClassVar[str] = "Please extend this function to support generating fake data for this type"
 
-    def __init__(self, seed: int | None = None, cognite_client: CogniteClientMock | CogniteClient | None = None):
+    def __init__(
+        self,
+        seed: int | None = None,
+        cognite_client: CogniteClientMock | CogniteClient | None = None,
+        max_list_dict_items: int = 3,
+    ) -> None:
         self._random = random.Random(seed)
         self._cognite_client = cognite_client or CogniteClientMock()
+        self._max_list_dict_items = max_list_dict_items
 
     def create_instances(self, list_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
-        return list_cls([self.create_instance(list_cls._RESOURCE, skip_defaulted_args) for _ in range(3)])
+        return list_cls(
+            [self.create_instance(list_cls._RESOURCE, skip_defaulted_args) for _ in range(self._max_list_dict_items)]
+        )
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
         signature = inspect.signature(resource_cls.__init__)
@@ -282,7 +290,10 @@ class FakeCogniteResourceGenerator:
             elif type_ is bool:
                 return self._random.choice([True, False])
             elif type_ is dict:
-                return {self._random_string(10): self._random_string(10) for _ in range(self._random.randint(1, 3))}
+                return {
+                    self._random_string(10): self._random_string(10)
+                    for _ in range(self._random.randint(1, self._max_list_dict_items))
+                }
             elif type_ is CogniteClient:
                 return self._cognite_client
             elif inspect.isclass(type_) and any(base is abc.ABC for base in type_.__bases__):
@@ -307,7 +318,12 @@ class FakeCogniteResourceGenerator:
             elif isinstance(type_, TypeVar):
                 return self.create_value(type_.__bound__)
             elif inspect.isclass(type_) and issubclass(type_, CogniteResourceList):
-                return type_([self.create_value(type_._RESOURCE) for _ in range(self._random.randint(1, 3))])
+                return type_(
+                    [
+                        self.create_value(type_._RESOURCE)
+                        for _ in range(self._random.randint(1, self._max_list_dict_items))
+                    ]
+                )
             elif inspect.isclass(type_):
                 return self.create_instance(type_)
         except TypeError:
@@ -321,11 +337,16 @@ class FakeCogniteResourceGenerator:
             from numpy.typing import NDArray
 
             if type_ == NDArray[np.float64]:
-                return np.array([self._random.random() for _ in range(3)], dtype=np.float64)
+                return np.array([self._random.random() for _ in range(self._max_list_dict_items)], dtype=np.float64)
             elif type_ == NDArray[np.int64]:
-                return np.array([self._random.randint(1, 100) for _ in range(3)], dtype=np.int64)
+                return np.array(
+                    [self._random.randint(1, 100) for _ in range(self._max_list_dict_items)], dtype=np.int64
+                )
             elif type_ == NDArray[np.datetime64]:
-                return np.array([self._random.randint(1, 1704067200000) for _ in range(3)], dtype="datetime64[ms]")
+                return np.array(
+                    [self._random.randint(1, 1704067200000) for _ in range(self._max_list_dict_items)],
+                    dtype="datetime64[ms]",
+                )
             else:
                 raise ValueError(f"Unknown type {type_} {type(type_)}. {self._error_msg}")
 
@@ -342,17 +363,20 @@ class FakeCogniteResourceGenerator:
             collections.abc.Sequence,
             collections.abc.Collection,
         ]:
-            return [self.create_value(first_not_none) for _ in range(3)]
+            return [self.create_value(first_not_none) for _ in range(self._max_list_dict_items)]
         elif container_type in [dict, collections.abc.MutableMapping, collections.abc.Mapping]:
             if first_not_none is None:
                 return self.create_value(dict)
             key_type, value_type = args
             return {
-                self.create_value(key_type): self.create_value(value_type) for _ in range(self._random.randint(1, 3))
+                self.create_value(key_type): self.create_value(value_type)
+                for _ in range(self._random.randint(1, self._max_list_dict_items))
             }
         elif container_type in [tuple]:
             if any(arg is ... for arg in args):
-                return tuple(self.create_value(first_not_none) for _ in range(self._random.randint(1, 3)))
+                return tuple(
+                    self.create_value(first_not_none) for _ in range(self._random.randint(1, self._max_list_dict_items))
+                )
             raise NotImplementedError(f"Tuple with multiple types is not supported. {self._error_msg}")
 
         raise NotImplementedError(f"Unsupported container type {container_type}. {self._error_msg}")
