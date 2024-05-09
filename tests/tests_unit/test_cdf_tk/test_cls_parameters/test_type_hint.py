@@ -7,7 +7,7 @@ from typing import Any, Literal, Union
 import pytest
 from _pytest.mark import ParameterSet
 
-from cognite_toolkit._cdf_tk._parameters.type_hint import TypeHint
+from cognite_toolkit._cdf_tk._parameters.type_hint import ANY_INT, ANY_STR, TypeHint
 
 
 def type_hint_test_cases() -> Iterable[ParameterSet]:
@@ -48,3 +48,19 @@ class TestTypeHint:
         assert hint.is_class == is_class
         assert hint.is_dict_type == is_dict_type
         assert hint.is_list_type == is_list_type
+
+
+class TestAnyStrInt:
+    @pytest.mark.parametrize("other", [1, "a", None])
+    def test_any_str_equals(self, other: Any) -> None:
+        is_string = isinstance(other, str)
+        is_equal = ANY_STR == other
+
+        assert is_string == is_equal
+
+    @pytest.mark.parametrize("other", [1, "a", None])
+    def test_any_int_equals(self, other: Any) -> None:
+        is_int = isinstance(other, int)
+        is_equal = ANY_INT == other
+
+        assert is_int == is_equal
