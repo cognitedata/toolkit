@@ -652,5 +652,7 @@ def test_resource_types_is_up_to_date() -> None:
 class TestResourceLoaders:
     @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
     def test_get_container_spec(self, loader_cls: type[ResourceLoader]):
-        _ = FakeCogniteResourceGenerator(seed=1337).create_instance(loader_cls.resource_write_cls)
-        assert True
+        resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader_cls.resource_write_cls)
+        _ = resource.dump(camel_case=True)
+
+        _ = loader_cls.get_write_cls_parameter_spec()
