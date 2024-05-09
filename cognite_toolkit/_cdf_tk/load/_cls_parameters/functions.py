@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 
-from .data_classes import ParameterSpec, ParameterSpecSet
+from .data_classes import ParameterSet, ParameterSpec, ParameterSpecSet, ParameterValue
 from .get_type_hints import _TypeHints
 from .type_hint import TypeHint
 
@@ -61,3 +61,7 @@ def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...]
                     parameter_set.update(cls_set)
 
     return parameter_set
+
+
+def read_parameters_from_dict(raw: dict) -> ParameterSet[ParameterValue]:
+    raise NotImplementedError()

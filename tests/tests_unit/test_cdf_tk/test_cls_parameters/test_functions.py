@@ -3,9 +3,12 @@ from cognite.client.data_classes.data_modeling import ContainerApply, SpaceApply
 
 from cognite_toolkit._cdf_tk.load import RESOURCE_LOADER_LIST, ResourceLoader
 from cognite_toolkit._cdf_tk.load._cls_parameters import (
+    ParameterSet,
     ParameterSpec,
     ParameterSpecSet,
+    ParameterValue,
     read_parameter_from_init_type_hints,
+    read_parameters_from_dict,
 )
 
 
@@ -83,3 +86,62 @@ class TestReadParameterFromTypeHints:
 
         assert isinstance(parameter_set, ParameterSpecSet)
         assert len(parameter_set) > 0
+
+
+class TestReadParameterFromDict:
+    @pytest.mark.parametrize(
+        "raw, expected",
+        [
+            (
+                {"space": "space", "description": "description", "name": "name"},
+                ParameterSet[ParameterValue](
+                    {
+                        ParameterValue(("space",), frozenset({"str"}), "space"),
+                        ParameterValue(("description",), frozenset({"str"}), "description"),
+                        ParameterValue(("name",), frozenset({"str"}), "name"),
+                    }
+                ),
+            ),
+            (
+                {
+                    "externalId": "Asset",
+                    "name": "Asset",
+                    "space": "sp_asset_space",
+                    "usedFor": "node",
+                    "properties": {
+                        "metadata": {
+                            "type": {
+                                "list": False,
+                                "type": "json",
+                            },
+                            "nullable": False,
+                            "autoIncrement": False,
+                            "name": "name",
+                            "defaultValue": "default_value",
+                            "description": "description",
+                        }
+                    },
+                },
+                ParameterSet[ParameterValue](
+                    {
+                        ParameterValue(("externalId",), frozenset({"str"}), "Asset"),
+                        ParameterValue(("name",), frozenset({"str"}), "Asset"),
+                        ParameterValue(("space",), frozenset({"str"}), "sp_asset_space"),
+                        ParameterValue(("usedFor",), frozenset({"str"}), "node"),
+                        ParameterValue(("properties", "metadata", "type", "list"), frozenset({"bool"}), False),
+                        ParameterValue(("properties", "metadata", "type", "type"), frozenset({"str"}), "json"),
+                        ParameterValue(("properties", "metadata", "nullable"), frozenset({"bool"}), False),
+                        ParameterValue(("properties", "metadata", "autoIncrement"), frozenset({"bool"}), False),
+                        ParameterValue(("properties", "metadata", "name"), frozenset({"str"}), "name"),
+                        ParameterValue(("properties", "metadata", "defaultValue"), frozenset({"str"}), "default_value"),
+                        ParameterValue(("properties", "metadata", "description"), frozenset({"str"}), "description"),
+                    }
+                ),
+            ),
+            ({}, ParameterSet[ParameterValue]({})),
+        ],
+    )
+    def test_read_expected(self, raw: dict, expected: ParameterSet[ParameterValue]):
+        actual = read_parameters_from_dict(raw)
+
+        assert actual == expected
