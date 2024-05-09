@@ -656,8 +656,8 @@ class TestResourceLoaders:
         resource = FakeCogniteResourceGenerator(seed=1337, max_list_dict_items=1).create_instance(
             loader_cls.resource_write_cls
         )
-
-        dumped = read_parameters_from_dict(resource.dump(camel_case=True))
+        resource_dump = resource.dump(camel_case=True)
+        dumped = read_parameters_from_dict(resource_dump)
         spec = loader_cls.get_write_cls_parameter_spec()
 
         extra = dumped - spec

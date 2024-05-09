@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import itertools
 import types
 import typing
 from collections.abc import Iterable, MutableMapping, MutableSequence, Sequence
@@ -10,6 +11,9 @@ from .constants import BASE_TYPES, TYPES
 
 
 class TypeHint:
+    _DICT_TYPES = {dict, typing.Dict, MutableSequence, MutableMapping}  # noqa UP006
+    _LIST_TYPES = {list, typing.Sequence, Sequence, typing.List, MutableSequence}  # noqa UP006
+
     def __init__(self, raw: Any) -> None:
         self.raw = raw
         self._container_type = get_origin(raw)
@@ -83,11 +87,11 @@ class TypeHint:
 
     @property
     def is_dict_type(self) -> bool:
-        return any(arg in [dict, typing.Dict, MutableSequence, MutableMapping] for arg in self._get_origins)  # noqa UP006
+        return any(arg in self._DICT_TYPES for arg in itertools.chain(self._get_origins, self.args))
 
     @property
     def is_list_type(self) -> bool:
-        return any(arg in [list, typing.Sequence, Sequence, typing.List, MutableSequence] for arg in self._get_origins)  # noqa UP006
+        return any(arg in self._LIST_TYPES for arg in itertools.chain(self._get_origins, self.args))
 
     @property
     def container_args(self) -> tuple[Any, ...]:
@@ -136,5 +140,20 @@ class _AnyStr(str):
         return "AnyStr"
 
 
+class _Anything:
+    def __eq__(self, other: object) -> bool:
+        return True
+
+    def __hash__(self) -> int:
+        return id(ANYTHING)
+
+    def __str__(self) -> str:
+        return "Anything"
+
+    def __repr__(self) -> str:
+        return "Anything"
+
+
 ANY_INT = _AnyInt()
 ANY_STR = _AnyStr()
+ANYTHING = _Anything()

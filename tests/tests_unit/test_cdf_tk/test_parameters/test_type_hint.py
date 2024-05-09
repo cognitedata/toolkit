@@ -17,6 +17,7 @@ def type_hint_test_cases() -> Iterable[ParameterSet]:
     yield pytest.param(dict[str, int], ["dict"], False, False, False, True, False, id="dict")
     yield pytest.param(Union[str, int], ["str", "int"], True, False, False, False, False, id="Union")
     yield pytest.param(Sequence[int], ["list"], False, False, False, False, True, id="Sequence")
+    yield pytest.param(dict, ["dict"], False, False, False, True, False, id="dict without type hints")
     if sys.version_info >= (3, 10):
         yield pytest.param(str | None, ["str"], True, True, False, False, False, id="str | None")
         yield pytest.param(
