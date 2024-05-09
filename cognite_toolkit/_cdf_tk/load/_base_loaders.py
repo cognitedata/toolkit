@@ -23,7 +23,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk._cls_parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 from .data_classes import (
