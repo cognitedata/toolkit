@@ -19,7 +19,13 @@ def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...]
         return parameter_set  # type: ignore[misc]
 
     classes = _TypeHints.get_concrete_classes(cls_)
-    seen.add(cls_.__name__)
+    try:
+        seen.add(cls_.__name__)
+    except AttributeError:
+        # Python 3.9
+        if str(cls_) == "typing.Any":
+            return parameter_set
+        raise
     seen.update(cls_.__name__ for cls_ in classes)
     type_hints_by_name = _TypeHints.get_type_hints_by_name(classes)
     parameters = {k: v for cls in classes for k, v in inspect.signature(cls.__init__).parameters.items()}  # type: ignore[misc]
@@ -34,7 +40,7 @@ def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...]
             parameter_set.is_complete = False
             continue
         is_required = parameter.default is inspect.Parameter.empty
-        is_nullable = hint.is_nullable
+        is_nullable = hint.is_nullable or parameter.default is None
         parameter_set.add(ParameterSpec((*path, name), hint.frozen_types, is_required, is_nullable))
         if hint.is_base_type:
             continue

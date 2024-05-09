@@ -24,15 +24,29 @@ class TypeHint:
 
     @classmethod
     def _is_union(cls, x: Any) -> bool:
-        return x in [types.UnionType, typing.Union]
+        try:
+            return x in [types.UnionType, typing.Union]
+        except AttributeError:
+            # Python 3.9
+            return x is typing.Union
 
     @classmethod
     def _is_none_type(cls, x: Any) -> bool:
-        return x in [None, types.NoneType]
+        try:
+            return x in [None, types.NoneType]
+        except AttributeError:
+            # Python 3.9
+            return x is None
 
     @classmethod
     def _as_str(cls, arg: Any) -> str:
-        value = arg.__name__
+        try:
+            value = arg.__name__
+        except AttributeError:
+            # Python 3.9
+            value = str(arg).removeprefix("typing.")
+            if "[" in value:
+                value = value.split("[")[0]
         if value in TYPES:
             return value
         elif value == "Literal":
@@ -57,7 +71,7 @@ class TypeHint:
 
     @property
     def is_class(self) -> bool:
-        if self.is_union:
+        if self.is_union or self.is_dict_type or self.is_list_type:
             return False
         return inspect.isclass(self.args[0])
 

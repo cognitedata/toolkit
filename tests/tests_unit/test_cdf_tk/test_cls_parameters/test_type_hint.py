@@ -1,25 +1,35 @@
 from __future__ import annotations
 
+import sys
+from collections.abc import Iterable
 from typing import Any, Literal, Union
 
 import pytest
+from _pytest.mark import ParameterSet
 
 from cognite_toolkit._cdf_tk.load._cls_parameters.type_hint import TypeHint
+
+
+def type_hint_test_cases() -> Iterable[ParameterSet]:
+    yield pytest.param(str, ["str"], True, False, True, False, False, id="str")
+    yield pytest.param(Literal["a", "b"], ["str"], True, False, False, False, False, id="Literal")
+    yield pytest.param(dict[str, int], ["dict"], False, False, False, True, False, id="dict")
+    yield pytest.param(Union[str, int], ["str", "int"], True, False, False, False, False, id="Union")
+    if sys.version_info >= (3, 10):
+        yield pytest.param(str | None, ["str"], True, True, False, False, False, id="str | None")
+        yield pytest.param(
+            str | int | bool, ["str", "int", "bool"], True, False, False, False, False, id="str | int | bool"
+        )
+        yield pytest.param(list[str] | None, ["list"], False, True, False, False, True, id="list | None")
+        yield pytest.param(
+            list[str] | dict[str, int] | None, ["list", "dict"], False, True, False, True, True, id="list | dict | None"
+        )
 
 
 class TestTypeHint:
     @pytest.mark.parametrize(
         "raw, types, is_base_type, is_nullable, is_class, is_dict_type, is_list_type",
-        [
-            (str, ["str"], True, False, True, False, False),
-            (Literal["a", "b"], ["str"], True, False, False, False, False),
-            (str | None, ["str"], True, True, False, False, False),
-            (Union[str, int], ["str", "int"], True, False, False, False, False),
-            (str | int | bool, ["str", "int", "bool"], True, False, False, False, False),
-            (dict[str, int], ["dict"], False, False, False, True, False),
-            (list[str] | None, ["list"], False, True, False, False, True),
-            (list[str] | dict[str, int] | None, ["list", "dict"], False, True, False, True, True),
-        ],
+        list(type_hint_test_cases()),
     )
     def test_type_hint(
         self,
