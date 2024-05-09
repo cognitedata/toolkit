@@ -58,7 +58,7 @@ class _TypeHints:
         return type_hint_by_name
 
     @classmethod
-    def _type_checking(cls) -> dict[str, Any]:
+    def _type_checking(cls) -> dict[str, type]:
         """
         When calling the get_type_hints function, it imports the module with the function TYPE_CHECKING is set to False.
 
@@ -69,16 +69,13 @@ class _TypeHints:
         import numpy.typing as npt
         from cognite.client import CogniteClient
 
-        NumpyDatetime64NSArray = npt.NDArray[np.datetime64]
-        NumpyInt64Array = npt.NDArray[np.int64]
-        NumpyFloat64Array = npt.NDArray[np.float64]
-        NumpyObjArray = npt.NDArray[np.object_]
         return {
             "CogniteClient": CogniteClient,
-            "NumpyDatetime64NSArray": NumpyDatetime64NSArray,
-            "NumpyInt64Array": NumpyInt64Array,
-            "NumpyFloat64Array": NumpyFloat64Array,
-            "NumpyObjArray": NumpyObjArray,
+            "NumpyDatetime64NSArray": npt.NDArray[np.datetime64],
+            "NumpyUInt32Array": npt.NDArray[np.uint32],
+            "NumpyInt64Array": npt.NDArray[np.int64],
+            "NumpyFloat64Array": npt.NDArray[np.float64],
+            "NumpyObjArray": npt.NDArray[np.object_],
         }
 
     @classmethod
@@ -97,6 +94,7 @@ class _TypeHints:
     ) -> Any:
         if annotation.endswith(" | None"):
             annotation = annotation[:-7]
+        annotation = annotation.replace("SequenceNotStr", "Sequence")
         try:
             return eval(annotation, resource_module_vars, local_vars)
         except TypeError:
@@ -134,7 +132,7 @@ class _TypeHints:
                 cls._create_type_hint_3_10(value.strip(), resource_module_vars, local_vars),
             ]
         elif annotation.startswith("Optional[") and annotation.endswith("]"):
-            return typing.Optional[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
+            return typing.Optional[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]
         elif annotation.startswith("list[") and annotation.endswith("]"):
             return list[cls._create_type_hint_3_10(annotation[5:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
         elif annotation.startswith("tuple[") and annotation.endswith("]"):
@@ -142,6 +140,10 @@ class _TypeHints:
         elif annotation.startswith("typing.Sequence[") and annotation.endswith("]"):
             # This is used in the Sequence data class file to avoid name collision
             return typing.Sequence[cls._create_type_hint_3_10(annotation[16:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
+        elif annotation.startswith("Sequence[") and annotation.endswith("]"):
+            return typing.Sequence[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
+        elif annotation.startswith("Collection[") and annotation.endswith("]"):
+            return typing.Collection[cls._create_type_hint_3_10(annotation[11:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
         raise NotImplementedError(f"Unsupported conversion of type hint {annotation!r}. {cls._error_msg}")
 
     @classmethod
