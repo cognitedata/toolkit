@@ -1,7 +1,7 @@
 import pytest
 from cognite.client.data_classes.data_modeling import ContainerApply, SpaceApply
 
-from cognite_toolkit._cdf_tk._cls_parameters import (
+from cognite_toolkit._cdf_tk._parameters import (
     ParameterSet,
     ParameterSpec,
     ParameterSpecSet,
