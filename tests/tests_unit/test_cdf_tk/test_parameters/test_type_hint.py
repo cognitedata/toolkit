@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal, Union
 
 import pytest
@@ -11,10 +11,12 @@ from cognite_toolkit._cdf_tk._parameters.type_hint import ANY_INT, ANY_STR, Type
 
 
 def type_hint_test_cases() -> Iterable[ParameterSet]:
+    # "raw, types, is_base_type, is_nullable, is_class, is_dict_type, is_list_type",
     yield pytest.param(str, ["str"], True, False, True, False, False, id="str")
     yield pytest.param(Literal["a", "b"], ["str"], True, False, False, False, False, id="Literal")
     yield pytest.param(dict[str, int], ["dict"], False, False, False, True, False, id="dict")
     yield pytest.param(Union[str, int], ["str", "int"], True, False, False, False, False, id="Union")
+    yield pytest.param(Sequence[int], ["list"], False, False, False, False, True, id="Sequence")
     if sys.version_info >= (3, 10):
         yield pytest.param(str | None, ["str"], True, True, False, False, False, id="str | None")
         yield pytest.param(

@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import types
 import typing
-from collections.abc import Iterable
+from collections.abc import Iterable, MutableMapping, MutableSequence, Sequence
 from typing import Any, get_origin
 
 from .constants import BASE_TYPES, TYPES
@@ -51,6 +51,8 @@ class TypeHint:
             return value
         elif value == "Literal":
             return "str"
+        elif value == "Sequence":
+            return "list"
         return "dict"
 
     @property
@@ -81,11 +83,11 @@ class TypeHint:
 
     @property
     def is_dict_type(self) -> bool:
-        return any(arg is dict for arg in self._get_origins)
+        return any(arg in [dict, typing.Dict, MutableSequence, MutableMapping] for arg in self._get_origins)  # noqa UP006
 
     @property
     def is_list_type(self) -> bool:
-        return any(arg is list for arg in self._get_origins)
+        return any(arg in [list, typing.Sequence, Sequence, typing.List, MutableSequence] for arg in self._get_origins)  # noqa UP006
 
     @property
     def container_args(self) -> tuple[Any, ...]:
