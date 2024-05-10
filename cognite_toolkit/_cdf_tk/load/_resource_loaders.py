@@ -2234,6 +2234,23 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
         # Nodes will be deleted in .delete call.
         return 0
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Modifications to match the spec
+        for item in spec:
+            if item.path[0] == "apiCall" and len(item.path) > 1:
+                # Move up one level
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[1:])
+            elif item.path[0] == "node":
+                # Move into list
+                object.__setattr__(item, "path", ("nodes", ANY_INT, *item.path[1:]))
+        # Top level of nodes
+        spec.add(ParameterSpec(("nodes",), frozenset({"list"}), is_required=True, _is_nullable=False))
+        return spec
+
 
 @final
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
