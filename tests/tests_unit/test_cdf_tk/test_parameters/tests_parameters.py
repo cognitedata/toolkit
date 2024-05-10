@@ -60,7 +60,7 @@ class TestSetOperations:
                 id="Spec - Value no difference",
             ),
             pytest.param(
-                SPACE_SPEC.required,
+                SPACE_SPEC.required(),
                 ParameterSet[ParameterValue](),
                 ParameterSpecSet({ParameterSpec(("space",), frozenset({"str"}), True, False)}),
                 id="Missing required",

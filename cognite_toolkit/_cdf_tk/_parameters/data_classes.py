@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import typing
 from collections.abc import Hashable, Iterable, MutableSet
 from dataclasses import dataclass
@@ -17,6 +18,12 @@ from .constants import ANYTHING, SINGLETONS
 @dataclass(frozen=True)
 class Parameter:
     path: tuple[str | int, ...]
+
+    @property
+    def key(self) -> str:
+        if isinstance(self.path[-1], str):
+            return self.path[-1]
+        raise TypeError(f"Expected str, got {type(self.path[-1])}")
 
     def __lt__(self, other: Parameter) -> bool:
         if not isinstance(other, Parameter):
@@ -85,6 +92,16 @@ T_Parameter = TypeVar("T_Parameter", bound=Parameter)
 class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
     def __init__(self, iterable: Iterable[T_Parameter] = ()) -> None:
         self.data: set[T_Parameter] = set(iterable)
+
+    def as_camel_case(self) -> ParameterSet[T_Parameter]:
+        output = type(self)()
+        for parameter in self:
+            new_path = tuple(to_camel_case(name) if name not in SINGLETONS else name for name in parameter.path)
+            new_param_copy = dataclasses.replace(parameter)
+            # This is because parameters are immutable
+            object.__setattr__(new_param_copy, "path", new_path)
+            output.add(new_param_copy)
+        return output
 
     @property
     def has_any_type(self) -> bool:
@@ -157,20 +174,16 @@ class ParameterSpecSet(ParameterSet[ParameterSpec]):
         super().__init__(iterable)
         self.is_complete = True
 
-    @property
-    def required(self) -> ParameterSet[ParameterSpec]:
-        return ParameterSet[ParameterSpec](parameter for parameter in self if parameter.is_required)
+    def required(self, level: int | None = None) -> ParameterSet[ParameterSpec]:
+        if level is None:
+            return ParameterSet[ParameterSpec](parameter for parameter in self if parameter.is_required)
+        else:
+            return ParameterSet[ParameterSpec](
+                parameter for parameter in self if len(parameter.path) <= level and parameter.is_required
+            )
 
     def as_camel_case(self) -> ParameterSpecSet:
-        output = ParameterSpecSet(
-            ParameterSpec(
-                tuple(to_camel_case(name) if name not in SINGLETONS else name for name in parameter.path),
-                parameter.types,
-                parameter.is_required,
-                parameter._is_nullable,
-            )
-            for parameter in self
-        )
+        output = typing.cast(ParameterSpecSet, super().as_camel_case())
         output.is_complete = self.is_complete
         return output
 

@@ -18,7 +18,9 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 
 from .warning import (
+    CaseTypoWarning,
     DataSetMissingWarning,
+    MissingRequiredParameter,
     SnakeCaseWarning,
     TemplateVariableWarning,
     UnusedParameterWarning,
@@ -190,10 +192,23 @@ def validate_yaml_config(content: str, spec: ParameterSpecSet, source_file: Path
         raise NotImplementedError("")
 
     actual_parameters = read_parameters_from_dict(data)
+    warnings: WarningList = WarningList()
 
     unused_parameters = actual_parameters - spec
-    warnings: WarningList = WarningList()
+    unused_cased = unused_parameters.as_camel_case() - spec
+    typo_parameters = unused_parameters - unused_cased
+    for parameter in typo_parameters:
+        key = parameter.key
+        line_no = no_by_line.get(key, 0)
+        warnings.append(CaseTypoWarning(source_file, line_no, key, to_camel_case(key)))
+
     for parameter in unused_parameters:
-        line_no = no_by_line.get(parameter.path[-1], 0)
-        warnings.append(UnusedParameterWarning(source_file, line_no, typing.cast(str, parameter.path[-1])))
+        key = parameter.key
+        line_no = no_by_line.get(key, 0)
+        warnings.append(UnusedParameterWarning(source_file, line_no, key))
+
+    missing = spec.required(level=1) - actual_parameters
+    for spec_param in missing:
+        warnings.append(MissingRequiredParameter(source_file, 0, spec_param.key))
+
     return warnings
