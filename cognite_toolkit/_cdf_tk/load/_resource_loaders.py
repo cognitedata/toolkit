@@ -1025,6 +1025,14 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             )
         return count
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
+
 
 @final
 class TransformationLoader(
@@ -1171,6 +1179,39 @@ class TransformationLoader(
         if existing:
             self.client.transformations.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.update(
+            ParameterSpecSet(
+                {
+                    ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False),
+                    ParameterSpec(("authentication",), frozenset({"dict"}), is_required=False, _is_nullable=False),
+                    ParameterSpec(
+                        ("authentication", "clientId"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "clientSecret"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "scopes"), frozenset({"str"}), is_required=False, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "tokenUri"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "cdfProjectName"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "audience"), frozenset({"str"}), is_required=False, _is_nullable=False
+                    ),
+                }
+            )
+        )
+        return spec
 
 
 @final
@@ -1331,6 +1372,14 @@ class ExtractionPipelineLoader(
             if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
                 return 0
         return len(id_list)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
 
 
 @final
@@ -1560,6 +1609,14 @@ class FileMetadataLoader(
         deleted_files = self.delete(existing.as_external_ids())
         self.create(existing.as_write())
         return deleted_files
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
 
 
 @final
