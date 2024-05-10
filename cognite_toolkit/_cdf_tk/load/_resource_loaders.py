@@ -1795,13 +1795,21 @@ class ContainerLoader(
                 ("properties", ANY_STR, "type", "list"), frozenset({"bool"}), is_required=True, _is_nullable=False
             )
         )
-        # This is used by the SDK to load the correct class.
+        # The parameters below are used by the SDK to load the correct class, and ase thus not part of the init
+        # that the spec is created from, so we need to add them manually.
         output.add(
             ParameterSpec(
                 ("properties", ANY_STR, "type", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
             )
         )
-
+        output.add(
+            ParameterSpec(
+                ("constraints", ANY_STR, "constraintType"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+        output.add(
+            ParameterSpec(("indexes", ANY_STR, "indexType"), frozenset({"str"}), is_required=True, _is_nullable=False)
+        )
         return output
 
 
