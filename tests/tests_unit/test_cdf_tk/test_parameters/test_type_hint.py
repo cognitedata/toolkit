@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import collections.abc
 import enum
 import sys
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, Literal, Union
 
 import pytest
 from _pytest.mark import ParameterSet
+from cognite.client.data_classes.data_modeling.instances import PropertyValue
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR
 from cognite_toolkit._cdf_tk._parameters.type_hint import TypeHint
@@ -28,6 +30,10 @@ def type_hint_test_cases() -> Iterable[ParameterSet]:
     yield pytest.param(dict, ["dict"], False, False, False, True, False, id="dict without type hints")
     yield pytest.param(Any, ["unknown"], False, False, False, False, False, id="Any")
     yield pytest.param(Action, ["str"], True, False, True, False, False, id="Enum")
+    yield pytest.param(Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="Mapping")
+    yield pytest.param(
+        collections.abc.Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="ABC Mapping"
+    )
     if sys.version_info >= (3, 10):
         yield pytest.param(str | None, ["str"], True, True, False, False, False, id="str | None")
         yield pytest.param(

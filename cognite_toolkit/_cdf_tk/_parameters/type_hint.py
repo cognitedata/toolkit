@@ -5,14 +5,14 @@ import inspect
 import itertools
 import types
 import typing
-from collections.abc import Iterable, MutableMapping, MutableSequence, Sequence
+from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence, Sequence
 from typing import Any, get_origin
 
 from .constants import BASE_TYPES, TYPES
 
 
 class TypeHint:
-    _DICT_TYPES = {dict, typing.Dict, MutableSequence, MutableMapping}  # noqa UP006
+    _DICT_TYPES = {dict, typing.Dict, MutableSequence, MutableMapping, typing.Mapping, Mapping}  # noqa UP006
     _LIST_TYPES = {list, typing.Sequence, Sequence, typing.List, MutableSequence}  # noqa UP006
 
     def __init__(self, raw: Any) -> None:
