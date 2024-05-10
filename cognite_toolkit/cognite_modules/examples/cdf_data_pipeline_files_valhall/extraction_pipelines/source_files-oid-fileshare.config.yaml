@@ -1,6 +1,5 @@
 externalId: 'ep_src_files_{{location_name}}_{{source_name}}'
 name: 'src:files:{{location_name}}:{{source_name}}'
-dataSetExternalId: 'ds_files_{{location_name}}'
 config:
   logger:
     # Logging to console/terminal. Remove or comment out to disable terminal
