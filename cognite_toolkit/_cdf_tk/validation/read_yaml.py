@@ -10,16 +10,18 @@ import typing
 from pathlib import Path
 from typing import Any, get_origin
 
+import yaml
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 
 from .warning import (
     DataSetMissingWarning,
     SnakeCaseWarning,
     TemplateVariableWarning,
+    UnusedParameterWarning,
     WarningList,
 )
 
@@ -179,4 +181,19 @@ def validate_data_set_is_set(
 
 
 def validate_yaml_config(content: str, spec: ParameterSpecSet, source_file: Path) -> WarningList:
-    raise NotImplementedError()
+    no_by_line: dict[str | int, int] = {
+        line.strip().split(":", maxsplit=1)[0] if ":" in line else line: no
+        for no, line in enumerate(content.splitlines(), 1)
+    }
+    data = yaml.safe_load(content)
+    if not isinstance(data, dict):
+        raise NotImplementedError("")
+
+    actual_parameters = read_parameters_from_dict(data)
+
+    unused_parameters = actual_parameters - spec
+    warnings: WarningList = WarningList()
+    for parameter in unused_parameters:
+        line_no = no_by_line.get(parameter.path[-1], 0)
+        warnings.append(UnusedParameterWarning(source_file, line_no, typing.cast(str, parameter.path[-1])))
+    return warnings

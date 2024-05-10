@@ -1,10 +1,12 @@
 from ._base import ToolkitWarning, WarningList
 from .fileread import (
+    CaseTypoWarning,
     DataSetMissingWarning,
-    LinedUnusedParameterWarning,
+    MissingRequiredParameter,
     SnakeCaseWarning,
     TemplateVariableWarning,
     UnusedParameter,
+    UnusedParameterWarning,
 )
 
 __all__ = [
@@ -14,5 +16,7 @@ __all__ = [
     "WarningList",
     "ToolkitWarning",
     "UnusedParameter",
-    "LinedUnusedParameterWarning",
+    "UnusedParameterWarning",
+    "MissingRequiredParameter",
+    "CaseTypoWarning",
 ]

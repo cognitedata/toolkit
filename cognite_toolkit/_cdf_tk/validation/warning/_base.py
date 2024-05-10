@@ -39,7 +39,7 @@ T_Warning = TypeVar("T_Warning", bound=ToolkitWarning)
 
 
 class WarningList(UserList, Generic[T_Warning]):
-    def __init__(self, collection: Collection[T_Warning] | None = None):
+    def __init__(self, collection: Collection[T_Warning] | None = None) -> None:
         super().__init__(collection or [])
 
     def __str__(self) -> str:

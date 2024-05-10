@@ -7,13 +7,15 @@ from cognite.client.data_classes import TimeSeries
 from cognite.client.data_classes.data_modeling import ViewApply
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
-from cognite_toolkit._cdf_tk.load import SpaceLoader
+from cognite_toolkit._cdf_tk.load import ContainerLoader, SpaceLoader
 from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set, validate_yaml_config
 from cognite_toolkit._cdf_tk.validation.warning import (
+    CaseTypoWarning,
     DataSetMissingWarning,
-    LinedUnusedParameterWarning,
+    MissingRequiredParameter,
     SnakeCaseWarning,
     ToolkitWarning,
+    UnusedParameterWarning,
 )
 from tests.tests_unit.data import LOAD_DATA
 
@@ -67,8 +69,34 @@ nme: My space
     yield pytest.param(
         content,
         SpaceLoader.get_write_cls_parameter_spec(),
-        [LinedUnusedParameterWarning(DUMMY_FILE, "dummy", "dummy", "nme", 2)],
+        [
+            UnusedParameterWarning(
+                DUMMY_FILE,
+                2,
+                "nme",
+            )
+        ],
         id="Unused parameter",
+    )
+    content = """externalId: Pump
+name: Pump
+usedFor: node
+properties:
+  DesignPointFlowGPM:
+    autoIncrement: false
+    default_value: null
+    nullable: true
+    type:
+      list: false
+      type: float64"""
+    yield pytest.param(
+        content,
+        ContainerLoader.get_write_cls_parameter_spec(),
+        [
+            MissingRequiredParameter(DUMMY_FILE, 0, "space"),
+            CaseTypoWarning(DUMMY_FILE, 7, "default_value", "defaultValue"),
+        ],
+        id="Valid container",
     )
 
 

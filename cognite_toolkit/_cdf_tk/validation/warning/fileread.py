@@ -38,11 +38,39 @@ class SnakeCaseWarning(UnusedParameter):
 
 
 @dataclass(frozen=True)
-class LinedUnusedParameterWarning(UnusedParameter):
+class YAMLFileWarning(ToolkitWarning, ABC):
+    filepath: Path
     line_no: int
 
+    def group_key(self) -> tuple[Any, ...]:
+        return (self.filepath,)
+
+    def group_header(self) -> str:
+        return f"    In File {str(self.filepath)!r}\n"
+
+
+@dataclass(frozen=True)
+class UnusedParameterWarning(YAMLFileWarning):
+    actual: str
+
     def __str__(self) -> str:
-        return f"{type(self).__name__}: Parameter {self.actual!r} is not used in {self.filepath.name} on line {self.line_no}."
+        return f"{type(self).__name__}: Parameter {self.actual!r} is not used on line {self.line_no}."
+
+
+@dataclass(frozen=True)
+class CaseTypoWarning(UnusedParameterWarning):
+    expected: str
+
+    def __str__(self) -> str:
+        return f"{type(self).__name__}: Got {self.actual!r}. Did you mean {self.expected!r}? On line {self.line_no}."
+
+
+@dataclass(frozen=True)
+class MissingRequiredParameter(YAMLFileWarning):
+    expected: str
+
+    def __str__(self) -> str:
+        return f"{type(self).__name__}: Missing required parameter {self.expected!r} on line {self.line_no}."
 
 
 @dataclass(frozen=True)
