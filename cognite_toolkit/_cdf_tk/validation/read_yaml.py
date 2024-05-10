@@ -207,6 +207,7 @@ def validate_yaml_config(content: str, spec: ParameterSpecSet, source_file: Path
         line_no = no_by_line.get(key, 0)
         warnings.append(UnusedParameterWarning(source_file, line_no, key))
 
+    # Only checking the top level for now. This can be expanded to check nested parameters.
     missing = spec.required(level=1) - actual_parameters
     for spec_param in missing:
         warnings.append(MissingRequiredParameter(source_file, 0, spec_param.key))
