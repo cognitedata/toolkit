@@ -25,8 +25,8 @@ Changes are grouped as follows:
 
 - The parameter `fileId` is removed from all `function` configurations
   (`cdf_functions_dummy` and `cdf_data_pipeline_files_valhall`) as it is no longer required.
-- In all modules with an `extraction_pipelines` resource, removed `dataSetExternalId` from all ExtractionPipelineConfigs
-  as this is not used and thus only causes confusion.
+- In all modules with an `extraction_pipelines` resource, removed `dataSetExternalId` and `name` from all
+  ExtractionPipelineConfigs as this is not used and thus only causes confusion.
 
 ### Changed
 
