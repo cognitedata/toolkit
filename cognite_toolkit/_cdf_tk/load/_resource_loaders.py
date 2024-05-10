@@ -470,9 +470,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         for func in functions:
             if self.extra_configs.get(func["externalId"]) is None:
                 self.extra_configs[func["externalId"]] = {}
-            if func.get("externalDataSetId") is not None:
+            if func.get("dataSetExternalId") is not None:
                 self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
-                    func.get("externalDataSetId", ""), skip_validation=skip_validation
+                    func.get("dataSetExternalId", ""), skip_validation=skip_validation
                 )
             if "fileId" not in func:
                 # The fileID is required for the function to be created, but in the `.create` method

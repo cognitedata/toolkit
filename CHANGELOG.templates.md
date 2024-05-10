@@ -27,6 +27,8 @@ Changes are grouped as follows:
   (`cdf_functions_dummy` and `cdf_data_pipeline_files_valhall`) as it is no longer required.
 - In all modules with an `extraction_pipelines` resource, removed `dataSetExternalId` and `name` from all
   ExtractionPipelineConfigs as this is not used and thus only causes confusion.
+- In all modules with a `function`, renamed `externalIdDataSet` to `dataSetExternalId` to be consistent with the
+  naming convention used in the Cognite API.
 
 ### Changed
 
