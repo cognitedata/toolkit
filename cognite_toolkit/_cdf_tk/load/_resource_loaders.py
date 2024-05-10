@@ -18,6 +18,7 @@ import json
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Sequence, Sized
+from functools import lru_cache
 from numbers import Number
 from pathlib import Path
 from time import sleep
@@ -129,6 +130,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -1899,6 +1901,15 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
         return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # ViewIds have the type set in the API Spec, but this is hidden in the SDK classes,
+        # so we need to add it manually.
+        spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
+        return spec
 
 
 @final

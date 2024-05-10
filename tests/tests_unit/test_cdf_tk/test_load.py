@@ -663,6 +663,6 @@ class TestResourceLoaders:
         extra = dumped - spec
 
         # The spec is calculated based on the resource class __init__ method.
-        # There can be deviations in the output from the dump. If that is the case
-        # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the ContainerLoader.
+        # There can be deviations in the output from the dump. If that is the case,
+        # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the DataModelLoader.
         assert sorted(extra) == sorted(ParameterSet[ParameterValue]({}))
