@@ -73,7 +73,7 @@ class UnusedParameterWarning(YAMLFileWarning):
     actual: str
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}"
+        return f"{type(self).__name__}: Parameter {self.actual!r} is not used."
 
 
 @dataclass(frozen=True)
@@ -81,7 +81,7 @@ class CaseTypoWarning(UnusedParameterWarning):
     expected: str
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}: Got {self.actual!r}. Did you mean {self.expected!r}?{self._location}"
+        return f"{type(self).__name__}: Got {self.actual!r}. Did you mean {self.expected!r}?"
 
 
 @dataclass(frozen=True)
