@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 import inspect
 import itertools
 import types
@@ -59,6 +60,8 @@ class TypeHint:
             return "list"
         elif value == "Any":
             return "unknown"
+        elif issubclass(arg, enum.Enum):
+            return "str"
         return "dict"
 
     @property

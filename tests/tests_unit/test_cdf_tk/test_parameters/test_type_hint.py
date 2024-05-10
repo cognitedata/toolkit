@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 import sys
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal, Union
@@ -11,6 +12,12 @@ from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR
 from cognite_toolkit._cdf_tk._parameters.type_hint import TypeHint
 
 
+class Action(enum.Enum):
+    Read = "READ"
+    Execute = "EXECUTE"
+    List = "LIST"
+
+
 def type_hint_test_cases() -> Iterable[ParameterSet]:
     # "raw, types, is_base_type, is_nullable, is_class, is_dict_type, is_list_type",
     yield pytest.param(str, ["str"], True, False, True, False, False, id="str")
@@ -20,6 +27,7 @@ def type_hint_test_cases() -> Iterable[ParameterSet]:
     yield pytest.param(Sequence[int], ["list"], False, False, False, False, True, id="Sequence")
     yield pytest.param(dict, ["dict"], False, False, False, True, False, id="dict without type hints")
     yield pytest.param(Any, ["unknown"], False, False, False, False, False, id="Any")
+    yield pytest.param(Action, ["str"], True, False, True, False, False, id="Enum")
     if sys.version_info >= (3, 10):
         yield pytest.param(str | None, ["str"], True, True, False, False, False, id="str | None")
         yield pytest.param(
