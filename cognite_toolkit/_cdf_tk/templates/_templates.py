@@ -27,7 +27,11 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
-from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set, validate_modules_variables
+from cognite_toolkit._cdf_tk.validation import (
+    validate_data_set_is_set,
+    validate_modules_variables,
+    validate_yaml_config,
+)
 
 from ._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
@@ -618,11 +622,9 @@ def validate(
                 )
 
     if isinstance(loader, ResourceLoader):
-        load_warnings = validate_case_raw(
-            parsed, loader.resource_cls, destination, identifier_key=loader.identifier_key
-        )
-        if load_warnings:
-            print(f"  [bold yellow]WARNING:[/] Found potential snake_case issues: {load_warnings!s}")
+        data_format_warning = validate_yaml_config(parsed, loader.resource_cls, source_path)
+        if data_format_warning:
+            print(f"  [bold yellow]WARNING:[/] Found potential Data Format issues: {data_format_warning!s}")
 
         data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, source_path)
         if data_set_warnings:
