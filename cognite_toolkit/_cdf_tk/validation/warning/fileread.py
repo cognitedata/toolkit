@@ -38,6 +38,14 @@ class SnakeCaseWarning(UnusedParameter):
 
 
 @dataclass(frozen=True)
+class LinedUnusedParameterWarning(UnusedParameter):
+    line_no: int
+
+    def __str__(self) -> str:
+        return f"{type(self).__name__}: Parameter {self.actual!r} is not used in {self.filepath.name} on line {self.line_no}."
+
+
+@dataclass(frozen=True)
 class TemplateVariableWarning(FileReadWarning):
     path: str
 

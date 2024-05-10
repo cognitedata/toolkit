@@ -13,6 +13,7 @@ from typing import Any, get_origin
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
 
+from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 
 from .warning import (
@@ -175,3 +176,7 @@ def validate_data_set_is_set(
     value = raw.get(identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}"))
     warning_list.append(DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__))
     return warning_list
+
+
+def validate_yaml_config(content: str, spec: ParameterSpecSet, source_file: Path) -> WarningList:
+    raise NotImplementedError()

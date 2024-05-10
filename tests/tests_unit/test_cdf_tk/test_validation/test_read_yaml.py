@@ -1,12 +1,23 @@
+from collections.abc import Iterable
 from pathlib import Path
 
+import pytest
 import yaml
 from cognite.client.data_classes import TimeSeries
 from cognite.client.data_classes.data_modeling import ViewApply
 
-from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set
-from cognite_toolkit._cdf_tk.validation.warning import DataSetMissingWarning, SnakeCaseWarning
+from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
+from cognite_toolkit._cdf_tk.load import SpaceLoader
+from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set, validate_yaml_config
+from cognite_toolkit._cdf_tk.validation.warning import (
+    DataSetMissingWarning,
+    LinedUnusedParameterWarning,
+    SnakeCaseWarning,
+    ToolkitWarning,
+)
 from tests.tests_unit.data import LOAD_DATA
+
+DUMMY_FILE = Path("dummy.yaml")
 
 
 def test_validate_raw() -> None:
@@ -43,3 +54,26 @@ def test_validate_data_set_is_set():
     assert sorted(warnings) == sorted(
         [DataSetMissingWarning(Path("timeseries.yaml"), "myTimeSeries", "externalId", "TimeSeries")]
     )
+
+
+def validate_yaml_config_test_cases() -> Iterable:
+    content = """space: my_space
+"""
+    yield pytest.param(content, SpaceLoader.get_write_cls_parameter_spec(), [], id="Valid space")
+
+    content = """space: my_space
+nme: My space
+"""
+    yield pytest.param(
+        content,
+        SpaceLoader.get_write_cls_parameter_spec(),
+        [LinedUnusedParameterWarning(DUMMY_FILE, "dummy", "dummy", "nme", 2)],
+        id="Unused parameter",
+    )
+
+
+class TestValidateYAML:
+    @pytest.mark.parametrize("content, spec, expected_warnings", list(validate_yaml_config_test_cases()))
+    def test_validate_yaml_config(self, content: str, spec: ParameterSpecSet, expected_warnings: list[ToolkitWarning]):
+        warnings = validate_yaml_config(content, spec, DUMMY_FILE)
+        assert sorted(warnings) == sorted(expected_warnings)
