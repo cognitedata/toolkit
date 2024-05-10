@@ -2192,3 +2192,37 @@ class WorkflowVersionLoader(
             else:
                 successes += 1
         return successes
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # The Parameter class in the SDK class WorkflowVersion implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        parameter_path = ("workflowDefinition", "tasks", ANY_INT, "parameters")
+        length = len(parameter_path)
+        for item in spec:
+            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+        spec.add(ParameterSpec((*parameter_path, ANY_STR), frozenset({"dict"}), is_required=True, _is_nullable=False))
+        # The depends on is implemented as a list of string in the SDK, but in the API spec it
+        # is a list of objects with one 'externalId' field.
+        spec.add(
+            ParameterSpec(
+                ("workflowDefinition", "tasks", ANY_INT, "dependsOn", ANY_INT, "externalId"),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=False,
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("workflowDefinition", "tasks", ANY_INT, "type"),
+                frozenset({"str"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        return spec
