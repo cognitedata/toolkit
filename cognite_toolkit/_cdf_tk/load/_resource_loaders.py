@@ -1780,6 +1780,30 @@ class ContainerLoader(
 
         return local_dumped == remote.as_write().dump(camel_case=True)
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        output = super().get_write_cls_parameter_spec()
+        # In the SDK this is called isList, while in the API it is called list.
+        output.discard(
+            ParameterSpec(
+                ("properties", ANY_STR, "type", "isList"), frozenset({"bool"}), is_required=True, _is_nullable=False
+            )
+        )
+        output.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "type", "list"), frozenset({"bool"}), is_required=True, _is_nullable=False
+            )
+        )
+        # This is used by the SDK to load the correct class.
+        output.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "type", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+
+        return output
+
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     api_name = "data_modeling.views"

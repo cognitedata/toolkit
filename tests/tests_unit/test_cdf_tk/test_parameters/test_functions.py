@@ -38,6 +38,12 @@ class TestReadParameterFromTypeHints:
                         ParameterSpec(("space",), frozenset({"str"}), True, False),
                         ParameterSpec(("external_id",), frozenset({"str"}), True, False),
                         ParameterSpec(("properties",), frozenset({"dict"}), True, False),
+                        ParameterSpec(
+                            path=("properties", ANY_STR),
+                            types=frozenset({"dict"}),
+                            is_required=False,
+                            _is_nullable=False,
+                        ),
                         ParameterSpec(("properties", ANY_STR, "type"), frozenset({"dict"}), True, False),
                         ParameterSpec(("properties", ANY_STR, "nullable"), frozenset({"bool"}), False, False),
                         ParameterSpec(("properties", ANY_STR, "auto_increment"), frozenset({"bool"}), False, False),
@@ -70,6 +76,12 @@ class TestReadParameterFromTypeHints:
                         ParameterSpec(("used_for",), frozenset({"str"}), False, True),
                         ParameterSpec(("constraints",), frozenset({"dict"}), False, True),
                         ParameterSpec(
+                            path=("constraints", ANY_STR),
+                            types=frozenset({"dict"}),
+                            is_required=False,
+                            _is_nullable=False,
+                        ),
+                        ParameterSpec(
                             (
                                 "constraints",
                                 ANY_STR,
@@ -86,6 +98,9 @@ class TestReadParameterFromTypeHints:
                         ParameterSpec(("constraints", ANY_STR, "properties"), frozenset({"list"}), True, False),
                         ParameterSpec(("constraints", ANY_STR, "properties", ANY_INT), frozenset({"str"}), True, False),
                         ParameterSpec(("indexes",), frozenset({"dict"}), False, True),
+                        ParameterSpec(
+                            path=("indexes", ANY_STR), types=frozenset({"dict"}), is_required=False, _is_nullable=False
+                        ),
                         ParameterSpec(("indexes", ANY_STR, "properties"), frozenset({"list"}), True, False),
                         ParameterSpec(("indexes", ANY_STR, "properties", ANY_INT), frozenset({"str"}), True, False),
                         ParameterSpec(("indexes", ANY_STR, "cursorable"), frozenset({"bool"}), False, False),
