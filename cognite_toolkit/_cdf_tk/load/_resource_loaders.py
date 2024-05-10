@@ -425,6 +425,18 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit, toolkit will automatically convert metadata to json
+        spec.add(
+            ParameterSpec(
+                ("metadata", ANY_STR, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=False
+            )
+        )
+        return spec
+
 
 @final
 class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
@@ -1206,10 +1218,10 @@ class TransformationLoader(
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         spec = super().get_write_cls_parameter_spec()
-        # Added by toolkit
         spec.update(
             ParameterSpecSet(
                 {
+                    # Added by toolkit
                     ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False),
                     ParameterSpec(("authentication",), frozenset({"dict"}), is_required=False, _is_nullable=False),
                     ParameterSpec(
@@ -1884,18 +1896,32 @@ class ContainerLoader(
         )
         # The parameters below are used by the SDK to load the correct class, and ase thus not part of the init
         # that the spec is created from, so we need to add them manually.
-        output.add(
-            ParameterSpec(
-                ("properties", ANY_STR, "type", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+        output.update(
+            ParameterSpecSet(
+                {
+                    ParameterSpec(
+                        ("properties", ANY_STR, "type", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("constraints", ANY_STR, "constraintType"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("constraints", ANY_STR, "require", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("indexes", ANY_STR, "indexType"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                }
             )
-        )
-        output.add(
-            ParameterSpec(
-                ("constraints", ANY_STR, "constraintType"), frozenset({"str"}), is_required=True, _is_nullable=False
-            )
-        )
-        output.add(
-            ParameterSpec(("indexes", ANY_STR, "indexType"), frozenset({"str"}), is_required=True, _is_nullable=False)
         )
         return output
 
