@@ -614,6 +614,14 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         self.client.functions.delete(external_id=cast(SequenceNotStr[str], ids))
         return len(ids)
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
+
 
 @final
 class FunctionScheduleLoader(
