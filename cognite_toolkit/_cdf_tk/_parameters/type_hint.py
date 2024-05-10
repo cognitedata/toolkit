@@ -60,7 +60,7 @@ class TypeHint:
             return "list"
         elif value == "Any":
             return "unknown"
-        elif issubclass(arg, enum.Enum):
+        elif inspect.isclass(arg) and issubclass(arg, enum.Enum):
             return "str"
         return "dict"
 

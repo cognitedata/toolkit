@@ -130,7 +130,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -329,7 +329,26 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         spec = super().get_write_cls_parameter_spec()
-
+        # The Capability class in the SDK class Group implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        for item in spec:
+            if item.path[0] == "capabilities" and len(item.path) > 2:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:2] + (ANY_STR,) + item.path[2:])
+        spec.add(
+            ParameterSpec(
+                ("capabilities", ANY_INT, ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("capabilities", ANY_INT, ANY_STR, "scope", ANY_STR),
+                frozenset({"dict"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
         return spec
 
 
