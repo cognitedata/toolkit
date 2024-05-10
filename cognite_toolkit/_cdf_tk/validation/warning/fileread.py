@@ -40,13 +40,32 @@ class SnakeCaseWarning(UnusedParameter):
 @dataclass(frozen=True)
 class YAMLFileWarning(ToolkitWarning, ABC):
     filepath: Path
-    line_no: int
+    # None is a dictionary, number is a list
+    element_no: int | None
+    path: tuple[str | int, ...]
 
     def group_key(self) -> tuple[Any, ...]:
-        return (self.filepath,)
+        if self.element_no is None:
+            return (self.filepath,)
+        else:
+            return self.filepath, self.element_no
 
     def group_header(self) -> str:
-        return f"    In File {str(self.filepath)!r}\n"
+        if self.element_no is None:
+            return f"    In File {str(self.filepath)!r}"
+        else:
+            return f"    In File {str(self.filepath)!r}\n    In entry {self.element_no}"
+
+    @property
+    def _location(self) -> str:
+        if self.element_no is not None:
+            value = f" in entry {self.element_no}"
+        else:
+            value = ""
+        if len(self.path) == 0:
+            return f"{value}."
+        else:
+            return f"{value} in section {self.path!r}."
 
 
 @dataclass(frozen=True)
@@ -54,7 +73,7 @@ class UnusedParameterWarning(YAMLFileWarning):
     actual: str
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}: Parameter {self.actual!r} is not used on line {self.line_no}."
+        return f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}"
 
 
 @dataclass(frozen=True)
@@ -62,7 +81,7 @@ class CaseTypoWarning(UnusedParameterWarning):
     expected: str
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}: Got {self.actual!r}. Did you mean {self.expected!r}? On line {self.line_no}."
+        return f"{type(self).__name__}: Got {self.actual!r}. Did you mean {self.expected!r}?{self._location}"
 
 
 @dataclass(frozen=True)
@@ -70,7 +89,7 @@ class MissingRequiredParameter(YAMLFileWarning):
     expected: str
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}: Missing required parameter {self.expected!r} on line {self.line_no}."
+        return f"{type(self).__name__}: Missing required parameter {self.expected!r}{self._location}"
 
 
 @dataclass(frozen=True)

@@ -72,7 +72,8 @@ nme: My space
         [
             UnusedParameterWarning(
                 DUMMY_FILE,
-                2,
+                None,
+                ("nme",),
                 "nme",
             )
         ],
@@ -93,15 +94,34 @@ properties:
         content,
         ContainerLoader.get_write_cls_parameter_spec(),
         [
-            MissingRequiredParameter(DUMMY_FILE, 0, "space"),
-            CaseTypoWarning(DUMMY_FILE, 7, "default_value", "defaultValue"),
+            MissingRequiredParameter(DUMMY_FILE, None, ("space",), "space"),
+            CaseTypoWarning(
+                DUMMY_FILE, None, ("properties", "DesignPointFlowGPM", "default_value"), "default_value", "defaultValue"
+            ),
         ],
         id="Missing required and misspelling",
+    )
+    content = """
+- space: sp_my_space
+  name: First space
+- space: sp_my_space_2
+  nme: Second space
+- space: sp_my_space_3
+  nme: Third space"""
+    yield pytest.param(
+        content,
+        SpaceLoader.get_write_cls_parameter_spec(),
+        [
+            UnusedParameterWarning(DUMMY_FILE, 2, ("nme",), "nme"),
+            UnusedParameterWarning(DUMMY_FILE, 3, ("nme",), "nme"),
+        ],
+        id="Unused parameter in list",
     )
 
 
 class TestValidateYAML:
     @pytest.mark.parametrize("content, spec, expected_warnings", list(validate_yaml_config_test_cases()))
     def test_validate_yaml_config(self, content: str, spec: ParameterSpecSet, expected_warnings: list[ToolkitWarning]):
-        warnings = validate_yaml_config(content, spec, DUMMY_FILE)
+        data = yaml.safe_load(content)
+        warnings = validate_yaml_config(data, spec, DUMMY_FILE)
         assert sorted(warnings) == sorted(expected_warnings)

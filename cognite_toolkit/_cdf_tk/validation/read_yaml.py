@@ -10,7 +10,6 @@ import typing
 from pathlib import Path
 from typing import Any, get_origin
 
-import yaml
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
 
@@ -182,34 +181,37 @@ def validate_data_set_is_set(
     return warning_list
 
 
-def validate_yaml_config(content: str, spec: ParameterSpecSet, source_file: Path) -> WarningList:
-    no_by_line: dict[str | int, int] = {
-        line.strip().split(":", maxsplit=1)[0] if ":" in line else line: no
-        for no, line in enumerate(content.splitlines(), 1)
-    }
-    data = yaml.safe_load(content)
-    if not isinstance(data, dict):
-        raise NotImplementedError("")
+def validate_yaml_config(data: dict | list, spec: ParameterSpecSet, source_file: Path) -> WarningList:
+    return _validate_yaml_config(data, spec, source_file, None)
+
+
+def _validate_yaml_config(
+    data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None
+) -> WarningList:
+    warnings: WarningList = WarningList()
+    if isinstance(data, list):
+        for no, item in enumerate(data, 1):
+            warnings.extend(_validate_yaml_config(item, spec, source_file, no))
+        return warnings
+    elif not isinstance(data, dict):
+        raise NotImplementedError("Note: This function only supports top-level and lists dictionaries.")
 
     actual_parameters = read_parameters_from_dict(data)
-    warnings: WarningList = WarningList()
-
     unused_parameters = actual_parameters - spec
     unused_cased = unused_parameters.as_camel_case() - spec
     typo_parameters = unused_parameters - unused_cased
     for parameter in typo_parameters:
         key = parameter.key
-        line_no = no_by_line.get(key, 0)
-        warnings.append(CaseTypoWarning(source_file, line_no, key, to_camel_case(key)))
+        warnings.append(CaseTypoWarning(source_file, element, parameter.path, key, to_camel_case(key)))
+
     unused_parameters = unused_parameters - typo_parameters
     for parameter in unused_parameters:
         key = parameter.key
-        line_no = no_by_line.get(key, 0)
-        warnings.append(UnusedParameterWarning(source_file, line_no, key))
+        warnings.append(UnusedParameterWarning(source_file, element, parameter.path, key))
 
     # Only checking the top level for now. This can be expanded to check nested parameters.
     missing = spec.required(level=1) - actual_parameters
     for spec_param in missing:
-        warnings.append(MissingRequiredParameter(source_file, 0, spec_param.key))
+        warnings.append(MissingRequiredParameter(source_file, element, spec_param.path, spec_param.key))
 
     return warnings
