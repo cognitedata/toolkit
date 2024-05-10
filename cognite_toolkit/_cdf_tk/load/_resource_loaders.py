@@ -130,7 +130,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -343,7 +343,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         )
         spec.add(
             ParameterSpec(
-                ("capabilities", ANY_INT, ANY_STR, "scope", ANY_STR),
+                ("capabilities", ANY_INT, ANY_STR, "scope", ANYTHING),
                 frozenset({"dict"}),
                 is_required=True,
                 _is_nullable=False,
