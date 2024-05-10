@@ -1,4 +1,5 @@
-nam: Asset
+externalId: Asset
+name: Asset
 properties:
   areaId:
     autoIncrement: false

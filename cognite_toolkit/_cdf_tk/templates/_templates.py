@@ -638,8 +638,10 @@ def validate(
                 print(Panel(traceback.format_exc()))
         else:
             if data_format_warnings:
-                print("  [bold yellow]WARNING:[/] Found potential Data Format issues:")
-                print(Markdown(f"{data_format_warnings!s}"))
+                print(
+                    "  [bold yellow]WARNING:[/] Found potential Data Format issues:",
+                    Markdown(f"{data_format_warnings!s}"),
+                )
 
         data_set_warnings = validate_data_set_is_set(parsed_list, loader.resource_cls, source_path)
         if data_set_warnings:

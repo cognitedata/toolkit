@@ -59,13 +59,13 @@ class YAMLFileWarning(ToolkitWarning, ABC):
     @property
     def _location(self) -> str:
         if self.element_no is not None:
-            value = f" in entry {self.element_no}"
+            value = f" in entry {self.element_no} "
         else:
             value = ""
-        if len(self.path) == 0:
-            return f"{value}."
+        if len(self.path) == 1:
+            return f"{value}"
         else:
-            return f"{value} in section {self.path!r}."
+            return f"{value} in section {self.path!r}"
 
 
 @dataclass(frozen=True)
@@ -73,7 +73,7 @@ class UnusedParameterWarning(YAMLFileWarning):
     actual: str
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}: Parameter {self.actual!r} is not used."
+        return f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}."
 
 
 @dataclass(frozen=True)
@@ -81,7 +81,7 @@ class CaseTypoWarning(UnusedParameterWarning):
     expected: str
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}: Got {self.actual!r}. Did you mean {self.expected!r}?"
+        return f"{type(self).__name__}: Got {self.actual!r}. Did you mean {self.expected!r}?{self._location}."
 
 
 @dataclass(frozen=True)
@@ -89,8 +89,7 @@ class MissingRequiredParameter(YAMLFileWarning):
     expected: str
 
     def __str__(self) -> str:
-        location = "." if self.element_no is None else f" in entry {self.element_no}"
-        return f"{type(self).__name__}: Missing required parameter {self.expected!r}{location}"
+        return f"{type(self).__name__}: Missing required parameter {self.expected!r}{self._location}."
 
 
 @dataclass(frozen=True)
