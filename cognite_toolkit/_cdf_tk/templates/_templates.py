@@ -5,6 +5,7 @@ import io
 import re
 import shutil
 import sys
+import traceback
 from collections import ChainMap, defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes.files import FileMetadataList
 from cognite.client.data_classes.functions import FunctionList
 from rich import print
+from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -622,9 +624,18 @@ def validate(
                 )
 
     if isinstance(loader, ResourceLoader):
-        data_format_warning = validate_yaml_config(parsed, loader.resource_cls, source_path)
-        if data_format_warning:
-            print(f"  [bold yellow]WARNING:[/] Found potential Data Format issues: {data_format_warning!s}")
+        try:
+            data_format_warning = validate_yaml_config(parsed, loader.get_write_cls_parameter_spec(), source_path)
+        except Exception as e:
+            print(
+                f"[bold yellow]WARNING:[/] Failed to validate {destination.name} due to: {e}."
+                "Please contact the toolkit maintainers with the error message and traceback:"
+            )
+            if verbose:
+                print(Panel(traceback.format_exc()))
+        else:
+            if data_format_warning:
+                print(f"  [bold yellow]WARNING:[/] Found potential Data Format issues: {data_format_warning!s}")
 
         data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, source_path)
         if data_set_warnings:
