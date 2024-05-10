@@ -97,11 +97,11 @@ class ParameterFromInitTypeHints:
                 _is_nullable=value_hint.is_nullable,
             )
         )
-        # for sub_hint in value_hint.sub_hints:
-        #     if not (sub_hint.is_base_type or sub_hint.is_any):
-        #         self._create_nested_parameters(ANY_STR, False, sub_hint,(*path, *parent_name, ANY_STR), seen.copy())
-        if not (value_hint.is_base_type or value_hint.is_any):
-            self._read(value, (*path, *parent_name, ANY_STR), seen.copy())
+        for sub_hint in value_hint.sub_hints:
+            if not (sub_hint.is_base_type or sub_hint.is_any):
+                self._create_nested_parameters(tuple(), False, sub_hint, (*path, *parent_name, ANY_STR), seen.copy())
+        # if not (value_hint.is_base_type or value_hint.is_any):
+        #     self._read(value, (*path, *parent_name, ANY_STR), seen.copy())
 
     def _create_parameter_spec_list(
         self,

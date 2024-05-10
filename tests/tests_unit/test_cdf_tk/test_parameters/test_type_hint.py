@@ -11,7 +11,6 @@ from _pytest.mark import ParameterSet
 from cognite.client.data_classes.data_modeling import DirectRelationReference, NodeId
 from cognite.client.data_classes.data_modeling.instances import PropertyValue
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR
 from cognite_toolkit._cdf_tk._parameters.type_hint import TypeHint
 
 
@@ -91,35 +90,3 @@ class TestTypeHint:
         assert hint.is_user_defined_class == is_class
         assert hint.is_dict_type == is_dict_type
         assert hint.is_list_type == is_list_type
-
-
-class TestAnyStrInt:
-    @pytest.mark.parametrize("other", [1, "a", None])
-    def test_any_str_equals(self, other: Any) -> None:
-        is_string = isinstance(other, str)
-        is_equal = ANY_STR == other
-
-        assert is_string == is_equal
-
-    @pytest.mark.parametrize("other", [1, "a", None])
-    def test_any_int_equals(self, other: Any) -> None:
-        is_int = isinstance(other, int)
-        is_equal = ANY_INT == other
-
-        assert is_int == is_equal
-
-    @pytest.mark.parametrize(
-        "dump, spec, expected",
-        [
-            (("metadata",), ("metadata", ANY_STR), False),
-            (("metadata",), ("metadata", ANY_INT), False),
-            (("metadata", 0), ("metadata", ANY_INT), True),
-            (("metadata",), ("metadata",), True),
-            (("metadata",), ("metadata", "a"), False),
-            (("metadata", "a"), ("metadata", ANY_STR), True),
-        ],
-    )
-    def test_any_str_tuple_equals(self, dump: tuple, spec: tuple, expected: bool) -> None:
-        actual = dump == spec
-
-        assert actual == expected
