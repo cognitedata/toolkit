@@ -1,4 +1,7 @@
+import os
 import pathlib
+import re
+from collections.abc import Iterable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -40,12 +43,17 @@ from cognite_toolkit._cdf_tk.load import (
 )
 from cognite_toolkit._cdf_tk.templates import (
     build_config,
+    module_from_path,
+    resource_folder_from_path,
 )
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildConfigYAML,
+    Environment,
+    InitConfigYAML,
     SystemYAML,
 )
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, tmp_build_directory
+from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.data import LOAD_DATA, PYTEST_PROJECT
 from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
@@ -650,6 +658,51 @@ def test_resource_types_is_up_to_date() -> None:
     assert not extra, f"Extra {extra=}"
 
 
+def cognite_module_files_with_loader() -> Iterable:
+    source_path = REPO_ROOT / "cognite_toolkit"
+    env = "dev"
+    with tmp_build_directory() as build_dir:
+        system_config = SystemYAML.load_from_directory(source_path, env)
+        config_init = InitConfigYAML(
+            Environment(
+                name="not used",
+                project=os.environ.get("CDF_PROJECT", "<not set>"),
+                build_type="dev",
+                selected_modules_and_packages=[],
+            )
+        ).load_defaults(source_path)
+        config = config_init.as_build_config()
+        config.set_environment_variables()
+        config.environment.selected_modules_and_packages = config.available_modules
+        source_by_build_path = build_config(
+            build_dir=build_dir,
+            source_dir=source_path,
+            config=config,
+            system_config=system_config,
+            clean=True,
+            verbose=False,
+        )
+        for filepath in build_dir.rglob("*.yaml"):
+            try:
+                resource_folder = resource_folder_from_path(filepath)
+            except ValueError:
+                # Not a resource file
+                continue
+            loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
+            if not loaders:
+                continue
+            loader = next((loader for loader in loaders if re.match(loader.filename_pattern, filepath.stem)), None)
+            if issubclass(loader, ResourceLoader):
+                raw = yaml.CSafeLoader(filepath.read_text()).get_data()
+                source_path = source_by_build_path[filepath]
+                module_name = module_from_path(source_path)
+                if isinstance(raw, dict):
+                    yield pytest.param(loader, raw, id=f"{module_name} - {filepath.stem} - dict")
+                elif isinstance(raw, list):
+                    for no, item in enumerate(raw):
+                        yield pytest.param(loader, item, id=f"{module_name} - {filepath.stem} - list {no}")
+
+
 class TestResourceLoaders:
     @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
     def test_get_write_cls_spec(self, loader_cls: type[ResourceLoader]):
@@ -666,3 +719,12 @@ class TestResourceLoaders:
         # There can be deviations in the output from the dump. If that is the case,
         # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the DataModelLoader.
         assert sorted(extra) == sorted(ParameterSet[ParameterValue]({}))
+
+    @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
+    def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceLoader], content: dict) -> None:
+        dumped = read_parameters_from_dict(content)
+        spec = loader_cls.get_write_cls_parameter_spec()
+
+        extra = dumped - spec
+
+        assert sorted(extra) == []
