@@ -89,7 +89,8 @@ class MissingRequiredParameter(YAMLFileWarning):
     expected: str
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}: Missing required parameter {self.expected!r}{self._location}"
+        location = "." if self.element_no is None else f" in entry {self.element_no}"
+        return f"{type(self).__name__}: Missing required parameter {self.expected!r}{location}"
 
 
 @dataclass(frozen=True)

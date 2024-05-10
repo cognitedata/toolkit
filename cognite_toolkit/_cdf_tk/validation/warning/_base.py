@@ -50,5 +50,5 @@ class WarningList(UserList, Generic[T_Warning]):
             if header:
                 output.append(header)
             for warning in group_list:
-                output.append(f"{'    ' * 2}{warning!s}")
+                output.append(f"{'    ' * 2} * {warning!s}")
         return "\n".join(output)

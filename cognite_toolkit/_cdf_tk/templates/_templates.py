@@ -18,6 +18,7 @@ from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes.files import FileMetadataList
 from cognite.client.data_classes.functions import FunctionList
 from rich import print
+from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
@@ -637,7 +638,8 @@ def validate(
                 print(Panel(traceback.format_exc()))
         else:
             if data_format_warnings:
-                print(f"  [bold yellow]WARNING:[/] Found potential Data Format issues: {data_format_warnings!s}")
+                print("  [bold yellow]WARNING:[/] Found potential Data Format issues:")
+                print(Markdown(f"{data_format_warnings!s}"))
 
         data_set_warnings = validate_data_set_is_set(parsed_list, loader.resource_cls, source_path)
         if data_set_warnings:
