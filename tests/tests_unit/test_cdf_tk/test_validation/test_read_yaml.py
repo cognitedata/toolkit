@@ -84,7 +84,7 @@ usedFor: node
 properties:
   DesignPointFlowGPM:
     autoIncrement: false
-    default_value: null
+    default_value: astring
     nullable: true
     type:
       list: false

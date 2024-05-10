@@ -201,7 +201,7 @@ def validate_yaml_config(content: str, spec: ParameterSpecSet, source_file: Path
         key = parameter.key
         line_no = no_by_line.get(key, 0)
         warnings.append(CaseTypoWarning(source_file, line_no, key, to_camel_case(key)))
-
+    unused_parameters = unused_parameters - typo_parameters
     for parameter in unused_parameters:
         key = parameter.key
         line_no = no_by_line.get(key, 0)
