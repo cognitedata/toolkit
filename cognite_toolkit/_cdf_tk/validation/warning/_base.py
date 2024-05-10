@@ -46,7 +46,7 @@ class WarningList(UserList, Generic[T_Warning]):
         output = [""]
         for group_key, group in itertools.groupby(sorted(self), key=lambda w: w.group_key()):
             group_list = list(group)
-            header = type(group_list[0]).group_header(group_key)
+            header = group_list[0].group_header()
             if header:
                 output.append(header)
             for warning in group_list:

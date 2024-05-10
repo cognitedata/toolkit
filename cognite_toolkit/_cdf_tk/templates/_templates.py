@@ -608,8 +608,10 @@ def validate(
         return
 
     if isinstance(parsed, dict):
-        parsed = [parsed]
-    for item in parsed:
+        parsed_list = [parsed]
+    else:
+        parsed_list = parsed
+    for item in parsed_list:
         if not check_yaml_semantics(
             parsed=item,
             filepath_src=source_path,
@@ -623,9 +625,9 @@ def validate(
                     f"  [bold yellow]WARNING:[/] verify file format against the API specification for {destination.parent.name!r} at {loader.doc_url()}"
                 )
 
-    if isinstance(loader, ResourceLoader):
+    if issubclass(loader, ResourceLoader):
         try:
-            data_format_warning = validate_yaml_config(parsed, loader.get_write_cls_parameter_spec(), source_path)
+            data_format_warnings = validate_yaml_config(parsed, loader.get_write_cls_parameter_spec(), source_path)
         except Exception as e:
             print(
                 f"[bold yellow]WARNING:[/] Failed to validate {destination.name} due to: {e}."
@@ -634,9 +636,9 @@ def validate(
             if verbose:
                 print(Panel(traceback.format_exc()))
         else:
-            if data_format_warning:
-                print(f"  [bold yellow]WARNING:[/] Found potential Data Format issues: {data_format_warning!s}")
+            if data_format_warnings:
+                print(f"  [bold yellow]WARNING:[/] Found potential Data Format issues: {data_format_warnings!s}")
 
-        data_set_warnings = validate_data_set_is_set(parsed, loader.resource_cls, source_path)
+        data_set_warnings = validate_data_set_is_set(parsed_list, loader.resource_cls, source_path)
         if data_set_warnings:
             print(f"  [bold yellow]WARNING:[/] Found missing data_sets: {data_set_warnings!s}")
