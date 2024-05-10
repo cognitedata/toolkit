@@ -729,6 +729,20 @@ class FunctionScheduleLoader(
             count += 1
         return count
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("authentication",), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        spec.add(
+            ParameterSpec(("authentication", "clientId"), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
+        spec.add(
+            ParameterSpec(("authentication", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
+        return spec
+
 
 @final
 class RawDatabaseLoader(
