@@ -52,8 +52,9 @@ class ParameterFromInitTypeHints:
             is_required = parameter.default is inspect.Parameter.empty
             is_nullable = hint.is_nullable or parameter.default is None
             self.parameter_set.add(ParameterSpec((*path, name), hint.frozen_types, is_required, is_nullable))
-            if not hint.is_base_type:
-                self._create_nested_parameters((name,), is_required, hint, path, seen)
+            for subhint in hint.sub_hints:
+                if not subhint.is_base_type:
+                    self._create_nested_parameters((name,), is_required, hint, path, seen)
 
     def _create_nested_parameters(
         self,
