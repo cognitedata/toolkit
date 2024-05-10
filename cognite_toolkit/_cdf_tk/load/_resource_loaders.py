@@ -1899,6 +1899,42 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
         return nr_of_deleted
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # The Filter class in the SDK class View implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        parameter_path = ("filter",)
+        length = len(parameter_path)
+        for item in spec:
+            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+        spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        # The following types are used by the SDK to load the correct class. They are not part of the init,
+        # so we need to add it manually.
+        spec.add(
+            ParameterSpec(("implements", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False)
+        )
+        spec.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "connectionType"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "source", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "edgeSource", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+        return spec
+
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
