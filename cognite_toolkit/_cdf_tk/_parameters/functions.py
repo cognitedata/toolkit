@@ -88,7 +88,7 @@ class ParameterFromInitTypeHints:
         if key is not str:
             raise NotImplementedError("Only string keys are supported")
         value_hint = TypeHint(value)
-        if value_hint.is_base_type:
+        if value_hint.is_base_type or value_hint.is_any:
             self.parameter_set.add(
                 ParameterSpec(
                     (*path, *parent_name, ANY_STR),

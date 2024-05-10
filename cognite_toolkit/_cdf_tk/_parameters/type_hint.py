@@ -57,6 +57,8 @@ class TypeHint:
             return "str"
         elif value == "Sequence":
             return "list"
+        elif value == "Any":
+            return "unknown"
         return "dict"
 
     @property
@@ -76,8 +78,12 @@ class TypeHint:
         return any(self._is_none_type(arg) for arg in self.args)
 
     @property
+    def is_any(self) -> bool:
+        return any(arg is typing.Any for arg in self.args)
+
+    @property
     def is_class(self) -> bool:
-        if self.is_union or self.is_dict_type or self.is_list_type:
+        if self.is_union or self.is_dict_type or self.is_list_type or self.is_any:
             return False
         return inspect.isclass(self.args[0])
 

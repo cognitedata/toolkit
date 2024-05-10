@@ -7,7 +7,8 @@ from typing import Any, Literal, Union
 import pytest
 from _pytest.mark import ParameterSet
 
-from cognite_toolkit._cdf_tk._parameters.type_hint import ANY_INT, ANY_STR, TypeHint
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR
+from cognite_toolkit._cdf_tk._parameters.type_hint import TypeHint
 
 
 def type_hint_test_cases() -> Iterable[ParameterSet]:
@@ -18,6 +19,7 @@ def type_hint_test_cases() -> Iterable[ParameterSet]:
     yield pytest.param(Union[str, int], ["str", "int"], True, False, False, False, False, id="Union")
     yield pytest.param(Sequence[int], ["list"], False, False, False, False, True, id="Sequence")
     yield pytest.param(dict, ["dict"], False, False, False, True, False, id="dict without type hints")
+    yield pytest.param(Any, ["unknown"], False, False, False, False, False, id="Any")
     if sys.version_info >= (3, 10):
         yield pytest.param(str | None, ["str"], True, True, False, False, False, id="str | None")
         yield pytest.param(
