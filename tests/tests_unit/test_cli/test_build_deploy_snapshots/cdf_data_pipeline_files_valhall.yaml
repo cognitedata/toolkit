@@ -279,8 +279,8 @@ Transformation:
     \  as name,\n  file.externalId                  as externalId,\n  meta.source\
     \                      as source,\n  meta.`mime_type`                 as mimeType,\n\
     \  array(root_id.id)                as assetIds,\n  dataset_id('ds_files_oid')\
-    \       as dataSetId,\n  map_concat(map(\"doc_type\", meta.doc_type),\n      \
-    \      file.metadata)         as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
+    \  as dataSetId,\n  map_concat(map(\"doc_type\", meta.doc_type),\n           \
+    \ file.metadata)         as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
     \ meta,\n  _cdf.files                             file,\n  root_id\nWHERE \n \
     \ file.name = meta.name\n"
   sourceOidcCredentials:
