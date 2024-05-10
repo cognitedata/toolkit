@@ -6,7 +6,7 @@ import time
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -123,6 +123,7 @@ def get_file_list(client: CogniteClient, asset_root_xid: str, config: Annotation
         asset_subtree_external_ids=[asset_root_xid],
         mime_type=ORG_MIME_TYPE,
         limit=config.doc_limit,
+        uploaded=True,
     )
 
 
@@ -218,7 +219,7 @@ def update_file_metadata(
         annotated_stamp = int(annotated_date.timestamp() * 1000)
 
     # live 1 h for buffer
-    if annotated_stamp and file.last_updated_time and file.last_updated_time > annotated_stamp:
+    if annotated_stamp and file.uploaded_time and file.uploaded_time > annotated_stamp:
         meta_file_update.append(
             FileMetadataUpdate(external_id=file.external_id).metadata.remove([FILE_ANNOTATED_META_KEY])
         )
@@ -356,9 +357,8 @@ def process_files(
                 continue
 
             annotated_count += 1
-            # Note: add a minute to make sure annotation time is larger than last update time:
-            # using local time, since file update time also uses local time
-            timestamp = (datetime.now() + timedelta(minutes=1)).strftime(ISO_8601)
+            # using local time, since file upload time also uses local time
+            timestamp = datetime.now().strftime(ISO_8601)
             my_update = (
                 FileMetadataUpdate(id=file.id)
                 .asset_ids.set(asset_ids_list)
@@ -397,6 +397,9 @@ def detect_create_annotation(
     job = retrieve_diagram_with_retry(client, entities, file_xid)
     if "items" not in job.result or not job.result["items"]:
         return [], []
+
+    if job.error_message:
+        raise Exception(f"Error in contextualization job: {job.error_message}")
 
     detected_count = 0
     entities_id_found = []
