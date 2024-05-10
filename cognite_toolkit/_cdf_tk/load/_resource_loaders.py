@@ -1915,22 +1915,37 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
         # The following types are used by the SDK to load the correct class. They are not part of the init,
         # so we need to add it manually.
-        spec.add(
-            ParameterSpec(("implements", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False)
-        )
-        spec.add(
-            ParameterSpec(
-                ("properties", ANY_STR, "connectionType"), frozenset({"str"}), is_required=True, _is_nullable=False
-            )
-        )
-        spec.add(
-            ParameterSpec(
-                ("properties", ANY_STR, "source", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
-            )
-        )
-        spec.add(
-            ParameterSpec(
-                ("properties", ANY_STR, "edgeSource", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+        spec.update(
+            ParameterSpecSet(
+                {
+                    ParameterSpec(
+                        ("implements", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "connectionType"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "source", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "container", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "edgeSource", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                }
             )
         )
         return spec
