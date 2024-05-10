@@ -36,25 +36,24 @@ class ParameterFromInitTypeHints:
                 return None
             raise
         seen.update(cls_.__name__ for cls_ in classes)
-        type_hints_by_name = _TypeHints.get_type_hints_by_name(classes)
-        parameters = {k: v for cls in classes for k, v in inspect.signature(cls.__init__).parameters.items()}  # type: ignore[misc]
+        for cls_ in classes:
+            type_hints_by_name = _TypeHints.get_type_hints_by_name(cls_)
+            for name, parameter in inspect.signature(cls_.__init__).parameters.items():  # type: ignore[misc]
+                if name == "self" or parameter.kind in [parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD]:
+                    continue
+                try:
+                    hint = TypeHint(type_hints_by_name[name])
+                except KeyError:
+                    # Missing type hint
+                    self.parameter_set.is_complete = False
+                    continue
 
-        for name, parameter in parameters.items():
-            if name == "self" or parameter.kind in [parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD]:
-                continue
-            try:
-                hint = TypeHint(type_hints_by_name[name])
-            except KeyError:
-                # Missing type hint
-                self.parameter_set.is_complete = False
-                continue
-
-            is_required = parameter.default is inspect.Parameter.empty
-            is_nullable = hint.is_nullable or parameter.default is None
-            self.parameter_set.add(ParameterSpec((*path, name), hint.frozen_types, is_required, is_nullable))
-            for subhint in hint.sub_hints:
-                if not subhint.is_base_type:
-                    self._create_nested_parameters((name,), is_required, hint, path, seen)
+                is_required = parameter.default is inspect.Parameter.empty
+                is_nullable = hint.is_nullable or parameter.default is None
+                self.parameter_set.add(ParameterSpec((*path, name), hint.frozen_types, is_required, is_nullable))
+                for subhint in hint.sub_hints:
+                    if not subhint.is_base_type:
+                        self._create_nested_parameters((name,), is_required, hint, path, seen)
 
     def _create_nested_parameters(
         self,

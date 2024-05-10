@@ -1234,6 +1234,9 @@ class TransformationLoader(
                         ("authentication", "scopes"), frozenset({"str"}), is_required=False, _is_nullable=False
                     ),
                     ParameterSpec(
+                        ("authentication", "scopes", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False
+                    ),
+                    ParameterSpec(
                         ("authentication", "tokenUri"), frozenset({"str"}), is_required=True, _is_nullable=False
                     ),
                     ParameterSpec(
