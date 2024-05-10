@@ -90,10 +90,10 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
     def has_any_type(self) -> bool:
         return any(parameter.has_any_type for parameter in self)
 
-    def subset_any_type(self) -> ParameterSet[T_Parameter]:
+    def subset_any_type_paths(self) -> ParameterSet[T_Parameter]:
         return type(self)(parameter for parameter in self if parameter.has_any_type)
 
-    def subset_anything(self) -> ParameterSet[T_Parameter]:
+    def subset_anything_paths(self) -> ParameterSet[T_Parameter]:
         return type(self)(parameter for parameter in self if parameter.path[-1] is ANYTHING)
 
     def subset(self, path: tuple[str | int, ...] | int) -> ParameterSet[T_Parameter]:
@@ -129,8 +129,8 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
 
     def difference(self, other: ParameterSet[T_Parameter]) -> ParameterSet[T_Parameter]:
         output = type(self)(self.data.difference(other.data))
-        other_any = other.subset_any_type()
-        other_anything = other.subset_anything()
+        other_any = other.subset_any_type_paths()
+        other_anything = other.subset_anything_paths()
         if not other_any:
             # Operation done using hashes
             return output
