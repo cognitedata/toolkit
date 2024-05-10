@@ -52,8 +52,8 @@ class TypeHint:
             value = str(arg).removeprefix("typing.")
             if "[" in value:
                 value = value.split("[")[0]
-        if value in TYPES:
-            return value
+        if value.casefold() in TYPES:
+            return value.casefold()
         elif value == "Literal":
             return "str"
         elif value == "Sequence":
@@ -66,7 +66,7 @@ class TypeHint:
 
     @property
     def types(self) -> list[str]:
-        return [self._as_str(arg) for arg in self.args if not self._is_none_type(arg)]
+        return list({self._as_str(arg) for arg in self.args if not self._is_none_type(arg)})
 
     @property
     def frozen_types(self) -> frozenset[str]:
@@ -85,10 +85,8 @@ class TypeHint:
         return any(arg is typing.Any for arg in self.args)
 
     @property
-    def is_class(self) -> bool:
-        if self.is_union or self.is_dict_type or self.is_list_type or self.is_any:
-            return False
-        return inspect.isclass(self.args[0])
+    def is_user_defined_class(self) -> bool:
+        return any(inspect.isclass(arg) and arg.__module__ not in {"typing", "builtins"} for arg in self.args)
 
     @property
     def _get_origins(self) -> tuple[Any, ...]:

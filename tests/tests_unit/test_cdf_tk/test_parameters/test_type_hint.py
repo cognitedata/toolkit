@@ -4,10 +4,11 @@ import collections.abc
 import enum
 import sys
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Literal, Union
+from typing import Any, List, Literal, Union  # noqa: UP035
 
 import pytest
 from _pytest.mark import ParameterSet
+from cognite.client.data_classes.data_modeling import DirectRelationReference, NodeId
 from cognite.client.data_classes.data_modeling.instances import PropertyValue
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR
@@ -22,7 +23,7 @@ class Action(enum.Enum):
 
 def type_hint_test_cases() -> Iterable[ParameterSet]:
     # "raw, types, is_base_type, is_nullable, is_class, is_dict_type, is_list_type",
-    yield pytest.param(str, ["str"], True, False, True, False, False, id="str")
+    yield pytest.param(str, ["str"], True, False, False, False, False, id="str")
     yield pytest.param(Literal["a", "b"], ["str"], True, False, False, False, False, id="Literal")
     yield pytest.param(dict[str, int], ["dict"], False, False, False, True, False, id="dict")
     yield pytest.param(Union[str, int], ["str", "int"], True, False, False, False, False, id="Union")
@@ -33,6 +34,29 @@ def type_hint_test_cases() -> Iterable[ParameterSet]:
     yield pytest.param(Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="Mapping")
     yield pytest.param(
         collections.abc.Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="ABC Mapping"
+    )
+    yield pytest.param(
+        Union[
+            str,
+            int,
+            float,
+            bool,
+            dict,
+            List[str],  # noqa: UP006
+            List[int],  # noqa: UP006
+            List[float],  # noqa: UP006
+            List[bool],  # noqa: UP006
+            List[dict],  # noqa: UP006
+            NodeId,
+            DirectRelationReference,
+        ],
+        ["str", "int", "float", "bool", "dict", "list"],
+        True,
+        False,
+        True,
+        True,
+        True,
+        id="Union with almost all possible types",
     )
     if sys.version_info >= (3, 10):
         yield pytest.param(str | None, ["str"], True, True, False, False, False, id="str | None")
@@ -61,10 +85,10 @@ class TestTypeHint:
         is_list_type: bool,
     ):
         hint = TypeHint(raw)
-        assert hint.types == types
+        assert set(hint.types) == set(types)
         assert hint.is_base_type == is_base_type
         assert hint.is_nullable == is_nullable
-        assert hint.is_class == is_class
+        assert hint.is_user_defined_class == is_class
         assert hint.is_dict_type == is_dict_type
         assert hint.is_list_type == is_list_type
 

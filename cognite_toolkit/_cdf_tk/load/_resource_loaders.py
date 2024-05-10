@@ -2278,6 +2278,14 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
                 object.__setattr__(item, "path", ("nodes", ANY_INT, *item.path[1:]))
         # Top level of nodes
         spec.add(ParameterSpec(("nodes",), frozenset({"list"}), is_required=True, _is_nullable=False))
+        spec.add(
+            ParameterSpec(
+                ("nodes", ANY_INT, "sources", ANY_INT, "source", "type"),
+                frozenset({"str"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
         return spec
 
 

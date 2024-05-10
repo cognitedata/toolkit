@@ -68,7 +68,7 @@ class ParameterFromInitTypeHints:
                 self._create_parameter_spec_dict(sub_hint, parent_name, path, seen)
             if sub_hint.is_list_type:
                 self._create_parameter_spec_list(sub_hint, parent_name, is_parent_required, path, seen)
-            if sub_hint.is_class:
+            if sub_hint.is_user_defined_class:
                 self._create_parameter_spec_class(sub_hint, parent_name, is_parent_required, path, seen)
         return None
 
@@ -97,6 +97,9 @@ class ParameterFromInitTypeHints:
                 _is_nullable=value_hint.is_nullable,
             )
         )
+        # for sub_hint in value_hint.sub_hints:
+        #     if not (sub_hint.is_base_type or sub_hint.is_any):
+        #         self._create_nested_parameters(ANY_STR, False, sub_hint,(*path, *parent_name, ANY_STR), seen.copy())
         if not (value_hint.is_base_type or value_hint.is_any):
             self._read(value, (*path, *parent_name, ANY_STR), seen.copy())
 
