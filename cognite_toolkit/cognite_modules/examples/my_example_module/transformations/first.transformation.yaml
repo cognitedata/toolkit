@@ -1,7 +1,5 @@
 externalId: tr_first_transformation
 name: 'example:first:transformation'
-interval: '{{scheduleHourly}}'
-isPaused: true
 destination: 
   type: 'assets'
 ignoreNullFields: true

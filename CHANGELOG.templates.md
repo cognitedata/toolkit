@@ -29,6 +29,8 @@ Changes are grouped as follows:
   ExtractionPipelineConfigs as this is not used and thus only causes confusion.
 - In all modules with a `function`, renamed `externalIdDataSet` to `dataSetExternalId` to be consistent with the
   naming convention used in the Cognite API.
+- In module `my_example_module`, removed `interval` and `isPaused` from the Transformation as these are not used.
+  These parameters should only be present in a TransformationSchedule.
 
 ### Changed
 
