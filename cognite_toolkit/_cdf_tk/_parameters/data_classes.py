@@ -94,7 +94,7 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
         return type(self)(parameter for parameter in self if parameter.has_any_type)
 
     def subset_anything(self) -> ParameterSet[T_Parameter]:
-        return type(self)(parameter for parameter in self if parameter.path[-1] == ANYTHING)
+        return type(self)(parameter for parameter in self if parameter.path[-1] is ANYTHING)
 
     def subset(self, path: tuple[str | int, ...] | int) -> ParameterSet[T_Parameter]:
         if isinstance(path, tuple):
