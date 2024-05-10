@@ -26,14 +26,9 @@ def type_hint_test_cases() -> Iterable[ParameterSet]:
     yield pytest.param(Literal["a", "b"], ["str"], True, False, False, False, False, id="Literal")
     yield pytest.param(dict[str, int], ["dict"], False, False, False, True, False, id="dict")
     yield pytest.param(Union[str, int], ["str", "int"], True, False, False, False, False, id="Union")
-    yield pytest.param(Sequence[int], ["list"], False, False, False, False, True, id="Sequence")
     yield pytest.param(dict, ["dict"], False, False, False, True, False, id="dict without type hints")
     yield pytest.param(Any, ["unknown"], False, False, False, False, False, id="Any")
     yield pytest.param(Action, ["str"], True, False, True, False, False, id="Enum")
-    yield pytest.param(Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="Mapping")
-    yield pytest.param(
-        collections.abc.Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="ABC Mapping"
-    )
     yield pytest.param(
         Union[
             str,
@@ -58,6 +53,11 @@ def type_hint_test_cases() -> Iterable[ParameterSet]:
         id="Union with almost all possible types",
     )
     if sys.version_info >= (3, 10):
+        yield pytest.param(Sequence[int], ["list"], False, False, False, False, True, id="Sequence")
+        yield pytest.param(Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="Mapping")
+        yield pytest.param(
+            collections.abc.Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="ABC Mapping"
+        )
         yield pytest.param(str | None, ["str"], True, True, False, False, False, id="str | None")
         yield pytest.param(
             str | int | bool, ["str", "int", "bool"], True, False, False, False, False, id="str | int | bool"
