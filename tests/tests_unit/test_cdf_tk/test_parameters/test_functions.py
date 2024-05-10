@@ -6,6 +6,7 @@ from cognite.client.data_classes.data_modeling import ContainerApply, SpaceApply
 from cognite_toolkit._cdf_tk._parameters import (
     ANY_INT,
     ANY_STR,
+    ANYTHING,
     ParameterSet,
     ParameterSpec,
     ParameterSpecSet,
@@ -43,6 +44,9 @@ class TestReadParameterFromTypeHints:
                         ParameterSpec(("properties", ANY_STR, "name"), frozenset({"str"}), False, True),
                         ParameterSpec(
                             ("properties", ANY_STR, "default_value"), frozenset({"str", "int", "dict"}), False, True
+                        ),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "default_value", ANYTHING), frozenset({"unknown"}), False, True
                         ),
                         ParameterSpec(("properties", ANY_STR, "description"), frozenset({"str"}), False, True),
                         ParameterSpec(("properties", ANY_STR, "type", "collation"), frozenset({"str"}), False, False),
