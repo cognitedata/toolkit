@@ -32,9 +32,11 @@ from cognite.client.data_classes import (
     SequenceRows,
     Transformation,
     TransformationScheduleWrite,
+    capabilities,
     filters,
 )
 from cognite.client.data_classes._base import CogniteResourceList
+from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling.query import NodeResultSetExpression, Query
 from cognite.client.data_classes.filters import Filter
 from cognite.client.data_classes.transformations.notifications import TransformationNotificationWrite
@@ -297,6 +299,9 @@ class FakeCogniteResourceGenerator:
                     implementations.remove(filters.GeoJSONWithin)
                     implementations.remove(filters.GeoJSONDisjoint)
                     implementations.remove(filters.GeoJSONIntersects)
+                if type_ is Capability:
+                    # UnknownAcl is a special case, that is a concrete class, but cannot be instantiated easily
+                    implementations.remove(capabilities.UnknownAcl)
                 if type_ is WorkflowTaskOutput:
                     # For Workflow Output has to match the input type
                     selected = FunctionTaskOutput
