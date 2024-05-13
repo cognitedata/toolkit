@@ -17,6 +17,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk import auth
+from cognite_toolkit._cdf_tk.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.describe import describe_datamodel
 from cognite_toolkit._cdf_tk.dump import dump_datamodel_command
@@ -32,7 +33,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
-    DataSetsLoader,
     DeployResults,
     NodeLoader,
     ResourceLoader,
@@ -509,76 +509,9 @@ def clean(
 ) -> None:
     """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
     # Override cluster and project from the options/env variables
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-
-    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env_name, "clean")
-    build_.set_environment_variables()
-
-    Panel(f"[bold]Cleaning environment {build_env_name} based on config files from {build_dir}...[/]")
-    build_path = Path(build_dir)
-    if not build_path.is_dir():
-        raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
-
+    cmd = CleanCommand(print_warning=True)
     include = _process_include(include, interactive)
-
-    # The 'auth' loader is excluded, as it is run at the end.
-    selected_loaders = {
-        loader_cls: loader_cls.dependencies
-        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-        if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
-        for loader_cls in loader_classes
-    }
-
-    print(ToolGlobals.as_string())
-    if ToolGlobals.failed:
-        raise ToolkitCleanResourceError("Failure to delete data models as expected.")
-
-    results = DeployResults([], "clean", dry_run=dry_run)
-    resolved_list = list(TopologicalSorter(selected_loaders).static_order())
-    if len(resolved_list) > len(selected_loaders):
-        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
-    for loader_cls in reversed(resolved_list):
-        if not issubclass(loader_cls, ResourceLoader):
-            continue
-        loader = loader_cls.create_loader(ToolGlobals)
-        if type(loader) is DataSetsLoader:
-            print("[bold yellow]WARNING:[/] Dataset cleaning is not supported, skipping...")
-            continue
-        result = loader.clean_resources(
-            build_path / loader_cls.folder_name,
-            ToolGlobals,
-            drop=True,
-            dry_run=dry_run,
-            drop_data=True,
-            verbose=ctx.obj.verbose,
-        )
-        if result:
-            results[result.name] = result
-        if ToolGlobals.failed:
-            if results and results.has_counts:
-                print(results.counts_table())
-            if results and results.has_uploads:
-                print(results.uploads_table())
-            raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
-
-    if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
-            directory,
-            ToolGlobals,
-            drop=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
-        )
-        if ToolGlobals.failed:
-            raise ToolkitCleanResourceError("Failure to clean auth as expected.")
-        if result:
-            results[result.name] = result
-    if results.has_counts:
-        print(results.counts_table())
-    if results.has_uploads:
-        print(results.uploads_table())
-    if ToolGlobals.failed:
-        raise ToolkitCleanResourceError("Failure to clean auth as expected.")
+    cmd.execute(ctx, build_dir, build_env_name, dry_run, include)
 
 
 @auth_app.callback(invoke_without_command=True)
