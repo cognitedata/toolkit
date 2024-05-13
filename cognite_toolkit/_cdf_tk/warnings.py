@@ -52,3 +52,17 @@ class WarningList(UserList, Generic[T_Warning]):
             for warning in group_list:
                 output.append(f"{'    ' * 2} * {warning!s}")
         return "\n".join(output)
+
+
+
+class GeneralWarning(ToolkitWarning, ABC):
+
+    message: str
+    details = str | list[str] # todo: allow None, str, list[str]
+
+    def __str__(self) -> str:
+        output = [f"    [bold yellow]WARNING:[/]{type(self).__name__}: {self.message}"]
+
+        for detail in self.details:
+            output.append(f"{'    ' * 2}{detail}")
+        return "\n".join(output)
