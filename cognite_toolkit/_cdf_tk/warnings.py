@@ -6,8 +6,16 @@ from abc import ABC
 from collections import UserList
 from collections.abc import Collection
 from dataclasses import dataclass
+from enum import Enum
 from functools import total_ordering
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, List, TypeVar, Union
+
+
+class SeverityLevel(Enum):
+    CRITICAL = "CRITICAL"
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
 
 
 @total_ordering
@@ -54,15 +62,35 @@ class WarningList(UserList, Generic[T_Warning]):
         return "\n".join(output)
 
 
-
-class GeneralWarning(ToolkitWarning, ABC):
-
-    message: str
-    details = str | list[str] # todo: allow None, str, list[str]
+@dataclass(frozen=True)
+class GeneralWarning(ToolkitWarning):
+    severity: SeverityLevel = SeverityLevel.MEDIUM
+    message: str | None = None
+    details: Union[None, str, List[str]] = None  # Allow None, str, list[str]
 
     def __str__(self) -> str:
         output = [f"    [bold yellow]WARNING:[/]{type(self).__name__}: {self.message}"]
 
-        for detail in self.details:
-            output.append(f"{'    ' * 2}{detail}")
+        if self.details:
+            if isinstance(self.details, str):
+                output.append(f"{'    ' * 2}{self.details}")
+            else:
+                for detail in self.details:
+                    output.append(f"{'    ' * 2}{detail}")
         return "\n".join(output)
+
+
+@dataclass(frozen=True)
+class ToolkitCleanDependenciesIncludedWarning(GeneralWarning):
+    severity: SeverityLevel = SeverityLevel.MEDIUM
+
+    def __init__(self) -> None:
+        super().__init__(message="Some resources were added due to dependencies.", details=None)
+
+
+@dataclass(frozen=True)
+class ToolkitCleanDatasetNotSupportedWarning(GeneralWarning):
+    severity: SeverityLevel = SeverityLevel.LOW
+
+    def __init__(self) -> None:
+        super().__init__(message="Dataset cleaning is not supported, skipping...", details=None)

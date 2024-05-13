@@ -190,9 +190,6 @@ def common(
         print("       Use --help for more information.")
         return
     if override_env:
-
-
-        
         UserWarning("Overriding environment variables with values from .env file...")
         # print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
         # if cluster is not None or project is not None:

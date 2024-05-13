@@ -7,6 +7,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.warnings import ToolkitWarning
 
+
 @dataclass(frozen=True)
 class FileReadWarning(ToolkitWarning, ABC):
     filepath: Path
