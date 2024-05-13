@@ -12,7 +12,7 @@ properties:
       type: int32
   categoryId:
     autoIncrement: false
-    defaultValue: null
+    default_value: null
     description: null
     name: categoryId
     nullable: true

@@ -39,16 +39,16 @@ T_Warning = TypeVar("T_Warning", bound=ToolkitWarning)
 
 
 class WarningList(UserList, Generic[T_Warning]):
-    def __init__(self, collection: Collection[T_Warning] | None = None):
+    def __init__(self, collection: Collection[T_Warning] | None = None) -> None:
         super().__init__(collection or [])
 
     def __str__(self) -> str:
         output = [""]
         for group_key, group in itertools.groupby(sorted(self), key=lambda w: w.group_key()):
             group_list = list(group)
-            header = type(group_list[0]).group_header(group_key)
+            header = group_list[0].group_header()
             if header:
                 output.append(header)
             for warning in group_list:
-                output.append(f"{'    ' * 2}{warning!s}")
+                output.append(f"{'    ' * 2} * {warning!s}")
         return "\n".join(output)
