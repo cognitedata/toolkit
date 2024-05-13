@@ -1,5 +1,5 @@
 from cognite_toolkit._cdf_tk.warnings import ToolkitWarning, WarningList
-
+from rich import print
 
 class ToolkitCommand:
     def __init__(self, print_warning: bool = True):
