@@ -18,6 +18,7 @@ import json
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Sequence, Sized
+from functools import lru_cache
 from numbers import Number
 from pathlib import Path
 from time import sleep
@@ -129,6 +130,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -322,6 +324,32 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         found = [g.id for g in groups if g.name in id_list and g.id]
         self.client.iam.groups.delete(found)
         return len(found)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # The Capability class in the SDK class Group implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        for item in spec:
+            if item.path[0] == "capabilities" and len(item.path) > 2:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:2] + (ANY_STR,) + item.path[2:])
+        spec.add(
+            ParameterSpec(
+                ("capabilities", ANY_INT, ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("capabilities", ANY_INT, ANY_STR, "scope", ANY_STR),
+                frozenset({"dict"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        return spec
 
 
 @final
@@ -1752,6 +1780,38 @@ class ContainerLoader(
 
         return local_dumped == remote.as_write().dump(camel_case=True)
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        output = super().get_write_cls_parameter_spec()
+        # In the SDK this is called isList, while in the API it is called list.
+        output.discard(
+            ParameterSpec(
+                ("properties", ANY_STR, "type", "isList"), frozenset({"bool"}), is_required=True, _is_nullable=False
+            )
+        )
+        output.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "type", "list"), frozenset({"bool"}), is_required=True, _is_nullable=False
+            )
+        )
+        # The parameters below are used by the SDK to load the correct class, and ase thus not part of the init
+        # that the spec is created from, so we need to add them manually.
+        output.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "type", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+        output.add(
+            ParameterSpec(
+                ("constraints", ANY_STR, "constraintType"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+        output.add(
+            ParameterSpec(("indexes", ANY_STR, "indexType"), frozenset({"str"}), is_required=True, _is_nullable=False)
+        )
+        return output
+
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     api_name = "data_modeling.views"
@@ -1839,6 +1899,42 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
         return nr_of_deleted
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # The Filter class in the SDK class View implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        parameter_path = ("filter",)
+        length = len(parameter_path)
+        for item in spec:
+            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+        spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        # The following types are used by the SDK to load the correct class. They are not part of the init,
+        # so we need to add it manually.
+        spec.add(
+            ParameterSpec(("implements", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False)
+        )
+        spec.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "connectionType"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "source", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "edgeSource", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+        return spec
+
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
@@ -1899,6 +1995,15 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
         return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # ViewIds have the type set in the API Spec, but this is hidden in the SDK classes,
+        # so we need to add it manually.
+        spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
+        return spec
 
 
 @final
@@ -2155,3 +2260,37 @@ class WorkflowVersionLoader(
             else:
                 successes += 1
         return successes
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # The Parameter class in the SDK class WorkflowVersion implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        parameter_path = ("workflowDefinition", "tasks", ANY_INT, "parameters")
+        length = len(parameter_path)
+        for item in spec:
+            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+        spec.add(ParameterSpec((*parameter_path, ANY_STR), frozenset({"dict"}), is_required=True, _is_nullable=False))
+        # The depends on is implemented as a list of string in the SDK, but in the API spec it
+        # is a list of objects with one 'externalId' field.
+        spec.add(
+            ParameterSpec(
+                ("workflowDefinition", "tasks", ANY_INT, "dependsOn", ANY_INT, "externalId"),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=False,
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("workflowDefinition", "tasks", ANY_INT, "type"),
+                frozenset({"str"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        return spec

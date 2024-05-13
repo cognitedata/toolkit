@@ -3,85 +3,155 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-from .constants import BASE_TYPES, CONTAINER_TYPES
+from .constants import ANY_INT, ANY_STR, ANYTHING, BASE_TYPES, CONTAINER_TYPES
 from .data_classes import ParameterSet, ParameterSpec, ParameterSpecSet, ParameterValue
 from .get_type_hints import _TypeHints
 from .type_hint import TypeHint
 
 
 def read_parameter_from_init_type_hints(cls_: type) -> ParameterSpecSet:
-    return _read_parameter_from_init_type_hints(cls_, tuple(), set())
+    return ParameterFromInitTypeHints().read(cls_)
 
 
-def _read_parameter_from_init_type_hints(cls_: type, path: tuple[str | int, ...], seen: set[str]) -> ParameterSpecSet:
-    parameter_set = ParameterSpecSet()
-    if not hasattr(cls_, "__init__"):
-        return parameter_set  # type: ignore[misc]
+class ParameterFromInitTypeHints:
+    """Finds the parameters of a class by reading the type hints of the __init__ method."""
 
-    classes = _TypeHints.get_concrete_classes(cls_)
-    try:
-        seen.add(cls_.__name__)
-    except AttributeError:
-        # Python 3.9
-        if str(cls_) == "typing.Any":
-            return parameter_set
-        raise
-    seen.update(cls_.__name__ for cls_ in classes)
-    type_hints_by_name = _TypeHints.get_type_hints_by_name(classes)
-    parameters = {k: v for cls in classes for k, v in inspect.signature(cls.__init__).parameters.items()}  # type: ignore[misc]
+    def __init__(self) -> None:
+        self.parameter_set = ParameterSpecSet()
 
-    for name, parameter in parameters.items():
-        if name == "self" or parameter.kind in [parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD]:
-            continue
+    def read(self, cls_: type) -> ParameterSpecSet:
+        self._read(cls_, tuple(), set())
+        return self.parameter_set
+
+    def _read(self, cls_: type, path: tuple[str | int, ...], seen: set[str]) -> None:
+        if not hasattr(cls_, "__init__"):
+            return None
+
+        classes = _TypeHints.get_concrete_classes(cls_)
         try:
-            hint = TypeHint(type_hints_by_name[name])
-        except KeyError:
-            # Missing type hint
-            parameter_set.is_complete = False
-            continue
-        is_required = parameter.default is inspect.Parameter.empty
-        is_nullable = hint.is_nullable or parameter.default is None
-        parameter_set.add(ParameterSpec((*path, name), hint.frozen_types, is_required, is_nullable))
-        if hint.is_base_type:
-            continue
-        # We iterate as we might have union types
+            seen.add(cls_.__name__)
+        except AttributeError:
+            # Python 3.9
+            if str(cls_) == "typing.Any":
+                return None
+            raise
+        seen.update(cls_.__name__ for cls_ in classes)
+        type_hints_by_name = _TypeHints.get_type_hints_by_name(classes)
+        parameters = {k: v for cls in classes for k, v in inspect.signature(cls.__init__).parameters.items()}  # type: ignore[misc]
+
+        for name, parameter in parameters.items():
+            if name == "self" or parameter.kind in [parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD]:
+                continue
+            try:
+                hint = TypeHint(type_hints_by_name[name])
+            except KeyError:
+                # Missing type hint
+                self.parameter_set.is_complete = False
+                continue
+
+            is_required = parameter.default is inspect.Parameter.empty
+            is_nullable = hint.is_nullable or parameter.default is None
+            self.parameter_set.add(ParameterSpec((*path, name), hint.frozen_types, is_required, is_nullable))
+            for subhint in hint.sub_hints:
+                if not subhint.is_base_type:
+                    self._create_nested_parameters((name,), is_required, hint, path, seen)
+
+    def _create_nested_parameters(
+        self,
+        parent_name: tuple[str | int, ...],
+        is_parent_required: bool,
+        hint: TypeHint,
+        path: tuple[str | int, ...],
+        seen: set[str],
+    ) -> None:
         for sub_hint in hint.sub_hints:
             if sub_hint.is_dict_type:
-                key, value = sub_hint.container_args
-                dict_set = _read_parameter_from_init_type_hints(value, (*path, name), seen.copy())
-                parameter_set.update(dict_set)
+                self._create_parameter_spec_dict(sub_hint, parent_name, path, seen)
             if sub_hint.is_list_type:
-                item = sub_hint.container_args[0]
-                item_hint = TypeHint(item)
-                if item_hint.is_base_type:
-                    parameter_set.add(ParameterSpec((*path, name, 0), item_hint.frozen_types, is_required, is_nullable))
-                elif item_hint.is_union:
-                    for subsub_hint in item_hint.sub_hints:
-                        if subsub_hint.is_class:
-                            cls_set = _read_parameter_from_init_type_hints(
-                                subsub_hint.args[0], (*path, name, 0), seen.copy()
-                            )
-                            parameter_set.update(cls_set)
-                        elif subsub_hint.is_dict_type:
-                            key, value = subsub_hint.container_args
-                            dict_set = _read_parameter_from_init_type_hints(value, (*path, name, 0), seen.copy())
-                            parameter_set.update(dict_set)
-                        else:
-                            raise NotImplementedError()
-                elif item.__name__ in seen:
-                    parameter_set.add(ParameterSpec((*path, name, 0), frozenset({"dict"}), is_required, is_nullable))
-                else:
-                    list_set = _read_parameter_from_init_type_hints(sub_hint.args[0], (*path, name, 0), seen.copy())
-                    parameter_set.update(list_set)
-            elif sub_hint.is_class:
-                arg = sub_hint.args[0]
-                if arg.__name__ in seen:
-                    parameter_set.add(ParameterSpec((*path, name), frozenset({"dict"}), is_required, is_nullable))
-                else:
-                    cls_set = _read_parameter_from_init_type_hints(arg, (*path, name), seen.copy())
-                    parameter_set.update(cls_set)
+                self._create_parameter_spec_list(sub_hint, parent_name, is_parent_required, path, seen)
+            if sub_hint.is_class:
+                self._create_parameter_spec_class(sub_hint, parent_name, is_parent_required, path, seen)
+        return None
 
-    return parameter_set
+    def _create_parameter_spec_dict(
+        self, hint: TypeHint, parent_name: tuple[str | int, ...], path: tuple[str | int, ...], seen: set[str]
+    ) -> None:
+        try:
+            key, value = hint.container_args
+        except ValueError:
+            # There are no type hints for the dict
+            self.parameter_set.add(
+                ParameterSpec(
+                    (*path, *parent_name, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=True
+                )
+            )
+            return
+        if key is not str:
+            raise NotImplementedError("Only string keys are supported")
+        value_hint = TypeHint(value)
+
+        self.parameter_set.add(
+            ParameterSpec(
+                (*path, *parent_name, ANY_STR),
+                value_hint.frozen_types,
+                is_required=False,
+                _is_nullable=value_hint.is_nullable,
+            )
+        )
+        if not (value_hint.is_base_type or value_hint.is_any):
+            self._read(value, (*path, *parent_name, ANY_STR), seen.copy())
+
+    def _create_parameter_spec_list(
+        self,
+        hint: TypeHint,
+        parent_name: tuple[str | int, ...],
+        parent_is_required: bool,
+        path: tuple[str | int, ...],
+        seen: set[str],
+    ) -> None:
+        try:
+            item = hint.container_args[0]
+        except IndexError:
+            # There are no type hints for the list
+            self.parameter_set.add(
+                ParameterSpec(
+                    (*path, *parent_name, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=True
+                )
+            )
+            return
+        item_hint = TypeHint(item)
+        if item_hint.is_base_type:
+            self.parameter_set.add(
+                ParameterSpec(
+                    (*path, *parent_name, ANY_INT),
+                    item_hint.frozen_types,
+                    is_required=False,
+                    _is_nullable=item_hint.is_nullable,
+                )
+            )
+        else:
+            self._create_nested_parameters(
+                tuple(), parent_is_required, item_hint, (*path, *parent_name, ANY_INT), seen.copy()
+            )
+
+    def _create_parameter_spec_class(
+        self,
+        hint: TypeHint,
+        parent_name: tuple[str | int, ...],
+        parent_is_required: bool,
+        path: tuple[str | int, ...],
+        seen: set[str],
+    ) -> None:
+        cls_ = hint.args[0]
+        if cls_.__name__ in seen:
+            # This is to avoid infinite recursion
+            self.parameter_set.add(
+                ParameterSpec(
+                    (*path, *parent_name), frozenset({"dict"}), parent_is_required, _is_nullable=hint.is_nullable
+                )
+            )
+        else:
+            self._read(cls_, (*path, *parent_name), seen.copy())
 
 
 def read_parameters_from_dict(raw: dict) -> ParameterSet[ParameterValue]:

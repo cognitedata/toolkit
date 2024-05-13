@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import enum
 import inspect
+import itertools
 import types
 import typing
-from collections.abc import Iterable
+from collections.abc import Iterable, MutableMapping, MutableSequence, Sequence
 from typing import Any, get_origin
 
 from .constants import BASE_TYPES, TYPES
 
 
 class TypeHint:
+    _DICT_TYPES = {dict, typing.Dict, MutableSequence, MutableMapping}  # noqa UP006
+    _LIST_TYPES = {list, typing.Sequence, Sequence, typing.List, MutableSequence}  # noqa UP006
+
     def __init__(self, raw: Any) -> None:
         self.raw = raw
         self._container_type = get_origin(raw)
@@ -51,6 +56,12 @@ class TypeHint:
             return value
         elif value == "Literal":
             return "str"
+        elif value == "Sequence":
+            return "list"
+        elif value == "Any":
+            return "unknown"
+        elif inspect.isclass(arg) and issubclass(arg, enum.Enum):
+            return "str"
         return "dict"
 
     @property
@@ -70,8 +81,12 @@ class TypeHint:
         return any(self._is_none_type(arg) for arg in self.args)
 
     @property
+    def is_any(self) -> bool:
+        return any(arg is typing.Any for arg in self.args)
+
+    @property
     def is_class(self) -> bool:
-        if self.is_union or self.is_dict_type or self.is_list_type:
+        if self.is_union or self.is_dict_type or self.is_list_type or self.is_any:
             return False
         return inspect.isclass(self.args[0])
 
@@ -81,11 +96,11 @@ class TypeHint:
 
     @property
     def is_dict_type(self) -> bool:
-        return any(arg is dict for arg in self._get_origins)
+        return any(arg in self._DICT_TYPES for arg in itertools.chain(self._get_origins, self.args))
 
     @property
     def is_list_type(self) -> bool:
-        return any(arg is list for arg in self._get_origins)
+        return any(arg in self._LIST_TYPES for arg in itertools.chain(self._get_origins, self.args))
 
     @property
     def container_args(self) -> tuple[Any, ...]:

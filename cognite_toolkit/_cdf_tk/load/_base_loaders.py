@@ -4,6 +4,7 @@ import re
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Sequence, Sized
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Generic, TypeVar, Union, cast
 
@@ -23,6 +24,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 from .data_classes import (
@@ -237,6 +239,11 @@ class ResourceLoader(
     @abstractmethod
     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
 
     def deploy_resources(
         self,

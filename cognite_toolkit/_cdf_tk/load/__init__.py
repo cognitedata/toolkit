@@ -61,6 +61,8 @@ del _loader  # cleanup module namespace
 
 LOADER_LIST = list(itertools.chain(*LOADER_BY_FOLDER_NAME.values()))
 RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceLoader)]
+RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerLoader)]
+
 ResourceTypes: TypeAlias = Literal[
     "auth",
     "data_models",

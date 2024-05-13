@@ -4,6 +4,9 @@ import pytest
 from cognite.client.data_classes.data_modeling import ContainerApply, SpaceApply
 
 from cognite_toolkit._cdf_tk._parameters import (
+    ANY_INT,
+    ANY_STR,
+    ANYTHING,
     ParameterSet,
     ParameterSpec,
     ParameterSpecSet,
@@ -35,43 +38,72 @@ class TestReadParameterFromTypeHints:
                         ParameterSpec(("space",), frozenset({"str"}), True, False),
                         ParameterSpec(("external_id",), frozenset({"str"}), True, False),
                         ParameterSpec(("properties",), frozenset({"dict"}), True, False),
-                        ParameterSpec(("properties", "type"), frozenset({"dict"}), True, False),
-                        ParameterSpec(("properties", "nullable"), frozenset({"bool"}), False, False),
-                        ParameterSpec(("properties", "auto_increment"), frozenset({"bool"}), False, False),
-                        ParameterSpec(("properties", "name"), frozenset({"str"}), False, True),
-                        ParameterSpec(("properties", "default_value"), frozenset({"str", "int", "dict"}), False, True),
-                        ParameterSpec(("properties", "description"), frozenset({"str"}), False, True),
-                        ParameterSpec(("properties", "type", "collation"), frozenset({"str"}), False, False),
-                        ParameterSpec(("properties", "type", "container"), frozenset({"dict"}), False, True),
-                        ParameterSpec(("properties", "type", "container", "space"), frozenset({"str"}), True, False),
                         ParameterSpec(
-                            ("properties", "type", "container", "external_id"), frozenset({"str"}), True, False
+                            path=("properties", ANY_STR),
+                            types=frozenset({"dict"}),
+                            is_required=False,
+                            _is_nullable=False,
                         ),
-                        ParameterSpec(("properties", "type", "is_list"), frozenset({"bool"}), False, False),
-                        ParameterSpec(("properties", "type", "unit"), frozenset({"dict"}), False, True),
-                        ParameterSpec(("properties", "type", "unit", "external_id"), frozenset({"str"}), True, False),
-                        ParameterSpec(("properties", "type", "unit", "source_unit"), frozenset({"str"}), False, True),
+                        ParameterSpec(("properties", ANY_STR, "type"), frozenset({"dict"}), True, False),
+                        ParameterSpec(("properties", ANY_STR, "nullable"), frozenset({"bool"}), False, False),
+                        ParameterSpec(("properties", ANY_STR, "auto_increment"), frozenset({"bool"}), False, False),
+                        ParameterSpec(("properties", ANY_STR, "name"), frozenset({"str"}), False, True),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "default_value"), frozenset({"str", "int", "dict"}), False, True
+                        ),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "default_value", ANYTHING), frozenset({"unknown"}), False, True
+                        ),
+                        ParameterSpec(("properties", ANY_STR, "description"), frozenset({"str"}), False, True),
+                        ParameterSpec(("properties", ANY_STR, "type", "collation"), frozenset({"str"}), False, False),
+                        ParameterSpec(("properties", ANY_STR, "type", "container"), frozenset({"dict"}), False, True),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "type", "container", "space"), frozenset({"str"}), True, False
+                        ),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "type", "container", "external_id"), frozenset({"str"}), True, False
+                        ),
+                        ParameterSpec(("properties", ANY_STR, "type", "is_list"), frozenset({"bool"}), False, False),
+                        ParameterSpec(("properties", ANY_STR, "type", "unit"), frozenset({"dict"}), False, True),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "type", "unit", "external_id"), frozenset({"str"}), True, False
+                        ),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "type", "unit", "source_unit"), frozenset({"str"}), False, True
+                        ),
                         ParameterSpec(("description",), frozenset({"str"}), False, True),
                         ParameterSpec(("name",), frozenset({"str"}), False, True),
                         ParameterSpec(("used_for",), frozenset({"str"}), False, True),
                         ParameterSpec(("constraints",), frozenset({"dict"}), False, True),
                         ParameterSpec(
+                            path=("constraints", ANY_STR),
+                            types=frozenset({"dict"}),
+                            is_required=False,
+                            _is_nullable=False,
+                        ),
+                        ParameterSpec(
                             (
                                 "constraints",
+                                ANY_STR,
                                 "require",
                             ),
                             frozenset({"dict"}),
                             True,
                             False,
                         ),
-                        ParameterSpec(("constraints", "require", "space"), frozenset({"str"}), True, False),
-                        ParameterSpec(("constraints", "require", "external_id"), frozenset({"str"}), True, False),
-                        ParameterSpec(("constraints", "properties"), frozenset({"list"}), True, False),
-                        ParameterSpec(("constraints", "properties", 0), frozenset({"str"}), True, False),
+                        ParameterSpec(("constraints", ANY_STR, "require", "space"), frozenset({"str"}), True, False),
+                        ParameterSpec(
+                            ("constraints", ANY_STR, "require", "external_id"), frozenset({"str"}), True, False
+                        ),
+                        ParameterSpec(("constraints", ANY_STR, "properties"), frozenset({"list"}), True, False),
+                        ParameterSpec(("constraints", ANY_STR, "properties", ANY_INT), frozenset({"str"}), True, False),
                         ParameterSpec(("indexes",), frozenset({"dict"}), False, True),
-                        ParameterSpec(("indexes", "properties"), frozenset({"list"}), True, False),
-                        ParameterSpec(("indexes", "properties", 0), frozenset({"str"}), True, False),
-                        ParameterSpec(("indexes", "cursorable"), frozenset({"bool"}), False, False),
+                        ParameterSpec(
+                            path=("indexes", ANY_STR), types=frozenset({"dict"}), is_required=False, _is_nullable=False
+                        ),
+                        ParameterSpec(("indexes", ANY_STR, "properties"), frozenset({"list"}), True, False),
+                        ParameterSpec(("indexes", ANY_STR, "properties", ANY_INT), frozenset({"str"}), True, False),
+                        ParameterSpec(("indexes", ANY_STR, "cursorable"), frozenset({"bool"}), False, False),
                     }
                 ),
             ),
