@@ -157,7 +157,7 @@ class FakeCogniteResourceGenerator:
         signature = inspect.signature(resource_cls.__init__)
         try:
             type_hint_by_name = get_type_hints(resource_cls.__init__, localns=self._type_checking)
-        except TypeError:
+        except (TypeError, NameError):
             # Python 3.10 Type hints cannot be evaluated with get_type_hints,
             # ref https://stackoverflow.com/questions/66006087/how-to-use-typing-get-type-hints-with-pep585-in-python3-8
             resource_module_vars = vars(importlib.import_module(resource_cls.__module__))
@@ -432,7 +432,7 @@ class FakeCogniteResourceGenerator:
         annotation = annotation.replace("SequenceNotStr", "Sequence")
         try:
             return eval(annotation, resource_module_vars, local_vars)
-        except TypeError:
+        except (TypeError, NameError):
             # Python 3.10 Type Hint
             return cls._type_hint_3_10_to_8(annotation, resource_module_vars, local_vars)
 
