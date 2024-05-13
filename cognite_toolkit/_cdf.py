@@ -190,10 +190,9 @@ def common(
         print("       Use --help for more information.")
         return
     if override_env:
-        UserWarning("Overriding environment variables with values from .env file...")
-        # print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
-        # if cluster is not None or project is not None:
-        #     print("            --cluster or --project is set and will override .env file values.")
+        print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
+        if cluster is not None or project is not None:
+            print("            --cluster or --project is set and will override .env file values.")
 
     if env_path is not None:
         if not (dotenv_file := Path(env_path)).is_file():
