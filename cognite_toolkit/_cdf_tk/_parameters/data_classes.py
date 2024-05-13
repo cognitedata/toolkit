@@ -97,9 +97,8 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
         output = type(self)()
         for parameter in self:
             new_path = tuple(to_camel_case(name) if name not in SINGLETONS else name for name in parameter.path)
-            new_param_copy = dataclasses.replace(parameter)
             # This is because parameters are immutable
-            object.__setattr__(new_param_copy, "path", new_path)
+            new_param_copy = dataclasses.replace(parameter, path=new_path)
             output.add(new_param_copy)
         return output
 
