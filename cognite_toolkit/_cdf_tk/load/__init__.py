@@ -35,6 +35,8 @@ from ._resource_loaders import (
     TransformationLoader,
     TransformationScheduleLoader,
     ViewLoader,
+    WorkflowLoader,
+    WorkflowVersionLoader,
 )
 from .data_classes import DeployResult, DeployResults
 
@@ -57,6 +59,8 @@ for _loader in itertools.chain(
     LOADER_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[type-abstract, attr-defined, arg-type]
 del _loader  # cleanup module namespace
 
+LOADER_LIST = list(itertools.chain(*LOADER_BY_FOLDER_NAME.values()))
+RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceLoader)]
 ResourceTypes: TypeAlias = Literal[
     "auth",
     "data_models",

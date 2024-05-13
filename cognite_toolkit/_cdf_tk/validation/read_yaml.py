@@ -13,7 +13,8 @@ from typing import Any, get_origin
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
 
-from ._get_type_hints import _TypeHints
+from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
+
 from .warning import (
     DataSetMissingWarning,
     SnakeCaseWarning,
@@ -88,7 +89,7 @@ def _validate_case_raw(
             warning_list.append(SnakeCaseWarning(filepath, identifier_value, identifier_key, str(key), str(camel_key)))
 
     try:
-        type_hints_by_name = _TypeHints.get_type_hints_by_name(signature, resource_cls)
+        type_hints_by_name = _TypeHints.get_type_hints_by_name(resource_cls)
     except Exception:
         # If we cannot get type hints, we cannot check if the type is correct.
         return warning_list
