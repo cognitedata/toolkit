@@ -33,6 +33,11 @@ Changes are grouped as follows:
   as a separate file. If set in both, an error is raised because it is ambiguous which query to use.
 - In the `cdf-tk pull` command, if an error occurs, the temporary directory was not removed. This is now fixed.
 
+### Changed
+
+- [BREAKING] In function YAML config `externalDataSetId` is renamed to `dataSetExternalId` to be consistent with
+  the naming convention used in the rest of the toolkit.
+
 ## [0.2.0a4] - 2024-04-29
 
 ### Removed

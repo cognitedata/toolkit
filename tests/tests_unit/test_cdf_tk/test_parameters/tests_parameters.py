@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSet, ParameterSpec, ParameterSpecSet, ParameterValue
-from cognite_toolkit._cdf_tk._parameters.type_hint import ANY_STR
+from cognite_toolkit._cdf_tk._parameters import (
+    ANY_STR,
+    ANYTHING,
+    ParameterSet,
+    ParameterSpec,
+    ParameterSpecSet,
+    ParameterValue,
+)
 
 SPACE_SPEC = ParameterSpecSet(
     {
@@ -93,6 +99,44 @@ class TestSetOperations:
                 DATASET_SPEC,
                 ParameterSet[ParameterValue](),
                 id="No difference DataSet, with AnyStr",
+            ),
+            pytest.param(
+                ParameterSet[ParameterValue](
+                    {
+                        ParameterValue(path=("name",), type="str", value="name"),
+                        ParameterValue(
+                            path=(
+                                "metadata",
+                                "some key",
+                            ),
+                            type="str",
+                            value="#7x,",
+                        ),
+                        ParameterValue(
+                            path=("metadata", "some key", "type"),
+                            type="str",
+                            value="json",
+                        ),
+                        ParameterValue(path=("metadata",), type="dict", value=None),
+                    }
+                ),
+                ParameterSpecSet(
+                    {
+                        ParameterSpec(
+                            path=("metadata", ANYTHING),
+                            types=frozenset({"dict"}),
+                            is_required=False,
+                            _is_nullable=False,
+                        ),
+                    }
+                ),
+                ParameterSet[ParameterValue](
+                    {
+                        ParameterValue(path=("name",), type="str", value="name"),
+                        ParameterValue(path=("metadata",), type="dict", value=None),
+                    }
+                ),
+                id="Diff with Anything in spec",
             ),
         ],
     )

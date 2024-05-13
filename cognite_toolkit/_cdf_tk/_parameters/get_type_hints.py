@@ -22,15 +22,10 @@ class _TypeHints:
 
     @classmethod
     def get_concrete_classes(cls, resource_cls: type) -> list[type]:
-        """If the resource class is a ABC class, then, this function will return all the concrete classes
-        that are subclasses of the resource class."""
-        is_base_class = inspect.isclass(resource_cls) and any(base is abc.ABC for base in resource_cls.__bases__)
-        if not is_base_class or resource_cls is TransformationScheduleWrite:
-            # TransformationScheduleWrite is wrongly marked as ABC, but it is a concrete class
-            # Easy case
-            return [resource_cls]
+        """Returns all the concrete classes that are subclasses of the given class.
+        (including the class itself if it is concrete)"""
         concrete_classes = []
-        to_check = list(resource_cls.__subclasses__())
+        to_check = [resource_cls]
         while to_check:
             cls_ = to_check.pop()
             to_check.extend(cls_.__subclasses__())
@@ -40,6 +35,7 @@ class _TypeHints:
                 concrete_classes.append(cls_)
             if cls_ is TransformationScheduleWrite:
                 # TransformationScheduleWrite is wrongly marked as ABC, but it is a concrete class
+                # Fixed after 7.43.1
                 concrete_classes.append(cls_)
         return concrete_classes
 

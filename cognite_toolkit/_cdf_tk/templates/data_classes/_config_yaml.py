@@ -309,6 +309,9 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         self.environment = environment
         super().__init__(entries or {})
 
+    def as_build_config(self) -> BuildConfigYAML:
+        return BuildConfigYAML(environment=self.environment, variables=self.dump()[self._variables], filepath=Path(""))
+
     def load_defaults(self, cognite_root_module: Path) -> InitConfigYAML:
         """Loads all default.config.yaml files in the cognite root module.
 

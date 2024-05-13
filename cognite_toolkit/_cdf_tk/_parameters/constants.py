@@ -1,11 +1,23 @@
+from functools import total_ordering
+
 BASE_TYPES = {t.__name__ for t in (str, int, float, bool)}
 CONTAINER_TYPES = {t.__name__ for t in (list, dict)}
 TYPES = BASE_TYPES | CONTAINER_TYPES
 
 
-class _AnyInt(int):
+@total_ordering
+class _AnyInt(str):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, int):
+            return True
+        elif isinstance(other, str):
+            return False
+        return NotImplemented
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, int):
+            return True
+        elif isinstance(other, str):
             return True
         return NotImplemented
 
@@ -19,10 +31,20 @@ class _AnyInt(int):
         return "AnyInt"
 
 
+@total_ordering
 class _AnyStr(str):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, str):
             return True
+        elif isinstance(other, int):
+            return False
+        return NotImplemented
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, str):
+            return True
+        elif isinstance(other, int):
+            return False
         return NotImplemented
 
     def __hash__(self) -> int:
@@ -35,8 +57,12 @@ class _AnyStr(str):
         return "AnyStr"
 
 
+@total_ordering
 class _Anything(str):
     def __eq__(self, other: object) -> bool:
+        return True
+
+    def __lt__(self, other: object) -> bool:
         return True
 
     def __hash__(self) -> int:

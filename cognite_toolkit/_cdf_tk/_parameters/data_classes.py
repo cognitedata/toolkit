@@ -10,7 +10,7 @@ from typing import AbstractSet, Generic, TypeVar, final  # noqa: UP035
 
 from cognite.client.utils._text import to_camel_case
 
-from .constants import SINGLETONS
+from .constants import ANYTHING, SINGLETONS
 
 
 @total_ordering
@@ -90,8 +90,11 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
     def has_any_type(self) -> bool:
         return any(parameter.has_any_type for parameter in self)
 
-    def subset_any_type(self) -> ParameterSet[T_Parameter]:
+    def subset_any_type_paths(self) -> ParameterSet[T_Parameter]:
         return type(self)(parameter for parameter in self if parameter.has_any_type)
+
+    def subset_anything_paths(self) -> ParameterSet[T_Parameter]:
+        return type(self)(parameter for parameter in self if parameter.path[-1] is ANYTHING)
 
     def subset(self, path: tuple[str | int, ...] | int) -> ParameterSet[T_Parameter]:
         if isinstance(path, tuple):
@@ -126,9 +129,9 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
 
     def difference(self, other: ParameterSet[T_Parameter]) -> ParameterSet[T_Parameter]:
         output = type(self)(self.data.difference(other.data))
-        self_any = self.subset_any_type()
-        other_any = other.subset_any_type()
-        if not self_any and not other_any:
+        other_any = other.subset_any_type_paths()
+        other_anything = other.subset_anything_paths()
+        if not other_any:
             # Operation done using hashes
             return output
         # Operation done using equality as ANY_STR and ANY_INT does not match on hash
@@ -138,8 +141,8 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
             for any_ in other_any:
                 if item == any_:
                     discard.add(item)
-            for any_ in self_any:
-                if item == any_:
+            for anything in other_anything:
+                if item.path[: len(anything.path)] == anything.path:
                     discard.add(item)
         for d in discard:
             output.discard(d)

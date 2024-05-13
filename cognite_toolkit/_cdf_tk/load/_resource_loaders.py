@@ -130,7 +130,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, C
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -343,7 +343,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         )
         spec.add(
             ParameterSpec(
-                ("capabilities", ANY_INT, ANY_STR, "scope", ANY_STR),
+                ("capabilities", ANY_INT, ANY_STR, "scope", ANYTHING),
                 frozenset({"dict"}),
                 is_required=True,
                 _is_nullable=False,
@@ -425,6 +425,18 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit, toolkit will automatically convert metadata to json
+        spec.add(
+            ParameterSpec(
+                ("metadata", ANY_STR, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=False
+            )
+        )
+        return spec
+
 
 @final
 class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
@@ -470,9 +482,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         for func in functions:
             if self.extra_configs.get(func["externalId"]) is None:
                 self.extra_configs[func["externalId"]] = {}
-            if func.get("externalDataSetId") is not None:
+            if func.get("dataSetExternalId") is not None:
                 self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
-                    func.get("externalDataSetId", ""), skip_validation=skip_validation
+                    func.get("dataSetExternalId", ""), skip_validation=skip_validation
                 )
             if "fileId" not in func:
                 # The fileID is required for the function to be created, but in the `.create` method
@@ -614,6 +626,14 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         self.client.functions.delete(external_id=cast(SequenceNotStr[str], ids))
         return len(ids)
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
+
 
 @final
 class FunctionScheduleLoader(
@@ -720,6 +740,20 @@ class FunctionScheduleLoader(
                 self.client.functions.schedules.delete(id=schedule.id)
             count += 1
         return count
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("authentication",), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        spec.add(
+            ParameterSpec(("authentication", "clientId"), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
+        spec.add(
+            ParameterSpec(("authentication", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
+        return spec
 
 
 @final
@@ -1025,6 +1059,14 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             )
         return count
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
+
 
 @final
 class TransformationLoader(
@@ -1171,6 +1213,42 @@ class TransformationLoader(
         if existing:
             self.client.transformations.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        spec.update(
+            ParameterSpecSet(
+                {
+                    # Added by toolkit
+                    ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False),
+                    ParameterSpec(("authentication",), frozenset({"dict"}), is_required=False, _is_nullable=False),
+                    ParameterSpec(
+                        ("authentication", "clientId"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "clientSecret"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "scopes"), frozenset({"str"}), is_required=False, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "scopes", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "tokenUri"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "cdfProjectName"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "audience"), frozenset({"str"}), is_required=False, _is_nullable=False
+                    ),
+                }
+            )
+        )
+        return spec
 
 
 @final
@@ -1332,6 +1410,14 @@ class ExtractionPipelineLoader(
                 return 0
         return len(id_list)
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
+
 
 @final
 class ExtractionPipelineConfigLoader(
@@ -1425,6 +1511,14 @@ class ExtractionPipelineConfigLoader(
             else:
                 count += len(result)
         return count
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("config", ANYTHING), frozenset({"dict"}), is_required=True, _is_nullable=False))
+        return spec
 
 
 @final
@@ -1560,6 +1654,14 @@ class FileMetadataLoader(
         deleted_files = self.delete(existing.as_external_ids())
         self.create(existing.as_write())
         return deleted_files
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
 
 
 @final
@@ -1797,18 +1899,32 @@ class ContainerLoader(
         )
         # The parameters below are used by the SDK to load the correct class, and ase thus not part of the init
         # that the spec is created from, so we need to add them manually.
-        output.add(
-            ParameterSpec(
-                ("properties", ANY_STR, "type", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+        output.update(
+            ParameterSpecSet(
+                {
+                    ParameterSpec(
+                        ("properties", ANY_STR, "type", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("constraints", ANY_STR, "constraintType"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("constraints", ANY_STR, "require", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("indexes", ANY_STR, "indexType"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                }
             )
-        )
-        output.add(
-            ParameterSpec(
-                ("constraints", ANY_STR, "constraintType"), frozenset({"str"}), is_required=True, _is_nullable=False
-            )
-        )
-        output.add(
-            ParameterSpec(("indexes", ANY_STR, "indexType"), frozenset({"str"}), is_required=True, _is_nullable=False)
         )
         return output
 
@@ -1915,22 +2031,37 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
         # The following types are used by the SDK to load the correct class. They are not part of the init,
         # so we need to add it manually.
-        spec.add(
-            ParameterSpec(("implements", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False)
-        )
-        spec.add(
-            ParameterSpec(
-                ("properties", ANY_STR, "connectionType"), frozenset({"str"}), is_required=True, _is_nullable=False
-            )
-        )
-        spec.add(
-            ParameterSpec(
-                ("properties", ANY_STR, "source", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
-            )
-        )
-        spec.add(
-            ParameterSpec(
-                ("properties", ANY_STR, "edgeSource", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+        spec.update(
+            ParameterSpecSet(
+                {
+                    ParameterSpec(
+                        ("implements", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "connectionType"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "source", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "container", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "edgeSource", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                }
             )
         )
         return spec
@@ -2131,6 +2262,31 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
         # Nodes will be deleted in .delete call.
         return 0
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Modifications to match the spec
+        for item in spec:
+            if item.path[0] == "apiCall" and len(item.path) > 1:
+                # Move up one level
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[1:])
+            elif item.path[0] == "node":
+                # Move into list
+                object.__setattr__(item, "path", ("nodes", ANY_INT, *item.path[1:]))
+        # Top level of nodes
+        spec.add(ParameterSpec(("nodes",), frozenset({"list"}), is_required=True, _is_nullable=False))
+        spec.add(
+            ParameterSpec(
+                ("nodes", ANY_INT, "sources", ANY_INT, "source", "type"),
+                frozenset({"str"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        return spec
 
 
 @final
