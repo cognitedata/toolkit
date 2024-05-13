@@ -4,7 +4,7 @@ import typing
 from collections.abc import Hashable, Iterable, MutableSet
 from dataclasses import dataclass
 from functools import total_ordering
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, final
 
 
 @total_ordering
@@ -23,6 +23,7 @@ class Parameter:
         return self.path == other.path
 
 
+@final
 @dataclass(frozen=True)
 class ParameterSpec(Parameter):
     types: frozenset[str]
@@ -33,11 +34,39 @@ class ParameterSpec(Parameter):
     def is_nullable(self) -> bool:
         return self._is_nullable or not self.is_required
 
+    # The eq, ne, and hash methods must be implemented for each subclass to get the set operations to work correctly.
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Parameter):
+            return NotImplemented
+        return self.path == other.path
 
+    def __ne__(self, other: object) -> bool:
+        if not isinstance(other, Parameter):
+            return NotImplemented
+        return self.path != other.path
+
+    def __hash__(self) -> int:
+        return hash(self.path)
+
+
+@final
 @dataclass(frozen=True)
 class ParameterValue(Parameter):
     type: str
     value: str | int | float | bool | None
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Parameter):
+            return NotImplemented
+        return self.path == other.path
+
+    def __ne__(self, other: object) -> bool:
+        if not isinstance(other, Parameter):
+            return NotImplemented
+        return self.path != other.path
+
+    def __hash__(self) -> int:
+        return hash(self.path)
 
 
 T_Parameter = TypeVar("T_Parameter", bound=Parameter)
@@ -46,6 +75,13 @@ T_Parameter = TypeVar("T_Parameter", bound=Parameter)
 class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
     def __init__(self, iterable: Iterable[T_Parameter] = ()) -> None:
         self.data: set[T_Parameter] = set(iterable)
+
+    def subset(self, path: tuple[str | int, ...] | int) -> ParameterSet[T_Parameter]:
+        if isinstance(path, tuple):
+            return type(self)(parameter for parameter in self if parameter.path[: len(path)] == path)
+        elif isinstance(path, int):
+            return type(self)(parameter for parameter in self if len(parameter.path) <= path)
+        raise TypeError(f"Expected tuple or int, got {type(path)}")
 
     def __hash__(self) -> int:
         return hash(self.data)
@@ -70,6 +106,9 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
 
     def update(self, other: ParameterSet[T_Parameter]) -> None:
         self.data.update(other.data)
+
+    def difference(self, other: ParameterSet[T_Parameter]) -> ParameterSet[T_Parameter]:
+        return type(self)(self.data.difference(other.data))
 
 
 class ParameterSpecSet(ParameterSet[ParameterSpec]):
