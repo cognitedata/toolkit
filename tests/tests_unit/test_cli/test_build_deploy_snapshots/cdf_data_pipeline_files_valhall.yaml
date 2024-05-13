@@ -80,7 +80,7 @@ Function:
   externalId: fn_context_files_oid_fileshare_annotation
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: ef732c41127c8ee3bc266c9d7734279d8ea8293912a5243060284d3c37daa7f3
+    cdf-toolkit-function-hash: d7107f17192e7e79ed7919cbf70c628e18e0d966da9a99d85f05eae8dc164af0
     version: 0.0.1
   name: context:files:oid:fileshare:annotation
   owner: Anonymous
@@ -273,13 +273,14 @@ Transformation:
   isPublic: true
   name: files:oid:fileshare:file_metadata
   query: "--\n-- Update file metdata using Transformation\n--\n-- Input data from\
-    \ RAW DB table (using example data) and uploaded files\n--\nWith \n  root_id AS\
-    \ (\n     Select id from _cdf.asset where externalId = 'WMT:VAL'\n  )\nSELECT\n\
+    \ RAW DB table (using example data) and uploaded files\n--\n\nWith \n  root_id\
+    \ AS (\n     Select id from _cdf.asset where externalId = 'WMT:VAL'\n  )\nSELECT\n\
     \  file.id                          as id,\n  file.name                      \
     \  as name,\n  file.externalId                  as externalId,\n  meta.source\
     \                      as source,\n  meta.`mime_type`                 as mimeType,\n\
     \  array(root_id.id)                as assetIds,\n  dataset_id('ds_files_oid')\
-    \  as dataSetId,\n  to_metadata(doc_type)            as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
+    \  as dataSetId,\n  map_concat(map(\"doc_type\", meta.doc_type),\n           \
+    \ file.metadata)         as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
     \ meta,\n  _cdf.files                             file,\n  root_id\nWHERE \n \
     \ file.name = meta.name\n"
   sourceOidcCredentials:
