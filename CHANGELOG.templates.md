@@ -29,6 +29,9 @@ Changes are grouped as follows:
 ### Changed
 
 - Removed schedule from annotation function `context:files:oid:fileshare:annotation`
+- Add use of `map_concat`in transformation `files_oid_fileshare_file_metadata` to keep existing files metadata.
+- Switched to using `file.uploaded_time` instead of `file.last_updated_time` since update time
+  potentially is updated every time the transformation runs, and don't require a reannotation.
 
 ## [0.2.0a4] - 2024-04-29
 
