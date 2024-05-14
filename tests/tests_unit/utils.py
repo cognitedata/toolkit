@@ -3,7 +3,6 @@ from __future__ import annotations
 import abc
 import collections.abc
 import enum
-import importlib
 import inspect
 import random
 import re
@@ -11,9 +10,8 @@ import string
 import sys
 import types
 import typing
-from collections import Counter
 from pathlib import Path
-from typing import IO, Any, Literal, Optional, TypeVar, get_args, get_origin, get_type_hints
+from typing import IO, Any, Literal, Optional, TypeVar, get_args, get_origin
 
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import CogniteClient
@@ -34,15 +32,18 @@ from cognite.client.data_classes import (
     SequenceRows,
     Transformation,
     TransformationScheduleWrite,
+    capabilities,
     filters,
 )
 from cognite.client.data_classes._base import CogniteResourceList
+from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling.query import NodeResultSetExpression, Query
 from cognite.client.data_classes.filters import Filter
 from cognite.client.data_classes.transformations.notifications import TransformationNotificationWrite
 from cognite.client.data_classes.workflows import WorkflowTaskOutput, WorkflowTaskParameters
 from cognite.client.testing import CogniteClientMock
 
+from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 
 
@@ -155,14 +156,7 @@ class FakeCogniteResourceGenerator:
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
         signature = inspect.signature(resource_cls.__init__)
-        try:
-            type_hint_by_name = get_type_hints(resource_cls.__init__, localns=self._type_checking)
-        except TypeError:
-            # Python 3.10 Type hints cannot be evaluated with get_type_hints,
-            # ref https://stackoverflow.com/questions/66006087/how-to-use-typing-get-type-hints-with-pep585-in-python3-8
-            resource_module_vars = vars(importlib.import_module(resource_cls.__module__))
-            resource_module_vars.update(self._type_checking())
-            type_hint_by_name = self._get_type_hints_3_10(resource_module_vars, signature, vars(resource_cls))
+        type_hint_by_name = _TypeHints.get_type_hints_by_name(resource_cls)
 
         keyword_arguments: dict[str, Any] = {}
         positional_arguments: list[Any] = []
@@ -305,6 +299,9 @@ class FakeCogniteResourceGenerator:
                     implementations.remove(filters.GeoJSONWithin)
                     implementations.remove(filters.GeoJSONDisjoint)
                     implementations.remove(filters.GeoJSONIntersects)
+                if type_ is Capability:
+                    # UnknownAcl is a special case, that is a concrete class, but cannot be instantiated easily
+                    implementations.remove(capabilities.UnknownAcl)
                 if type_ is WorkflowTaskOutput:
                     # For Workflow Output has to match the input type
                     selected = FunctionTaskOutput
@@ -412,79 +409,3 @@ class FakeCogniteResourceGenerator:
             "NumpyFloat64Array": NumpyFloat64Array,
             "NumpyObjArray": NumpyObjArray,
         }
-
-    @classmethod
-    def _get_type_hints_3_10(
-        cls, resource_module_vars: dict[str, Any], signature310: inspect.Signature, local_vars: dict[str, Any]
-    ) -> dict[str, Any]:
-        return {
-            name: cls._create_type_hint_3_10(parameter.annotation, resource_module_vars, local_vars)
-            for name, parameter in signature310.parameters.items()
-            if name != "self"
-        }
-
-    @classmethod
-    def _create_type_hint_3_10(
-        cls, annotation: str, resource_module_vars: dict[str, Any], local_vars: dict[str, Any]
-    ) -> Any:
-        if annotation.endswith(" | None"):
-            annotation = annotation[:-7]
-        annotation = annotation.replace("SequenceNotStr", "Sequence")
-        try:
-            return eval(annotation, resource_module_vars, local_vars)
-        except TypeError:
-            # Python 3.10 Type Hint
-            return cls._type_hint_3_10_to_8(annotation, resource_module_vars, local_vars)
-
-    @classmethod
-    def _type_hint_3_10_to_8(
-        cls, annotation: str, resource_module_vars: dict[str, Any], local_vars: dict[str, Any]
-    ) -> Any:
-        if cls._is_vertical_union(annotation):
-            alternatives = [
-                cls._create_type_hint_3_10(a.strip(), resource_module_vars, local_vars) for a in annotation.split("|")
-            ]
-            return typing.Union[tuple(alternatives)]
-        elif annotation.startswith("dict[") and annotation.endswith("]"):
-            if Counter(annotation)[","] > 1:
-                key, rest = annotation[5:-1].split(",", 1)
-                return dict[key.strip(), cls._create_type_hint_3_10(rest.strip(), resource_module_vars, local_vars)]
-            key, value = annotation[5:-1].split(",")
-            return dict[
-                cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars),
-                cls._create_type_hint_3_10(value.strip(), resource_module_vars, local_vars),
-            ]
-        elif annotation.startswith("Mapping[") and annotation.endswith("]"):
-            if Counter(annotation)[","] > 1:
-                key, rest = annotation[8:-1].split(",", 1)
-                return typing.Mapping[
-                    key.strip(), cls._create_type_hint_3_10(rest.strip(), resource_module_vars, local_vars)
-                ]
-            key, value = annotation[8:-1].split(",")
-            return typing.Mapping[
-                cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars),
-                cls._create_type_hint_3_10(value.strip(), resource_module_vars, local_vars),
-            ]
-        elif annotation.startswith("Optional[") and annotation.endswith("]"):
-            return typing.Optional[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]
-        elif annotation.startswith("list[") and annotation.endswith("]"):
-            return list[cls._create_type_hint_3_10(annotation[5:-1], resource_module_vars, local_vars)]
-        elif annotation.startswith("tuple[") and annotation.endswith("]"):
-            return tuple[cls._create_type_hint_3_10(annotation[6:-1], resource_module_vars, local_vars)]
-        elif annotation.startswith("typing.Sequence[") and annotation.endswith("]"):
-            # This is used in the Sequence data class file to avoid name collision
-            return typing.Sequence[cls._create_type_hint_3_10(annotation[16:-1], resource_module_vars, local_vars)]
-        elif annotation.startswith("Sequence[") and annotation.endswith("]"):
-            return typing.Sequence[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]
-        raise NotImplementedError(f"Unsupported conversion of type hint {annotation!r}. {cls._error_msg}")
-
-    @classmethod
-    def _is_vertical_union(cls, annotation: str) -> bool:
-        if "|" not in annotation:
-            return False
-        parts = [p.strip() for p in annotation.split("|")]
-        for part in parts:
-            counts = Counter(part)
-            if counts["["] != counts["]"]:
-                return False
-        return True
