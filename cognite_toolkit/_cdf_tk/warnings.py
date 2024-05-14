@@ -67,7 +67,7 @@ class WarningList(UserList, Generic[T_Warning]):
 
 
 @dataclass(frozen=True)
-class GeneralWarning(ToolkitWarning):
+class GeneralWarning(ToolkitWarning, ABC):
     severity: SeverityLevel | None = None
     message: str | None = None
     details: Union[None, str, list[str]] = None  # Allow None, str, list[str]
