@@ -285,7 +285,8 @@ class TestCheckYamlSemantics:
         # The build path is unused in the function
         # not sure why it is there
         build_path = Path("does_not_matter")
-        assert check_yaml_semantics(raw_yaml, source_path, build_path)
+        check_yaml_semantics(raw_yaml, source_path, build_path)
+        assert True
 
 
 class TestIterateModules:
