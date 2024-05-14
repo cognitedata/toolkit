@@ -86,7 +86,7 @@ class GeneralWarning(ToolkitWarning):
 
 @dataclass(frozen=True)
 class ToolkitDependenciesIncludedWarning(GeneralWarning):
-    severity: SeverityLevel = SeverityLevel.LOW
+    severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
     message: str = "Some resources were added due to dependencies."
     details: Union[None, str, list[str]] = None  # Allow None, str, list[str]
 
