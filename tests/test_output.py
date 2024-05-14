@@ -2,6 +2,7 @@ import subprocess
 
 import pytest
 
+
 @pytest.mark.skip(reason="Not implemented yet")
 def test_print_clean_warnings() -> None:
     clean_cmd = ["cdf-tk", "deploy", "--env", "dev", "--dry-run"]
