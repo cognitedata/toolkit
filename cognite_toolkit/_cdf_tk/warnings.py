@@ -17,7 +17,9 @@ class SeverityLevel(Enum):
     MEDIUM = "MEDIUM"
     LOW = "LOW"
 
+
 RICH_WARNING_FORMAT = "    [bold yellow]WARNING:[/]"
+
 
 @total_ordering
 @dataclass(frozen=True)
