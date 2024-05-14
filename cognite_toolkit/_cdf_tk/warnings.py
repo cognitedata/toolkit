@@ -93,6 +93,7 @@ class ToolkitCleanDependenciesIncludedWarning(GeneralWarning):
 @dataclass(frozen=True)
 class ToolkitCleanDatasetNotSupportedWarning(GeneralWarning):
     severity: SeverityLevel = SeverityLevel.LOW
+    message: str = "Dataset cleaning is not supported, skipping..."
 
     def __init__(self) -> None:
-        super().__init__(message="Dataset cleaning is not supported, skipping...", details=None)
+        super().__init__(message=self.message, details=None, severity=self.severity)
