@@ -2,24 +2,39 @@ from __future__ import annotations
 
 import dataclasses
 import itertools
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections import UserList
 from collections.abc import Collection
 from dataclasses import dataclass
 from enum import Enum
 from functools import total_ordering
-from typing import Any, Generic, TypeVar, Union
+from typing import Any, ClassVar, Generic, TypeVar, Union
+
+RICH_WARNING_FORMAT = "    [bold yellow]WARNING:[/] "
+RICH_WARNING_DETAIL_FORMAT = f"{'    ' * 2}"
 
 
 class SeverityLevel(Enum):
-    CRITICAL = "CRITICAL"
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
     LOW = "LOW"
 
 
-RICH_WARNING_FORMAT = "    [bold yellow]WARNING:[/] "
-RICH_WARNING_DETAIL_FORMAT = f"{'    ' * 2}"
+class SeverityFormat:
+    @staticmethod
+    def get_rich_severity_format(severity: SeverityLevel, *messages: str) -> str:
+        if severity == SeverityLevel.HIGH:
+            return f"[bold red]WARNING:[/][{severity.value}] {" ".join(messages)}"
+        elif severity == SeverityLevel.MEDIUM:
+            return f"[bold yellow]WARNING:[/][{severity.value}] {" ".join(messages)}"
+        elif severity == SeverityLevel.LOW:
+            return f"[bold green]WARNING:[/][{severity.value}] {" ".join(messages)}"
+        else:
+            return "[bold]WARNING {" ".join(messages)}[/]"
+
+    @staticmethod
+    def get_rich_detail_format(message: str) -> str:
+        return f"{'    ' * 2}{message}"
 
 
 @total_ordering
@@ -46,6 +61,10 @@ class ToolkitWarning(ABC):
             return NotImplemented
         return self.as_tuple() == other.as_tuple()
 
+    @abstractmethod
+    def get_message(self) -> str:
+        raise NotImplementedError()
+
 
 T_Warning = TypeVar("T_Warning", bound=ToolkitWarning)
 
@@ -67,37 +86,34 @@ class WarningList(UserList, Generic[T_Warning]):
 
 
 @dataclass(frozen=True)
-class GeneralWarning(ToolkitWarning):
-    severity: SeverityLevel | None = None
-    message: str | None = None
-    details: Union[None, str, list[str]] = None  # Allow None, str, list[str]
-
-    def __str__(self) -> str:
-        output = [f"{RICH_WARNING_FORMAT}{self.severity}{type(self).__name__}: {self.message}"]
-
-        if self.details:
-            if isinstance(self.details, str):
-                output.append(f"{'    ' * 2}{self.details}")
-            else:
-                for detail in self.details:
-                    output.append(f"{'    ' * 2}{detail}")
-        return "\n".join(output)
+class GeneralWarning(ToolkitWarning, ABC):
+    severity: ClassVar[SeverityLevel]
+    message: ClassVar[str | None] = None
 
 
 @dataclass(frozen=True)
 class ToolkitDependenciesIncludedWarning(GeneralWarning):
-    severity: SeverityLevel = SeverityLevel.LOW
-    message: str = "Some resources were added due to dependencies."
-    details: Union[None, str, list[str]] = None  # Allow None, str, list[str]
+    severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
+    message: ClassVar[str] = "Some resources were added due to dependencies."
+    dependencies: Union[None, str, list[str]]
 
-    def __init__(self, details: Union[None, str, list[str]] = None) -> None:
-        super().__init__(message=self.message, details=details, severity=self.severity)
+    def get_message(self) -> str:
+        output = [SeverityFormat.get_rich_severity_format(self.severity, self.message)]
+
+        if self.dependencies:
+            if isinstance(self.dependencies, str):
+                output.append(SeverityFormat.get_rich_detail_format(self.dependencies))
+            else:
+                for dependency in self.dependencies:
+                    output.append(SeverityFormat.get_rich_detail_format(dependency))
+        return "\n".join(output)
 
 
 @dataclass(frozen=True)
-class ToolkitCleanDatasetNotSupportedWarning(GeneralWarning):
-    severity: SeverityLevel = SeverityLevel.LOW
-    message: str = "Dataset cleaning is not supported, skipping..."
+class ToolkitNotSupportedWarning(GeneralWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
+    message: ClassVar[str] = "This feature is not supported"
+    feature: str
 
-    def __init__(self) -> None:
-        super().__init__(message=self.message, severity=self.severity)
+    def get_message(self) -> str:
+        return SeverityFormat.get_rich_severity_format(self.severity, self.message, self.feature)

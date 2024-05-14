@@ -11,4 +11,5 @@ class ToolkitCommand:
     def warn(self, warning: ToolkitWarning) -> None:
         self.warning_list.append(warning)
         if self.print_warning:
-            print(str(warning))
+            output = warning.get_message()
+            print(output)

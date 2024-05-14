@@ -33,7 +33,7 @@ class UnusedParameter(FileReadWarning):
 class SnakeCaseWarning(UnusedParameter):
     expected: str
 
-    def __str__(self) -> str:
+    def get_message(self) -> str:
         return f"CaseWarning: Got {self.actual!r}. Did you mean {self.expected!r}?"
 
 
@@ -72,7 +72,7 @@ class YAMLFileWarning(ToolkitWarning, ABC):
 class UnusedParameterWarning(YAMLFileWarning):
     actual: str
 
-    def __str__(self) -> str:
+    def get_message(self) -> str:
         return f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}."
 
 
@@ -80,7 +80,7 @@ class UnusedParameterWarning(YAMLFileWarning):
 class CaseTypoWarning(UnusedParameterWarning):
     expected: str
 
-    def __str__(self) -> str:
+    def get_message(self) -> str:
         return f"{type(self).__name__}: Got {self.actual!r}. Did you mean {self.expected!r}?{self._location}."
 
 
@@ -88,7 +88,7 @@ class CaseTypoWarning(UnusedParameterWarning):
 class MissingRequiredParameter(YAMLFileWarning):
     expected: str
 
-    def __str__(self) -> str:
+    def get_message(self) -> str:
         return f"{type(self).__name__}: Missing required parameter {self.expected!r}{self._location}."
 
 
@@ -102,7 +102,7 @@ class TemplateVariableWarning(FileReadWarning):
     def group_header(self) -> str:
         return f"    In Section {str(self.path)!r}"
 
-    def __str__(self) -> str:
+    def get_message(self) -> str:
         return f"{type(self).__name__}: Variable {self.id_name!r} has value {self.id_value!r} in file: {self.filepath.name}. Did you forget to change it?"
 
 
@@ -116,7 +116,7 @@ class DataSetMissingWarning(FileReadWarning):
     def group_header(self) -> str:
         return f"    In File {str(self.filepath)!r}"
 
-    def __str__(self) -> str:
+    def get_message(self) -> str:
         # Avoid circular import
         from cognite_toolkit._cdf_tk.load import TransformationLoader
 

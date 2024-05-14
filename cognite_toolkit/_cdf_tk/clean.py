@@ -27,8 +27,8 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
 )
 from cognite_toolkit._cdf_tk.warnings import (
-    ToolkitCleanDatasetNotSupportedWarning,
     ToolkitDependenciesIncludedWarning,
+    ToolkitNotSupportedWarning,
 )
 
 from ._commands import ToolkitCommand
@@ -65,13 +65,14 @@ class CleanCommand(ToolkitCommand):
         results = DeployResults([], "clean", dry_run=dry_run)
         resolved_list = list(TopologicalSorter(selected_loaders).static_order())
         if len(resolved_list) > len(selected_loaders):
-            self.warn(ToolkitDependenciesIncludedWarning())
+            dependencies = [item.folder_name for item in resolved_list if item not in selected_loaders]
+            self.warn(ToolkitDependenciesIncludedWarning(dependencies=dependencies))
         for loader_cls in reversed(resolved_list):
             if not issubclass(loader_cls, ResourceLoader):
                 continue
             loader = loader_cls.create_loader(ToolGlobals)
             if type(loader) is DataSetsLoader:
-                self.warn(ToolkitCleanDatasetNotSupportedWarning())
+                self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
                 continue
             result = loader.clean_resources(
                 build_path / loader_cls.folder_name,
