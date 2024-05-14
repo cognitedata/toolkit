@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 import yaml
 
-from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, RESOURCE_LOADER_LIST
 from cognite_toolkit._cdf_tk.templates import (
     build_config,
     check_yaml_semantics,
@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.templates import (
     module_from_path,
     split_config,
 )
+from cognite_toolkit._cdf_tk.templates._templates import Resource
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildConfigYAML,
     ConfigEntry,
@@ -285,7 +286,16 @@ class TestCheckYamlSemantics:
         # The build path is unused in the function
         # not sure why it is there
         build_path = Path("does_not_matter")
-        assert check_yaml_semantics(raw_yaml, source_path, build_path)
+        check_yaml_semantics(raw_yaml, source_path, build_path)
+        assert True
+
+    def test_resource_enum_is_up_to_date(self) -> None:
+        resource_loaders = {loader.folder_name for loader in RESOURCE_LOADER_LIST}
+        enum_members = {member.value for member in Resource}
+
+        missing = resource_loaders - enum_members
+
+        assert not missing, f"Missing entry in Resource, please update with: {missing}"
 
 
 class TestIterateModules:

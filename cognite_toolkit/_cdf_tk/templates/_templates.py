@@ -9,6 +9,7 @@ import traceback
 from collections import ChainMap, defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,8 @@ from ._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
+WARN_YELLOW = "[bold yellow]WARNING:[/]"
+
 
 def build_config(
     build_dir: Path,
@@ -56,9 +59,7 @@ def build_config(
         if not _RUNNING_IN_BROWSER:
             print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
     elif is_populated and not _RUNNING_IN_BROWSER:
-        print(
-            "  [bold yellow]WARNING:[/] Build directory is not empty. Run without --no-clean to remove existing files."
-        )
+        print(f"  {WARN_YELLOW} Build directory is not empty. Run without --no-clean to remove existing files.")
     elif build_dir.exists() and not _RUNNING_IN_BROWSER:
         print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
     else:
@@ -90,7 +91,7 @@ def build_config(
 
     warnings = validate_modules_variables(config.variables, config.filepath)
     if warnings:
-        print(f"  [bold yellow]WARNING:[/] Found the following warnings in config.{config.environment.name}.yaml:")
+        print(f"  {WARN_YELLOW} Found the following warnings in config.{config.environment.name}.yaml:")
         for warning in warnings:
             print(f"    {warning}")
 
@@ -103,186 +104,280 @@ def build_config(
     return source_by_build_path
 
 
-# TODO: Refactor this function into validation parts for each 'resource_type':
-def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
-    """Check the yaml file for semantic errors
+class Resource(Enum):
+    AUTH = "auth"
+    DATA_SETS = "data_sets"
+    DATA_MODELS = "data_models"
+    RAW = "raw"
+    WORKFLOWS = "workflows"
+    TRANSFORMATIONS = "transformations"
+    EXTRACTION_PIPELINES = "extraction_pipelines"
+    TIMESERIES = "timeseries"
+    FILES = "files"
+    FUNCTIONS = "functions"
+    OTHER = "other"
 
-    parsed: the parsed yaml file
-    filepath: the path to the yaml file
-    yields: True if the yaml file is semantically acceptable, False if no inputs are given and the build should fail.
-        Any format errors are raised as exceptions.
-    """
-    if parsed is None or filepath_src is None or filepath_build is None:
-        return False
-    resource_type = filepath_src.parent.name
-    ext_id = None
-    if resource_type == "data_models" and ".space." in filepath_src.name:
-        if isinstance(parsed, list):
-            raise ToolkitYAMLFormatError(f"Multiple spaces in one file {filepath_src} is not supported.")
-        elif isinstance(parsed, dict):
-            ext_id = parsed.get("space")
+    @classmethod
+    def _missing_(cls, value: object) -> Resource:
+        """Returns Resource.OTHER for any other value."""
+        assert isinstance(value, str)
+        return cls.OTHER
+
+
+def _extract_ext_id_dm_spaces(parsed: dict | list, filepath_src: Path) -> tuple[str | None, str]:
+    if isinstance(parsed, list):
+        raise ToolkitYAMLFormatError(f"Multiple spaces in one file {filepath_src} is not supported.")
+    elif isinstance(parsed, dict):
+        ext_id = parsed.get("space")
+    else:
+        raise ToolkitYAMLFormatError(f"Space file {filepath_src} has invalid dataformat.")
+    return ext_id, "space"
+
+
+def _extract_ext_id_dm_nodes(parsed: dict | list, filepath_src: Path) -> tuple[str | None, str]:
+    if isinstance(parsed, list):
+        raise ToolkitYAMLFormatError(f"Nodes YAML must be an object file {filepath_src} is not supported.")
+    try:
+        ext_ids = {source["source"]["externalId"] for node in parsed["nodes"] for source in node["sources"]}
+    except KeyError:
+        raise ToolkitYAMLFormatError(f"Node file {filepath_src} has invalid dataformat.")
+    if len(ext_ids) != 1:
+        raise ToolkitYAMLFormatError(f"All nodes in {filepath_src} must have the same view.")
+    return ext_ids.pop(), "view.externalId"
+
+
+def _extract_ext_id_auth(parsed: dict | list, filepath_src: Path) -> tuple[str | None, str]:
+    if isinstance(parsed, list):
+        raise ToolkitYAMLFormatError(f"Multiple Groups in one file {filepath_src} is not supported.")
+    return parsed.get("name"), "name"
+
+
+def _extract_ext_id_function_schedules(parsed: dict | list, filepath_src: Path) -> tuple[str | None, str]:
+    if isinstance(parsed, list):
+        return "", "multiple"
+    elif isinstance(parsed, dict):
+        ext_id = parsed.get("functionExternalId") or parsed.get("function_external_id")
+        return ext_id, "functionExternalId"
+
+
+def _extract_ext_id_functions(parsed: dict | list, filepath_src: Path) -> tuple[str | None, str]:
+    if isinstance(parsed, list):
+        return "", "multiple"
+    elif isinstance(parsed, dict):
+        ext_id = parsed.get("externalId") or parsed.get("external_id")
+        return ext_id, "externalId"
+
+
+def _extract_ext_id_raw(parsed: dict | list, filepath_src: Path) -> tuple[str | None, str]:
+    if isinstance(parsed, list):
+        return "", "multiple"
+    elif isinstance(parsed, dict):
+        ext_id, ext_id_type = parsed.get("dbName"), "dbName"
+        if "tableName" in parsed:
+            ext_id = f"{ext_id}.{parsed.get('tableName')}"
+            ext_id_type = "dbName and tableName"
+        return ext_id, ext_id_type
+    else:
+        raise ToolkitYAMLFormatError(f"Raw file {filepath_src} has invalid dataformat.")
+
+
+def _extract_ext_id_workflows(parsed: dict | list, filepath_src: Path) -> tuple[str | None, str]:
+    if isinstance(parsed, dict):
+        if "version" in filepath_src.stem.lower():
+            ext_id = parsed.get("workflowExternalId")
+            ext_id_type = "workflowExternalId"
         else:
-            raise ToolkitYAMLFormatError(f"Space file {filepath_src} has invalid dataformat.")
-        ext_id_type = "space"
-
-    elif resource_type == "data_models" and ".node." in filepath_src.name:
-        if isinstance(parsed, list):
-            raise ToolkitYAMLFormatError(f"Nodes YAML must be an object file {filepath_src} is not supported.")
-        try:
-            ext_ids = {source["source"]["externalId"] for node in parsed["nodes"] for source in node["sources"]}
-        except KeyError:
-            raise ToolkitYAMLFormatError(f"Node file {filepath_src} has invalid dataformat.")
-
-        if len(ext_ids) != 1:
-            raise ToolkitYAMLFormatError(f"All nodes in {filepath_src} must have the same view.")
-
-        ext_id = ext_ids.pop()
-        ext_id_type = "view.externalId"
-
-    elif resource_type == "auth":
-        if isinstance(parsed, list):
-            raise ToolkitYAMLFormatError(f"Multiple Groups in one file {filepath_src} is not supported.")
-
-        ext_id = parsed.get("name")
-        ext_id_type = "name"
-
-    elif resource_type in ["data_sets", "timeseries", "files"] and isinstance(parsed, list):
-        ext_id = ""
-        ext_id_type = "multiple"
-
-    elif resource_type in ["functions"] and "schedule" in filepath_src.stem:
-        if isinstance(parsed, list):
-            ext_id = ""
-            ext_id_type = "multiple"
-        elif isinstance(parsed, dict):
-            ext_id = parsed.get("functionExternalId") or parsed.get("function_external_id")
-            ext_id_type = "functionExternalId"
-
-    elif resource_type in ["functions"]:
-        if isinstance(parsed, list):
-            ext_id = ""
-            ext_id_type = "multiple"
-        elif isinstance(parsed, dict):
             ext_id = parsed.get("externalId") or parsed.get("external_id")
             ext_id_type = "externalId"
-
-    elif resource_type == "raw":
-        if isinstance(parsed, list):
-            ext_id = ""
-            ext_id_type = "multiple"
-        elif isinstance(parsed, dict):
-            ext_id = parsed.get("dbName")
-            ext_id_type = "dbName"
-            if "tableName" in parsed:
-                ext_id = f"{ext_id}.{parsed.get('tableName')}"
-                ext_id_type = "dbName and tableName"
-        else:
-            raise ToolkitYAMLFormatError(f"Raw file {filepath_src} has invalid dataformat.")
-
-    elif resource_type == "workflows":
-        if isinstance(parsed, dict):
-            if "version" in filepath_src.stem.lower():
-                ext_id = parsed.get("workflowExternalId")
-                ext_id_type = "workflowExternalId"
-            else:
-                ext_id = parsed.get("externalId") or parsed.get("external_id")
-                ext_id_type = "externalId"
-        else:
-            raise ToolkitYAMLFormatError(f"Multiple Workflows in one file ({filepath_src}) is not supported.")
+        return ext_id, ext_id_type
     else:
-        if isinstance(parsed, list):
-            raise ToolkitYAMLFormatError(f"Multiple {resource_type} in one file {filepath_src} is not supported.")
+        raise ToolkitYAMLFormatError(f"Multiple Workflows in one file ({filepath_src}) is not supported.")
 
-        ext_id = parsed.get("externalId") or parsed.get("external_id")
-        ext_id_type = "externalId"
+
+def _extract_ext_id_other(resource: Resource, parsed: dict | list, filepath_src: Path) -> tuple[str | None, str]:
+    if isinstance(parsed, list):
+        raise ToolkitYAMLFormatError(f"Multiple {resource} in one file {filepath_src} is not supported.")
+
+    ext_id = parsed.get("externalId") or parsed.get("external_id")
+    return ext_id, "externalId"
+
+
+def _get_ext_id_and_type_from_parsed_yaml(
+    resource: Resource, parsed: dict | list, filepath_src: Path
+) -> tuple[str | None, str]:
+    args: tuple[dict | list, Path] = (parsed, filepath_src)
+    if resource is Resource.DATA_MODELS and ".space." in filepath_src.name:
+        return _extract_ext_id_dm_spaces(*args)
+
+    elif resource is Resource.DATA_MODELS and ".node." in filepath_src.name:
+        return _extract_ext_id_dm_nodes(*args)
+
+    elif resource is Resource.AUTH:
+        return _extract_ext_id_auth(*args)
+
+    elif resource in (Resource.DATA_SETS, Resource.TIMESERIES, Resource.FILES) and isinstance(parsed, list):
+        return "", "multiple"
+
+    elif resource is Resource.FUNCTIONS and "schedule" in filepath_src.stem:
+        return _extract_ext_id_function_schedules(*args)
+
+    elif resource is Resource.FUNCTIONS:
+        return _extract_ext_id_functions(*args)
+
+    elif resource is Resource.RAW:
+        return _extract_ext_id_raw(*args)
+
+    elif resource is Resource.WORKFLOWS:
+        return _extract_ext_id_workflows(*args)
+
+    else:
+        return _extract_ext_id_other(resource, *args)
+
+
+def _check_yaml_semantics_auth(ext_id: str, filepath_src: Path, verbose: bool) -> None:
+    parts = ext_id.split("_")
+    if len(parts) < 2:
+        if ext_id == "applications-configuration":
+            if verbose:
+                print(
+                    "      [bold green]INFO:[/] the group applications-configuration does not follow the "
+                    "recommended '_' based namespacing because Infield expects this specific name."
+                )
+        else:
+            print(
+                f"      {WARN_YELLOW} the group {filepath_src} has a name [bold]{ext_id}[/] without the "
+                "recommended '_' based namespacing."
+            )
+    elif parts[0] != "gp":
+        print(
+            f"      {WARN_YELLOW} the group {filepath_src} has a name [bold]{ext_id}[/] without the "
+            "recommended `gp_` based prefix."
+        )
+
+
+def _check_yaml_semantics_transformations_schedules(ext_id: str, filepath_src: Path, verbose: bool) -> None:
+    # First try to find the sql file next to the yaml file with the same name
+    sql_file1 = filepath_src.parent / f"{filepath_src.stem}.sql"
+    if not sql_file1.exists():
+        # Next try to find the sql file next to the yaml file with the external_id as filename
+        sql_file2 = filepath_src.parent / f"{ext_id}.sql"
+        if not sql_file2.exists():
+            print(f"      {WARN_YELLOW} could not find sql file:")
+            print(f"                 [bold]{sql_file1.name}[/] or ")
+            print(f"                 [bold]{sql_file2.name}[/]")
+            print(f"               Expected to find it next to the yaml file at {sql_file1.parent}.")
+            raise ToolkitYAMLFormatError
+    parts = ext_id.split("_")
+    if len(parts) < 2:
+        print(
+            f"      {WARN_YELLOW} the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the "
+            "recommended '_' based namespacing."
+        )
+    elif parts[0] != "tr":
+        print(
+            f"      {WARN_YELLOW} the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the "
+            "recommended 'tr_' based prefix."
+        )
+
+
+def _check_yaml_semantics_dm_spaces(ext_id: str, filepath_src: Path, verbose: bool) -> None:
+    parts = ext_id.split("_")
+    if len(parts) < 2:
+        print(
+            f"      {WARN_YELLOW} the space {filepath_src} has an externalId [bold]{ext_id}[/] without the "
+            "recommended '_' based namespacing."
+        )
+    elif parts[0] != "sp":
+        if ext_id == "cognite_app_data" or ext_id == "APM_SourceData" or ext_id == "APM_Config":
+            if verbose:
+                print(
+                    f"      [bold green]INFO:[/] the space {ext_id} does not follow the recommended '_' based "
+                    "namespacing because Infield expects this specific name."
+                )
+        else:
+            print(
+                f"      {WARN_YELLOW} the space {filepath_src} has an externalId [bold]{ext_id}[/] without the "
+                "recommended 'sp_' based prefix."
+            )
+
+
+def _check_yaml_semantics_extpipes(ext_id: str, filepath_src: Path, verbose: bool) -> None:
+    parts = ext_id.split("_")
+    if len(parts) < 2:
+        print(
+            f"      {WARN_YELLOW} the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without "
+            "the recommended '_' based namespacing."
+        )
+    elif parts[0] != "ep":
+        print(
+            f"      {WARN_YELLOW} the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without "
+            "the recommended 'ep_' based prefix."
+        )
+
+
+def _check_yaml_semantics_basic_resources(
+    parsed: list | dict, resource: Resource, ext_id_type: str, ext_id: str, filepath_src: Path, verbose: bool
+) -> None:
+    if not isinstance(parsed, list):
+        parsed = [parsed]
+    for ds in parsed:
+        ext_id = ds.get("externalId") or ds.get("external_id")
+        if ext_id is None:
+            print(f"      {WARN_YELLOW} the {resource} {filepath_src} is missing the {ext_id_type} field.")
+            raise ToolkitYAMLFormatError
+        parts = ext_id.split("_")
+        # We don't want to throw a warning on entities that should not be governed by the tool
+        # in production (i.e. fileseries, files, and other "real" data)
+        if resource is Resource.DATA_SETS and len(parts) < 2:
+            print(
+                f"      {WARN_YELLOW} the {resource} {filepath_src} has an externalId [bold]{ext_id}[/] without "
+                "the recommended '_' based namespacing."
+            )
+
+
+def _check_yaml_semantics(
+    parsed: list | dict, resource: Resource, filepath_src: Path, ext_id: str, ext_id_type: str, verbose: bool
+) -> None:
+    args: tuple[str, Path, bool] = ext_id, filepath_src, verbose
+    if resource is Resource.AUTH:
+        _check_yaml_semantics_auth(*args)
+
+    elif resource is Resource.TRANSFORMATIONS and not filepath_src.stem.endswith("schedule"):
+        _check_yaml_semantics_transformations_schedules(*args)
+
+    elif resource is Resource.DATA_MODELS and ext_id_type == "space":
+        _check_yaml_semantics_dm_spaces(*args)
+
+    elif resource is Resource.EXTRACTION_PIPELINES:
+        _check_yaml_semantics_extpipes(*args)
+
+    elif resource in (Resource.DATA_SETS, Resource.TIMESERIES, Resource.FILES):
+        _check_yaml_semantics_basic_resources(parsed, resource, ext_id_type, *args)
+
+
+def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> None:
+    """Check the yaml file for semantic errors
+
+    Args:
+        parsed (dict | list): the loaded yaml file
+        filepath_src (Path): the path to the yaml file
+        filepath_build: (Path): No description
+        verbose: (bool): Turn on verbose mode
+
+    Returns:
+        None: File is semantically acceptable if no exceptions are raised.
+    """
+    if parsed is None or filepath_src is None or filepath_build is None:
+        raise ToolkitYAMLFormatError
+
+    resource = Resource(filepath_src.parent.name)
+    ext_id, ext_id_type = _get_ext_id_and_type_from_parsed_yaml(resource, parsed, filepath_src)
 
     if ext_id is None:
-        print(
-            f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} is missing the {ext_id_type} field(s)."
-        )
-        return False
+        print(f"      {WARN_YELLOW} the {resource} {filepath_src} is missing the {ext_id_type} field(s).")
+        raise ToolkitYAMLFormatError
 
-    if resource_type == "auth":
-        parts = ext_id.split("_")
-        if len(parts) < 2:
-            if ext_id == "applications-configuration":
-                if verbose:
-                    print(
-                        "      [bold green]INFO:[/] the group applications-configuration does not follow the recommended '_' based namespacing because Infield expects this specific name."
-                    )
-            else:
-                print(
-                    f"      [bold yellow]WARNING:[/] the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended '_' based namespacing."
-                )
-        elif parts[0] != "gp":
-            print(
-                f"      [bold yellow]WARNING:[/] the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended `gp_` based prefix."
-            )
-    elif resource_type == "transformations" and not filepath_src.stem.endswith("schedule"):
-        # First try to find the sql file next to the yaml file with the same name
-        sql_file1 = filepath_src.parent / f"{filepath_src.stem}.sql"
-        if not sql_file1.exists():
-            # Next try to find the sql file next to the yaml file with the external_id as filename
-            sql_file2 = filepath_src.parent / f"{ext_id}.sql"
-            if not sql_file2.exists():
-                print("      [bold yellow]WARNING:[/] could not find sql file:")
-                print(f"                 [bold]{sql_file1.name}[/] or ")
-                print(f"                 [bold]{sql_file2.name}[/]")
-                print(f"               Expected to find it next to the yaml file at {sql_file1.parent}.")
-                return False
-        parts = ext_id.split("_")
-        if len(parts) < 2:
-            print(
-                f"      [bold yellow]WARNING:[/] the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
-            )
-        elif parts[0] != "tr":
-            print(
-                f"      [bold yellow]WARNING:[/] the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'tr_' based prefix."
-            )
-    elif resource_type == "data_models" and ext_id_type == "space":
-        parts = ext_id.split("_")
-        if len(parts) < 2:
-            print(
-                f"      [bold yellow]WARNING:[/] the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
-            )
-        elif parts[0] != "sp":
-            if ext_id == "cognite_app_data" or ext_id == "APM_SourceData" or ext_id == "APM_Config":
-                if verbose:
-                    print(
-                        f"      [bold green]INFO:[/] the space {ext_id} does not follow the recommended '_' based namespacing because Infield expects this specific name."
-                    )
-            else:
-                print(
-                    f"      [bold yellow]WARNING:[/] the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'sp_' based prefix."
-                )
-    elif resource_type == "extraction_pipelines":
-        parts = ext_id.split("_")
-        if len(parts) < 2:
-            print(
-                f"      [bold yellow]WARNING:[/] the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
-            )
-        elif parts[0] != "ep":
-            print(
-                f"      [bold yellow]WARNING:[/] the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'ep_' based prefix."
-            )
-    elif resource_type == "data_sets" or resource_type == "timeseries" or resource_type == "files":
-        if not isinstance(parsed, list):
-            parsed = [parsed]
-        for ds in parsed:
-            ext_id = ds.get("externalId") or ds.get("external_id")
-            if ext_id is None:
-                print(
-                    f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} is missing the {ext_id_type} field."
-                )
-                return False
-            parts = ext_id.split("_")
-            # We don't want to throw a warning on entities that should not be governed by the tool
-            # in production (i.e. fileseries, files, and other "real" data)
-            if resource_type == "data_sets" and len(parts) < 2:
-                print(
-                    f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
-                )
-    return True
+    _check_yaml_semantics(parsed, resource, filepath_src, ext_id, ext_id_type, verbose)
 
 
 def process_function_directory(
@@ -307,7 +402,7 @@ def process_function_directory(
                         print(f"      [bold green]INFO:[/] Found function {fn_xid}")
                     if func.file_id != "<will_be_generated>":
                         print(
-                            f"        [bold yellow]WARNING:[/] Function {fn_xid} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
+                            f"        {WARN_YELLOW} Function {fn_xid} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
                         )
                     destination = build_dir / "functions" / fn_xid
                     if destination.exists():
@@ -326,7 +421,7 @@ def process_function_directory(
                             )
                         else:
                             print(
-                                f"        [bold yellow]WARNING:[/] Function {fn_xid} in {yaml_source_path} has no function_path defined."
+                                f"        {WARN_YELLOW} Function {fn_xid} in {yaml_source_path} has no function_path defined."
                             )
                     except Exception as e:
                         raise ToolkitValidationError(
@@ -463,7 +558,7 @@ def process_config_files(
                 ):
                     if not printed_function_warning and sys.version_info >= (3, 12):
                         print(
-                            "      [bold yellow]WARNING:[/] The functions API does not support Python 3.12. "
+                            f"      {WARN_YELLOW} The functions API does not support Python 3.12. "
                             "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
                         )
                         printed_function_warning = True
@@ -569,9 +664,7 @@ def validate(
     resource_folder = resource_folder_from_path(source_path)
 
     for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-        print(
-            f"  [bold yellow]WARNING:[/] Unresolved template variable in module {module}: {unmatched} in {destination!s}"
-        )
+        print(f"  {WARN_YELLOW} Unresolved template variable in module {module}: {unmatched} in {destination!s}")
         variable = unmatched[2:-2]
         if modules := modules_by_variable.get(variable):
             module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
@@ -603,7 +696,7 @@ def validate(
 
     if loader is None:
         print(
-            f"  [bold yellow]WARNING:[/] In module {module!r}, the resource {resource_folder!r} is not supported by the toolkit."
+            f"  {WARN_YELLOW} In module {module!r}, the resource {resource_folder!r} is not supported by the toolkit."
         )
         print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
         return
@@ -612,18 +705,22 @@ def validate(
         parsed_list = [parsed]
     else:
         parsed_list = parsed
+
     for item in parsed_list:
-        if not check_yaml_semantics(
-            parsed=item,
-            filepath_src=source_path,
-            filepath_build=destination,
-        ):
+        try:
+            check_yaml_semantics(parsed=item, filepath_src=source_path, filepath_build=destination)
+        except ToolkitYAMLFormatError as err:
+            # TODO: Hacky? Certain errors can be ignored, these are raised with no arguments:
+            if err.args:
+                raise
             print(
-                f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r}/{destination.name} is not semantically correct."
+                f"  {WARN_YELLOW} In module {source_path.parent.parent.name!r}, the resource "
+                f"{destination.parent.name!r}/{destination.name} is not semantically correct."
             )
             if verbose:
                 print(
-                    f"  [bold yellow]WARNING:[/] verify file format against the API specification for {destination.parent.name!r} at {loader.doc_url()}"
+                    f"  {WARN_YELLOW} verify file format against the API specification for "
+                    f"{destination.parent.name!r} at {loader.doc_url()}"
                 )
 
     if issubclass(loader, ResourceLoader):
@@ -631,7 +728,7 @@ def validate(
             data_format_warnings = validate_yaml_config(parsed, loader.get_write_cls_parameter_spec(), source_path)
         except Exception as e:
             print(
-                f"[bold yellow]WARNING:[/] Failed to validate {destination.name} due to: {e}."
+                f"{WARN_YELLOW} Failed to validate {destination.name} due to: {e}."
                 "Please contact the toolkit maintainers with the error message and traceback:"
             )
             if verbose:
@@ -639,10 +736,10 @@ def validate(
         else:
             if data_format_warnings:
                 print(
-                    "  [bold yellow]WARNING:[/] Found potential Data Format issues:",
+                    f"  {WARN_YELLOW} Found potential Data Format issues:",
                     Markdown(f"{data_format_warnings!s}"),
                 )
 
         data_set_warnings = validate_data_set_is_set(parsed_list, loader.resource_cls, source_path)
         if data_set_warnings:
-            print(f"  [bold yellow]WARNING:[/] Found missing data_sets: {data_set_warnings!s}")
+            print(f"  {WARN_YELLOW} Found missing data_sets: {data_set_warnings!s}")
