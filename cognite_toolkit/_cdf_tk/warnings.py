@@ -96,4 +96,4 @@ class ToolkitCleanDatasetNotSupportedWarning(GeneralWarning):
     message: str = "Dataset cleaning is not supported, skipping..."
 
     def __init__(self) -> None:
-        super().__init__(message=self.message, details=None, severity=self.severity)
+        super().__init__(message=self.message, severity=self.severity)
