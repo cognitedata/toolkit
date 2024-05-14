@@ -233,6 +233,123 @@ def _get_ext_id_and_type_from_parsed_yaml(resource_type, parsed, filepath_src):
         return _extract_ext_id_other(resource_type, *args)
 
 
+def _check_yaml_semantics_auth(ext_id, filepath_src, verbose) -> None:
+    parts = ext_id.split("_")
+    if len(parts) < 2:
+        if ext_id == "applications-configuration":
+            if verbose:
+                print(
+                    "      [bold green]INFO:[/] the group applications-configuration does not follow the "
+                    "recommended '_' based namespacing because Infield expects this specific name."
+                )
+        else:
+            print(
+                f"      {WARN_YELLOW} the group {filepath_src} has a name [bold]{ext_id}[/] without the "
+                "recommended '_' based namespacing."
+            )
+    elif parts[0] != "gp":
+        print(
+            f"      {WARN_YELLOW} the group {filepath_src} has a name [bold]{ext_id}[/] without the "
+            "recommended `gp_` based prefix."
+        )
+
+
+def _check_yaml_semantics_transformations_schedules(ext_id, filepath_src, verbose) -> None:
+    # First try to find the sql file next to the yaml file with the same name
+    sql_file1 = filepath_src.parent / f"{filepath_src.stem}.sql"
+    if not sql_file1.exists():
+        # Next try to find the sql file next to the yaml file with the external_id as filename
+        sql_file2 = filepath_src.parent / f"{ext_id}.sql"
+        if not sql_file2.exists():
+            print(f"      {WARN_YELLOW} could not find sql file:")
+            print(f"                 [bold]{sql_file1.name}[/] or ")
+            print(f"                 [bold]{sql_file2.name}[/]")
+            print(f"               Expected to find it next to the yaml file at {sql_file1.parent}.")
+            return False
+    parts = ext_id.split("_")
+    if len(parts) < 2:
+        print(
+            f"      {WARN_YELLOW} the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the "
+            "recommended '_' based namespacing."
+        )
+    elif parts[0] != "tr":
+        print(
+            f"      {WARN_YELLOW} the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the "
+            "recommended 'tr_' based prefix."
+        )
+
+
+def _check_yaml_semantics_dm_spaces(ext_id, filepath_src, verbose) -> None:
+    parts = ext_id.split("_")
+    if len(parts) < 2:
+        print(
+            f"      {WARN_YELLOW} the space {filepath_src} has an externalId [bold]{ext_id}[/] without the "
+            "recommended '_' based namespacing."
+        )
+    elif parts[0] != "sp":
+        if ext_id == "cognite_app_data" or ext_id == "APM_SourceData" or ext_id == "APM_Config":
+            if verbose:
+                print(
+                    f"      [bold green]INFO:[/] the space {ext_id} does not follow the recommended '_' based "
+                    "namespacing because Infield expects this specific name."
+                )
+        else:
+            print(
+                f"      {WARN_YELLOW} the space {filepath_src} has an externalId [bold]{ext_id}[/] without the "
+                "recommended 'sp_' based prefix."
+            )
+
+
+def _check_yaml_semantics_extpipes(ext_id, filepath_src, verbose) -> None:
+    parts = ext_id.split("_")
+    if len(parts) < 2:
+        print(
+            f"      {WARN_YELLOW} the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without "
+            "the recommended '_' based namespacing."
+        )
+    elif parts[0] != "ep":
+        print(
+            f"      {WARN_YELLOW} the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without "
+            "the recommended 'ep_' based prefix."
+        )
+
+
+def _check_yaml_semantics_basic_resources(parsed, resource_type, ext_id_type, ext_id, filepath_src, verbose) -> None:
+    if not isinstance(parsed, list):
+        parsed = [parsed]
+    for ds in parsed:
+        ext_id = ds.get("externalId") or ds.get("external_id")
+        if ext_id is None:
+            print(f"      {WARN_YELLOW} the {resource_type} {filepath_src} is missing the {ext_id_type} field.")
+            return False
+        parts = ext_id.split("_")
+        # We don't want to throw a warning on entities that should not be governed by the tool
+        # in production (i.e. fileseries, files, and other "real" data)
+        if resource_type is Resource.DATA_SETS and len(parts) < 2:
+            print(
+                f"      {WARN_YELLOW} the {resource_type} {filepath_src} has an externalId [bold]{ext_id}[/] without "
+                "the recommended '_' based namespacing."
+            )
+
+
+def _check_yaml_semantics(parsed, resource_type, filepath_src, ext_id, ext_id_type, verbose):
+    args = ext_id, filepath_src, verbose
+    if resource_type is Resource.AUTH:
+        _check_yaml_semantics_auth(*args)
+
+    elif resource_type is Resource.TRANSFORMATIONS and not filepath_src.stem.endswith("schedule"):
+        _check_yaml_semantics_transformations_schedules(*args)
+
+    elif resource_type is Resource.DATA_MODELS and ext_id_type == "space":
+        _check_yaml_semantics_dm_spaces(*args)
+
+    elif resource_type is Resource.EXTRACTION_PIPELINES:
+        _check_yaml_semantics_extpipes(*args)
+
+    elif resource_type in (Resource.DATA_SETS, Resource.TIMESERIES, Resource.FILES):
+        _check_yaml_semantics_basic_resources(parsed, resource_type, ext_id_type, *args)
+
+
 def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> bool:
     """Check the yaml file for semantic errors
 
@@ -256,84 +373,7 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
         print(f"      {WARN_YELLOW} the {resource_type} {filepath_src} is missing the {ext_id_type} field(s).")
         return False
 
-    if resource_type is Resource.AUTH:
-        parts = ext_id.split("_")
-        if len(parts) < 2:
-            if ext_id == "applications-configuration":
-                if verbose:
-                    print(
-                        "      [bold green]INFO:[/] the group applications-configuration does not follow the recommended '_' based namespacing because Infield expects this specific name."
-                    )
-            else:
-                print(
-                    f"      {WARN_YELLOW} the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended '_' based namespacing."
-                )
-        elif parts[0] != "gp":
-            print(
-                f"      {WARN_YELLOW} the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended `gp_` based prefix."
-            )
-    elif resource_type is Resource.TRANSFORMATIONS and not filepath_src.stem.endswith("schedule"):
-        # First try to find the sql file next to the yaml file with the same name
-        sql_file1 = filepath_src.parent / f"{filepath_src.stem}.sql"
-        if not sql_file1.exists():
-            # Next try to find the sql file next to the yaml file with the external_id as filename
-            sql_file2 = filepath_src.parent / f"{ext_id}.sql"
-            if not sql_file2.exists():
-                print(f"      {WARN_YELLOW} could not find sql file:")
-                print(f"                 [bold]{sql_file1.name}[/] or ")
-                print(f"                 [bold]{sql_file2.name}[/]")
-                print(f"               Expected to find it next to the yaml file at {sql_file1.parent}.")
-                return False
-        parts = ext_id.split("_")
-        if len(parts) < 2:
-            print(
-                f"      {WARN_YELLOW} the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
-            )
-        elif parts[0] != "tr":
-            print(
-                f"      {WARN_YELLOW} the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'tr_' based prefix."
-            )
-    elif resource_type is Resource.DATA_MODELS and ext_id_type == "space":
-        parts = ext_id.split("_")
-        if len(parts) < 2:
-            print(
-                f"      {WARN_YELLOW} the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
-            )
-        elif parts[0] != "sp":
-            if ext_id == "cognite_app_data" or ext_id == "APM_SourceData" or ext_id == "APM_Config":
-                if verbose:
-                    print(
-                        f"      [bold green]INFO:[/] the space {ext_id} does not follow the recommended '_' based namespacing because Infield expects this specific name."
-                    )
-            else:
-                print(
-                    f"      {WARN_YELLOW} the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'sp_' based prefix."
-                )
-    elif resource_type is Resource.EXTRACTION_PIPELINES:
-        parts = ext_id.split("_")
-        if len(parts) < 2:
-            print(
-                f"      {WARN_YELLOW} the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
-            )
-        elif parts[0] != "ep":
-            print(
-                f"      {WARN_YELLOW} the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'ep_' based prefix."
-            )
-    elif resource_type in (Resource.DATA_SETS, Resource.TIMESERIES, Resource.FILES):
-        if not isinstance(parsed, list):
-            parsed = [parsed]
-        for ds in parsed:
-            ext_id = ds.get("externalId") or ds.get("external_id")
-            if ext_id is None:
-                print(f"      {WARN_YELLOW} the {resource_type} {filepath_src} is missing the {ext_id_type} field.")
-                return False
-            parts = ext_id.split("_")
-            # We don't want to throw a warning on entities that should not be governed by the tool
-            # in production (i.e. fileseries, files, and other "real" data)
-            if resource_type is Resource.DATA_SETS and len(parts) < 2:
-                print(
-                    f"      {WARN_YELLOW} the {resource_type} {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
-                )
+    _check_yaml_semantics(parsed, resource_type, filepath_src, ext_id, ext_id_type, verbose)
     return True
 
 
