@@ -12,7 +12,6 @@ from typing import Any, ClassVar, Generic, TypeVar, Union
 
 RICH_WARNING_FORMAT = "    [bold yellow]WARNING:[/] "
 RICH_WARNING_DETAIL_FORMAT = f"{'    ' * 2}"
-from typing import Any, ClassVar, Generic, TypeVar, Union
 
 
 class SeverityLevel(Enum):
