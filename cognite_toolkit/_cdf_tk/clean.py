@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.warnings import (
     ToolkitCleanDatasetNotSupportedWarning,
-    ToolkitCleanDependenciesIncludedWarning,
+    ToolkitDependenciesIncludedWarning,
 )
 
 from ._commands import ToolkitCommand
@@ -65,7 +65,7 @@ class CleanCommand(ToolkitCommand):
         results = DeployResults([], "clean", dry_run=dry_run)
         resolved_list = list(TopologicalSorter(selected_loaders).static_order())
         if len(resolved_list) > len(selected_loaders):
-            self.warn(ToolkitCleanDependenciesIncludedWarning())
+            self.warn(ToolkitDependenciesIncludedWarning())
         for loader_cls in reversed(resolved_list):
             if not issubclass(loader_cls, ResourceLoader):
                 continue

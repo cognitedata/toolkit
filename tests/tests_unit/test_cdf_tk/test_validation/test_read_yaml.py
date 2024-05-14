@@ -14,9 +14,9 @@ from cognite_toolkit._cdf_tk.validation.warning import (
     DataSetMissingWarning,
     MissingRequiredParameter,
     SnakeCaseWarning,
-    ToolkitWarning,
     UnusedParameterWarning,
 )
+from cognite_toolkit._cdf_tk.warnings import ToolkitWarning
 from tests.tests_unit.data import LOAD_DATA
 
 DUMMY_FILE = Path("dummy.yaml")

@@ -18,7 +18,8 @@ class SeverityLevel(Enum):
     LOW = "LOW"
 
 
-RICH_WARNING_FORMAT = "    [bold yellow]WARNING:[/]"
+RICH_WARNING_FORMAT = "    [bold yellow]WARNING:[/] "
+RICH_WARNING_DETAIL_FORMAT = f"{'    ' * 2}"
 
 
 @total_ordering
@@ -67,12 +68,12 @@ class WarningList(UserList, Generic[T_Warning]):
 
 @dataclass(frozen=True)
 class GeneralWarning(ToolkitWarning):
-    severity: SeverityLevel = SeverityLevel.MEDIUM
+    severity: SeverityLevel | None = None
     message: str | None = None
     details: Union[None, str, List[str]] = None  # Allow None, str, list[str]
 
     def __str__(self) -> str:
-        output = [f"{RICH_WARNING_FORMAT}{type(self).__name__}: {self.message}"]
+        output = [f"{RICH_WARNING_FORMAT}{self.severity}{type(self).__name__}: {self.message}"]
 
         if self.details:
             if isinstance(self.details, str):
@@ -84,12 +85,13 @@ class GeneralWarning(ToolkitWarning):
 
 
 @dataclass(frozen=True)
-class ToolkitCleanDependenciesIncludedWarning(GeneralWarning):
-    severity: SeverityLevel = SeverityLevel.MEDIUM
+class ToolkitDependenciesIncludedWarning(GeneralWarning):
+    severity: SeverityLevel = SeverityLevel.LOW
     message: str = "Some resources were added due to dependencies."
+    details: Union[None, str, List[str]] = None  # Allow None, str, list[str]
 
-    def __str__(self) -> str:
-        return super().__str__()
+    def __init__(self, details: Union[None, str, List[str]] = None) -> None:
+        super().__init__(message=self.message, details=details, severity=self.severity)
 
 
 @dataclass(frozen=True)
