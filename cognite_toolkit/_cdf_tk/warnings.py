@@ -8,7 +8,7 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from enum import Enum
 from functools import total_ordering
-from typing import Any, Generic, TypeVar, Union
+from typing import Any, Generic, TypeVar, Union, ClassVar
 
 
 class SeverityLevel(Enum):
