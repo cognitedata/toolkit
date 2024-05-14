@@ -230,11 +230,8 @@ def _get_ext_id_and_type_from_parsed_yaml(
     elif resource is Resource.WORKFLOWS:
         return _extract_ext_id_workflows(*args)
 
-    elif resource is Resource.OTHER:
-        return _extract_ext_id_other(resource, *args)
-
     else:
-        return None, ""
+        return _extract_ext_id_other(resource, *args)
 
 
 def _check_yaml_semantics_auth(ext_id: str, filepath_src: Path, verbose: bool) -> None:
