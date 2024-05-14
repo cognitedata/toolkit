@@ -370,7 +370,7 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
     if parsed is None or filepath_src is None or filepath_build is None:
         raise ToolkitYAMLFormatError
 
-    resource = Resource(filepath_build.parent.name)
+    resource = Resource(filepath_src.parent.name)
     ext_id, ext_id_type = _get_ext_id_and_type_from_parsed_yaml(resource, parsed, filepath_src)
 
     if ext_id is None:
