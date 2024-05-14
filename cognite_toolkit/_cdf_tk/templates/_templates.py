@@ -232,7 +232,9 @@ def _get_ext_id_and_type_from_parsed_yaml(
 
     elif resource is Resource.OTHER:
         return _extract_ext_id_other(resource, *args)
-    assert False  # hey mypy, unreachable!
+
+    else:
+        return None, ""
 
 
 def _check_yaml_semantics_auth(ext_id: str, filepath_src: Path, verbose: bool) -> None:
