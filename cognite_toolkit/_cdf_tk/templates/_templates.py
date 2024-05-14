@@ -41,6 +41,8 @@ from ._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
+WARN_YELLOW = "[bold yellow]WARNING:[/]"
+
 
 def build_config(
     build_dir: Path,
@@ -57,9 +59,7 @@ def build_config(
         if not _RUNNING_IN_BROWSER:
             print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
     elif is_populated and not _RUNNING_IN_BROWSER:
-        print(
-            "  [bold yellow]WARNING:[/] Build directory is not empty. Run without --no-clean to remove existing files."
-        )
+        print(f"  {WARN_YELLOW} Build directory is not empty. Run without --no-clean to remove existing files.")
     elif build_dir.exists() and not _RUNNING_IN_BROWSER:
         print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
     else:
@@ -91,7 +91,7 @@ def build_config(
 
     warnings = validate_modules_variables(config.variables, config.filepath)
     if warnings:
-        print(f"  [bold yellow]WARNING:[/] Found the following warnings in config.{config.environment.name}.yaml:")
+        print(f"  {WARN_YELLOW} Found the following warnings in config.{config.environment.name}.yaml:")
         for warning in warnings:
             print(f"    {warning}")
 
@@ -253,9 +253,7 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
     ext_id, ext_id_type = _get_ext_id_and_type_from_parsed_yaml(resource_type, parsed, filepath_src)
 
     if ext_id is None:
-        print(
-            f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} is missing the {ext_id_type} field(s)."
-        )
+        print(f"      {WARN_YELLOW} the {resource_type} {filepath_src} is missing the {ext_id_type} field(s).")
         return False
 
     if resource_type is Resource.AUTH:
@@ -268,11 +266,11 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
                     )
             else:
                 print(
-                    f"      [bold yellow]WARNING:[/] the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended '_' based namespacing."
+                    f"      {WARN_YELLOW} the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended '_' based namespacing."
                 )
         elif parts[0] != "gp":
             print(
-                f"      [bold yellow]WARNING:[/] the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended `gp_` based prefix."
+                f"      {WARN_YELLOW} the group {filepath_src} has a name [bold]{ext_id}[/] without the recommended `gp_` based prefix."
             )
     elif resource_type is Resource.TRANSFORMATIONS and not filepath_src.stem.endswith("schedule"):
         # First try to find the sql file next to the yaml file with the same name
@@ -281,7 +279,7 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
             # Next try to find the sql file next to the yaml file with the external_id as filename
             sql_file2 = filepath_src.parent / f"{ext_id}.sql"
             if not sql_file2.exists():
-                print("      [bold yellow]WARNING:[/] could not find sql file:")
+                print(f"      {WARN_YELLOW} could not find sql file:")
                 print(f"                 [bold]{sql_file1.name}[/] or ")
                 print(f"                 [bold]{sql_file2.name}[/]")
                 print(f"               Expected to find it next to the yaml file at {sql_file1.parent}.")
@@ -289,17 +287,17 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
         parts = ext_id.split("_")
         if len(parts) < 2:
             print(
-                f"      [bold yellow]WARNING:[/] the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
+                f"      {WARN_YELLOW} the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
             )
         elif parts[0] != "tr":
             print(
-                f"      [bold yellow]WARNING:[/] the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'tr_' based prefix."
+                f"      {WARN_YELLOW} the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'tr_' based prefix."
             )
     elif resource_type is Resource.DATA_MODELS and ext_id_type == "space":
         parts = ext_id.split("_")
         if len(parts) < 2:
             print(
-                f"      [bold yellow]WARNING:[/] the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
+                f"      {WARN_YELLOW} the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
             )
         elif parts[0] != "sp":
             if ext_id == "cognite_app_data" or ext_id == "APM_SourceData" or ext_id == "APM_Config":
@@ -309,17 +307,17 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
                     )
             else:
                 print(
-                    f"      [bold yellow]WARNING:[/] the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'sp_' based prefix."
+                    f"      {WARN_YELLOW} the space {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'sp_' based prefix."
                 )
     elif resource_type is Resource.EXTRACTION_PIPELINES:
         parts = ext_id.split("_")
         if len(parts) < 2:
             print(
-                f"      [bold yellow]WARNING:[/] the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
+                f"      {WARN_YELLOW} the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
             )
         elif parts[0] != "ep":
             print(
-                f"      [bold yellow]WARNING:[/] the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'ep_' based prefix."
+                f"      {WARN_YELLOW} the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended 'ep_' based prefix."
             )
     elif resource_type in (Resource.DATA_SETS, Resource.TIMESERIES, Resource.FILES):
         if not isinstance(parsed, list):
@@ -327,16 +325,14 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
         for ds in parsed:
             ext_id = ds.get("externalId") or ds.get("external_id")
             if ext_id is None:
-                print(
-                    f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} is missing the {ext_id_type} field."
-                )
+                print(f"      {WARN_YELLOW} the {resource_type} {filepath_src} is missing the {ext_id_type} field.")
                 return False
             parts = ext_id.split("_")
             # We don't want to throw a warning on entities that should not be governed by the tool
             # in production (i.e. fileseries, files, and other "real" data)
             if resource_type is Resource.DATA_SETS and len(parts) < 2:
                 print(
-                    f"      [bold yellow]WARNING:[/] the {resource_type} {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
+                    f"      {WARN_YELLOW} the {resource_type} {filepath_src} has an externalId [bold]{ext_id}[/] without the recommended '_' based namespacing."
                 )
     return True
 
@@ -363,7 +359,7 @@ def process_function_directory(
                         print(f"      [bold green]INFO:[/] Found function {fn_xid}")
                     if func.file_id != "<will_be_generated>":
                         print(
-                            f"        [bold yellow]WARNING:[/] Function {fn_xid} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
+                            f"        {WARN_YELLOW} Function {fn_xid} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
                         )
                     destination = build_dir / "functions" / fn_xid
                     if destination.exists():
@@ -382,7 +378,7 @@ def process_function_directory(
                             )
                         else:
                             print(
-                                f"        [bold yellow]WARNING:[/] Function {fn_xid} in {yaml_source_path} has no function_path defined."
+                                f"        {WARN_YELLOW} Function {fn_xid} in {yaml_source_path} has no function_path defined."
                             )
                     except Exception as e:
                         raise ToolkitValidationError(
@@ -519,7 +515,7 @@ def process_config_files(
                 ):
                     if not printed_function_warning and sys.version_info >= (3, 12):
                         print(
-                            "      [bold yellow]WARNING:[/] The functions API does not support Python 3.12. "
+                            f"      {WARN_YELLOW} The functions API does not support Python 3.12. "
                             "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
                         )
                         printed_function_warning = True
@@ -625,9 +621,7 @@ def validate(
     resource_folder = resource_folder_from_path(source_path)
 
     for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-        print(
-            f"  [bold yellow]WARNING:[/] Unresolved template variable in module {module}: {unmatched} in {destination!s}"
-        )
+        print(f"  {WARN_YELLOW} Unresolved template variable in module {module}: {unmatched} in {destination!s}")
         variable = unmatched[2:-2]
         if modules := modules_by_variable.get(variable):
             module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
@@ -659,7 +653,7 @@ def validate(
 
     if loader is None:
         print(
-            f"  [bold yellow]WARNING:[/] In module {module!r}, the resource {resource_folder!r} is not supported by the toolkit."
+            f"  {WARN_YELLOW} In module {module!r}, the resource {resource_folder!r} is not supported by the toolkit."
         )
         print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
         return
@@ -675,11 +669,11 @@ def validate(
             filepath_build=destination,
         ):
             print(
-                f"  [bold yellow]WARNING:[/] In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r}/{destination.name} is not semantically correct."
+                f"  {WARN_YELLOW} In module {source_path.parent.parent.name!r}, the resource {destination.parent.name!r}/{destination.name} is not semantically correct."
             )
             if verbose:
                 print(
-                    f"  [bold yellow]WARNING:[/] verify file format against the API specification for {destination.parent.name!r} at {loader.doc_url()}"
+                    f"  {WARN_YELLOW} verify file format against the API specification for {destination.parent.name!r} at {loader.doc_url()}"
                 )
 
     if issubclass(loader, ResourceLoader):
@@ -687,7 +681,7 @@ def validate(
             data_format_warnings = validate_yaml_config(parsed, loader.get_write_cls_parameter_spec(), source_path)
         except Exception as e:
             print(
-                f"[bold yellow]WARNING:[/] Failed to validate {destination.name} due to: {e}."
+                f"{WARN_YELLOW} Failed to validate {destination.name} due to: {e}."
                 "Please contact the toolkit maintainers with the error message and traceback:"
             )
             if verbose:
@@ -695,10 +689,10 @@ def validate(
         else:
             if data_format_warnings:
                 print(
-                    "  [bold yellow]WARNING:[/] Found potential Data Format issues:",
+                    f"  {WARN_YELLOW} Found potential Data Format issues:",
                     Markdown(f"{data_format_warnings!s}"),
                 )
 
         data_set_warnings = validate_data_set_is_set(parsed_list, loader.resource_cls, source_path)
         if data_set_warnings:
-            print(f"  [bold yellow]WARNING:[/] Found missing data_sets: {data_set_warnings!s}")
+            print(f"  {WARN_YELLOW} Found missing data_sets: {data_set_warnings!s}")
