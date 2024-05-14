@@ -8,7 +8,7 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from enum import Enum
 from functools import total_ordering
-from typing import Any, Generic, List, TypeVar, Union
+from typing import Any, Generic, TypeVar, Union
 
 
 class SeverityLevel(Enum):
@@ -70,7 +70,7 @@ class WarningList(UserList, Generic[T_Warning]):
 class GeneralWarning(ToolkitWarning):
     severity: SeverityLevel | None = None
     message: str | None = None
-    details: Union[None, str, List[str]] = None  # Allow None, str, list[str]
+    details: Union[None, str, list[str]] = None  # Allow None, str, list[str]
 
     def __str__(self) -> str:
         output = [f"{RICH_WARNING_FORMAT}{self.severity}{type(self).__name__}: {self.message}"]
@@ -88,9 +88,9 @@ class GeneralWarning(ToolkitWarning):
 class ToolkitDependenciesIncludedWarning(GeneralWarning):
     severity: SeverityLevel = SeverityLevel.LOW
     message: str = "Some resources were added due to dependencies."
-    details: Union[None, str, List[str]] = None  # Allow None, str, list[str]
+    details: Union[None, str, list[str]] = None  # Allow None, str, list[str]
 
-    def __init__(self, details: Union[None, str, List[str]] = None) -> None:
+    def __init__(self, details: Union[None, str, list[str]] = None) -> None:
         super().__init__(message=self.message, details=details, severity=self.severity)
 
 
