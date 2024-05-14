@@ -17,6 +17,7 @@ class SeverityLevel(Enum):
     MEDIUM = "MEDIUM"
     LOW = "LOW"
 
+RICH_WARNING_FORMAT = "    [bold yellow]WARNING:[/]"
 
 @total_ordering
 @dataclass(frozen=True)
@@ -69,7 +70,7 @@ class GeneralWarning(ToolkitWarning):
     details: Union[None, str, List[str]] = None  # Allow None, str, list[str]
 
     def __str__(self) -> str:
-        output = [f"    [bold yellow]WARNING:[/]{type(self).__name__}: {self.message}"]
+        output = [f"{RICH_WARNING_FORMAT}{type(self).__name__}: {self.message}"]
 
         if self.details:
             if isinstance(self.details, str):
@@ -83,9 +84,10 @@ class GeneralWarning(ToolkitWarning):
 @dataclass(frozen=True)
 class ToolkitCleanDependenciesIncludedWarning(GeneralWarning):
     severity: SeverityLevel = SeverityLevel.MEDIUM
+    message: str = "Some resources were added due to dependencies."
 
-    def __init__(self) -> None:
-        super().__init__(message="Some resources were added due to dependencies.", details=None)
+    def __str__(self) -> str:
+        return super().__str__()
 
 
 @dataclass(frozen=True)
@@ -94,6 +96,3 @@ class ToolkitCleanDatasetNotSupportedWarning(GeneralWarning):
 
     def __init__(self) -> None:
         super().__init__(message="Dataset cleaning is not supported, skipping...", details=None)
-
-    def __str__(self) -> str:
-        return super().__str__()

@@ -9,4 +9,4 @@ class ToolkitCommand:
     def warn(self, warning: ToolkitWarning) -> None:
         self.warning_list.append(warning)
         if self.print_warning:
-            print(warning)
+            print(str(warning))
