@@ -22,13 +22,13 @@ from cognite_toolkit._cdf_tk.templates import (
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildEnvironment,
 )
+from cognite_toolkit._cdf_tk.user_warnings import (
+    ToolkitDependenciesIncludedWarning,
+    ToolkitNotSupportedWarning,
+)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     read_yaml_file,
-)
-from cognite_toolkit._cdf_tk.warnings import (
-    ToolkitDependenciesIncludedWarning,
-    ToolkitNotSupportedWarning,
 )
 
 from ._commands import ToolkitCommand

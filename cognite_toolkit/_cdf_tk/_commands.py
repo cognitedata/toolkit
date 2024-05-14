@@ -1,6 +1,6 @@
 from rich import print
 
-from cognite_toolkit._cdf_tk.warnings import ToolkitWarning, WarningList
+from cognite_toolkit._cdf_tk.user_warnings import ToolkitWarning, WarningList
 
 
 class ToolkitCommand:
