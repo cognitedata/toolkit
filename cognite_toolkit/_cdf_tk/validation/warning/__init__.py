@@ -1,4 +1,3 @@
-from ._base import ToolkitWarning, WarningList
 from .fileread import (
     CaseTypoWarning,
     DataSetMissingWarning,

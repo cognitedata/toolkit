@@ -93,7 +93,7 @@ def build_config(
     if warnings:
         print(f"  {WARN_YELLOW} Found the following warnings in config.{config.environment.name}.yaml:")
         for warning in warnings:
-            print(f"    {warning}")
+            print(f"    {warning.get_message()}")
 
     source_by_build_path = process_config_files(source_dir, selected_modules, build_dir, config, verbose)
 

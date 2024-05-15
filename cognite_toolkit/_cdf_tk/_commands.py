@@ -1,4 +1,6 @@
-from cognite_toolkit._cdf_tk.validation.warning import ToolkitWarning, WarningList
+from rich import print
+
+from cognite_toolkit._cdf_tk.user_warnings import ToolkitWarning, WarningList
 
 
 class ToolkitCommand:
@@ -9,4 +11,4 @@ class ToolkitCommand:
     def warn(self, warning: ToolkitWarning) -> None:
         self.warning_list.append(warning)
         if self.print_warning:
-            print(warning)
+            print(warning.get_message())
