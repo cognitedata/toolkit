@@ -7,9 +7,9 @@ from typing import Any
 import pytest
 import yaml
 
+from cognite_toolkit._cdf_tk.build import BuildCommand
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, RESOURCE_LOADER_LIST
 from cognite_toolkit._cdf_tk.templates import (
-    build_config,
     check_yaml_semantics,
     create_local_config,
     flatten_dict,
@@ -340,7 +340,9 @@ class TestBuildConfigYAML:
         available_modules = {module.name for module, _ in iterate_modules(PYTEST_PROJECT)}
         config.environment.selected_modules_and_packages = list(available_modules)
 
-        build_config(BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False)
+        BuildCommand().build_config(
+            BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False
+        )
 
         # The resulting build folder should only have subfolders that are matching the folder name
         # used by the loaders.

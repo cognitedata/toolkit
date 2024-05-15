@@ -23,6 +23,7 @@ from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, ParameterValue, read_parameters_from_dict
+from cognite_toolkit._cdf_tk.build import BuildCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
@@ -42,7 +43,6 @@ from cognite_toolkit._cdf_tk.load import (
     ViewLoader,
 )
 from cognite_toolkit._cdf_tk.templates import (
-    build_config,
     module_from_path,
     resource_folder_from_path,
 )
@@ -556,7 +556,10 @@ class TestDeployResources:
         system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
         config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
         config.environment.selected_modules_and_packages = ["another_module"]
-        build_config(BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False)
+        build_cmd = BuildCommand()
+        build_cmd.build_config(
+            BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False
+        )
         expected_order = ["MyView", "MyOtherView"]
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
@@ -674,7 +677,8 @@ def cognite_module_files_with_loader() -> Iterable:
         config = config_init.as_build_config()
         config.set_environment_variables()
         config.environment.selected_modules_and_packages = config.available_modules
-        source_by_build_path = build_config(
+
+        source_by_build_path = BuildCommand().build_config(
             build_dir=build_dir,
             source_dir=source_path,
             config=config,

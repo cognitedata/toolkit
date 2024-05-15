@@ -17,10 +17,10 @@ from cognite.client.data_classes.transformations.common import NonceCredentials
 from rich import print
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.templates import (
-    build_config,
     module_from_path,
 )
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
@@ -199,7 +199,7 @@ def run_local_function(
     if not found:
         print(f"  [bold red]ERROR:[/] Could not find function with external id {external_id}, exiting.")
         return False
-    build_config(
+    BuildCommand().build_config(
         build_dir=Path(build_dir),
         source_dir=source_path,
         config=config,

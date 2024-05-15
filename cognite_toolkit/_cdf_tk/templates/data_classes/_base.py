@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
@@ -8,6 +9,7 @@ from typing import Any, TypeVar
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitVersionError
 from cognite_toolkit._cdf_tk.templates import BUILD_ENVIRONMENT_FILE
+from cognite_toolkit._cdf_tk.user_warnings import ToolkitWarning, UnexpectedFileLocationWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
 
@@ -23,7 +25,12 @@ class ConfigCore(ABC):
         raise NotImplementedError
 
     @classmethod
-    def load_from_directory(cls: type[T_BuildConfig], source_path: Path, build_env_name: str) -> T_BuildConfig:
+    def load_from_directory(
+        cls: type[T_BuildConfig],
+        source_path: Path,
+        build_env_name: str,
+        warn: Callable[[ToolkitWarning], None] | None = None,
+    ) -> T_BuildConfig:
         file_name = cls._file_name(build_env_name)
         filepath = source_path / file_name
         filepath = filepath if filepath.is_file() else Path.cwd() / file_name
@@ -33,10 +40,11 @@ class ConfigCore(ABC):
             and file_name == "_system.yaml"
         ):
             # This is a fallback for the old location of the system file
-            print(
-                f"  [bold yellow]Warning:[/] {filepath.name!r} does not exist. "
-                f"Using 'cognite_toolkit/{old_filepath.name}' instead."
-            )
+            warning = UnexpectedFileLocationWarning(filepath.name, f"cognite_toolkit/{old_filepath.name}")
+            if warn is not None:
+                warn(warning)
+            else:
+                print(warning.get_message())
             filepath = old_filepath
         elif not filepath.is_file():
             raise ToolkitFileNotFoundError(f"{filepath.name!r} does not exist")
