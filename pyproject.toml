@@ -43,6 +43,11 @@ cdf-tk = "cognite_toolkit._cdf:app"
 [tool.coverage.report]
 show_missing = true
 
+[tool.pytest.ini_options]
+markers = [
+    "toolkit: big smoke tests",
+]
+
 [tool.mypy]
 check_untyped_defs = true
 disallow_untyped_defs = true
