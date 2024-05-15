@@ -1,19 +1,14 @@
 from __future__ import annotations
 
-import datetime
-import io
 import re
 import shutil
-import sys
 import traceback
-from collections import ChainMap, defaultdict
+from collections import ChainMap
 from collections.abc import Mapping
-from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
 import yaml
 from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes.files import FileMetadataList
@@ -28,14 +23,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
+from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader, ResourceLoader
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_yaml_config,
 )
 
-from ._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
-from ._utils import iterate_functions, iterate_modules, module_from_path, resource_folder_from_path
+from ._constants import EXCL_INDEX_SUFFIX, ROOT_MODULES
+from ._utils import iterate_functions, module_from_path, resource_folder_from_path
 from .data_classes import BuildConfigYAML, SystemYAML
 
 WARN_YELLOW = "[bold yellow]WARNING:[/]"
@@ -423,144 +418,6 @@ def process_files_directory(
         destination = build_dir / filepath.parent.name / filepath.name
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(filepath, destination)
-
-
-def process_config_files(
-    project_config_dir: Path,
-    selected_modules: list[str | tuple[str, ...]],
-    build_dir: Path,
-    config: BuildConfigYAML,
-    verbose: bool = False,
-) -> dict[Path, Path]:
-    source_by_build_path: dict[Path, Path] = {}
-    printed_function_warning = False
-    configs = split_config(config.variables)
-    modules_by_variables = defaultdict(list)
-    for module_path, variables in configs.items():
-        for variable in variables:
-            modules_by_variables[variable].append(module_path)
-    number_by_resource_type: dict[str, int] = defaultdict(int)
-
-    for module_dir, filepaths in iterate_modules(project_config_dir):
-        module_parts = module_dir.relative_to(project_config_dir).parts
-        is_in_selected_modules = module_dir.name in selected_modules or module_parts in selected_modules
-        is_parent_in_selected_modules = any(
-            parent in selected_modules for parent in (module_parts[:i] for i in range(1, len(module_parts)))
-        )
-        if not is_in_selected_modules and not is_parent_in_selected_modules:
-            continue
-        if verbose:
-            print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
-        local_config = create_local_config(configs, module_dir)
-
-        # Sort to support 1., 2. etc prefixes
-        def sort_key(p: Path) -> int:
-            if result := re.findall(r"^(\d+)", p.stem):
-                return int(result[0])
-            else:
-                return len(filepaths)
-
-        # The builder of a module can control the order that resources are deployed by prefixing a number
-        # The custom key 'sort_key' is to get the sort on integer and not the string.
-        filepaths = sorted(filepaths, key=sort_key)
-
-        @dataclass
-        class ResourceFiles:
-            resource_files: list[Path] = field(default_factory=list)
-            other_files: list[Path] = field(default_factory=list)
-
-        # Initialise for auth, other resource folders will be added as they are found
-        files_by_resource_folder: dict[str, ResourceFiles] = defaultdict(ResourceFiles)
-        for filepath in filepaths:
-            try:
-                resource_folder = resource_folder_from_path(filepath)
-            except ValueError:
-                if verbose:
-                    print(
-                        f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
-                    )
-                continue
-            if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
-                files_by_resource_folder[resource_folder].resource_files.append(filepath)
-            else:
-                files_by_resource_folder[resource_folder].other_files.append(filepath)
-
-        for resource_folder in files_by_resource_folder:
-            for filepath in files_by_resource_folder[resource_folder].resource_files:
-                # We only want to process the yaml files for functions as the function code is handled separately.
-                if resource_folder == "functions" and filepath.suffix.lower() != ".yaml":
-                    continue
-                if verbose:
-                    print(f"    [bold green]INFO:[/] Processing {filepath.name}")
-                content = filepath.read_text()
-                content = replace_variables(content, local_config)
-                filename = create_file_name(filepath, number_by_resource_type)
-                destination = build_dir / resource_folder / filename
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_text(content)
-                validate(content, destination, filepath, modules_by_variables, verbose)
-                source_by_build_path[destination] = filepath
-
-                # If we have a function definition, we want to process the directory.
-                if (
-                    resource_folder == "functions"
-                    and filepath.suffix.lower() == ".yaml"
-                    and re.match(FunctionLoader.filename_pattern, filepath.stem)
-                ):
-                    if not printed_function_warning and sys.version_info >= (3, 12):
-                        print(
-                            f"      {WARN_YELLOW} The functions API does not support Python 3.12. "
-                            "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
-                        )
-                        printed_function_warning = True
-                    process_function_directory(
-                        yaml_source_path=filepath,
-                        yaml_dest_path=destination,
-                        module_dir=module_dir,
-                        build_dir=build_dir,
-                        verbose=verbose,
-                    )
-                    files_by_resource_folder[resource_folder].other_files = []
-                if resource_folder == "files":
-                    process_files_directory(
-                        files=files_by_resource_folder[resource_folder].other_files,
-                        yaml_dest_path=destination,
-                        module_dir=module_dir,
-                        build_dir=build_dir,
-                        verbose=verbose,
-                    )
-                    files_by_resource_folder[resource_folder].other_files = []
-
-            if resource_folder == "timeseries_datapoints":
-                # Process all csv files
-                for filepath in files_by_resource_folder["timeseries_datapoints"].other_files:
-                    if filepath.suffix.lower() != ".csv":
-                        continue
-                    # Special case for timeseries datapoints, we want to timeshift datapoints
-                    # if the file is a csv file and we have been instructed to.
-                    # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-                    file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                    data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
-                    destination = build_dir / resource_folder / filename
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    if "timeshift_" in data.index.name:
-                        print(
-                            "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
-                        )
-                        data.index.name = data.index.name.replace("timeshift_", "")
-                        data.index = pd.DatetimeIndex(data.index)
-                        periods = datetime.datetime.today() - data.index[-1]
-                        data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
-                    destination.write_text(data.to_csv())
-            for filepath in files_by_resource_folder[resource_folder].other_files:
-                if verbose:
-                    print(f"    [bold green]INFO:[/] Found unrecognized file {filepath}. Copying in untouched...")
-                # Copy the file as is, not variable replacement
-                destination = build_dir / filepath.parent.name / filepath.name
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(filepath, destination)
-
-    return source_by_build_path
 
 
 def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:

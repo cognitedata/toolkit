@@ -34,7 +34,6 @@ from .templates._constants import PROC_TMPL_VARS_SUFFIX
 from .templates._templates import (
     create_file_name,
     create_local_config,
-    process_config_files,
     process_files_directory,
     process_function_directory,
     replace_variables,
@@ -125,7 +124,7 @@ class BuildCommand(ToolkitCommand):
             for warning in warnings:
                 print(f"    {warning.get_message()}")
 
-        source_by_build_path = process_config_files(source_dir, selected_modules, build_dir, config, verbose)
+        source_by_build_path = self.process_config_files(source_dir, selected_modules, build_dir, config, verbose)
 
         build_environment = config.create_build_environment()
         build_environment.dump_to_file(build_dir)
