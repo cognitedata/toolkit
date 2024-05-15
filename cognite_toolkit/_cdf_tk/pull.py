@@ -15,6 +15,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.build import BuildCommand
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedResourceError,
     ToolkitMissingResourceError,
@@ -22,7 +23,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.load import ResourceLoader
 from cognite_toolkit._cdf_tk.load._base_loaders import T_ID, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.templates import build_config
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, tmp_build_directory
 
@@ -395,7 +395,7 @@ def pull_command(
                 f"'selected_modules_and_packages') from {source_path}...[/]"
             )
         )
-        source_by_build_path = build_config(
+        source_by_build_path = BuildCommand().build_config(
             build_dir=build_dir,
             source_dir=source_path,
             config=config,

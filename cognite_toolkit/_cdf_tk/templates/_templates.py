@@ -31,23 +31,8 @@ from cognite_toolkit._cdf_tk.validation import (
 
 from ._constants import EXCL_INDEX_SUFFIX, ROOT_MODULES
 from ._utils import iterate_functions, module_from_path, resource_folder_from_path
-from .data_classes import BuildConfigYAML, SystemYAML
 
 WARN_YELLOW = "[bold yellow]WARNING:[/]"
-
-
-def build_config(
-    build_dir: Path,
-    source_dir: Path,
-    config: BuildConfigYAML,
-    system_config: SystemYAML,
-    clean: bool = False,
-    verbose: bool = False,
-) -> dict[Path, Path]:
-    from cognite_toolkit._cdf_tk.build import BuildCommand
-
-    cmd = BuildCommand()
-    return cmd.build_config(build_dir, source_dir, config, system_config, clean, verbose)
 
 
 class Resource(Enum):
