@@ -13,6 +13,8 @@ from pathlib import Path
 import pandas as pd
 import typer
 import yaml
+from cognite.client._api.functions import validate_function_folder
+from cognite.client.data_classes import FileMetadataList, FunctionList
 from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -20,10 +22,12 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
+    ToolkitFileExistsError,
     ToolkitNotADirectoryError,
+    ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.templates._utils import iterate_modules
+from cognite_toolkit._cdf_tk.templates._utils import iterate_functions, iterate_modules
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildConfigYAML,
     SystemYAML,
@@ -39,8 +43,6 @@ from .templates._templates import (
     check_yaml_semantics,
     create_file_name,
     create_local_config,
-    process_files_directory,
-    process_function_directory,
     replace_variables,
     split_config,
 )
@@ -236,7 +238,7 @@ class BuildCommand(ToolkitCommand):
                                 )
                             )
                             printed_function_warning = True
-                        process_function_directory(
+                        self.process_function_directory(
                             yaml_source_path=filepath,
                             yaml_dest_path=destination,
                             module_dir=module_dir,
@@ -245,7 +247,7 @@ class BuildCommand(ToolkitCommand):
                         )
                         files_by_resource_folder[resource_folder].other_files = []
                     if resource_folder == "files":
-                        process_files_directory(
+                        self.process_files_directory(
                             files=files_by_resource_folder[resource_folder].other_files,
                             yaml_dest_path=destination,
                             module_dir=module_dir,
@@ -284,6 +286,104 @@ class BuildCommand(ToolkitCommand):
                     shutil.copyfile(filepath, destination)
 
         return source_by_build_path
+
+    def process_function_directory(
+        self,
+        yaml_source_path: Path,
+        yaml_dest_path: Path,
+        module_dir: Path,
+        build_dir: Path,
+        verbose: bool = False,
+    ) -> None:
+        try:
+            functions: FunctionList = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
+        except (KeyError, yaml.YAMLError) as e:
+            raise ToolkitYAMLFormatError(f"Failed to load function file {yaml_source_path} due to: {e}")
+
+        for func in functions:
+            found = False
+            for function_subdirs in iterate_functions(module_dir):
+                for function_dir in function_subdirs:
+                    if (fn_xid := func.external_id) == function_dir.name:
+                        found = True
+                        if verbose:
+                            print(f"      [bold green]INFO:[/] Found function {fn_xid}")
+                        if func.file_id != "<will_be_generated>":
+                            self.warn(
+                                LowSeverityWarning(
+                                    f"Function {fn_xid} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
+                                )
+                            )
+                        destination = build_dir / "functions" / fn_xid
+                        if destination.exists():
+                            raise ToolkitFileExistsError(
+                                f"Function {fn_xid} is duplicated. If this is unexpected, you may want to use '--clean'."
+                            )
+                        shutil.copytree(function_dir, destination)
+
+                        # Run validations on the function using the SDK's validation function
+                        try:
+                            if func.function_path:
+                                validate_function_folder(
+                                    root_path=destination.as_posix(),
+                                    function_path=func.function_path,
+                                    skip_folder_validation=False,
+                                )
+                            else:
+                                self.warn(
+                                    MediumSeverityWarning(
+                                        f"Function {fn_xid} in {yaml_source_path} has no function_path defined."
+                                    )
+                                )
+                        except Exception as e:
+                            raise ToolkitValidationError(
+                                f"Failed to package function {fn_xid} at {function_dir}, python module is not loadable "
+                                f"due to: {type(e)}({e}). Note that you need to have any requirements your function uses "
+                                "installed in your current, local python environment."
+                            ) from e
+                        # Clean up cache files
+                        for subdir in destination.iterdir():
+                            if subdir.is_dir():
+                                shutil.rmtree(subdir / "__pycache__", ignore_errors=True)
+                        shutil.rmtree(destination / "__pycache__", ignore_errors=True)
+            if not found:
+                raise ToolkitNotADirectoryError(
+                    f"Function directory not found for externalId {func.external_id} defined in {yaml_source_path}."
+                )
+
+    def process_files_directory(
+        self,
+        files: list[Path],
+        yaml_dest_path: Path,
+        module_dir: Path,
+        build_dir: Path,
+        verbose: bool = False,
+    ) -> None:
+        if len(files) == 0:
+            return
+        try:
+            file_def = FileMetadataList.load(yaml_dest_path.read_text())
+        except KeyError as e:
+            raise ToolkitValidationError(f"Failed to load file definitions file {yaml_dest_path}, error in key: {e}")
+        # We only support one file template definition per module.
+        if len(file_def) == 1:
+            if file_def[0].name and "$FILENAME" in file_def[0].name and file_def[0].name != "$FILENAME":
+                if verbose:
+                    print(
+                        f"      [bold green]INFO:[/] Found file template {file_def[0].name} in {module_dir}, renaming files..."
+                    )
+                for filepath in files:
+                    if file_def[0].name:
+                        destination = (
+                            build_dir / filepath.parent.name / re.sub(r"\$FILENAME", filepath.name, file_def[0].name)
+                        )
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copyfile(filepath, destination)
+                return
+        for filepath in files:
+            destination = build_dir / filepath.parent.name / filepath.name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(filepath, destination)
 
     def validate(
         self,
