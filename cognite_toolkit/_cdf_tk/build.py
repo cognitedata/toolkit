@@ -5,19 +5,23 @@ import io
 import re
 import shutil
 import sys
+import traceback
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
 import typer
+import yaml
 from rich import print
+from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
     ToolkitNotADirectoryError,
+    ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.templates._utils import iterate_modules
 from cognite_toolkit._cdf_tk.templates.data_classes import (
@@ -29,19 +33,30 @@ from cognite_toolkit._cdf_tk.validation import (
 )
 
 from ._commands import ToolkitCommand
-from .load import FunctionLoader
+from .load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from .templates._constants import PROC_TMPL_VARS_SUFFIX
 from .templates._templates import (
+    check_yaml_semantics,
     create_file_name,
     create_local_config,
     process_files_directory,
     process_function_directory,
     replace_variables,
-    resource_folder_from_path,
     split_config,
     validate,
+    validate_yaml_config,
 )
-from .user_warnings import HighSeverityWarning, LowSeverityWarning
+from .templates._utils import module_from_path, resource_folder_from_path
+from .user_warnings import (
+    HighSeverityWarning,
+    IncorrectResourceWarning,
+    LowSeverityWarning,
+    MediumSeverityWarning,
+    ToolkitBugWarning,
+    ToolkitNotSupportedWarning,
+)
+from .validation import validate_data_set_is_set
+from .validation.warning.fileread import UnresolvedVariableWarning
 
 
 class BuildCommand(ToolkitCommand):
@@ -271,3 +286,108 @@ class BuildCommand(ToolkitCommand):
                     shutil.copyfile(filepath, destination)
 
         return source_by_build_path
+
+    def validate(
+        self,
+        content: str,
+        destination: Path,
+        source_path: Path,
+        modules_by_variable: dict[str, list[str]],
+        verbose: bool,
+    ) -> None:
+        module = module_from_path(source_path)
+        resource_folder = resource_folder_from_path(source_path)
+
+        for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
+            self.warn(UnresolvedVariableWarning(source_path, None, tuple(), unmatched))
+            variable = unmatched[2:-2]
+            if modules := modules_by_variable.get(variable):
+                module_str = (
+                    f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
+                )
+                print(
+                    f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                    f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
+                    f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
+                    f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
+                )
+
+        if destination.suffix not in {".yaml", ".yml"}:
+            return None
+        try:
+            parsed = yaml.safe_load(content)
+        except yaml.YAMLError as e:
+            raise ToolkitYAMLFormatError(
+                f"YAML validation error for {destination.name} after substituting config variables: {e}"
+            )
+
+        loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
+        loader: type[Loader] | None
+        if len(loaders) == 1:
+            loader = loaders[0]
+        else:
+            try:
+                loader = next(
+                    (loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)), None
+                )
+            except Exception as e:
+                raise NotImplementedError(f"Loader not found for {source_path}\n{e}")
+
+        if loader is None:
+            self.warn(
+                ToolkitNotSupportedWarning(
+                    f"the resource {resource_folder!r}",
+                    details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
+                )
+            )
+            return
+
+        if isinstance(parsed, dict):
+            parsed_list = [parsed]
+        else:
+            parsed_list = parsed
+
+        for item in parsed_list:
+            try:
+                check_yaml_semantics(parsed=item, filepath_src=source_path, filepath_build=destination)
+            except ToolkitYAMLFormatError as err:
+                # TODO: Hacky? Certain errors can be ignored, these are raised with no arguments:
+                if err.args:
+                    raise
+                details: list[str] = []
+                if verbose:
+                    details.append(
+                        "verify file format against the API specification for "
+                        f"{destination.parent.name!r} at {loader.doc_url()}"
+                    )
+                self.warn(
+                    IncorrectResourceWarning(
+                        f"In module {source_path.parent.parent.name!r} the resource "
+                        f"{destination.parent.name!r}/{destination.name}",
+                        resource=destination.parent.name,
+                        details=details,
+                    )
+                )
+
+        if issubclass(loader, ResourceLoader):
+            try:
+                data_format_warnings = validate_yaml_config(parsed, loader.get_write_cls_parameter_spec(), source_path)
+            except Exception as e:
+                # Todo Replace with an automatic message to sentry.
+                self.warn(
+                    ToolkitBugWarning(
+                        header=f"Failed to validate {destination.name} due to: {e}", traceback=traceback.format_exc()
+                    )
+                )
+            else:
+                if data_format_warnings:
+                    self.warn(LowSeverityWarning("Found potential Data Format issues:"))
+                    self.warning_list.extend(data_format_warnings)
+                    print(
+                        Markdown(f"{data_format_warnings!s}"),
+                    )
+
+            data_set_warnings = validate_data_set_is_set(parsed_list, loader.resource_cls, source_path)
+            if data_set_warnings:
+                self.warn(MediumSeverityWarning(f"Found missing data_sets: {data_set_warnings!s}"))
+                self.warning_list.extend(data_set_warnings)

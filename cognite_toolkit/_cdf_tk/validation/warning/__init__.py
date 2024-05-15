@@ -4,6 +4,7 @@ from .fileread import (
     MissingRequiredParameter,
     SnakeCaseWarning,
     TemplateVariableWarning,
+    UnresolvedVariableWarning,
     UnusedParameter,
     UnusedParameterWarning,
 )
@@ -12,8 +13,7 @@ __all__ = [
     "SnakeCaseWarning",
     "DataSetMissingWarning",
     "TemplateVariableWarning",
-    "WarningList",
-    "ToolkitWarning",
+    "UnresolvedVariableWarning",
     "UnusedParameter",
     "UnusedParameterWarning",
     "MissingRequiredParameter",

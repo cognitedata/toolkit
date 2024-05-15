@@ -58,11 +58,13 @@ class YAMLFileWarning(ToolkitWarning, ABC):
 
     @property
     def _location(self) -> str:
+        if self.element_no is None and not self.path:
+            return f"{self.filepath!r}"
         if self.element_no is not None:
             value = f" in entry {self.element_no} "
         else:
             value = ""
-        if len(self.path) == 1:
+        if len(self.path) <= 1:
             return f"{value}"
         else:
             return f"{value} in section {self.path!r}"
@@ -74,6 +76,14 @@ class UnusedParameterWarning(YAMLFileWarning):
 
     def get_message(self) -> str:
         return f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}."
+
+
+@dataclass(frozen=True)
+class UnresolvedVariableWarning(YAMLFileWarning):
+    variable: str
+
+    def get_message(self) -> str:
+        return f"{type(self).__name__}: Variable {self.variable!r} is not resolved{self._location}."
 
 
 @dataclass(frozen=True)
