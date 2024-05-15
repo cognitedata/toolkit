@@ -478,7 +478,7 @@ conflictMode: upsert
         mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
 
         loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
-        assert loaded.destination_oidc_credentials.__eq__(loaded.source_oidc_credentials)
+        assert loaded.destination_oidc_credentials.dump() == loaded.source_oidc_credentials.dump()
         assert loaded.destination is not None
 
     def test_oidc_raise_if_invalid(
