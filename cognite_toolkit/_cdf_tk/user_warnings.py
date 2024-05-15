@@ -24,13 +24,13 @@ class SeverityFormat:
     @staticmethod
     def get_rich_severity_format(severity: SeverityLevel, *messages: str) -> str:
         if severity == SeverityLevel.HIGH:
-            return f"[bold red]WARNING:[/][{severity.value}] {" ".join(messages)}"
+            return f"[bold red]WARNING:[/][{severity.value}] {' '.join(messages)}"
         elif severity == SeverityLevel.MEDIUM:
-            return f"[bold yellow]WARNING:[/][{severity.value}] {" ".join(messages)}"
+            return f"[bold yellow]WARNING:[/][{severity.value}] {' '.join(messages)}"
         elif severity == SeverityLevel.LOW:
-            return f"[bold green]WARNING:[/][{severity.value}] {" ".join(messages)}"
+            return f"[bold green]WARNING:[/][{severity.value}] {' '.join(messages)}"
         else:
-            return "[bold]WARNING {" ".join(messages)}[/]"
+            return f"[bold yellow]WARNING {' '.join(messages)}[/]"
 
     @staticmethod
     def get_rich_detail_format(message: str) -> str:
