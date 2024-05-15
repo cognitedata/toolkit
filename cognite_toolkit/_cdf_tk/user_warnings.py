@@ -30,7 +30,7 @@ class SeverityFormat:
         elif severity == SeverityLevel.LOW:
             return f"[bold green]WARNING:[/][{severity.value}] {' '.join(messages)}"
         else:
-            return f"[bold yellow]WARNING {' '.join(messages)}[/]"
+            return "[bold yellow]WARNING {' '.join(messages)}[/]"
 
     @staticmethod
     def get_rich_detail_format(message: str) -> str:
