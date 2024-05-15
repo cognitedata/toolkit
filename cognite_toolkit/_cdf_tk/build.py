@@ -6,9 +6,11 @@ import re
 import shutil
 import sys
 import traceback
-from collections import defaultdict
+from collections import ChainMap, defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import typer
@@ -38,13 +40,9 @@ from cognite_toolkit._cdf_tk.validation import (
 
 from ._commands import ToolkitCommand
 from .load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
-from .templates._constants import PROC_TMPL_VARS_SUFFIX
+from .templates._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from .templates._templates import (
     check_yaml_semantics,
-    create_file_name,
-    create_local_config,
-    replace_variables,
-    split_config,
 )
 from .templates._utils import module_from_path, resource_folder_from_path
 from .user_warnings import (
@@ -157,7 +155,7 @@ class BuildCommand(ToolkitCommand):
     ) -> dict[Path, Path]:
         source_by_build_path: dict[Path, Path] = {}
         printed_function_warning = False
-        configs = split_config(config.variables)
+        configs = _Helpers.split_config(config.variables)
         modules_by_variables = defaultdict(list)
         for module_path, variables in configs.items():
             for variable in variables:
@@ -174,7 +172,7 @@ class BuildCommand(ToolkitCommand):
                 continue
             if verbose:
                 print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
-            local_config = create_local_config(configs, module_dir)
+            local_config = _Helpers.create_local_config(configs, module_dir)
 
             # Sort to support 1., 2. etc prefixes
             def sort_key(p: Path) -> int:
@@ -216,8 +214,8 @@ class BuildCommand(ToolkitCommand):
                     if verbose:
                         print(f"    [bold green]INFO:[/] Processing {filepath.name}")
                     content = filepath.read_text()
-                    content = replace_variables(content, local_config)
-                    filename = create_file_name(filepath, number_by_resource_type)
+                    content = _Helpers.replace_variables(content, local_config)
+                    filename = _Helpers.create_file_name(filepath, number_by_resource_type)
                     destination = build_dir / resource_folder / filename
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_text(content)
@@ -489,3 +487,50 @@ class BuildCommand(ToolkitCommand):
             if data_set_warnings:
                 self.warn(MediumSeverityWarning(f"Found missing data_sets: {data_set_warnings!s}"))
                 self.warning_list.extend(data_set_warnings)
+
+
+class _Helpers:
+    @staticmethod
+    def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
+        maps = []
+        parts = module_dir.parts
+        for root_module in ROOT_MODULES:
+            if parts[0] != root_module and root_module in parts:
+                parts = parts[parts.index(root_module) :]
+        for no in range(len(parts), -1, -1):
+            if c := config.get(".".join(parts[:no])):
+                maps.append(c)
+        return ChainMap(*maps)
+
+    @classmethod
+    def split_config(cls, config: dict[str, Any]) -> dict[str, dict[str, str]]:
+        configs: dict[str, dict[str, str]] = {}
+        cls._split_config(config, configs, prefix="")
+        return configs
+
+    @classmethod
+    def _split_config(cls, config: dict[str, Any], configs: dict[str, dict[str, str]], prefix: str = "") -> None:
+        for key, value in config.items():
+            if isinstance(value, dict):
+                if prefix and not prefix.endswith("."):
+                    prefix = f"{prefix}."
+                cls._split_config(value, configs, prefix=f"{prefix}{key}")
+            else:
+                configs.setdefault(prefix.removesuffix("."), {})[key] = value
+
+    @staticmethod
+    def create_file_name(filepath: Path, number_by_resource_type: dict[str, int]) -> str:
+        filename = filepath.name
+        if filepath.suffix in EXCL_INDEX_SUFFIX:
+            return filename
+        # Get rid of the local index
+        filename = re.sub("^[0-9]+\\.", "", filename)
+        number_by_resource_type[filepath.parent.name] += 1
+        filename = f"{number_by_resource_type[filepath.parent.name]}.{filename}"
+        return filename
+
+    @staticmethod
+    def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
+        for name, variable in local_config.items():
+            content = re.sub(rf"{{{{\s*{name}\s*}}}}", str(variable), content)
+        return content

@@ -1,19 +1,13 @@
 from __future__ import annotations
 
-import re
-from collections import ChainMap
-from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 from rich import print
 
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
-
-from ._constants import EXCL_INDEX_SUFFIX, ROOT_MODULES
 
 WARN_YELLOW = "[bold yellow]WARNING:[/]"
 
@@ -292,48 +286,3 @@ def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build
         raise ToolkitYAMLFormatError
 
     _check_yaml_semantics(parsed, resource, filepath_src, ext_id, ext_id_type, verbose)
-
-
-def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
-    maps = []
-    parts = module_dir.parts
-    for root_module in ROOT_MODULES:
-        if parts[0] != root_module and root_module in parts:
-            parts = parts[parts.index(root_module) :]
-    for no in range(len(parts), -1, -1):
-        if c := config.get(".".join(parts[:no])):
-            maps.append(c)
-    return ChainMap(*maps)
-
-
-def split_config(config: dict[str, Any]) -> dict[str, dict[str, str]]:
-    configs: dict[str, dict[str, str]] = {}
-    _split_config(config, configs, prefix="")
-    return configs
-
-
-def _split_config(config: dict[str, Any], configs: dict[str, dict[str, str]], prefix: str = "") -> None:
-    for key, value in config.items():
-        if isinstance(value, dict):
-            if prefix and not prefix.endswith("."):
-                prefix = f"{prefix}."
-            _split_config(value, configs, prefix=f"{prefix}{key}")
-        else:
-            configs.setdefault(prefix.removesuffix("."), {})[key] = value
-
-
-def create_file_name(filepath: Path, number_by_resource_type: dict[str, int]) -> str:
-    filename = filepath.name
-    if filepath.suffix in EXCL_INDEX_SUFFIX:
-        return filename
-    # Get rid of the local index
-    filename = re.sub("^[0-9]+\\.", "", filename)
-    number_by_resource_type[filepath.parent.name] += 1
-    filename = f"{number_by_resource_type[filepath.parent.name]}.{filename}"
-    return filename
-
-
-def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
-    for name, variable in local_config.items():
-        content = re.sub(rf"{{{{\s*{name}\s*}}}}", str(variable), content)
-    return content
