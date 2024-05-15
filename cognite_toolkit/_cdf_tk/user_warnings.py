@@ -103,6 +103,33 @@ class UnexpectedFileLocationWarning(ToolkitWarning):
 
 
 @dataclass(frozen=True)
+class LowSeverityWarning(GeneralWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
+    message_raw: str
+
+    def get_message(self) -> str:
+        return SeverityFormat.get_rich_severity_format(self.severity, self.message_raw)
+
+
+@dataclass(frozen=True)
+class MediumSeverityWarning(GeneralWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.MEDIUM
+    message_raw: str
+
+    def get_message(self) -> str:
+        return SeverityFormat.get_rich_severity_format(self.severity, self.message_raw)
+
+
+@dataclass(frozen=True)
+class HighSeverityWarning(GeneralWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
+    message_raw: str
+
+    def get_message(self) -> str:
+        return SeverityFormat.get_rich_severity_format(self.severity, self.message_raw)
+
+
+@dataclass(frozen=True)
 class ToolkitDependenciesIncludedWarning(GeneralWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
     message: ClassVar[str] = "Some resources were added due to dependencies."
