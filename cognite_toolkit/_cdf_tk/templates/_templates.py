@@ -22,9 +22,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitDuplicatedModuleError,
     ToolkitFileExistsError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
@@ -33,7 +31,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
-    validate_modules_variables,
     validate_yaml_config,
 )
 
@@ -52,56 +49,10 @@ def build_config(
     clean: bool = False,
     verbose: bool = False,
 ) -> dict[Path, Path]:
-    is_populated = build_dir.exists() and any(build_dir.iterdir())
-    if is_populated and clean:
-        shutil.rmtree(build_dir)
-        build_dir.mkdir()
-        if not _RUNNING_IN_BROWSER:
-            print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
-    elif is_populated and not _RUNNING_IN_BROWSER:
-        print(f"  {WARN_YELLOW} Build directory is not empty. Run without --no-clean to remove existing files.")
-    elif build_dir.exists() and not _RUNNING_IN_BROWSER:
-        print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
-    else:
-        build_dir.mkdir(exist_ok=True)
+    from cognite_toolkit._cdf_tk.build import BuildCommand
 
-    config.validate_environment()
-
-    module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
-    available_modules: set[str | tuple[str, ...]] = set()
-    for module, _ in iterate_modules(source_dir):
-        available_modules.add(module.name)
-        module_parts = module.relative_to(source_dir).parts
-        for i in range(1, len(module_parts) + 1):
-            available_modules.add(module_parts[:i])
-
-        module_parts_by_name[module.name].append(module.relative_to(source_dir).parts)
-
-    if duplicate_modules := {
-        module_name: paths
-        for module_name, paths in module_parts_by_name.items()
-        if len(paths) > 1 and module_name in config.environment.selected_modules_and_packages
-    }:
-        raise ToolkitDuplicatedModuleError(
-            f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
-        )
-    system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
-
-    selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
-
-    warnings = validate_modules_variables(config.variables, config.filepath)
-    if warnings:
-        print(f"  {WARN_YELLOW} Found the following warnings in config.{config.environment.name}.yaml:")
-        for warning in warnings:
-            print(f"    {warning.get_message()}")
-
-    source_by_build_path = process_config_files(source_dir, selected_modules, build_dir, config, verbose)
-
-    build_environment = config.create_build_environment()
-    build_environment.dump_to_file(build_dir)
-    if not _RUNNING_IN_BROWSER:
-        print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
-    return source_by_build_path
+    cmd = BuildCommand()
+    return cmd.build_config(build_dir, source_dir, config, system_config, clean, verbose)
 
 
 class Resource(Enum):
