@@ -43,8 +43,6 @@ from .templates._templates import (
     process_function_directory,
     replace_variables,
     split_config,
-    validate,
-    validate_yaml_config,
 )
 from .templates._utils import module_from_path, resource_folder_from_path
 from .user_warnings import (
@@ -55,7 +53,7 @@ from .user_warnings import (
     ToolkitBugWarning,
     ToolkitNotSupportedWarning,
 )
-from .validation import validate_data_set_is_set
+from .validation import validate_data_set_is_set, validate_yaml_config
 from .validation.warning.fileread import UnresolvedVariableWarning
 
 
@@ -221,7 +219,7 @@ class BuildCommand(ToolkitCommand):
                     destination = build_dir / resource_folder / filename
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_text(content)
-                    validate(content, destination, filepath, modules_by_variables, verbose)
+                    self.validate(content, destination, filepath, modules_by_variables, verbose)
                     source_by_build_path[destination] = filepath
 
                     # If we have a function definition, we want to process the directory.

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import shutil
-import traceback
 from collections import ChainMap
 from collections.abc import Mapping
 from enum import Enum
@@ -14,8 +13,6 @@ from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes.files import FileMetadataList
 from cognite.client.data_classes.functions import FunctionList
 from rich import print
-from rich.markdown import Markdown
-from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileExistsError,
@@ -23,14 +20,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, Loader, ResourceLoader
-from cognite_toolkit._cdf_tk.validation import (
-    validate_data_set_is_set,
-    validate_yaml_config,
-)
 
 from ._constants import EXCL_INDEX_SUFFIX, ROOT_MODULES
-from ._utils import iterate_functions, module_from_path, resource_folder_from_path
+from ._utils import iterate_functions
 
 WARN_YELLOW = "[bold yellow]WARNING:[/]"
 
@@ -448,91 +440,3 @@ def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
     for name, variable in local_config.items():
         content = re.sub(rf"{{{{\s*{name}\s*}}}}", str(variable), content)
     return content
-
-
-def validate(
-    content: str, destination: Path, source_path: Path, modules_by_variable: dict[str, list[str]], verbose: bool
-) -> None:
-    module = module_from_path(source_path)
-    resource_folder = resource_folder_from_path(source_path)
-
-    for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-        print(f"  {WARN_YELLOW} Unresolved template variable in module {module}: {unmatched} in {destination!s}")
-        variable = unmatched[2:-2]
-        if modules := modules_by_variable.get(variable):
-            module_str = f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
-            print(
-                f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
-                f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
-                f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
-                f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
-            )
-
-    if destination.suffix not in {".yaml", ".yml"}:
-        return None
-    try:
-        parsed = yaml.safe_load(content)
-    except yaml.YAMLError as e:
-        raise ToolkitYAMLFormatError(
-            f"YAML validation error for {destination.name} after substituting config variables: {e}"
-        )
-
-    loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
-    loader: type[Loader] | None
-    if len(loaders) == 1:
-        loader = loaders[0]
-    else:
-        try:
-            loader = next((loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)), None)
-        except Exception as e:
-            raise NotImplementedError(f"Loader not found for {source_path}\n{e}")
-
-    if loader is None:
-        print(
-            f"  {WARN_YELLOW} In module {module!r}, the resource {resource_folder!r} is not supported by the toolkit."
-        )
-        print(f"    Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}")
-        return
-
-    if isinstance(parsed, dict):
-        parsed_list = [parsed]
-    else:
-        parsed_list = parsed
-
-    for item in parsed_list:
-        try:
-            check_yaml_semantics(parsed=item, filepath_src=source_path, filepath_build=destination)
-        except ToolkitYAMLFormatError as err:
-            # TODO: Hacky? Certain errors can be ignored, these are raised with no arguments:
-            if err.args:
-                raise
-            print(
-                f"  {WARN_YELLOW} In module {source_path.parent.parent.name!r}, the resource "
-                f"{destination.parent.name!r}/{destination.name} is not semantically correct."
-            )
-            if verbose:
-                print(
-                    f"  {WARN_YELLOW} verify file format against the API specification for "
-                    f"{destination.parent.name!r} at {loader.doc_url()}"
-                )
-
-    if issubclass(loader, ResourceLoader):
-        try:
-            data_format_warnings = validate_yaml_config(parsed, loader.get_write_cls_parameter_spec(), source_path)
-        except Exception as e:
-            print(
-                f"{WARN_YELLOW} Failed to validate {destination.name} due to: {e}."
-                "Please contact the toolkit maintainers with the error message and traceback:"
-            )
-            if verbose:
-                print(Panel(traceback.format_exc()))
-        else:
-            if data_format_warnings:
-                print(
-                    f"  {WARN_YELLOW} Found potential Data Format issues:",
-                    Markdown(f"{data_format_warnings!s}"),
-                )
-
-        data_set_warnings = validate_data_set_is_set(parsed_list, loader.resource_cls, source_path)
-        if data_set_warnings:
-            print(f"  {WARN_YELLOW} Found missing data_sets: {data_set_warnings!s}")
