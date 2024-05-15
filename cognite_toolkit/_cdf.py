@@ -17,6 +17,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk import auth
+from cognite_toolkit._cdf_tk.build import BuildCommand
 from cognite_toolkit._cdf_tk.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.describe import describe_datamodel
@@ -43,14 +44,11 @@ from cognite_toolkit._cdf_tk.run import run_function, run_local_function, run_tr
 from cognite_toolkit._cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
-    build_config,
 )
 from cognite_toolkit._cdf_tk.templates.data_classes import (
-    BuildConfigYAML,
     BuildEnvironment,
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,
-    SystemYAML,
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -257,28 +255,8 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
-    source_path = Path(source_dir)
-    if not source_path.is_dir():
-        raise ToolkitNotADirectoryError(str(source_path))
-
-    system_config = SystemYAML.load_from_directory(source_path, build_env_name)
-    config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
-    print(
-        Panel(
-            f"[bold]Building config files from templates into {build_dir!s} for environment {build_env_name} using {source_path!s} as sources...[/bold]"
-            f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}'"
-        )
-    )
-    config.set_environment_variables()
-
-    build_config(
-        build_dir=Path(build_dir),
-        source_dir=source_path,
-        config=config,
-        system_config=system_config,
-        clean=not no_clean,
-        verbose=ctx.obj.verbose,
-    )
+    cmd = BuildCommand()
+    cmd.execute(ctx, Path(source_dir), Path(build_dir), build_env_name, no_clean)
 
 
 @_app.command("deploy")
