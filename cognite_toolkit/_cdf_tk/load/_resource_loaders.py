@@ -1793,12 +1793,13 @@ class ContainerLoader(
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if not isinstance(raw_yaml, list):
             raw_yaml = [raw_yaml]
-        # When upgrading to SDK 7.37.0 there was a breaking change in the SDK requiring 'list' for direct relations.
-        # This patches the yaml to include the list key for direct relations if it is missing.
+        # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
+        # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
+        # is used as read and write in the SDK, and the read class has it required while the write class does not)
         for raw_instance in raw_yaml:
             for prop in raw_instance.get("properties", {}).values():
                 type_ = prop.get("type", {})
-                if type_.get("type") == "direct" and "list" not in type_:
+                if "list" not in type_:
                     type_["list"] = False
         items = ContainerApplyList.load(raw_yaml)
         if not skip_validation:

@@ -24,6 +24,8 @@ Changes are grouped as follows:
   so it is not necessary to set it in the config file. This is now fixed.
 - If you do `cdf-tk init --upgrade`, on a pre `0.2.0a3` version, you are met with
   `ERROR (ToolkitModuleVersionError): Failed to load previous version, ...`. This is now fixed.
+- The parameter `container.properties.<property>.type.list` was required to be set, even thought it is optional
+  in the CDF API. This is now fixed.
 
 ### Improved
 
