@@ -42,7 +42,7 @@ from ._commands import ToolkitCommand
 from .load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
 from .templates._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from .templates._templates import (
-    check_yaml_semantics,
+    YAMLSemantic,
 )
 from .templates._utils import module_from_path, resource_folder_from_path
 from .user_warnings import (
@@ -395,7 +395,7 @@ class BuildCommand(ToolkitCommand):
         resource_folder = resource_folder_from_path(source_path)
 
         for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-            self.warn(UnresolvedVariableWarning(source_path, None, tuple(), unmatched))
+            self.warn(UnresolvedVariableWarning(source_path, unmatched))
             variable = unmatched[2:-2]
             if modules := modules_by_variable.get(variable):
                 module_str = (
@@ -445,7 +445,7 @@ class BuildCommand(ToolkitCommand):
 
         for item in parsed_list:
             try:
-                check_yaml_semantics(parsed=item, filepath_src=source_path, filepath_build=destination)
+                YAMLSemantic(self.warn).check(parsed=item, filepath_src=source_path, filepath_build=destination)
             except ToolkitYAMLFormatError as err:
                 # TODO: Hacky? Certain errors can be ignored, these are raised with no arguments:
                 if err.args:

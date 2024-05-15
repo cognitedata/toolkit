@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
 
@@ -8,8 +9,10 @@ from rich import print
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.user_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.validation.warning.fileread import NamingConventionWarning, ResourceMissingIdentifier
 
-WARN_YELLOW = "[bold yellow]WARNING:[/]"
+from ._utils import resource_folder_from_path
 
 
 class Resource(Enum):
@@ -142,147 +145,171 @@ def _get_ext_id_and_type_from_parsed_yaml(
         return _extract_ext_id_other(resource, *args)
 
 
-def _check_yaml_semantics_auth(ext_id: str, filepath_src: Path, verbose: bool) -> None:
-    parts = ext_id.split("_")
-    if len(parts) < 2:
-        if ext_id == "applications-configuration":
-            if verbose:
-                print(
-                    "      [bold green]INFO:[/] the group applications-configuration does not follow the "
-                    "recommended '_' based namespacing because Infield expects this specific name."
-                )
-        else:
-            print(
-                f"      {WARN_YELLOW} the group {filepath_src} has a name [bold]{ext_id}[/] without the "
-                "recommended '_' based namespacing."
-            )
-    elif parts[0] != "gp":
-        print(
-            f"      {WARN_YELLOW} the group {filepath_src} has a name [bold]{ext_id}[/] without the "
-            "recommended `gp_` based prefix."
-        )
-
-
-def _check_yaml_semantics_transformations_schedules(ext_id: str, filepath_src: Path, verbose: bool) -> None:
-    # First try to find the sql file next to the yaml file with the same name
-    sql_file1 = filepath_src.parent / f"{filepath_src.stem}.sql"
-    if not sql_file1.exists():
-        # Next try to find the sql file next to the yaml file with the external_id as filename
-        sql_file2 = filepath_src.parent / f"{ext_id}.sql"
-        if not sql_file2.exists():
-            print(f"      {WARN_YELLOW} could not find sql file:")
-            print(f"                 [bold]{sql_file1.name}[/] or ")
-            print(f"                 [bold]{sql_file2.name}[/]")
-            print(f"               Expected to find it next to the yaml file at {sql_file1.parent}.")
-            raise ToolkitYAMLFormatError
-    parts = ext_id.split("_")
-    if len(parts) < 2:
-        print(
-            f"      {WARN_YELLOW} the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the "
-            "recommended '_' based namespacing."
-        )
-    elif parts[0] != "tr":
-        print(
-            f"      {WARN_YELLOW} the transformation {filepath_src} has an externalId [bold]{ext_id}[/] without the "
-            "recommended 'tr_' based prefix."
-        )
-
-
-def _check_yaml_semantics_dm_spaces(ext_id: str, filepath_src: Path, verbose: bool) -> None:
-    parts = ext_id.split("_")
-    if len(parts) < 2:
-        print(
-            f"      {WARN_YELLOW} the space {filepath_src} has an externalId [bold]{ext_id}[/] without the "
-            "recommended '_' based namespacing."
-        )
-    elif parts[0] != "sp":
-        if ext_id == "cognite_app_data" or ext_id == "APM_SourceData" or ext_id == "APM_Config":
-            if verbose:
-                print(
-                    f"      [bold green]INFO:[/] the space {ext_id} does not follow the recommended '_' based "
-                    "namespacing because Infield expects this specific name."
-                )
-        else:
-            print(
-                f"      {WARN_YELLOW} the space {filepath_src} has an externalId [bold]{ext_id}[/] without the "
-                "recommended 'sp_' based prefix."
-            )
-
-
-def _check_yaml_semantics_extpipes(ext_id: str, filepath_src: Path, verbose: bool) -> None:
-    parts = ext_id.split("_")
-    if len(parts) < 2:
-        print(
-            f"      {WARN_YELLOW} the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without "
-            "the recommended '_' based namespacing."
-        )
-    elif parts[0] != "ep":
-        print(
-            f"      {WARN_YELLOW} the extraction pipeline {filepath_src} has an externalId [bold]{ext_id}[/] without "
-            "the recommended 'ep_' based prefix."
-        )
-
-
-def _check_yaml_semantics_basic_resources(
-    parsed: list | dict, resource: Resource, ext_id_type: str, ext_id: str, filepath_src: Path, verbose: bool
-) -> None:
-    if not isinstance(parsed, list):
-        parsed = [parsed]
-    for ds in parsed:
-        ext_id = ds.get("externalId") or ds.get("external_id")
-        if ext_id is None:
-            print(f"      {WARN_YELLOW} the {resource} {filepath_src} is missing the {ext_id_type} field.")
-            raise ToolkitYAMLFormatError
-        parts = ext_id.split("_")
-        # We don't want to throw a warning on entities that should not be governed by the tool
-        # in production (i.e. fileseries, files, and other "real" data)
-        if resource is Resource.DATA_SETS and len(parts) < 2:
-            print(
-                f"      {WARN_YELLOW} the {resource} {filepath_src} has an externalId [bold]{ext_id}[/] without "
-                "the recommended '_' based namespacing."
-            )
-
-
-def _check_yaml_semantics(
-    parsed: list | dict, resource: Resource, filepath_src: Path, ext_id: str, ext_id_type: str, verbose: bool
-) -> None:
-    args: tuple[str, Path, bool] = ext_id, filepath_src, verbose
-    if resource is Resource.AUTH:
-        _check_yaml_semantics_auth(*args)
-
-    elif resource is Resource.TRANSFORMATIONS and not filepath_src.stem.endswith("schedule"):
-        _check_yaml_semantics_transformations_schedules(*args)
-
-    elif resource is Resource.DATA_MODELS and ext_id_type == "space":
-        _check_yaml_semantics_dm_spaces(*args)
-
-    elif resource is Resource.EXTRACTION_PIPELINES:
-        _check_yaml_semantics_extpipes(*args)
-
-    elif resource in (Resource.DATA_SETS, Resource.TIMESERIES, Resource.FILES):
-        _check_yaml_semantics_basic_resources(parsed, resource, ext_id_type, *args)
-
-
-def check_yaml_semantics(parsed: dict | list, filepath_src: Path, filepath_build: Path, verbose: bool = False) -> None:
-    """Check the yaml file for semantic errors
+class YAMLSemantic:
+    """
+    Class to check the semantic correctness of a yaml file
 
     Args:
-        parsed (dict | list): the loaded yaml file
-        filepath_src (Path): the path to the yaml file
-        filepath_build: (Path): No description
-        verbose: (bool): Turn on verbose mode
-
-    Returns:
-        None: File is semantically acceptable if no exceptions are raised.
+        warn (Callable[[ToolkitWarning], None]): A function to call when a warning is raised.
+        verbose (bool): Turn on verbose mode.
     """
-    if parsed is None or filepath_src is None or filepath_build is None:
-        raise ToolkitYAMLFormatError
 
-    resource = Resource(filepath_src.parent.name)
-    ext_id, ext_id_type = _get_ext_id_and_type_from_parsed_yaml(resource, parsed, filepath_src)
+    def __init__(self, warn: Callable[[ToolkitWarning], None], verbose: bool = False) -> None:
+        self.warn = warn
+        self.verbose = verbose
 
-    if ext_id is None:
-        print(f"      {WARN_YELLOW} the {resource} {filepath_src} is missing the {ext_id_type} field(s).")
-        raise ToolkitYAMLFormatError
+    def check(self, parsed: dict | list, filepath_src: Path, filepath_build: Path) -> None:
+        """Check the yaml file for semantic errors
 
-    _check_yaml_semantics(parsed, resource, filepath_src, ext_id, ext_id_type, verbose)
+        Args:
+            parsed (dict | list): the loaded yaml file
+            filepath_src (Path): the path to the yaml file
+            filepath_build: (Path): No description
+
+
+        Returns:
+            None: File is semantically acceptable if no exceptions are raised.
+        """
+        if parsed is None or filepath_src is None or filepath_build is None:
+            raise ToolkitYAMLFormatError
+
+        resource_str = resource_folder_from_path(filepath_src)
+        resource = Resource(resource_str)
+        ext_id, ext_id_type = _get_ext_id_and_type_from_parsed_yaml(resource, parsed, filepath_src)
+
+        if ext_id is None:
+            self.warn(
+                ResourceMissingIdentifier(
+                    filepath=filepath_src, resource=filepath_build.parent.name, ext_id_type=ext_id_type
+                )
+            )
+            raise ToolkitYAMLFormatError
+
+        self._check_yaml_semantics(parsed, resource, filepath_src, ext_id, ext_id_type)
+
+    def _check_yaml_semantics_auth(self, ext_id: str, filepath_src: Path) -> None:
+        parts = ext_id.split("_")
+        if len(parts) < 2:
+            if ext_id == "applications-configuration":
+                if self.verbose:
+                    print(
+                        "      [bold green]INFO:[/] the group applications-configuration does not follow the "
+                        "recommended '_' based namespacing because Infield expects this specific name."
+                    )
+            else:
+                self.warn(
+                    NamingConventionWarning(
+                        filepath_src, "auth", "name", ext_id, "without the recommended '_' based namespacing"
+                    )
+                )
+        elif parts[0] != "gp":
+            self.warn(
+                NamingConventionWarning(
+                    filepath_src, "auth", "name", ext_id, "without the recommended 'gp_' based prefix"
+                )
+            )
+
+    def _check_yaml_semantics_transformations_schedules(self, ext_id: str, filepath_src: Path) -> None:
+        parts = ext_id.split("_")
+        if len(parts) < 2:
+            self.warn(
+                NamingConventionWarning(
+                    filepath_src,
+                    "transformation",
+                    "externalId",
+                    ext_id,
+                    "without the recommended '_' based namespacing",
+                )
+            )
+        elif parts[0] != "tr":
+            self.warn(
+                NamingConventionWarning(
+                    filepath_src, "transformation", "externalId", ext_id, "without the recommended 'tr_' based prefix"
+                )
+            )
+
+    def _check_yaml_semantics_dm_spaces(self, ext_id: str, filepath_src: Path) -> None:
+        parts = ext_id.split("_")
+        if len(parts) < 2:
+            self.warn(
+                NamingConventionWarning(
+                    filepath_src, "space", "space", ext_id, "without the recommended '_' based namespacing"
+                )
+            )
+        elif parts[0] != "sp":
+            if ext_id == "cognite_app_data" or ext_id == "APM_SourceData" or ext_id == "APM_Config":
+                if self.verbose:
+                    print(
+                        f"      [bold green]INFO:[/] the space {ext_id} does not follow the recommended '_' based "
+                        "namespacing because Infield expects this specific name."
+                    )
+            else:
+                self.warn(
+                    NamingConventionWarning(
+                        filepath_src, "space", "space", ext_id, "without the recommended 'sp_' based prefix"
+                    )
+                )
+
+    def _check_yaml_semantics_extpipes(self, ext_id: str, filepath_src: Path) -> None:
+        parts = ext_id.split("_")
+        if len(parts) < 2:
+            self.warn(
+                NamingConventionWarning(
+                    filepath_src,
+                    "extraction pipeline",
+                    "externalId",
+                    ext_id,
+                    "without the recommended '_' based namespacing",
+                )
+            )
+        elif parts[0] != "ep":
+            self.warn(
+                NamingConventionWarning(
+                    filepath_src,
+                    "extraction pipeline",
+                    "externalId",
+                    ext_id,
+                    "without the recommended 'ep_' based prefix",
+                )
+            )
+
+    def _check_yaml_semantics_basic_resources(
+        self, parsed: list | dict, resource: Resource, ext_id_type: str, ext_id: str, filepath_src: Path
+    ) -> None:
+        if not isinstance(parsed, list):
+            parsed = [parsed]
+        for ds in parsed:
+            ext_id = ds.get("externalId") or ds.get("external_id")
+            if ext_id is None:
+                self.warn(
+                    ResourceMissingIdentifier(filepath=filepath_src, resource=resource.value, ext_id_type=ext_id_type)
+                )
+                raise ToolkitYAMLFormatError
+            parts = ext_id.split("_")
+            # We don't want to throw a warning on entities that should not be governed by the tool
+            # in production (i.e. fileseries, files, and other "real" data)
+            if resource is Resource.DATA_SETS and len(parts) < 2:
+                self.warn(
+                    NamingConventionWarning(
+                        filepath_src, "data set", "externalId", ext_id, "without the recommended '_' based namespacing"
+                    )
+                )
+
+    def _check_yaml_semantics(
+        self, parsed: list | dict, resource: Resource, filepath_src: Path, ext_id: str, ext_id_type: str
+    ) -> None:
+        args: tuple[str, Path] = ext_id, filepath_src
+        if resource is Resource.AUTH:
+            self._check_yaml_semantics_auth(*args)
+
+        elif resource is Resource.TRANSFORMATIONS and not filepath_src.stem.endswith("schedule"):
+            self._check_yaml_semantics_transformations_schedules(*args)
+
+        elif resource is Resource.DATA_MODELS and ext_id_type == "space":
+            self._check_yaml_semantics_dm_spaces(*args)
+
+        elif resource is Resource.EXTRACTION_PIPELINES:
+            self._check_yaml_semantics_extpipes(*args)
+
+        elif resource in (Resource.DATA_SETS, Resource.TIMESERIES, Resource.FILES):
+            self._check_yaml_semantics_basic_resources(parsed, resource, ext_id_type, *args)

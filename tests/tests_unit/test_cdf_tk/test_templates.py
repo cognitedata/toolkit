@@ -10,7 +10,7 @@ import yaml
 from cognite_toolkit._cdf_tk.build import BuildCommand, _Helpers
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, RESOURCE_LOADER_LIST
 from cognite_toolkit._cdf_tk.templates import (
-    check_yaml_semantics,
+    YAMLSemantic,
     flatten_dict,
     iterate_modules,
     module_from_path,
@@ -284,7 +284,7 @@ class TestCheckYamlSemantics:
         # The build path is unused in the function
         # not sure why it is there
         build_path = Path("does_not_matter")
-        check_yaml_semantics(raw_yaml, source_path, build_path)
+        YAMLSemantic(lambda x: x).check(raw_yaml, source_path, build_path)
         assert True
 
     def test_resource_enum_is_up_to_date(self) -> None:
