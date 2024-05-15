@@ -25,8 +25,8 @@ class BuildCommand(ToolkitCommand):
         if not source_path.is_dir():
             raise ToolkitNotADirectoryError(str(source_path))
 
-        system_config = SystemYAML.load_from_directory(source_path, build_env_name)
-        config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
+        system_config = SystemYAML.load_from_directory(source_path, build_env_name, self.warn)
+        config = BuildConfigYAML.load_from_directory(source_path, build_env_name, self.warn)
         print(
             Panel(
                 f"[bold]Building config files from templates into {build_dir!s} for environment {build_env_name} using {source_path!s} as sources...[/bold]"
