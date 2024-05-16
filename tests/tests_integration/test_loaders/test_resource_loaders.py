@@ -1,3 +1,5 @@
+from asyncio import sleep
+
 import pytest
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Function, FunctionSchedule, FunctionScheduleWriteList
@@ -80,5 +82,10 @@ class TestFunctionScheduleLoader:
         loader.update(FunctionScheduleWriteList([function_schedule]))
 
         retrieved = loader.retrieve([identifier])
+        if not retrieved or retrieved[0].description != function_schedule.description:
+            # The service can be a bit slow in returning the updated description,
+            # so we wait a bit and try again.
+            sleep(1)
+            retrieved = loader.retrieve([identifier])
 
         assert retrieved[0].description == function_schedule.description
