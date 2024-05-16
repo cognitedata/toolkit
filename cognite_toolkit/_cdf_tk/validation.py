@@ -25,6 +25,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 
+__all__ = ["validate_case_raw", "validate_modules_variables", "validate_data_set_is_set", "validate_yaml_config"]
+
 
 def validate_case_raw(
     raw: dict[str, Any] | list[dict[str, Any]],
