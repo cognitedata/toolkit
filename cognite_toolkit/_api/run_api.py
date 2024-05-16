@@ -2,7 +2,7 @@ import json
 
 from cognite.client import CogniteClient
 
-from cognite_toolkit._cdf_tk.run import run_function, run_transformation
+from cognite_toolkit._cdf_tk.commands.run import run_function, run_transformation
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 

@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 import yaml
 
-from cognite_toolkit._cdf_tk.build import BuildCommand, _Helpers
+from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _Helpers
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, RESOURCE_LOADER_LIST
 from cognite_toolkit._cdf_tk.templates import (
     YAMLSemantic,

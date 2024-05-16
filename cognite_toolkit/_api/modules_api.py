@@ -13,7 +13,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._api.data_classes import _DUMMY_ENVIRONMENT, ModuleMeta, ModuleMetaList
 from cognite_toolkit._cdf import Common, clean, deploy
-from cognite_toolkit._cdf_tk.build import BuildCommand
+from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.load import ResourceTypes
 from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES, COGNITE_MODULES_PATH, iterate_modules
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, Environment, InitConfigYAML, SystemYAML

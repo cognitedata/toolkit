@@ -21,6 +21,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
@@ -29,23 +30,22 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.templates._utils import iterate_functions, iterate_modules
+from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
+from cognite_toolkit._cdf_tk.templates._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
+from cognite_toolkit._cdf_tk.templates._templates import (
+    YAMLSemantic,
+)
+from cognite_toolkit._cdf_tk.templates._utils import (
+    iterate_functions,
+    iterate_modules,
+    module_from_path,
+    resource_folder_from_path,
+)
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildConfigYAML,
     SystemYAML,
 )
-from cognite_toolkit._cdf_tk.validation import (
-    validate_modules_variables,
-)
-
-from ._commands import ToolkitCommand
-from .load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
-from .templates._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
-from .templates._templates import (
-    YAMLSemantic,
-)
-from .templates._utils import module_from_path, resource_folder_from_path
-from .tk_warnings import (
+from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     IncorrectResourceWarning,
     LowSeverityWarning,
@@ -54,7 +54,11 @@ from .tk_warnings import (
     ToolkitNotSupportedWarning,
     UnresolvedVariableWarning,
 )
-from .validation import validate_data_set_is_set, validate_yaml_config
+from cognite_toolkit._cdf_tk.validation import (
+    validate_data_set_is_set,
+    validate_modules_variables,
+    validate_yaml_config,
+)
 
 
 class BuildCommand(ToolkitCommand):

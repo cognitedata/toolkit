@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 from cognite.client.data_classes.functions import Function
 from cognite.client.data_classes.transformations import Transformation
 
-from cognite_toolkit._cdf_tk.run import run_function, run_local_function, run_transformation
+from cognite_toolkit._cdf_tk.commands.run import run_function, run_local_function, run_transformation
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.data import RUN_DATA

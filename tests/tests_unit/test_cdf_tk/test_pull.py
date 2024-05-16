@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from cognite_toolkit._cdf_tk.pull import ResourceYAMLDifference, TextFileDifference
+from cognite_toolkit._cdf_tk.commands.pull import ResourceYAMLDifference, TextFileDifference
 
 
 def load_update_diffs_use_cases():

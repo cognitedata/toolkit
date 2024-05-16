@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 from cognite.client.data_classes.data_modeling import Container, DataModel, Space, View
 
-from cognite_toolkit._cdf_tk.describe import describe_datamodel
+from cognite_toolkit._cdf_tk.commands.describe import describe_datamodel
 from cognite_toolkit._cdf_tk.load import (
     ContainerLoader,
     DataModelLoader,

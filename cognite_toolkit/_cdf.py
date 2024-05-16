@@ -16,12 +16,12 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk import auth
-from cognite_toolkit._cdf_tk.build import BuildCommand
-from cognite_toolkit._cdf_tk.clean import CleanCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, auth
+from cognite_toolkit._cdf_tk.commands.describe import describe_datamodel
+from cognite_toolkit._cdf_tk.commands.dump import dump_datamodel_command
+from cognite_toolkit._cdf_tk.commands.pull import pull_command
+from cognite_toolkit._cdf_tk.commands.run import run_function, run_local_function, run_transformation
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.describe import describe_datamodel
-from cognite_toolkit._cdf_tk.dump import dump_datamodel_command
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitDeployResourceError,
@@ -39,8 +39,6 @@ from cognite_toolkit._cdf_tk.load import (
     ResourceLoader,
     TransformationLoader,
 )
-from cognite_toolkit._cdf_tk.pull import pull_command
-from cognite_toolkit._cdf_tk.run import run_function, run_local_function, run_transformation
 from cognite_toolkit._cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,

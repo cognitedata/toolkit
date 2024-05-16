@@ -5,6 +5,7 @@ import typer
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitNotADirectoryError,
@@ -30,8 +31,6 @@ from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     read_yaml_file,
 )
-
-from ._commands import ToolkitCommand
 
 
 class CleanCommand(ToolkitCommand):
