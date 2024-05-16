@@ -1,3 +1,5 @@
+from time import sleep
+
 import pandas as pd
 import pytest
 from cognite.client import CogniteClient
@@ -106,6 +108,7 @@ class TestContainerLoader:
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
                 # so we need to retrieve the container to verify the update
+                sleep(1)
                 updated = loader.retrieve([node_container.as_id()])
             assert updated[0].description == write_container.description
         finally:
@@ -158,6 +161,7 @@ class TestContainerLoader:
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
                 # so we need to retrieve the container to verify the update
+                sleep(1)
                 updated = loader.retrieve([write_container.as_id()])
             assert updated[0].description == write_container.description
         finally:
