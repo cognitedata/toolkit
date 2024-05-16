@@ -11,6 +11,9 @@ import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     DataSet,
+    ExtractionPipelineConfig,
+    ExtractionPipelineConfigRevision,
+    ExtractionPipelineConfigRevisionList,
     FileMetadata,
     FunctionWrite,
     Group,
@@ -33,6 +36,7 @@ from cognite_toolkit._cdf_tk.load import (
     DataModelLoader,
     DatapointsLoader,
     DataSetsLoader,
+    ExtractionPipelineConfigLoader,
     FileMetadataLoader,
     FunctionLoader,
     Loader,
@@ -548,6 +552,62 @@ conflictMode: upsert
             with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
                 with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
                     loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+
+
+class TestExtractionPipelineConfigLoader:
+    config_yaml = """
+        externalId: 'ep_src_asset_hamburg_sap'
+        description: 'DB extractor config reading data from Hamburg SAP'
+        config:
+        logger:
+            console:
+            level: INFO
+    """
+
+    def test_load_extraction_pipeline_config_report(
+        self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+    ):
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+
+        cognite_client_approval.append(
+            ExtractionPipelineConfig,
+            ExtractionPipelineConfig(
+                external_id="ep_src_asset_hamburg_sap",
+                description="DB extractor config reading data from springfield SAP",
+            ),
+        )
+        cognite_client_approval.append(
+            ExtractionPipelineConfigRevisionList,
+            ExtractionPipelineConfigRevisionList(
+                [
+                    ExtractionPipelineConfigRevision(
+                        external_id="ep_src_asset_hamburg_sap", revision=1, created_time=1
+                    ),
+                    ExtractionPipelineConfigRevision(
+                        external_id="ep_src_asset_hamburg_sap", revision=2, created_time=2
+                    ),
+                    ExtractionPipelineConfigRevision(
+                        external_id="ep_src_asset_hamburg_sap", revision=3, created_time=3
+                    ),
+                ]
+            ),
+        )
+
+        mock_read_yaml_file(
+            {"extraction_pipeline.config.yaml": yaml.CSafeLoader(self.config_yaml).get_data()}, monkeypatch
+        )
+
+        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool)
+
+        with patch.object(
+            ExtractionPipelineConfigLoader,
+            "find_files",
+            return_value=[Path("extraction_pipeline.yaml"), Path("extraction_pipeline.config.yaml")],
+        ):
+            tr = loader.deploy_resources(Path("extraction_pipeline.config.yaml"), cdf_tool, dry_run=True)
+            assert tr.changed == 1
 
 
 class TestDeployResources:
