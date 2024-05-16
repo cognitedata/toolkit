@@ -15,7 +15,7 @@ from cognite.client.data_classes.data_modeling import (
 from rich import print
 from rich.table import Table
 
-from .utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 
 def describe_datamodel(ToolGlobals: CDFToolConfig, space_name: str, model_name: str | None) -> None:

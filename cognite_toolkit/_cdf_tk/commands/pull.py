@@ -15,7 +15,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.build import BuildCommand
+from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedResourceError,
     ToolkitMissingResourceError,
@@ -379,7 +379,7 @@ def pull_command(
     ],
 ) -> None:
     if source_dir is None:
-        source_dir = "./"
+        source_dir = "../"
     source_path = Path(source_dir)
     if not source_path.is_dir():
         raise ToolkitNotADirectoryError(str(source_path))
