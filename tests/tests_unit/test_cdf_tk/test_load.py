@@ -715,6 +715,9 @@ class TestResourceLoaders:
             loader_cls.resource_write_cls
         )
         resource_dump = resource.dump(camel_case=True)
+        # These two are handled by the toolkit
+        resource_dump.pop("dataSetId", None)
+        resource_dump.pop("fileId", None)
         dumped = read_parameters_from_dict(resource_dump)
         spec = loader_cls.get_write_cls_parameter_spec()
 
