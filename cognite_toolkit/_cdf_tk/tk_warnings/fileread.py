@@ -16,28 +16,6 @@ class FileReadWarning(ToolkitWarning, ABC):
 
 
 @dataclass(frozen=True)
-class UnusedParameter(FileReadWarning):
-    actual: str
-
-    def group_key(self) -> tuple[Any, ...]:
-        return self.filepath, self.id_value, self.id_name
-
-    def group_header(self) -> str:
-        return f"    In File {str(self.filepath)!r}\n    In entry {self.id_name}={self.id_value!r}"
-
-    def __str__(self) -> str:
-        return f"{type(self).__name__}: Parameter {self.actual!r} is not used in {self.filepath.name}."
-
-
-@dataclass(frozen=True)
-class SnakeCaseWarning(UnusedParameter):
-    expected: str
-
-    def get_message(self) -> str:
-        return f"CaseWarning: Got {self.actual!r}. Did you mean {self.expected!r}?"
-
-
-@dataclass(frozen=True)
 class YAMLFileWarning(ToolkitWarning, ABC):
     severity: ClassVar[SeverityLevel]
     filepath: Path
@@ -94,7 +72,7 @@ class UnresolvedVariableWarning(YAMLFileWarning):
 
 
 @dataclass(frozen=True)
-class ResourceMissingIdentifier(YAMLFileWarning):
+class ResourceMissingIdentifierWarning(YAMLFileWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
     message: ClassVar[str] = "The resource is missing an identifier:"
     resource: str
@@ -131,7 +109,7 @@ class CaseTypoWarning(UnusedParameterWarning):
 
 
 @dataclass(frozen=True)
-class MissingRequiredParameter(YAMLFileWithElementWarning):
+class MissingRequiredParameterWarning(YAMLFileWithElementWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
     expected: str
 

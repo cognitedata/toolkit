@@ -9,7 +9,11 @@ from rich import print
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import NamingConventionWarning, ResourceMissingIdentifier, ToolkitWarning
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    NamingConventionWarning,
+    ResourceMissingIdentifierWarning,
+    ToolkitWarning,
+)
 
 from ._utils import resource_folder_from_path
 
@@ -178,7 +182,7 @@ class YAMLSemantic:
 
         if ext_id is None:
             self.warn(
-                ResourceMissingIdentifier(
+                ResourceMissingIdentifierWarning(
                     filepath=filepath_src, resource=filepath_build.parent.name, ext_id_type=ext_id_type
                 )
             )
@@ -281,7 +285,9 @@ class YAMLSemantic:
             ext_id = ds.get("externalId") or ds.get("external_id")
             if ext_id is None:
                 self.warn(
-                    ResourceMissingIdentifier(filepath=filepath_src, resource=resource.value, ext_id_type=ext_id_type)
+                    ResourceMissingIdentifierWarning(
+                        filepath=filepath_src, resource=resource.value, ext_id_type=ext_id_type
+                    )
                 )
                 raise ToolkitYAMLFormatError
             parts = ext_id.split("_")

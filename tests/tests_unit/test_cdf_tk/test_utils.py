@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     load_yaml_inject_variables,
 )
-from cognite_toolkit._cdf_tk.validation.read_yaml import validate_modules_variables
+from cognite_toolkit._cdf_tk.validation import validate_modules_variables
 from tests.tests_unit.data import DATA_FOLDER
 from tests.tests_unit.utils import PrintCapture
 
