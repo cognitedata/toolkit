@@ -632,6 +632,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        # Replaced by the toolkit
+        spec.discard(ParameterSpec(("fileId",), frozenset({"int"}), is_required=True, _is_nullable=False))
         return spec
 
 
@@ -1416,6 +1418,8 @@ class ExtractionPipelineLoader(
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        # Set on deploy time by toolkit
+        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=True, _is_nullable=False))
         return spec
 
 
@@ -2287,6 +2291,8 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
                 _is_nullable=False,
             )
         )
+        # Not used
+        spec.discard(ParameterSpec(("apiCall",), frozenset({"dict"}), is_required=True, _is_nullable=False))
         return spec
 
 
