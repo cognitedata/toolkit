@@ -662,7 +662,7 @@ def test_resource_types_is_up_to_date() -> None:
     assert not extra, f"Extra {extra=}"
 
 
-def cognite_module_files_with_loader() -> Iterable:
+def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
     source_path = REPO_ROOT / "cognite_toolkit"
     env = "dev"
     with tmp_build_directory() as build_dir:
