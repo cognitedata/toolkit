@@ -9,8 +9,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.user_warnings import ToolkitWarning
-from cognite_toolkit._cdf_tk.validation.warning.fileread import NamingConventionWarning, ResourceMissingIdentifier
+from cognite_toolkit._cdf_tk.tk_warnings import NamingConventionWarning, ResourceMissingIdentifier, ToolkitWarning
 
 from ._utils import resource_folder_from_path
 
