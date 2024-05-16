@@ -7,15 +7,13 @@ from typing import Any
 import pytest
 import yaml
 
-from cognite_toolkit._cdf_tk.build import BuildCommand
+from cognite_toolkit._cdf_tk.build import BuildCommand, _Helpers
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, RESOURCE_LOADER_LIST
 from cognite_toolkit._cdf_tk.templates import (
-    check_yaml_semantics,
-    create_local_config,
+    YAMLSemantic,
     flatten_dict,
     iterate_modules,
     module_from_path,
-    split_config,
 )
 from cognite_toolkit._cdf_tk.templates._templates import Resource
 from cognite_toolkit._cdf_tk.templates.data_classes import (
@@ -217,15 +215,15 @@ def test_split_config(my_config: dict[str, Any]) -> None:
         },
         "parent.child": {"child_variable": "my_child_variable"},
     }
-    actual = split_config(my_config)
+    actual = _Helpers.split_config(my_config)
 
     assert actual == expected
 
 
 def test_create_local_config(my_config: dict[str, Any]):
-    configs = split_config(my_config)
+    configs = _Helpers.split_config(my_config)
 
-    local_config = create_local_config(configs, Path("parent/child/auth/"))
+    local_config = _Helpers.create_local_config(configs, Path("parent/child/auth/"))
 
     assert dict(local_config.items()) == {"top_variable": "my_top_variable", "child_variable": "my_child_variable"}
 
@@ -286,7 +284,7 @@ class TestCheckYamlSemantics:
         # The build path is unused in the function
         # not sure why it is there
         build_path = Path("does_not_matter")
-        check_yaml_semantics(raw_yaml, source_path, build_path)
+        YAMLSemantic(lambda x: x).check(raw_yaml, source_path, build_path)
         assert True
 
     def test_resource_enum_is_up_to_date(self) -> None:

@@ -30,7 +30,7 @@ class SeverityFormat:
         elif severity == SeverityLevel.LOW:
             return f"[bold green]WARNING:[/][{severity.value}] {' '.join(messages)}"
         else:
-            return "[bold yellow]WARNING {' '.join(messages)}[/]"
+            return f"[bold yellow]WARNING {' '.join(messages)}[/]"
 
     @staticmethod
     def get_rich_detail_format(message: str) -> str:
@@ -103,6 +103,37 @@ class UnexpectedFileLocationWarning(ToolkitWarning):
 
 
 @dataclass(frozen=True)
+class ToolkitBugWarning(ToolkitWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
+    message: ClassVar[str] = "Please contact the toolkit maintainers with the error message and traceback:"
+    header: str
+    traceback: str
+
+    def get_message(self) -> str:
+        return SeverityFormat.get_rich_severity_format(self.severity, self.header, self.message, self.traceback)
+
+
+@dataclass(frozen=True)
+class IncorrectResourceWarning(ToolkitWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
+    message: ClassVar[str] = "The resource not semantically correct:"
+    location: str
+    resource: str
+    details: str | list[str] | None = None
+
+    def get_message(self) -> str:
+        extra_details = []
+        if self.details:
+            if isinstance(self.details, str):
+                extra_details.append(self.details)
+            else:
+                extra_details.extend(self.details)
+        return SeverityFormat.get_rich_severity_format(
+            self.severity, self.location, self.message, self.resource, *extra_details
+        )
+
+
+@dataclass(frozen=True)
 class LowSeverityWarning(GeneralWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
     message_raw: str
@@ -153,5 +184,13 @@ class ToolkitNotSupportedWarning(GeneralWarning):
     message: ClassVar[str] = "This feature is not supported"
     feature: str
 
+    details: str | list[str] | None = None
+
     def get_message(self) -> str:
-        return SeverityFormat.get_rich_severity_format(self.severity, self.message, self.feature)
+        extra_details = []
+        if self.details:
+            if isinstance(self.details, str):
+                extra_details.append(self.details)
+            else:
+                extra_details.extend(self.details)
+        return SeverityFormat.get_rich_severity_format(self.severity, self.message, self.feature, *extra_details)

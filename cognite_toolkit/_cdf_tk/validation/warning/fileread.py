@@ -3,9 +3,9 @@ from __future__ import annotations
 from abc import ABC
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
-from cognite_toolkit._cdf_tk.user_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.user_warnings import SeverityFormat, SeverityLevel, ToolkitWarning
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,12 @@ class SnakeCaseWarning(UnusedParameter):
 
 @dataclass(frozen=True)
 class YAMLFileWarning(ToolkitWarning, ABC):
+    severity: ClassVar[SeverityLevel]
     filepath: Path
+
+
+@dataclass(frozen=True)
+class YAMLFileWithElementWarning(YAMLFileWarning, ABC):
     # None is a dictionary, number is a list
     element_no: int | None
     path: tuple[str | int, ...]
@@ -58,22 +63,63 @@ class YAMLFileWarning(ToolkitWarning, ABC):
 
     @property
     def _location(self) -> str:
+        if self.element_no is None and not self.path:
+            return f"{self.filepath!r}"
         if self.element_no is not None:
             value = f" in entry {self.element_no} "
         else:
             value = ""
-        if len(self.path) == 1:
+        if len(self.path) <= 1:
             return f"{value}"
         else:
             return f"{value} in section {self.path!r}"
 
 
 @dataclass(frozen=True)
-class UnusedParameterWarning(YAMLFileWarning):
+class UnusedParameterWarning(YAMLFileWithElementWarning):
+    severity = SeverityLevel.LOW
     actual: str
 
     def get_message(self) -> str:
         return f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}."
+
+
+@dataclass(frozen=True)
+class UnresolvedVariableWarning(YAMLFileWarning):
+    severity = SeverityLevel.HIGH
+    variable: str
+
+    def get_message(self) -> str:
+        return f"{type(self).__name__}: Variable {self.variable!r} is not resolved in {self.filepath}."
+
+
+@dataclass(frozen=True)
+class ResourceMissingIdentifier(YAMLFileWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
+    message: ClassVar[str] = "The resource is missing an identifier:"
+    resource: str
+    ext_id_type: str
+
+    def get_message(self) -> str:
+        message = f"The {self.resource} {self.filepath} is missing the {self.ext_id_type} field(s)."
+        return SeverityFormat.get_rich_severity_format(self.severity, message)
+
+
+@dataclass(frozen=True)
+class NamingConventionWarning(YAMLFileWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
+    message: ClassVar[str] = "The naming convention is not followed:"
+    resource: str
+    ext_id_type: str
+    external_id: str
+    recommendation: str
+
+    def get_message(self) -> str:
+        message = f"The {self.resource} {self.filepath} has a {self.ext_id_type} [bold]{self.external_id}[/] {self.recommendation}."
+        return SeverityFormat.get_rich_severity_format(
+            self.severity,
+            message,
+        )
 
 
 @dataclass(frozen=True)
@@ -85,7 +131,8 @@ class CaseTypoWarning(UnusedParameterWarning):
 
 
 @dataclass(frozen=True)
-class MissingRequiredParameter(YAMLFileWarning):
+class MissingRequiredParameter(YAMLFileWithElementWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
     expected: str
 
     def get_message(self) -> str:
