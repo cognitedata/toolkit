@@ -21,14 +21,14 @@ from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock, monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
 from cognite_toolkit._cdf_tk.utils import (
     AuthVariables,
     CDFToolConfig,
     calculate_directory_hash,
     load_yaml_inject_variables,
 )
-from cognite_toolkit._cdf_tk.validation import validate_modules_variables
-from cognite_toolkit._cdf_tk.validation.warning import TemplateVariableWarning
+from cognite_toolkit._cdf_tk.validation.read_yaml import validate_modules_variables
 from tests.tests_unit.data import DATA_FOLDER
 from tests.tests_unit.utils import PrintCapture
 

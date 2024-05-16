@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
-from cognite_toolkit._cdf_tk.user_warnings import SeverityFormat, SeverityLevel, ToolkitWarning
+from .base import SeverityFormat, SeverityLevel, ToolkitWarning
 
 
 @dataclass(frozen=True)

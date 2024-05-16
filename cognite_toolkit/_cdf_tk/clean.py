@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.templates import (
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildEnvironment,
 )
-from cognite_toolkit._cdf_tk.user_warnings import (
+from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitDependenciesIncludedWarning,
     ToolkitNotSupportedWarning,
 )

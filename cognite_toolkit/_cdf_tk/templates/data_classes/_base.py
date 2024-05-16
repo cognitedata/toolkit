@@ -9,7 +9,7 @@ from typing import Any, TypeVar
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitVersionError
 from cognite_toolkit._cdf_tk.templates import BUILD_ENVIRONMENT_FILE
-from cognite_toolkit._cdf_tk.user_warnings import ToolkitWarning, UnexpectedFileLocationWarning
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, UnexpectedFileLocationWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
 

@@ -15,15 +15,14 @@ from cognite.client.utils._text import to_camel_case, to_snake_case
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
-from cognite_toolkit._cdf_tk.user_warnings import WarningList
-
-from .warning import (
+from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
     MissingRequiredParameter,
     SnakeCaseWarning,
     TemplateVariableWarning,
     UnusedParameterWarning,
+    WarningList,
 )
 
 
