@@ -72,7 +72,7 @@ class UnresolvedVariableWarning(YAMLFileWarning):
 
 
 @dataclass(frozen=True)
-class ResourceMissingIdentifier(YAMLFileWarning):
+class ResourceMissingIdentifierWarning(YAMLFileWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
     message: ClassVar[str] = "The resource is missing an identifier:"
     resource: str
@@ -109,7 +109,7 @@ class CaseTypoWarning(UnusedParameterWarning):
 
 
 @dataclass(frozen=True)
-class MissingRequiredParameter(YAMLFileWithElementWarning):
+class MissingRequiredParameterWarning(YAMLFileWithElementWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
     expected: str
 

@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.load import ContainerLoader, SpaceLoader, TimeSerie
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
-    MissingRequiredParameter,
+    MissingRequiredParameterWarning,
     ToolkitWarning,
     UnusedParameterWarning,
 )
@@ -100,7 +100,7 @@ properties:
         content,
         ContainerLoader.get_write_cls_parameter_spec(),
         [
-            MissingRequiredParameter(DUMMY_FILE, None, ("space",), "space"),
+            MissingRequiredParameterWarning(DUMMY_FILE, None, ("space",), "space"),
             CaseTypoWarning(
                 DUMMY_FILE, None, ("properties", "DesignPointFlowGPM", "default_value"), "default_value", "defaultValue"
             ),

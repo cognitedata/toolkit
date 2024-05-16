@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
-    MissingRequiredParameter,
+    MissingRequiredParameterWarning,
     TemplateVariableWarning,
     UnusedParameterWarning,
     WarningList,
@@ -99,6 +99,6 @@ def _validate_yaml_config(
     # Only checking the top level for now. This can be expanded to check nested parameters.
     missing = spec.required(level=1) - actual_parameters
     for spec_param in missing:
-        warnings.append(MissingRequiredParameter(source_file, element, spec_param.path, spec_param.key))
+        warnings.append(MissingRequiredParameterWarning(source_file, element, spec_param.path, spec_param.key))
 
     return warnings
