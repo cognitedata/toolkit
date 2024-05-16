@@ -78,13 +78,14 @@ class HighSeverityWarning(GeneralWarning):
 @dataclass(frozen=True)
 class ToolkitDependenciesIncludedWarning(GeneralWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
-    message: ClassVar[str] = "Some resources were added due to dependencies."
+    message: ClassVar[str] = "Resources were included due to dependencies"
     dependencies: Union[None, str, list[str]]
 
     def get_message(self) -> str:
         output = [SeverityFormat.get_rich_severity_format(self.severity, self.message)]
 
         if self.dependencies:
+            output[0] += ":"
             if isinstance(self.dependencies, str):
                 output.append(SeverityFormat.get_rich_detail_format(self.dependencies))
             else:
