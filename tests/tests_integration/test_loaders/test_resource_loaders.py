@@ -82,7 +82,7 @@ class TestFunctionScheduleLoader:
         loader.update(FunctionScheduleWriteList([function_schedule]))
 
         retrieved = loader.retrieve([identifier])
-        if retrieved[0].description != function_schedule.description:
+        if not retrieved or retrieved[0].description != function_schedule.description:
             # The service can be a bit slow in returning the updated description,
             # so we wait a bit and try again.
             sleep(1)
