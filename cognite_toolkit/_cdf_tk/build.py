@@ -45,16 +45,16 @@ from .templates._templates import (
     YAMLSemantic,
 )
 from .templates._utils import module_from_path, resource_folder_from_path
-from .user_warnings import (
+from .tk_warnings import (
     HighSeverityWarning,
     IncorrectResourceWarning,
     LowSeverityWarning,
     MediumSeverityWarning,
     ToolkitBugWarning,
     ToolkitNotSupportedWarning,
+    UnresolvedVariableWarning,
 )
 from .validation import validate_data_set_is_set, validate_yaml_config
-from .validation.warning.fileread import UnresolvedVariableWarning
 
 
 class BuildCommand(ToolkitCommand):

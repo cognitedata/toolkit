@@ -8,15 +8,15 @@ from cognite.client.data_classes.data_modeling import ViewApply
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.load import ContainerLoader, SpaceLoader
-from cognite_toolkit._cdf_tk.user_warnings import ToolkitWarning
-from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set, validate_yaml_config
-from cognite_toolkit._cdf_tk.validation.warning import (
+from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
     MissingRequiredParameter,
     SnakeCaseWarning,
+    ToolkitWarning,
     UnusedParameterWarning,
 )
+from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set, validate_yaml_config
 from tests.tests_unit.data import LOAD_DATA
 
 DUMMY_FILE = Path("dummy.yaml")
