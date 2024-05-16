@@ -53,6 +53,7 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
     SystemYAML,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, tmp_build_directory
+from cognite_toolkit._cdf_tk.validation import validate_yaml_config
 from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.data import LOAD_DATA, PYTEST_PROJECT
@@ -726,9 +727,8 @@ class TestResourceLoaders:
 
     @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
     def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceLoader], content: dict) -> None:
-        dumped = read_parameters_from_dict(content)
         spec = loader_cls.get_write_cls_parameter_spec()
 
-        extra = dumped - spec
+        warnings = validate_yaml_config(content, spec, Path("test.yaml"))
 
-        assert sorted(extra) == []
+        assert sorted(warnings) == []
