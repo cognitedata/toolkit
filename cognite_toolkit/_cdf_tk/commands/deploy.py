@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.templates import (
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildEnvironment,
 )
+from cognite_toolkit._cdf_tk.tk_warnings.other import ToolkitDependenciesIncludedWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     read_yaml_file,
@@ -68,7 +69,8 @@ class DeployCommand(ToolkitCommand):
         results = DeployResults([], "deploy", dry_run=dry_run)
         ordered_loaders = list(TopologicalSorter(selected_loaders).static_order())
         if len(ordered_loaders) > len(selected_loaders):
-            print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
+            dependencies = [item.folder_name for item in ordered_loaders if item not in selected_loaders]
+            self.warn(ToolkitDependenciesIncludedWarning(dependencies))
         if drop or drop_data:
             # Drop has to be done in the reverse order of deploy.
             if drop and drop_data:
