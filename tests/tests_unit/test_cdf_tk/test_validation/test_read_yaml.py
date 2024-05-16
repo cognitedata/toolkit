@@ -4,19 +4,17 @@ from pathlib import Path
 import pytest
 import yaml
 from cognite.client.data_classes import TimeSeries
-from cognite.client.data_classes.data_modeling import ViewApply
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
-from cognite_toolkit._cdf_tk.load import ContainerLoader, SpaceLoader
+from cognite_toolkit._cdf_tk.load import ContainerLoader, SpaceLoader, TimeSeriesLoader, ViewLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
     MissingRequiredParameter,
-    SnakeCaseWarning,
     ToolkitWarning,
     UnusedParameterWarning,
 )
-from cognite_toolkit._cdf_tk.validation import validate_case_raw, validate_data_set_is_set, validate_yaml_config
+from cognite_toolkit._cdf_tk.validation import validate_data_set_is_set, validate_yaml_config
 from tests.tests_unit.data import LOAD_DATA
 
 DUMMY_FILE = Path("dummy.yaml")
@@ -25,25 +23,33 @@ DUMMY_FILE = Path("dummy.yaml")
 def test_validate_raw() -> None:
     raw_file = LOAD_DATA / "timeseries" / "wrong_case.yaml"
 
-    warnings = validate_case_raw(yaml.safe_load(raw_file.read_text()), TimeSeries, raw_file)
+    warnings = validate_yaml_config(
+        yaml.safe_load(raw_file.read_text()), TimeSeriesLoader.get_write_cls_parameter_spec(), raw_file
+    )
 
     assert len(warnings) == 2
     assert sorted(warnings) == sorted(
         [
-            SnakeCaseWarning(raw_file, "wrong_case", "externalId", "is_string", "isString"),
-            SnakeCaseWarning(raw_file, "wrong_case", "externalId", "is_step", "isStep"),
+            CaseTypoWarning(raw_file, 1, ("is_string",), "is_string", "isString"),
+            CaseTypoWarning(raw_file, 1, ("is_step",), "is_step", "isStep"),
         ]
     )
 
 
 def test_validate_raw_nested() -> None:
     raw_file = LOAD_DATA / "datamodels" / "snake_cased_view_property.yaml"
-    warnings = validate_case_raw(yaml.safe_load(raw_file.read_text()), ViewApply, raw_file)
+    warnings = validate_yaml_config(
+        yaml.safe_load(raw_file.read_text()), ViewLoader.get_write_cls_parameter_spec(), raw_file
+    )
 
     assert len(warnings) == 1
     assert warnings == [
-        SnakeCaseWarning(
-            raw_file, "WorkItem", "externalId", "container_property_identifier", "containerPropertyIdentifier"
+        CaseTypoWarning(
+            raw_file,
+            None,
+            ("properties", "criticality", "container_property_identifier"),
+            "container_property_identifier",
+            "containerPropertyIdentifier",
         )
     ]
 
