@@ -10,15 +10,21 @@ from .base import SeverityFormat, SeverityLevel, ToolkitWarning
 
 @dataclass(frozen=True)
 class FileReadWarning(ToolkitWarning, ABC):
+    severity: ClassVar[SeverityLevel]
     filepath: Path
+
+
+@dataclass(frozen=True)
+class IdentifiedFileReadWarning(FileReadWarning, ABC):
     id_value: str
     id_name: str
 
 
 @dataclass(frozen=True)
-class YAMLFileWarning(ToolkitWarning, ABC):
-    severity: ClassVar[SeverityLevel]
-    filepath: Path
+class YAMLFileWarning(FileReadWarning, ABC):
+    def __post_init__(self):
+        if self.filepath.suffix not in {".yaml", ".yml"}:
+            raise ValueError(f"Expected a YAML file, got {self.filepath.suffix}.")
 
 
 @dataclass(frozen=True)
