@@ -15,14 +15,14 @@ class FileReadWarning(ToolkitWarning, ABC):
 
 
 @dataclass(frozen=True)
-class IdentifiedFileReadWarning(FileReadWarning, ABC):
+class IdentifiedResourceFileReadWarning(FileReadWarning, ABC):
     id_value: str
     id_name: str
 
 
 @dataclass(frozen=True)
 class YAMLFileWarning(FileReadWarning, ABC):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.filepath.suffix not in {".yaml", ".yml"}:
             raise ValueError(f"Expected a YAML file, got {self.filepath.suffix}.")
 
@@ -69,7 +69,7 @@ class UnusedParameterWarning(YAMLFileWithElementWarning):
 
 
 @dataclass(frozen=True)
-class UnresolvedVariableWarning(YAMLFileWarning):
+class UnresolvedVariableWarning(FileReadWarning):
     severity = SeverityLevel.HIGH
     variable: str
 
@@ -124,7 +124,7 @@ class MissingRequiredParameterWarning(YAMLFileWithElementWarning):
 
 
 @dataclass(frozen=True)
-class TemplateVariableWarning(FileReadWarning):
+class TemplateVariableWarning(IdentifiedResourceFileReadWarning):
     path: str
 
     def group_key(self) -> tuple[Any, ...]:
@@ -138,7 +138,7 @@ class TemplateVariableWarning(FileReadWarning):
 
 
 @dataclass(frozen=True)
-class DataSetMissingWarning(FileReadWarning):
+class DataSetMissingWarning(IdentifiedResourceFileReadWarning):
     resource_name: str
 
     def group_key(self) -> tuple[Any, ...]:

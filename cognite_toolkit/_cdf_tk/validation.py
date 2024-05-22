@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 
-__all__ = ["validate_modules_variables", "validate_data_set_is_set", "validate_yaml_config"]
+__all__ = ["validate_modules_variables", "validate_data_set_is_set", "validate_resource_yaml"]
 
 
 def validate_modules_variables(config: dict[str, Any], filepath: Path, path: str = "") -> WarningList:
@@ -68,7 +68,7 @@ def validate_data_set_is_set(
     return warning_list
 
 
-def validate_yaml_config(data: dict | list, spec: ParameterSpecSet, source_file: Path) -> WarningList:
+def validate_resource_yaml(data: dict | list, spec: ParameterSpecSet, source_file: Path) -> WarningList:
     return _validate_yaml_config(data, spec, source_file, None)
 
 

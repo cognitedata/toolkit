@@ -18,7 +18,6 @@ import yaml
 from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes import FileMetadataList, FunctionList
 from rich import print
-from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -53,6 +52,7 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
     SystemYAML,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    FileReadWarning,
     HighSeverityWarning,
     IncorrectResourceWarning,
     LowSeverityWarning,
@@ -60,11 +60,12 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitBugWarning,
     ToolkitNotSupportedWarning,
     UnresolvedVariableWarning,
+    WarningList,
 )
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,
-    validate_yaml_config,
+    validate_resource_yaml,
 )
 
 
@@ -412,12 +413,13 @@ class BuildCommand(ToolkitCommand):
         destination: Path,
         state: _BuildState,
         verbose: bool,
-    ) -> None:
+    ) -> WarningList[FileReadWarning]:
+        warning_list = WarningList[FileReadWarning]()
         module = module_from_path(source_path)
         resource_folder = resource_folder_from_path(source_path)
 
         for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-            self.warn(UnresolvedVariableWarning(source_path, unmatched))
+            warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
             variable = unmatched[2:-2]
             if modules := state.modules_by_variable.get(variable):
                 module_str = (
@@ -431,7 +433,8 @@ class BuildCommand(ToolkitCommand):
                 )
 
         if destination.suffix not in {".yaml", ".yml"}:
-            return None
+            return warning_list
+
         try:
             parsed = yaml.safe_load(content)
         except yaml.YAMLError as e:
@@ -439,33 +442,13 @@ class BuildCommand(ToolkitCommand):
                 f"YAML validation error for {destination.name} after substituting config variables: {e}"
             )
 
-        loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
-        loader: type[Loader] | None
-        if len(loaders) == 1:
-            loader = loaders[0]
-        else:
-            try:
-                loader = next(
-                    (loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)), None
-                )
-            except Exception as e:
-                raise NotImplementedError(f"Loader not found for {source_path}\n{e}")
-
+        loader = self._get_loader(resource_folder, destination)
         if loader is None:
-            self.warn(
-                ToolkitNotSupportedWarning(
-                    f"the resource {resource_folder!r}",
-                    details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
-                )
-            )
-            return
+            return warning_list
 
-        if isinstance(parsed, dict):
-            parsed_list = [parsed]
-        else:
-            parsed_list = parsed
+        items = [parsed] if isinstance(parsed, dict) else parsed
 
-        for item in parsed_list:
+        for item in items:
             try:
                 YAMLSemantic(self.warn).check(parsed=item, filepath_src=source_path, filepath_build=destination)
             except ToolkitYAMLFormatError as err:
@@ -489,7 +472,7 @@ class BuildCommand(ToolkitCommand):
 
         if issubclass(loader, ResourceLoader):
             try:
-                data_format_warnings = validate_yaml_config(parsed, loader.get_write_cls_parameter_spec(), source_path)
+                resource_warnings = validate_resource_yaml(parsed, loader.get_write_cls_parameter_spec(), source_path)
             except Exception as e:
                 # Todo Replace with an automatic message to sentry.
                 self.warn(
@@ -498,17 +481,27 @@ class BuildCommand(ToolkitCommand):
                     )
                 )
             else:
-                if data_format_warnings:
-                    self.warn(LowSeverityWarning("Found potential Data Format issues:"))
-                    self.warning_list.extend(data_format_warnings)
-                    print(
-                        Markdown(f"{data_format_warnings!s}"),
-                    )
+                warning_list.extend(resource_warnings)
 
-            data_set_warnings = validate_data_set_is_set(parsed_list, loader.resource_cls, source_path)
-            if data_set_warnings:
-                self.warn(MediumSeverityWarning(f"Found missing data_sets: {data_set_warnings!s}"))
-                self.warning_list.extend(data_set_warnings)
+            data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)
+            warning_list.extend(data_set_warnings)
+        return warning_list
+
+    def _get_loader(self, resource_folder: str, destination: Path) -> type[Loader] | None:
+        loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
+        loader: type[Loader] | None
+        if len(loaders) == 1:
+            return loaders[0]
+        else:
+            loader = next((loader for loader in loaders if loader.is_supported_file(destination)), None)
+        if loader is None:
+            self.warn(
+                ToolkitNotSupportedWarning(
+                    f"the resource {resource_folder!r}",
+                    details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
+                )
+            )
+        return loader
 
 
 @dataclass

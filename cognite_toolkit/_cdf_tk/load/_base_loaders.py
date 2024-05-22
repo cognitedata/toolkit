@@ -41,6 +41,7 @@ T_ID = TypeVar(
     bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawDatabaseTable, WorkflowVersionId],
 )
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
+_COMPILED_PATTERN: dict[str, re.Pattern] = {}
 
 
 class Loader(ABC):
@@ -95,25 +96,26 @@ class Loader(ABC):
 
         """
         if dir_or_file.is_file():
-            if dir_or_file.suffix not in cls.filetypes or not cls.filetypes:
+            if not cls.is_supported_file(dir_or_file):
                 raise ValueError("Invalid file type")
             return [dir_or_file]
         elif dir_or_file.is_dir():
-            if cls.filetypes:
-                file_paths = (file for type_ in cls.filetypes for file in dir_or_file.glob(f"**/*.{type_}"))
-            else:
-                file_paths = dir_or_file.glob("**/*")
-
-            if cls.filename_pattern:
-                pattern = re.compile(cls.filename_pattern)
-                file_paths = (file for file in file_paths if pattern.match(file.stem))
-
-            if cls.exclude_filetypes:
-                file_paths = (file for file in file_paths if file.suffix[1:] not in cls.exclude_filetypes)
-
-            return sorted(list(file_paths))
+            file_paths = [file for file in dir_or_file.glob("**/*") if cls.is_supported_file(file)]
+            return sorted(file_paths)
         else:
             return []
+
+    @classmethod
+    def is_supported_file(cls, file: Path) -> bool:
+        if cls.filetypes and file.suffix[1:] not in cls.filetypes:
+            return False
+        if cls.exclude_filetypes and file.suffix[1:] in cls.exclude_filetypes:
+            return False
+        if cls.filename_pattern:
+            if cls.filename_pattern not in _COMPILED_PATTERN:
+                _COMPILED_PATTERN[cls.filename_pattern] = re.compile(cls.filename_pattern)
+            return _COMPILED_PATTERN[cls.filename_pattern].match(file.stem) is not None
+        return True
 
     @abstractmethod
     def deploy_resources(
