@@ -20,6 +20,7 @@ from cognite.client.data_classes import FileMetadataList, FunctionList
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -62,6 +63,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     UnresolvedVariableWarning,
     WarningList,
 )
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import MissingRequiredIdentifierWarning
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,
@@ -445,42 +447,38 @@ class BuildCommand(ToolkitCommand):
         loader = self._get_loader(resource_folder, destination)
         if loader is None:
             return warning_list
+        if not issubclass(loader, ResourceLoader):
+            return warning_list
 
-        items = [parsed] if isinstance(parsed, dict) else parsed
+        api_spec: ParameterSpecSet | None = None
+        try:
+            api_spec = loader.get_write_cls_parameter_spec()
+        except Exception as e:
+            # Todo Replace with an automatic message to sentry.
+            self.warn(
+                ToolkitBugWarning(
+                    header=f"Failed to validate {destination.name} due to: {e}", traceback=traceback.format_exc()
+                )
+            )
 
-        for item in items:
+        is_dict_item = isinstance(parsed, dict)
+        items = [parsed] if is_dict_item else parsed
+
+        for no, item in enumerate(items, 1):
+            element_no = None if is_dict_item else no
+            identifier: Any | None = None
             try:
-                YAMLSemantic(self.warn).check(parsed=item, filepath_src=source_path, filepath_build=destination)
-            except ToolkitYAMLFormatError as err:
-                # TODO: Hacky? Certain errors can be ignored, these are raised with no arguments:
-                if err.args:
-                    raise
-                details: list[str] = []
-                if verbose:
-                    details.append(
-                        "verify file format against the API specification for "
-                        f"{destination.parent.name!r} at {loader.doc_url()}"
-                    )
-                self.warn(
-                    IncorrectResourceWarning(
-                        f"In module {source_path.parent.parent.name!r} the resource "
-                        f"{destination.parent.name!r}/{destination.name}",
-                        resource=destination.parent.name,
-                        details=details,
-                    )
+                identifier = loader.get_id(item)
+            except KeyError as error:
+                warning_list.append(
+                    MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error)
                 )
 
-        if issubclass(loader, ResourceLoader):
-            try:
-                resource_warnings = validate_resource_yaml(parsed, loader.get_write_cls_parameter_spec(), source_path)
-            except Exception as e:
-                # Todo Replace with an automatic message to sentry.
-                self.warn(
-                    ToolkitBugWarning(
-                        header=f"Failed to validate {destination.name} due to: {e}", traceback=traceback.format_exc()
-                    )
-                )
-            else:
+            warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
+            warning_list.extend(warnings)
+
+            if api_spec is not None:
+                resource_warnings = validate_resource_yaml(parsed,  api_spec, source_path, element_no)
                 warning_list.extend(resource_warnings)
 
             data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)

@@ -68,17 +68,11 @@ def validate_data_set_is_set(
     return warning_list
 
 
-def validate_resource_yaml(data: dict | list, spec: ParameterSpecSet, source_file: Path) -> WarningList:
-    return _validate_yaml_config(data, spec, source_file, None)
-
-
-def _validate_yaml_config(
-    data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None
-) -> WarningList:
+def validate_resource_yaml(data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None = None) -> WarningList:
     warnings: WarningList = WarningList()
     if isinstance(data, list):
         for no, item in enumerate(data, 1):
-            warnings.extend(_validate_yaml_config(item, spec, source_file, no))
+            warnings.extend(validate_resource_yaml(item, spec, source_file, no))
         return warnings
     elif not isinstance(data, dict):
         raise NotImplementedError("Note: This function only supports top-level and lists dictionaries.")

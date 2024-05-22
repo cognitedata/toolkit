@@ -35,6 +35,7 @@ from .data_classes import (
     ResourceDeployResult,
     UploadDeployResult,
 )
+from ..tk_warnings import WarningList, YAMLFileWarning
 
 T_ID = TypeVar(
     "T_ID",
@@ -181,8 +182,14 @@ class ResourceLoader(
 
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_WriteClass | T_WritableCogniteResource) -> T_ID:
+    def get_id(cls, item: T_WriteClass | T_WritableCogniteResource | dict) -> T_ID:
         raise NotImplementedError
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: T_ID, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        """This should be overwritten in subclasses to check the semantics of the identifier."""
+        return WarningList[YAMLFileWarning]()
+
 
     @classmethod
     @abstractmethod

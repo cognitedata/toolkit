@@ -139,8 +139,10 @@ from cognite_toolkit._cdf_tk.utils import (
     retrieve_view_ancestors,
 )
 
-from ._base_loaders import ResourceContainerLoader, ResourceLoader
+from ._base_loaders import ResourceContainerLoader, ResourceLoader, T_ID
 from .data_classes import LoadedNode, LoadedNodeList, RawDatabaseTable, RawTableList
+from ..tk_warnings import WarningList, YAMLFileWarning, NamingConventionWarning, PrefixConventionWarning, \
+    NamespacingConventionWarning
 
 _MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
@@ -206,8 +208,35 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         )
 
     @classmethod
-    def get_id(cls, item: GroupWrite | Group) -> str:
+    def get_id(cls, item: GroupWrite | Group | dict) -> str:
+        if isinstance(item, dict):
+            return item["name"]
         return item.name
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            if identifier == "applications-configuration":
+                if verbose:
+                    print(
+                        "      [bold green]INFO:[/] the group applications-configuration does not follow the "
+                        "recommended '_' based namespacing because Infield expects this specific name."
+                    )
+            else:
+                warning_list.append(
+                    NamespacingConventionWarning(
+                        filepath, cls.folder_name, "name", identifier, '_'
+                    )
+                )
+        elif parts[0] != "gp":
+            warning_list.append(
+                PrefixConventionWarning(
+                    filepath, cls.folder_name, "name", identifier, 'gp_'
+                )
+            )
+        return warning_list
 
     @staticmethod
     def _substitute_scope_ids(group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
@@ -371,10 +400,24 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         )
 
     @classmethod
-    def get_id(cls, item: DataSet | DataSetWrite) -> str:
+    def get_id(cls, item: DataSet | DataSetWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("DataSet must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath, cls.folder_name, "externalId", identifier, '_'
+                )
+            )
+        return warning_list
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
@@ -466,7 +509,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         ]
 
     @classmethod
-    def get_id(cls, item: Function | FunctionWrite) -> str:
+    def get_id(cls, item: Function | FunctionWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("Function must have external_id set.")
         return item.external_id
@@ -1098,10 +1143,34 @@ class TransformationLoader(
         )
 
     @classmethod
-    def get_id(cls, item: Transformation | TransformationWrite) -> str:
+    def get_id(cls, item: Transformation | TransformationWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("Transformation must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    cls.folder_name,
+                    "externalId",
+                    identifier,
+                    '_',
+                )
+            )
+        elif parts[0] != "tr":
+            warning_list.append(
+                PrefixConventionWarning(
+                    filepath, cls.folder_name, "externalId", identifier, 'tr_'
+                )
+            )
+        return warning_list
 
     def _is_equal_custom(self, local: TransformationWrite, cdf_resource: Transformation) -> bool:
         local_dumped = local.dump()
@@ -1353,10 +1422,38 @@ class ExtractionPipelineLoader(
         )
 
     @classmethod
-    def get_id(cls, item: ExtractionPipeline | ExtractionPipelineWrite) -> str:
+    def get_id(cls, item: ExtractionPipeline | ExtractionPipelineWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("ExtractionPipeline must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    "extraction pipeline",
+                    "externalId",
+                    identifier,
+                    '_',
+                )
+            )
+        elif identifier.startswith("ep_"):
+            warning_list.append(
+                PrefixConventionWarning(
+                    filepath,
+                    "extraction pipeline",
+                    "externalId",
+                    identifier,
+                    'ep_',
+                )
+            )
+        return warning_list
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1691,8 +1788,37 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         ]
 
     @classmethod
-    def get_id(cls, item: SpaceApply | Space) -> str:
+    def get_id(cls, item: SpaceApply | Space | dict) -> str:
+        if isinstance(item, dict):
+            return item["space"]
         return item.space
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath, cls.folder_name, "space", identifier, '_',
+                )
+            )
+        elif identifier[0] != "sp":
+            if identifier in {"cognite_app_data", "APM_SourceData", "APM_Config"}:
+                if verbose:
+                    print(
+                        f"      [bold green]INFO:[/] the space {identifier} does not follow the recommended '_' based "
+                        "namespacing because Infield expects this specific name."
+                    )
+            else:
+                warning_list.append(
+                    PrefixConventionWarning(
+                        filepath, cls.folder_name, "space", identifier, 'sp_'
+                    )
+                )
+        return warning_list
+
 
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)

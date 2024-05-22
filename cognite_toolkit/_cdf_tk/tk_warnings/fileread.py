@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
@@ -96,7 +96,11 @@ class NamingConventionWarning(YAMLFileWarning):
     resource: str
     ext_id_type: str
     external_id: str
-    recommendation: str
+
+    @property
+    @abstractmethod
+    def recommendation(self) -> str:
+        raise NotImplementedError()
 
     def get_message(self) -> str:
         message = f"The {self.resource} {self.filepath} has a {self.ext_id_type} [bold]{self.external_id}[/] {self.recommendation}."
@@ -104,6 +108,24 @@ class NamingConventionWarning(YAMLFileWarning):
             self.severity,
             message,
         )
+
+
+@dataclass(frozen=True)
+class PrefixConventionWarning(NamingConventionWarning):
+    prefix: str
+
+    @property
+    def recommendation(self) -> str:
+        return f"without the recommended '{self.prefix}' based prefix"
+
+
+@dataclass(frozen=True)
+class NamespacingConventionWarning(NamingConventionWarning):
+    namespace: str
+
+    @property
+    def recommendation(self) -> str:
+        return f"without the recommended '{self.namespace}' based namespacing"
 
 
 @dataclass(frozen=True)
@@ -121,6 +143,12 @@ class MissingRequiredParameterWarning(YAMLFileWithElementWarning):
 
     def get_message(self) -> str:
         return f"{type(self).__name__}: Missing required parameter {self.expected!r}{self._location}."
+
+
+@dataclass(frozen=True)
+class MissingRequiredIdentifierWarning(MissingRequiredParameterWarning):
+    def get_message(self) -> str:
+        return f"{type(self).__name__}: Missing required identifier {self.expected!r}{self._location}."
 
 
 @dataclass(frozen=True)
