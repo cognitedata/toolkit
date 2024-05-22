@@ -229,16 +229,16 @@ class BuildCommand(ToolkitCommand):
                         files_by_resource_folder[resource_folder].other_files = []
 
                 for filepath in files_by_resource_folder[resource_folder].other_files:
+                    destination = build_dir / DatapointsLoader.folder_name / filepath.name
+                    destination.parent.mkdir(parents=True, exist_ok=True)
                     if resource_folder == DatapointsLoader.folder_name and filepath.suffix.lower() == ".csv":
-                        self._copy_and_timeshift_csv_files(filepath, build_dir)
+                        self._copy_and_timeshift_csv_files(filepath, destination)
                     else:
                         if verbose:
                             print(
                                 f"    [bold green]INFO:[/] Found unrecognized file {filepath}. Copying in untouched..."
                             )
                         # Copy the file as is, not variable replacement
-                        destination = build_dir / resource_folder / filepath.name
-                        destination.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copyfile(filepath, destination)
 
         return source_by_build_path
@@ -273,7 +273,7 @@ class BuildCommand(ToolkitCommand):
         return files_by_resource_folder
 
     @staticmethod
-    def _copy_and_timeshift_csv_files(csv_file: Path, build_dir: Path) -> None:
+    def _copy_and_timeshift_csv_files(csv_file: Path, destination: Path) -> None:
         """Copies and time-shifts CSV files to today if the index name contains 'timeshift_'."""
         # Process all csv files
         if csv_file.suffix.lower() != ".csv":
@@ -283,8 +283,6 @@ class BuildCommand(ToolkitCommand):
         # The replacement is used to ensure that we read exactly the same file on Windows and Linux
         file_content = csv_file.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
         data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
-        destination = build_dir / DatapointsLoader.folder_name / csv_file.name
-        destination.parent.mkdir(parents=True, exist_ok=True)
         if "timeshift_" in data.index.name:
             print("      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today...")
             data.index.name = str(data.index.name).replace("timeshift_", "")
