@@ -30,7 +30,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, DatapointsLoader, FunctionLoader, Loader, ResourceLoader
+from cognite_toolkit._cdf_tk.load import (
+    LOADER_BY_FOLDER_NAME,
+    DatapointsLoader,
+    FileLoader,
+    FunctionLoader,
+    Loader,
+    ResourceLoader,
+)
 from cognite_toolkit._cdf_tk.templates._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from cognite_toolkit._cdf_tk.templates._templates import (
     YAMLSemantic,
@@ -52,7 +59,9 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
     ToolkitBugWarning,
     ToolkitNotSupportedWarning,
+    ToolkitWarning,
     UnresolvedVariableWarning,
+    WarningList,
 )
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
@@ -157,59 +166,39 @@ class BuildCommand(ToolkitCommand):
         config: BuildConfigYAML,
         verbose: bool = False,
     ) -> dict[Path, Path]:
-        source_by_build_path: dict[Path, Path] = {}
-        printed_function_warning = False
-        configs = _Helpers.split_config(config.variables)
-        modules_by_variables = defaultdict(list)
-        for module_path, variables in configs.items():
-            for variable in variables:
-                modules_by_variables[variable].append(module_path)
-        number_by_resource_type: dict[str, int] = defaultdict(int)
-
+        build_state = _BuildState.create(config)
         for module_dir, filepaths in iterate_modules(project_config_dir):
-            module_parts = module_dir.relative_to(project_config_dir).parts
-            is_in_selected_modules = module_dir.name in selected_modules or module_parts in selected_modules
-            is_parent_in_selected_modules = any(
-                parent in selected_modules for parent in (module_parts[:i] for i in range(1, len(module_parts)))
-            )
-            if not is_in_selected_modules and not is_parent_in_selected_modules:
+            if not self._is_selected_module(module_dir.relative_to(project_config_dir), selected_modules):
                 continue
             if verbose:
                 print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
-            local_config = _Helpers.create_local_config(configs, module_dir)
+
+            build_state.update_local_variables(module_dir)
 
             files_by_resource_folder = self._to_files_by_resource_folder(filepaths, verbose)
 
             for resource_folder in files_by_resource_folder:
                 for filepath in files_by_resource_folder[resource_folder].resource_files:
-                    # We only want to process the yaml files for functions as the function code is handled separately.
-                    if resource_folder == "functions" and filepath.suffix.lower() != ".yaml":
-                        continue
                     if verbose:
                         print(f"    [bold green]INFO:[/] Processing {filepath.name}")
-                    content = filepath.read_text()
-                    content = _Helpers.replace_variables(content, local_config)
-                    filename = _Helpers.create_file_name(filepath, number_by_resource_type)
+                    filename = _Helpers.create_file_name(filepath, build_state.number_by_resource_type)
                     destination = build_dir / resource_folder / filename
                     destination.parent.mkdir(parents=True, exist_ok=True)
-                    destination.write_text(content)
-                    self.validate(content, destination, filepath, modules_by_variables, verbose)
-                    source_by_build_path[destination] = filepath
-
+                    _ = self._copy_and_validate_file(filepath, resource_folder, destination, build_state, verbose)
                     # If we have a function definition, we want to process the directory.
                     if (
                         resource_folder == "functions"
                         and filepath.suffix.lower() == ".yaml"
                         and re.match(FunctionLoader.filename_pattern, filepath.stem)
                     ):
-                        if not printed_function_warning and sys.version_info >= (3, 12):
+                        if not build_state.printed_function_warning and sys.version_info >= (3, 12):
                             self.warn(
                                 HighSeverityWarning(
                                     "The functions API does not support Python 3.12. "
                                     "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
                                 )
                             )
-                            printed_function_warning = True
+                            build_state.printed_function_warning = True
                         self.process_function_directory(
                             yaml_source_path=filepath,
                             yaml_dest_path=destination,
@@ -218,7 +207,7 @@ class BuildCommand(ToolkitCommand):
                             verbose=verbose,
                         )
                         files_by_resource_folder[resource_folder].other_files = []
-                    if resource_folder == "files":
+                    elif resource_folder == FileLoader.folder_name:
                         self.process_files_directory(
                             files=files_by_resource_folder[resource_folder].other_files,
                             yaml_dest_path=destination,
@@ -241,7 +230,16 @@ class BuildCommand(ToolkitCommand):
                         # Copy the file as is, not variable replacement
                         shutil.copyfile(filepath, destination)
 
-        return source_by_build_path
+        return build_state.source_by_build_path
+
+    @staticmethod
+    def _is_selected_module(module_dir: Path, selected_modules: list[str | tuple[str, ...]]) -> bool:
+        module_parts = module_dir.parts
+        is_in_selected_modules = module_dir.name in selected_modules or module_parts in selected_modules
+        is_parent_in_selected_modules = any(
+            parent in selected_modules for parent in (module_parts[:i] for i in range(1, len(module_parts)))
+        )
+        return is_parent_in_selected_modules or is_in_selected_modules
 
     @staticmethod
     def _to_files_by_resource_folder(filepaths: list[Path], verbose: bool) -> dict[str, _ResourceFiles]:
@@ -290,6 +288,23 @@ class BuildCommand(ToolkitCommand):
             periods = datetime.datetime.today() - data.index[-1]
             data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
         destination.write_text(data.to_csv())
+
+    def _copy_and_validate_file(
+        self, filepath: Path, resource_folder: str, destination: Path, state: _BuildState, verbose: bool
+    ) -> WarningList[ToolkitWarning]:
+        warning_list = WarningList[ToolkitWarning]()
+        # We only want to process the yaml files for functions as the function code is handled separately.
+        if resource_folder == "functions" and filepath.suffix.lower() != ".yaml":
+            return warning_list
+
+        content = filepath.read_text()
+        content = _Helpers.replace_variables(content, state.local_variables)
+        destination.write_text(content)
+        state.source_by_build_path[destination] = filepath
+
+        self.validate(content, destination, filepath, state.modules_by_variables, verbose)
+
+        return warning_list
 
     def process_function_directory(
         self,
@@ -496,6 +511,37 @@ class BuildCommand(ToolkitCommand):
 
 
 @dataclass
+class _BuildState:
+    """This is used in the build process to keep track of variables and help with variable replacement.
+
+    It contains some counters and convenience dictionaries for easy lookup of variables and modules.
+    """
+
+    modules_by_variables: dict[str, list[str]] = field(default_factory=dict)
+    variables_by_module_path: dict[str, dict[str, str]] = field(default_factory=dict)
+    source_by_build_path: dict[Path, Path] = field(default_factory=dict)
+    number_by_resource_type: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    printed_function_warning: bool = False
+    _local_variables: Mapping[str, str] = field(default_factory=dict)
+
+    @property
+    def local_variables(self) -> Mapping[str, str]:
+        return self._local_variables
+
+    def update_local_variables(self, module_dir: Path) -> None:
+        self._local_variables = _Helpers.create_local_config(self.variables_by_module_path, module_dir)
+
+    @classmethod
+    def create(cls, config: BuildConfigYAML) -> _BuildState:
+        variables_by_module_path = _Helpers.to_variables_by_module_path(config.variables)
+        modules_by_variables = defaultdict(list)
+        for module_path, variables in variables_by_module_path.items():
+            for variable in variables:
+                modules_by_variables[variable].append(module_path)
+        return cls(modules_by_variables=modules_by_variables, variables_by_module_path=variables_by_module_path)
+
+
+@dataclass
 class _ResourceFiles:
     resource_files: list[Path] = field(default_factory=list)
     other_files: list[Path] = field(default_factory=list)
@@ -515,7 +561,7 @@ class _Helpers:
         return ChainMap(*maps)
 
     @classmethod
-    def split_config(cls, config: dict[str, Any]) -> dict[str, dict[str, str]]:
+    def to_variables_by_module_path(cls, config: dict[str, Any]) -> dict[str, dict[str, str]]:
         configs: dict[str, dict[str, str]] = {}
         cls._split_config(config, configs, prefix="")
         return configs

@@ -215,13 +215,13 @@ def test_split_config(my_config: dict[str, Any]) -> None:
         },
         "parent.child": {"child_variable": "my_child_variable"},
     }
-    actual = _Helpers.split_config(my_config)
+    actual = _Helpers.to_variables_by_module_path(my_config)
 
     assert actual == expected
 
 
 def test_create_local_config(my_config: dict[str, Any]):
-    configs = _Helpers.split_config(my_config)
+    configs = _Helpers.to_variables_by_module_path(my_config)
 
     local_config = _Helpers.create_local_config(configs, Path("parent/child/auth/"))
 
