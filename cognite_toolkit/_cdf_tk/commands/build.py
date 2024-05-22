@@ -178,37 +178,7 @@ class BuildCommand(ToolkitCommand):
                 print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
             local_config = _Helpers.create_local_config(configs, module_dir)
 
-            # Sort to support 1., 2. etc prefixes
-            def sort_key(p: Path) -> int:
-                if result := re.findall(r"^(\d+)", p.stem):
-                    return int(result[0])
-                else:
-                    return len(filepaths)
-
-            # The builder of a module can control the order that resources are deployed by prefixing a number
-            # The custom key 'sort_key' is to get the sort on integer and not the string.
-            filepaths = sorted(filepaths, key=sort_key)
-
-            @dataclass
-            class ResourceFiles:
-                resource_files: list[Path] = field(default_factory=list)
-                other_files: list[Path] = field(default_factory=list)
-
-            # Initialise for auth, other resource folders will be added as they are found
-            files_by_resource_folder: dict[str, ResourceFiles] = defaultdict(ResourceFiles)
-            for filepath in filepaths:
-                try:
-                    resource_folder = resource_folder_from_path(filepath)
-                except ValueError:
-                    if verbose:
-                        print(
-                            f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
-                        )
-                    continue
-                if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
-                    files_by_resource_folder[resource_folder].resource_files.append(filepath)
-                else:
-                    files_by_resource_folder[resource_folder].other_files.append(filepath)
+            files_by_resource_folder = self._to_files_by_resource_folder(filepaths, verbose)
 
             for resource_folder in files_by_resource_folder:
                 for filepath in files_by_resource_folder[resource_folder].resource_files:
@@ -288,6 +258,35 @@ class BuildCommand(ToolkitCommand):
                     shutil.copyfile(filepath, destination)
 
         return source_by_build_path
+
+    @staticmethod
+    def _to_files_by_resource_folder(filepaths: list[Path], verbose: bool) -> dict[str, _ResourceFiles]:
+        # Sort to support 1., 2. etc prefixes
+        def sort_key(p: Path) -> int:
+            if result := re.findall(r"^(\d+)", p.stem):
+                return int(result[0])
+            else:
+                return len(filepaths)
+
+        # The builder of a module can control the order that resources are deployed by prefixing a number
+        # The custom key 'sort_key' is to get the sort on integer and not the string.
+        filepaths = sorted(filepaths, key=sort_key)
+
+        files_by_resource_folder: dict[str, _ResourceFiles] = defaultdict(_ResourceFiles)
+        for filepath in filepaths:
+            try:
+                resource_folder = resource_folder_from_path(filepath)
+            except ValueError:
+                if verbose:
+                    print(
+                        f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
+                    )
+                continue
+            if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
+                files_by_resource_folder[resource_folder].resource_files.append(filepath)
+            else:
+                files_by_resource_folder[resource_folder].other_files.append(filepath)
+        return files_by_resource_folder
 
     def process_function_directory(
         self,
@@ -491,6 +490,12 @@ class BuildCommand(ToolkitCommand):
             if data_set_warnings:
                 self.warn(MediumSeverityWarning(f"Found missing data_sets: {data_set_warnings!s}"))
                 self.warning_list.extend(data_set_warnings)
+
+
+@dataclass
+class _ResourceFiles:
+    resource_files: list[Path] = field(default_factory=list)
+    other_files: list[Path] = field(default_factory=list)
 
 
 class _Helpers:
