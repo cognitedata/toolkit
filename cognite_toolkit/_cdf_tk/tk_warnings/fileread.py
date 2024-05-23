@@ -19,6 +19,9 @@ class FileReadWarning(ToolkitWarning, ABC):
     def group_header(self) -> str:
         return f"    In File {str(self.filepath)!r}"
 
+    def __str__(self) -> str:
+        return self.get_message()
+
 
 @dataclass(frozen=True)
 class IdentifiedResourceFileReadWarning(FileReadWarning, ABC):
@@ -41,8 +44,6 @@ class YAMLFileWithElementWarning(YAMLFileWarning, ABC):
 
     @property
     def _location(self) -> str:
-        if self.element_no is None and not self.path:
-            return f"{self.filepath!r}"
         if self.element_no is not None:
             value = f" in entry {self.element_no} "
         else:
@@ -105,9 +106,6 @@ class NamingConventionWarning(YAMLFileWarning):
             self.severity,
             message,
         )
-
-    def __str__(self) -> str:
-        return self.get_message()
 
 
 @dataclass(frozen=True)
