@@ -228,7 +228,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
                     )
             else:
                 warning_list.append(NamespacingConventionWarning(filepath, cls.folder_name, "name", identifier, "_"))
-        elif parts[0] != "gp":
+        elif not identifier.startswith("gp"):
             warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "name", identifier, "gp_"))
         return warning_list
 
@@ -1162,7 +1162,7 @@ class TransformationLoader(
                     "_",
                 )
             )
-        elif parts[0] != "tr":
+        elif not identifier.startswith("tr"):
             warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "tr_"))
         return warning_list
 
@@ -1437,7 +1437,7 @@ class ExtractionPipelineLoader(
                     "_",
                 )
             )
-        elif identifier.startswith("ep_"):
+        elif not identifier.startswith("ep_"):
             warning_list.append(
                 PrefixConventionWarning(
                     filepath,
@@ -1803,7 +1803,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
                     "_",
                 )
             )
-        elif identifier[0] != "sp":
+        elif not identifier.startswith("sp_"):
             if identifier in {"cognite_app_data", "APM_SourceData", "APM_Config"}:
                 if verbose:
                     print(
