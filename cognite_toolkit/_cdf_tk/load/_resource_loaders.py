@@ -409,6 +409,8 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         parts = identifier.split("_")
         if len(parts) < 2:
             warning_list.append(NamespacingConventionWarning(filepath, cls.folder_name, "externalId", identifier, "_"))
+        if not identifier.startswith("ds_"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "ds_"))
         return warning_list
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
