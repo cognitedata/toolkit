@@ -188,7 +188,12 @@ class BuildCommand(ToolkitCommand):
                     if not is_function_non_yaml:
                         content = self._replace_variables_and_copy(source_path, destination, state)
                         state.source_by_build_path[destination] = source_path
-                        self.validate(content, source_path, destination, state, verbose)
+                        file_warnings = self.validate(content, source_path, destination, state, verbose)
+                        if file_warnings:
+                            self.warning_list.extend(file_warnings)
+                            # Here we do not use the self.warn method as we want to print the warnings as a group.
+                            if self.print_warning:
+                                print(str(file_warnings))
 
                     is_function_yaml = (
                         resource_folder == FunctionLoader.folder_name

@@ -13,6 +13,12 @@ class FileReadWarning(ToolkitWarning, ABC):
     severity: ClassVar[SeverityLevel]
     filepath: Path
 
+    def group_key(self) -> tuple[Any, ...]:
+        return (self.filepath,)
+
+    def group_header(self) -> str:
+        return f"    In File {str(self.filepath)!r}"
+
 
 @dataclass(frozen=True)
 class IdentifiedResourceFileReadWarning(FileReadWarning, ABC):
@@ -32,18 +38,6 @@ class YAMLFileWithElementWarning(YAMLFileWarning, ABC):
     # None is a dictionary, number is a list
     element_no: int | None
     path: tuple[str | int, ...]
-
-    def group_key(self) -> tuple[Any, ...]:
-        if self.element_no is None:
-            return (self.filepath,)
-        else:
-            return self.filepath, self.element_no
-
-    def group_header(self) -> str:
-        if self.element_no is None:
-            return f"    In File {str(self.filepath)!r}"
-        else:
-            return f"    In File {str(self.filepath)!r}\n    In entry {self.element_no}"
 
     @property
     def _location(self) -> str:
@@ -157,25 +151,14 @@ class MissingRequiredIdentifierWarning(YAMLFileWithElementWarning):
 class TemplateVariableWarning(IdentifiedResourceFileReadWarning):
     path: str
 
-    def group_key(self) -> tuple[Any, ...]:
-        return (self.path,)
-
-    def group_header(self) -> str:
-        return f"    In Section {str(self.path)!r}"
-
     def get_message(self) -> str:
         return f"{type(self).__name__}: Variable {self.id_name!r} has value {self.id_value!r} in file: {self.filepath.name}. Did you forget to change it?"
 
 
 @dataclass(frozen=True)
 class DataSetMissingWarning(IdentifiedResourceFileReadWarning):
+    severity = SeverityLevel.MEDIUM
     resource_name: str
-
-    def group_key(self) -> tuple[Any, ...]:
-        return (self.filepath,)
-
-    def group_header(self) -> str:
-        return f"    In File {str(self.filepath)!r}"
 
     def get_message(self) -> str:
         # Avoid circular import
