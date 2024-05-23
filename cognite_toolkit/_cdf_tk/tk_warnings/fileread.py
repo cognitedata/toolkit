@@ -97,11 +97,17 @@ class NamingConventionWarning(YAMLFileWarning):
         raise NotImplementedError()
 
     def get_message(self) -> str:
-        message = f"The {self.resource} {self.filepath} has a {self.ext_id_type} [bold]{self.external_id}[/] {self.recommendation}."
+        message = (
+            f"The {self.ext_id_type} identifier [bold]{self.external_id!r}[/bold] of the resource {self.resource} "
+            f"does not follow the recommended naming convention {self.recommendation}"
+        )
         return SeverityFormat.get_rich_severity_format(
             self.severity,
             message,
         )
+
+    def __str__(self) -> str:
+        return self.get_message()
 
 
 @dataclass(frozen=True)
@@ -110,7 +116,7 @@ class PrefixConventionWarning(NamingConventionWarning):
 
     @property
     def recommendation(self) -> str:
-        return f"without the recommended '{self.prefix}' based prefix"
+        return f"of prefixing with {self.prefix!r}."
 
 
 @dataclass(frozen=True)
@@ -119,7 +125,7 @@ class NamespacingConventionWarning(NamingConventionWarning):
 
     @property
     def recommendation(self) -> str:
-        return f"without the recommended '{self.namespace}' based namespacing"
+        return f"of using {self.namespace!r} as separator."
 
 
 @dataclass(frozen=True)

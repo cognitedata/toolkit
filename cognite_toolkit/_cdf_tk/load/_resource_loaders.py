@@ -1797,7 +1797,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
             warning_list.append(
                 NamespacingConventionWarning(
                     filepath,
-                    cls.folder_name,
+                    "space",
                     "space",
                     identifier,
                     "_",
@@ -1811,7 +1811,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
                         "namespacing because Infield expects this specific name."
                     )
             else:
-                warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "space", identifier, "sp_"))
+                warning_list.append(PrefixConventionWarning(filepath, "space", "space", identifier, "sp_"))
         return warning_list
 
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
