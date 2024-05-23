@@ -25,6 +25,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
+from cognite_toolkit._cdf_tk.tk_warnings import WarningList, YAMLFileWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 from .data_classes import (
@@ -41,6 +42,7 @@ T_ID = TypeVar(
     bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawDatabaseTable, WorkflowVersionId],
 )
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
+_COMPILED_PATTERN: dict[str, re.Pattern] = {}
 
 
 class Loader(ABC):
@@ -95,25 +97,26 @@ class Loader(ABC):
 
         """
         if dir_or_file.is_file():
-            if dir_or_file.suffix not in cls.filetypes or not cls.filetypes:
+            if not cls.is_supported_file(dir_or_file):
                 raise ValueError("Invalid file type")
             return [dir_or_file]
         elif dir_or_file.is_dir():
-            if cls.filetypes:
-                file_paths = (file for type_ in cls.filetypes for file in dir_or_file.glob(f"**/*.{type_}"))
-            else:
-                file_paths = dir_or_file.glob("**/*")
-
-            if cls.filename_pattern:
-                pattern = re.compile(cls.filename_pattern)
-                file_paths = (file for file in file_paths if pattern.match(file.stem))
-
-            if cls.exclude_filetypes:
-                file_paths = (file for file in file_paths if file.suffix[1:] not in cls.exclude_filetypes)
-
-            return sorted(list(file_paths))
+            file_paths = [file for file in dir_or_file.glob("**/*") if cls.is_supported_file(file)]
+            return sorted(file_paths)
         else:
             return []
+
+    @classmethod
+    def is_supported_file(cls, file: Path) -> bool:
+        if cls.filetypes and file.suffix[1:] not in cls.filetypes:
+            return False
+        if cls.exclude_filetypes and file.suffix[1:] in cls.exclude_filetypes:
+            return False
+        if cls.filename_pattern:
+            if cls.filename_pattern not in _COMPILED_PATTERN:
+                _COMPILED_PATTERN[cls.filename_pattern] = re.compile(cls.filename_pattern)
+            return _COMPILED_PATTERN[cls.filename_pattern].match(file.stem) is not None
+        return True
 
     @abstractmethod
     def deploy_resources(
@@ -146,7 +149,6 @@ class ResourceLoader(
     All resources supported by the cognite_toolkit should implement a loader.
 
     Class attributes:
-        api_name: The name of the api that is in the cognite_client that is used to interact with the CDF API.
         resource_write_cls: The write data class for the resource.
         resource_cls: The read data class for the resource.
         list_cls: The read list format for this resource.
@@ -154,14 +156,12 @@ class ResourceLoader(
         support_drop: Whether the resource supports the drop flag.
         filetypes: The filetypes that are supported by this loader. This should not be set in the subclass, it
             should always be yaml and yml.
-        identifier_key: The key that is used to identify the resource. This should be set in the subclass.
         dependencies: A set of loaders that must be loaded before this loader.
         _display_name: The name of the resource that is used when printing messages. If this is not set, the
             api_name is used.
     """
 
     # Must be set in the subclass
-    api_name: str
     resource_write_cls: type[T_WriteClass]
     resource_cls: type[T_WritableCogniteResource]
     list_cls: type[T_WritableCogniteResourceList]
@@ -169,18 +169,24 @@ class ResourceLoader(
     # Optional to set in the subclass
     support_drop = True
     filetypes = frozenset({"yaml", "yml"})
-    identifier_key: str = "externalId"
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     _display_name: str = ""
 
     @property
     def display_name(self) -> str:
-        return self._display_name or self.api_name
+        return self._display_name or super().display_name
 
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_WriteClass | T_WritableCogniteResource) -> T_ID:
+    def get_id(cls, item: T_WriteClass | T_WritableCogniteResource | dict) -> T_ID:
         raise NotImplementedError
+
+    @classmethod
+    def check_identifier_semantics(
+        cls, identifier: T_ID, filepath: Path, verbose: bool
+    ) -> WarningList[YAMLFileWarning]:
+        """This should be overwritten in subclasses to check the semantics of the identifier."""
+        return WarningList[YAMLFileWarning]()
 
     @classmethod
     @abstractmethod

@@ -125,6 +125,10 @@ class RawFileLoader(DataLoader):
     dependencies = frozenset({RawDatabaseLoader, RawTableLoader})
     _doc_url = "Raw/operation/postRows"
 
+    @property
+    def display_name(self) -> str:
+        return "raw.rows"
+
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())

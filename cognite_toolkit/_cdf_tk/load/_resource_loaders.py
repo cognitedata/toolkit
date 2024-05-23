@@ -132,6 +132,12 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    NamespacingConventionWarning,
+    PrefixConventionWarning,
+    WarningList,
+    YAMLFileWarning,
+)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_directory_hash,
@@ -149,13 +155,11 @@ _HAS_DATA_FILTER_LIMIT = 10
 
 @final
 class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
-    api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
     resource_write_cls = GroupWrite
     list_cls = GroupList
     list_write_cls = GroupWriteList
-    identifier_key = "name"
     resource_scopes = frozenset(
         {
             capabilities.IDScope,
@@ -184,7 +188,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
     @property
     def display_name(self) -> str:
-        return f"{self.api_name}({self.target_scopes.removesuffix('_only')})"
+        return f"iam.groups({self.target_scopes.removesuffix('_only')})"
 
     @classmethod
     def create_loader(
@@ -206,8 +210,27 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         )
 
     @classmethod
-    def get_id(cls, item: GroupWrite | Group) -> str:
+    def get_id(cls, item: GroupWrite | Group | dict) -> str:
+        if isinstance(item, dict):
+            return item["name"]
         return item.name
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            if identifier == "applications-configuration":
+                if verbose:
+                    print(
+                        "      [bold green]INFO:[/] the group applications-configuration does not follow the "
+                        "recommended '_' based namespacing because Infield expects this specific name."
+                    )
+            else:
+                warning_list.append(NamespacingConventionWarning(filepath, cls.folder_name, "name", identifier, "_"))
+        elif not identifier.startswith("gp"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "name", identifier, "gp_"))
+        return warning_list
 
     @staticmethod
     def _substitute_scope_ids(group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
@@ -355,7 +378,6 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 @final
 class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
     support_drop = False
-    api_name = "data_sets"
     folder_name = "data_sets"
     resource_cls = DataSet
     resource_write_cls = DataSetWrite
@@ -371,10 +393,22 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         )
 
     @classmethod
-    def get_id(cls, item: DataSet | DataSetWrite) -> str:
+    def get_id(cls, item: DataSet | DataSetWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("DataSet must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(NamespacingConventionWarning(filepath, cls.folder_name, "externalId", identifier, "_"))
+        if not identifier.startswith("ds_"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "ds_"))
+        return warning_list
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
@@ -441,7 +475,6 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 @final
 class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
     support_drop = True
-    api_name = "functions"
     folder_name = "functions"
     filename_pattern = (
         r"^(?:(?!schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
@@ -466,7 +499,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         ]
 
     @classmethod
-    def get_id(cls, item: Function | FunctionWrite) -> str:
+    def get_id(cls, item: Function | FunctionWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("Function must have external_id set.")
         return item.external_id
@@ -641,7 +676,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
 class FunctionScheduleLoader(
     ResourceLoader[str, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList]
 ):
-    api_name = "functions.schedules"
     folder_name = "functions"
     filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule.
     resource_cls = FunctionSchedule
@@ -664,7 +698,13 @@ class FunctionScheduleLoader(
         ]
 
     @classmethod
-    def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule) -> str:
+    def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule | dict) -> str:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"functionExternalId", "cronExpression"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return f"{item['functionExternalId']}:{item['cronExpression']}"
+
         if item.function_external_id is None or item.cron_expression is None:
             raise ValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
         return f"{item.function_external_id}:{item.cron_expression}"
@@ -763,13 +803,11 @@ class RawDatabaseLoader(
     ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
 ):
     item_name = "raw tables"
-    api_name = "raw.databases"
     folder_name = "raw"
     resource_cls = RawDatabaseTable
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
-    identifier_key = "table_name"
     _doc_url = "Raw/operation/createDBs"
 
     def __init__(self, client: CogniteClient):
@@ -787,7 +825,9 @@ class RawDatabaseLoader(
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], scope)  # type: ignore[arg-type]
 
     @classmethod
-    def get_id(cls, item: RawDatabaseTable) -> RawDatabaseTable:
+    def get_id(cls, item: RawDatabaseTable | dict) -> RawDatabaseTable:
+        if isinstance(item, dict):
+            return RawDatabaseTable(item["dbName"])
         return item
 
     def load_resource(
@@ -864,13 +904,11 @@ class RawTableLoader(
     ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
 ):
     item_name = "raw rows"
-    api_name = "raw.tables"
     folder_name = "raw"
     resource_cls = RawDatabaseTable
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
-    identifier_key = "table_name"
     dependencies = frozenset({RawDatabaseLoader})
     _doc_url = "Raw/operation/createTables"
 
@@ -889,7 +927,12 @@ class RawTableLoader(
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], scope)  # type: ignore[arg-type]
 
     @classmethod
-    def get_id(cls, item: RawDatabaseTable) -> RawDatabaseTable:
+    def get_id(cls, item: RawDatabaseTable | dict) -> RawDatabaseTable:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"dbName", "tableName"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return RawDatabaseTable(item["dbName"], item["tableName"])
         return item
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> RawTableList | None:
@@ -980,7 +1023,6 @@ class RawTableLoader(
 @final
 class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     item_name = "datapoints"
-    api_name = "time_series"
     folder_name = "timeseries"
     resource_cls = TimeSeries
     resource_write_cls = TimeSeriesWrite
@@ -1001,7 +1043,9 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         )
 
     @classmethod
-    def get_id(cls, item: TimeSeries | TimeSeriesWrite) -> str:
+    def get_id(cls, item: TimeSeries | TimeSeriesWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("TimeSeries must have external_id set.")
         return item.external_id
@@ -1074,7 +1118,6 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
 class TransformationLoader(
     ResourceLoader[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
 ):
-    api_name = "transformations"
     folder_name = "transformations"
     filename_pattern = (
         r"^(?:(?!\.schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
@@ -1098,10 +1141,30 @@ class TransformationLoader(
         )
 
     @classmethod
-    def get_id(cls, item: Transformation | TransformationWrite) -> str:
+    def get_id(cls, item: Transformation | TransformationWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("Transformation must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    cls.folder_name,
+                    "externalId",
+                    identifier,
+                    "_",
+                )
+            )
+        elif not identifier.startswith("tr"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "tr_"))
+        return warning_list
 
     def _is_equal_custom(self, local: TransformationWrite, cdf_resource: Transformation) -> bool:
         local_dumped = local.dump()
@@ -1263,7 +1326,6 @@ class TransformationScheduleLoader(
         TransformationScheduleList,
     ]
 ):
-    api_name = "transformations.schedules"
     folder_name = "transformations"
     filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
     resource_cls = TransformationSchedule
@@ -1280,7 +1342,9 @@ class TransformationScheduleLoader(
         return []
 
     @classmethod
-    def get_id(cls, item: TransformationSchedule | TransformationScheduleWrite) -> str:
+    def get_id(cls, item: TransformationSchedule | TransformationScheduleWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("TransformationSchedule must have external_id set.")
         return item.external_id
@@ -1327,7 +1391,6 @@ class ExtractionPipelineLoader(
         str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList
     ]
 ):
-    api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
     filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
     resource_cls = ExtractionPipeline
@@ -1353,10 +1416,38 @@ class ExtractionPipelineLoader(
         )
 
     @classmethod
-    def get_id(cls, item: ExtractionPipeline | ExtractionPipelineWrite) -> str:
+    def get_id(cls, item: ExtractionPipeline | ExtractionPipelineWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("ExtractionPipeline must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    "extraction pipeline",
+                    "externalId",
+                    identifier,
+                    "_",
+                )
+            )
+        elif not identifier.startswith("ep_"):
+            warning_list.append(
+                PrefixConventionWarning(
+                    filepath,
+                    "extraction pipeline",
+                    "externalId",
+                    identifier,
+                    "ep_",
+                )
+            )
+        return warning_list
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1433,7 +1524,6 @@ class ExtractionPipelineConfigLoader(
         ExtractionPipelineConfigList,
     ]
 ):
-    api_name = "extraction_pipelines.config"
     folder_name = "extraction_pipelines"
     filename_pattern = r"^.*\.config$"
     resource_cls = ExtractionPipelineConfig
@@ -1450,7 +1540,9 @@ class ExtractionPipelineConfigLoader(
         return []
 
     @classmethod
-    def get_id(cls, item: ExtractionPipelineConfig | ExtractionPipelineConfigWrite) -> str:
+    def get_id(cls, item: ExtractionPipelineConfig | ExtractionPipelineConfigWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
@@ -1530,7 +1622,6 @@ class FileMetadataLoader(
     ResourceContainerLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
 ):
     item_name = "file contents"
-    api_name = "files"
     folder_name = "files"
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite
@@ -1553,7 +1644,9 @@ class FileMetadataLoader(
         return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)  # type: ignore[arg-type]
 
     @classmethod
-    def get_id(cls, item: FileMetadata | FileMetadataWrite) -> str:
+    def get_id(cls, item: FileMetadata | FileMetadataWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("FileMetadata must have external_id set.")
         return item.external_id
@@ -1671,7 +1764,6 @@ class FileMetadataLoader(
 @final
 class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     item_name = "nodes and edges"
-    api_name = "data_modeling.spaces"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(space)$"
     resource_cls = Space
@@ -1691,8 +1783,36 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         ]
 
     @classmethod
-    def get_id(cls, item: SpaceApply | Space) -> str:
+    def get_id(cls, item: SpaceApply | Space | dict) -> str:
+        if isinstance(item, dict):
+            return item["space"]
         return item.space
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    "space",
+                    "space",
+                    identifier,
+                    "_",
+                )
+            )
+        elif not identifier.startswith("sp_"):
+            if identifier in {"cognite_app_data", "APM_SourceData", "APM_Config"}:
+                if verbose:
+                    print(
+                        f"      [bold green]INFO:[/] the space {identifier} does not follow the recommended '_' based "
+                        "namespacing because Infield expects this specific name."
+                    )
+            else:
+                warning_list.append(PrefixConventionWarning(filepath, "space", "space", identifier, "sp_"))
+        return warning_list
 
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
@@ -1768,7 +1888,6 @@ class ContainerLoader(
     ResourceContainerLoader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]
 ):
     item_name = "nodes and edges"
-    api_name = "data_modeling.containers"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(container)$"
     resource_cls = Container
@@ -1788,7 +1907,12 @@ class ContainerLoader(
         )
 
     @classmethod
-    def get_id(cls, item: ContainerApply | Container) -> ContainerId:
+    def get_id(cls, item: ContainerApply | Container | dict) -> ContainerId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return ContainerId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
     def load_resource(
@@ -1935,7 +2059,6 @@ class ContainerLoader(
 
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
-    api_name = "data_modeling.views"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(view)$"
     resource_cls = View
@@ -1960,7 +2083,12 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
 
     @classmethod
-    def get_id(cls, item: ViewApply | View) -> ViewId:
+    def get_id(cls, item: ViewApply | View | dict) -> ViewId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return ViewId(space=item["space"], external_id=item["externalId"], version=item["version"])
         return item.as_id()
 
     def load_resource(
@@ -2074,7 +2202,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
-    api_name = "data_modeling.data_models"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(datamodel)$"
     resource_cls = DataModel
@@ -2093,7 +2220,12 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         )
 
     @classmethod
-    def get_id(cls, item: DataModelApply | DataModel) -> DataModelId:
+    def get_id(cls, item: DataModelApply | DataModel | dict) -> DataModelId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return DataModelId(space=item["space"], external_id=item["externalId"], version=item["version"])
         return item.as_id()
 
     def load_resource(
@@ -2145,7 +2277,6 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 @final
 class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeList, NodeList]):
     item_name = "nodes"
-    api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
     resource_cls = Node
@@ -2164,7 +2295,12 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
         )
 
     @classmethod
-    def get_id(cls, item: LoadedNode | Node) -> NodeId:
+    def get_id(cls, item: LoadedNode | Node | dict) -> NodeId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return NodeId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
     def _is_equal_custom(self, local: LoadedNode, cdf_resource: Node) -> bool:
@@ -2298,7 +2434,6 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
 
 @final
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
-    api_name = "workflows"
     folder_name = "workflows"
     filename_pattern = r"^.*\.Workflow$"
     resource_cls = Workflow
@@ -2317,7 +2452,9 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         )
 
     @classmethod
-    def get_id(cls, item: Workflow | WorkflowUpsert) -> str:
+    def get_id(cls, item: Workflow | WorkflowUpsert | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
             raise ValueError("Workflow must have external_id set.")
         return item.external_id
@@ -2364,7 +2501,6 @@ class WorkflowVersionLoader(
         WorkflowVersionId, WorkflowVersionUpsert, WorkflowVersion, WorkflowVersionUpsertList, WorkflowVersionList
     ]
 ):
-    api_name = "workflows.versions"
     folder_name = "workflows"
     filename_pattern = r"^.*\.?(WorkflowVersion)$"
     resource_cls = WorkflowVersion
@@ -2384,7 +2520,12 @@ class WorkflowVersionLoader(
         )
 
     @classmethod
-    def get_id(cls, item: WorkflowVersion | WorkflowVersionUpsert) -> WorkflowVersionId:
+    def get_id(cls, item: WorkflowVersion | WorkflowVersionUpsert | dict) -> WorkflowVersionId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"workflowExternalId", "version"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return WorkflowVersionId(item["workflowExternalId"], item["version"])
         return item.as_id()
 
     def load_resource(

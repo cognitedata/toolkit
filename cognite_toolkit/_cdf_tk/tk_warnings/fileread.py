@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
@@ -10,15 +10,30 @@ from .base import SeverityFormat, SeverityLevel, ToolkitWarning
 
 @dataclass(frozen=True)
 class FileReadWarning(ToolkitWarning, ABC):
+    severity: ClassVar[SeverityLevel]
     filepath: Path
+
+    def group_key(self) -> tuple[Any, ...]:
+        return (self.filepath,)
+
+    def group_header(self) -> str:
+        return f"    In File {str(self.filepath)!r}"
+
+    def __str__(self) -> str:
+        return self.get_message()
+
+
+@dataclass(frozen=True)
+class IdentifiedResourceFileReadWarning(FileReadWarning, ABC):
     id_value: str
     id_name: str
 
 
 @dataclass(frozen=True)
-class YAMLFileWarning(ToolkitWarning, ABC):
-    severity: ClassVar[SeverityLevel]
-    filepath: Path
+class YAMLFileWarning(FileReadWarning, ABC):
+    def __post_init__(self) -> None:
+        if self.filepath.suffix not in {".yaml", ".yml"}:
+            raise ValueError(f"Expected a YAML file, got {self.filepath.suffix}.")
 
 
 @dataclass(frozen=True)
@@ -27,22 +42,8 @@ class YAMLFileWithElementWarning(YAMLFileWarning, ABC):
     element_no: int | None
     path: tuple[str | int, ...]
 
-    def group_key(self) -> tuple[Any, ...]:
-        if self.element_no is None:
-            return (self.filepath,)
-        else:
-            return self.filepath, self.element_no
-
-    def group_header(self) -> str:
-        if self.element_no is None:
-            return f"    In File {str(self.filepath)!r}"
-        else:
-            return f"    In File {str(self.filepath)!r}\n    In entry {self.element_no}"
-
     @property
     def _location(self) -> str:
-        if self.element_no is None and not self.path:
-            return f"{self.filepath!r}"
         if self.element_no is not None:
             value = f" in entry {self.element_no} "
         else:
@@ -63,7 +64,7 @@ class UnusedParameterWarning(YAMLFileWithElementWarning):
 
 
 @dataclass(frozen=True)
-class UnresolvedVariableWarning(YAMLFileWarning):
+class UnresolvedVariableWarning(FileReadWarning):
     severity = SeverityLevel.HIGH
     variable: str
 
@@ -90,14 +91,39 @@ class NamingConventionWarning(YAMLFileWarning):
     resource: str
     ext_id_type: str
     external_id: str
-    recommendation: str
+
+    @property
+    @abstractmethod
+    def recommendation(self) -> str:
+        raise NotImplementedError()
 
     def get_message(self) -> str:
-        message = f"The {self.resource} {self.filepath} has a {self.ext_id_type} [bold]{self.external_id}[/] {self.recommendation}."
+        message = (
+            f"The {self.ext_id_type} identifier [bold]{self.external_id!r}[/bold] of the resource {self.resource} "
+            f"does not follow the recommended naming convention {self.recommendation}"
+        )
         return SeverityFormat.get_rich_severity_format(
             self.severity,
             message,
         )
+
+
+@dataclass(frozen=True)
+class PrefixConventionWarning(NamingConventionWarning):
+    prefix: str
+
+    @property
+    def recommendation(self) -> str:
+        return f"of prefixing with {self.prefix!r}."
+
+
+@dataclass(frozen=True)
+class NamespacingConventionWarning(NamingConventionWarning):
+    namespace: str
+
+    @property
+    def recommendation(self) -> str:
+        return f"of using {self.namespace!r} as separator."
 
 
 @dataclass(frozen=True)
@@ -118,28 +144,25 @@ class MissingRequiredParameterWarning(YAMLFileWithElementWarning):
 
 
 @dataclass(frozen=True)
-class TemplateVariableWarning(FileReadWarning):
+class MissingRequiredIdentifierWarning(YAMLFileWithElementWarning):
+    expected: tuple[str, ...]
+
+    def get_message(self) -> str:
+        return f"{type(self).__name__}: Missing required identifier {self.expected!r}{self._location}."
+
+
+@dataclass(frozen=True)
+class TemplateVariableWarning(IdentifiedResourceFileReadWarning):
     path: str
-
-    def group_key(self) -> tuple[Any, ...]:
-        return (self.path,)
-
-    def group_header(self) -> str:
-        return f"    In Section {str(self.path)!r}"
 
     def get_message(self) -> str:
         return f"{type(self).__name__}: Variable {self.id_name!r} has value {self.id_value!r} in file: {self.filepath.name}. Did you forget to change it?"
 
 
 @dataclass(frozen=True)
-class DataSetMissingWarning(FileReadWarning):
+class DataSetMissingWarning(IdentifiedResourceFileReadWarning):
+    severity = SeverityLevel.MEDIUM
     resource_name: str
-
-    def group_key(self) -> tuple[Any, ...]:
-        return (self.filepath,)
-
-    def group_header(self) -> str:
-        return f"    In File {str(self.filepath)!r}"
 
     def get_message(self) -> str:
         # Avoid circular import
