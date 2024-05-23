@@ -68,7 +68,9 @@ def validate_data_set_is_set(
     return warning_list
 
 
-def validate_resource_yaml(data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None = None) -> WarningList:
+def validate_resource_yaml(
+    data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None = None
+) -> WarningList:
     warnings: WarningList = WarningList()
     if isinstance(data, list):
         for no, item in enumerate(data, 1):

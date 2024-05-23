@@ -25,6 +25,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
+from cognite_toolkit._cdf_tk.tk_warnings import WarningList, YAMLFileWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 from .data_classes import (
@@ -35,7 +36,6 @@ from .data_classes import (
     ResourceDeployResult,
     UploadDeployResult,
 )
-from ..tk_warnings import WarningList, YAMLFileWarning
 
 T_ID = TypeVar(
     "T_ID",
@@ -149,7 +149,6 @@ class ResourceLoader(
     All resources supported by the cognite_toolkit should implement a loader.
 
     Class attributes:
-        api_name: The name of the api that is in the cognite_client that is used to interact with the CDF API.
         resource_write_cls: The write data class for the resource.
         resource_cls: The read data class for the resource.
         list_cls: The read list format for this resource.
@@ -157,14 +156,12 @@ class ResourceLoader(
         support_drop: Whether the resource supports the drop flag.
         filetypes: The filetypes that are supported by this loader. This should not be set in the subclass, it
             should always be yaml and yml.
-        identifier_key: The key that is used to identify the resource. This should be set in the subclass.
         dependencies: A set of loaders that must be loaded before this loader.
         _display_name: The name of the resource that is used when printing messages. If this is not set, the
             api_name is used.
     """
 
     # Must be set in the subclass
-    api_name: str
     resource_write_cls: type[T_WriteClass]
     resource_cls: type[T_WritableCogniteResource]
     list_cls: type[T_WritableCogniteResourceList]
@@ -172,13 +169,12 @@ class ResourceLoader(
     # Optional to set in the subclass
     support_drop = True
     filetypes = frozenset({"yaml", "yml"})
-    identifier_key: str = "externalId"
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     _display_name: str = ""
 
     @property
     def display_name(self) -> str:
-        return self._display_name or self.api_name
+        return self._display_name or super().display_name
 
     @classmethod
     @abstractmethod
@@ -186,10 +182,11 @@ class ResourceLoader(
         raise NotImplementedError
 
     @classmethod
-    def check_identifier_semantics(cls, identifier: T_ID, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+    def check_identifier_semantics(
+        cls, identifier: T_ID, filepath: Path, verbose: bool
+    ) -> WarningList[YAMLFileWarning]:
         """This should be overwritten in subclasses to check the semantics of the identifier."""
         return WarningList[YAMLFileWarning]()
-
 
     @classmethod
     @abstractmethod

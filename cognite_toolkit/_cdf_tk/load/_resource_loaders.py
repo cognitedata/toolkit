@@ -155,13 +155,11 @@ _HAS_DATA_FILTER_LIMIT = 10
 
 @final
 class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
-    api_name = "iam.groups"
     folder_name = "auth"
     resource_cls = Group
     resource_write_cls = GroupWrite
     list_cls = GroupList
     list_write_cls = GroupWriteList
-    identifier_key = "name"
     resource_scopes = frozenset(
         {
             capabilities.IDScope,
@@ -190,7 +188,7 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
     @property
     def display_name(self) -> str:
-        return f"{self.api_name}({self.target_scopes.removesuffix('_only')})"
+        return f"iam.groups({self.target_scopes.removesuffix('_only')})"
 
     @classmethod
     def create_loader(
@@ -380,7 +378,6 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 @final
 class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
     support_drop = False
-    api_name = "data_sets"
     folder_name = "data_sets"
     resource_cls = DataSet
     resource_write_cls = DataSetWrite
@@ -478,7 +475,6 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 @final
 class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
     support_drop = True
-    api_name = "functions"
     folder_name = "functions"
     filename_pattern = (
         r"^(?:(?!schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
@@ -680,7 +676,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
 class FunctionScheduleLoader(
     ResourceLoader[str, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList]
 ):
-    api_name = "functions.schedules"
     folder_name = "functions"
     filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule.
     resource_cls = FunctionSchedule
@@ -808,13 +803,11 @@ class RawDatabaseLoader(
     ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
 ):
     item_name = "raw tables"
-    api_name = "raw.databases"
     folder_name = "raw"
     resource_cls = RawDatabaseTable
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
-    identifier_key = "table_name"
     _doc_url = "Raw/operation/createDBs"
 
     def __init__(self, client: CogniteClient):
@@ -911,13 +904,11 @@ class RawTableLoader(
     ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
 ):
     item_name = "raw rows"
-    api_name = "raw.tables"
     folder_name = "raw"
     resource_cls = RawDatabaseTable
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
-    identifier_key = "table_name"
     dependencies = frozenset({RawDatabaseLoader})
     _doc_url = "Raw/operation/createTables"
 
@@ -1032,7 +1023,6 @@ class RawTableLoader(
 @final
 class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     item_name = "datapoints"
-    api_name = "time_series"
     folder_name = "timeseries"
     resource_cls = TimeSeries
     resource_write_cls = TimeSeriesWrite
@@ -1128,7 +1118,6 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
 class TransformationLoader(
     ResourceLoader[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
 ):
-    api_name = "transformations"
     folder_name = "transformations"
     filename_pattern = (
         r"^(?:(?!\.schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
@@ -1337,7 +1326,6 @@ class TransformationScheduleLoader(
         TransformationScheduleList,
     ]
 ):
-    api_name = "transformations.schedules"
     folder_name = "transformations"
     filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
     resource_cls = TransformationSchedule
@@ -1403,7 +1391,6 @@ class ExtractionPipelineLoader(
         str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList
     ]
 ):
-    api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
     filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
     resource_cls = ExtractionPipeline
@@ -1537,7 +1524,6 @@ class ExtractionPipelineConfigLoader(
         ExtractionPipelineConfigList,
     ]
 ):
-    api_name = "extraction_pipelines.config"
     folder_name = "extraction_pipelines"
     filename_pattern = r"^.*\.config$"
     resource_cls = ExtractionPipelineConfig
@@ -1636,7 +1622,6 @@ class FileMetadataLoader(
     ResourceContainerLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
 ):
     item_name = "file contents"
-    api_name = "files"
     folder_name = "files"
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite
@@ -1779,7 +1764,6 @@ class FileMetadataLoader(
 @final
 class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     item_name = "nodes and edges"
-    api_name = "data_modeling.spaces"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(space)$"
     resource_cls = Space
@@ -1904,7 +1888,6 @@ class ContainerLoader(
     ResourceContainerLoader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]
 ):
     item_name = "nodes and edges"
-    api_name = "data_modeling.containers"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(container)$"
     resource_cls = Container
@@ -2076,7 +2059,6 @@ class ContainerLoader(
 
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
-    api_name = "data_modeling.views"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(view)$"
     resource_cls = View
@@ -2220,7 +2202,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
-    api_name = "data_modeling.data_models"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(datamodel)$"
     resource_cls = DataModel
@@ -2296,7 +2277,6 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 @final
 class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeList, NodeList]):
     item_name = "nodes"
-    api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
     resource_cls = Node
@@ -2454,7 +2434,6 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
 
 @final
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
-    api_name = "workflows"
     folder_name = "workflows"
     filename_pattern = r"^.*\.Workflow$"
     resource_cls = Workflow
@@ -2522,7 +2501,6 @@ class WorkflowVersionLoader(
         WorkflowVersionId, WorkflowVersionUpsert, WorkflowVersion, WorkflowVersionUpsertList, WorkflowVersionList
     ]
 ):
-    api_name = "workflows.versions"
     folder_name = "workflows"
     filename_pattern = r"^.*\.?(WorkflowVersion)$"
     resource_cls = WorkflowVersion
