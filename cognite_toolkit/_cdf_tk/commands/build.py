@@ -39,9 +39,6 @@ from cognite_toolkit._cdf_tk.load import (
     ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.templates._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
-from cognite_toolkit._cdf_tk.templates._templates import (
-    YAMLSemantic,
-)
 from cognite_toolkit._cdf_tk.templates._utils import (
     iterate_functions,
     iterate_modules,
@@ -55,7 +52,6 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,
-    IncorrectResourceWarning,
     LowSeverityWarning,
     MediumSeverityWarning,
     ToolkitBugWarning,
@@ -450,6 +446,31 @@ class BuildCommand(ToolkitCommand):
         if not issubclass(loader, ResourceLoader):
             return warning_list
 
+        api_spec = self._get_api_spec(loader, destination)
+        is_dict_item = isinstance(parsed, dict)
+        items = [parsed] if is_dict_item else parsed
+
+        for no, item in enumerate(items, 1):
+            element_no = None if is_dict_item else no
+            identifier: Any | None = None
+            try:
+                identifier = loader.get_id(item)
+            except KeyError as error:
+                warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
+
+            warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
+            warning_list.extend(warnings)
+
+            if api_spec is not None:
+                resource_warnings = validate_resource_yaml(parsed, api_spec, source_path, element_no)
+                warning_list.extend(resource_warnings)
+
+            data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)
+            warning_list.extend(data_set_warnings)
+
+        return warning_list
+
+    def _get_api_spec(self, loader: type[ResourceLoader], destination: Path) -> ParameterSpecSet | None:
         api_spec: ParameterSpecSet | None = None
         try:
             api_spec = loader.get_write_cls_parameter_spec()
@@ -460,30 +481,7 @@ class BuildCommand(ToolkitCommand):
                     header=f"Failed to validate {destination.name} due to: {e}", traceback=traceback.format_exc()
                 )
             )
-
-        is_dict_item = isinstance(parsed, dict)
-        items = [parsed] if is_dict_item else parsed
-
-        for no, item in enumerate(items, 1):
-            element_no = None if is_dict_item else no
-            identifier: Any | None = None
-            try:
-                identifier = loader.get_id(item)
-            except KeyError as error:
-                warning_list.append(
-                    MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error)
-                )
-
-            warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
-            warning_list.extend(warnings)
-
-            if api_spec is not None:
-                resource_warnings = validate_resource_yaml(parsed,  api_spec, source_path, element_no)
-                warning_list.extend(resource_warnings)
-
-            data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)
-            warning_list.extend(data_set_warnings)
-        return warning_list
+        return api_spec
 
     def _get_loader(self, resource_folder: str, destination: Path) -> type[Loader] | None:
         loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])

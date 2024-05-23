@@ -146,7 +146,9 @@ class MissingRequiredParameterWarning(YAMLFileWithElementWarning):
 
 
 @dataclass(frozen=True)
-class MissingRequiredIdentifierWarning(MissingRequiredParameterWarning):
+class MissingRequiredIdentifierWarning(YAMLFileWithElementWarning):
+    expected: tuple[str, ...]
+
     def get_message(self) -> str:
         return f"{type(self).__name__}: Missing required identifier {self.expected!r}{self._location}."
 
