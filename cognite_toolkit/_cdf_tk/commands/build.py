@@ -7,7 +7,7 @@ import shutil
 import sys
 import traceback
 from collections import ChainMap, defaultdict
-from collections.abc import Mapping
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -59,7 +59,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     UnresolvedVariableWarning,
     WarningList,
 )
-from cognite_toolkit._cdf_tk.tk_warnings.fileread import MissingRequiredIdentifierWarning
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import DuplicatedItemWarning, MissingRequiredIdentifierWarning
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,
@@ -463,6 +463,11 @@ class BuildCommand(ToolkitCommand):
             except KeyError as error:
                 warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
 
+            if first_seen := state.ids_by_resource_type[loader].get(identifier):
+                warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
+            else:
+                state.ids_by_resource_type[loader][identifier] = source_path
+
             warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
             warning_list.extend(warnings)
 
@@ -517,6 +522,9 @@ class _BuildState:
     source_by_build_path: dict[Path, Path] = field(default_factory=dict)
     number_by_resource_type: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     printed_function_warning: bool = False
+    ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
+        default_factory=lambda: defaultdict(dict)
+    )
     _local_variables: Mapping[str, str] = field(default_factory=dict)
 
     @property

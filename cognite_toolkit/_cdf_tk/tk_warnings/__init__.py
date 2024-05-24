@@ -8,6 +8,7 @@ from .base import (
 from .fileread import (
     CaseTypoWarning,
     DataSetMissingWarning,
+    DuplicatedItemWarning,
     FileReadWarning,
     MissingRequiredParameterWarning,
     NamespacingConventionWarning,
@@ -42,6 +43,7 @@ __all__ = [
     "UnresolvedVariableWarning",
     "PrefixConventionWarning",
     "NamespacingConventionWarning",
+    "DuplicatedItemWarning",
     "UnusedParameterWarning",
     "MissingRequiredParameterWarning",
     "YAMLFileWarning",

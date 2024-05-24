@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -271,8 +270,8 @@ tableName: myTable
 
 class TestCheckYamlSemantics:
     @pytest.mark.parametrize("raw_yaml, source_path", list(valid_yaml_semantics_test_cases()))
-    def test_valid_yaml(self, raw_yaml: str, source_path: Path):
-        state = MagicMock(spec=_BuildState)
+    def test_valid_yaml(self, raw_yaml: str, source_path: Path, dummy_environment: Environment):
+        state = _BuildState.create(BuildConfigYAML(dummy_environment, filepath=Path("dummy"), variables={}))
         cmd = BuildCommand(print_warning=False)
         # Only used in error messages
         destination = Path("build/raw/raw.yaml")
