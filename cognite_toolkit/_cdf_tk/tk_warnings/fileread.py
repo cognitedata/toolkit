@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Hashable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
@@ -52,6 +53,19 @@ class YAMLFileWithElementWarning(YAMLFileWarning, ABC):
             return f"{value}"
         else:
             return f"{value} in section {self.path!r}"
+
+
+@dataclass(frozen=True)
+class DuplicatedItemWarning(YAMLFileWarning):
+    severity = SeverityLevel.MEDIUM
+    identifier: Hashable
+    first_location: Path
+
+    def get_message(self) -> str:
+        return (
+            f"{type(self).__name__}: Duplicated item with identifier "
+            f"{self.identifier!r} first seen in {self.first_location.name}."
+        )
 
 
 @dataclass(frozen=True)
