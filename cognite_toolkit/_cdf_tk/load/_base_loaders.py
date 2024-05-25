@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Sequence, Sized
 from functools import lru_cache
@@ -19,19 +18,14 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling import DataModelingId, VersionedDataModelingId
 from cognite.client.data_classes.data_modeling.ids import InstanceId
-from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
-from rich import print
-from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.tk_warnings import WarningList, YAMLFileWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 from .data_classes import (
-    DatapointDeployResult,
     RawDatabaseTable,
-    UploadDeployResult,
 )
 
 T_ID = TypeVar(
@@ -236,39 +230,6 @@ class ResourceLoader(
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
 
-    def to_create_changed_unchanged_triple(
-        self, resources: T_CogniteResourceList
-    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList]:
-        """Returns a triple of lists of resources that should be created, updated, and are unchanged."""
-        resource_ids = self.get_ids(resources)
-        to_create, to_update, unchanged = (
-            self.create_empty_of(resources),
-            self.create_empty_of(resources),
-            self.create_empty_of(resources),
-        )
-        try:
-            cdf_resources = self.retrieve(resource_ids)
-        except Exception as e:
-            print(
-                f"  [bold yellow]WARNING:[/] Failed to retrieve {len(resource_ids)} of {self.display_name}. Proceeding assuming not data in CDF. Error {e}."
-            )
-            print(Panel(traceback.format_exc()))
-            cdf_resource_by_id = {}
-        else:
-            cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources}
-
-        for item in resources:
-            cdf_resource = cdf_resource_by_id.get(self.get_id(item))
-            # The custom compare is needed when the regular == does not work. For example, TransformationWrite
-            # have OIDC credentials that will not be returned by the retrieve method, and thus need special handling.
-            if cdf_resource and (item == cdf_resource.as_write() or self._is_equal_custom(item, cdf_resource)):
-                unchanged.append(item)
-            elif cdf_resource:
-                to_update.append(item)
-            else:
-                to_create.append(item)
-        return to_create, to_update, unchanged
-
     def _is_equal_custom(self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource) -> bool:
         """This method is used to compare the local and cdf resource when the default comparison fails.
 
@@ -276,26 +237,6 @@ class ResourceLoader(
         for example, the OIDC credentials in Transformations.
         """
         return False
-
-    def _update_resources(self, resources: T_CogniteResourceList, verbose: bool) -> int | None:
-        try:
-            updated = self.update(resources)
-        except Exception as e:
-            print(f"  [bold yellow]Error:[/] Failed to update {self.display_name}. Error {e}.")
-            if verbose:
-                print(Panel(traceback.format_exc()))
-            return None
-        else:
-            return len(updated)
-
-    @staticmethod
-    def _print_ids_or_length(resource_ids: SequenceNotStr[T_ID], limit: int = 10) -> str:
-        if len(resource_ids) == 1:
-            return f"{resource_ids[0]!r}"
-        elif len(resource_ids) <= limit:
-            return f"{resource_ids}"
-        else:
-            return f"{len(resource_ids)} items"
 
 
 class ResourceContainerLoader(
@@ -327,55 +268,6 @@ class ResourceContainerLoader(
     def drop_data(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
 
-    def _drop_data(self, loaded_resources: T_CogniteResourceList, dry_run: bool, verbose: bool) -> int:
-        nr_of_dropped = 0
-        resource_ids = self.get_ids(loaded_resources)
-        if dry_run:
-            resource_drop_count = self.count(resource_ids)
-            nr_of_dropped += resource_drop_count
-            if verbose:
-                self._verbose_print_drop(resource_drop_count, resource_ids, dry_run)
-            return nr_of_dropped
-
-        try:
-            resource_drop_count = self.drop_data(resource_ids)
-            nr_of_dropped += resource_drop_count
-        except CogniteAPIError as e:
-            if e.code == 404 and verbose:
-                print(f"  [bold]INFO:[/] {len(resource_ids)} {self.display_name} do(es) not exist.")
-        except CogniteNotFoundError:
-            return nr_of_dropped
-        except Exception as e:
-            print(
-                f"  [bold yellow]WARNING:[/] Failed to drop {self.item_name} from {len(resource_ids)} {self.display_name}. Error {e}."
-            )
-            if verbose:
-                print(Panel(traceback.format_exc()))
-        else:  # Delete succeeded
-            if verbose:
-                self._verbose_print_drop(resource_drop_count, resource_ids, dry_run)
-        return nr_of_dropped
-
-    def _verbose_print_drop(self, drop_count: int, resource_ids: SequenceNotStr[T_ID], dry_run: bool) -> None:
-        prefix = "Would have dropped" if dry_run else "Dropped"
-        if drop_count > 0:
-            print(
-                f"  {prefix} {drop_count:,} {self.item_name} from {self.display_name}: "
-                f"{self._print_ids_or_length(resource_ids)}."
-            )
-        elif drop_count == 0:
-            verb = "is" if len(resource_ids) == 1 else "are"
-            print(
-                f"  The {self.display_name}: {self._print_ids_or_length(resource_ids)} {verb} empty, "
-                f"thus no {self.item_name} will be {'touched' if dry_run else 'dropped'}."
-            )
-        else:
-            # Count is not supported
-            print(
-                f" {prefix} all {self.item_name} from {self.display_name}: "
-                f"{self._print_ids_or_length(resource_ids)}."
-            )
-
 
 class DataLoader(Loader, ABC):
     """This is the base class for all data loaders.
@@ -398,35 +290,3 @@ class DataLoader(Loader, ABC):
     @abstractmethod
     def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
         raise NotImplementedError
-
-    def deploy_resources(
-        self,
-        path: Path,
-        ToolGlobals: CDFToolConfig,
-        dry_run: bool = False,
-        has_done_drop: bool = False,
-        has_dropped_data: bool = False,
-        verbose: bool = False,
-    ) -> UploadDeployResult | None:
-        filepaths = self.find_files(path)
-
-        prefix = "Would upload" if dry_run else "Uploading"
-        print(f"[bold]{prefix} {len(filepaths)} data {self.display_name} files to CDF...[/]")
-        datapoints = 0
-        for filepath in filepaths:
-            try:
-                message, file_datapoints = self.upload(filepath, ToolGlobals, dry_run)
-            except Exception as e:
-                print(f"  [bold red]Error:[/] Failed to upload {filepath.name}. Error: {e!r}.")
-                print(Panel(traceback.format_exc()))
-                ToolGlobals.failed = True
-                return None
-            if verbose:
-                print(message)
-            datapoints += file_datapoints
-        if datapoints != 0:
-            return DatapointDeployResult(
-                self.display_name, points=datapoints, uploaded=len(filepaths), item_name=self.item_name
-            )
-        else:
-            return UploadDeployResult(self.display_name, uploaded=len(filepaths), item_name=self.item_name)
