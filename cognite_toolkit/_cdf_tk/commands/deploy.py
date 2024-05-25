@@ -38,7 +38,11 @@ from cognite_toolkit._cdf_tk.templates import (
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildEnvironment,
 )
-from cognite_toolkit._cdf_tk.tk_warnings.other import ToolkitDependenciesIncludedWarning
+from cognite_toolkit._cdf_tk.tk_warnings.other import (
+    LowSeverityWarning,
+    MediumSeverityWarning,
+    ToolkitDependenciesIncludedWarning,
+)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     read_yaml_file,
@@ -249,7 +253,7 @@ class DeployCommand(CleanBaseCommand):
         print(f"[bold]{prefix} {nr_of_items} {loader.display_name} to CDF...[/]")
         # Moved here to avoid printing before the above message.
         for duplicate in duplicates:
-            print(f"  [bold yellow]WARNING:[/] Skipping duplicate {loader.display_name} {duplicate}.")
+            self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
         to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(loaded_resources, loader)
@@ -326,8 +330,10 @@ class DeployCommand(CleanBaseCommand):
         try:
             cdf_resources = loader.retrieve(resource_ids)
         except Exception as e:
-            print(
-                f"  [bold yellow]WARNING:[/] Failed to retrieve {len(resource_ids)} of {loader.display_name}. Proceeding assuming not data in CDF. Error {e}."
+            self.warn(
+                MediumSeverityWarning(
+                    f"Failed to retrieve {len(resource_ids)} of {loader.display_name}. Proceeding assuming not data in CDF. Error {e}."
+                )
             )
             print(Panel(traceback.format_exc()))
             cdf_resource_by_id = {}
@@ -377,13 +383,15 @@ class DeployCommand(CleanBaseCommand):
             created = loader.create(resources)
         except CogniteAPIError as e:
             if e.code == 409:
-                print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
+                self.warn(LowSeverityWarning("Resource(s) already exist(s), skipping creation."))
             else:
                 print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
                 return None
         except CogniteDuplicatedError as e:
-            print(
-                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} out of {len(resources)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
+            self.warn(
+                LowSeverityWarning(
+                    f"{len(e.duplicated)} out of {len(resources)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
+                )
             )
         except Exception as e:
             print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
