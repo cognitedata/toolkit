@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 import traceback
 from graphlib import TopologicalSorter
