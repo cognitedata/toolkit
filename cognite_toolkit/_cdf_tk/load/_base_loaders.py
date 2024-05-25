@@ -41,6 +41,7 @@ class Loader(ABC):
 
     Args:
         client (CogniteClient): The client to use for interacting with the CDF API.
+        build_path (Path): The path to the build directory
 
     Class attributes:
         filetypes: The filetypes that are supported by this loader. This should be set in all subclasses.
@@ -59,7 +60,7 @@ class Loader(ABC):
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
 
-    def __init__(self, client: CogniteClient, build_path: Path | None = None):
+    def __init__(self, client: CogniteClient, build_path: Path):
         self.client = client
         self.build_path = build_path
         self.extra_configs: dict[str, Any] = {}
@@ -149,16 +150,39 @@ class ResourceLoader(
     support_drop = True
     filetypes = frozenset({"yaml", "yml"})
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
-    _display_name: str = ""
 
-    @property
-    def display_name(self) -> str:
-        return self._display_name or super().display_name
-
+    # The methods that must be implemented in the subclass
     @classmethod
     @abstractmethod
     def get_id(cls, item: T_WriteClass | T_WritableCogniteResource | dict) -> T_ID:
         raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
+
+    @abstractmethod
+    def create(self, items: T_CogniteResourceList) -> Sized:
+        raise NotImplementedError
+
+    @abstractmethod
+    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update(self, items: T_CogniteResourceList) -> Sized:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete(self, ids: SequenceNotStr[T_ID]) -> int:
+        raise NotImplementedError
+
+    # The methods below have default implementations that can be overwritten in subclasses
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
 
     @classmethod
     def check_identifier_semantics(
@@ -167,16 +191,6 @@ class ResourceLoader(
         """This should be overwritten in subclasses to check the semantics of the identifier."""
         return WarningList[YAMLFileWarning]()
 
-    @classmethod
-    @abstractmethod
-    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
-        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
-
-    @classmethod
-    def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource]) -> list[T_ID]:
-        return [cls.get_id(item) for item in items]
-
-    # Default implementations that can be overridden
     @classmethod
     def create_empty_of(cls, items: T_CogniteResourceList) -> T_CogniteResourceList:
         return cls.list_write_cls([])
@@ -209,34 +223,18 @@ class ResourceLoader(
         """
         return resource.dump(), {}
 
-    @abstractmethod
-    def create(self, items: T_CogniteResourceList) -> Sized:
-        raise NotImplementedError
+    def are_equal(self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource) -> bool:
+        """This can be overwritten in subclasses that require special comparison logic.
 
-    @abstractmethod
-    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
-        raise NotImplementedError
-
-    @abstractmethod
-    def update(self, items: T_CogniteResourceList) -> Sized:
-        raise NotImplementedError
-
-    @abstractmethod
-    def delete(self, ids: SequenceNotStr[T_ID]) -> int:
-        raise NotImplementedError
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
-
-    def _is_equal_custom(self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource) -> bool:
-        """This method is used to compare the local and cdf resource when the default comparison fails.
-
-        This is needed for resources that have fields that are not returned by the retrieve method, like,
-        for example, the OIDC credentials in Transformations.
+        For example, TransformationWrite has OIDC credentials that will not be returned
+        by the retrieve method, and thus needs special handling.
         """
-        return False
+        return local == cdf_resource.as_write()
+
+    # Helper method
+    @classmethod
+    def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource | dict]) -> list[T_ID]:
+        return [cls.get_id(item) for item in items]
 
 
 class ResourceContainerLoader(

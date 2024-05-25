@@ -344,9 +344,7 @@ class DeployCommand(CleanBaseCommand):
 
         for item in resources:
             cdf_resource = cdf_resource_by_id.get(loader.get_id(item))
-            # The custom compare is needed when the regular == does not work. For example, TransformationWrite
-            # have OIDC credentials that will not be returned by the retrieve method, and thus need special handling.
-            if cdf_resource and (item == cdf_resource.as_write() or loader._is_equal_custom(item, cdf_resource)):
+            if cdf_resource and loader.are_equal(item, cdf_resource):
                 unchanged.append(item)
             elif cdf_resource:
                 to_update.append(item)

@@ -531,7 +531,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         else:
             return FunctionWriteList.load(functions)
 
-    def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
+    def are_equal(self, local: FunctionWrite, cdf_resource: Function) -> bool:
         if self.build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
         # If the function failed, we want to always trigger a redeploy.
@@ -723,7 +723,7 @@ class FunctionScheduleLoader(
             self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
         return FunctionScheduleWriteList.load(schedules)
 
-    def _is_equal_custom(self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule) -> bool:
+    def are_equal(self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule) -> bool:
         remote_dump = cdf_resource.as_write().dump()
         del remote_dump["functionId"]
         return remote_dump == local.dump()
@@ -1166,7 +1166,7 @@ class TransformationLoader(
             warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "tr_"))
         return warning_list
 
-    def _is_equal_custom(self, local: TransformationWrite, cdf_resource: Transformation) -> bool:
+    def are_equal(self, local: TransformationWrite, cdf_resource: Transformation) -> bool:
         local_dumped = local.dump()
         local_dumped.pop("destinationOidcCredentials", None)
         local_dumped.pop("sourceOidcCredentials", None)
@@ -2002,7 +2002,7 @@ class ContainerLoader(
     def _chunker(seq: Sequence, size: int) -> Iterable[Sequence]:
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
-    def _is_equal_custom(self, local: ContainerApply, remote: Container) -> bool:
+    def are_equal(self, local: ContainerApply, remote: Container) -> bool:
         local_dumped = local.dump(camel_case=True)
         if "usedFor" not in local_dumped:
             # Setting used_for to "node" as it is the default value in the CDF and will be set by
@@ -2100,7 +2100,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         return loaded
 
-    def _is_equal_custom(self, local: ViewApply, cdf_resource: View) -> bool:
+    def are_equal(self, local: ViewApply, cdf_resource: View) -> bool:
         local_dumped = local.dump()
         cdf_resource_dumped = cdf_resource.as_write().dump()
         if not cdf_resource.implements:
@@ -2237,7 +2237,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         return loaded
 
-    def _is_equal_custom(self, local: DataModelApply, cdf_resource: DataModel) -> bool:
+    def are_equal(self, local: DataModelApply, cdf_resource: DataModel) -> bool:
         local_dumped = local.dump()
         cdf_resource_dumped = cdf_resource.as_write().dump()
 
@@ -2303,7 +2303,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
             return NodeId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
-    def _is_equal_custom(self, local: LoadedNode, cdf_resource: Node) -> bool:
+    def are_equal(self, local: LoadedNode, cdf_resource: Node) -> bool:
         """Comparison for nodes to include properties in the comparison
 
         Note this is an expensive operation as we to an extra retrieve to fetch the properties.
