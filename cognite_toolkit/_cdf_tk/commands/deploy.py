@@ -3,10 +3,9 @@ import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
 
-
 import typer
 from cognite.client.data_classes._base import T_CogniteResourceList
-from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError, CogniteDuplicatedError
+from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.panel import Panel
@@ -19,15 +18,22 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
 )
 from cognite_toolkit._cdf_tk.load import (
-    Loader,
-    DataLoader,
     LOADER_BY_FOLDER_NAME,
     AuthLoader,
+    DataLoader,
     DeployResults,
-    ResourceLoader, ResourceContainerLoader,
+    Loader,
+    ResourceContainerLoader,
+    ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.load._base_loaders import T_ID
-from cognite_toolkit._cdf_tk.load.data_classes import ResourceDeployResult, ResourceContainerDeployResult
+from cognite_toolkit._cdf_tk.load.data_classes import (
+    DatapointDeployResult,
+    DeployResult,
+    ResourceContainerDeployResult,
+    ResourceDeployResult,
+    UploadDeployResult,
+)
 from cognite_toolkit._cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
 )
@@ -179,6 +185,23 @@ class DeployCommand(ToolkitCommand):
 
     def deploy_resources(
         self,
+        loader: Loader,
+        path: Path,
+        ToolGlobals: CDFToolConfig,
+        dry_run: bool = False,
+        has_done_drop: bool = False,
+        has_dropped_data: bool = False,
+        verbose: bool = False,
+    ) -> DeployResult | None:
+        if isinstance(loader, ResourceLoader):
+            return self._deploy_resources(loader, path, ToolGlobals, dry_run, has_done_drop, has_dropped_data, verbose)
+        elif isinstance(loader, DataLoader):
+            return self._deploy_data(loader, path, ToolGlobals, dry_run, verbose)
+        else:
+            raise ValueError(f"Unsupported loader type {type(loader)}.")
+
+    def _deploy_resources(
+        self,
         loader: ResourceLoader,
         path: Path,
         ToolGlobals: CDFToolConfig,
@@ -289,7 +312,9 @@ class DeployCommand(ToolkitCommand):
             )
 
     def to_create_changed_unchanged_triple(
-        self, resources: T_CogniteResourceList, loader: ResourceLoader,
+        self,
+        resources: T_CogniteResourceList,
+        loader: ResourceLoader,
     ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList]:
         """Returns a triple of lists of resources that should be created, updated, and are unchanged."""
         resource_ids = loader.get_ids(resources)
@@ -348,7 +373,12 @@ class DeployCommand(ToolkitCommand):
             print(f"{prefix_message}{', '.join(print_outs[:-1])} and {print_outs[-1]}")
 
     def _load_files(
-        self, loader: ResourceLoader, filepaths: list[Path], ToolGlobals: CDFToolConfig, skip_validation: bool, verbose: bool = False
+        self,
+        loader: ResourceLoader,
+        filepaths: list[Path],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        verbose: bool = False,
     ) -> T_CogniteResourceList | None:
         loaded_resources = loader.create_empty_of(loader.list_write_cls([]))
         for filepath in filepaths:
@@ -379,7 +409,9 @@ class DeployCommand(ToolkitCommand):
                 loaded_resources.append(resource)
         return loaded_resources
 
-    def _remove_duplicates(self, loaded_resources: T_CogniteResourceList, loader: ResourceLoader) -> tuple[T_CogniteResourceList, list[T_ID]]:
+    def _remove_duplicates(
+        self, loaded_resources: T_CogniteResourceList, loader: ResourceLoader
+    ) -> tuple[T_CogniteResourceList, list[T_ID]]:
         seen: set[T_ID] = set()
         output = loader.create_empty_of(loaded_resources)
         duplicates: list[T_ID] = []
@@ -433,3 +465,34 @@ class DeployCommand(ToolkitCommand):
             return f"{resource_ids}"
         else:
             return f"{len(resource_ids)} items"
+
+    def _deploy_data(
+        self,
+        loader: DataLoader,
+        path: Path,
+        ToolGlobals: CDFToolConfig,
+        dry_run: bool = False,
+        verbose: bool = False,
+    ) -> UploadDeployResult | None:
+        filepaths = loader.find_files(path)
+
+        prefix = "Would upload" if dry_run else "Uploading"
+        print(f"[bold]{prefix} {len(filepaths)} data {loader.display_name} files to CDF...[/]")
+        datapoints = 0
+        for filepath in filepaths:
+            try:
+                message, file_datapoints = loader.upload(filepath, ToolGlobals, dry_run)
+            except Exception as e:
+                print(f"  [bold red]Error:[/] Failed to upload {filepath.name}. Error: {e!r}.")
+                print(Panel(traceback.format_exc()))
+                ToolGlobals.failed = True
+                return None
+            if verbose:
+                print(message)
+            datapoints += file_datapoints
+        if datapoints != 0:
+            return DatapointDeployResult(
+                loader.display_name, points=datapoints, uploaded=len(filepaths), item_name=loader.item_name
+            )
+        else:
+            return UploadDeployResult(loader.display_name, uploaded=len(filepaths), item_name=loader.item_name)
