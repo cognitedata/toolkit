@@ -1,7 +1,9 @@
 from graphlib import TopologicalSorter
 from pathlib import Path
+from typing import cast
 
 import typer
+from cognite.client.data_classes._base import T_CogniteResourceList
 from rich import print
 from rich.panel import Panel
 
@@ -15,8 +17,9 @@ from cognite_toolkit._cdf_tk.load import (
     AuthLoader,
     DataSetsLoader,
     DeployResults,
-    ResourceLoader,
+    ResourceLoader, ResourceContainerLoader,
 )
+from cognite_toolkit._cdf_tk.load.data_classes import ResourceDeployResult, ResourceContainerDeployResult
 from cognite_toolkit._cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
 )
@@ -108,3 +111,84 @@ class CleanCommand(ToolkitCommand):
             print(results.uploads_table())
         if ToolGlobals.failed:
             raise ToolkitCleanResourceError("Failure to clean auth as expected.")
+
+    def clean_resources(
+        self,
+        path: Path,
+        ToolGlobals: CDFToolConfig,
+        dry_run: bool = False,
+        drop: bool = True,
+        drop_data: bool = False,
+        verbose: bool = False,
+    ) -> ResourceDeployResult | None:
+        if not isinstance(self, ResourceContainerLoader) and not drop:
+            # Skipping silently as this, we will not drop data or delete this resource
+            return ResourceDeployResult(name=self.display_name)
+        if not self.support_drop:
+            print(f"  [bold green]INFO:[/] {self.display_name!r} cleaning is not supported, skipping...")
+            return ResourceDeployResult(name=self.display_name)
+        elif isinstance(self, ResourceContainerLoader) and not drop_data:
+            print(
+                f"  [bold]INFO:[/] Skipping cleaning of {self.display_name!r}. This is a data resource (it contains "
+                f"data and is not only configuration/metadata) and therefore "
+                "requires the --drop-data flag to be set to perform cleaning..."
+            )
+            return ResourceContainerDeployResult(name=self.display_name, item_name=self.item_name)
+
+        filepaths = self.find_files(path)
+
+        # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
+        loaded_resources = self._load_files(filepaths, ToolGlobals, skip_validation=True, verbose=verbose)
+        if loaded_resources is None:
+            ToolGlobals.failed = True
+            return None
+
+        # Duplicates should be handled on the build step,
+        # but in case any of them slip through, we do it here as well to
+        # avoid an error.
+        loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
+
+        capabilities = self.get_required_capability(loaded_resources)
+        if capabilities:
+            ToolGlobals.verify_capabilities(capabilities)
+
+        nr_of_items = len(loaded_resources)
+        if nr_of_items == 0:
+            return ResourceDeployResult(name=self.display_name)
+
+        existing_resources = cast(T_CogniteResourceList, self.retrieve(self.get_ids(loaded_resources)).as_write())
+        nr_of_existing = len(existing_resources)
+
+        if drop:
+            prefix = "Would clean" if dry_run else "Cleaning"
+            with_data = "with data " if isinstance(self, ResourceContainerLoader) else ""
+        else:
+            prefix = "Would drop data from" if dry_run else "Dropping data from"
+            with_data = ""
+        print(f"[bold]{prefix} {nr_of_existing} {self.display_name} {with_data}from CDF...[/]")
+        for duplicate in duplicates:
+            print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
+
+        # Deleting resources.
+        if isinstance(self, ResourceContainerLoader) and drop_data:
+            nr_of_dropped_datapoints = self._drop_data(existing_resources, dry_run, verbose)
+            if drop:
+                nr_of_deleted = self._delete_resources(existing_resources, dry_run, verbose)
+            else:
+                nr_of_deleted = 0
+            if verbose:
+                print("")
+            return ResourceContainerDeployResult(
+                name=self.display_name,
+                deleted=nr_of_deleted,
+                total=nr_of_items,
+                dropped_datapoints=nr_of_dropped_datapoints,
+                item_name=self.item_name,
+            )
+        elif not isinstance(self, ResourceContainerLoader) and drop:
+            nr_of_deleted = self._delete_resources(existing_resources, dry_run, verbose)
+            if verbose:
+                print("")
+            return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
+        else:
+            return ResourceDeployResult(name=self.display_name)

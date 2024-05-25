@@ -503,7 +503,7 @@ class ResourceLoader(
     def _is_equal_custom(self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource) -> bool:
         """This method is used to compare the local and cdf resource when the default comparison fails.
 
-        This is needed for resources that have fields that are not returned by the retrieve method, like
+        This is needed for resources that have fields that are not returned by the retrieve method, like,
         for example, the OIDC credentials in Transformations.
         """
         return False
