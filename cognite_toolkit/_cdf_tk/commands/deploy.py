@@ -85,6 +85,7 @@ class DeployCommand(CleanBaseCommand):
         if len(ordered_loaders) > len(selected_loaders):
             dependencies = [item.folder_name for item in ordered_loaders if item not in selected_loaders]
             self.warn(ToolkitDependenciesIncludedWarning(dependencies))
+        result: DeployResult | None
         if drop or drop_data:
             # Drop has to be done in the reverse order of deploy.
             if drop and drop_data:
@@ -98,7 +99,8 @@ class DeployCommand(CleanBaseCommand):
                 if not issubclass(loader_cls, ResourceLoader):
                     continue
                 loader = loader_cls.create_loader(ToolGlobals)
-                result = loader.clean_resources(
+                result = self.clean_resources(
+                    loader,
                     build_path / loader_cls.folder_name,
                     ToolGlobals,
                     drop=drop,
@@ -112,7 +114,8 @@ class DeployCommand(CleanBaseCommand):
                     raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
 
             if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-                result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
+                result = self.clean_resources(
+                    AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
                     directory,
                     ToolGlobals,
                     drop=drop,
@@ -139,9 +142,8 @@ class DeployCommand(CleanBaseCommand):
         if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
             # First, we need to get all the generic access, so we can create the rest of the resources.
             result = (
-                AuthLoader
-                .create_loader(ToolGlobals, target_scopes="all_scoped_only")
-                .deploy_resources(directory, **arguments)
+                self.deploy_resources(AuthLoader
+                .create_loader(ToolGlobals, target_scopes="all_scoped_only"), directory, **arguments)
             )  # fmt: skip
             if ToolGlobals.failed:
                 raise ToolkitDeployResourceError("Failure to deploy auth (groups) with ALL scope as expected.")
@@ -151,8 +153,8 @@ class DeployCommand(CleanBaseCommand):
                 print("")  # Extra newline
 
         for loader_cls in ordered_loaders:
-            result = loader_cls.create_loader(ToolGlobals).deploy_resources(  # type: ignore[assignment]
-                build_path / loader_cls.folder_name, **arguments
+            result = self.deploy_resources(
+                loader_cls.create_loader(ToolGlobals), build_path / loader_cls.folder_name, **arguments
             )
             if ToolGlobals.failed:
                 if results and results.has_counts:
@@ -169,7 +171,7 @@ class DeployCommand(CleanBaseCommand):
             # Last, we create the Groups again, but this time we do not filter out any capabilities
             # and we do not skip validation as the resources should now have been created.
             loader = AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only")
-            result = loader.deploy_resources(directory, **arguments)
+            result = self.deploy_resources(loader, directory, **arguments)
             if ToolGlobals.failed:
                 raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")
             if result:

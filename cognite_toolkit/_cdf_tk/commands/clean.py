@@ -307,7 +307,8 @@ class CleanCommand(CleanBaseCommand):
             if type(loader) is DataSetsLoader:
                 self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
                 continue
-            result = loader.clean_resources(
+            result = self.clean_resources(
+                loader,
                 build_path / loader_cls.folder_name,
                 ToolGlobals,
                 drop=True,
@@ -325,7 +326,8 @@ class CleanCommand(CleanBaseCommand):
                 raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
 
         if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-            result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
+            result = self.clean_resources(
+                AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
                 directory,
                 ToolGlobals,
                 drop=True,
