@@ -1,7 +1,6 @@
 import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
-from typing import cast
 
 import typer
 from cognite.client.data_classes._base import T_CogniteResourceList
@@ -10,7 +9,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands._base import LoaderCommand
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitNotADirectoryError,
@@ -20,10 +19,11 @@ from cognite_toolkit._cdf_tk.load import (
     AuthLoader,
     DataSetsLoader,
     DeployResults,
-    ResourceLoader, ResourceContainerLoader,
+    ResourceContainerLoader,
+    ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.load._base_loaders import T_ID
-from cognite_toolkit._cdf_tk.load.data_classes import ResourceDeployResult, ResourceContainerDeployResult
+from cognite_toolkit._cdf_tk.load.data_classes import ResourceContainerDeployResult, ResourceDeployResult
 from cognite_toolkit._cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
 )
@@ -40,7 +40,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 
-class CleanCommand(ToolkitCommand):
+class CleanCommand(LoaderCommand):
     def execute(
         self, ctx: typer.Context, build_dir: str, build_env_name: str, dry_run: bool, include: list[str]
     ) -> None:
@@ -143,7 +143,7 @@ class CleanCommand(ToolkitCommand):
         filepaths = loader.find_files(path)
 
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-        loaded_resources = self._load_files(filepaths, ToolGlobals, skip_validation=True, verbose=verbose)
+        loaded_resources = self._load_files(loader, filepaths, ToolGlobals, skip_validation=True, verbose=verbose)
         if loaded_resources is None:
             ToolGlobals.failed = True
             return None
@@ -151,7 +151,7 @@ class CleanCommand(ToolkitCommand):
         # Duplicates should be handled on the build step,
         # but in case any of them slip through, we do it here as well to
         # avoid an error.
-        loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
+        loaded_resources, duplicates = self._remove_duplicates(loaded_resources, loader)
 
         capabilities = loader.get_required_capability(loaded_resources)
         if capabilities:
@@ -161,7 +161,7 @@ class CleanCommand(ToolkitCommand):
         if nr_of_items == 0:
             return ResourceDeployResult(name=loader.display_name)
 
-        existing_resources = cast(T_CogniteResourceList, loader.retrieve(loader.get_ids(loaded_resources)).as_write())
+        existing_resources = loader.retrieve(loader.get_ids(loaded_resources)).as_write()
         nr_of_existing = len(existing_resources)
 
         if drop:
@@ -198,7 +198,9 @@ class CleanCommand(ToolkitCommand):
         else:
             return ResourceDeployResult(name=loader.display_name)
 
-    def _delete_resources(self, loaded_resources: T_CogniteResourceList, loader: ResourceLoader, dry_run: bool, verbose: bool) -> int:
+    def _delete_resources(
+        self, loaded_resources: T_CogniteResourceList, loader: ResourceLoader, dry_run: bool, verbose: bool
+    ) -> int:
         nr_of_deleted = 0
         resource_ids = loader.get_ids(loaded_resources)
         if dry_run:
@@ -225,14 +227,16 @@ class CleanCommand(ToolkitCommand):
                 print(f"  Deleted {self._print_ids_or_length(resource_ids)}.")
         return nr_of_deleted
 
-    def _drop_data(self, loaded_resources: T_CogniteResourceList, loader: ResourceContainerLoader, dry_run: bool, verbose: bool) -> int:
+    def _drop_data(
+        self, loaded_resources: T_CogniteResourceList, loader: ResourceContainerLoader, dry_run: bool, verbose: bool
+    ) -> int:
         nr_of_dropped = 0
         resource_ids = loader.get_ids(loaded_resources)
         if dry_run:
             resource_drop_count = loader.count(resource_ids)
             nr_of_dropped += resource_drop_count
             if verbose:
-                self._verbose_print_drop(resource_drop_count, resource_ids, dry_run)
+                self._verbose_print_drop(resource_drop_count, resource_ids, loader, dry_run)
             return nr_of_dropped
 
         try:
@@ -254,7 +258,9 @@ class CleanCommand(ToolkitCommand):
                 self._verbose_print_drop(resource_drop_count, resource_ids, loader, dry_run)
         return nr_of_dropped
 
-    def _verbose_print_drop(self, drop_count: int, resource_ids: SequenceNotStr[T_ID], loader: ResourceContainerLoader, dry_run: bool) -> None:
+    def _verbose_print_drop(
+        self, drop_count: int, resource_ids: SequenceNotStr[T_ID], loader: ResourceContainerLoader, dry_run: bool
+    ) -> None:
         prefix = "Would have dropped" if dry_run else "Dropped"
         if drop_count > 0:
             print(
