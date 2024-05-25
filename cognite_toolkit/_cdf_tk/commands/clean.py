@@ -9,7 +9,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands._base import LoaderCommand
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitNotADirectoryError,
@@ -40,82 +40,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 
-class CleanCommand(LoaderCommand):
-    def execute(
-        self, ctx: typer.Context, build_dir: str, build_env_name: str, dry_run: bool, include: list[str]
-    ) -> None:
-        ToolGlobals = CDFToolConfig.from_context(ctx)
-
-        build_ = BuildEnvironment.load(
-            read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env_name, "clean"
-        )
-        build_.set_environment_variables()
-
-        Panel(f"[bold]Cleaning environment {build_env_name} based on config files from {build_dir}...[/]")
-        build_path = Path(build_dir)
-        if not build_path.is_dir():
-            raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
-
-        # The 'auth' loader is excluded, as it is run at the end.
-        selected_loaders = {
-            loader_cls: loader_cls.dependencies
-            for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-            if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
-            for loader_cls in loader_classes
-        }
-
-        print(ToolGlobals.as_string())
-        if ToolGlobals.failed:
-            raise ToolkitCleanResourceError("Failure to delete data models as expected.")
-
-        results = DeployResults([], "clean", dry_run=dry_run)
-        resolved_list = list(TopologicalSorter(selected_loaders).static_order())
-        if len(resolved_list) > len(selected_loaders):
-            dependencies = [item.folder_name for item in resolved_list if item not in selected_loaders]
-            self.warn(ToolkitDependenciesIncludedWarning(dependencies=dependencies))
-        for loader_cls in reversed(resolved_list):
-            if not issubclass(loader_cls, ResourceLoader):
-                continue
-            loader = loader_cls.create_loader(ToolGlobals)
-            if type(loader) is DataSetsLoader:
-                self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
-                continue
-            result = loader.clean_resources(
-                build_path / loader_cls.folder_name,
-                ToolGlobals,
-                drop=True,
-                dry_run=dry_run,
-                drop_data=True,
-                verbose=ctx.obj.verbose,
-            )
-            if result:
-                results[result.name] = result
-            if ToolGlobals.failed:
-                if results and results.has_counts:
-                    print(results.counts_table())
-                if results and results.has_uploads:
-                    print(results.uploads_table())
-                raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
-
-        if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-            result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
-                directory,
-                ToolGlobals,
-                drop=True,
-                dry_run=dry_run,
-                verbose=ctx.obj.verbose,
-            )
-            if ToolGlobals.failed:
-                raise ToolkitCleanResourceError("Failure to clean auth as expected.")
-            if result:
-                results[result.name] = result
-        if results.has_counts:
-            print(results.counts_table())
-        if results.has_uploads:
-            print(results.uploads_table())
-        if ToolGlobals.failed:
-            raise ToolkitCleanResourceError("Failure to clean auth as expected.")
-
+class CleanBaseCommand(ToolkitCommand):
     def clean_resources(
         self,
         loader: ResourceLoader,
@@ -279,3 +204,141 @@ class CleanCommand(LoaderCommand):
                 f" {prefix} all {loader.item_name} from {loader.display_name}: "
                 f"{self._print_ids_or_length(resource_ids)}."
             )
+
+    def _load_files(
+        self,
+        loader: ResourceLoader,
+        filepaths: list[Path],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        verbose: bool = False,
+    ) -> T_CogniteResourceList | None:
+        loaded_resources = loader.create_empty_of(loader.list_write_cls([]))
+        for filepath in filepaths:
+            try:
+                resource = loader.load_resource(filepath, ToolGlobals, skip_validation)
+            except KeyError as e:
+                # KeyError means that we are missing a required field in the yaml file.
+                print(
+                    f"[bold red]ERROR:[/] Failed to load {filepath.name} with {loader.display_name}. Missing required field: {e}."
+                    f"[bold red]ERROR:[/] Please compare with the API specification at {loader.doc_url()}."
+                )
+                return None
+            except Exception as e:
+                print(f"[bold red]ERROR:[/] Failed to load {filepath.name} with {loader.display_name}. Error: {e!r}.")
+                if verbose:
+                    print(Panel(traceback.format_exc()))
+                return None
+            if resource is None:
+                # This is intentional. It is, for example, used by the AuthLoader to skip groups with resource scopes.
+                continue
+            if isinstance(resource, loader.list_write_cls) and not resource:
+                print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
+                continue
+
+            if isinstance(resource, loader.list_write_cls):
+                loaded_resources.extend(resource)
+            else:
+                loaded_resources.append(resource)
+        return loaded_resources
+
+    @staticmethod
+    def _print_ids_or_length(resource_ids: SequenceNotStr[T_ID], limit: int = 10) -> str:
+        if len(resource_ids) == 1:
+            return f"{resource_ids[0]!r}"
+        elif len(resource_ids) <= limit:
+            return f"{resource_ids}"
+        else:
+            return f"{len(resource_ids)} items"
+
+    def _remove_duplicates(
+        self, loaded_resources: T_CogniteResourceList, loader: ResourceLoader
+    ) -> tuple[T_CogniteResourceList, list[T_ID]]:
+        seen: set[T_ID] = set()
+        output = loader.create_empty_of(loaded_resources)
+        duplicates: list[T_ID] = []
+        for item in loaded_resources:
+            identifier = loader.get_id(item)
+            if identifier not in seen:
+                output.append(item)
+                seen.add(identifier)
+            else:
+                duplicates.append(identifier)
+        return output, duplicates
+
+
+class CleanCommand(CleanBaseCommand):
+    def execute(
+        self, ctx: typer.Context, build_dir: str, build_env_name: str, dry_run: bool, include: list[str]
+    ) -> None:
+        ToolGlobals = CDFToolConfig.from_context(ctx)
+
+        build_ = BuildEnvironment.load(
+            read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env_name, "clean"
+        )
+        build_.set_environment_variables()
+
+        Panel(f"[bold]Cleaning environment {build_env_name} based on config files from {build_dir}...[/]")
+        build_path = Path(build_dir)
+        if not build_path.is_dir():
+            raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
+
+        # The 'auth' loader is excluded, as it is run at the end.
+        selected_loaders = {
+            loader_cls: loader_cls.dependencies
+            for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
+            if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+            for loader_cls in loader_classes
+        }
+
+        print(ToolGlobals.as_string())
+        if ToolGlobals.failed:
+            raise ToolkitCleanResourceError("Failure to delete data models as expected.")
+
+        results = DeployResults([], "clean", dry_run=dry_run)
+        resolved_list = list(TopologicalSorter(selected_loaders).static_order())
+        if len(resolved_list) > len(selected_loaders):
+            dependencies = [item.folder_name for item in resolved_list if item not in selected_loaders]
+            self.warn(ToolkitDependenciesIncludedWarning(dependencies=dependencies))
+        for loader_cls in reversed(resolved_list):
+            if not issubclass(loader_cls, ResourceLoader):
+                continue
+            loader = loader_cls.create_loader(ToolGlobals)
+            if type(loader) is DataSetsLoader:
+                self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
+                continue
+            result = loader.clean_resources(
+                build_path / loader_cls.folder_name,
+                ToolGlobals,
+                drop=True,
+                dry_run=dry_run,
+                drop_data=True,
+                verbose=ctx.obj.verbose,
+            )
+            if result:
+                results[result.name] = result
+            if ToolGlobals.failed:
+                if results and results.has_counts:
+                    print(results.counts_table())
+                if results and results.has_uploads:
+                    print(results.uploads_table())
+                raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
+
+        if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+            result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
+                directory,
+                ToolGlobals,
+                drop=True,
+                dry_run=dry_run,
+                verbose=ctx.obj.verbose,
+            )
+            if ToolGlobals.failed:
+                raise ToolkitCleanResourceError("Failure to clean auth as expected.")
+            if result:
+                results[result.name] = result
+        if results.has_counts:
+            print(results.counts_table())
+        if results.has_uploads:
+            print(results.uploads_table())
+        if ToolGlobals.failed:
+            raise ToolkitCleanResourceError("Failure to clean auth as expected.")

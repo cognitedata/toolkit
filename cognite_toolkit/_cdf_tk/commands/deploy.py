@@ -9,7 +9,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands._base import LoaderCommand
+from cognite_toolkit._cdf_tk.commands.clean import CleanBaseCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 
-class DeployCommand(LoaderCommand):
+class DeployCommand(CleanBaseCommand):
     def execute(
         self,
         ctx: typer.Context,
