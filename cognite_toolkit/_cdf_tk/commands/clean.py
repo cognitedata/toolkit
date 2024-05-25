@@ -1,9 +1,12 @@
+import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import cast
 
 import typer
 from cognite.client.data_classes._base import T_CogniteResourceList
+from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
+from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.panel import Panel
 
@@ -19,6 +22,7 @@ from cognite_toolkit._cdf_tk.load import (
     DeployResults,
     ResourceLoader, ResourceContainerLoader,
 )
+from cognite_toolkit._cdf_tk.load._base_loaders import T_ID
 from cognite_toolkit._cdf_tk.load.data_classes import ResourceDeployResult, ResourceContainerDeployResult
 from cognite_toolkit._cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
@@ -114,6 +118,7 @@ class CleanCommand(ToolkitCommand):
 
     def clean_resources(
         self,
+        loader: ResourceLoader,
         path: Path,
         ToolGlobals: CDFToolConfig,
         dry_run: bool = False,
@@ -121,21 +126,21 @@ class CleanCommand(ToolkitCommand):
         drop_data: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
-        if not isinstance(self, ResourceContainerLoader) and not drop:
+        if not isinstance(loader, ResourceContainerLoader) and not drop:
             # Skipping silently as this, we will not drop data or delete this resource
-            return ResourceDeployResult(name=self.display_name)
-        if not self.support_drop:
-            print(f"  [bold green]INFO:[/] {self.display_name!r} cleaning is not supported, skipping...")
-            return ResourceDeployResult(name=self.display_name)
-        elif isinstance(self, ResourceContainerLoader) and not drop_data:
+            return ResourceDeployResult(name=loader.display_name)
+        if not loader.support_drop:
+            print(f"  [bold green]INFO:[/] {loader.display_name!r} cleaning is not supported, skipping...")
+            return ResourceDeployResult(name=loader.display_name)
+        elif isinstance(loader, ResourceContainerLoader) and not drop_data:
             print(
-                f"  [bold]INFO:[/] Skipping cleaning of {self.display_name!r}. This is a data resource (it contains "
+                f"  [bold]INFO:[/] Skipping cleaning of {loader.display_name!r}. This is a data resource (it contains "
                 f"data and is not only configuration/metadata) and therefore "
                 "requires the --drop-data flag to be set to perform cleaning..."
             )
-            return ResourceContainerDeployResult(name=self.display_name, item_name=self.item_name)
+            return ResourceContainerDeployResult(name=loader.display_name, item_name=loader.item_name)
 
-        filepaths = self.find_files(path)
+        filepaths = loader.find_files(path)
 
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
         loaded_resources = self._load_files(filepaths, ToolGlobals, skip_validation=True, verbose=verbose)
@@ -148,47 +153,123 @@ class CleanCommand(ToolkitCommand):
         # avoid an error.
         loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
 
-        capabilities = self.get_required_capability(loaded_resources)
+        capabilities = loader.get_required_capability(loaded_resources)
         if capabilities:
             ToolGlobals.verify_capabilities(capabilities)
 
         nr_of_items = len(loaded_resources)
         if nr_of_items == 0:
-            return ResourceDeployResult(name=self.display_name)
+            return ResourceDeployResult(name=loader.display_name)
 
-        existing_resources = cast(T_CogniteResourceList, self.retrieve(self.get_ids(loaded_resources)).as_write())
+        existing_resources = cast(T_CogniteResourceList, loader.retrieve(loader.get_ids(loaded_resources)).as_write())
         nr_of_existing = len(existing_resources)
 
         if drop:
             prefix = "Would clean" if dry_run else "Cleaning"
-            with_data = "with data " if isinstance(self, ResourceContainerLoader) else ""
+            with_data = "with data " if isinstance(loader, ResourceContainerLoader) else ""
         else:
             prefix = "Would drop data from" if dry_run else "Dropping data from"
             with_data = ""
-        print(f"[bold]{prefix} {nr_of_existing} {self.display_name} {with_data}from CDF...[/]")
+        print(f"[bold]{prefix} {nr_of_existing} {loader.display_name} {with_data}from CDF...[/]")
         for duplicate in duplicates:
-            print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
+            print(f"  [bold yellow]WARNING:[/] Skipping duplicate {loader.display_name} {duplicate}.")
 
         # Deleting resources.
-        if isinstance(self, ResourceContainerLoader) and drop_data:
-            nr_of_dropped_datapoints = self._drop_data(existing_resources, dry_run, verbose)
+        if isinstance(loader, ResourceContainerLoader) and drop_data:
+            nr_of_dropped_datapoints = self._drop_data(existing_resources, loader, dry_run, verbose)
             if drop:
-                nr_of_deleted = self._delete_resources(existing_resources, dry_run, verbose)
+                nr_of_deleted = self._delete_resources(existing_resources, loader, dry_run, verbose)
             else:
                 nr_of_deleted = 0
             if verbose:
                 print("")
             return ResourceContainerDeployResult(
-                name=self.display_name,
+                name=loader.display_name,
                 deleted=nr_of_deleted,
                 total=nr_of_items,
                 dropped_datapoints=nr_of_dropped_datapoints,
-                item_name=self.item_name,
+                item_name=loader.item_name,
             )
         elif not isinstance(self, ResourceContainerLoader) and drop:
-            nr_of_deleted = self._delete_resources(existing_resources, dry_run, verbose)
+            nr_of_deleted = self._delete_resources(existing_resources, loader, dry_run, verbose)
             if verbose:
                 print("")
-            return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
+            return ResourceDeployResult(name=loader.display_name, deleted=nr_of_deleted, total=nr_of_items)
         else:
-            return ResourceDeployResult(name=self.display_name)
+            return ResourceDeployResult(name=loader.display_name)
+
+    def _delete_resources(self, loaded_resources: T_CogniteResourceList, loader: ResourceLoader, dry_run: bool, verbose: bool) -> int:
+        nr_of_deleted = 0
+        resource_ids = loader.get_ids(loaded_resources)
+        if dry_run:
+            nr_of_deleted += len(resource_ids)
+            if verbose:
+                print(f"  Would have deleted {self._print_ids_or_length(resource_ids)}.")
+            return nr_of_deleted
+
+        try:
+            nr_of_deleted += loader.delete(resource_ids)
+        except CogniteAPIError as e:
+            print(f"  [bold yellow]WARNING:[/] Failed to delete {self._print_ids_or_length(resource_ids)}. Error {e}.")
+            if verbose:
+                print(Panel(traceback.format_exc()))
+        except CogniteNotFoundError:
+            if verbose:
+                print(f"  [bold]INFO:[/] {self._print_ids_or_length(resource_ids)} do(es) not exist.")
+        except Exception as e:
+            print(f"  [bold yellow]WARNING:[/] Failed to delete {self._print_ids_or_length(resource_ids)}. Error {e}.")
+            if verbose:
+                print(Panel(traceback.format_exc()))
+        else:  # Delete succeeded
+            if verbose:
+                print(f"  Deleted {self._print_ids_or_length(resource_ids)}.")
+        return nr_of_deleted
+
+    def _drop_data(self, loaded_resources: T_CogniteResourceList, loader: ResourceContainerLoader, dry_run: bool, verbose: bool) -> int:
+        nr_of_dropped = 0
+        resource_ids = loader.get_ids(loaded_resources)
+        if dry_run:
+            resource_drop_count = loader.count(resource_ids)
+            nr_of_dropped += resource_drop_count
+            if verbose:
+                self._verbose_print_drop(resource_drop_count, resource_ids, dry_run)
+            return nr_of_dropped
+
+        try:
+            resource_drop_count = loader.drop_data(resource_ids)
+            nr_of_dropped += resource_drop_count
+        except CogniteAPIError as e:
+            if e.code == 404 and verbose:
+                print(f"  [bold]INFO:[/] {len(resource_ids)} {loader.display_name} do(es) not exist.")
+        except CogniteNotFoundError:
+            return nr_of_dropped
+        except Exception as e:
+            print(
+                f"  [bold yellow]WARNING:[/] Failed to drop {loader.item_name} from {len(resource_ids)} {loader.display_name}. Error {e}."
+            )
+            if verbose:
+                print(Panel(traceback.format_exc()))
+        else:  # Delete succeeded
+            if verbose:
+                self._verbose_print_drop(resource_drop_count, resource_ids, loader, dry_run)
+        return nr_of_dropped
+
+    def _verbose_print_drop(self, drop_count: int, resource_ids: SequenceNotStr[T_ID], loader: ResourceContainerLoader, dry_run: bool) -> None:
+        prefix = "Would have dropped" if dry_run else "Dropped"
+        if drop_count > 0:
+            print(
+                f"  {prefix} {drop_count:,} {loader.item_name} from {loader.display_name}: "
+                f"{self._print_ids_or_length(resource_ids)}."
+            )
+        elif drop_count == 0:
+            verb = "is" if len(resource_ids) == 1 else "are"
+            print(
+                f"  The {loader.display_name}: {self._print_ids_or_length(resource_ids)} {verb} empty, "
+                f"thus no {loader.item_name} will be {'touched' if dry_run else 'dropped'}."
+            )
+        else:
+            # Count is not supported
+            print(
+                f" {prefix} all {loader.item_name} from {loader.display_name}: "
+                f"{self._print_ids_or_length(resource_ids)}."
+            )
