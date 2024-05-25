@@ -31,6 +31,8 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildEnvironment,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    LowSeverityWarning,
+    MediumSeverityWarning,
     ToolkitDependenciesIncludedWarning,
     ToolkitNotSupportedWarning,
 )
@@ -97,7 +99,7 @@ class CleanBaseCommand(ToolkitCommand):
             with_data = ""
         print(f"[bold]{prefix} {nr_of_existing} {loader.display_name} {with_data}from CDF...[/]")
         for duplicate in duplicates:
-            print(f"  [bold yellow]WARNING:[/] Skipping duplicate {loader.display_name} {duplicate}.")
+            self.warn(LowSeverityWarning(f"Duplicate {loader.display_name} {duplicate}."))
 
         # Deleting resources.
         if isinstance(loader, ResourceContainerLoader) and drop_data:
@@ -137,14 +139,14 @@ class CleanBaseCommand(ToolkitCommand):
         try:
             nr_of_deleted += loader.delete(resource_ids)
         except CogniteAPIError as e:
-            print(f"  [bold yellow]WARNING:[/] Failed to delete {self._print_ids_or_length(resource_ids)}. Error {e}.")
+            self.warn(MediumSeverityWarning(f"Failed to delete {self._print_ids_or_length(resource_ids)}. Error {e}."))
             if verbose:
                 print(Panel(traceback.format_exc()))
         except CogniteNotFoundError:
             if verbose:
                 print(f"  [bold]INFO:[/] {self._print_ids_or_length(resource_ids)} do(es) not exist.")
         except Exception as e:
-            print(f"  [bold yellow]WARNING:[/] Failed to delete {self._print_ids_or_length(resource_ids)}. Error {e}.")
+            self.warn(MediumSeverityWarning(f"Failed to delete {self._print_ids_or_length(resource_ids)}. Error {e}."))
             if verbose:
                 print(Panel(traceback.format_exc()))
         else:  # Delete succeeded
@@ -173,8 +175,10 @@ class CleanBaseCommand(ToolkitCommand):
         except CogniteNotFoundError:
             return nr_of_dropped
         except Exception as e:
-            print(
-                f"  [bold yellow]WARNING:[/] Failed to drop {loader.item_name} from {len(resource_ids)} {loader.display_name}. Error {e}."
+            self.warn(
+                MediumSeverityWarning(
+                    f"Failed to drop {loader.item_name} from {len(resource_ids)} {loader.display_name}. Error {e}."
+                )
             )
             if verbose:
                 print(Panel(traceback.format_exc()))
@@ -233,7 +237,7 @@ class CleanBaseCommand(ToolkitCommand):
                 # This is intentional. It is, for example, used by the AuthLoader to skip groups with resource scopes.
                 continue
             if isinstance(resource, loader.list_write_cls) and not resource:
-                print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
+                self.warn(LowSeverityWarning(f"Skipping {filepath.name}. No data to load."))
                 continue
 
             if isinstance(resource, loader.list_write_cls):
