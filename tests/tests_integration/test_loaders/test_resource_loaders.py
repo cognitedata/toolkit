@@ -4,6 +4,7 @@ import pytest
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Function, FunctionSchedule, FunctionScheduleWriteList
 
+from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.load import DataSetsLoader, FunctionScheduleLoader
 
 
@@ -12,7 +13,8 @@ class TestDataSetsLoader:
         data_sets = cognite_client.data_sets.list(limit=1, external_id_prefix="")
         loader = DataSetsLoader(client=cognite_client)
 
-        created, changed, unchanged = loader.to_create_changed_unchanged_triple(data_sets.as_write())
+        cmd = DeployCommand(print_warning=False)
+        created, changed, unchanged = cmd.to_create_changed_unchanged_triple(data_sets.as_write(), loader)
 
         assert len(unchanged) == len(data_sets)
         assert len(created) == 0
