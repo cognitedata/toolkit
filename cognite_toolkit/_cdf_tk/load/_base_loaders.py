@@ -30,7 +30,6 @@ from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variab
 
 from .data_classes import (
     DatapointDeployResult,
-    DeployResult,
     RawDatabaseTable,
     ResourceContainerDeployResult,
     ResourceDeployResult,
@@ -117,18 +116,6 @@ class Loader(ABC):
                 _COMPILED_PATTERN[cls.filename_pattern] = re.compile(cls.filename_pattern)
             return _COMPILED_PATTERN[cls.filename_pattern].match(file.stem) is not None
         return True
-
-    @abstractmethod
-    def deploy_resources(
-        self,
-        path: Path,
-        ToolGlobals: CDFToolConfig,
-        dry_run: bool = False,
-        has_done_drop: bool = False,
-        has_dropped_data: bool = False,
-        verbose: bool = False,
-    ) -> DeployResult | None:
-        raise NotImplementedError
 
 
 T_Loader = TypeVar("T_Loader", bound=Loader)
