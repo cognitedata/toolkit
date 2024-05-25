@@ -274,25 +274,23 @@ class CleanBaseCommand(ToolkitCommand):
 
 class CleanCommand(CleanBaseCommand):
     def execute(
-        self, ctx: typer.Context, build_dir: str, build_env_name: str, dry_run: bool, include: list[str]
+        self, ctx: typer.Context, build_dir_raw: str, build_env_name: str, dry_run: bool, include: list[str]
     ) -> None:
         ToolGlobals = CDFToolConfig.from_context(ctx)
-
-        build_ = BuildEnvironment.load(
-            read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env_name, "clean"
-        )
+        build_dir = Path(build_dir_raw)
+        build_ = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "clean")
         build_.set_environment_variables()
 
         Panel(f"[bold]Cleaning environment {build_env_name} based on config files from {build_dir}...[/]")
-        build_path = Path(build_dir)
-        if not build_path.is_dir():
+
+        if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
 
         # The 'auth' loader is excluded, as it is run at the end.
         selected_loaders = {
             loader_cls: loader_cls.dependencies
             for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-            if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+            if folder_name in include and folder_name != AuthLoader.folder_name and (build_dir / folder_name).is_dir()
             for loader_cls in loader_classes
         }
 
@@ -308,7 +306,7 @@ class CleanCommand(CleanBaseCommand):
         for loader_cls in reversed(resolved_list):
             if not issubclass(loader_cls, ResourceLoader):
                 continue
-            loader = loader_cls.create_loader(ToolGlobals, build_path / loader_cls.folder_name)
+            loader = loader_cls.create_loader(ToolGlobals, build_dir)
             if type(loader) is DataSetsLoader:
                 self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
                 continue
@@ -329,9 +327,9 @@ class CleanCommand(CleanBaseCommand):
                     print(results.uploads_table())
                 raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
 
-        if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+        if AuthLoader.folder_name in include and (build_dir / AuthLoader.folder_name).is_dir():
             result = self.clean_resources(
-                AuthLoader.create_loader(ToolGlobals, directory, target_scopes="all"),
+                AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="all"),
                 ToolGlobals,
                 drop=True,
                 dry_run=dry_run,

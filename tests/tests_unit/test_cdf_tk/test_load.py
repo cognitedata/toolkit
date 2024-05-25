@@ -64,14 +64,14 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 
 
 @pytest.mark.parametrize(
-    "loader_cls, directory",
+    "loader_cls",
     [
-        (FileMetadataLoader, LOAD_DATA / "files"),
-        (DatapointsLoader, LOAD_DATA / "timeseries_datapoints"),
+        FileMetadataLoader,
+        DatapointsLoader,
     ],
 )
 def test_loader_class(
-    loader_cls: type[ResourceLoader], directory: Path, cognite_client_approval: ApprovalCogniteClient, data_regression
+    loader_cls: type[ResourceLoader], cognite_client_approval: ApprovalCogniteClient, data_regression
 ):
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
@@ -80,11 +80,11 @@ def test_loader_class(
     cdf_tool.data_set_id = 999
 
     cmd = DeployCommand(print_warning=False)
-    loader = loader_cls.create_loader(cdf_tool, directory)
+    loader = loader_cls.create_loader(cdf_tool, LOAD_DATA)
     cmd.deploy_resources(loader, cdf_tool, dry_run=False)
 
     dump = cognite_client_approval.dump()
-    data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{directory.name}.yaml")
+    data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
 
 
 class TestFunctionLoader:

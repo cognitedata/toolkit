@@ -55,7 +55,7 @@ class DeployCommand(CleanBaseCommand):
     def execute(
         self,
         ctx: typer.Context,
-        build_dir: str,
+        build_dir_raw: str,
         build_env_name: str,
         dry_run: bool,
         drop: bool,
@@ -64,16 +64,14 @@ class DeployCommand(CleanBaseCommand):
     ) -> None:
         # Override cluster and project from the options/env variables
         ToolGlobals = CDFToolConfig.from_context(ctx)
-
-        build_ = BuildEnvironment.load(
-            read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env_name, "deploy"
-        )
+        build_dir: Path = Path(build_dir_raw)
+        build_ = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "deploy")
         build_.set_environment_variables()
 
-        print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env_name}...[/]"))
-        build_path = Path(build_dir)
-        if not build_path.is_dir():
-            raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
+        print(Panel(f"[bold]Deploying config files from {build_dir_raw} to environment {build_env_name}...[/]"))
+
+        if not build_dir.is_dir():
+            raise ToolkitNotADirectoryError(f"'{build_dir_raw}'. Did you forget to run `cdf-tk build` first?")
 
         if not _RUNNING_IN_BROWSER:
             print(ToolGlobals.as_string())
@@ -83,7 +81,7 @@ class DeployCommand(CleanBaseCommand):
         selected_loaders = {
             loader_cls: loader_cls.dependencies
             for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-            if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
+            if folder_name in include and folder_name != "auth" and (build_dir / folder_name).is_dir()
             for loader_cls in loader_classes
         }
         results = DeployResults([], "deploy", dry_run=dry_run)
@@ -104,7 +102,7 @@ class DeployCommand(CleanBaseCommand):
             for loader_cls in reversed(ordered_loaders):
                 if not issubclass(loader_cls, ResourceLoader):
                     continue
-                loader: ResourceLoader = loader_cls.create_loader(ToolGlobals, build_path / loader_cls.folder_name)
+                loader: ResourceLoader = loader_cls.create_loader(ToolGlobals, build_dir)
                 result = self.clean_resources(
                     loader,
                     ToolGlobals,
@@ -157,8 +155,7 @@ class DeployCommand(CleanBaseCommand):
                 print("")  # Extra newline
 
         for loader_cls in ordered_loaders:
-            resource_build_path = build_path / loader_cls.folder_name
-            result = self.deploy_resources(loader_cls.create_loader(ToolGlobals, resource_build_path), **arguments)
+            result = self.deploy_resources(loader_cls.create_loader(ToolGlobals, build_dir), **arguments)
             if ToolGlobals.failed:
                 if results and results.has_counts:
                     print(results.counts_table())
@@ -170,10 +167,10 @@ class DeployCommand(CleanBaseCommand):
             if ctx.obj.verbose:
                 print("")  # Extra newline
 
-        if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+        if AuthLoader.folder_name in include and (build_dir / AuthLoader.folder_name).is_dir():
             # Last, we create the Groups again, but this time we do not filter out any capabilities
             # and we do not skip validation as the resources should now have been created.
-            loader = AuthLoader.create_loader(ToolGlobals, directory, target_scopes="resource_scoped_only")
+            loader = AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="resource_scoped_only")
             result = self.deploy_resources(loader, **arguments)
             if ToolGlobals.failed:
                 raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")
