@@ -104,10 +104,9 @@ class DeployCommand(CleanBaseCommand):
             for loader_cls in reversed(ordered_loaders):
                 if not issubclass(loader_cls, ResourceLoader):
                     continue
-                loader = loader_cls.create_loader(ToolGlobals)
+                loader: ResourceLoader = loader_cls.create_loader(ToolGlobals, build_path / loader_cls.folder_name)
                 result = self.clean_resources(
                     loader,
-                    build_path / loader_cls.folder_name,
                     ToolGlobals,
                     drop=drop,
                     dry_run=dry_run,
@@ -121,8 +120,7 @@ class DeployCommand(CleanBaseCommand):
 
             if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
                 result = self.clean_resources(
-                    AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
-                    directory,
+                    AuthLoader.create_loader(ToolGlobals, directory, target_scopes="all"),
                     ToolGlobals,
                     drop=drop,
                     dry_run=dry_run,
@@ -147,9 +145,9 @@ class DeployCommand(CleanBaseCommand):
             print(Panel("[bold]DEPLOYING resources...[/]"))
         if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
             # First, we need to get all the generic access, so we can create the rest of the resources.
+            loader = AuthLoader.create_loader(ToolGlobals, directory, target_scopes="all_scoped_only")
             result = (
-                self.deploy_resources(AuthLoader
-                .create_loader(ToolGlobals, target_scopes="all_scoped_only"), directory, **arguments)
+                self.deploy_resources(loader, **arguments)
             )  # fmt: skip
             if ToolGlobals.failed:
                 raise ToolkitDeployResourceError("Failure to deploy auth (groups) with ALL scope as expected.")
@@ -159,9 +157,8 @@ class DeployCommand(CleanBaseCommand):
                 print("")  # Extra newline
 
         for loader_cls in ordered_loaders:
-            result = self.deploy_resources(
-                loader_cls.create_loader(ToolGlobals), build_path / loader_cls.folder_name, **arguments
-            )
+            resource_build_path = build_path / loader_cls.folder_name
+            result = self.deploy_resources(loader_cls.create_loader(ToolGlobals, resource_build_path), **arguments)
             if ToolGlobals.failed:
                 if results and results.has_counts:
                     print(results.counts_table())
@@ -176,8 +173,8 @@ class DeployCommand(CleanBaseCommand):
         if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
             # Last, we create the Groups again, but this time we do not filter out any capabilities
             # and we do not skip validation as the resources should now have been created.
-            loader = AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only")
-            result = self.deploy_resources(loader, directory, **arguments)
+            loader = AuthLoader.create_loader(ToolGlobals, directory, target_scopes="resource_scoped_only")
+            result = self.deploy_resources(loader, **arguments)
             if ToolGlobals.failed:
                 raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")
             if result:
@@ -192,7 +189,6 @@ class DeployCommand(CleanBaseCommand):
     def deploy_resources(
         self,
         loader: Loader,
-        path: Path,
         ToolGlobals: CDFToolConfig,
         dry_run: bool = False,
         has_done_drop: bool = False,
@@ -200,24 +196,22 @@ class DeployCommand(CleanBaseCommand):
         verbose: bool = False,
     ) -> DeployResult | None:
         if isinstance(loader, ResourceLoader):
-            return self._deploy_resources(loader, path, ToolGlobals, dry_run, has_done_drop, has_dropped_data, verbose)
+            return self._deploy_resources(loader, ToolGlobals, dry_run, has_done_drop, has_dropped_data, verbose)
         elif isinstance(loader, DataLoader):
-            return self._deploy_data(loader, path, ToolGlobals, dry_run, verbose)
+            return self._deploy_data(loader, ToolGlobals, dry_run, verbose)
         else:
             raise ValueError(f"Unsupported loader type {type(loader)}.")
 
     def _deploy_resources(
         self,
         loader: ResourceLoader,
-        path: Path,
         ToolGlobals: CDFToolConfig,
         dry_run: bool = False,
         has_done_drop: bool = False,
         has_dropped_data: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
-        loader.build_path = path
-        filepaths = loader.find_files(path)
+        filepaths = loader.find_files()
 
         def sort_key(p: Path) -> int:
             if result := re.findall(r"^(\d+)", p.stem):
@@ -416,12 +410,11 @@ class DeployCommand(CleanBaseCommand):
     def _deploy_data(
         self,
         loader: DataLoader,
-        path: Path,
         ToolGlobals: CDFToolConfig,
         dry_run: bool = False,
         verbose: bool = False,
     ) -> UploadDeployResult | None:
-        filepaths = loader.find_files(path)
+        filepaths = loader.find_files()
 
         prefix = "Would upload" if dry_run else "Uploading"
         print(f"[bold]{prefix} {len(filepaths)} data {loader.display_name} files to CDF...[/]")

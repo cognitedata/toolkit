@@ -41,7 +41,7 @@ class Loader(ABC):
 
     Args:
         client (CogniteClient): The client to use for interacting with the CDF API.
-        build_path (Path): The path to the build directory
+        build_dir (Path): The path to the build directory
 
     Class attributes:
         filetypes: The filetypes that are supported by this loader. This should be set in all subclasses.
@@ -60,14 +60,18 @@ class Loader(ABC):
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
 
-    def __init__(self, client: CogniteClient, build_path: Path):
+    def __init__(self, client: CogniteClient, build_dir: Path | None):
         self.client = client
-        self.build_path = build_path
+        self.build_path: Path | None = None
+        if build_dir is not None and build_dir.name == self.folder_name:
+            raise ValueError(f"Build directory cannot be the same as the folder name: {self.folder_name}")
+        elif build_dir is not None:
+            self.build_path = build_dir / self.folder_name
         self.extra_configs: dict[str, Any] = {}
 
     @classmethod
-    def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig) -> T_Loader:
-        return cls(ToolGlobals.client)
+    def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig, build_dir: Path | None) -> T_Loader:
+        return cls(ToolGlobals.client, build_dir)
 
     @property
     def display_name(self) -> str:
@@ -77,23 +81,27 @@ class Loader(ABC):
     def doc_url(cls) -> str:
         return cls._doc_base_url + cls._doc_url
 
-    @classmethod
-    def find_files(cls, dir_or_file: Path) -> list[Path]:
+    def find_files(self, dir_or_file: Path | None = None) -> list[Path]:
         """Find all files that are supported by this loader in the given directory or file.
 
         Args:
-            dir_or_file (Path): The directory or file to search in.
+            dir_or_file (Path): The directory or file to search in. If no path is given,
+                the build directory is used.
+
 
         Returns:
             list[Path]: A sorted list of all files that are supported by this loader.
 
         """
+        dir_or_file = dir_or_file or self.build_path
+        if dir_or_file is None:
+            raise ValueError("No 'dir_or_file' or 'build_path' is set.")
         if dir_or_file.is_file():
-            if not cls.is_supported_file(dir_or_file):
+            if not self.is_supported_file(dir_or_file):
                 raise ValueError("Invalid file type")
             return [dir_or_file]
         elif dir_or_file.is_dir():
-            file_paths = [file for file in dir_or_file.glob("**/*") if cls.is_supported_file(file)]
+            file_paths = [file for file in dir_or_file.glob("**/*") if self.is_supported_file(file)]
             return sorted(file_paths)
         else:
             return []
@@ -137,8 +145,6 @@ class ResourceLoader(
         filetypes: The filetypes that are supported by this loader. This should not be set in the subclass, it
             should always be yaml and yml.
         dependencies: A set of loaders that must be loaded before this loader.
-        _display_name: The name of the resource that is used when printing messages. If this is not set, the
-            api_name is used.
     """
 
     # Must be set in the subclass

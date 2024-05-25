@@ -177,13 +177,14 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     def __init__(
         self,
         client: CogniteClient,
+        build_dir: Path | None,
         target_scopes: Literal[
             "all",
             "all_scoped_only",
             "resource_scoped_only",
         ] = "all",
     ):
-        super().__init__(client)
+        super().__init__(client, build_dir)
         self.target_scopes = target_scopes
 
     @property
@@ -194,13 +195,14 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     def create_loader(
         cls,
         ToolGlobals: CDFToolConfig,
+        build_dir: Path | None,
         target_scopes: Literal[
             "all",
             "all_scoped_only",
             "resource_scoped_only",
         ] = "all",
     ) -> AuthLoader:
-        return AuthLoader(ToolGlobals.client, target_scopes)
+        return AuthLoader(ToolGlobals.client, build_dir, target_scopes)
 
     @classmethod
     def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
@@ -486,9 +488,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     dependencies = frozenset({DataSetsLoader})
     _doc_url = "Functions/operation/postFunctions"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
-
     @classmethod
     def get_required_capability(cls, items: FunctionWriteList) -> list[Capability]:
         return [
@@ -685,9 +684,6 @@ class FunctionScheduleLoader(
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
-
     @classmethod
     def get_required_capability(cls, items: FunctionScheduleWriteList) -> list[Capability]:
         return [
@@ -729,7 +725,7 @@ class FunctionScheduleLoader(
         return remote_dump == local.dump()
 
     def _resolve_functions_ext_id(self, items: FunctionScheduleWriteList) -> FunctionScheduleWriteList:
-        functions = FunctionLoader(self.client).retrieve(list(set([item.function_external_id for item in items])))
+        functions = FunctionLoader(self.client, None).retrieve(list(set([item.function_external_id for item in items])))
         for item in items:
             for func in functions:
                 if func.external_id == item.function_external_id:
@@ -737,7 +733,7 @@ class FunctionScheduleLoader(
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
-        functions = FunctionLoader(self.client).retrieve(list(set([id.split(":")[0] for id in ids])))
+        functions = FunctionLoader(self.client, None).retrieve(list(set([id.split(":")[0] for id in ids])))
         schedules = FunctionSchedulesList([])
         for func in functions:
             ret = self.client.functions.schedules.list(function_id=func.id, limit=-1)
@@ -810,8 +806,8 @@ class RawDatabaseLoader(
     list_write_cls = RawTableList
     _doc_url = "Raw/operation/createDBs"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
+    def __init__(self, client: CogniteClient, build_dir: Path):
+        super().__init__(client, build_dir)
         self._loaded_db_names: set[str] = set()
 
     @classmethod
@@ -912,8 +908,8 @@ class RawTableLoader(
     dependencies = frozenset({RawDatabaseLoader})
     _doc_url = "Raw/operation/createTables"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
+    def __init__(self, client: CogniteClient, build_dir: Path):
+        super().__init__(client, build_dir)
         self._printed_warning = False
 
     @classmethod
@@ -1770,8 +1766,11 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     resource_write_cls = SpaceApply
     list_write_cls = SpaceApplyList
     list_cls = SpaceList
-    _display_name = "spaces"
     _doc_url = "Spaces/operation/ApplySpaces"
+
+    @property
+    def display_name(self) -> str:
+        return "spaces"
 
     @classmethod
     def get_required_capability(cls, items: SpaceApplyList) -> list[Capability]:
@@ -2070,8 +2069,8 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     _display_name = "views"
     _doc_url = "Views/operation/ApplyViews"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
+    def __init__(self, client: CogniteClient, build_dir: Path) -> None:
+        super().__init__(client, build_dir)
         # Caching to avoid multiple lookups on the same interfaces.
         self._interfaces_by_id: dict[ViewId, View] = {}
 
@@ -2209,8 +2208,11 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     list_cls = DataModelList
     list_write_cls = DataModelApplyList
     dependencies = frozenset({SpaceLoader, ViewLoader})
-    _display_name = "data models"
     _doc_url = "Data-models/operation/createDataModels"
+
+    @property
+    def display_name(self) -> str:
+        return "data models"
 
     @classmethod
     def get_required_capability(cls, items: DataModelApplyList) -> Capability:
@@ -2284,8 +2286,11 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     list_cls = NodeList
     list_write_cls = LoadedNodeList
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
-    _display_name = "nodes"
     _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    @property
+    def display_name(self) -> str:
+        return "nodes"
 
     @classmethod
     def get_required_capability(cls, items: LoadedNodeList) -> Capability:

@@ -80,8 +80,8 @@ def test_loader_class(
     cdf_tool.data_set_id = 999
 
     cmd = DeployCommand(print_warning=False)
-    loader = loader_cls.create_loader(cdf_tool)
-    cmd.deploy_resources(loader, directory, cdf_tool, dry_run=False)
+    loader = loader_cls.create_loader(cdf_tool, directory)
+    cmd.deploy_resources(loader, cdf_tool, dry_run=False)
 
     dump = cognite_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{directory.name}.yaml")
@@ -93,7 +93,7 @@ class TestFunctionLoader:
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
 
-        loader = FunctionLoader.create_loader(cdf_tool)
+        loader = FunctionLoader.create_loader(cdf_tool, None)
         loaded = loader.load_resource(LOAD_DATA / "functions" / "1.my_functions.yaml", cdf_tool, skip_validation=False)
         assert len(loaded) == 2
 
@@ -102,7 +102,7 @@ class TestFunctionLoader:
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
 
-        loader = FunctionLoader.create_loader(cdf_tool)
+        loader = FunctionLoader.create_loader(cdf_tool, None)
         loaded = loader.load_resource(LOAD_DATA / "functions" / "1.my_function.yaml", cdf_tool, skip_validation=False)
         assert isinstance(loaded, FunctionWrite)
 
@@ -114,7 +114,7 @@ class TestDataSetsLoader:
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
 
-        loader = DataSetsLoader.create_loader(cdf_tool)
+        loader = DataSetsLoader.create_loader(cdf_tool, None)
         loaded = loader.load_resource(LOAD_DATA / "data_sets" / "1.my_datasets.yaml", cdf_tool, skip_validation=False)
         assert len(loaded) == 2
 
@@ -186,7 +186,7 @@ class TestViewLoader:
         # Simulating that the interface and child_cdf are available in CDF
         cognite_client_approval.append(dm.View, [interface, child_cdf])
 
-        loader = ViewLoader.create_loader(cdf_tool)
+        loader = ViewLoader.create_loader(cdf_tool, None)
         cmd = DeployCommand(print_warning=False)
         to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
             dm.ViewApplyList([child_local]), loader
@@ -232,7 +232,7 @@ class TestDataModelLoader:
             name=None,
         )
 
-        loader = DataModelLoader.create_loader(cdf_tool)
+        loader = DataModelLoader.create_loader(cdf_tool, None)
         cmd = DeployCommand(print_warning=False)
         to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
             dm.DataModelApplyList([local_data_model]), loader
@@ -245,7 +245,7 @@ class TestDataModelLoader:
 
 class TestAuthLoader:
     def test_load_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, "all")
+        loader = AuthLoader.create_loader(cdf_tool_config, None, "all")
 
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
@@ -265,7 +265,7 @@ class TestAuthLoader:
         assert caps["SessionsAcl"].scope._scope_name == "all"
 
     def test_load_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, "all_scoped_only")
+        loader = AuthLoader.create_loader(cdf_tool_config, None, "all_scoped_only")
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
         )
@@ -277,7 +277,7 @@ class TestAuthLoader:
         assert loaded is None
 
     def test_load_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, "resource_scoped_only")
+        loader = AuthLoader.create_loader(cdf_tool_config, None, "resource_scoped_only")
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
         )
@@ -307,7 +307,7 @@ class TestAuthLoader:
         assert len(loaded) == 2
 
     def test_load_group_list_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, "resource_scoped_only")
+        loader = AuthLoader.create_loader(cdf_tool_config, None, "resource_scoped_only")
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
         )
@@ -316,7 +316,7 @@ class TestAuthLoader:
         assert loaded.name == "scoped_group_name"
 
     def test_load_group_list_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, "all_scoped_only")
+        loader = AuthLoader.create_loader(cdf_tool_config, None, "all_scoped_only")
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
         )
@@ -360,7 +360,7 @@ class TestAuthLoader:
     def test_upsert_group(
         self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
-        loader = AuthLoader.create_loader(cdf_tool_config, "all")
+        loader = AuthLoader.create_loader(cdf_tool_config, None, "all")
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )
@@ -414,7 +414,7 @@ description: PH 1stStgSuctCool Gas Out
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TimeSeriesLoader(cognite_client_approval.mock_client)
+        loader = TimeSeriesLoader(cognite_client_approval.mock_client, None)
         mock_read_yaml_file({"timeseries.yaml": yaml.safe_load(self.timeseries_yaml)}, monkeypatch)
         loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_config_real, skip_validation=True)
 
@@ -428,7 +428,7 @@ description: PH 1stStgSuctCool Gas Out
         monkeypatch: MonkeyPatch,
     ) -> None:
         cognite_client_approval.append(DataSet, DataSet(id=12345, external_id="ds_timeseries_oid"))
-        loader = TimeSeriesLoader(cognite_client_approval.mock_client)
+        loader = TimeSeriesLoader(cognite_client_approval.mock_client, None)
 
         mock_read_yaml_file({"timeseries.yaml": yaml.safe_load(self.timeseries_yaml)}, monkeypatch)
 
@@ -460,7 +460,7 @@ conflictMode: upsert
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client)
+        loader = TransformationLoader(cognite_client_approval.mock_client, None)
         mock_read_yaml_file({"transformation.yaml": yaml.CSafeLoader(self.trafo_yaml).get_data()}, monkeypatch)
         loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
         assert loaded.destination_oidc_credentials is None
@@ -472,7 +472,7 @@ conflictMode: upsert
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client)
+        loader = TransformationLoader(cognite_client_approval.mock_client, None)
 
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
@@ -497,7 +497,7 @@ conflictMode: upsert
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client)
+        loader = TransformationLoader(cognite_client_approval.mock_client, None)
 
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
@@ -517,7 +517,7 @@ conflictMode: upsert
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client)
+        loader = TransformationLoader(cognite_client_approval.mock_client, None)
 
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
         resource.pop("query")
@@ -534,7 +534,7 @@ conflictMode: upsert
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client)
+        loader = TransformationLoader(cognite_client_approval.mock_client, None)
 
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
@@ -550,7 +550,7 @@ conflictMode: upsert
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client)
+        loader = TransformationLoader(cognite_client_approval.mock_client, None)
 
         mock_read_yaml_file({"transformation.yaml": yaml.CSafeLoader(self.trafo_yaml).get_data()}, monkeypatch)
 
@@ -577,7 +577,7 @@ class TestDeployResources:
         cdf_tool.client = cognite_client_approval.mock_client
 
         cmd = DeployCommand(print_warning=False)
-        cmd.deploy_resources(ViewLoader.create_loader(cdf_tool), BUILD_DIR, cdf_tool, dry_run=False)
+        cmd.deploy_resources(ViewLoader.create_loader(cdf_tool, BUILD_DIR), cdf_tool, dry_run=False)
 
         views = cognite_client_approval.dump(sort=False)["View"]
 
@@ -593,7 +593,7 @@ class TestFormatConsistency:
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        loader = Loader.create_loader(cdf_tool_config)
+        loader = Loader.create_loader(cdf_tool_config, None)
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
         assert isinstance(instance, loader.resource_write_cls)
@@ -602,7 +602,7 @@ class TestFormatConsistency:
     def test_loader_takes_dict(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
-        loader = Loader.create_loader(cdf_tool_config)
+        loader = Loader.create_loader(cdf_tool_config, None)
 
         if loader.resource_cls in [Transformation, FileMetadata]:
             pytest.skip("Skipped loaders that require secondary files")
@@ -626,7 +626,7 @@ class TestFormatConsistency:
     def test_loader_takes_list(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
-        loader = Loader.create_loader(cdf_tool_config)
+        loader = Loader.create_loader(cdf_tool_config, None)
 
         if loader.resource_cls in [Transformation, FileMetadata]:
             pytest.skip("Skipped loaders that require secondary files")
@@ -657,7 +657,7 @@ class TestFormatConsistency:
 
     @pytest.mark.parametrize("Loader", LOADER_LIST)
     def test_loader_has_doc_url(self, Loader: type[Loader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = Loader.create_loader(cdf_tool_config)
+        loader = Loader.create_loader(cdf_tool_config, None)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
         assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"
 

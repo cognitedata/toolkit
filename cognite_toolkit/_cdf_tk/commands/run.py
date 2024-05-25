@@ -250,9 +250,9 @@ def run_local_function(
 
     if verbose:
         print(f"  [bold]Loading function from {build_dir}...[/]")
-    function_loader: FunctionLoader = FunctionLoader.create_loader(ToolGlobals)
+    function_loader: FunctionLoader = FunctionLoader.create_loader(ToolGlobals, Path(f"{build_dir}/functions"))
     function = None
-    for filepath in function_loader.find_files(Path(f"{build_dir}/functions")):
+    for filepath in function_loader.find_files():
         functions = function_loader.load_resource(
             Path(filepath), ToolGlobals=ToolGlobals, skip_validation=True
         ) or FunctionWriteList([])
@@ -284,8 +284,8 @@ def run_local_function(
     if ToolGlobals.environ("CDF_TOKEN", fail=False):
         environ["CDF_TOKEN"] = ToolGlobals.environ("CDF_TOKEN")
     else:
-        schedule_loader = FunctionScheduleLoader.create_loader(ToolGlobals)
-        for filepath in schedule_loader.find_files(Path(f"{build_dir}/functions")):
+        schedule_loader = FunctionScheduleLoader.create_loader(ToolGlobals, Path(f"{build_dir}/functions"))
+        for filepath in schedule_loader.find_files():
             schedule_loader.load_resource(
                 Path(filepath), ToolGlobals=ToolGlobals, skip_validation=False
             ) or FunctionScheduleWriteList([])

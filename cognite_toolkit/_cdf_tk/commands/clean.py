@@ -48,7 +48,6 @@ class CleanBaseCommand(ToolkitCommand):
     def clean_resources(
         self,
         loader: ResourceLoader,
-        path: Path,
         ToolGlobals: CDFToolConfig,
         dry_run: bool = False,
         drop: bool = True,
@@ -69,7 +68,7 @@ class CleanBaseCommand(ToolkitCommand):
             )
             return ResourceContainerDeployResult(name=loader.display_name, item_name=loader.item_name)
 
-        filepaths = loader.find_files(path)
+        filepaths = loader.find_files()
 
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
         loaded_resources = self._load_files(loader, filepaths, ToolGlobals, skip_validation=True, verbose=verbose)
@@ -309,13 +308,12 @@ class CleanCommand(CleanBaseCommand):
         for loader_cls in reversed(resolved_list):
             if not issubclass(loader_cls, ResourceLoader):
                 continue
-            loader = loader_cls.create_loader(ToolGlobals)
+            loader = loader_cls.create_loader(ToolGlobals, build_path / loader_cls.folder_name)
             if type(loader) is DataSetsLoader:
                 self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
                 continue
             result = self.clean_resources(
                 loader,
-                build_path / loader_cls.folder_name,
                 ToolGlobals,
                 drop=True,
                 dry_run=dry_run,
@@ -333,8 +331,7 @@ class CleanCommand(CleanBaseCommand):
 
         if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
             result = self.clean_resources(
-                AuthLoader.create_loader(ToolGlobals, target_scopes="all"),
-                directory,
+                AuthLoader.create_loader(ToolGlobals, directory, target_scopes="all"),
                 ToolGlobals,
                 drop=True,
                 dry_run=dry_run,
