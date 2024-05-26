@@ -29,7 +29,7 @@ class TestTimeSeriesLoader:
             [{"timestamp": 0, timeseries.external_id: 0}, {"timestamp": 1, timeseries.external_id: 1}]
         ).set_index("timestamp")
         datapoints.index = pd.to_datetime(datapoints.index, unit="s")
-        loader = TimeSeriesLoader(client=cognite_client)
+        loader = TimeSeriesLoader(cognite_client, None)
         ts_ids = [timeseries.external_id]
 
         try:
@@ -89,7 +89,7 @@ class TestContainerLoader:
         )
         container_id = [node_container.as_id()]
 
-        loader = ContainerLoader(client=cognite_client)
+        loader = ContainerLoader(cognite_client, None)
 
         try:
             assert loader.count(container_id) == 0
@@ -142,7 +142,7 @@ class TestContainerLoader:
         )
         container_id = [edge_container.as_id()]
 
-        loader = ContainerLoader(client=cognite_client)
+        loader = ContainerLoader(cognite_client, None)
 
         try:
             assert loader.count(container_id) == 0
