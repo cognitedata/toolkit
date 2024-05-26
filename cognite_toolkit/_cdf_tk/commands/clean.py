@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.load import (
     ResourceContainerLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.load._base_loaders import T_ID
+from cognite_toolkit._cdf_tk.load._base_loaders import T_ID, Loader
 from cognite_toolkit._cdf_tk.load.data_classes import ResourceContainerDeployResult, ResourceDeployResult
 from cognite_toolkit._cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
@@ -296,10 +296,20 @@ class CleanCommand(CleanBaseCommand):
         print(ToolGlobals.as_string())
 
         results = DeployResults([], "clean", dry_run=dry_run)
-        resolved_list = list(TopologicalSorter(selected_loaders).static_order())
-        if len(resolved_list) > len(selected_loaders):
-            dependencies = [item.folder_name for item in resolved_list if item not in selected_loaders]
-            self.warn(ToolkitDependenciesIncludedWarning(dependencies=dependencies))
+
+        resolved_list: list[type[Loader]] = []
+        should_include: list[type[Loader]] = []
+        # The topological sort can include loaders that are not selected, so we need to check for that.
+        for loader_cls in TopologicalSorter(selected_loaders).static_order():
+            if loader_cls in selected_loaders:
+                resolved_list.append(loader_cls)
+            elif (build_dir / loader_cls.folder_name).is_dir():
+                should_include.append(loader_cls)
+            # Otherwise, it is not in the build directory and not selected, so we skip it.
+            # There should be a warning in the build step if it is missing.
+        if should_include:
+            self.warn(ToolkitDependenciesIncludedWarning([item.folder_name for item in should_include]))
+
         for loader_cls in reversed(resolved_list):
             if not issubclass(loader_cls, ResourceLoader):
                 continue

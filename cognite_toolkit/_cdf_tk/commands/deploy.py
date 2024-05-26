@@ -82,10 +82,20 @@ class DeployCommand(CleanBaseCommand):
             for loader_cls in loader_classes
         }
         results = DeployResults([], "deploy", dry_run=dry_run)
-        ordered_loaders = list(TopologicalSorter(selected_loaders).static_order())
-        if len(ordered_loaders) > len(selected_loaders):
-            dependencies = [item.folder_name for item in ordered_loaders if item not in selected_loaders]
-            self.warn(ToolkitDependenciesIncludedWarning(dependencies))
+
+        ordered_loaders: list[type[Loader]] = []
+        should_include: list[type[Loader]] = []
+        # The topological sort can include loaders that are not selected, so we need to check for that.
+        for loader_cls in TopologicalSorter(selected_loaders).static_order():
+            if loader_cls in selected_loaders:
+                ordered_loaders.append(loader_cls)
+            elif (build_dir / loader_cls.folder_name).is_dir():
+                should_include.append(loader_cls)
+            # Otherwise, it is not in the build directory and not selected, so we skip it.
+            # There should be a warning in the build step if it is missing.
+        if should_include:
+            self.warn(ToolkitDependenciesIncludedWarning([item.folder_name for item in should_include]))
+
         result: DeployResult | None
         if drop or drop_data:
             # Drop has to be done in the reverse order of deploy.
