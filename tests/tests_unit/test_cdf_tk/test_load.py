@@ -298,7 +298,7 @@ class TestAuthLoader:
         assert caps["SessionsAcl"].scope._scope_name == "all"
 
     def test_load_group_list_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, "all")
+        loader = AuthLoader.create_loader(cdf_tool_config, None, "all")
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
         )
@@ -327,7 +327,7 @@ class TestAuthLoader:
     def test_unchanged_new_group(
         self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
-        loader = AuthLoader.create_loader(cdf_tool_config, "all")
+        loader = AuthLoader.create_loader(cdf_tool_config, None, "all")
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )
