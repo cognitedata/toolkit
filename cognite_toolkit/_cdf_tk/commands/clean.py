@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
-    AuthLoader,
     DataSetsLoader,
     DeployResults,
     ResourceContainerLoader,
@@ -290,13 +289,11 @@ class CleanCommand(CleanBaseCommand):
         selected_loaders = {
             loader_cls: loader_cls.dependencies
             for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-            if folder_name in include and folder_name != AuthLoader.folder_name and (build_dir / folder_name).is_dir()
+            if folder_name in include and (build_dir / folder_name).is_dir()
             for loader_cls in loader_classes
         }
 
         print(ToolGlobals.as_string())
-        if ToolGlobals.failed:
-            raise ToolkitCleanResourceError("Failure to delete data models as expected.")
 
         results = DeployResults([], "clean", dry_run=dry_run)
         resolved_list = list(TopologicalSorter(selected_loaders).static_order())
@@ -326,22 +323,7 @@ class CleanCommand(CleanBaseCommand):
                 if results and results.has_uploads:
                     print(results.uploads_table())
                 raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
-
-        if AuthLoader.folder_name in include and (build_dir / AuthLoader.folder_name).is_dir():
-            result = self.clean_resources(
-                AuthLoader.create_loader(ToolGlobals, build_dir),
-                ToolGlobals,
-                drop=True,
-                dry_run=dry_run,
-                verbose=ctx.obj.verbose,
-            )
-            if ToolGlobals.failed:
-                raise ToolkitCleanResourceError("Failure to clean auth as expected.")
-            if result:
-                results[result.name] = result
         if results.has_counts:
             print(results.counts_table())
         if results.has_uploads:
             print(results.uploads_table())
-        if ToolGlobals.failed:
-            raise ToolkitCleanResourceError("Failure to clean auth as expected.")
