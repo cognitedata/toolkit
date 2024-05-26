@@ -247,7 +247,7 @@ class ResourceContainerLoader(
     ResourceLoader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
-    """This is the base class for all loaders resource containers.
+    """This is the base class for all loaders' resource containers.
 
     A resource container is a resource that contains data. For example, Timeseries contains datapoints, and another
     example is spaces and containers in data modeling that contains instances.

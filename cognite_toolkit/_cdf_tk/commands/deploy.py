@@ -116,9 +116,9 @@ class DeployCommand(CleanBaseCommand):
                 if ToolGlobals.failed:
                     raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
 
-            if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+            if "auth" in include and (build_dir / "auth").is_dir():
                 result = self.clean_resources(
-                    AuthLoader.create_loader(ToolGlobals, directory, target_scopes="all"),
+                    AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="all"),
                     ToolGlobals,
                     drop=drop,
                     dry_run=dry_run,
@@ -141,9 +141,9 @@ class DeployCommand(CleanBaseCommand):
         )
         if drop or drop_data:
             print(Panel("[bold]DEPLOYING resources...[/]"))
-        if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
+        if AuthLoader.folder_name in include and (build_dir / AuthLoader.folder_name).is_dir():
             # First, we need to get all the generic access, so we can create the rest of the resources.
-            loader = AuthLoader.create_loader(ToolGlobals, directory, target_scopes="all_scoped_only")
+            loader = AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="all_scoped_only")
             result = (
                 self.deploy_resources(loader, **arguments)
             )  # fmt: skip
