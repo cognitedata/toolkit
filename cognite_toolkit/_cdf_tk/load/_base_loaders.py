@@ -64,7 +64,7 @@ class Loader(ABC):
         self.client = client
         self.resource_build_path: Path | None = None
         if build_dir is not None and build_dir.name == self.folder_name:
-            raise ValueError(f"Build directory cannot be the same as the folder name: {self.folder_name}")
+            raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
         elif build_dir is not None:
             self.resource_build_path = build_dir / self.folder_name
         self.extra_configs: dict[str, Any] = {}
