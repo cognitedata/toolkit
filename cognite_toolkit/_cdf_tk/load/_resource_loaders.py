@@ -196,7 +196,9 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         ToolGlobals: CDFToolConfig,
         build_dir: Path | None,
     ) -> AuthLoader:
-        return cls(ToolGlobals.client, build_dir, "all")
+        if cls is AuthLoader:
+            return cls(ToolGlobals.client, build_dir, "all")
+        return cls(ToolGlobals.client, build_dir)
 
     @classmethod
     def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:

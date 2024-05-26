@@ -50,7 +50,10 @@ else:
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
-    ResourceLoader.__subclasses__(), ResourceContainerLoader.__subclasses__(), DataLoader.__subclasses__()
+    ResourceLoader.__subclasses__(),
+    ResourceContainerLoader.__subclasses__(),
+    DataLoader.__subclasses__(),
+    AuthLoader.__subclasses__(),
 ):
     if _loader in [ResourceLoader, ResourceContainerLoader, DataLoader, AuthLoader]:
         # Skipping base classes
