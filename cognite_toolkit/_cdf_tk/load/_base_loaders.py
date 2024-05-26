@@ -62,11 +62,11 @@ class Loader(ABC):
 
     def __init__(self, client: CogniteClient, build_dir: Path | None):
         self.client = client
-        self.build_path: Path | None = None
+        self.resource_build_path: Path | None = None
         if build_dir is not None and build_dir.name == self.folder_name:
             raise ValueError(f"Build directory cannot be the same as the folder name: {self.folder_name}")
         elif build_dir is not None:
-            self.build_path = build_dir / self.folder_name
+            self.resource_build_path = build_dir / self.folder_name
         self.extra_configs: dict[str, Any] = {}
 
     @classmethod
@@ -93,7 +93,7 @@ class Loader(ABC):
             list[Path]: A sorted list of all files that are supported by this loader.
 
         """
-        dir_or_file = dir_or_file or self.build_path
+        dir_or_file = dir_or_file or self.resource_build_path
         if dir_or_file is None:
             raise ValueError("No 'dir_or_file' or 'build_path' is set.")
         if dir_or_file.is_file():

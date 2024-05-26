@@ -93,7 +93,7 @@ class FileLoader(DataLoader):
 
     def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
         if not self.has_loaded_metadata:
-            meta_loader = FileMetadataLoader(self.client, self.build_path and self.build_path.parent)
+            meta_loader = FileMetadataLoader(self.client, self.resource_build_path and self.resource_build_path.parent)
             yaml_files = list(datafile.parent.glob("*.yml")) + list(datafile.parent.glob("*.yaml"))
             for yaml_file in yaml_files:
                 loaded = meta_loader.load_resource(yaml_file, ToolGlobals, dry_run)

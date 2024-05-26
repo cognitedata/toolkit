@@ -531,12 +531,12 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             return FunctionWriteList.load(functions)
 
     def are_equal(self, local: FunctionWrite, cdf_resource: Function) -> bool:
-        if self.build_path is None:
+        if self.resource_build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
         # If the function failed, we want to always trigger a redeploy.
         if cdf_resource.status == "Failed":
             return False
-        function_rootdir = Path(self.build_path / f"{local.external_id}")
+        function_rootdir = Path(self.resource_build_path / f"{local.external_id}")
         if local.metadata is None:
             local.metadata = {}
         local.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
@@ -624,10 +624,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 )
                 self.client.functions.activate()
                 return FunctionList([])
-        if self.build_path is None:
+        if self.resource_build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
         for item in items:
-            function_rootdir = Path(self.build_path / (item.external_id or ""))
+            function_rootdir = Path(self.resource_build_path / (item.external_id or ""))
             if item.metadata is None:
                 item.metadata = {}
             item.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
