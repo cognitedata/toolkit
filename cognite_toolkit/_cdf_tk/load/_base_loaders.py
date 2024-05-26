@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Sequence, Sized
+from collections.abc import Hashable, Sequence, Sized
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Generic, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 from cognite.client import CogniteClient
-from cognite.client.data_classes import WorkflowVersionId
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
@@ -16,22 +15,13 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResourceList,
 )
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.data_classes.data_modeling import DataModelingId, VersionedDataModelingId
-from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.tk_warnings import WarningList, YAMLFileWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
-from .data_classes import (
-    RawDatabaseTable,
-)
-
-T_ID = TypeVar(
-    "T_ID",
-    bound=Union[str, int, DataModelingId, InstanceId, VersionedDataModelingId, RawDatabaseTable, WorkflowVersionId],
-)
+T_ID = TypeVar("T_ID", bound=Hashable)
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 _COMPILED_PATTERN: dict[str, re.Pattern] = {}
 
