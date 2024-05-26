@@ -610,6 +610,8 @@ class TestFormatConsistency:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
+        elif Loader in [AuthResourceScopedLoader]:
+            pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
 
         instance = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_write_cls)
 
@@ -634,6 +636,8 @@ class TestFormatConsistency:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
+        elif Loader in [AuthResourceScopedLoader]:
+            pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
 
         instances = FakeCogniteResourceGenerator(seed=1337).create_instances(loader.list_write_cls)
 
