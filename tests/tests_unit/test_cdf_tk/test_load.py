@@ -29,7 +29,9 @@ from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
     LOADER_LIST,
     RESOURCE_LOADER_LIST,
+    AuthAllScopedLoader,
     AuthLoader,
+    AuthResourceScopedLoader,
     DataModelLoader,
     DatapointsLoader,
     DataSetsLoader,
@@ -245,7 +247,7 @@ class TestDataModelLoader:
 
 class TestAuthLoader:
     def test_load_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, None, "all")
+        loader = AuthLoader.create_loader(cdf_tool_config, None)
 
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
@@ -265,7 +267,7 @@ class TestAuthLoader:
         assert caps["SessionsAcl"].scope._scope_name == "all"
 
     def test_load_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, None, "all_scoped_only")
+        loader = AuthAllScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
         )
@@ -277,7 +279,7 @@ class TestAuthLoader:
         assert loaded is None
 
     def test_load_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, None, "resource_scoped_only")
+        loader = AuthResourceScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
         )
@@ -298,7 +300,7 @@ class TestAuthLoader:
         assert caps["SessionsAcl"].scope._scope_name == "all"
 
     def test_load_group_list_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, None, "all")
+        loader = AuthLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
         )
@@ -307,7 +309,7 @@ class TestAuthLoader:
         assert len(loaded) == 2
 
     def test_load_group_list_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, None, "resource_scoped_only")
+        loader = AuthResourceScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
         )
@@ -316,7 +318,7 @@ class TestAuthLoader:
         assert loaded.name == "scoped_group_name"
 
     def test_load_group_list_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = AuthLoader.create_loader(cdf_tool_config, None, "all_scoped_only")
+        loader = AuthAllScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
         )
@@ -327,7 +329,7 @@ class TestAuthLoader:
     def test_unchanged_new_group(
         self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
-        loader = AuthLoader.create_loader(cdf_tool_config, None, "all")
+        loader = AuthLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )
@@ -360,7 +362,7 @@ class TestAuthLoader:
     def test_upsert_group(
         self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
-        loader = AuthLoader.create_loader(cdf_tool_config, None, "all")
+        loader = AuthLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )

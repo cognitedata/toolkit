@@ -20,7 +20,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
+    AuthAllScopedLoader,
     AuthLoader,
+    AuthResourceScopedLoader,
     DataLoader,
     DeployResults,
     Loader,
@@ -118,7 +120,7 @@ class DeployCommand(CleanBaseCommand):
 
             if "auth" in include and (build_dir / "auth").is_dir():
                 result = self.clean_resources(
-                    AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="all"),
+                    AuthLoader.create_loader(ToolGlobals, build_dir),
                     ToolGlobals,
                     drop=drop,
                     dry_run=dry_run,
@@ -143,7 +145,7 @@ class DeployCommand(CleanBaseCommand):
             print(Panel("[bold]DEPLOYING resources...[/]"))
         if AuthLoader.folder_name in include and (build_dir / AuthLoader.folder_name).is_dir():
             # First, we need to get all the generic access, so we can create the rest of the resources.
-            loader = AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="all_scoped_only")
+            loader = AuthAllScopedLoader.create_loader(ToolGlobals, build_dir)
             result = (
                 self.deploy_resources(loader, **arguments)
             )  # fmt: skip
@@ -170,7 +172,7 @@ class DeployCommand(CleanBaseCommand):
         if AuthLoader.folder_name in include and (build_dir / AuthLoader.folder_name).is_dir():
             # Last, we create the Groups again, but this time we do not filter out any capabilities
             # and we do not skip validation as the resources should now have been created.
-            loader = AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="resource_scoped_only")
+            loader = AuthResourceScopedLoader.create_loader(ToolGlobals, build_dir)
             result = self.deploy_resources(loader, **arguments)
             if ToolGlobals.failed:
                 raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")

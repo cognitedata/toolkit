@@ -329,7 +329,7 @@ class CleanCommand(CleanBaseCommand):
 
         if AuthLoader.folder_name in include and (build_dir / AuthLoader.folder_name).is_dir():
             result = self.clean_resources(
-                AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="all"),
+                AuthLoader.create_loader(ToolGlobals, build_dir),
                 ToolGlobals,
                 drop=True,
                 dry_run=dry_run,

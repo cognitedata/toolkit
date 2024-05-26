@@ -18,7 +18,9 @@ from typing import Literal
 from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
 from ._data_loaders import DatapointsLoader, FileLoader, RawFileLoader
 from ._resource_loaders import (
+    AuthAllScopedLoader,
     AuthLoader,
+    AuthResourceScopedLoader,
     ContainerLoader,
     DataModelLoader,
     DataSetsLoader,
@@ -50,7 +52,7 @@ LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
     ResourceLoader.__subclasses__(), ResourceContainerLoader.__subclasses__(), DataLoader.__subclasses__()
 ):
-    if _loader in [ResourceLoader, ResourceContainerLoader, DataLoader]:
+    if _loader in [ResourceLoader, ResourceContainerLoader, DataLoader, AuthLoader]:
         # Skipping base classes
         continue
     if _loader.folder_name not in LOADER_BY_FOLDER_NAME:  # type: ignore[attr-defined]
@@ -80,6 +82,8 @@ ResourceTypes: TypeAlias = Literal[
 __all__ = [
     "LOADER_BY_FOLDER_NAME",
     "AuthLoader",
+    "AuthAllScopedLoader",
+    "AuthResourceScopedLoader",
     "NodeLoader",
     "DataModelLoader",
     "DataSetsLoader",
