@@ -17,6 +17,15 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- If a resource is referring to another resource, the `cdf-tk build` will now give a warning if the referred resource
+  is not found in the same build. For example, if you have a data model and is missing the space, the build command
+  will give a warning that the space required by the data model is missing.
+- The `cdf-tk build` command will now give warnings on duplicated resource. For example, if you have two files with
+  the same externalId in the same module, the build command will give a warning that the externalId is duplicated,
+  and that only the first file is used.
+
 ### Fixed
 
 - In a `function` config, if you did not set `fileId` you would get an error when running `cdf-tk deploy`,
