@@ -2156,7 +2156,16 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
-        # Todo Handle all container dependencies and other views
+        for prop in item.get("properties", {}).values():
+            if (container := prop.get("container", {})) and container.get("type") == "container":
+                if _in_dict(("space", "externalId"), container):
+                    yield ContainerLoader, ContainerId(container["space"], container["externalId"])
+            for key, dct_ in [("source", prop), ("edgeSource", prop), ("source", prop.get("through", {}))]:
+                if source := dct_.get(key, {}):
+                    if source.get("type") == "view" and _in_dict(("space", "externalId", "version"), source):
+                        yield ViewLoader, ViewId(source["space"], source["externalId"], source["version"])
+                    elif source.get("type") == "container" and _in_dict(("space", "externalId"), source):
+                        yield ContainerLoader, ContainerId(source["space"], source["externalId"])
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -2710,12 +2719,6 @@ class GroupResourceScopedLoader(GroupLoader):
 
     def __init__(self, client: CogniteClient, build_dir: Path | None):
         super().__init__(client, build_dir, "resource_scoped_only")
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
-        # Todo Handle all capabilities
-        return
-        yield
 
 
 def _in_dict(keys: Iterable[str], dictionary: dict) -> bool:
