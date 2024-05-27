@@ -18,7 +18,6 @@
   dataSetExternalId: 'ds_files_{{location_name}}'
 - name: 'workflow:files:{{location_name}}:{{source_name}}:annotation'
   externalId: 'fn_workflow_files_{{location_name}}_{{source_name}}_annotation'
-  fileId: <will_be_generated>
   owner: 'Anonymous'
   description: 'Workflow scheduler for Contextualization of P&ID files creating annotations'
   metadata:

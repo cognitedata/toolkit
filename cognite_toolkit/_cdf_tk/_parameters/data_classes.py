@@ -23,7 +23,8 @@ class Parameter:
     def key(self) -> str:
         if isinstance(self.path[-1], str):
             return self.path[-1]
-        raise TypeError(f"Expected str, got {type(self.path[-1])}")
+        else:
+            return str(self.path[-1])
 
     def __lt__(self, other: Parameter) -> bool:
         if not isinstance(other, Parameter):
@@ -96,7 +97,10 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
     def as_camel_case(self) -> ParameterSet[T_Parameter]:
         output = type(self)()
         for parameter in self:
-            new_path = tuple(to_camel_case(name) if name not in SINGLETONS else name for name in parameter.path)
+            new_path = tuple(
+                to_camel_case(name) if name not in SINGLETONS and isinstance(name, str) else name
+                for name in parameter.path
+            )
             # This is because parameters are immutable
             new_param_copy = dataclasses.replace(parameter, path=new_path)
             output.add(new_param_copy)

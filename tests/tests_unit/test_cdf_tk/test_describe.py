@@ -34,10 +34,10 @@ def test_describe_datamodel(
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
     cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
 
-    space_loader = SpaceLoader.create_loader(cdf_tool)
-    data_model_loader = DataModelLoader.create_loader(cdf_tool)
-    container_loader = ContainerLoader.create_loader(cdf_tool)
-    view_loader = ViewLoader.create_loader(cdf_tool)
+    space_loader = SpaceLoader.create_loader(cdf_tool, None)
+    data_model_loader = DataModelLoader.create_loader(cdf_tool, None)
+    container_loader = ContainerLoader.create_loader(cdf_tool, None)
+    view_loader = ViewLoader.create_loader(cdf_tool, None)
     spaces = [
         Space.load(filepath.read_text())
         for filepath in [

@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     UnusedParameterWarning,
 )
-from cognite_toolkit._cdf_tk.validation import validate_data_set_is_set, validate_yaml_config
+from cognite_toolkit._cdf_tk.validation import validate_data_set_is_set, validate_resource_yaml
 from tests.tests_unit.data import LOAD_DATA
 
 DUMMY_FILE = Path("dummy.yaml")
@@ -23,7 +23,7 @@ DUMMY_FILE = Path("dummy.yaml")
 def test_validate_raw() -> None:
     raw_file = LOAD_DATA / "timeseries" / "wrong_case.yaml"
 
-    warnings = validate_yaml_config(
+    warnings = validate_resource_yaml(
         yaml.safe_load(raw_file.read_text()), TimeSeriesLoader.get_write_cls_parameter_spec(), raw_file
     )
 
@@ -38,7 +38,7 @@ def test_validate_raw() -> None:
 
 def test_validate_raw_nested() -> None:
     raw_file = LOAD_DATA / "datamodels" / "snake_cased_view_property.yaml"
-    warnings = validate_yaml_config(
+    warnings = validate_resource_yaml(
         yaml.safe_load(raw_file.read_text()), ViewLoader.get_write_cls_parameter_spec(), raw_file
     )
 
@@ -129,5 +129,5 @@ class TestValidateYAML:
     @pytest.mark.parametrize("content, spec, expected_warnings", list(validate_yaml_config_test_cases()))
     def test_validate_yaml_config(self, content: str, spec: ParameterSpecSet, expected_warnings: list[ToolkitWarning]):
         data = yaml.safe_load(content)
-        warnings = validate_yaml_config(data, spec, DUMMY_FILE)
+        warnings = validate_resource_yaml(data, spec, DUMMY_FILE)
         assert sorted(warnings) == sorted(expected_warnings)
