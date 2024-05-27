@@ -662,6 +662,7 @@ class TestExtractionPipelineConfigLoader:
             res = cmd.clean_resources(loader, cdf_tool, dry_run=True, drop=True)
             assert res.deleted == 1
 
+
 class TestDeployResources:
     def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
         build_env_name = "dev"
