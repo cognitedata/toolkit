@@ -15,7 +15,6 @@ from cognite.client.data_classes import (
     FunctionWrite,
     Group,
     GroupWrite,
-    GroupWriteList,
     Transformation,
     TransformationSchedule,
 )
@@ -35,7 +34,6 @@ from cognite_toolkit._cdf_tk.load import (
     FileMetadataLoader,
     FunctionLoader,
     GroupAllScopedLoader,
-    GroupLoader,
     GroupResourceScopedLoader,
     Loader,
     ResourceLoader,
@@ -246,26 +244,6 @@ class TestDataModelLoader:
 
 
 class TestAuthLoader:
-    def test_load_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = GroupLoader.create_loader(cdf_tool_config, None)
-
-        loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
-        )
-        assert loaded.name == "unscoped_group_name"
-
-        loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
-        )
-        assert loaded.name == "scoped_group_name"
-
-        caps = {str(type(element).__name__): element for element in loaded.capabilities}
-
-        assert all(isinstance(item, int) for item in caps["DataSetsAcl"].scope.ids)
-        assert all(isinstance(item, int) for item in caps["AssetsAcl"].scope.ids)
-        assert all(isinstance(item, int) for item in caps["ExtractionConfigsAcl"].scope.ids)
-        assert caps["SessionsAcl"].scope._scope_name == "all"
-
     def test_load_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupAllScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
@@ -299,15 +277,6 @@ class TestAuthLoader:
         assert all(isinstance(item, int) for item in caps["ExtractionConfigsAcl"].scope.ids)
         assert caps["SessionsAcl"].scope._scope_name == "all"
 
-    def test_load_group_list_all(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = GroupLoader.create_loader(cdf_tool_config, None)
-        loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
-        )
-
-        assert isinstance(loaded, GroupWriteList)
-        assert len(loaded) == 2
-
     def test_load_group_list_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
@@ -329,7 +298,7 @@ class TestAuthLoader:
     def test_unchanged_new_group(
         self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
-        loader = GroupLoader.create_loader(cdf_tool_config, None)
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )
@@ -362,7 +331,7 @@ class TestAuthLoader:
     def test_upsert_group(
         self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
-        loader = GroupLoader.create_loader(cdf_tool_config, None)
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )
