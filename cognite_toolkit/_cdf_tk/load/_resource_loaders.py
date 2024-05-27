@@ -1617,7 +1617,7 @@ class ExtractionPipelineConfigLoader(
                     continue
             else:
                 if result:
-                    count += 1 
+                    count += 1
         return count
 
     @classmethod

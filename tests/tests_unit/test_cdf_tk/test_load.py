@@ -24,7 +24,7 @@ from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, ParameterValue, read_parameters_from_dict
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, CleanCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
@@ -569,7 +569,7 @@ class TestExtractionPipelineConfigLoader:
         externalId: 'ep_src_asset'
         description: 'DB extractor config reading data from Springfield SAP'
     """
-        
+
     def test_load_extraction_pipeline_upsert_create_one(
         self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
@@ -579,11 +579,11 @@ class TestExtractionPipelineConfigLoader:
         cdf_tool.client = cognite_client_approval.mock_client
 
         cognite_client_approval.append(
-            ExtractionPipelineConfig,    
+            ExtractionPipelineConfig,
             ExtractionPipelineConfig(
                 external_id="ep_src_asset",
                 description="DB extractor config reading data from Springfield SAP",
-            )
+            ),
         )
 
         mock_read_yaml_file(
@@ -591,7 +591,7 @@ class TestExtractionPipelineConfigLoader:
         )
 
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
-        
+
         cmd = DeployCommand(print_warning=False)
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
         resources = loader.load_resource(Path("extraction_pipeline.config.yaml"), cdf_tool, skip_validation=False)
@@ -599,7 +599,6 @@ class TestExtractionPipelineConfigLoader:
         assert len(to_create) == 0
         assert len(changed) == 0
         assert len(unchanged) == 1
-
 
     def test_load_extraction_pipeline_upsert_update_one(
         self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
@@ -610,12 +609,12 @@ class TestExtractionPipelineConfigLoader:
         cdf_tool.client = cognite_client_approval.mock_client
 
         cognite_client_approval.append(
-            ExtractionPipelineConfig,    
+            ExtractionPipelineConfig,
             ExtractionPipelineConfig(
                 external_id="ep_src_asset",
                 description="DB extractor config reading data from Springfield SAP",
-                config= '\n    logger: \n        {level: WARN}'
-            )
+                config="\n    logger: \n        {level: WARN}",
+            ),
         )
 
         mock_read_yaml_file(
@@ -623,7 +622,7 @@ class TestExtractionPipelineConfigLoader:
         )
 
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
-        
+
         cmd = DeployCommand(print_warning=False)
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
         resources = loader.load_resource(Path("extraction_pipeline.config.yaml"), cdf_tool, skip_validation=False)
@@ -641,12 +640,12 @@ class TestExtractionPipelineConfigLoader:
         cdf_tool.client = cognite_client_approval.mock_client
 
         cognite_client_approval.append(
-            ExtractionPipelineConfig,    
+            ExtractionPipelineConfig,
             ExtractionPipelineConfig(
                 external_id="ep_src_asset",
                 description="DB extractor config reading data from Springfield SAP",
-                config= '\n    logger: \n        {level: WARN}'
-            )
+                config="\n    logger: \n        {level: WARN}",
+            ),
         )
 
         mock_read_yaml_file(
@@ -654,12 +653,11 @@ class TestExtractionPipelineConfigLoader:
         )
 
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
-        
+
         cmd = CleanCommand(print_warning=False)
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
         resources = loader.load_resource(Path("extraction_pipeline.config.yaml"), cdf_tool, skip_validation=False)
         res = cmd.clean_resources(loader, cdf_tool, dry_run=True, drop=True)
-
 
 
 class TestDeployResources:
