@@ -302,8 +302,6 @@ class ApprovalCogniteClient:
             created_resources[resource_cls.__name__].extend(created)
             if resource_cls is View:
                 return write_list_cls(created)
-            if resource_cls is ExtractionPipelineConfig:
-                print("stop")
             return resource_list_cls.load(
                 [
                     {
