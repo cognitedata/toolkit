@@ -85,6 +85,7 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     GroupsAcl,
     RawAcl,
+    SecurityCategoriesAcl,
     SessionsAcl,
     TimeSeriesAcl,
     TransformationsAcl,
@@ -126,7 +127,16 @@ from cognite.client.data_classes.extractionpipelines import (
     ExtractionPipelineWrite,
     ExtractionPipelineWriteList,
 )
-from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, GroupWriteList
+from cognite.client.data_classes.iam import (
+    Group,
+    GroupList,
+    GroupWrite,
+    GroupWriteList,
+    SecurityCategory,
+    SecurityCategoryList,
+    SecurityCategoryWrite,
+    SecurityCategoryWriteList,
+)
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -156,6 +166,7 @@ _HAS_DATA_FILTER_LIMIT = 10
 
 class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList], ABC):
     folder_name = "auth"
+    filename_pattern = r"^(?!.*SecurityCategory$).*"
     resource_cls = Group
     resource_write_cls = GroupWrite
     list_cls = GroupList
@@ -408,6 +419,65 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 class GroupAllScopedLoader(GroupLoader):
     def __init__(self, client: CogniteClient, build_dir: Path | None):
         super().__init__(client, build_dir, "all_scoped_only")
+
+
+@final
+class SecurityCategoryLoader(
+    ResourceLoader[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
+):
+    filename_pattern = r"^.*\.SecurityCategory$"  # Matches all yaml files who's stem ends with *.SecurityCategory.
+    resource_cls = SecurityCategory
+    resource_write_cls = SecurityCategoryWrite
+    list_cls = SecurityCategoryList
+    list_write_cls = SecurityCategoryWriteList
+    folder_name = "auth"
+    dependencies = frozenset({GroupAllScopedLoader})
+    _doc_url = "Security-categories/operation/createSecurityCategories"
+
+    @property
+    def display_name(self) -> str:
+        return "security.categories"
+
+    @classmethod
+    def get_id(cls, item: SecurityCategoryWrite | SecurityCategory | dict) -> str:
+        if isinstance(item, dict):
+            return item["name"]
+        return cast(str, item.name)
+
+    @classmethod
+    def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
+        return SecurityCategoriesAcl(
+            actions=[
+                SecurityCategoriesAcl.Action.Create,
+                SecurityCategoriesAcl.Action.List,
+                SecurityCategoriesAcl.Action.Delete,
+            ],
+            scope=SecurityCategoriesAcl.Scope.All(),
+        )
+
+    def create(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+        return self.client.iam.security_categories.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> SecurityCategoryList:
+        names = set(ids)
+        categories = self.client.iam.security_categories.list(limit=-1)
+        return SecurityCategoryList([c for c in categories if c.name in names])
+
+    def update(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+        items_by_name = {item.name: item for item in items}
+        retrieved = self.retrieve(list(items_by_name.keys()))
+        retrieved_by_name = {item.name: item for item in retrieved}
+        new_items_by_name = {item.name: item for item in items if item.name not in retrieved_by_name}
+        if new_items_by_name:
+            created = self.client.iam.security_categories.create(list(new_items_by_name.values()))
+            retrieved_by_name.update({item.name: item for item in created})
+        return SecurityCategoryList([retrieved_by_name[name] for name in items_by_name])
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        retrieved = self.retrieve(ids)
+        if retrieved:
+            self.client.iam.security_categories.delete([item.id for item in retrieved if item.id])
+        return len(retrieved)
 
 
 @final
