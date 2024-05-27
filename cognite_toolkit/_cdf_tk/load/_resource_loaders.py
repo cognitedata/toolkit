@@ -31,6 +31,10 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     ClientCredentials,
     DatapointsList,
+    DatapointSubscription,
+    DatapointSubscriptionList,
+    DataPointSubscriptionWrite,
+    DatapointSubscriptionWriteList,
     DataSet,
     DataSetList,
     DataSetWrite,
@@ -87,6 +91,7 @@ from cognite.client.data_classes.capabilities import (
     RawAcl,
     SessionsAcl,
     TimeSeriesAcl,
+    TimeSeriesSubscriptionsAcl,
     TransformationsAcl,
     WorkflowOrchestrationAcl,
 )
@@ -1070,6 +1075,7 @@ class RawTableLoader(
 class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     item_name = "datapoints"
     folder_name = "timeseries"
+    filename_pattern = r"^(?!.*DatapointSubscription$).*"
     resource_cls = TimeSeries
     resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
@@ -1163,6 +1169,87 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
         return spec
+
+
+@final
+class DatapointSubscriptionLoader(
+    ResourceLoader[
+        str,
+        DataPointSubscriptionWrite,
+        DatapointSubscription,
+        DatapointSubscriptionWriteList,
+        DatapointSubscriptionList,
+    ]
+):
+    folder_name = "timeseries"
+    filename_pattern = r"^.DatapointSubscription$"  # Matches all yaml files who's endswith *.DatapointSubscription.
+    resource_cls = DatapointSubscription
+    resource_write_cls = DataPointSubscriptionWrite
+    list_cls = DatapointSubscriptionList
+    list_write_cls = DatapointSubscriptionWriteList
+    _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
+
+    @classmethod
+    def get_id(cls, item: DataPointSubscriptionWrite | DatapointSubscription | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        return item.external_id
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        for timeseries_id in item.get("timeSeriesIds", []):
+            yield TimeSeriesLoader, timeseries_id
+
+    @classmethod
+    def get_required_capability(cls, items: DatapointSubscriptionWriteList) -> Capability | list[Capability]:
+        return TimeSeriesSubscriptionsAcl(
+            [TimeSeriesSubscriptionsAcl.Action.Read, TimeSeriesSubscriptionsAcl.Action.Write],
+            TimeSeriesSubscriptionsAcl.Scope.All(),
+        )
+
+    def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
+        created = DatapointSubscriptionList([])
+        for item in items:
+            created.append(self.client.time_series.subscriptions.create(item))
+        return created
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> DatapointSubscriptionList:
+        items = DatapointSubscriptionList([])
+        for id in ids:
+            retrieved = self.client.time_series.subscriptions.retrieve(id)
+            if retrieved:
+                items.append(retrieved)
+        return items
+
+    def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
+        raise NotImplementedError()
+        # updated = DatapointSubscriptionList([])
+        # for item in items:
+        #     updated.append(self.client.time_series.subscriptions.update(item))
+        #
+        # return updated
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.time_series.subscriptions.delete(ids)
+        except CogniteNotFoundError:
+            existing = set(self.retrieve(ids).as_external_ids())
+            if existing:
+                self.client.time_series.subscriptions.delete(list(existing))
+            return len(existing)
+        else:
+            # All deleted successfully
+            return len(ids)
 
 
 @final
