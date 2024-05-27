@@ -1200,6 +1200,12 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if "securityCategoryNames" in resource:
+                if security_categories_names := resource.pop("securityCategoryNames", []):
+                    security_categories = ToolGlobals.verify_security_categories(
+                        security_categories_names, skip_validation
+                    )
+                    resource["securityCategories"] = security_categories
             if resource.get("securityCategories") is None:
                 # Bug in SDK, the read version sets security categories to an empty list.
                 resource["securityCategories"] = []
@@ -1856,6 +1862,13 @@ class FileMetadataLoader(
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if "securityCategoryNames" in resource:
+                if security_categories_names := resource.pop("securityCategoryNames", []):
+                    security_categories = ToolGlobals.verify_security_categories(
+                        security_categories_names, skip_validation
+                    )
+                    resource["securityCategories"] = security_categories
+
             files_metadata = FileMetadataWriteList([FileMetadataWrite.load(resource)])
         except Exception:
             files_metadata = FileMetadataWriteList.load(
