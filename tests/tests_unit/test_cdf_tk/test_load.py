@@ -632,6 +632,7 @@ class TestExtractionPipelineConfigLoader:
         assert len(changed) == 1
         assert len(unchanged) == 0
 
+
     def test_load_extraction_pipeline_delete_one(
         self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
@@ -657,8 +658,9 @@ class TestExtractionPipelineConfigLoader:
         
         cmd = CleanCommand(print_warning=False)
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
-        resources = loader.load_resource(Path("extraction_pipeline.config.yaml"), cdf_tool, skip_validation=False)
-        res = cmd.clean_resources(loader, cdf_tool, dry_run=True, drop=True)
+        with patch.object(ExtractionPipelineConfigLoader, "find_files", return_value=[Path("extraction_pipeline.config.yaml")]):
+            res = cmd.clean_resources(loader, cdf_tool, dry_run=True, drop=True)
+            assert res.deleted == 1
 
 
 
