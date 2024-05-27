@@ -153,8 +153,7 @@ _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 _HAS_DATA_FILTER_LIMIT = 10
 
 
-@final
-class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
+class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
     folder_name = "auth"
     resource_cls = Group
     resource_write_cls = GroupWrite
@@ -196,13 +195,10 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         cls,
         ToolGlobals: CDFToolConfig,
         build_dir: Path | None,
-        target_scopes: Literal[
-            "all",
-            "all_scoped_only",
-            "resource_scoped_only",
-        ] = "all",
-    ) -> AuthLoader:
-        return AuthLoader(ToolGlobals.client, build_dir, target_scopes)
+    ) -> GroupLoader:
+        if cls is GroupLoader:
+            return cls(ToolGlobals.client, build_dir, "all")
+        return cls(ToolGlobals.client, build_dir)
 
     @classmethod
     def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
@@ -378,6 +374,12 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
 
 
 @final
+class GroupAllScopedLoader(GroupLoader):
+    def __init__(self, client: CogniteClient, build_dir: Path | None):
+        super().__init__(client, build_dir, "all_scoped_only")
+
+
+@final
 class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
     support_drop = False
     folder_name = "data_sets"
@@ -385,6 +387,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     resource_write_cls = DataSetWrite
     list_cls = DataSetList
     list_write_cls = DataSetWriteList
+    dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Data-sets/operation/createDataSets"
 
     @classmethod
@@ -485,7 +488,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     resource_write_cls = FunctionWrite
     list_cls = FunctionList
     list_write_cls = FunctionWriteList
-    dependencies = frozenset({DataSetsLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
 
     @classmethod
@@ -804,6 +807,7 @@ class RawDatabaseLoader(
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
+    dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Raw/operation/createDBs"
 
     def __init__(self, client: CogniteClient, build_dir: Path):
@@ -905,7 +909,7 @@ class RawTableLoader(
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
-    dependencies = frozenset({RawDatabaseLoader})
+    dependencies = frozenset({RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Raw/operation/createTables"
 
     def __init__(self, client: CogniteClient, build_dir: Path):
@@ -1024,7 +1028,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
     list_write_cls = TimeSeriesWriteList
-    dependencies = frozenset({DataSetsLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @classmethod
@@ -1122,7 +1126,7 @@ class TransformationLoader(
     resource_write_cls = TransformationWrite
     list_cls = TransformationList
     list_write_cls = TransformationWriteList
-    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader})
+    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Transformations/operation/createTransformations"
 
     @classmethod
@@ -1393,7 +1397,7 @@ class ExtractionPipelineLoader(
     resource_write_cls = ExtractionPipelineWrite
     list_cls = ExtractionPipelineList
     list_write_cls = ExtractionPipelineWriteList
-    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader})
+    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader, GroupAllScopedLoader})
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @classmethod
@@ -1623,7 +1627,7 @@ class FileMetadataLoader(
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
-    dependencies = frozenset({DataSetsLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -1766,6 +1770,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     resource_write_cls = SpaceApply
     list_write_cls = SpaceApplyList
     list_cls = SpaceList
+    dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Spaces/operation/ApplySpaces"
 
     @property
@@ -2445,7 +2450,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
     list_write_cls = WorkflowUpsertList
-
+    dependencies = frozenset({GroupAllScopedLoader})
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
@@ -2603,3 +2608,18 @@ class WorkflowVersionLoader(
             )
         )
         return spec
+
+
+@final
+class GroupResourceScopedLoader(GroupLoader):
+    dependencies = frozenset(
+        {
+            SpaceLoader,
+            DataSetsLoader,
+            ExtractionPipelineLoader,
+            TimeSeriesLoader,
+        }
+    )
+
+    def __init__(self, client: CogniteClient, build_dir: Path | None):
+        super().__init__(client, build_dir, "resource_scoped_only")

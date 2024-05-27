@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
-    AuthLoader,
     DataLoader,
     DeployResults,
     Loader,
@@ -76,19 +75,27 @@ class DeployCommand(CleanBaseCommand):
         if not _RUNNING_IN_BROWSER:
             print(ToolGlobals.as_string())
 
-        # The 'auth' loader is excluded, as it is run twice,
-        # once with all_scoped_only and once with resource_scoped_only
         selected_loaders = {
             loader_cls: loader_cls.dependencies
             for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-            if folder_name in include and folder_name != "auth" and (build_dir / folder_name).is_dir()
+            if folder_name in include and (build_dir / folder_name).is_dir()
             for loader_cls in loader_classes
         }
         results = DeployResults([], "deploy", dry_run=dry_run)
-        ordered_loaders = list(TopologicalSorter(selected_loaders).static_order())
-        if len(ordered_loaders) > len(selected_loaders):
-            dependencies = [item.folder_name for item in ordered_loaders if item not in selected_loaders]
-            self.warn(ToolkitDependenciesIncludedWarning(dependencies))
+
+        ordered_loaders: list[type[Loader]] = []
+        should_include: list[type[Loader]] = []
+        # The topological sort can include loaders that are not selected, so we need to check for that.
+        for loader_cls in TopologicalSorter(selected_loaders).static_order():
+            if loader_cls in selected_loaders:
+                ordered_loaders.append(loader_cls)
+            elif (build_dir / loader_cls.folder_name).is_dir():
+                should_include.append(loader_cls)
+            # Otherwise, it is not in the build directory and not selected, so we skip it.
+            # There should be a warning in the build step if it is missing.
+        if should_include:
+            self.warn(ToolkitDependenciesIncludedWarning([item.folder_name for item in should_include]))
+
         result: DeployResult | None
         if drop or drop_data:
             # Drop has to be done in the reverse order of deploy.
@@ -115,47 +122,19 @@ class DeployCommand(CleanBaseCommand):
                     results[result.name] = result
                 if ToolGlobals.failed:
                     raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
-
-            if "auth" in include and (build_dir / "auth").is_dir():
-                result = self.clean_resources(
-                    AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="all"),
-                    ToolGlobals,
-                    drop=drop,
-                    dry_run=dry_run,
-                    verbose=ctx.obj.verbose,
-                )
-                if result:
-                    results[result.name] = result
-                if ToolGlobals.failed:
-                    # TODO: Clean auth? What does that mean?
-                    raise ToolkitCleanResourceError("Failure to clean auth as expected.")
-
             print("[bold]...cleaning complete![/]")
 
-        arguments = dict(
-            ToolGlobals=ToolGlobals,
-            dry_run=dry_run,
-            has_done_drop=drop,
-            has_dropped_data=drop_data,
-            verbose=ctx.obj.verbose,
-        )
         if drop or drop_data:
             print(Panel("[bold]DEPLOYING resources...[/]"))
-        if AuthLoader.folder_name in include and (build_dir / AuthLoader.folder_name).is_dir():
-            # First, we need to get all the generic access, so we can create the rest of the resources.
-            loader = AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="all_scoped_only")
-            result = (
-                self.deploy_resources(loader, **arguments)
-            )  # fmt: skip
-            if ToolGlobals.failed:
-                raise ToolkitDeployResourceError("Failure to deploy auth (groups) with ALL scope as expected.")
-            if result:
-                results[result.name] = result
-            if ctx.obj.verbose:
-                print("")  # Extra newline
-
         for loader_cls in ordered_loaders:
-            result = self.deploy_resources(loader_cls.create_loader(ToolGlobals, build_dir), **arguments)
+            result = self.deploy_resources(
+                loader_cls.create_loader(ToolGlobals, build_dir),
+                ToolGlobals=ToolGlobals,
+                dry_run=dry_run,
+                has_done_drop=drop,
+                has_dropped_data=drop_data,
+                verbose=ctx.obj.verbose,
+            )
             if ToolGlobals.failed:
                 if results and results.has_counts:
                     print(results.counts_table())
@@ -167,21 +146,10 @@ class DeployCommand(CleanBaseCommand):
             if ctx.obj.verbose:
                 print("")  # Extra newline
 
-        if AuthLoader.folder_name in include and (build_dir / AuthLoader.folder_name).is_dir():
-            # Last, we create the Groups again, but this time we do not filter out any capabilities
-            # and we do not skip validation as the resources should now have been created.
-            loader = AuthLoader.create_loader(ToolGlobals, build_dir, target_scopes="resource_scoped_only")
-            result = self.deploy_resources(loader, **arguments)
-            if ToolGlobals.failed:
-                raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")
-            if result:
-                results[result.name] = result
         if results.has_counts:
             print(results.counts_table())
         if results.has_uploads:
             print(results.uploads_table())
-        if ToolGlobals.failed:
-            raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")
 
     def deploy_resources(
         self,

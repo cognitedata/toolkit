@@ -78,7 +78,7 @@ class HighSeverityWarning(GeneralWarning):
 @dataclass(frozen=True)
 class ToolkitDependenciesIncludedWarning(GeneralWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
-    message: ClassVar[str] = "Resources were included due to dependencies"
+    message: ClassVar[str] = "Operation may fail due to missing dependencies:"
     dependencies: Union[None, str, list[str]]
 
     def get_message(self) -> str:
