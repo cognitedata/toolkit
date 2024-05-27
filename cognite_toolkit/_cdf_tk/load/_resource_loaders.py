@@ -18,7 +18,7 @@ import json
 import re
 from abc import ABC
 from collections import defaultdict
-from collections.abc import Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import lru_cache
 from numbers import Number
 from pathlib import Path
@@ -210,6 +210,39 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         if isinstance(item, dict):
             return item["name"]
         return item.name
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        for capability in item.get("capabilities", []):
+            for acl, content in capability.items():
+                if scope := content.get("scope", {}):
+                    if space_ids := scope.get(capabilities.SpaceIDScope._scope_name, []):
+                        for space_id in space_ids:
+                            yield SpaceLoader, space_id
+                    if data_set_ids := scope.get(capabilities.DataSetScope._scope_name, []):
+                        for data_set_id in data_set_ids:
+                            yield DataSetsLoader, data_set_id
+                    if table_ids := scope.get(capabilities.TableScope._scope_name, []):
+                        for db_name, tables in table_ids.get("dbsToTables", {}).items():
+                            yield RawDatabaseLoader, RawDatabaseTable(db_name)
+                            for table in tables:
+                                yield RawDatabaseLoader, RawDatabaseTable(db_name, table)
+                    if extraction_pipeline_ids := scope.get(capabilities.ExtractionPipelineScope._scope_name, []):
+                        for extraction_pipeline_id in extraction_pipeline_ids:
+                            yield ExtractionPipelineLoader, extraction_pipeline_id
+                    if (ids := scope.get(capabilities.IDScope._scope_name, [])) or (
+                        ids := scope.get(capabilities.IDScopeLowerCase._scope_name, [])
+                    ):
+                        loader: type[ResourceLoader] | None = None
+                        if acl == capabilities.DataSetsAcl._capability_name:
+                            loader = DataSetsLoader
+                        elif acl == capabilities.ExtractionPipelinesAcl._capability_name:
+                            loader = ExtractionPipelineLoader
+                        elif acl == capabilities.TimeSeriesAcl._capability_name:
+                            loader = TimeSeriesLoader
+                        if loader is not None:
+                            for id_ in ids:
+                                yield loader, id_
 
     @classmethod
     def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
@@ -506,6 +539,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             raise ValueError("Function must have external_id set.")
         return item.external_id
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionWrite | FunctionWriteList | None:
@@ -705,6 +743,11 @@ class FunctionScheduleLoader(
         if item.function_external_id is None or item.cron_expression is None:
             raise ValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
         return f"{item.function_external_id}:{item.cron_expression}"
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "functionExternalId" in item:
+            yield FunctionLoader, item["functionExternalId"]
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -933,6 +976,11 @@ class RawTableLoader(
             return RawDatabaseTable(item["dbName"], item["tableName"])
         return item
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dbName" in item:
+            yield RawDatabaseLoader, RawDatabaseTable(item["dbName"])
+
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> RawTableList | None:
         resource = super().load_resource(filepath, ToolGlobals, skip_validation)
         if resource is None:
@@ -1048,6 +1096,11 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             raise ValueError("TimeSeries must have external_id set.")
         return item.external_id
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TimeSeriesWriteList:
         resources = load_yaml_inject_variables(filepath, {})
         if not isinstance(resources, list):
@@ -1145,6 +1198,24 @@ class TransformationLoader(
         if item.external_id is None:
             raise ValueError("Transformation must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        if destination := item.get("destination", {}):
+            if destination.get("type") == "raw" and _in_dict(("database", "table"), destination):
+                yield RawDatabaseLoader, RawDatabaseTable(destination["database"])
+                yield RawTableLoader, RawDatabaseTable(destination["database"], destination["table"])
+            elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
+                if _in_dict(("space", "externalId", "version"), view):
+                    yield ViewLoader, ViewId.load(view)
+            elif destination.get("type") == "instances":
+                if space := destination.get("instanceSpace"):
+                    yield SpaceLoader, space
+                if data_model := destination.get("dataModel"):
+                    if _in_dict(("space", "externalId", "version"), data_model):
+                        yield DataModelLoader, DataModelId.load(data_model)
 
     @classmethod
     def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
@@ -1347,6 +1418,11 @@ class TransformationScheduleLoader(
             raise ValueError("TransformationSchedule must have external_id set.")
         return item.external_id
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "externalId" in item:
+            yield TransformationLoader, item["externalId"]
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
@@ -1420,6 +1496,17 @@ class ExtractionPipelineLoader(
         if item.external_id is None:
             raise ValueError("ExtractionPipeline must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        if "rawTables" in item:
+            for entry in item["rawTables"]:
+                if "dbName" in entry:
+                    yield RawDatabaseLoader, RawDatabaseTable(db_name=entry["dbName"])
+                    if "tableName" in entry:
+                        yield RawTableLoader, RawDatabaseTable._load(entry)
 
     @classmethod
     def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
@@ -1545,6 +1632,11 @@ class ExtractionPipelineConfigLoader(
             raise ValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "externalId" in item:
+            yield ExtractionPipelineLoader, item["externalId"]
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
@@ -1648,6 +1740,11 @@ class FileMetadataLoader(
         if item.external_id is None:
             raise ValueError("FileMetadata must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1917,6 +2014,11 @@ class ContainerLoader(
             return ContainerId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "space" in item:
+            yield SpaceLoader, item["space"]
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ContainerApply | ContainerApplyList | None:
@@ -2093,6 +2195,21 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             return ViewId(space=item["space"], external_id=item["externalId"], version=item["version"])
         return item.as_id()
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "space" in item:
+            yield SpaceLoader, item["space"]
+        for prop in item.get("properties", {}).values():
+            if (container := prop.get("container", {})) and container.get("type") == "container":
+                if _in_dict(("space", "externalId"), container):
+                    yield ContainerLoader, ContainerId(container["space"], container["externalId"])
+            for key, dct_ in [("source", prop), ("edgeSource", prop), ("source", prop.get("through", {}))]:
+                if source := dct_.get(key, {}):
+                    if source.get("type") == "view" and _in_dict(("space", "externalId", "version"), source):
+                        yield ViewLoader, ViewId(source["space"], source["externalId"], source["version"])
+                    elif source.get("type") == "container" and _in_dict(("space", "externalId"), source):
+                        yield ContainerLoader, ContainerId(source["space"], source["externalId"])
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ViewApply | ViewApplyList | None:
@@ -2233,6 +2350,14 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             return DataModelId(space=item["space"], external_id=item["externalId"], version=item["version"])
         return item.as_id()
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "space" in item:
+            yield SpaceLoader, item["space"]
+        for view in item.get("views", []):
+            if _in_dict(("space", "externalId"), view):
+                yield ViewLoader, ViewId(view["space"], view["externalId"], view.get("version"))
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> DataModelApply | DataModelApplyList | None:
@@ -2310,6 +2435,17 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
                 raise KeyError(*missing)
             return NodeId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "space" in item:
+            yield SpaceLoader, item["space"]
+        for source in item.get("sources", []):
+            if (identifier := source.get("source")) and isinstance(identifier, dict):
+                if identifier.get("type") == "view" and _in_dict(("space", "externalId", "version"), identifier):
+                    yield ViewLoader, ViewId(identifier["space"], identifier["externalId"], identifier["version"])
+                elif identifier.get("type") == "container" and _in_dict(("space", "externalId"), identifier):
+                    yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
     def are_equal(self, local: LoadedNode, cdf_resource: Node) -> bool:
         """Comparison for nodes to include properties in the comparison
@@ -2536,6 +2672,11 @@ class WorkflowVersionLoader(
             return WorkflowVersionId(item["workflowExternalId"], item["version"])
         return item.as_id()
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "workflowExternalId" in item:
+            yield WorkflowLoader, item["workflowExternalId"]
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> WorkflowVersionUpsertList:
@@ -2621,3 +2762,7 @@ class GroupResourceScopedLoader(GroupLoader):
 
     def __init__(self, client: CogniteClient, build_dir: Path | None):
         super().__init__(client, build_dir, "resource_scoped_only")
+
+
+def _in_dict(keys: Iterable[str], dictionary: dict) -> bool:
+    return all(key in dictionary for key in keys)

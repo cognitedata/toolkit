@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
     MediumSeverityWarning,
+    MissingDependencyWarning,
     ToolkitBugWarning,
     ToolkitNotSupportedWarning,
     UnresolvedVariableWarning,
@@ -241,7 +242,18 @@ class BuildCommand(ToolkitCommand):
                         # Copy the file as is, not variable replacement
                         shutil.copyfile(source_path, destination)
 
+        self._check_missing_dependencies(state, project_config_dir)
         return state.source_by_build_path
+
+    def _check_missing_dependencies(self, state: _BuildState, project_config_dir: Path) -> None:
+        existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
+        missing_dependencies = set(state.dependencies_by_required.keys()) - existing
+        for resource_cls, id_ in missing_dependencies:
+            required_by = {
+                (required, path.relative_to(project_config_dir))
+                for required, path in state.dependencies_by_required[(resource_cls, id_)]
+            }
+            self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
 
     @staticmethod
     def _is_selected_module(relative_module_dir: Path, selected_modules: list[str | tuple[str, ...]]) -> bool:
@@ -457,6 +469,7 @@ class BuildCommand(ToolkitCommand):
 
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no
+
             identifier: Any | None = None
             try:
                 identifier = loader.get_id(item)
@@ -470,6 +483,9 @@ class BuildCommand(ToolkitCommand):
 
             warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
             warning_list.extend(warnings)
+
+            for dependency in loader.get_dependent_items(item):
+                state.dependencies_by_required[dependency].append((identifier, source_path))
 
             if api_spec is not None:
                 resource_warnings = validate_resource_yaml(parsed, api_spec, source_path, element_no)
@@ -524,6 +540,9 @@ class _BuildState:
     printed_function_warning: bool = False
     ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
         default_factory=lambda: defaultdict(dict)
+    )
+    dependencies_by_required: dict[tuple[type[ResourceLoader], Hashable], list[tuple[Hashable, Path]]] = field(
+        default_factory=lambda: defaultdict(list)
     )
     _local_variables: Mapping[str, str] = field(default_factory=dict)
 
