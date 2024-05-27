@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Generic, TypeVar
@@ -186,6 +186,16 @@ class ResourceLoader(
     ) -> WarningList[YAMLFileWarning]:
         """This should be overwritten in subclasses to check the semantics of the identifier."""
         return WarningList[YAMLFileWarning]()
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        return
+        yield
 
     @classmethod
     def create_empty_of(cls, items: T_CogniteResourceList) -> T_CogniteResourceList:

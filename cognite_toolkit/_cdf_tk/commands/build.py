@@ -457,6 +457,7 @@ class BuildCommand(ToolkitCommand):
 
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no
+
             identifier: Any | None = None
             try:
                 identifier = loader.get_id(item)
@@ -470,6 +471,9 @@ class BuildCommand(ToolkitCommand):
 
             warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
             warning_list.extend(warnings)
+
+            for dependency in loader.get_dependent_items(item):
+                state.dependencies_by_required[dependency].append((identifier, source_path))
 
             if api_spec is not None:
                 resource_warnings = validate_resource_yaml(parsed, api_spec, source_path, element_no)
@@ -524,6 +528,9 @@ class _BuildState:
     printed_function_warning: bool = False
     ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
         default_factory=lambda: defaultdict(dict)
+    )
+    dependencies_by_required: dict[tuple[type[ResourceLoader], Hashable], list[tuple[Hashable, Path]]] = field(
+        default_factory=lambda: defaultdict(list)
     )
     _local_variables: Mapping[str, str] = field(default_factory=dict)
 
