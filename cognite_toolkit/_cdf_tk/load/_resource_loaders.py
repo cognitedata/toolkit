@@ -1172,7 +1172,19 @@ class TransformationLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
-        # Todo Handle all the special destinations
+        if destination := item.get("destination", {}):
+            if destination.get("type") == "raw" and _in_dict(("database", "table"), destination):
+                yield RawDatabaseLoader, RawDatabaseTable(destination["database"])
+                yield RawTableLoader, RawDatabaseTable(destination["database"], destination["table"])
+            elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
+                if _in_dict(("space", "externalId", "version"), view):
+                    yield ViewLoader, ViewId.load(view)
+            elif destination.get("type") == "instances":
+                if space := destination.get("instanceSpace"):
+                    yield SpaceLoader, space
+                if data_model := destination.get("dataModel"):
+                    if _in_dict(("space", "externalId", "version"), data_model):
+                        yield DataModelLoader, DataModelId.load(data_model)
 
     @classmethod
     def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
