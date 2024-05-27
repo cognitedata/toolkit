@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
     MediumSeverityWarning,
+    MissingDependencyWarning,
     ToolkitBugWarning,
     ToolkitNotSupportedWarning,
     UnresolvedVariableWarning,
@@ -241,7 +242,15 @@ class BuildCommand(ToolkitCommand):
                         # Copy the file as is, not variable replacement
                         shutil.copyfile(source_path, destination)
 
+        self._check_missing_dependencies(state)
         return state.source_by_build_path
+
+    def _check_missing_dependencies(self, state: _BuildState) -> None:
+        existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
+        missing_dependencies = existing - set(state.dependencies_by_required.keys())
+        for resource_cls, id_ in missing_dependencies:
+            required_by = set(state.dependencies_by_required[(resource_cls, id_)])
+            self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
 
     @staticmethod
     def _is_selected_module(relative_module_dir: Path, selected_modules: list[str | tuple[str, ...]]) -> bool:
