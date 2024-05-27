@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import re
-import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Sequence, Sized
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Generic, TypeVar, Union, cast
+from typing import Any, Generic, TypeVar, Union
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes import WorkflowVersionId
@@ -19,22 +18,14 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling import DataModelingId, VersionedDataModelingId
 from cognite.client.data_classes.data_modeling.ids import InstanceId
-from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
-from rich import print
-from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.tk_warnings import WarningList, YAMLFileWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 from .data_classes import (
-    DatapointDeployResult,
-    DeployResult,
     RawDatabaseTable,
-    ResourceContainerDeployResult,
-    ResourceDeployResult,
-    UploadDeployResult,
 )
 
 T_ID = TypeVar(
@@ -117,18 +108,6 @@ class Loader(ABC):
                 _COMPILED_PATTERN[cls.filename_pattern] = re.compile(cls.filename_pattern)
             return _COMPILED_PATTERN[cls.filename_pattern].match(file.stem) is not None
         return True
-
-    @abstractmethod
-    def deploy_resources(
-        self,
-        path: Path,
-        ToolGlobals: CDFToolConfig,
-        dry_run: bool = False,
-        has_done_drop: bool = False,
-        has_dropped_data: bool = False,
-        verbose: bool = False,
-    ) -> DeployResult | None:
-        raise NotImplementedError
 
 
 T_Loader = TypeVar("T_Loader", bound=Loader)
@@ -251,376 +230,13 @@ class ResourceLoader(
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
 
-    def deploy_resources(
-        self,
-        path: Path,
-        ToolGlobals: CDFToolConfig,
-        dry_run: bool = False,
-        has_done_drop: bool = False,
-        has_dropped_data: bool = False,
-        verbose: bool = False,
-    ) -> ResourceDeployResult | None:
-        self.build_path = path
-        filepaths = self.find_files(path)
-
-        def sort_key(p: Path) -> int:
-            if result := re.findall(r"^(\d+)", p.stem):
-                return int(result[0])
-            else:
-                return len(filepaths)
-
-        # In the build step, the resource files are prefixed a number that controls the order in which
-        # the resources are deployed. The custom 'sort_key' here is to get a sort on integer instead of a default string
-        # sort.
-        filepaths = sorted(filepaths, key=sort_key)
-
-        loaded_resources = self._load_files(filepaths, ToolGlobals, skip_validation=dry_run, verbose=verbose)
-        if loaded_resources is None:
-            ToolGlobals.failed = True
-            return None
-
-        # Duplicates should be handled on the build step,
-        # but in case any of them slip through, we do it here as well to
-        # avoid an error.
-        loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
-
-        if not loaded_resources:
-            return ResourceDeployResult(name=self.display_name)
-
-        capabilities = self.get_required_capability(loaded_resources)
-        if capabilities:
-            ToolGlobals.verify_capabilities(capabilities)
-
-        nr_of_items = len(loaded_resources)
-        if nr_of_items == 0:
-            return ResourceDeployResult(name=self.display_name)
-
-        prefix = "Would deploy" if dry_run else "Deploying"
-        print(f"[bold]{prefix} {nr_of_items} {self.display_name} to CDF...[/]")
-        # Moved here to avoid printing before the above message.
-        for duplicate in duplicates:
-            print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
-
-        nr_of_created = nr_of_changed = nr_of_unchanged = 0
-        to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(loaded_resources)
-
-        if dry_run:
-            if (
-                self.support_drop
-                and has_done_drop
-                and (not isinstance(self, ResourceContainerLoader) or has_dropped_data)
-            ):
-                # Means the resources will be deleted and not left unchanged or changed
-                for item in unchanged:
-                    # We cannot use extents as LoadableNodes cannot be extended.
-                    to_create.append(item)
-                for item in to_update:
-                    to_create.append(item)
-                unchanged.clear()
-                to_update.clear()
-
-            nr_of_unchanged += len(unchanged)
-            nr_of_created += len(to_create)
-            nr_of_changed += len(to_update)
-        else:
-            nr_of_unchanged += len(unchanged)
-
-            if to_create:
-                created = self._create_resources(to_create, verbose)
-                if created is None:
-                    ToolGlobals.failed = True
-                    return None
-                nr_of_created += created
-
-            if to_update:
-                updated = self._update_resources(to_update, verbose)
-                if updated is None:
-                    ToolGlobals.failed = True
-                    return None
-
-                nr_of_changed += updated
-
-        if verbose:
-            self._verbose_print(to_create, to_update, unchanged, dry_run)
-
-        if isinstance(self, ResourceContainerLoader):
-            return ResourceContainerDeployResult(
-                name=self.display_name,
-                created=nr_of_created,
-                changed=nr_of_changed,
-                unchanged=nr_of_unchanged,
-                total=nr_of_items,
-                item_name=self.item_name,
-            )
-        else:
-            return ResourceDeployResult(
-                name=self.display_name,
-                created=nr_of_created,
-                changed=nr_of_changed,
-                unchanged=nr_of_unchanged,
-                total=nr_of_items,
-            )
-
-    def clean_resources(
-        self,
-        path: Path,
-        ToolGlobals: CDFToolConfig,
-        dry_run: bool = False,
-        drop: bool = True,
-        drop_data: bool = False,
-        verbose: bool = False,
-    ) -> ResourceDeployResult | None:
-        if not isinstance(self, ResourceContainerLoader) and not drop:
-            # Skipping silently as this, we will not drop data or delete this resource
-            return ResourceDeployResult(name=self.display_name)
-        if not self.support_drop:
-            print(f"  [bold green]INFO:[/] {self.display_name!r} cleaning is not supported, skipping...")
-            return ResourceDeployResult(name=self.display_name)
-        elif isinstance(self, ResourceContainerLoader) and not drop_data:
-            print(
-                f"  [bold]INFO:[/] Skipping cleaning of {self.display_name!r}. This is a data resource (it contains "
-                f"data and is not only configuration/metadata) and therefore "
-                "requires the --drop-data flag to be set to perform cleaning..."
-            )
-            return ResourceContainerDeployResult(name=self.display_name, item_name=self.item_name)
-
-        filepaths = self.find_files(path)
-
-        # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-        loaded_resources = self._load_files(filepaths, ToolGlobals, skip_validation=True, verbose=verbose)
-        if loaded_resources is None:
-            ToolGlobals.failed = True
-            return None
-
-        # Duplicates should be handled on the build step,
-        # but in case any of them slip through, we do it here as well to
-        # avoid an error.
-        loaded_resources, duplicates = self._remove_duplicates(loaded_resources)
-
-        capabilities = self.get_required_capability(loaded_resources)
-        if capabilities:
-            ToolGlobals.verify_capabilities(capabilities)
-
-        nr_of_items = len(loaded_resources)
-        if nr_of_items == 0:
-            return ResourceDeployResult(name=self.display_name)
-
-        existing_resources = cast(T_CogniteResourceList, self.retrieve(self.get_ids(loaded_resources)).as_write())
-        nr_of_existing = len(existing_resources)
-
-        if drop:
-            prefix = "Would clean" if dry_run else "Cleaning"
-            with_data = "with data " if isinstance(self, ResourceContainerLoader) else ""
-        else:
-            prefix = "Would drop data from" if dry_run else "Dropping data from"
-            with_data = ""
-        print(f"[bold]{prefix} {nr_of_existing} {self.display_name} {with_data}from CDF...[/]")
-        for duplicate in duplicates:
-            print(f"  [bold yellow]WARNING:[/] Skipping duplicate {self.display_name} {duplicate}.")
-
-        # Deleting resources.
-        if isinstance(self, ResourceContainerLoader) and drop_data:
-            nr_of_dropped_datapoints = self._drop_data(existing_resources, dry_run, verbose)
-            if drop:
-                nr_of_deleted = self._delete_resources(existing_resources, dry_run, verbose)
-            else:
-                nr_of_deleted = 0
-            if verbose:
-                print("")
-            return ResourceContainerDeployResult(
-                name=self.display_name,
-                deleted=nr_of_deleted,
-                total=nr_of_items,
-                dropped_datapoints=nr_of_dropped_datapoints,
-                item_name=self.item_name,
-            )
-        elif not isinstance(self, ResourceContainerLoader) and drop:
-            nr_of_deleted = self._delete_resources(existing_resources, dry_run, verbose)
-            if verbose:
-                print("")
-            return ResourceDeployResult(name=self.display_name, deleted=nr_of_deleted, total=nr_of_items)
-        else:
-            return ResourceDeployResult(name=self.display_name)
-
-    def to_create_changed_unchanged_triple(
-        self, resources: T_CogniteResourceList
-    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList]:
-        """Returns a triple of lists of resources that should be created, updated, and are unchanged."""
-        resource_ids = self.get_ids(resources)
-        to_create, to_update, unchanged = (
-            self.create_empty_of(resources),
-            self.create_empty_of(resources),
-            self.create_empty_of(resources),
-        )
-        try:
-            cdf_resources = self.retrieve(resource_ids)
-        except Exception as e:
-            print(
-                f"  [bold yellow]WARNING:[/] Failed to retrieve {len(resource_ids)} of {self.display_name}. Proceeding assuming not data in CDF. Error {e}."
-            )
-            print(Panel(traceback.format_exc()))
-            cdf_resource_by_id = {}
-        else:
-            cdf_resource_by_id = {self.get_id(resource): resource for resource in cdf_resources}
-
-        for item in resources:
-            cdf_resource = cdf_resource_by_id.get(self.get_id(item))
-            # The custom compare is needed when the regular == does not work. For example, TransformationWrite
-            # have OIDC credentials that will not be returned by the retrieve method, and thus need special handling.
-            if cdf_resource and (item == cdf_resource.as_write() or self._is_equal_custom(item, cdf_resource)):
-                unchanged.append(item)
-            elif cdf_resource:
-                to_update.append(item)
-            else:
-                to_create.append(item)
-        return to_create, to_update, unchanged
-
-    def _verbose_print(
-        self,
-        to_create: T_CogniteResourceList,
-        to_update: T_CogniteResourceList,
-        unchanged: T_CogniteResourceList,
-        dry_run: bool,
-    ) -> None:
-        print_outs = []
-        prefix = "Would have " if dry_run else ""
-        if to_create:
-            print_outs.append(f"{prefix}Created {self._print_ids_or_length(self.get_ids(to_create))}")
-        if to_update:
-            print_outs.append(f"{prefix}Updated {self._print_ids_or_length(self.get_ids(to_update))}")
-        if unchanged:
-            print_outs.append(
-                f"{'Untouched' if dry_run else 'Unchanged'} {self._print_ids_or_length(self.get_ids(unchanged))}"
-            )
-        prefix_message = f" {self.display_name}: "
-        if len(print_outs) == 1:
-            print(f"{prefix_message}{print_outs[0]}")
-        elif len(print_outs) == 2:
-            print(f"{prefix_message}{print_outs[0]} and {print_outs[1]}")
-        else:
-            print(f"{prefix_message}{', '.join(print_outs[:-1])} and {print_outs[-1]}")
-
     def _is_equal_custom(self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource) -> bool:
         """This method is used to compare the local and cdf resource when the default comparison fails.
 
-        This is needed for resources that have fields that are not returned by the retrieve method, like
+        This is needed for resources that have fields that are not returned by the retrieve method, like,
         for example, the OIDC credentials in Transformations.
         """
         return False
-
-    def _load_files(
-        self, filepaths: list[Path], ToolGlobals: CDFToolConfig, skip_validation: bool, verbose: bool = False
-    ) -> T_CogniteResourceList | None:
-        loaded_resources = self.create_empty_of(self.list_write_cls([]))
-        for filepath in filepaths:
-            try:
-                resource = self.load_resource(filepath, ToolGlobals, skip_validation)
-            except KeyError as e:
-                # KeyError means that we are missing a required field in the yaml file.
-                print(
-                    f"[bold red]ERROR:[/] Failed to load {filepath.name} with {self.display_name}. Missing required field: {e}."
-                    f"[bold red]ERROR:[/] Please compare with the API specification at {self.doc_url()}."
-                )
-                return None
-            except Exception as e:
-                print(f"[bold red]ERROR:[/] Failed to load {filepath.name} with {self.display_name}. Error: {e!r}.")
-                if verbose:
-                    print(Panel(traceback.format_exc()))
-                return None
-            if resource is None:
-                # This is intentional. It is, for example, used by the AuthLoader to skip groups with resource scopes.
-                continue
-            if isinstance(resource, self.list_write_cls) and not resource:
-                print(f"[bold yellow]WARNING:[/] Skipping {filepath.name}. No data to load.")
-                continue
-
-            if isinstance(resource, self.list_write_cls):
-                loaded_resources.extend(resource)
-            else:
-                loaded_resources.append(resource)
-        return loaded_resources
-
-    def _remove_duplicates(self, loaded_resources: T_CogniteResourceList) -> tuple[T_CogniteResourceList, list[T_ID]]:
-        seen: set[T_ID] = set()
-        output = self.create_empty_of(loaded_resources)
-        duplicates: list[T_ID] = []
-        for item in loaded_resources:
-            identifier = self.get_id(item)
-            if identifier not in seen:
-                output.append(item)
-                seen.add(identifier)
-            else:
-                duplicates.append(identifier)
-        return output, duplicates
-
-    def _delete_resources(self, loaded_resources: T_CogniteResourceList, dry_run: bool, verbose: bool) -> int:
-        nr_of_deleted = 0
-        resource_ids = self.get_ids(loaded_resources)
-        if dry_run:
-            nr_of_deleted += len(resource_ids)
-            if verbose:
-                print(f"  Would have deleted {self._print_ids_or_length(resource_ids)}.")
-            return nr_of_deleted
-
-        try:
-            nr_of_deleted += self.delete(resource_ids)
-        except CogniteAPIError as e:
-            print(f"  [bold yellow]WARNING:[/] Failed to delete {self._print_ids_or_length(resource_ids)}. Error {e}.")
-            if verbose:
-                print(Panel(traceback.format_exc()))
-        except CogniteNotFoundError:
-            if verbose:
-                print(f"  [bold]INFO:[/] {self._print_ids_or_length(resource_ids)} do(es) not exist.")
-        except Exception as e:
-            print(f"  [bold yellow]WARNING:[/] Failed to delete {self._print_ids_or_length(resource_ids)}. Error {e}.")
-            if verbose:
-                print(Panel(traceback.format_exc()))
-        else:  # Delete succeeded
-            if verbose:
-                print(f"  Deleted {self._print_ids_or_length(resource_ids)}.")
-        return nr_of_deleted
-
-    def _create_resources(self, resources: T_CogniteResourceList, verbose: bool) -> int | None:
-        try:
-            created = self.create(resources)
-        except CogniteAPIError as e:
-            if e.code == 409:
-                print("  [bold yellow]WARNING:[/] Resource(s) already exist(s), skipping creation.")
-            else:
-                print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-                return None
-        except CogniteDuplicatedError as e:
-            print(
-                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} out of {len(resources)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
-            )
-        except Exception as e:
-            print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
-            if verbose:
-                print(Panel(traceback.format_exc()))
-            return None
-        else:
-            return len(created) if created is not None else 0
-        return 0
-
-    def _update_resources(self, resources: T_CogniteResourceList, verbose: bool) -> int | None:
-        try:
-            updated = self.update(resources)
-        except Exception as e:
-            print(f"  [bold yellow]Error:[/] Failed to update {self.display_name}. Error {e}.")
-            if verbose:
-                print(Panel(traceback.format_exc()))
-            return None
-        else:
-            return len(updated)
-
-    @staticmethod
-    def _print_ids_or_length(resource_ids: SequenceNotStr[T_ID], limit: int = 10) -> str:
-        if len(resource_ids) == 1:
-            return f"{resource_ids[0]!r}"
-        elif len(resource_ids) <= limit:
-            return f"{resource_ids}"
-        else:
-            return f"{len(resource_ids)} items"
 
 
 class ResourceContainerLoader(
@@ -652,55 +268,6 @@ class ResourceContainerLoader(
     def drop_data(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
 
-    def _drop_data(self, loaded_resources: T_CogniteResourceList, dry_run: bool, verbose: bool) -> int:
-        nr_of_dropped = 0
-        resource_ids = self.get_ids(loaded_resources)
-        if dry_run:
-            resource_drop_count = self.count(resource_ids)
-            nr_of_dropped += resource_drop_count
-            if verbose:
-                self._verbose_print_drop(resource_drop_count, resource_ids, dry_run)
-            return nr_of_dropped
-
-        try:
-            resource_drop_count = self.drop_data(resource_ids)
-            nr_of_dropped += resource_drop_count
-        except CogniteAPIError as e:
-            if e.code == 404 and verbose:
-                print(f"  [bold]INFO:[/] {len(resource_ids)} {self.display_name} do(es) not exist.")
-        except CogniteNotFoundError:
-            return nr_of_dropped
-        except Exception as e:
-            print(
-                f"  [bold yellow]WARNING:[/] Failed to drop {self.item_name} from {len(resource_ids)} {self.display_name}. Error {e}."
-            )
-            if verbose:
-                print(Panel(traceback.format_exc()))
-        else:  # Delete succeeded
-            if verbose:
-                self._verbose_print_drop(resource_drop_count, resource_ids, dry_run)
-        return nr_of_dropped
-
-    def _verbose_print_drop(self, drop_count: int, resource_ids: SequenceNotStr[T_ID], dry_run: bool) -> None:
-        prefix = "Would have dropped" if dry_run else "Dropped"
-        if drop_count > 0:
-            print(
-                f"  {prefix} {drop_count:,} {self.item_name} from {self.display_name}: "
-                f"{self._print_ids_or_length(resource_ids)}."
-            )
-        elif drop_count == 0:
-            verb = "is" if len(resource_ids) == 1 else "are"
-            print(
-                f"  The {self.display_name}: {self._print_ids_or_length(resource_ids)} {verb} empty, "
-                f"thus no {self.item_name} will be {'touched' if dry_run else 'dropped'}."
-            )
-        else:
-            # Count is not supported
-            print(
-                f" {prefix} all {self.item_name} from {self.display_name}: "
-                f"{self._print_ids_or_length(resource_ids)}."
-            )
-
 
 class DataLoader(Loader, ABC):
     """This is the base class for all data loaders.
@@ -723,35 +290,3 @@ class DataLoader(Loader, ABC):
     @abstractmethod
     def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
         raise NotImplementedError
-
-    def deploy_resources(
-        self,
-        path: Path,
-        ToolGlobals: CDFToolConfig,
-        dry_run: bool = False,
-        has_done_drop: bool = False,
-        has_dropped_data: bool = False,
-        verbose: bool = False,
-    ) -> UploadDeployResult | None:
-        filepaths = self.find_files(path)
-
-        prefix = "Would upload" if dry_run else "Uploading"
-        print(f"[bold]{prefix} {len(filepaths)} data {self.display_name} files to CDF...[/]")
-        datapoints = 0
-        for filepath in filepaths:
-            try:
-                message, file_datapoints = self.upload(filepath, ToolGlobals, dry_run)
-            except Exception as e:
-                print(f"  [bold red]Error:[/] Failed to upload {filepath.name}. Error: {e!r}.")
-                print(Panel(traceback.format_exc()))
-                ToolGlobals.failed = True
-                return None
-            if verbose:
-                print(message)
-            datapoints += file_datapoints
-        if datapoints != 0:
-            return DatapointDeployResult(
-                self.display_name, points=datapoints, uploaded=len(filepaths), item_name=self.item_name
-            )
-        else:
-            return UploadDeployResult(self.display_name, uploaded=len(filepaths), item_name=self.item_name)

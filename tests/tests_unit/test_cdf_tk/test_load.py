@@ -23,7 +23,7 @@ from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, ParameterValue, read_parameters_from_dict
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
@@ -79,7 +79,9 @@ def test_loader_class(
     cdf_tool.client = cognite_client_approval.mock_client
     cdf_tool.data_set_id = 999
 
-    loader_cls.create_loader(cdf_tool).deploy_resources(directory, cdf_tool, dry_run=False)
+    cmd = DeployCommand(print_warning=False)
+    loader = loader_cls.create_loader(cdf_tool)
+    cmd.deploy_resources(loader, directory, cdf_tool, dry_run=False)
 
     dump = cognite_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{directory.name}.yaml")
@@ -123,8 +125,8 @@ class TestDataSetsLoader:
         first.last_updated_time = 42
         # Simulate that the data set is already in CDF
         cognite_client_approval.append(DataSet, first)
-
-        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(loaded)
+        cmd = DeployCommand(print_warning=False)
+        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(loaded, loader)
 
         assert len(to_create) == 1
         assert len(to_change) == 0
@@ -185,7 +187,10 @@ class TestViewLoader:
         cognite_client_approval.append(dm.View, [interface, child_cdf])
 
         loader = ViewLoader.create_loader(cdf_tool)
-        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(dm.ViewApplyList([child_local]))
+        cmd = DeployCommand(print_warning=False)
+        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
+            dm.ViewApplyList([child_local]), loader
+        )
 
         assert len(to_create) == 0
         assert len(to_change) == 0
@@ -228,8 +233,9 @@ class TestDataModelLoader:
         )
 
         loader = DataModelLoader.create_loader(cdf_tool)
-        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(
-            dm.DataModelApplyList([local_data_model])
+        cmd = DeployCommand(print_warning=False)
+        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
+            dm.DataModelApplyList([local_data_model]), loader
         )
 
         assert len(to_create) == 0
@@ -342,8 +348,10 @@ class TestAuthLoader:
         )
 
         new_group = GroupWrite(name="new_group", source_id="123", capabilities=[])
-
-        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(resources=[loaded, new_group])
+        cmd = DeployCommand(print_warning=False)
+        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
+            resources=[loaded, new_group], loader=loader
+        )
 
         assert len(to_create) == 1
         assert len(to_change) == 0
@@ -356,6 +364,7 @@ class TestAuthLoader:
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
         )
+        cmd = DeployCommand(print_warning=False)
 
         # Simulate that the group is is already in CDF, but with fewer capabilities
         # Simulate that one group is is already in CDF
@@ -374,13 +383,13 @@ class TestAuthLoader:
         )
 
         # group exists, no changes
-        to_create, to_change, unchanged = loader.to_create_changed_unchanged_triple(resources=[loaded])
+        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(resources=[loaded], loader=loader)
 
         assert len(to_create) == 0
         assert len(to_change) == 1
         assert len(unchanged) == 0
 
-        loader._update_resources(to_change, False)
+        cmd._update_resources(to_change, loader, False)
 
         assert cognite_client_approval.create_calls()["Group"] == 1
         assert cognite_client_approval.delete_calls()["Group"] == 1
@@ -567,7 +576,8 @@ class TestDeployResources:
         cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
 
-        ViewLoader.create_loader(cdf_tool).deploy_resources(BUILD_DIR, cdf_tool, dry_run=False)
+        cmd = DeployCommand(print_warning=False)
+        cmd.deploy_resources(ViewLoader.create_loader(cdf_tool), BUILD_DIR, cdf_tool, dry_run=False)
 
         views = cognite_client_approval.dump(sort=False)["View"]
 
