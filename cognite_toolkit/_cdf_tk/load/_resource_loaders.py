@@ -214,6 +214,39 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return item.name
 
     @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        for capability in item.get("capabilities", []):
+            for acl, content in capability.items():
+                if scope := content.get("scope", {}):
+                    if space_ids := scope.get(capabilities.SpaceIDScope._scope_name, []):
+                        for space_id in space_ids:
+                            yield SpaceLoader, space_id
+                    if data_set_ids := scope.get(capabilities.DataSetScope._scope_name, []):
+                        for data_set_id in data_set_ids:
+                            yield DataSetsLoader, data_set_id
+                    if table_ids := scope.get(capabilities.TableScope._scope_name, []):
+                        for db_name, tables in table_ids.get("dbsToTables", {}).items():
+                            yield RawDatabaseLoader, RawDatabaseTable(db_name)
+                            for table in tables:
+                                yield RawDatabaseLoader, RawDatabaseTable(db_name, table)
+                    if extraction_pipeline_ids := scope.get(capabilities.ExtractionPipelineScope._scope_name, []):
+                        for extraction_pipeline_id in extraction_pipeline_ids:
+                            yield ExtractionPipelineLoader, extraction_pipeline_id
+                    if (ids := scope.get(capabilities.IDScope._scope_name, [])) or (
+                        ids := scope.get(capabilities.IDScopeLowerCase._scope_name, [])
+                    ):
+                        loader: type[ResourceLoader] | None = None
+                        if acl == capabilities.DataSetsAcl._capability_name:
+                            loader = DataSetsLoader
+                        elif acl == capabilities.ExtractionPipelinesAcl._capability_name:
+                            loader = ExtractionPipelineLoader
+                        elif acl == capabilities.TimeSeriesAcl._capability_name:
+                            loader = TimeSeriesLoader
+                        if loader is not None:
+                            for id_ in ids:
+                                yield loader, id_
+
+    @classmethod
     def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
         warning_list = WarningList[YAMLFileWarning]()
         parts = identifier.split("_")
