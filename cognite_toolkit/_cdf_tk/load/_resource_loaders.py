@@ -445,6 +445,24 @@ class SecurityCategoryLoader(
         return cast(str, item.name)
 
     @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    cls.folder_name,
+                    "name",
+                    identifier,
+                    "_",
+                )
+            )
+        elif not identifier.startswith("sc_"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "name", identifier, "sc_"))
+        return warning_list
+
+    @classmethod
     def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
         return SecurityCategoriesAcl(
             actions=[
@@ -1170,6 +1188,9 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
+        if "securityCategoryNames" in item:
+            for security_category in item["securityCategoryNames"]:
+                yield SecurityCategoryLoader, security_category
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TimeSeriesWriteList:
         resources = load_yaml_inject_variables(filepath, {})
@@ -1232,6 +1253,12 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+
+        spec.add(ParameterSpec(("securityCategoryNames",), frozenset({"list"}), is_required=False, _is_nullable=False))
+
+        spec.add(
+            ParameterSpec(("securityCategoryNames", ANY_STR), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
         return spec
 
 
@@ -1815,6 +1842,9 @@ class FileMetadataLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
+        if "securityCategoryNames" in item:
+            for security_category in item["securityCategoryNames"]:
+                yield SecurityCategoryLoader, security_category
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1923,6 +1953,12 @@ class FileMetadataLoader(
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        spec.add(ParameterSpec(("securityCategoryNames",), frozenset({"list"}), is_required=False, _is_nullable=False))
+
+        spec.add(
+            ParameterSpec(("securityCategoryNames", ANY_STR), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
+
         return spec
 
 
