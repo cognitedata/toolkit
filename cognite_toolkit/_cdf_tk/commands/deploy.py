@@ -11,7 +11,8 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands.clean import CleanBaseCommand
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
@@ -49,8 +50,14 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
 )
 
+from ._utils import _print_ids_or_length, _remove_duplicates
 
-class DeployCommand(CleanBaseCommand):
+
+class DeployCommand(ToolkitCommand):
+    def __init__(self, print_warning: bool = True):
+        super().__init__(print_warning)
+        self._clean_command = CleanCommand(print_warning)
+
     def execute(
         self,
         ctx: typer.Context,
@@ -110,7 +117,7 @@ class DeployCommand(CleanBaseCommand):
                 if not issubclass(loader_cls, ResourceLoader):
                     continue
                 loader: ResourceLoader = loader_cls.create_loader(ToolGlobals, build_dir)
-                result = self.clean_resources(
+                result = self._clean_command.clean_resources(
                     loader,
                     ToolGlobals,
                     drop=drop,
@@ -197,7 +204,7 @@ class DeployCommand(CleanBaseCommand):
         # Duplicates should be handled on the build step,
         # but in case any of them slip through, we do it here as well to
         # avoid an error.
-        loaded_resources, duplicates = self._remove_duplicates(loaded_resources, loader)
+        loaded_resources, duplicates = _remove_duplicates(loaded_resources, loader)
 
         if not loaded_resources:
             return ResourceDeployResult(name=loader.display_name)
@@ -322,12 +329,12 @@ class DeployCommand(CleanBaseCommand):
         print_outs = []
         prefix = "Would have " if dry_run else ""
         if to_create:
-            print_outs.append(f"{prefix}Created {self._print_ids_or_length(loader.get_ids(to_create))}")
+            print_outs.append(f"{prefix}Created {_print_ids_or_length(loader.get_ids(to_create))}")
         if to_update:
-            print_outs.append(f"{prefix}Updated {self._print_ids_or_length(loader.get_ids(to_update))}")
+            print_outs.append(f"{prefix}Updated {_print_ids_or_length(loader.get_ids(to_update))}")
         if unchanged:
             print_outs.append(
-                f"{'Untouched' if dry_run else 'Unchanged'} {self._print_ids_or_length(loader.get_ids(unchanged))}"
+                f"{'Untouched' if dry_run else 'Unchanged'} {_print_ids_or_length(loader.get_ids(unchanged))}"
             )
         prefix_message = f" {loader.display_name}: "
         if len(print_outs) == 1:
