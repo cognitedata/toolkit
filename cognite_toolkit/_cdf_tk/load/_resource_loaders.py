@@ -177,13 +177,14 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     def __init__(
         self,
         client: CogniteClient,
+        build_dir: Path | None,
         target_scopes: Literal[
             "all",
             "all_scoped_only",
             "resource_scoped_only",
         ] = "all",
     ):
-        super().__init__(client)
+        super().__init__(client, build_dir)
         self.target_scopes = target_scopes
 
     @property
@@ -194,13 +195,14 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     def create_loader(
         cls,
         ToolGlobals: CDFToolConfig,
+        build_dir: Path | None,
         target_scopes: Literal[
             "all",
             "all_scoped_only",
             "resource_scoped_only",
         ] = "all",
     ) -> AuthLoader:
-        return AuthLoader(ToolGlobals.client, target_scopes)
+        return AuthLoader(ToolGlobals.client, build_dir, target_scopes)
 
     @classmethod
     def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
@@ -486,9 +488,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     dependencies = frozenset({DataSetsLoader})
     _doc_url = "Functions/operation/postFunctions"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
-
     @classmethod
     def get_required_capability(cls, items: FunctionWriteList) -> list[Capability]:
         return [
@@ -531,13 +530,13 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         else:
             return FunctionWriteList.load(functions)
 
-    def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
-        if self.build_path is None:
+    def are_equal(self, local: FunctionWrite, cdf_resource: Function) -> bool:
+        if self.resource_build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
         # If the function failed, we want to always trigger a redeploy.
         if cdf_resource.status == "Failed":
             return False
-        function_rootdir = Path(self.build_path / f"{local.external_id}")
+        function_rootdir = Path(self.resource_build_path / f"{local.external_id}")
         if local.metadata is None:
             local.metadata = {}
         local.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
@@ -625,10 +624,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 )
                 self.client.functions.activate()
                 return FunctionList([])
-        if self.build_path is None:
+        if self.resource_build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
         for item in items:
-            function_rootdir = Path(self.build_path / (item.external_id or ""))
+            function_rootdir = Path(self.resource_build_path / (item.external_id or ""))
             if item.metadata is None:
                 item.metadata = {}
             item.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
@@ -685,9 +684,6 @@ class FunctionScheduleLoader(
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
-
     @classmethod
     def get_required_capability(cls, items: FunctionScheduleWriteList) -> list[Capability]:
         return [
@@ -723,13 +719,13 @@ class FunctionScheduleLoader(
             self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
         return FunctionScheduleWriteList.load(schedules)
 
-    def _is_equal_custom(self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule) -> bool:
+    def are_equal(self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule) -> bool:
         remote_dump = cdf_resource.as_write().dump()
         del remote_dump["functionId"]
         return remote_dump == local.dump()
 
     def _resolve_functions_ext_id(self, items: FunctionScheduleWriteList) -> FunctionScheduleWriteList:
-        functions = FunctionLoader(self.client).retrieve(list(set([item.function_external_id for item in items])))
+        functions = FunctionLoader(self.client, None).retrieve(list(set([item.function_external_id for item in items])))
         for item in items:
             for func in functions:
                 if func.external_id == item.function_external_id:
@@ -737,7 +733,7 @@ class FunctionScheduleLoader(
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
-        functions = FunctionLoader(self.client).retrieve(list(set([id.split(":")[0] for id in ids])))
+        functions = FunctionLoader(self.client, None).retrieve(list(set([id.split(":")[0] for id in ids])))
         schedules = FunctionSchedulesList([])
         for func in functions:
             ret = self.client.functions.schedules.list(function_id=func.id, limit=-1)
@@ -810,8 +806,8 @@ class RawDatabaseLoader(
     list_write_cls = RawTableList
     _doc_url = "Raw/operation/createDBs"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
+    def __init__(self, client: CogniteClient, build_dir: Path):
+        super().__init__(client, build_dir)
         self._loaded_db_names: set[str] = set()
 
     @classmethod
@@ -912,8 +908,8 @@ class RawTableLoader(
     dependencies = frozenset({RawDatabaseLoader})
     _doc_url = "Raw/operation/createTables"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
+    def __init__(self, client: CogniteClient, build_dir: Path):
+        super().__init__(client, build_dir)
         self._printed_warning = False
 
     @classmethod
@@ -1166,7 +1162,7 @@ class TransformationLoader(
             warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "tr_"))
         return warning_list
 
-    def _is_equal_custom(self, local: TransformationWrite, cdf_resource: Transformation) -> bool:
+    def are_equal(self, local: TransformationWrite, cdf_resource: Transformation) -> bool:
         local_dumped = local.dump()
         local_dumped.pop("destinationOidcCredentials", None)
         local_dumped.pop("sourceOidcCredentials", None)
@@ -1770,8 +1766,11 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     resource_write_cls = SpaceApply
     list_write_cls = SpaceApplyList
     list_cls = SpaceList
-    _display_name = "spaces"
     _doc_url = "Spaces/operation/ApplySpaces"
+
+    @property
+    def display_name(self) -> str:
+        return "spaces"
 
     @classmethod
     def get_required_capability(cls, items: SpaceApplyList) -> list[Capability]:
@@ -2002,7 +2001,7 @@ class ContainerLoader(
     def _chunker(seq: Sequence, size: int) -> Iterable[Sequence]:
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
-    def _is_equal_custom(self, local: ContainerApply, remote: Container) -> bool:
+    def are_equal(self, local: ContainerApply, remote: Container) -> bool:
         local_dumped = local.dump(camel_case=True)
         if "usedFor" not in local_dumped:
             # Setting used_for to "node" as it is the default value in the CDF and will be set by
@@ -2070,8 +2069,8 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     _display_name = "views"
     _doc_url = "Views/operation/ApplyViews"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
+    def __init__(self, client: CogniteClient, build_dir: Path) -> None:
+        super().__init__(client, build_dir)
         # Caching to avoid multiple lookups on the same interfaces.
         self._interfaces_by_id: dict[ViewId, View] = {}
 
@@ -2100,7 +2099,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         return loaded
 
-    def _is_equal_custom(self, local: ViewApply, cdf_resource: View) -> bool:
+    def are_equal(self, local: ViewApply, cdf_resource: View) -> bool:
         local_dumped = local.dump()
         cdf_resource_dumped = cdf_resource.as_write().dump()
         if not cdf_resource.implements:
@@ -2209,8 +2208,11 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     list_cls = DataModelList
     list_write_cls = DataModelApplyList
     dependencies = frozenset({SpaceLoader, ViewLoader})
-    _display_name = "data models"
     _doc_url = "Data-models/operation/createDataModels"
+
+    @property
+    def display_name(self) -> str:
+        return "data models"
 
     @classmethod
     def get_required_capability(cls, items: DataModelApplyList) -> Capability:
@@ -2237,7 +2239,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         return loaded
 
-    def _is_equal_custom(self, local: DataModelApply, cdf_resource: DataModel) -> bool:
+    def are_equal(self, local: DataModelApply, cdf_resource: DataModel) -> bool:
         local_dumped = local.dump()
         cdf_resource_dumped = cdf_resource.as_write().dump()
 
@@ -2284,8 +2286,11 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     list_cls = NodeList
     list_write_cls = LoadedNodeList
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
-    _display_name = "nodes"
     _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    @property
+    def display_name(self) -> str:
+        return "nodes"
 
     @classmethod
     def get_required_capability(cls, items: LoadedNodeList) -> Capability:
@@ -2303,7 +2308,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
             return NodeId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
-    def _is_equal_custom(self, local: LoadedNode, cdf_resource: Node) -> bool:
+    def are_equal(self, local: LoadedNode, cdf_resource: Node) -> bool:
         """Comparison for nodes to include properties in the comparison
 
         Note this is an expensive operation as we to an extra retrieve to fetch the properties.

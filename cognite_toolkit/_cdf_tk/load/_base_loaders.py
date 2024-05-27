@@ -41,6 +41,7 @@ class Loader(ABC):
 
     Args:
         client (CogniteClient): The client to use for interacting with the CDF API.
+        build_dir (Path): The path to the build directory
 
     Class attributes:
         filetypes: The filetypes that are supported by this loader. This should be set in all subclasses.
@@ -59,14 +60,18 @@ class Loader(ABC):
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
 
-    def __init__(self, client: CogniteClient, build_path: Path | None = None):
+    def __init__(self, client: CogniteClient, build_dir: Path | None):
         self.client = client
-        self.build_path = build_path
+        self.resource_build_path: Path | None = None
+        if build_dir is not None and build_dir.name == self.folder_name:
+            raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
+        elif build_dir is not None:
+            self.resource_build_path = build_dir / self.folder_name
         self.extra_configs: dict[str, Any] = {}
 
     @classmethod
-    def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig) -> T_Loader:
-        return cls(ToolGlobals.client)
+    def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig, build_dir: Path | None) -> T_Loader:
+        return cls(ToolGlobals.client, build_dir)
 
     @property
     def display_name(self) -> str:
@@ -76,23 +81,27 @@ class Loader(ABC):
     def doc_url(cls) -> str:
         return cls._doc_base_url + cls._doc_url
 
-    @classmethod
-    def find_files(cls, dir_or_file: Path) -> list[Path]:
+    def find_files(self, dir_or_file: Path | None = None) -> list[Path]:
         """Find all files that are supported by this loader in the given directory or file.
 
         Args:
-            dir_or_file (Path): The directory or file to search in.
+            dir_or_file (Path): The directory or file to search in. If no path is given,
+                the build directory is used.
+
 
         Returns:
             list[Path]: A sorted list of all files that are supported by this loader.
 
         """
+        dir_or_file = dir_or_file or self.resource_build_path
+        if dir_or_file is None:
+            raise ValueError("No 'dir_or_file' or 'build_path' is set.")
         if dir_or_file.is_file():
-            if not cls.is_supported_file(dir_or_file):
+            if not self.is_supported_file(dir_or_file):
                 raise ValueError("Invalid file type")
             return [dir_or_file]
         elif dir_or_file.is_dir():
-            file_paths = [file for file in dir_or_file.glob("**/*") if cls.is_supported_file(file)]
+            file_paths = [file for file in dir_or_file.glob("**/*") if self.is_supported_file(file)]
             return sorted(file_paths)
         else:
             return []
@@ -136,8 +145,6 @@ class ResourceLoader(
         filetypes: The filetypes that are supported by this loader. This should not be set in the subclass, it
             should always be yaml and yml.
         dependencies: A set of loaders that must be loaded before this loader.
-        _display_name: The name of the resource that is used when printing messages. If this is not set, the
-            api_name is used.
     """
 
     # Must be set in the subclass
@@ -149,16 +156,39 @@ class ResourceLoader(
     support_drop = True
     filetypes = frozenset({"yaml", "yml"})
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
-    _display_name: str = ""
 
-    @property
-    def display_name(self) -> str:
-        return self._display_name or super().display_name
-
+    # The methods that must be implemented in the subclass
     @classmethod
     @abstractmethod
     def get_id(cls, item: T_WriteClass | T_WritableCogniteResource | dict) -> T_ID:
         raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
+
+    @abstractmethod
+    def create(self, items: T_CogniteResourceList) -> Sized:
+        raise NotImplementedError
+
+    @abstractmethod
+    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update(self, items: T_CogniteResourceList) -> Sized:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete(self, ids: SequenceNotStr[T_ID]) -> int:
+        raise NotImplementedError
+
+    # The methods below have default implementations that can be overwritten in subclasses
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
 
     @classmethod
     def check_identifier_semantics(
@@ -167,16 +197,6 @@ class ResourceLoader(
         """This should be overwritten in subclasses to check the semantics of the identifier."""
         return WarningList[YAMLFileWarning]()
 
-    @classmethod
-    @abstractmethod
-    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
-        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
-
-    @classmethod
-    def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource]) -> list[T_ID]:
-        return [cls.get_id(item) for item in items]
-
-    # Default implementations that can be overridden
     @classmethod
     def create_empty_of(cls, items: T_CogniteResourceList) -> T_CogniteResourceList:
         return cls.list_write_cls([])
@@ -209,41 +229,25 @@ class ResourceLoader(
         """
         return resource.dump(), {}
 
-    @abstractmethod
-    def create(self, items: T_CogniteResourceList) -> Sized:
-        raise NotImplementedError
+    def are_equal(self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource) -> bool:
+        """This can be overwritten in subclasses that require special comparison logic.
 
-    @abstractmethod
-    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
-        raise NotImplementedError
-
-    @abstractmethod
-    def update(self, items: T_CogniteResourceList) -> Sized:
-        raise NotImplementedError
-
-    @abstractmethod
-    def delete(self, ids: SequenceNotStr[T_ID]) -> int:
-        raise NotImplementedError
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
-
-    def _is_equal_custom(self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource) -> bool:
-        """This method is used to compare the local and cdf resource when the default comparison fails.
-
-        This is needed for resources that have fields that are not returned by the retrieve method, like,
-        for example, the OIDC credentials in Transformations.
+        For example, TransformationWrite has OIDC credentials that will not be returned
+        by the retrieve method, and thus needs special handling.
         """
-        return False
+        return local == cdf_resource.as_write()
+
+    # Helper method
+    @classmethod
+    def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource | dict]) -> list[T_ID]:
+        return [cls.get_id(item) for item in items]
 
 
 class ResourceContainerLoader(
     ResourceLoader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
     ABC,
 ):
-    """This is the base class for all loaders resource containers.
+    """This is the base class for all loaders' resource containers.
 
     A resource container is a resource that contains data. For example, Timeseries contains datapoints, and another
     example is spaces and containers in data modeling that contains instances.
