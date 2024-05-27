@@ -242,14 +242,17 @@ class BuildCommand(ToolkitCommand):
                         # Copy the file as is, not variable replacement
                         shutil.copyfile(source_path, destination)
 
-        self._check_missing_dependencies(state)
+        self._check_missing_dependencies(state, project_config_dir)
         return state.source_by_build_path
 
-    def _check_missing_dependencies(self, state: _BuildState) -> None:
+    def _check_missing_dependencies(self, state: _BuildState, project_config_dir: Path) -> None:
         existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
-        missing_dependencies = existing - set(state.dependencies_by_required.keys())
+        missing_dependencies = set(state.dependencies_by_required.keys()) - existing
         for resource_cls, id_ in missing_dependencies:
-            required_by = set(state.dependencies_by_required[(resource_cls, id_)])
+            required_by = {
+                (required, path.relative_to(project_config_dir))
+                for required, path in state.dependencies_by_required[(resource_cls, id_)]
+            }
             self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
 
     @staticmethod
