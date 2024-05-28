@@ -253,9 +253,9 @@ Group:
         all: {}
   - timeSeriesSubscriptionsAcl:
       actions:
-        - READ
+      - READ
       scope:
-        all: { }
+        all: {}
   metadata:
     origin: cdf-project-templates
   name: gp_admin_readonly
