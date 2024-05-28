@@ -74,10 +74,16 @@ class DeployCommand(ToolkitCommand):
         build_ = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "deploy")
         build_.set_environment_variables()
         warnings = build_.check_source_files_changed()
+        if warnings:
+            print(Panel("[bold]Verifying source files...[/]", expand=False))
         for warning in warnings:
             self.warn(warning)
 
-        print(Panel(f"[bold]Deploying config files from {build_dir_raw} to environment {build_env_name}...[/]"))
+        print(
+            Panel(
+                f"[bold]Deploying config files from {build_dir_raw} to environment {build_env_name}...[/]", expand=False
+            )
+        )
 
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"'{build_dir_raw}'. Did you forget to run `cdf-tk build` first?")

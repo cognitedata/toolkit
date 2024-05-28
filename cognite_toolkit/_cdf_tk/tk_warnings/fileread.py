@@ -193,10 +193,11 @@ class SourceFileModifiedWarning(FileReadWarning):
     severity = SeverityLevel.MEDIUM
 
     def get_message(self) -> str:
-        return (
+        message = (
             f"{type(self).__name__}: The source file {self.filepath} has been modified since the last build. "
             "Please rebuild the project."
         )
+        return SeverityFormat.get_rich_severity_format(self.severity, message)
 
 
 @dataclass(frozen=True)
@@ -205,4 +206,5 @@ class MissingFileWarning(FileReadWarning):
     attempted_check: str
 
     def get_message(self) -> str:
-        return f"{type(self).__name__}: The file {self.filepath} is missing. Cannot verify {self.attempted_check}."
+        message = f"{type(self).__name__}: The file {self.filepath} is missing. Cannot verify {self.attempted_check}."
+        return SeverityFormat.get_rich_severity_format(self.severity, message)
