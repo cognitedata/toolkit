@@ -6,7 +6,9 @@ from yaml import YAMLError
 
 
 class ToolkitError(Exception):
-    pass
+    def __repr__(self) -> str:
+        # Repr is what is called by rich when the exception is printed.
+        return str(self)
 
 
 class ToolkitInvalidSettingsError(ToolkitError):
@@ -113,6 +115,11 @@ class ToolkitInvalidParameterNameError(ToolkitValidationError):
         message = super().__str__()
         return f"{message}\nIn {self.identifier!r} the following parameters are invalid: {parameter_str}"
 
-    def __repr__(self) -> str:
-        # Repr is what is called by rich when the exception is printed.
-        return str(self)
+
+class ToolkitResourceMissingError(ToolkitError):
+    def __init__(self, message: str, resource: str) -> None:
+        super().__init__(message)
+        self.resource = resource
+
+    def __str__(self) -> str:
+        return f"{super().__str__()}\nResource {self.resource!r} is missing"

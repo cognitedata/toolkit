@@ -102,6 +102,15 @@ Group:
       - WRITE
       scope:
         all: {}
+  - securityCategoriesAcl:
+      actions:
+      - LIST
+      - MEMBEROF
+      - DELETE
+      - CREATE
+      - UPDATE
+      scope:
+        all: {}
   - timeSeriesSubscriptionsAcl:
       actions:
       - READ
@@ -237,11 +246,16 @@ Group:
       - READ
       scope:
         all: {}
-  - timeSeriesSubscriptionsAcl:
+  - securityCategoriesAcl:
       actions:
-      - READ
+      - LIST
       scope:
         all: {}
+  - timeSeriesSubscriptionsAcl:
+      actions:
+        - READ
+      scope:
+        all: { }
   metadata:
     origin: cdf-project-templates
   name: gp_admin_readonly

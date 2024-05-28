@@ -43,6 +43,8 @@ FunctionSchedule:
     lunch: 'today: greek salad and water'
   description: Run every day at 8am UTC
   name: daily-8am-utc
+SecurityCategory:
+- name: sc_demo_category
 TimeSeries:
 - dataSetId: 42
   description: This is an example timeseries used to demonstrate how to create a custom

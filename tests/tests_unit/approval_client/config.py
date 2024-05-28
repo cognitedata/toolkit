@@ -42,6 +42,10 @@ from cognite.client.data_classes import (
     RowList,
     RowWrite,
     RowWriteList,
+    SecurityCategory,
+    SecurityCategoryList,
+    SecurityCategoryWrite,
+    SecurityCategoryWriteList,
     Table,
     TableList,
     TableWrite,
@@ -422,6 +426,17 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="return_value"),
             ],
+        },
+    ),
+    APIResource(
+        api_name="iam.security_categories",
+        resource_cls=SecurityCategory,
+        list_cls=SecurityCategoryList,
+        _write_cls=SecurityCategoryWrite,
+        _write_list_cls=SecurityCategoryWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
         },
     ),
     APIResource(

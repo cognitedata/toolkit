@@ -242,7 +242,7 @@ class TestDataModelLoader:
         assert len(unchanged) == 1
 
 
-class TestAuthLoader:
+class TestGroupLoader:
     def test_load_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupAllScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(

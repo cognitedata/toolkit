@@ -105,6 +105,15 @@ capabilities:
         - WRITE
       scope:
         all: {}
+  - securityCategoriesAcl:
+      actions:
+        - LIST
+        - MEMBEROF
+        - DELETE
+        - CREATE
+        - UPDATE
+      scope:
+        all: { }
   - timeSeriesSubscriptionsAcl:
       actions:
         - READ
