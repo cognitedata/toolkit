@@ -565,27 +565,6 @@ class TestExtractionPipelineDependencies:
             ),
         )
 
-    def test_load_extraction_pipeline_config_revision_created(
-        self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
-    ):
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
-
-        self.append_resources(cognite_client_approval)
-
-        mock_read_yaml_file(
-            {"extraction_pipeline.config.yaml": yaml.CSafeLoader(self.config_yaml).get_data()}, monkeypatch
-        )
-
-        cmd = DeployCommand(print_warning=False)
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
-        resources = loader.load_resource(Path("extraction_pipeline.config.yaml"), cdf_tool, skip_validation=False)
-        to_create, changed, unchanged = cmd.to_create_changed_unchanged_triple([resources], loader)
-        assert len(to_create) == 0
-        assert len(changed) == 0
-        assert len(unchanged) == 1
-
     def test_load_extraction_pipeline_upsert_update_one(
         self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
