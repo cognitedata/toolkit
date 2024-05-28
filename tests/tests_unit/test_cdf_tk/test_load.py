@@ -75,7 +75,6 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 )
 def test_loader_class(
     loader_cls: type[ResourceLoader],
-    directory: Path,
     cognite_client_approval: ApprovalCogniteClient,
     data_regression: DataRegressionFixture,
 ):
