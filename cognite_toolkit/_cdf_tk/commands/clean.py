@@ -223,12 +223,12 @@ class CleanCommand(ToolkitCommand):
         build_ = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "clean")
         build_.set_environment_variables()
         errors = build_.check_source_files_changed()
-        if errors:
-            print(Panel("[E]Verifying source files...[/]", expand=False))
         for error in errors:
             self.warn(error)
         if errors:
-            raise ToolkitCleanResourceError()
+            raise ToolkitCleanResourceError(
+                "One or more source files have been modified since the last build. " "Please rebuild the project."
+            )
 
         Panel(f"[bold]Cleaning environment {build_env_name} based on config files from {build_dir}...[/]")
 
