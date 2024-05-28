@@ -404,8 +404,8 @@ def pull_command(
             verbose=False,
         )
 
-        loader = Loader.create_loader(ToolGlobals)
-        resource_files = loader.find_files(build_dir / loader.folder_name)
+        loader = Loader.create_loader(ToolGlobals, build_dir)
+        resource_files = loader.find_files()
         resource_by_file = {
             file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in resource_files
         }

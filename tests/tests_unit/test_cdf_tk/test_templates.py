@@ -7,15 +7,13 @@ from typing import Any
 import pytest
 import yaml
 
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _Helpers
-from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, RESOURCE_LOADER_LIST
+from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
+from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.templates import (
-    YAMLSemantic,
     flatten_dict,
     iterate_modules,
     module_from_path,
 )
-from cognite_toolkit._cdf_tk.templates._templates import Resource
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildConfigYAML,
     ConfigEntry,
@@ -215,13 +213,13 @@ def test_split_config(my_config: dict[str, Any]) -> None:
         },
         "parent.child": {"child_variable": "my_child_variable"},
     }
-    actual = _Helpers.split_config(my_config)
+    actual = _Helpers.to_variables_by_module_path(my_config)
 
     assert actual == expected
 
 
 def test_create_local_config(my_config: dict[str, Any]):
-    configs = _Helpers.split_config(my_config)
+    configs = _Helpers.to_variables_by_module_path(my_config)
 
     local_config = _Helpers.create_local_config(configs, Path("parent/child/auth/"))
 
@@ -230,49 +228,41 @@ def test_create_local_config(my_config: dict[str, Any]):
 
 def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:
     yield pytest.param(
-        yaml.safe_load(
-            """
+        """
 - dbName: src:005:test:rawdb:state
 - dbName: src:002:weather:rawdb:state
 - dbName: uc:001:demand:rawdb:state
 - dbName: in:all:rawdb:state
 - dbName: src:001:sap:rawdb
-"""
-        ),
+""",
         Path("build/raw/raw.yaml"),
         id="Multiple Raw Databases",
     )
 
     yield pytest.param(
-        yaml.safe_load(
-            """
+        """
 dbName: src:005:test:rawdb:state
-"""
-        ),
+""",
         Path("build/raw/raw.yaml"),
         id="Single Raw Database",
     )
 
     yield pytest.param(
-        yaml.safe_load(
-            """
+        """
 dbName: src:005:test:rawdb:state
 tableName: myTable
-"""
-        ),
+""",
         Path("build/raw/raw.yaml"),
         id="Single Raw Database with table",
     )
 
     yield pytest.param(
-        yaml.safe_load(
-            """
+        """
 - dbName: src:005:test:rawdb:state
   tableName: myTable
 - dbName: src:002:weather:rawdb:state
   tableName: myOtherTable
-"""
-        ),
+""",
         Path("build/raw/raw.yaml"),
         id="Multiple Raw Databases with table",
     )
@@ -280,20 +270,13 @@ tableName: myTable
 
 class TestCheckYamlSemantics:
     @pytest.mark.parametrize("raw_yaml, source_path", list(valid_yaml_semantics_test_cases()))
-    def test_valid_yaml(self, raw_yaml: dict | list, source_path: Path):
-        # The build path is unused in the function
-        # not sure why it is there
-        build_path = Path("does_not_matter")
-        YAMLSemantic(lambda x: x).check(raw_yaml, source_path, build_path)
-        assert True
-
-    def test_resource_enum_is_up_to_date(self) -> None:
-        resource_loaders = {loader.folder_name for loader in RESOURCE_LOADER_LIST}
-        enum_members = {member.value for member in Resource}
-
-        missing = resource_loaders - enum_members
-
-        assert not missing, f"Missing entry in Resource, please update with: {missing}"
+    def test_valid_yaml(self, raw_yaml: str, source_path: Path, dummy_environment: Environment):
+        state = _BuildState.create(BuildConfigYAML(dummy_environment, filepath=Path("dummy"), variables={}))
+        cmd = BuildCommand(print_warning=False)
+        # Only used in error messages
+        destination = Path("build/raw/raw.yaml")
+        yaml_warnings = cmd.validate(raw_yaml, source_path, destination, state, False)
+        assert not yaml_warnings
 
 
 class TestIterateModules:

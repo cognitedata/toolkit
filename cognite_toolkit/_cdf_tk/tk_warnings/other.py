@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Hashable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import ClassVar, Union
 
 from cognite_toolkit._cdf_tk.tk_warnings.base import GeneralWarning, SeverityFormat, SeverityLevel, ToolkitWarning
@@ -78,7 +80,7 @@ class HighSeverityWarning(GeneralWarning):
 @dataclass(frozen=True)
 class ToolkitDependenciesIncludedWarning(GeneralWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
-    message: ClassVar[str] = "Resources were included due to dependencies"
+    message: ClassVar[str] = "Operation may fail due to missing dependencies:"
     dependencies: Union[None, str, list[str]]
 
     def get_message(self) -> str:
@@ -110,3 +112,18 @@ class ToolkitNotSupportedWarning(GeneralWarning):
             else:
                 extra_details.extend(self.details)
         return SeverityFormat.get_rich_severity_format(self.severity, self.message, self.feature, *extra_details)
+
+
+@dataclass(frozen=True)
+class MissingDependencyWarning(GeneralWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
+    message: ClassVar[str] = ""
+    dependency_type: str
+    identifier: Hashable
+    required_by: set[tuple[Hashable, Path]]
+
+    def get_message(self) -> str:
+        msg = f"{self.dependency_type} {self.identifier!r} is missing and is required by:"
+        for identifier, path in self.required_by:
+            msg += f"\n- {identifier!r} in {path}"
+        return SeverityFormat.get_rich_severity_format(self.severity, msg)

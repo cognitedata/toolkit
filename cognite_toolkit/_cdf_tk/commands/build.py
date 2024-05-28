@@ -7,7 +7,7 @@ import shutil
 import sys
 import traceback
 from collections import ChainMap, defaultdict
-from collections.abc import Mapping
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -18,9 +18,9 @@ import yaml
 from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes import FileMetadataList, FunctionList
 from rich import print
-from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -30,11 +30,15 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME, FunctionLoader, Loader, ResourceLoader
-from cognite_toolkit._cdf_tk.templates._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
-from cognite_toolkit._cdf_tk.templates._templates import (
-    YAMLSemantic,
+from cognite_toolkit._cdf_tk.load import (
+    LOADER_BY_FOLDER_NAME,
+    DatapointsLoader,
+    FileLoader,
+    FunctionLoader,
+    Loader,
+    ResourceLoader,
 )
+from cognite_toolkit._cdf_tk.templates._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from cognite_toolkit._cdf_tk.templates._utils import (
     iterate_functions,
     iterate_modules,
@@ -46,18 +50,21 @@ from cognite_toolkit._cdf_tk.templates.data_classes import (
     SystemYAML,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    FileReadWarning,
     HighSeverityWarning,
-    IncorrectResourceWarning,
     LowSeverityWarning,
     MediumSeverityWarning,
+    MissingDependencyWarning,
     ToolkitBugWarning,
     ToolkitNotSupportedWarning,
     UnresolvedVariableWarning,
+    WarningList,
 )
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import DuplicatedItemWarning, MissingRequiredIdentifierWarning
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,
-    validate_yaml_config,
+    validate_resource_yaml,
 )
 
 
@@ -157,98 +164,62 @@ class BuildCommand(ToolkitCommand):
         config: BuildConfigYAML,
         verbose: bool = False,
     ) -> dict[Path, Path]:
-        source_by_build_path: dict[Path, Path] = {}
-        printed_function_warning = False
-        configs = _Helpers.split_config(config.variables)
-        modules_by_variables = defaultdict(list)
-        for module_path, variables in configs.items():
-            for variable in variables:
-                modules_by_variables[variable].append(module_path)
-        number_by_resource_type: dict[str, int] = defaultdict(int)
-
-        for module_dir, filepaths in iterate_modules(project_config_dir):
-            module_parts = module_dir.relative_to(project_config_dir).parts
-            is_in_selected_modules = module_dir.name in selected_modules or module_parts in selected_modules
-            is_parent_in_selected_modules = any(
-                parent in selected_modules for parent in (module_parts[:i] for i in range(1, len(module_parts)))
-            )
-            if not is_in_selected_modules and not is_parent_in_selected_modules:
+        state = _BuildState.create(config)
+        for module_dir, source_paths in iterate_modules(project_config_dir):
+            if not self._is_selected_module(module_dir.relative_to(project_config_dir), selected_modules):
                 continue
             if verbose:
                 print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
-            local_config = _Helpers.create_local_config(configs, module_dir)
 
-            # Sort to support 1., 2. etc prefixes
-            def sort_key(p: Path) -> int:
-                if result := re.findall(r"^(\d+)", p.stem):
-                    return int(result[0])
-                else:
-                    return len(filepaths)
+            state.update_local_variables(module_dir)
 
-            # The builder of a module can control the order that resources are deployed by prefixing a number
-            # The custom key 'sort_key' is to get the sort on integer and not the string.
-            filepaths = sorted(filepaths, key=sort_key)
-
-            @dataclass
-            class ResourceFiles:
-                resource_files: list[Path] = field(default_factory=list)
-                other_files: list[Path] = field(default_factory=list)
-
-            # Initialise for auth, other resource folders will be added as they are found
-            files_by_resource_folder: dict[str, ResourceFiles] = defaultdict(ResourceFiles)
-            for filepath in filepaths:
-                try:
-                    resource_folder = resource_folder_from_path(filepath)
-                except ValueError:
-                    if verbose:
-                        print(
-                            f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
-                        )
-                    continue
-                if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
-                    files_by_resource_folder[resource_folder].resource_files.append(filepath)
-                else:
-                    files_by_resource_folder[resource_folder].other_files.append(filepath)
+            files_by_resource_folder = self._to_files_by_resource_folder(source_paths, verbose)
 
             for resource_folder in files_by_resource_folder:
-                for filepath in files_by_resource_folder[resource_folder].resource_files:
-                    # We only want to process the yaml files for functions as the function code is handled separately.
-                    if resource_folder == "functions" and filepath.suffix.lower() != ".yaml":
-                        continue
+                for source_path in files_by_resource_folder[resource_folder].resource_files:
                     if verbose:
-                        print(f"    [bold green]INFO:[/] Processing {filepath.name}")
-                    content = filepath.read_text()
-                    content = _Helpers.replace_variables(content, local_config)
-                    filename = _Helpers.create_file_name(filepath, number_by_resource_type)
-                    destination = build_dir / resource_folder / filename
+                        print(f"    [bold green]INFO:[/] Processing {source_path.name}")
+                    destination = build_dir / resource_folder / state.create_file_name(source_path)
                     destination.parent.mkdir(parents=True, exist_ok=True)
-                    destination.write_text(content)
-                    self.validate(content, destination, filepath, modules_by_variables, verbose)
-                    source_by_build_path[destination] = filepath
 
-                    # If we have a function definition, we want to process the directory.
-                    if (
-                        resource_folder == "functions"
-                        and filepath.suffix.lower() == ".yaml"
-                        and re.match(FunctionLoader.filename_pattern, filepath.stem)
-                    ):
-                        if not printed_function_warning and sys.version_info >= (3, 12):
+                    is_function_non_yaml = (
+                        resource_folder == FunctionLoader.folder_name and source_path.suffix.lower() != ".yaml"
+                    )
+                    # We only want to process the yaml files for functions as the function code is handled separately.
+                    if not is_function_non_yaml:
+                        content = self._replace_variables_and_copy(source_path, destination, state)
+                        state.source_by_build_path[destination] = source_path
+                        file_warnings = self.validate(content, source_path, destination, state, verbose)
+                        if file_warnings:
+                            self.warning_list.extend(file_warnings)
+                            # Here we do not use the self.warn method as we want to print the warnings as a group.
+                            if self.print_warning:
+                                print(str(file_warnings))
+
+                    is_function_yaml = (
+                        resource_folder == FunctionLoader.folder_name
+                        and source_path.suffix.lower() == ".yaml"
+                        and re.match(FunctionLoader.filename_pattern, source_path.stem)
+                    )
+                    if is_function_yaml:
+                        if not state.printed_function_warning and sys.version_info >= (3, 12):
                             self.warn(
                                 HighSeverityWarning(
                                     "The functions API does not support Python 3.12. "
                                     "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
                                 )
                             )
-                            printed_function_warning = True
+                            state.printed_function_warning = True
                         self.process_function_directory(
-                            yaml_source_path=filepath,
+                            yaml_source_path=source_path,
                             yaml_dest_path=destination,
                             module_dir=module_dir,
                             build_dir=build_dir,
                             verbose=verbose,
                         )
                         files_by_resource_folder[resource_folder].other_files = []
-                    if resource_folder == "files":
+
+                    if resource_folder == FileLoader.folder_name:
                         self.process_files_directory(
                             files=files_by_resource_folder[resource_folder].other_files,
                             yaml_dest_path=destination,
@@ -258,36 +229,99 @@ class BuildCommand(ToolkitCommand):
                         )
                         files_by_resource_folder[resource_folder].other_files = []
 
-                if resource_folder == "timeseries_datapoints":
-                    # Process all csv files
-                    for filepath in files_by_resource_folder["timeseries_datapoints"].other_files:
-                        if filepath.suffix.lower() != ".csv":
-                            continue
-                        # Special case for timeseries datapoints, we want to timeshift datapoints
-                        # if the file is a csv file and we have been instructed to.
-                        # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-                        file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                        data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
-                        destination = build_dir / resource_folder / filename
-                        destination.parent.mkdir(parents=True, exist_ok=True)
-                        if "timeshift_" in data.index.name:
-                            print(
-                                "      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today..."
-                            )
-                            data.index.name = data.index.name.replace("timeshift_", "")
-                            data.index = pd.DatetimeIndex(data.index)
-                            periods = datetime.datetime.today() - data.index[-1]
-                            data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
-                        destination.write_text(data.to_csv())
-                for filepath in files_by_resource_folder[resource_folder].other_files:
-                    if verbose:
-                        print(f"    [bold green]INFO:[/] Found unrecognized file {filepath}. Copying in untouched...")
-                    # Copy the file as is, not variable replacement
-                    destination = build_dir / filepath.parent.name / filepath.name
+                for source_path in files_by_resource_folder[resource_folder].other_files:
+                    destination = build_dir / DatapointsLoader.folder_name / source_path.name
                     destination.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copyfile(filepath, destination)
+                    if resource_folder == DatapointsLoader.folder_name and source_path.suffix.lower() == ".csv":
+                        self._copy_and_timeshift_csv_files(source_path, destination)
+                    else:
+                        if verbose:
+                            print(
+                                f"    [bold green]INFO:[/] Found unrecognized file {source_path}. Copying in untouched..."
+                            )
+                        # Copy the file as is, not variable replacement
+                        shutil.copyfile(source_path, destination)
 
-        return source_by_build_path
+        self._check_missing_dependencies(state, project_config_dir)
+        return state.source_by_build_path
+
+    def _check_missing_dependencies(self, state: _BuildState, project_config_dir: Path) -> None:
+        existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
+        missing_dependencies = set(state.dependencies_by_required.keys()) - existing
+        for resource_cls, id_ in missing_dependencies:
+            required_by = {
+                (required, path.relative_to(project_config_dir))
+                for required, path in state.dependencies_by_required[(resource_cls, id_)]
+            }
+            self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
+
+    @staticmethod
+    def _is_selected_module(relative_module_dir: Path, selected_modules: list[str | tuple[str, ...]]) -> bool:
+        module_parts = relative_module_dir.parts
+        is_in_selected_modules = relative_module_dir.name in selected_modules or module_parts in selected_modules
+        is_parent_in_selected_modules = any(
+            parent in selected_modules for parent in (module_parts[:i] for i in range(1, len(module_parts)))
+        )
+        return is_parent_in_selected_modules or is_in_selected_modules
+
+    @staticmethod
+    def _to_files_by_resource_folder(filepaths: list[Path], verbose: bool) -> dict[str, _ResourceFiles]:
+        # Sort to support 1., 2. etc prefixes
+        def sort_key(p: Path) -> int:
+            if result := re.findall(r"^(\d+)", p.stem):
+                return int(result[0])
+            else:
+                return len(filepaths)
+
+        # The builder of a module can control the order that resources are deployed by prefixing a number
+        # The custom key 'sort_key' is to get the sort on integer and not the string.
+        filepaths = sorted(filepaths, key=sort_key)
+
+        files_by_resource_folder: dict[str, _ResourceFiles] = defaultdict(_ResourceFiles)
+        for filepath in filepaths:
+            try:
+                resource_folder = resource_folder_from_path(filepath)
+            except ValueError:
+                if verbose:
+                    print(
+                        f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
+                    )
+                continue
+            if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
+                files_by_resource_folder[resource_folder].resource_files.append(filepath)
+            else:
+                files_by_resource_folder[resource_folder].other_files.append(filepath)
+        return files_by_resource_folder
+
+    @staticmethod
+    def _copy_and_timeshift_csv_files(csv_file: Path, destination: Path) -> None:
+        """Copies and time-shifts CSV files to today if the index name contains 'timeshift_'."""
+        # Process all csv files
+        if csv_file.suffix.lower() != ".csv":
+            return
+        # Special case for timeseries datapoints, we want to timeshift datapoints
+        # if the file is a csv file, and we have been instructed to.
+        # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+        file_content = csv_file.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+        data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
+        if "timeshift_" in data.index.name:
+            print("      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today...")
+            data.index.name = str(data.index.name).replace("timeshift_", "")
+            data.index = pd.DatetimeIndex(data.index)
+            periods = datetime.datetime.today() - data.index[-1]
+            data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
+        destination.write_text(data.to_csv())
+
+    @staticmethod
+    def _replace_variables_and_copy(
+        source: Path,
+        destination: Path,
+        state: _BuildState,
+    ) -> str:
+        content = source.read_text()
+        content = state.replace_variables(content)
+        destination.write_text(content)
+        return content
 
     def process_function_directory(
         self,
@@ -390,18 +424,19 @@ class BuildCommand(ToolkitCommand):
     def validate(
         self,
         content: str,
-        destination: Path,
         source_path: Path,
-        modules_by_variable: dict[str, list[str]],
+        destination: Path,
+        state: _BuildState,
         verbose: bool,
-    ) -> None:
+    ) -> WarningList[FileReadWarning]:
+        warning_list = WarningList[FileReadWarning]()
         module = module_from_path(source_path)
         resource_folder = resource_folder_from_path(source_path)
 
         for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
-            self.warn(UnresolvedVariableWarning(source_path, unmatched))
+            warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
             variable = unmatched[2:-2]
-            if modules := modules_by_variable.get(variable):
+            if modules := state.modules_by_variable.get(variable):
                 module_str = (
                     f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
                 )
@@ -413,7 +448,8 @@ class BuildCommand(ToolkitCommand):
                 )
 
         if destination.suffix not in {".yaml", ".yml"}:
-            return None
+            return warning_list
+
         try:
             parsed = yaml.safe_load(content)
         except yaml.YAMLError as e:
@@ -421,18 +457,65 @@ class BuildCommand(ToolkitCommand):
                 f"YAML validation error for {destination.name} after substituting config variables: {e}"
             )
 
+        loader = self._get_loader(resource_folder, destination)
+        if loader is None:
+            return warning_list
+        if not issubclass(loader, ResourceLoader):
+            return warning_list
+
+        api_spec = self._get_api_spec(loader, destination)
+        is_dict_item = isinstance(parsed, dict)
+        items = [parsed] if is_dict_item else parsed
+
+        for no, item in enumerate(items, 1):
+            element_no = None if is_dict_item else no
+
+            identifier: Any | None = None
+            try:
+                identifier = loader.get_id(item)
+            except KeyError as error:
+                warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
+
+            if first_seen := state.ids_by_resource_type[loader].get(identifier):
+                warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
+            else:
+                state.ids_by_resource_type[loader][identifier] = source_path
+
+            warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
+            warning_list.extend(warnings)
+
+            for dependency in loader.get_dependent_items(item):
+                state.dependencies_by_required[dependency].append((identifier, source_path))
+
+            if api_spec is not None:
+                resource_warnings = validate_resource_yaml(parsed, api_spec, source_path, element_no)
+                warning_list.extend(resource_warnings)
+
+            data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)
+            warning_list.extend(data_set_warnings)
+
+        return warning_list
+
+    def _get_api_spec(self, loader: type[ResourceLoader], destination: Path) -> ParameterSpecSet | None:
+        api_spec: ParameterSpecSet | None = None
+        try:
+            api_spec = loader.get_write_cls_parameter_spec()
+        except Exception as e:
+            # Todo Replace with an automatic message to sentry.
+            self.warn(
+                ToolkitBugWarning(
+                    header=f"Failed to validate {destination.name} due to: {e}", traceback=traceback.format_exc()
+                )
+            )
+        return api_spec
+
+    def _get_loader(self, resource_folder: str, destination: Path) -> type[Loader] | None:
         loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
         loader: type[Loader] | None
         if len(loaders) == 1:
-            loader = loaders[0]
+            return loaders[0]
         else:
-            try:
-                loader = next(
-                    (loader for loader in loaders if re.match(loader.filename_pattern, destination.stem)), None
-                )
-            except Exception as e:
-                raise NotImplementedError(f"Loader not found for {source_path}\n{e}")
-
+            loader = next((loader for loader in loaders if loader.is_supported_file(destination)), None)
         if loader is None:
             self.warn(
                 ToolkitNotSupportedWarning(
@@ -440,57 +523,56 @@ class BuildCommand(ToolkitCommand):
                     details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
                 )
             )
-            return
+        return loader
 
-        if isinstance(parsed, dict):
-            parsed_list = [parsed]
-        else:
-            parsed_list = parsed
 
-        for item in parsed_list:
-            try:
-                YAMLSemantic(self.warn).check(parsed=item, filepath_src=source_path, filepath_build=destination)
-            except ToolkitYAMLFormatError as err:
-                # TODO: Hacky? Certain errors can be ignored, these are raised with no arguments:
-                if err.args:
-                    raise
-                details: list[str] = []
-                if verbose:
-                    details.append(
-                        "verify file format against the API specification for "
-                        f"{destination.parent.name!r} at {loader.doc_url()}"
-                    )
-                self.warn(
-                    IncorrectResourceWarning(
-                        f"In module {source_path.parent.parent.name!r} the resource "
-                        f"{destination.parent.name!r}/{destination.name}",
-                        resource=destination.parent.name,
-                        details=details,
-                    )
-                )
+@dataclass
+class _BuildState:
+    """This is used in the build process to keep track of variables and help with variable replacement.
 
-        if issubclass(loader, ResourceLoader):
-            try:
-                data_format_warnings = validate_yaml_config(parsed, loader.get_write_cls_parameter_spec(), source_path)
-            except Exception as e:
-                # Todo Replace with an automatic message to sentry.
-                self.warn(
-                    ToolkitBugWarning(
-                        header=f"Failed to validate {destination.name} due to: {e}", traceback=traceback.format_exc()
-                    )
-                )
-            else:
-                if data_format_warnings:
-                    self.warn(LowSeverityWarning("Found potential Data Format issues:"))
-                    self.warning_list.extend(data_format_warnings)
-                    print(
-                        Markdown(f"{data_format_warnings!s}"),
-                    )
+    It contains some counters and convenience dictionaries for easy lookup of variables and modules.
+    """
 
-            data_set_warnings = validate_data_set_is_set(parsed_list, loader.resource_cls, source_path)
-            if data_set_warnings:
-                self.warn(MediumSeverityWarning(f"Found missing data_sets: {data_set_warnings!s}"))
-                self.warning_list.extend(data_set_warnings)
+    modules_by_variable: dict[str, list[str]] = field(default_factory=dict)
+    variables_by_module_path: dict[str, dict[str, str]] = field(default_factory=dict)
+    source_by_build_path: dict[Path, Path] = field(default_factory=dict)
+    number_by_resource_type: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    printed_function_warning: bool = False
+    ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
+        default_factory=lambda: defaultdict(dict)
+    )
+    dependencies_by_required: dict[tuple[type[ResourceLoader], Hashable], list[tuple[Hashable, Path]]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+    _local_variables: Mapping[str, str] = field(default_factory=dict)
+
+    @property
+    def local_variables(self) -> Mapping[str, str]:
+        return self._local_variables
+
+    def update_local_variables(self, module_dir: Path) -> None:
+        self._local_variables = _Helpers.create_local_config(self.variables_by_module_path, module_dir)
+
+    def create_file_name(self, filepath: Path) -> str:
+        return _Helpers.create_file_name(filepath, self.number_by_resource_type)
+
+    def replace_variables(self, content: str) -> str:
+        return _Helpers.replace_variables(content, self.local_variables)
+
+    @classmethod
+    def create(cls, config: BuildConfigYAML) -> _BuildState:
+        variables_by_module_path = _Helpers.to_variables_by_module_path(config.variables)
+        modules_by_variables = defaultdict(list)
+        for module_path, variables in variables_by_module_path.items():
+            for variable in variables:
+                modules_by_variables[variable].append(module_path)
+        return cls(modules_by_variable=modules_by_variables, variables_by_module_path=variables_by_module_path)
+
+
+@dataclass
+class _ResourceFiles:
+    resource_files: list[Path] = field(default_factory=list)
+    other_files: list[Path] = field(default_factory=list)
 
 
 class _Helpers:
@@ -507,7 +589,7 @@ class _Helpers:
         return ChainMap(*maps)
 
     @classmethod
-    def split_config(cls, config: dict[str, Any]) -> dict[str, dict[str, str]]:
+    def to_variables_by_module_path(cls, config: dict[str, Any]) -> dict[str, dict[str, str]]:
         configs: dict[str, dict[str, str]] = {}
         cls._split_config(config, configs, prefix="")
         return configs

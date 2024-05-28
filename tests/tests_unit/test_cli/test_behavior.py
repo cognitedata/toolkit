@@ -98,7 +98,7 @@ def test_pull_transformation(
         / "transformations"
         / "pump_asset_hierarchy-load-collections_pump.yaml"
     )
-    loader = TransformationLoader.create_loader(cdf_tool_config)
+    loader = TransformationLoader.create_loader(cdf_tool_config, None)
 
     def load_transformation() -> TransformationWrite:
         # Injecting variables into the transformation file, so we can load it.
