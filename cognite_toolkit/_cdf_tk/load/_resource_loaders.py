@@ -148,7 +148,11 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitInvalidParameterNameError,
+    ToolkitRequiredValueError,
+    ToolkitYAMLFormatError,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import (
     NamespacingConventionWarning,
     PrefixConventionWarning,
@@ -529,7 +533,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("DataSet must have external_id set.")
+            raise ToolkitRequiredValueError("DataSet must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -632,7 +636,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("Function must have external_id set.")
+            raise ToolkitRequiredValueError("Function must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -837,7 +841,7 @@ class FunctionScheduleLoader(
             return f"{item['functionExternalId']}:{item['cronExpression']}"
 
         if item.function_external_id is None or item.cron_expression is None:
-            raise ValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
+            raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
         return f"{item.function_external_id}:{item.cron_expression}"
 
     @classmethod
@@ -1190,7 +1194,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("TimeSeries must have external_id set.")
+            raise ToolkitRequiredValueError("TimeSeries must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1420,7 +1424,7 @@ class TransformationLoader(
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("Transformation must have external_id set.")
+            raise ToolkitRequiredValueError("Transformation must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1639,7 +1643,7 @@ class TransformationScheduleLoader(
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("TransformationSchedule must have external_id set.")
+            raise ToolkitRequiredValueError("TransformationSchedule must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1718,7 +1722,7 @@ class ExtractionPipelineLoader(
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("ExtractionPipeline must have external_id set.")
+            raise ToolkitRequiredValueError("ExtractionPipeline must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1853,7 +1857,7 @@ class ExtractionPipelineConfigLoader(
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("ExtractionPipelineConfig must have external_id set.")
+            raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1870,28 +1874,39 @@ class ExtractionPipelineConfigLoader(
 
         for resource in resources:
             try:
-                resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
+                if config := resource.get("config", None):
+                    resource["config"] = yaml.dump(config, indent=4)
             except Exception:
                 print(
                     f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
                 )
-                resource["config"] = resource.get("config", "")
+                resource["config"] = resource.get("config", None)
 
         if len(resources) == 1:
             return ExtractionPipelineConfigWrite.load(resources[0])
         else:
             return ExtractionPipelineConfigWriteList.load(resources)
 
-    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        created = ExtractionPipelineConfigList([])
+    def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+        updated = ExtractionPipelineConfigList([])
         for item in items:
-            item_created = self.client.extraction_pipelines.config.create(item)
-            created.append(item_created)
-        return created
+            if not item.external_id:
+                raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
+            latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
+            if latest and self.are_equal(item, latest):
+                updated.append(latest)
+                continue
+            else:
+                created = self.client.extraction_pipelines.config.create(item)
+                updated.append(created)
+        return updated
+
+    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+        return self._upsert(items)
 
     # configs cannot be updated, instead new revision is created
     def update(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        return self.create(items)
+        return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:
         retrieved = ExtractionPipelineConfigList([])
@@ -1919,7 +1934,8 @@ class ExtractionPipelineConfigLoader(
                 if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
                     continue
             else:
-                count += len(result)
+                if result:
+                    count += 1
         return count
 
     @classmethod
@@ -1962,7 +1978,7 @@ class FileMetadataLoader(
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("FileMetadata must have external_id set.")
+            raise ToolkitRequiredValueError("FileMetadata must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -2038,7 +2054,7 @@ class FileMetadataLoader(
                 )
         for meta in files_metadata:
             if meta.name is None:
-                raise ValueError(f"File {meta.external_id} has no name.")
+                raise ToolkitRequiredValueError(f"File {meta.external_id} has no name.")
             if not Path(filepath.parent / meta.name).exists():
                 raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
             if isinstance(meta.data_set_id, str):
@@ -2840,7 +2856,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("Workflow must have external_id set.")
+            raise ToolkitRequiredValueError("Workflow must have external_id set.")
         return item.external_id
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> WorkflowUpsertList:
