@@ -1368,7 +1368,7 @@ class DatapointSubscriptionLoader(
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
             self.client.time_series.subscriptions.delete(ids)
-        except CogniteAPIError as e:
+        except (CogniteAPIError, CogniteNotFoundError) as e:
             non_existing = set(e.failed or [])
             if existing := [id_ for id_ in ids if id_ not in non_existing]:
                 self.client.time_series.subscriptions.delete(existing)
