@@ -1190,6 +1190,10 @@ class DatapointSubscriptionLoader(
     list_write_cls = DatapointSubscriptionWriteList
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
 
+    @property
+    def display_name(self) -> str:
+        return "timeseries.subscription"
+
     @classmethod
     def get_id(cls, item: DataPointSubscriptionWrite | DatapointSubscription | dict) -> str:
         if isinstance(item, dict):
@@ -1202,6 +1206,16 @@ class DatapointSubscriptionLoader(
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        # The Filter class in the SDK class View implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        parameter_path = ("filter",)
+        length = len(parameter_path)
+        for item in spec:
+            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+        spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
         return spec
 
     @classmethod
