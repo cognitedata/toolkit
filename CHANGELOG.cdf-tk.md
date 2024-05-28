@@ -35,6 +35,7 @@ Changes are grouped as follows:
   `ERROR (ToolkitModuleVersionError): Failed to load previous version, ...`. This is now fixed.
 - The parameter `container.properties.<property>.type.list` was required to be set, even thought it is optional
   in the CDF API. This is now fixed.
+- The `ExtractionPipelineConfig` create, update and delete report numbers were incorrect. This is now fixed.
 
 ### Improved
 

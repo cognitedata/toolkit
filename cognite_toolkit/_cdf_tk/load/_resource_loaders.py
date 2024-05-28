@@ -1648,28 +1648,39 @@ class ExtractionPipelineConfigLoader(
 
         for resource in resources:
             try:
-                resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
+                if resource.get("config", None):
+                    resource["config"] = yaml.dump(resource.get("config"), indent=4)
             except Exception:
                 print(
                     f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
                 )
-                resource["config"] = resource.get("config", "")
+                resource["config"] = resource.get("config", None)
 
         if len(resources) == 1:
             return ExtractionPipelineConfigWrite.load(resources[0])
         else:
             return ExtractionPipelineConfigWriteList.load(resources)
 
-    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        created = ExtractionPipelineConfigList([])
+    def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+        updated = ExtractionPipelineConfigList([])
         for item in items:
-            item_created = self.client.extraction_pipelines.config.create(item)
-            created.append(item_created)
-        return created
+            if not item.external_id:
+                raise ValueError("ExtractionPipelineConfig must have external_id set.")
+            latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
+            if self.are_equal(item, latest):
+                updated.append(latest)
+                continue
+            else:
+                created = self.client.extraction_pipelines.config.create(item)
+                updated.append(created)
+        return updated
+
+    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+        return self._upsert(items)
 
     # configs cannot be updated, instead new revision is created
     def update(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        return self.create(items)
+        return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:
         retrieved = ExtractionPipelineConfigList([])
@@ -1697,7 +1708,8 @@ class ExtractionPipelineConfigLoader(
                 if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
                     continue
             else:
-                count += len(result)
+                if result:
+                    count += 1
         return count
 
     @classmethod
