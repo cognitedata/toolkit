@@ -670,7 +670,6 @@ class TestExtractionPipelineDependencies:
             {"extraction_pipeline.config.yaml": yaml.CSafeLoader(self.config_yaml).get_data()}, monkeypatch
         )
 
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
 
         cmd = CleanCommand(print_warning=False)
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
