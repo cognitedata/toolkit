@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - Function used to schedule & trigger workflow
 - Extended `cognite_modules/examples/my_example_module` with a `SecurityCategory` case.
+- Extended `cognite_modules/examples/my_example_module` with a `DatapointSubscription` case.
 
 ### Removed
 
