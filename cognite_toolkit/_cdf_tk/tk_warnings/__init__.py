@@ -15,6 +15,7 @@ from .fileread import (
     NamingConventionWarning,
     PrefixConventionWarning,
     ResourceMissingIdentifierWarning,
+    SourceFileModifiedWarning,
     TemplateVariableWarning,
     UnresolvedVariableWarning,
     UnusedParameterWarning,
@@ -62,4 +63,5 @@ __all__ = [
     "HighSeverityWarning",
     "ToolkitDependenciesIncludedWarning",
     "MissingDependencyWarning",
+    "SourceFileModifiedWarning",
 ]

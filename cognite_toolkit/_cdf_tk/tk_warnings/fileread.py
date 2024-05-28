@@ -186,3 +186,11 @@ class DataSetMissingWarning(IdentifiedResourceFileReadWarning):
             return f"{type(self).__name__}: It is recommended to use a data set if source or destination can be scoped with a data set. If not, ignore this warning."
         else:
             return f"{type(self).__name__}: It is recommended that you set dataSetExternalId for {self.resource_name}. This is missing in {self.filepath.name}. Did you forget to add it?"
+
+
+@dataclass(frozen=True)
+class SourceFileModifiedWarning(FileReadWarning):
+    severity = SeverityLevel.HIGH
+
+    def get_message(self) -> str:
+        return f"{type(self).__name__}: The source file {self.filepath} has been modified since the last build. Please rebuild the project."
