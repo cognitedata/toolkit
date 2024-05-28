@@ -467,6 +467,8 @@ class SecurityCategoryLoader(
         return SecurityCategoriesAcl(
             actions=[
                 SecurityCategoriesAcl.Action.Create,
+                SecurityCategoriesAcl.Action.Update,
+                SecurityCategoriesAcl.Action.MemberOf,
                 SecurityCategoriesAcl.Action.List,
                 SecurityCategoriesAcl.Action.Delete,
             ],
