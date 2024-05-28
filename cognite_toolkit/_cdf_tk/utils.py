@@ -898,6 +898,15 @@ def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None 
     return sha256_hash.hexdigest()
 
 
+def calculate_str_or_file_hash(content: str | Path) -> str:
+    sha256_hash = hashlib.sha256()
+    if isinstance(content, Path):
+        content = content.read_text()
+    # Get rid of Windows line endings to make the hash consistent across platforms.
+    sha256_hash.update(content.encode("utf-8").replace(b"\r\n", b"\n"))
+    return sha256_hash.hexdigest()
+
+
 def get_oneshot_session(client: CogniteClient) -> CreatedSession | None:
     """Get a oneshot (use once) session for execution in CDF"""
     # Special case as this utility function may be called with a new client created in code,

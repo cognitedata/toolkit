@@ -133,14 +133,14 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         variables = data["variables"]
         return cls(environment=environment, variables=variables, filepath=filepath)
 
-    def create_build_environment(self, hashes_by_source_file: dict[Path, str] | None = None) -> BuildEnvironment:
+    def create_build_environment(self, hash_by_source_file: dict[Path, str] | None = None) -> BuildEnvironment:
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
             build_type=self.environment.build_type,
             selected_modules_and_packages=self.environment.selected_modules_and_packages,
             cdf_toolkit_version=__version__,
-            hashes_by_source_file=hashes_by_source_file or {},
+            hash_by_source_file=hash_by_source_file or {},
         )
 
     def get_selected_modules(
@@ -187,7 +187,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 @dataclass
 class BuildEnvironment(Environment):
     cdf_toolkit_version: str
-    hashes_by_source_file: dict[Path, str] = field(default_factory=dict)
+    hash_by_source_file: dict[Path, str] = field(default_factory=dict)
 
     @classmethod
     def load(
@@ -203,7 +203,7 @@ class BuildEnvironment(Environment):
                 build_type=data["type"],
                 selected_modules_and_packages=data["selected_modules_and_packages"],
                 cdf_toolkit_version=version,
-                hashes_by_source_file={Path(file): hash_ for file, hash_ in data.get("source_files", {}).items()},
+                hash_by_source_file={Path(file): hash_ for file, hash_ in data.get("source_files", {}).items()},
             )
         except KeyError:
             raise ToolkitEnvError(
@@ -214,8 +214,8 @@ class BuildEnvironment(Environment):
     def dump(self) -> dict[str, Any]:
         output = super().dump()
         output["cdf_toolkit_version"] = self.cdf_toolkit_version
-        if self.hashes_by_source_file:
-            output["source_files"] = {str(file): hash_ for file, hash_ in self.hashes_by_source_file.items()}
+        if self.hash_by_source_file:
+            output["source_files"] = {str(file): hash_ for file, hash_ in self.hash_by_source_file.items()}
         return output
 
     def dump_to_file(self, build_dir: Path) -> None:
