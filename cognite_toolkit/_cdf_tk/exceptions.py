@@ -118,5 +118,5 @@ class ToolkitInvalidParameterNameError(ToolkitValidationError):
         return str(self)
 
 
-class ToolkitRequiredValueError(ToolkitError):
+class ToolkitRequiredValueError(ToolkitError, ValueError):
     pass
