@@ -17,7 +17,7 @@
         - For each function that is using code from the `common_function_code`,
           copy the relevant code for that function from the `common_function_code`
           into the function folder.
-  cognite_modules_hash: ""
+  cognite_modules_hash: "028bf6c7136ffe568d33d36602bff66c8f1d0b84d4b569d9963d9d9d2c0a79ee"
 - version: 0.2.0a3
   cognite_modules: {}
   resources: {}

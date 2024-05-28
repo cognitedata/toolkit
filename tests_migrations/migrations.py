@@ -43,6 +43,8 @@ def modify_environment_to_run_all_modules(project_path: Path) -> None:
 def get_migration(previous_version_str: str, current_version: str) -> Callable[[Path], None]:
     previous_version = version.parse(previous_version_str)
     changes = Changes()
+    if previous_version < version.parse("0.2.0b5"):
+        changes.append(_rename_function_external_dataset_id)
     if previous_version < version.parse("0.2.0b4"):
         changes.append(_move_common_functions_code)
         changes.append(_fix_pump_view_external_id)
@@ -74,6 +76,14 @@ class Changes:
     def __call__(self, project_path: Path) -> None:
         for change in self._changes:
             change(project_path)
+
+
+def _rename_function_external_dataset_id(project_path: Path) -> None:
+    for resource_yaml in project_path.glob("*.yaml"):
+        if resource_yaml.parent == "functions":
+            content = resource_yaml.read_text()
+            content = content.replace("externalDataSetId", "dataSetExternalId")
+            resource_yaml.write_text(content)
 
 
 def _rename_modules_section_to_variables_in_config_yamls(project_path: Path) -> None:
