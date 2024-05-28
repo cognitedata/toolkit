@@ -10,6 +10,7 @@ import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     DataSet,
+    ExtractionPipelineConfig,
     FileMetadata,
     FunctionWrite,
     Group,
@@ -19,9 +20,10 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
+from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, ParameterValue, read_parameters_from_dict
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
@@ -30,6 +32,7 @@ from cognite_toolkit._cdf_tk.load import (
     DataModelLoader,
     DatapointsLoader,
     DataSetsLoader,
+    ExtractionPipelineConfigLoader,
     FileMetadataLoader,
     FunctionLoader,
     GroupAllScopedLoader,
@@ -70,7 +73,9 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
     ],
 )
 def test_loader_class(
-    loader_cls: type[ResourceLoader], cognite_client_approval: ApprovalCogniteClient, data_regression
+    loader_cls: type[ResourceLoader],
+    cognite_client_approval: ApprovalCogniteClient,
+    data_regression: DataRegressionFixture,
 ):
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
@@ -528,6 +533,93 @@ conflictMode: upsert
             with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
                 with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
                     loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+
+
+class TestExtractionPipelineDependencies:
+    _yaml = """
+        externalId: 'ep_src_asset_hamburg_sap'
+        name: 'Hamburg SAP'
+        dataSetId: 12345
+    """
+
+    config_yaml = """
+        externalId: 'ep_src_asset'
+        description: 'DB extractor config reading data from Springfield SAP'
+    """
+
+    def test_load_extraction_pipeline_upsert_create_one(
+        self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+    ):
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.client = cognite_client_approval.mock_client
+
+        cognite_client_approval.append(
+            ExtractionPipelineConfig,
+            ExtractionPipelineConfig(
+                external_id="ep_src_asset",
+                description="DB extractor config reading data from Springfield SAP",
+            ),
+        )
+
+    def test_load_extraction_pipeline_upsert_update_one(
+        self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+    ):
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.client = cognite_client_approval.mock_client
+
+        cognite_client_approval.append(
+            ExtractionPipelineConfig,
+            ExtractionPipelineConfig(
+                external_id="ep_src_asset",
+                description="DB extractor config reading data from Springfield SAP",
+                config="\n    logger: \n        {level: WARN}",
+            ),
+        )
+
+        mock_read_yaml_file(
+            {"extraction_pipeline.config.yaml": yaml.CSafeLoader(self.config_yaml).get_data()}, monkeypatch
+        )
+
+        cmd = DeployCommand(print_warning=False)
+        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
+        resources = loader.load_resource(Path("extraction_pipeline.config.yaml"), cdf_tool, skip_validation=False)
+        to_create, changed, unchanged = cmd.to_create_changed_unchanged_triple([resources], loader)
+        assert len(to_create) == 0
+        assert len(changed) == 1
+        assert len(unchanged) == 0
+
+    def test_load_extraction_pipeline_delete_one(
+        self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+    ):
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.client = cognite_client_approval.mock_client
+
+        cognite_client_approval.append(
+            ExtractionPipelineConfig,
+            ExtractionPipelineConfig(
+                external_id="ep_src_asset",
+                description="DB extractor config reading data from Springfield SAP",
+                config="\n    logger: \n        {level: WARN}",
+            ),
+        )
+
+        mock_read_yaml_file(
+            {"extraction_pipeline.config.yaml": yaml.CSafeLoader(self.config_yaml).get_data()}, monkeypatch
+        )
+
+        cmd = CleanCommand(print_warning=False)
+        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
+        with patch.object(
+            ExtractionPipelineConfigLoader, "find_files", return_value=[Path("extraction_pipeline.config.yaml")]
+        ):
+            res = cmd.clean_resources(loader, cdf_tool, dry_run=True, drop=True)
+            assert res.deleted == 1
 
 
 class TestDeployResources:
