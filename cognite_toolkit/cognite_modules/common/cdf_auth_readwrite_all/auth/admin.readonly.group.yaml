@@ -132,3 +132,8 @@ capabilities:
         - LIST
       scope:
         all: {}
+  - timeSeriesSubscriptionsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
