@@ -5,6 +5,16 @@ DataSet:
   metadata: {}
   name: Example dataset.
   writeProtected: false
+DatapointSubscription:
+- description: All timeseries with externalId starting with 'ts_value'
+  externalId: my_subscription
+  filter:
+    prefix:
+      property:
+      - externalId
+      value: ts_value
+  name: My Subscription
+  partitionCount: 1
 FileMetadata:
 - data_set_id: 42
   external_id: fn_first_function
