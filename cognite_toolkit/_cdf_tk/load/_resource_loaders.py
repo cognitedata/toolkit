@@ -16,6 +16,7 @@ from __future__ import annotations
 import itertools
 import json
 import re
+from abc import ABC
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import lru_cache
@@ -84,6 +85,7 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     GroupsAcl,
     RawAcl,
+    SecurityCategoriesAcl,
     SessionsAcl,
     TimeSeriesAcl,
     TransformationsAcl,
@@ -125,7 +127,16 @@ from cognite.client.data_classes.extractionpipelines import (
     ExtractionPipelineWrite,
     ExtractionPipelineWriteList,
 )
-from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, GroupWriteList
+from cognite.client.data_classes.iam import (
+    Group,
+    GroupList,
+    GroupWrite,
+    GroupWriteList,
+    SecurityCategory,
+    SecurityCategoryList,
+    SecurityCategoryWrite,
+    SecurityCategoryWriteList,
+)
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -157,8 +168,9 @@ _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 _HAS_DATA_FILTER_LIMIT = 10
 
 
-class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
+class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList], ABC):
     folder_name = "auth"
+    filename_pattern = r"^(?!.*SecurityCategory$).*"
     resource_cls = Group
     resource_write_cls = GroupWrite
     list_cls = GroupList
@@ -182,10 +194,9 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         client: CogniteClient,
         build_dir: Path | None,
         target_scopes: Literal[
-            "all",
             "all_scoped_only",
             "resource_scoped_only",
-        ] = "all",
+        ] = "all_scoped_only",
     ):
         super().__init__(client, build_dir)
         self.target_scopes = target_scopes
@@ -200,8 +211,6 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         ToolGlobals: CDFToolConfig,
         build_dir: Path | None,
     ) -> GroupLoader:
-        if cls is GroupLoader:
-            return cls(ToolGlobals.client, build_dir, "all")
         return cls(ToolGlobals.client, build_dir)
 
     @classmethod
@@ -414,6 +423,85 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 class GroupAllScopedLoader(GroupLoader):
     def __init__(self, client: CogniteClient, build_dir: Path | None):
         super().__init__(client, build_dir, "all_scoped_only")
+
+
+@final
+class SecurityCategoryLoader(
+    ResourceLoader[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
+):
+    filename_pattern = r"^.*\.SecurityCategory$"  # Matches all yaml files who's stem ends with *.SecurityCategory.
+    resource_cls = SecurityCategory
+    resource_write_cls = SecurityCategoryWrite
+    list_cls = SecurityCategoryList
+    list_write_cls = SecurityCategoryWriteList
+    folder_name = "auth"
+    dependencies = frozenset({GroupAllScopedLoader})
+    _doc_url = "Security-categories/operation/createSecurityCategories"
+
+    @property
+    def display_name(self) -> str:
+        return "security.categories"
+
+    @classmethod
+    def get_id(cls, item: SecurityCategoryWrite | SecurityCategory | dict) -> str:
+        if isinstance(item, dict):
+            return item["name"]
+        return cast(str, item.name)
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    cls.folder_name,
+                    "name",
+                    identifier,
+                    "_",
+                )
+            )
+        elif not identifier.startswith("sc_"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "name", identifier, "sc_"))
+        return warning_list
+
+    @classmethod
+    def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
+        return SecurityCategoriesAcl(
+            actions=[
+                SecurityCategoriesAcl.Action.Create,
+                SecurityCategoriesAcl.Action.Update,
+                SecurityCategoriesAcl.Action.MemberOf,
+                SecurityCategoriesAcl.Action.List,
+                SecurityCategoriesAcl.Action.Delete,
+            ],
+            scope=SecurityCategoriesAcl.Scope.All(),
+        )
+
+    def create(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+        return self.client.iam.security_categories.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> SecurityCategoryList:
+        names = set(ids)
+        categories = self.client.iam.security_categories.list(limit=-1)
+        return SecurityCategoryList([c for c in categories if c.name in names])
+
+    def update(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+        items_by_name = {item.name: item for item in items}
+        retrieved = self.retrieve(list(items_by_name.keys()))
+        retrieved_by_name = {item.name: item for item in retrieved}
+        new_items_by_name = {item.name: item for item in items if item.name not in retrieved_by_name}
+        if new_items_by_name:
+            created = self.client.iam.security_categories.create(list(new_items_by_name.values()))
+            retrieved_by_name.update({item.name: item for item in created})
+        return SecurityCategoryList([retrieved_by_name[name] for name in items_by_name])
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        retrieved = self.retrieve(ids)
+        if retrieved:
+            self.client.iam.security_categories.delete([item.id for item in retrieved if item.id])
+        return len(retrieved)
 
 
 @final
@@ -1106,6 +1194,9 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
+        if "securityCategoryNames" in item:
+            for security_category in item["securityCategoryNames"]:
+                yield SecurityCategoryLoader, security_category
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TimeSeriesWriteList:
         resources = load_yaml_inject_variables(filepath, {})
@@ -1115,6 +1206,12 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if "securityCategoryNames" in resource:
+                if security_categories_names := resource.pop("securityCategoryNames", []):
+                    security_categories = ToolGlobals.verify_security_categories(
+                        security_categories_names, skip_validation
+                    )
+                    resource["securityCategories"] = security_categories
             if resource.get("securityCategories") is None:
                 # Bug in SDK, the read version sets security categories to an empty list.
                 resource["securityCategories"] = []
@@ -1168,6 +1265,12 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+
+        spec.add(ParameterSpec(("securityCategoryNames",), frozenset({"list"}), is_required=False, _is_nullable=False))
+
+        spec.add(
+            ParameterSpec(("securityCategoryNames", ANY_STR), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
         return spec
 
 
@@ -1763,6 +1866,9 @@ class FileMetadataLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
+        if "securityCategoryNames" in item:
+            for security_category in item["securityCategoryNames"]:
+                yield SecurityCategoryLoader, security_category
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1774,6 +1880,13 @@ class FileMetadataLoader(
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if "securityCategoryNames" in resource:
+                if security_categories_names := resource.pop("securityCategoryNames", []):
+                    security_categories = ToolGlobals.verify_security_categories(
+                        security_categories_names, skip_validation
+                    )
+                    resource["securityCategories"] = security_categories
+
             files_metadata = FileMetadataWriteList([FileMetadataWrite.load(resource)])
         except Exception:
             files_metadata = FileMetadataWriteList.load(
@@ -1871,6 +1984,12 @@ class FileMetadataLoader(
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        spec.add(ParameterSpec(("securityCategoryNames",), frozenset({"list"}), is_required=False, _is_nullable=False))
+
+        spec.add(
+            ParameterSpec(("securityCategoryNames", ANY_STR), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
+
         return spec
 
 

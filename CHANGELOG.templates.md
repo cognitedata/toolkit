@@ -20,6 +20,7 @@ Changes are grouped as follows:
 ### Added
 
 - Function used to schedule & trigger workflow
+- Extended `cognite_modules/examples/my_example_module` with a `SecurityCategory` case.
 
 ### Removed
 
