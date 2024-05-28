@@ -102,6 +102,15 @@ Group:
       - WRITE
       scope:
         all: {}
+  - securityCategoriesAcl:
+      actions:
+      - LIST
+      - MEMBEROF
+      - DELETE
+      - CREATE
+      - UPDATE
+      scope:
+        all: {}
   metadata:
     origin: cdf-project-templates
   name: gp_admin_read_write
@@ -229,6 +238,11 @@ Group:
   - workflowOrchestrationAcl:
       actions:
       - READ
+      scope:
+        all: {}
+  - securityCategoriesAcl:
+      actions:
+      - LIST
       scope:
         all: {}
   metadata:
