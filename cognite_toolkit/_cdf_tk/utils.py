@@ -36,7 +36,7 @@ from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import CreatedSession
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes.capabilities import Capability, SecurityCategoriesAcl
 from cognite.client.data_classes.data_modeling import View, ViewId
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
 from cognite.client.testing import CogniteClientMock
@@ -44,7 +44,7 @@ from rich import print
 from rich.prompt import Confirm, Prompt
 
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitResourceMissingError, ToolkitYAMLFormatError
 from cognite_toolkit._version import __version__
 
 if sys.version_info < (3, 10):
@@ -374,6 +374,7 @@ class CDFToolConfig:
     class _Cache:
         existing_spaces: set[str] = field(default_factory=set)
         data_set_id_by_external_id: dict[str, int] = field(default_factory=dict)
+        security_categories_by_name: dict[str, int] = field(default_factory=dict)
 
     def __init__(self, token: str | None = None, cluster: str | None = None, project: str | None = None) -> None:
         self._cache = self._Cache()
@@ -782,6 +783,41 @@ class CDFToolConfig:
             )
         self._cache.existing_spaces.update([space.space for space in existing])
         return [space.space for space in existing]
+
+    @overload
+    def verify_security_categories(self, names: str, skip_validation: bool = False) -> int: ...
+
+    @overload
+    def verify_security_categories(self, names: list[str], skip_validation: bool = False) -> list[int]: ...
+
+    def verify_security_categories(self, names: str | list[str], skip_validation: bool = False) -> int | list[int]:
+        if skip_validation:
+            return [-1 for _ in range(len(names))] if isinstance(names, list) else -1
+        if isinstance(names, str) and names in self._cache.security_categories_by_name:
+            return self._cache.security_categories_by_name[names]
+        elif isinstance(names, list):
+            existing_by_name: dict[str, int] = {
+                name: self._cache.security_categories_by_name[name]
+                for name in names
+                if name in self._cache.security_categories_by_name
+            }
+            if len(existing_by_name) == len(names):
+                return [existing_by_name[name] for name in names]
+        self.verify_client(capabilities={SecurityCategoriesAcl._capability_name: ["LIST"]})
+
+        all_security_categories = self.client.iam.security_categories.list(limit=-1)
+        self._cache.security_categories_by_name.update(
+            {sc.name: sc.id for sc in all_security_categories if sc.id and sc.name}
+        )
+
+        try:
+            if isinstance(names, str):
+                return self._cache.security_categories_by_name[names]
+            return [self._cache.security_categories_by_name[name] for name in names]
+        except KeyError as e:
+            raise ToolkitResourceMissingError(
+                f"Security category {e} does not exist. You need to create it first.", e.args[0]
+            ) from e
 
 
 @overload
