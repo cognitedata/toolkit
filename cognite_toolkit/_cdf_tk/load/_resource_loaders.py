@@ -1258,6 +1258,17 @@ class DatapointSubscriptionLoader(
             # All deleted successfully
             return len(ids)
 
+    def are_equal(self, local: DataPointSubscriptionWrite, cdf_resource: DatapointSubscription) -> bool:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Two subscription objects are equal if they have the same timeSeriesIds
+        if "timeSeriesIds" in local_dumped:
+            local_dumped["timeSeriesIds"] = set(local_dumped["timeSeriesIds"])
+        if "timeSeriesIds" in cdf_dumped:
+            local_dumped["timeSeriesIds"] = set(cdf_dumped["timeSeriesIds"])
+
+        return local_dumped == cdf_dumped
+
 
 @final
 class TransformationLoader(
