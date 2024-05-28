@@ -25,6 +25,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.data_modeling import Edge, Node
 from pytest import MonkeyPatch
+from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, ParameterValue, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
@@ -38,7 +39,6 @@ from cognite_toolkit._cdf_tk.load import (
     DatapointsLoader,
     DataSetsLoader,
     ExtractionPipelineConfigLoader,
-    ExtractionPipelineLoader,
     FileMetadataLoader,
     FunctionLoader,
     Loader,
@@ -77,7 +77,10 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
     ],
 )
 def test_loader_class(
-    loader_cls: type[ResourceLoader], directory: Path, cognite_client_approval: ApprovalCogniteClient, data_regression
+    loader_cls: type[ResourceLoader],
+    directory: Path,
+    cognite_client_approval: ApprovalCogniteClient,
+    data_regression: DataRegressionFixture,
 ):
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
@@ -560,6 +563,8 @@ conflictMode: upsert
 class TestExtractionPipelineDependencies:
     _yaml = """
         externalId: 'ep_src_asset_hamburg_sap'
+        name: 'Hamburg SAP'
+        dataSetId: 12345
     """
 
     config_yaml = """
@@ -572,7 +577,9 @@ class TestExtractionPipelineDependencies:
     """
 
     def append_resources(self, cognite_client_approval):
-        cognite_client_approval.append(ExtractionPipeline(external_id="ep_src_asset_hamburg_sap"))
+        cognite_client_approval.append(
+            ExtractionPipeline, ExtractionPipeline(external_id="ep_src_asset_hamburg_sap", name="Hamburg SAP")
+        )
 
         cognite_client_approval.append(
             ExtractionPipelineConfig,
@@ -621,7 +628,7 @@ class TestExtractionPipelineDependencies:
             tr = loader.deploy_resources(Path("extraction_pipeline.config.yaml"), cdf_tool, dry_run=True)
             assert tr.created == 1
 
-    def test_load_extraction_pipeline_cascading_delete_count(
+    def test_load_extraction_pipeline_config_revision_deleted(
         self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
         cdf_tool = MagicMock(spec=CDFToolConfig)
@@ -630,16 +637,16 @@ class TestExtractionPipelineDependencies:
 
         self.append_resources(cognite_client_approval)
 
-        mock_read_yaml_file({"extraction_pipeline.yaml": yaml.CSafeLoader(self._yaml).get_data()}, monkeypatch)
+        mock_read_yaml_file({"extraction_pipeline.config.yaml": yaml.CSafeLoader(self._yaml).get_data()}, monkeypatch)
 
-        loader = ExtractionPipelineLoader.create_loader(cdf_tool)
+        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool)
 
         with patch.object(
             ExtractionPipelineConfigLoader,
             "find_files",
-            return_value=[Path("extraction_pipeline.yaml")],
+            return_value=[Path("extraction_pipeline.config.yaml")],
         ):
-            tr = loader.clean_resources(Path("extraction_pipeline.yaml"), cdf_tool, dry_run=True)
+            tr = loader.clean_resources(Path("extraction_pipeline.config.yaml"), cdf_tool, dry_run=True)
             assert tr.deleted == 4
 
 
