@@ -105,3 +105,9 @@ capabilities:
         - WRITE
       scope:
         all: {}
+  - timeSeriesSubscriptionsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
