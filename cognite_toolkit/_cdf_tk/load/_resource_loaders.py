@@ -16,6 +16,7 @@ from __future__ import annotations
 import itertools
 import json
 import re
+from abc import ABC
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import lru_cache
@@ -153,7 +154,7 @@ _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 _HAS_DATA_FILTER_LIMIT = 10
 
 
-class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
+class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList], ABC):
     folder_name = "auth"
     resource_cls = Group
     resource_write_cls = GroupWrite
@@ -178,10 +179,9 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         client: CogniteClient,
         build_dir: Path | None,
         target_scopes: Literal[
-            "all",
             "all_scoped_only",
             "resource_scoped_only",
-        ] = "all",
+        ] = "all_scoped_only",
     ):
         super().__init__(client, build_dir)
         self.target_scopes = target_scopes
@@ -196,8 +196,6 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         ToolGlobals: CDFToolConfig,
         build_dir: Path | None,
     ) -> GroupLoader:
-        if cls is GroupLoader:
-            return cls(ToolGlobals.client, build_dir, "all")
         return cls(ToolGlobals.client, build_dir)
 
     @classmethod
