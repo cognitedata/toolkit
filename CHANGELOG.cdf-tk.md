@@ -26,6 +26,7 @@ Changes are grouped as follows:
   the same externalId in the same module, the build command will give a warning that the externalId is duplicated,
   and that only the first file is used.
 - Support for `securityCategories` in the `auth` folder.
+- Added support for resource type `DatapointSubscription` in the `timeseries` folder.
 
 ### Fixed
 
@@ -36,6 +37,7 @@ Changes are grouped as follows:
   `ERROR (ToolkitModuleVersionError): Failed to load previous version, ...`. This is now fixed.
 - The parameter `container.properties.<property>.type.list` was required to be set, even thought it is optional
   in the CDF API. This is now fixed.
+- The `ExtractionPipelineConfig` create, update and delete report numbers were incorrect. This is now fixed.
 
 ### Improved
 
@@ -44,6 +46,7 @@ Changes are grouped as follows:
 - Transformation queries can be inline, i.e. set in either the Transformation `query` property in the yaml or
   as a separate file. If set in both, an error is raised because it is ambiguous which query to use.
 - In the `cdf-tk pull` command, if an error occurs, the temporary directory was not removed. This is now fixed.
+- Improved error message when running `cdf-tk deploy/clean` before running `cdf-tk build`.
 
 ### Changed
 

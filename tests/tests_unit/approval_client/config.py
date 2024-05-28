@@ -7,6 +7,10 @@ from cognite.client.data_classes import (
     DatabaseWriteList,
     Datapoints,
     DatapointsList,
+    DatapointSubscription,
+    DatapointSubscriptionList,
+    DataPointSubscriptionWrite,
+    DatapointSubscriptionWriteList,
     DataSet,
     DataSetList,
     DataSetWrite,
@@ -433,6 +437,19 @@ API_RESOURCES = [
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
+        },
+    ),
+    APIResource(
+        api_name="time_series.subscriptions",
+        resource_cls=DatapointSubscription,
+        list_cls=DatapointSubscriptionList,
+        _write_cls=DataPointSubscriptionWrite,
+        _write_list_cls=DatapointSubscriptionWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_value"),
+            ],
         },
     ),
 ]

@@ -115,6 +115,14 @@ class ToolkitInvalidParameterNameError(ToolkitValidationError):
         message = super().__str__()
         return f"{message}\nIn {self.identifier!r} the following parameters are invalid: {parameter_str}"
 
+    def __repr__(self) -> str:
+        # Repr is what is called by rich when the exception is printed.
+        return str(self)
+
+
+class ToolkitRequiredValueError(ToolkitError, ValueError):
+    pass
+
 
 class ToolkitResourceMissingError(ToolkitError):
     def __init__(self, message: str, resource: str) -> None:
