@@ -186,3 +186,25 @@ class DataSetMissingWarning(IdentifiedResourceFileReadWarning):
             return f"{type(self).__name__}: It is recommended to use a data set if source or destination can be scoped with a data set. If not, ignore this warning."
         else:
             return f"{type(self).__name__}: It is recommended that you set dataSetExternalId for {self.resource_name}. This is missing in {self.filepath.name}. Did you forget to add it?"
+
+
+@dataclass(frozen=True)
+class SourceFileModifiedWarning(FileReadWarning):
+    severity = SeverityLevel.ERROR
+
+    def get_message(self) -> str:
+        message = (
+            f"{type(self).__name__}: The source file {self.filepath} has been modified since the last build. "
+            "Please rebuild the project."
+        )
+        return SeverityFormat.get_rich_severity_format(self.severity, message)
+
+
+@dataclass(frozen=True)
+class MissingFileWarning(FileReadWarning):
+    severity = SeverityLevel.MEDIUM
+    attempted_check: str
+
+    def get_message(self) -> str:
+        message = f"{type(self).__name__}: The file {self.filepath} is missing. Cannot verify {self.attempted_check}."
+        return SeverityFormat.get_rich_severity_format(self.severity, message)

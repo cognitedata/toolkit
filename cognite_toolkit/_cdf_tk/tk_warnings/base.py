@@ -15,6 +15,7 @@ RICH_WARNING_DETAIL_FORMAT = f"{'    ' * 2}"
 
 
 class SeverityLevel(Enum):
+    ERROR = "error"
     HIGH = "red"
     MEDIUM = "yellow"
     LOW = "green"
@@ -23,7 +24,10 @@ class SeverityLevel(Enum):
 class SeverityFormat:
     @staticmethod
     def get_rich_severity_format(severity: SeverityLevel, *messages: str) -> str:
-        return f"[bold {severity.value}]WARNING [{severity.name}]:[/] {' '.join(messages)}"
+        if severity == SeverityLevel.ERROR:
+            return f"[bold red]ERROR [{severity.name}]:[/] {' '.join(messages)}"
+        else:
+            return f"[bold {severity.value}]WARNING [{severity.name}]:[/] {' '.join(messages)}"
 
     @staticmethod
     def get_rich_detail_format(message: str) -> str:

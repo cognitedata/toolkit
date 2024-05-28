@@ -61,6 +61,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import DuplicatedItemWarning, MissingRequiredIdentifierWarning
+from cognite_toolkit._cdf_tk.utils import calculate_str_or_file_hash
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,
@@ -148,13 +149,13 @@ class BuildCommand(ToolkitCommand):
             for warning in warnings:
                 print(f"    {warning.get_message()}")
 
-        source_by_build_path = self.process_config_files(source_dir, selected_modules, build_dir, config, verbose)
+        state = self.process_config_files(source_dir, selected_modules, build_dir, config, verbose)
 
-        build_environment = config.create_build_environment()
+        build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
             print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
-        return source_by_build_path
+        return state.source_by_build_path
 
     def process_config_files(
         self,
@@ -163,7 +164,7 @@ class BuildCommand(ToolkitCommand):
         build_dir: Path,
         config: BuildConfigYAML,
         verbose: bool = False,
-    ) -> dict[Path, Path]:
+    ) -> _BuildState:
         state = _BuildState.create(config)
         for module_dir, source_paths in iterate_modules(project_config_dir):
             if not self._is_selected_module(module_dir.relative_to(project_config_dir), selected_modules):
@@ -187,7 +188,10 @@ class BuildCommand(ToolkitCommand):
                     )
                     # We only want to process the yaml files for functions as the function code is handled separately.
                     if not is_function_non_yaml:
-                        content = self._replace_variables_and_copy(source_path, destination, state)
+                        content = source_path.read_text()
+                        state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
+                        content = state.replace_variables(content)
+                        destination.write_text(content)
                         state.source_by_build_path[destination] = source_path
                         file_warnings = self.validate(content, source_path, destination, state, verbose)
                         if file_warnings:
@@ -243,7 +247,7 @@ class BuildCommand(ToolkitCommand):
                         shutil.copyfile(source_path, destination)
 
         self._check_missing_dependencies(state, project_config_dir)
-        return state.source_by_build_path
+        return state
 
     def _check_missing_dependencies(self, state: _BuildState, project_config_dir: Path) -> None:
         existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
@@ -311,17 +315,6 @@ class BuildCommand(ToolkitCommand):
             periods = datetime.datetime.today() - data.index[-1]
             data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
         destination.write_text(data.to_csv())
-
-    @staticmethod
-    def _replace_variables_and_copy(
-        source: Path,
-        destination: Path,
-        state: _BuildState,
-    ) -> str:
-        content = source.read_text()
-        content = state.replace_variables(content)
-        destination.write_text(content)
-        return content
 
     def process_function_directory(
         self,
@@ -536,6 +529,7 @@ class _BuildState:
     modules_by_variable: dict[str, list[str]] = field(default_factory=dict)
     variables_by_module_path: dict[str, dict[str, str]] = field(default_factory=dict)
     source_by_build_path: dict[Path, Path] = field(default_factory=dict)
+    hash_by_source_path: dict[Path, str] = field(default_factory=dict)
     number_by_resource_type: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     printed_function_warning: bool = False
     ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
