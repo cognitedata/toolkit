@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitModuleVersionError
 from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
-from ._constants import EXCL_FILES
+from ._constants import COGNITE_MODULES, EXCL_FILES
 
 
 def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
@@ -92,8 +92,9 @@ def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
 
 def _get_cognite_module_version(project_dir: Path) -> str:
     previous_version = None
-    if (project_dir / "_system.yaml").exists():
-        system_yaml = read_yaml_file(project_dir / "_system.yaml")
+    system_yaml_file = _search_system_yaml(project_dir)
+    if system_yaml_file is not None:
+        system_yaml = read_yaml_file(system_yaml_file)
         with suppress(KeyError):
             previous_version = system_yaml["cdf_toolkit_version"]
 
@@ -108,3 +109,14 @@ def _get_cognite_module_version(project_dir: Path) -> str:
             "'_system.yaml' or 'environments.yaml' (before 0.1.0b6) file?"
         )
     return previous_version
+
+
+def _search_system_yaml(project_dir: Path) -> Path | None:
+    if (project_dir / "_system.yaml").exists():
+        return project_dir / "_system.yaml"
+    if (project_dir / COGNITE_MODULES / "_system.yaml").exists():
+        # This is here to ensure that we check this path first
+        return project_dir / COGNITE_MODULES / "_system.yaml"
+    for path in project_dir.rglob("_system.yaml"):
+        return path
+    return None

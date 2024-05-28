@@ -17,10 +17,10 @@ from cognite.client.data_classes.transformations.common import NonceCredentials
 from rich import print
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.load import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.templates import (
-    build_config,
     module_from_path,
 )
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
@@ -184,7 +184,7 @@ def run_local_function(
     config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
     print(f"[bold]Building for environment {build_env_name} using {source_path!s} as sources...[/bold]")
     config.set_environment_variables()
-    build_dir = tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd())
+    build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))
 
     found = False
     for function_dir in source_path.glob("**/functions"):
@@ -199,8 +199,8 @@ def run_local_function(
     if not found:
         print(f"  [bold red]ERROR:[/] Could not find function with external id {external_id}, exiting.")
         return False
-    build_config(
-        build_dir=Path(build_dir),
+    BuildCommand().build_config(
+        build_dir=build_dir,
         source_dir=source_path,
         config=config,
         system_config=system_config,
@@ -211,7 +211,7 @@ def run_local_function(
     if not virtual_env_dir.exists() or rebuild_env:
         print(f"  Creating virtual environment in {virtual_env_dir}...")
         venv.create(env_dir=virtual_env_dir.as_posix(), with_pip=True, system_site_packages=False)
-        req_file = Path(build_dir) / "functions" / external_id / "requirements.txt"
+        req_file = build_dir / "functions" / external_id / "requirements.txt"
         if req_file.exists():
             if platform.system() == "Windows":
                 process = subprocess.run(
@@ -250,9 +250,9 @@ def run_local_function(
 
     if verbose:
         print(f"  [bold]Loading function from {build_dir}...[/]")
-    function_loader: FunctionLoader = FunctionLoader.create_loader(ToolGlobals)
+    function_loader: FunctionLoader = FunctionLoader.create_loader(ToolGlobals, build_dir)
     function = None
-    for filepath in function_loader.find_files(Path(f"{build_dir}/functions")):
+    for filepath in function_loader.find_files():
         functions = function_loader.load_resource(
             Path(filepath), ToolGlobals=ToolGlobals, skip_validation=True
         ) or FunctionWriteList([])
@@ -284,8 +284,8 @@ def run_local_function(
     if ToolGlobals.environ("CDF_TOKEN", fail=False):
         environ["CDF_TOKEN"] = ToolGlobals.environ("CDF_TOKEN")
     else:
-        schedule_loader = FunctionScheduleLoader.create_loader(ToolGlobals)
-        for filepath in schedule_loader.find_files(Path(f"{build_dir}/functions")):
+        schedule_loader = FunctionScheduleLoader.create_loader(ToolGlobals, build_dir)
+        for filepath in schedule_loader.find_files():
             schedule_loader.load_resource(
                 Path(filepath), ToolGlobals=ToolGlobals, skip_validation=False
             ) or FunctionScheduleWriteList([])

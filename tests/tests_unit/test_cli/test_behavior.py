@@ -9,9 +9,9 @@ from cognite.client.data_classes import Transformation, TransformationWrite
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
+from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.load import TransformationLoader
-from cognite_toolkit._cdf_tk.templates import build_config
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, Environment, SystemYAML
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.approval_client import ApprovalCogniteClient
@@ -67,7 +67,7 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     config.environment.name = "dev"
     config.environment.selected_modules_and_packages = ["module1"]
     with pytest.raises(ToolkitDuplicatedModuleError) as err:
-        build_config(
+        BuildCommand().build_config(
             build_dir=build_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
             config=config,
@@ -87,18 +87,18 @@ def test_pull_transformation(
     cognite_client_approval: ApprovalCogniteClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
-    init_project: Path,
+    init_project_mutable: Path,
 ) -> None:
     # Loading a selected transformation to be pulled
     transformation_yaml = (
-        init_project
+        init_project_mutable
         / "cognite_modules"
         / "examples"
         / "example_pump_asset_hierarchy"
         / "transformations"
         / "pump_asset_hierarchy-load-collections_pump.yaml"
     )
-    loader = TransformationLoader.create_loader(cdf_tool_config)
+    loader = TransformationLoader.create_loader(cdf_tool_config, None)
 
     def load_transformation() -> TransformationWrite:
         # Injecting variables into the transformation file, so we can load it.
@@ -126,7 +126,7 @@ def test_pull_transformation(
 
     pull_transformation_cmd(
         typer_context,
-        source_dir=str(init_project),
+        source_dir=str(init_project_mutable),
         external_id=read_transformation.external_id,
         env="dev",
         dry_run=False,

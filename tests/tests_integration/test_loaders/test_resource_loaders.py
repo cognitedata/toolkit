@@ -1,16 +1,32 @@
+from asyncio import sleep
+
 import pytest
 from cognite.client import CogniteClient
-from cognite.client.data_classes import Function, FunctionSchedule, FunctionScheduleWriteList
+from cognite.client.data_classes import (
+    DataPointSubscriptionWrite,
+    Function,
+    FunctionSchedule,
+    FunctionScheduleWriteList,
+    filters,
+)
+from cognite.client.data_classes.datapoints_subscriptions import (
+    DatapointSubscriptionProperty,
+    DatapointSubscriptionWriteList,
+)
 
+from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.load import DataSetsLoader, FunctionScheduleLoader
+from cognite_toolkit._cdf_tk.load._resource_loaders import DatapointSubscriptionLoader
+from tests.tests_integration.constants import RUN_UNIQUE_ID
 
 
 class TestDataSetsLoader:
     def test_existing_unchanged(self, cognite_client: CogniteClient):
         data_sets = cognite_client.data_sets.list(limit=1, external_id_prefix="")
-        loader = DataSetsLoader(client=cognite_client)
+        loader = DataSetsLoader(cognite_client, None)
 
-        created, changed, unchanged = loader.to_create_changed_unchanged_triple(data_sets.as_write())
+        cmd = DeployCommand(print_warning=False)
+        created, changed, unchanged = cmd.to_create_changed_unchanged_triple(data_sets.as_write(), loader)
 
         assert len(unchanged) == len(data_sets)
         assert len(created) == 0
@@ -67,7 +83,7 @@ class TestFunctionScheduleLoader:
     def test_update_function_schedule(
         self, cognite_client: CogniteClient, dummy_function: Function, dummy_schedule: FunctionSchedule
     ) -> None:
-        loader = FunctionScheduleLoader(client=cognite_client)
+        loader = FunctionScheduleLoader(cognite_client, None)
         function_schedule = dummy_schedule.as_write()
 
         function_schedule.description = (
@@ -80,5 +96,43 @@ class TestFunctionScheduleLoader:
         loader.update(FunctionScheduleWriteList([function_schedule]))
 
         retrieved = loader.retrieve([identifier])
+        if not retrieved or retrieved[0].description != function_schedule.description:
+            # The service can be a bit slow in returning the updated description,
+            # so we wait a bit and try again.
+            sleep(1)
+            retrieved = loader.retrieve([identifier])
 
         assert retrieved[0].description == function_schedule.description
+
+
+class TestDatapointSubscriptionLoader:
+    def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
+        loader = DatapointSubscriptionLoader(cognite_client, None)
+        delete_count = loader.delete(["non_existing"])
+        assert delete_count == 0
+
+    def test_create_update_delete_subscription(self, cognite_client: CogniteClient) -> None:
+        sub = DataPointSubscriptionWrite(
+            external_id=f"tmp_test_create_update_delete_subscription_{RUN_UNIQUE_ID}",
+            partition_count=1,
+            name="Initial name",
+            filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
+        )
+        update = DataPointSubscriptionWrite(
+            external_id=f"tmp_test_create_update_delete_subscription_{RUN_UNIQUE_ID}",
+            partition_count=1,
+            name="Updated name",
+            filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
+        )
+
+        loader = DatapointSubscriptionLoader(cognite_client, None)
+
+        try:
+            created = loader.create(DatapointSubscriptionWriteList([sub]))
+            assert len(created) == 1
+
+            updated = loader.update(DatapointSubscriptionWriteList([update]))
+            assert len(updated) == 1
+            assert updated[0].name == "Updated name"
+        finally:
+            loader.delete([sub.external_id])

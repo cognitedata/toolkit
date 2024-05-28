@@ -1,7 +1,7 @@
 # Main Cognite Modules modules folder
 
 Modules in this folder come bundled with the `cdf-tk` tool. They are managed
-from a [public repository](https://github.com/cognitedata/cdf-project-templates).
+from a [public repository](https://github.com/cognitedata/toolkit).
 
 The modules prefixed by `cdf_` are managed and supported by Cognite. You should put your own modules in
 the custom_modules directory.

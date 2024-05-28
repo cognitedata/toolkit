@@ -15,11 +15,38 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0a5] - 2024-05-28
+
+### Added
+
+- Function used to schedule & trigger workflow
+- Extended `cognite_modules/examples/my_example_module` with a `SecurityCategory` case.
+- Extended `cognite_modules/examples/my_example_module` with a `DatapointSubscription` case.
+
+### Removed
+
+- The parameter `fileId` is removed from all `function` configurations
+  (`cdf_functions_dummy`, `cdf_data_pipeline_files_valhall`, `cdf_data_pipeline_timeseries_valhall`,
+  and `my_example_module`) as it is no longer required.
+- In all modules with an `extraction_pipelines` resource, removed `dataSetExternalId` and `name` from all
+  ExtractionPipelineConfigs as this is not used and thus only causes confusion.
+- In all modules with a `function`, renamed `externalIdDataSet` to `dataSetExternalId` to be consistent with the
+  naming convention used in the Cognite API.
+- In module `my_example_module`, removed `interval` and `isPaused` from the Transformation as these are not used.
+  These parameters should only be present in a TransformationSchedule.
+
+### Changed
+
+- Removed schedule from annotation function `context:files:oid:fileshare:annotation`
+- Add use of `map_concat`in transformation `files_oid_fileshare_file_metadata` to keep existing files metadata.
+- Switched to using `file.uploaded_time` instead of `file.last_updated_time` since update time
+  potentially is updated every time the transformation runs, and don't require a reannotation.
+
 ## [0.2.0a4] - 2024-04-29
 
 ### Added
 
-- Added Workflow with a Function and a Transformation to the cdf_data_pipeline_files_valhall example
+- Workflow with a Function and a Transformation to the cdf_data_pipeline_files_valhall example
   
 ### Changed
 

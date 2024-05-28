@@ -50,10 +50,18 @@ This module manages the following resources:
    - ID: `fn_context_files_oid_fileshare_annotation`
      - Content: Extracts all tags in P&ID that match tags from Asset Hierarchy and create CDF annotations used for linking
        found objects in the document to other resource types in CDF
+   - ID: `fn_context_files_oid_fileshare_annotation`
+     - Content: Function used to schedule & start workflow : `wf_oid_files_annotation`  Loops and waits for
+       feedback within the run time limitations for the function
+
+6. workflow
+   - ID: `wf_oid_files_annotation`
+     - Content: Start Transformation:  `tr_files_oid_fileshare_file_metadata` and then
+       Function: `fn_context_files_oid_fileshare_annotation`
 
 ### Illustration of the files data pipeline
 
-![image](https://github.com/cognitedata/cdf-project-templates/assets/31886431/32c5d53f-5fdb-44a8-9362-35e8152b83e3)
+![image](https://github.com/cognitedata/toolkit/assets/31886431/3722b1ad-ecb6-4251-84d0-ae31ee63e676)
 
 ## Variables
 

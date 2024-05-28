@@ -18,7 +18,6 @@ from typing import Literal
 from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
 from ._data_loaders import DatapointsLoader, FileLoader, RawFileLoader
 from ._resource_loaders import (
-    AuthLoader,
     ContainerLoader,
     DataModelLoader,
     DataSetsLoader,
@@ -27,6 +26,9 @@ from ._resource_loaders import (
     FileMetadataLoader,
     FunctionLoader,
     FunctionScheduleLoader,
+    GroupAllScopedLoader,
+    GroupLoader,
+    GroupResourceScopedLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
@@ -35,6 +37,8 @@ from ._resource_loaders import (
     TransformationLoader,
     TransformationScheduleLoader,
     ViewLoader,
+    WorkflowLoader,
+    WorkflowVersionLoader,
 )
 from .data_classes import DeployResult, DeployResults
 
@@ -46,9 +50,12 @@ else:
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
-    ResourceLoader.__subclasses__(), ResourceContainerLoader.__subclasses__(), DataLoader.__subclasses__()
+    ResourceLoader.__subclasses__(),
+    ResourceContainerLoader.__subclasses__(),
+    DataLoader.__subclasses__(),
+    GroupLoader.__subclasses__(),
 ):
-    if _loader in [ResourceLoader, ResourceContainerLoader, DataLoader]:
+    if _loader in [ResourceLoader, ResourceContainerLoader, DataLoader, GroupLoader]:
         # Skipping base classes
         continue
     if _loader.folder_name not in LOADER_BY_FOLDER_NAME:  # type: ignore[attr-defined]
@@ -56,6 +63,10 @@ for _loader in itertools.chain(
     # MyPy bug: https://github.com/python/mypy/issues/4717
     LOADER_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[type-abstract, attr-defined, arg-type]
 del _loader  # cleanup module namespace
+
+LOADER_LIST = list(itertools.chain(*LOADER_BY_FOLDER_NAME.values()))
+RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceLoader)]
+RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerLoader)]
 
 ResourceTypes: TypeAlias = Literal[
     "auth",
@@ -73,7 +84,9 @@ ResourceTypes: TypeAlias = Literal[
 
 __all__ = [
     "LOADER_BY_FOLDER_NAME",
-    "AuthLoader",
+    "GroupLoader",
+    "GroupAllScopedLoader",
+    "GroupResourceScopedLoader",
     "NodeLoader",
     "DataModelLoader",
     "DataSetsLoader",

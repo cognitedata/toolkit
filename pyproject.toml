@@ -1,31 +1,34 @@
 [tool.poetry]
 name = "cognite_toolkit"
-version = "0.2.0a4"
+version = "0.2.0a5"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
 readme = "README.md"
+documentation = "https://developer.cognite.com/sdks/toolkit/"
+homepage = "https://developer.cognite.com/sdks/toolkit/"
+repository = "https://github.com/cognitedata/toolkit"
 packages = [{include = "cognite_toolkit", from = "."}]
 include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "^7.39", extras = ["pandas"]}
+cognite-sdk = {version = "^7.43.5", extras = ["pandas"]}
 cognite-extractor-utils = ">=7"
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"
 typer = {version = "^0.12.0", extras = ["all"]}
-sentry-sdk = "^1.39"
+sentry-sdk = "^2.1.0"
 cognite-logger = "^0.6"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"
 pre-commit = "^3.6.0"
 pytest = "^8.0.0"
-pep8-naming = "^0.13.3"
 pytest-icdiff = "*"  # Used for better diffs in pytest
 pytest-regressions = "^2.4.2"
+pytest-xdist = "^3.6.1"
 types-PyYAML = "^6"
 twine = "^5.0.0"
 tomli = { version = "^2.0.1", python = "<3.11" }
@@ -38,6 +41,11 @@ cdf-tk = "cognite_toolkit._cdf:app"
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.pytest.ini_options]
+markers = [
+    "toolkit: big smoke tests",
+]
 
 [tool.mypy]
 check_untyped_defs = true

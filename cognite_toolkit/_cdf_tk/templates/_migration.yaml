@@ -1,3 +1,13 @@
+- version: 0.2.0a5
+  cognite_modules: {}
+  resources: {}
+  tool:
+    - title: "Parameter 'externalDataSetId' is renamed to 'dataSetExternalId' in functions"
+      steps:
+        - For each function, go into the YAML config file and rename 'externalIdDataSet' to
+          'dataSetExternalId'. This is a breaking change.
+        - The motivation for this change is to make the naming consistent with the rest of the Toolkit.
+  cognite_modules_hash: ""
 - version: 0.2.0a4
   cognite_modules: {}
   resources: {}
@@ -7,7 +17,7 @@
         - For each function that is using code from the `common_function_code`,
           copy the relevant code for that function from the `common_function_code`
           into the function folder.
-  cognite_modules_hash: ""
+  cognite_modules_hash: "028bf6c7136ffe568d33d36602bff66c8f1d0b84d4b569d9963d9d9d2c0a79ee"
 - version: 0.2.0a3
   cognite_modules: {}
   resources: {}

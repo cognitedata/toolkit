@@ -224,7 +224,7 @@ class. We can then go to the `tests_unit/approval_client/client.py` and find the
 private `_create_create_method` and set the breakpoint there. This will then stop the code execution when the
 `insert_dataframe` method is called.
 
-![image](https://github.com/cognitedata/cdf-project-templates/assets/60234212/aa8f72c9-0ecd-4166-bb41-f438fba25b4b)
+![image](https://github.com/cognitedata/toolkit/assets/60234212/aa8f72c9-0ecd-4166-bb41-f438fba25b4b)
 
 ### Simulate Existing Resource in CDF
 
@@ -277,4 +277,4 @@ If none of the existing mock functions can be used, you need to create a new moc
 
 You can check the following example PR when support was added for `Workflows` in the `ApprovalCogniteClient`:
 
-[PR #453](https://github.com/cognitedata/cdf-project-templates/pull/453/files#diff-57825118cb6e6afb003f556137ba38af9f770c69f7223dfcaa2779413228e2f1R393)
+[PR #453](https://github.com/cognitedata/toolkit/pull/453/files#diff-57825118cb6e6afb003f556137ba38af9f770c69f7223dfcaa2779413228e2f1R393)

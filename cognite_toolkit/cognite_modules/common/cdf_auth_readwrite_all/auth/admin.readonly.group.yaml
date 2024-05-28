@@ -127,3 +127,13 @@ capabilities:
         - READ
       scope:
         all: {}
+  - securityCategoriesAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - timeSeriesSubscriptionsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}

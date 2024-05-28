@@ -2,7 +2,6 @@
 # and externalId as the function itself as defined below.
 - name: 'first:example:function'
   externalId: 'fn_first_function'
-  fileId: <will_be_generated>
   owner: 'Anonymous'
   description: 'Returns the input data, secrets, and function info.'
   metadata:
@@ -20,4 +19,4 @@
   runtime: 'py311'
   functionPath: './src/handler.py'
   # Data set id for the zip file with the code that is uploaded.
-  externalDataSetId: 'ds_timeseries_{{example_variable}}'
+  dataSetExternalId: 'ds_timeseries_{{example_variable}}'

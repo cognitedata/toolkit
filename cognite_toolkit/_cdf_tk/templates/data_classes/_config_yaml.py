@@ -6,7 +6,7 @@ import re
 from abc import ABC
 from collections import UserDict, defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
@@ -23,7 +23,13 @@ from cognite_toolkit._cdf_tk.templates._constants import (
     SEARCH_VARIABLES_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.templates._utils import flatten_dict
-from cognite_toolkit._cdf_tk.utils import YAMLComment, YAMLWithComments
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    FileReadWarning,
+    MissingFileWarning,
+    SourceFileModifiedWarning,
+    WarningList,
+)
+from cognite_toolkit._cdf_tk.utils import YAMLComment, YAMLWithComments, calculate_str_or_file_hash
 from cognite_toolkit._version import __version__
 
 from ._base import ConfigCore, _load_version_variable
@@ -133,13 +139,14 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         variables = data["variables"]
         return cls(environment=environment, variables=variables, filepath=filepath)
 
-    def create_build_environment(self) -> BuildEnvironment:
+    def create_build_environment(self, hash_by_source_file: dict[Path, str] | None = None) -> BuildEnvironment:
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
             build_type=self.environment.build_type,
             selected_modules_and_packages=self.environment.selected_modules_and_packages,
             cdf_toolkit_version=__version__,
+            hash_by_source_file=hash_by_source_file or {},
         )
 
     def get_selected_modules(
@@ -186,6 +193,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 @dataclass
 class BuildEnvironment(Environment):
     cdf_toolkit_version: str
+    hash_by_source_file: dict[Path, str] = field(default_factory=dict)
 
     @classmethod
     def load(
@@ -201,6 +209,7 @@ class BuildEnvironment(Environment):
                 build_type=data["type"],
                 selected_modules_and_packages=data["selected_modules_and_packages"],
                 cdf_toolkit_version=version,
+                hash_by_source_file={Path(file): hash_ for file, hash_ in data.get("source_files", {}).items()},
             )
         except KeyError:
             raise ToolkitEnvError(
@@ -211,6 +220,8 @@ class BuildEnvironment(Environment):
     def dump(self) -> dict[str, Any]:
         output = super().dump()
         output["cdf_toolkit_version"] = self.cdf_toolkit_version
+        if self.hash_by_source_file:
+            output["source_files"] = {str(file): hash_ for file, hash_ in self.hash_by_source_file.items()}
         return output
 
     def dump_to_file(self, build_dir: Path) -> None:
@@ -221,6 +232,15 @@ class BuildEnvironment(Environment):
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.name
         os.environ["CDF_BUILD_TYPE"] = self.build_type
+
+    def check_source_files_changed(self) -> WarningList[FileReadWarning]:
+        warning_list = WarningList[FileReadWarning]()
+        for file, hash_ in self.hash_by_source_file.items():
+            if not file.exists():
+                warning_list.append(MissingFileWarning(file, attempted_check="source file has changed."))
+            elif hash_ != calculate_str_or_file_hash(file):
+                warning_list.append(SourceFileModifiedWarning(file))
+        return warning_list
 
 
 @dataclass
@@ -308,6 +328,9 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
     def __init__(self, environment: Environment, entries: dict[tuple[str, ...], ConfigEntry] | None = None):
         self.environment = environment
         super().__init__(entries or {})
+
+    def as_build_config(self) -> BuildConfigYAML:
+        return BuildConfigYAML(environment=self.environment, variables=self.dump()[self._variables], filepath=Path(""))
 
     def load_defaults(self, cognite_root_module: Path) -> InitConfigYAML:
         """Loads all default.config.yaml files in the cognite root module.

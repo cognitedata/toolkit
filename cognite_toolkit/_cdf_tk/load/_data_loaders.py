@@ -24,6 +24,7 @@ class DatapointsLoader(DataLoader):
     folder_name = "timeseries_datapoints"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({TimeSeriesLoader})
+    _doc_url = "Time-series/operation/postMultiTimeSeriesDatapoints"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
@@ -72,13 +73,14 @@ class FileLoader(DataLoader):
     filetypes = frozenset()
     exclude_filetypes = frozenset({"yml", "yaml"})
     dependencies = frozenset({FileMetadataLoader})
+    _doc_url = "Files/operation/initFileUpload"
 
     @property
     def display_name(self) -> str:
         return "file contents"
 
-    def __init__(self, client: CogniteClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: CogniteClient, build_dir: Path) -> None:
+        super().__init__(client, build_dir)
         self.meta_data_list = FileMetadataWriteList([])
         self.has_loaded_metadata = False
 
@@ -91,7 +93,7 @@ class FileLoader(DataLoader):
 
     def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
         if not self.has_loaded_metadata:
-            meta_loader = FileMetadataLoader(self.client)
+            meta_loader = FileMetadataLoader(self.client, self.resource_build_path and self.resource_build_path.parent)
             yaml_files = list(datafile.parent.glob("*.yml")) + list(datafile.parent.glob("*.yaml"))
             for yaml_file in yaml_files:
                 loaded = meta_loader.load_resource(yaml_file, ToolGlobals, dry_run)
@@ -121,6 +123,11 @@ class RawFileLoader(DataLoader):
     folder_name = "raw"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({RawDatabaseLoader, RawTableLoader})
+    _doc_url = "Raw/operation/postRows"
+
+    @property
+    def display_name(self) -> str:
+        return "raw.rows"
 
     @classmethod
     def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:

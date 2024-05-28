@@ -302,17 +302,19 @@ class ApprovalCogniteClient:
             created_resources[resource_cls.__name__].extend(created)
             if resource_cls is View:
                 return write_list_cls(created)
-            if resource_cls is ExtractionPipelineConfig:
-                print("stop")
             return resource_list_cls.load(
                 [
                     {
-                        "isGlobal": False,
+                        # These are server set fields, so we need to set them manually
+                        # Note that many of them are only used for certain resources. This is not a problem
+                        # as any extra fields are ignored by the load method.
+                        "isGlobal": False,  # Data Modeling
                         "lastUpdatedTime": 0,
                         "createdTime": 0,
-                        "writable": True,
-                        "ignoreNullFields": False,
-                        "usedFor": "nodes",
+                        "writable": True,  # Data Modeling
+                        "ignoreNullFields": False,  # Transformations
+                        "usedFor": "nodes",  # Views
+                        "timeSeriesCount": 10,  # Datapoint subscription
                         **c.dump(camel_case=True),
                     }
                     for c in created
@@ -689,6 +691,11 @@ class ApprovalCogniteClient:
                     )
                 else:
                     dumped[key] = list(dumped_resource)
+
+        # Standardize file paths
+        for filemedata in dumped.get("FileMetadata", []):
+            if "kwargs" in filemedata and "path" in filemedata["kwargs"] and "/" in filemedata["kwargs"]["path"]:
+                filemedata["kwargs"]["path"] = filemedata["kwargs"]["path"].split("/")[-1]
 
         if self._deleted_resources:
             dumped["deleted"] = {}

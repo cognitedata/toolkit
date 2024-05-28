@@ -6,7 +6,6 @@ from ._constants import (
     ROOT_MODULES,
     ROOT_PATH,
 )
-from ._templates import build_config, check_yaml_semantics, create_local_config, split_config
 from ._utils import flatten_dict, iterate_modules, module_from_path, resource_folder_from_path
 
 __all__ = [
@@ -18,10 +17,6 @@ __all__ = [
     "ROOT_PATH",
     "ROOT_MODULES",
     "COGNITE_MODULES_PATH",
-    "build_config",
     "BUILD_ENVIRONMENT_FILE",
-    "split_config",
-    "create_local_config",
-    "check_yaml_semantics",
     "flatten_dict",
 ]

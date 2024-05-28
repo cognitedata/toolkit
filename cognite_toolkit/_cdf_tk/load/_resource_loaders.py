@@ -16,8 +16,10 @@ from __future__ import annotations
 import itertools
 import json
 import re
+from abc import ABC
 from collections import defaultdict
-from collections.abc import Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence, Sized
+from functools import lru_cache
 from numbers import Number
 from pathlib import Path
 from time import sleep
@@ -29,6 +31,11 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     ClientCredentials,
     DatapointsList,
+    DatapointSubscription,
+    DatapointSubscriptionList,
+    DataPointSubscriptionUpdate,
+    DataPointSubscriptionWrite,
+    DatapointSubscriptionWriteList,
     DataSet,
     DataSetList,
     DataSetWrite,
@@ -83,8 +90,10 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     GroupsAcl,
     RawAcl,
+    SecurityCategoriesAcl,
     SessionsAcl,
     TimeSeriesAcl,
+    TimeSeriesSubscriptionsAcl,
     TransformationsAcl,
     WorkflowOrchestrationAcl,
 )
@@ -124,12 +133,32 @@ from cognite.client.data_classes.extractionpipelines import (
     ExtractionPipelineWrite,
     ExtractionPipelineWriteList,
 )
-from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, GroupWriteList
+from cognite.client.data_classes.iam import (
+    Group,
+    GroupList,
+    GroupWrite,
+    GroupWriteList,
+    SecurityCategory,
+    SecurityCategoryList,
+    SecurityCategoryWrite,
+    SecurityCategoryWriteList,
+)
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitInvalidParameterNameError,
+    ToolkitRequiredValueError,
+    ToolkitYAMLFormatError,
+)
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    NamespacingConventionWarning,
+    PrefixConventionWarning,
+    WarningList,
+    YAMLFileWarning,
+)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_directory_hash,
@@ -145,15 +174,13 @@ _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 _HAS_DATA_FILTER_LIMIT = 10
 
 
-@final
-class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
-    api_name = "iam.groups"
+class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList], ABC):
     folder_name = "auth"
+    filename_pattern = r"^(?!.*SecurityCategory$).*"
     resource_cls = Group
     resource_write_cls = GroupWrite
     list_cls = GroupList
     list_write_cls = GroupWriteList
-    identifier_key = "name"
     resource_scopes = frozenset(
         {
             capabilities.IDScope,
@@ -171,30 +198,26 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
     def __init__(
         self,
         client: CogniteClient,
+        build_dir: Path | None,
         target_scopes: Literal[
-            "all",
             "all_scoped_only",
             "resource_scoped_only",
-        ] = "all",
+        ] = "all_scoped_only",
     ):
-        super().__init__(client)
+        super().__init__(client, build_dir)
         self.target_scopes = target_scopes
 
     @property
     def display_name(self) -> str:
-        return f"{self.api_name}({self.target_scopes.removesuffix('_only')})"
+        return f"iam.groups({self.target_scopes.removesuffix('_only')})"
 
     @classmethod
     def create_loader(
         cls,
         ToolGlobals: CDFToolConfig,
-        target_scopes: Literal[
-            "all",
-            "all_scoped_only",
-            "resource_scoped_only",
-        ] = "all",
-    ) -> AuthLoader:
-        return AuthLoader(ToolGlobals.client, target_scopes)
+        build_dir: Path | None,
+    ) -> GroupLoader:
+        return cls(ToolGlobals.client, build_dir)
 
     @classmethod
     def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
@@ -204,8 +227,60 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         )
 
     @classmethod
-    def get_id(cls, item: GroupWrite | Group) -> str:
+    def get_id(cls, item: GroupWrite | Group | dict) -> str:
+        if isinstance(item, dict):
+            return item["name"]
         return item.name
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        for capability in item.get("capabilities", []):
+            for acl, content in capability.items():
+                if scope := content.get("scope", {}):
+                    if space_ids := scope.get(capabilities.SpaceIDScope._scope_name, []):
+                        for space_id in space_ids:
+                            yield SpaceLoader, space_id
+                    if data_set_ids := scope.get(capabilities.DataSetScope._scope_name, []):
+                        for data_set_id in data_set_ids:
+                            yield DataSetsLoader, data_set_id
+                    if table_ids := scope.get(capabilities.TableScope._scope_name, []):
+                        for db_name, tables in table_ids.get("dbsToTables", {}).items():
+                            yield RawDatabaseLoader, RawDatabaseTable(db_name)
+                            for table in tables:
+                                yield RawDatabaseLoader, RawDatabaseTable(db_name, table)
+                    if extraction_pipeline_ids := scope.get(capabilities.ExtractionPipelineScope._scope_name, []):
+                        for extraction_pipeline_id in extraction_pipeline_ids:
+                            yield ExtractionPipelineLoader, extraction_pipeline_id
+                    if (ids := scope.get(capabilities.IDScope._scope_name, [])) or (
+                        ids := scope.get(capabilities.IDScopeLowerCase._scope_name, [])
+                    ):
+                        loader: type[ResourceLoader] | None = None
+                        if acl == capabilities.DataSetsAcl._capability_name:
+                            loader = DataSetsLoader
+                        elif acl == capabilities.ExtractionPipelinesAcl._capability_name:
+                            loader = ExtractionPipelineLoader
+                        elif acl == capabilities.TimeSeriesAcl._capability_name:
+                            loader = TimeSeriesLoader
+                        if loader is not None:
+                            for id_ in ids:
+                                yield loader, id_
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            if identifier == "applications-configuration":
+                if verbose:
+                    print(
+                        "      [bold green]INFO:[/] the group applications-configuration does not follow the "
+                        "recommended '_' based namespacing because Infield expects this specific name."
+                    )
+            else:
+                warning_list.append(NamespacingConventionWarning(filepath, cls.folder_name, "name", identifier, "_"))
+        elif not identifier.startswith("gp"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "name", identifier, "gp_"))
+        return warning_list
 
     @staticmethod
     def _substitute_scope_ids(group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
@@ -323,16 +398,127 @@ class AuthLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLis
         self.client.iam.groups.delete(found)
         return len(found)
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # The Capability class in the SDK class Group implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        for item in spec:
+            if item.path[0] == "capabilities" and len(item.path) > 2:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:2] + (ANY_STR,) + item.path[2:])
+        spec.add(
+            ParameterSpec(
+                ("capabilities", ANY_INT, ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("capabilities", ANY_INT, ANY_STR, "scope", ANYTHING),
+                frozenset({"dict"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        return spec
+
+
+@final
+class GroupAllScopedLoader(GroupLoader):
+    def __init__(self, client: CogniteClient, build_dir: Path | None):
+        super().__init__(client, build_dir, "all_scoped_only")
+
+
+@final
+class SecurityCategoryLoader(
+    ResourceLoader[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
+):
+    filename_pattern = r"^.*\.SecurityCategory$"  # Matches all yaml files who's stem ends with *.SecurityCategory.
+    resource_cls = SecurityCategory
+    resource_write_cls = SecurityCategoryWrite
+    list_cls = SecurityCategoryList
+    list_write_cls = SecurityCategoryWriteList
+    folder_name = "auth"
+    dependencies = frozenset({GroupAllScopedLoader})
+    _doc_url = "Security-categories/operation/createSecurityCategories"
+
+    @property
+    def display_name(self) -> str:
+        return "security.categories"
+
+    @classmethod
+    def get_id(cls, item: SecurityCategoryWrite | SecurityCategory | dict) -> str:
+        if isinstance(item, dict):
+            return item["name"]
+        return cast(str, item.name)
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    cls.folder_name,
+                    "name",
+                    identifier,
+                    "_",
+                )
+            )
+        elif not identifier.startswith("sc_"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "name", identifier, "sc_"))
+        return warning_list
+
+    @classmethod
+    def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
+        return SecurityCategoriesAcl(
+            actions=[
+                SecurityCategoriesAcl.Action.Create,
+                SecurityCategoriesAcl.Action.Update,
+                SecurityCategoriesAcl.Action.MemberOf,
+                SecurityCategoriesAcl.Action.List,
+                SecurityCategoriesAcl.Action.Delete,
+            ],
+            scope=SecurityCategoriesAcl.Scope.All(),
+        )
+
+    def create(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+        return self.client.iam.security_categories.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> SecurityCategoryList:
+        names = set(ids)
+        categories = self.client.iam.security_categories.list(limit=-1)
+        return SecurityCategoryList([c for c in categories if c.name in names])
+
+    def update(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+        items_by_name = {item.name: item for item in items}
+        retrieved = self.retrieve(list(items_by_name.keys()))
+        retrieved_by_name = {item.name: item for item in retrieved}
+        new_items_by_name = {item.name: item for item in items if item.name not in retrieved_by_name}
+        if new_items_by_name:
+            created = self.client.iam.security_categories.create(list(new_items_by_name.values()))
+            retrieved_by_name.update({item.name: item for item in created})
+        return SecurityCategoryList([retrieved_by_name[name] for name in items_by_name])
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        retrieved = self.retrieve(ids)
+        if retrieved:
+            self.client.iam.security_categories.delete([item.id for item in retrieved if item.id])
+        return len(retrieved)
+
 
 @final
 class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
     support_drop = False
-    api_name = "data_sets"
     folder_name = "data_sets"
     resource_cls = DataSet
     resource_write_cls = DataSetWrite
     list_cls = DataSetList
     list_write_cls = DataSetWriteList
+    dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Data-sets/operation/createDataSets"
 
     @classmethod
@@ -343,10 +529,22 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         )
 
     @classmethod
-    def get_id(cls, item: DataSet | DataSetWrite) -> str:
+    def get_id(cls, item: DataSet | DataSetWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
-            raise ValueError("DataSet must have external_id set.")
+            raise ToolkitRequiredValueError("DataSet must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(NamespacingConventionWarning(filepath, cls.folder_name, "externalId", identifier, "_"))
+        if not identifier.startswith("ds_"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "ds_"))
+        return warning_list
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
@@ -391,14 +589,28 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
             external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
         )
 
+    def update(self, items: DataSetWriteList) -> DataSetList:
+        return self.client.data_sets.update(items)
+
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit, toolkit will automatically convert metadata to json
+        spec.add(
+            ParameterSpec(
+                ("metadata", ANY_STR, ANYTHING), frozenset({"unknown"}), is_required=False, _is_nullable=False
+            )
+        )
+        return spec
 
 
 @final
 class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
     support_drop = True
-    api_name = "functions"
     folder_name = "functions"
     filename_pattern = (
         r"^(?:(?!schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
@@ -407,11 +619,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     resource_write_cls = FunctionWrite
     list_cls = FunctionList
     list_write_cls = FunctionWriteList
-    dependencies = frozenset({DataSetsLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
-
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
 
     @classmethod
     def get_required_capability(cls, items: FunctionWriteList) -> list[Capability]:
@@ -423,10 +632,17 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         ]
 
     @classmethod
-    def get_id(cls, item: Function | FunctionWrite) -> str:
+    def get_id(cls, item: Function | FunctionWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
-            raise ValueError("Function must have external_id set.")
+            raise ToolkitRequiredValueError("Function must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -439,23 +655,27 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         for func in functions:
             if self.extra_configs.get(func["externalId"]) is None:
                 self.extra_configs[func["externalId"]] = {}
-            if func.get("externalDataSetId") is not None:
+            if func.get("dataSetExternalId") is not None:
                 self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
-                    func.get("externalDataSetId", ""), skip_validation=skip_validation
+                    func.get("dataSetExternalId", ""), skip_validation=skip_validation
                 )
+            if "fileId" not in func:
+                # The fileID is required for the function to be created, but in the `.create` method
+                # we first create that file and then set the fileID.
+                func["fileId"] = "<will_be_generated>"
 
         if len(functions) == 1:
             return FunctionWrite.load(functions[0])
         else:
             return FunctionWriteList.load(functions)
 
-    def _is_equal_custom(self, local: FunctionWrite, cdf_resource: Function) -> bool:
-        if self.build_path is None:
+    def are_equal(self, local: FunctionWrite, cdf_resource: Function) -> bool:
+        if self.resource_build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
         # If the function failed, we want to always trigger a redeploy.
         if cdf_resource.status == "Failed":
             return False
-        function_rootdir = Path(self.build_path / f"{local.external_id}")
+        function_rootdir = Path(self.resource_build_path / f"{local.external_id}")
         if local.metadata is None:
             local.metadata = {}
         local.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
@@ -543,10 +763,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 )
                 self.client.functions.activate()
                 return FunctionList([])
-        if self.build_path is None:
+        if self.resource_build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
         for item in items:
-            function_rootdir = Path(self.build_path / (item.external_id or ""))
+            function_rootdir = Path(self.resource_build_path / (item.external_id or ""))
             if item.metadata is None:
                 item.metadata = {}
             item.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
@@ -579,12 +799,21 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         self.client.functions.delete(external_id=cast(SequenceNotStr[str], ids))
         return len(ids)
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        # Replaced by the toolkit
+        spec.discard(ParameterSpec(("fileId",), frozenset({"int"}), is_required=True, _is_nullable=False))
+        return spec
+
 
 @final
 class FunctionScheduleLoader(
     ResourceLoader[str, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList]
 ):
-    api_name = "functions.schedules"
     folder_name = "functions"
     filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule.
     resource_cls = FunctionSchedule
@@ -593,9 +822,6 @@ class FunctionScheduleLoader(
     list_write_cls = FunctionScheduleWriteList
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
-
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
 
     @classmethod
     def get_required_capability(cls, items: FunctionScheduleWriteList) -> list[Capability]:
@@ -607,10 +833,21 @@ class FunctionScheduleLoader(
         ]
 
     @classmethod
-    def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule) -> str:
+    def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule | dict) -> str:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"functionExternalId", "cronExpression"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return f"{item['functionExternalId']}:{item['cronExpression']}"
+
         if item.function_external_id is None or item.cron_expression is None:
-            raise ValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
+            raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
         return f"{item.function_external_id}:{item.cron_expression}"
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "functionExternalId" in item:
+            yield FunctionLoader, item["functionExternalId"]
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -626,13 +863,13 @@ class FunctionScheduleLoader(
             self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
         return FunctionScheduleWriteList.load(schedules)
 
-    def _is_equal_custom(self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule) -> bool:
+    def are_equal(self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule) -> bool:
         remote_dump = cdf_resource.as_write().dump()
         del remote_dump["functionId"]
         return remote_dump == local.dump()
 
     def _resolve_functions_ext_id(self, items: FunctionScheduleWriteList) -> FunctionScheduleWriteList:
-        functions = FunctionLoader(self.client).retrieve(list(set([item.function_external_id for item in items])))
+        functions = FunctionLoader(self.client, None).retrieve(list(set([item.function_external_id for item in items])))
         for item in items:
             for func in functions:
                 if func.external_id == item.function_external_id:
@@ -640,7 +877,7 @@ class FunctionScheduleLoader(
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
-        functions = FunctionLoader(self.client).retrieve(list(set([id.split(":")[0] for id in ids])))
+        functions = FunctionLoader(self.client, None).retrieve(list(set([id.split(":")[0] for id in ids])))
         schedules = FunctionSchedulesList([])
         for func in functions:
             ret = self.client.functions.schedules.list(function_id=func.id, limit=-1)
@@ -686,23 +923,36 @@ class FunctionScheduleLoader(
             count += 1
         return count
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("authentication",), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        spec.add(
+            ParameterSpec(("authentication", "clientId"), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
+        spec.add(
+            ParameterSpec(("authentication", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
+        return spec
+
 
 @final
 class RawDatabaseLoader(
     ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
 ):
     item_name = "raw tables"
-    api_name = "raw.databases"
     folder_name = "raw"
     resource_cls = RawDatabaseTable
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
-    identifier_key = "table_name"
+    dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Raw/operation/createDBs"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
+    def __init__(self, client: CogniteClient, build_dir: Path):
+        super().__init__(client, build_dir)
         self._loaded_db_names: set[str] = set()
 
     @classmethod
@@ -716,7 +966,9 @@ class RawDatabaseLoader(
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], scope)  # type: ignore[arg-type]
 
     @classmethod
-    def get_id(cls, item: RawDatabaseTable) -> RawDatabaseTable:
+    def get_id(cls, item: RawDatabaseTable | dict) -> RawDatabaseTable:
+        if isinstance(item, dict):
+            return RawDatabaseTable(item["dbName"])
         return item
 
     def load_resource(
@@ -793,18 +1045,16 @@ class RawTableLoader(
     ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
 ):
     item_name = "raw rows"
-    api_name = "raw.tables"
     folder_name = "raw"
     resource_cls = RawDatabaseTable
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
-    identifier_key = "table_name"
-    dependencies = frozenset({RawDatabaseLoader})
+    dependencies = frozenset({RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Raw/operation/createTables"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
+    def __init__(self, client: CogniteClient, build_dir: Path):
+        super().__init__(client, build_dir)
         self._printed_warning = False
 
     @classmethod
@@ -818,8 +1068,18 @@ class RawTableLoader(
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], scope)  # type: ignore[arg-type]
 
     @classmethod
-    def get_id(cls, item: RawDatabaseTable) -> RawDatabaseTable:
+    def get_id(cls, item: RawDatabaseTable | dict) -> RawDatabaseTable:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"dbName", "tableName"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return RawDatabaseTable(item["dbName"], item["tableName"])
         return item
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dbName" in item:
+            yield RawDatabaseLoader, RawDatabaseTable(item["dbName"])
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> RawTableList | None:
         resource = super().load_resource(filepath, ToolGlobals, skip_validation)
@@ -909,13 +1169,13 @@ class RawTableLoader(
 @final
 class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     item_name = "datapoints"
-    api_name = "time_series"
     folder_name = "timeseries"
+    filename_pattern = r"^(?!.*DatapointSubscription$).*"
     resource_cls = TimeSeries
     resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
     list_write_cls = TimeSeriesWriteList
-    dependencies = frozenset({DataSetsLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @classmethod
@@ -930,10 +1190,20 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         )
 
     @classmethod
-    def get_id(cls, item: TimeSeries | TimeSeriesWrite) -> str:
+    def get_id(cls, item: TimeSeries | TimeSeriesWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
-            raise ValueError("TimeSeries must have external_id set.")
+            raise ToolkitRequiredValueError("TimeSeries must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        if "securityCategoryNames" in item:
+            for security_category in item["securityCategoryNames"]:
+                yield SecurityCategoryLoader, security_category
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TimeSeriesWriteList:
         resources = load_yaml_inject_variables(filepath, {})
@@ -943,15 +1213,27 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if "securityCategoryNames" in resource:
+                if security_categories_names := resource.pop("securityCategoryNames", []):
+                    security_categories = ToolGlobals.verify_security_categories(
+                        security_categories_names, skip_validation
+                    )
+                    resource["securityCategories"] = security_categories
             if resource.get("securityCategories") is None:
                 # Bug in SDK, the read version sets security categories to an empty list.
                 resource["securityCategories"] = []
         return TimeSeriesWriteList.load(resources)
 
+    def create(self, items: TimeSeriesWriteList) -> TimeSeriesList:
+        return self.client.time_series.create(items)
+
     def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
         return self.client.time_series.retrieve_multiple(
             external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
         )
+
+    def update(self, items: TimeSeriesWriteList) -> TimeSeriesList:
+        return self.client.time_series.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
@@ -984,12 +1266,137 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             )
         return count
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+
+        spec.add(ParameterSpec(("securityCategoryNames",), frozenset({"list"}), is_required=False, _is_nullable=False))
+
+        spec.add(
+            ParameterSpec(("securityCategoryNames", ANY_STR), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
+        return spec
+
+
+@final
+class DatapointSubscriptionLoader(
+    ResourceLoader[
+        str,
+        DataPointSubscriptionWrite,
+        DatapointSubscription,
+        DatapointSubscriptionWriteList,
+        DatapointSubscriptionList,
+    ]
+):
+    folder_name = "timeseries"
+    filename_pattern = r"^.*\.DatapointSubscription$"  # Matches all yaml files who's endswith *.DatapointSubscription.
+    resource_cls = DatapointSubscription
+    resource_write_cls = DataPointSubscriptionWrite
+    list_cls = DatapointSubscriptionList
+    list_write_cls = DatapointSubscriptionWriteList
+    _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
+
+    @property
+    def display_name(self) -> str:
+        return "timeseries.subscription"
+
+    @classmethod
+    def get_id(cls, item: DataPointSubscriptionWrite | DatapointSubscription | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        return item.external_id
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        # The Filter class in the SDK class View implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        parameter_path = ("filter",)
+        length = len(parameter_path)
+        for item in spec:
+            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+        spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        for timeseries_id in item.get("timeSeriesIds", []):
+            yield TimeSeriesLoader, timeseries_id
+
+    @classmethod
+    def get_required_capability(cls, items: DatapointSubscriptionWriteList) -> Capability | list[Capability]:
+        return TimeSeriesSubscriptionsAcl(
+            [TimeSeriesSubscriptionsAcl.Action.Read, TimeSeriesSubscriptionsAcl.Action.Write],
+            TimeSeriesSubscriptionsAcl.Scope.All(),
+        )
+
+    def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
+        created = DatapointSubscriptionList([])
+        for item in items:
+            created.append(self.client.time_series.subscriptions.create(item))
+        return created
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> DatapointSubscriptionList:
+        items = DatapointSubscriptionList([])
+        for id_ in ids:
+            retrieved = self.client.time_series.subscriptions.retrieve(id_)
+            if retrieved:
+                items.append(retrieved)
+        return items
+
+    def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
+        updated = DatapointSubscriptionList([])
+        for item in items:
+            # Todo update SDK to support taking in Write object
+            update = self.client.time_series.subscriptions._update_multiple(
+                item,
+                list_cls=DatapointSubscriptionWriteList,
+                resource_cls=DataPointSubscriptionWrite,
+                update_cls=DataPointSubscriptionUpdate,
+            )
+            updated.append(update)
+
+        return updated
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.time_series.subscriptions.delete(ids)
+        except (CogniteAPIError, CogniteNotFoundError) as e:
+            non_existing = set(e.failed or [])
+            if existing := [id_ for id_ in ids if id_ not in non_existing]:
+                self.client.time_series.subscriptions.delete(existing)
+            return len(existing)
+        else:
+            # All deleted successfully
+            return len(ids)
+
+    def are_equal(self, local: DataPointSubscriptionWrite, cdf_resource: DatapointSubscription) -> bool:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Two subscription objects are equal if they have the same timeSeriesIds
+        if "timeSeriesIds" in local_dumped:
+            local_dumped["timeSeriesIds"] = set(local_dumped["timeSeriesIds"])
+        if "timeSeriesIds" in cdf_dumped:
+            local_dumped["timeSeriesIds"] = set(cdf_dumped["timeSeriesIds"])
+
+        return local_dumped == cdf_dumped
+
 
 @final
 class TransformationLoader(
     ResourceLoader[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
 ):
-    api_name = "transformations"
     folder_name = "transformations"
     filename_pattern = (
         r"^(?:(?!\.schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
@@ -998,7 +1405,7 @@ class TransformationLoader(
     resource_write_cls = TransformationWrite
     list_cls = TransformationList
     list_write_cls = TransformationWriteList
-    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader})
+    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Transformations/operation/createTransformations"
 
     @classmethod
@@ -1013,17 +1420,64 @@ class TransformationLoader(
         )
 
     @classmethod
-    def get_id(cls, item: Transformation | TransformationWrite) -> str:
+    def get_id(cls, item: Transformation | TransformationWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
-            raise ValueError("Transformation must have external_id set.")
+            raise ToolkitRequiredValueError("Transformation must have external_id set.")
         return item.external_id
 
-    def _is_equal_custom(self, local: TransformationWrite, cdf_resource: Transformation) -> bool:
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        if destination := item.get("destination", {}):
+            if destination.get("type") == "raw" and _in_dict(("database", "table"), destination):
+                yield RawDatabaseLoader, RawDatabaseTable(destination["database"])
+                yield RawTableLoader, RawDatabaseTable(destination["database"], destination["table"])
+            elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
+                if _in_dict(("space", "externalId", "version"), view):
+                    yield ViewLoader, ViewId.load(view)
+            elif destination.get("type") == "instances":
+                if space := destination.get("instanceSpace"):
+                    yield SpaceLoader, space
+                if data_model := destination.get("dataModel"):
+                    if _in_dict(("space", "externalId", "version"), data_model):
+                        yield DataModelLoader, DataModelId.load(data_model)
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    cls.folder_name,
+                    "externalId",
+                    identifier,
+                    "_",
+                )
+            )
+        elif not identifier.startswith("tr"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "tr_"))
+        return warning_list
+
+    def are_equal(self, local: TransformationWrite, cdf_resource: Transformation) -> bool:
         local_dumped = local.dump()
         local_dumped.pop("destinationOidcCredentials", None)
         local_dumped.pop("sourceOidcCredentials", None)
 
         return local_dumped == cdf_resource.as_write().dump()
+
+    def _get_query_file(self, filepath: Path, transformation_external_id: str | None) -> Path | None:
+        file_name = re.sub(r"\d+\.", "", filepath.stem)
+        query_file = filepath.parent / f"{file_name}.sql"
+        if not query_file.exists() and transformation_external_id:
+            query_file = filepath.parent / f"{transformation_external_id}.sql"
+            if not query_file.exists():
+                return None
+        return query_file
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1065,22 +1519,31 @@ class TransformationLoader(
 
             transformation = TransformationWrite.load(resource)
 
-            transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-                source_oidc_credentials
-            )
-            transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-                destination_oidc_credentials
-            )
-            # Find the non-integer prefixed filename
-            file_name = re.sub(r"\d+\.", "", filepath.stem)
-            sql_file = filepath.parent / f"{file_name}.sql"
-            if not sql_file.exists():
-                sql_file = filepath.parent / f"{transformation.external_id}.sql"
-                if not sql_file.exists():
-                    raise FileNotFoundError(
-                        f"Could not find sql file belonging to transformation {filepath.name}. Please run build again."
+            try:
+                transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+                    source_oidc_credentials
+                )
+
+                transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+                    destination_oidc_credentials
+                )
+            except KeyError as e:
+                raise ToolkitYAMLFormatError("authentication property is missing required fields", filepath, e)
+
+            query_file = self._get_query_file(filepath, transformation.external_id)
+
+            if transformation.query is None:
+                if query_file is None:
+                    raise ToolkitYAMLFormatError(
+                        f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {transformation.external_id}.sql",
+                        filepath,
                     )
-            transformation.query = sql_file.read_text()
+                transformation.query = query_file.read_text()
+            elif transformation.query is not None and query_file is not None:
+                raise ToolkitYAMLFormatError(
+                    f"query property is abiguously defined in both the yaml file and a separate file named {query_file}"
+                )
+
             transformations.append(transformation)
 
         if len(transformations) == 1:
@@ -1098,11 +1561,56 @@ class TransformationLoader(
         dumped.pop("destinationOidcCredentials", None)
         return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
 
+    def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
+        return self.client.transformations.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> TransformationList:
+        return self.client.transformations.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: TransformationWriteList) -> TransformationList:
+        return self.client.transformations.update(items)
+
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
         if existing:
             self.client.transformations.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        spec.update(
+            ParameterSpecSet(
+                {
+                    # Added by toolkit
+                    ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False),
+                    ParameterSpec(("authentication",), frozenset({"dict"}), is_required=False, _is_nullable=False),
+                    ParameterSpec(
+                        ("authentication", "clientId"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "clientSecret"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "scopes"), frozenset({"str"}), is_required=False, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "scopes", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "tokenUri"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "cdfProjectName"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("authentication", "audience"), frozenset({"str"}), is_required=False, _is_nullable=False
+                    ),
+                }
+            )
+        )
+        return spec
 
 
 @final
@@ -1115,7 +1623,6 @@ class TransformationScheduleLoader(
         TransformationScheduleList,
     ]
 ):
-    api_name = "transformations.schedules"
     folder_name = "transformations"
     filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
     resource_cls = TransformationSchedule
@@ -1132,10 +1639,17 @@ class TransformationScheduleLoader(
         return []
 
     @classmethod
-    def get_id(cls, item: TransformationSchedule | TransformationScheduleWrite) -> str:
+    def get_id(cls, item: TransformationSchedule | TransformationScheduleWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
-            raise ValueError("TransformationSchedule must have external_id set.")
+            raise ToolkitRequiredValueError("TransformationSchedule must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "externalId" in item:
+            yield TransformationLoader, item["externalId"]
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1157,6 +1671,12 @@ class TransformationScheduleLoader(
             new_items = [item for item in items if item.external_id not in existing]
             return self.client.transformations.schedules.create(new_items)
 
+    def retrieve(self, ids: SequenceNotStr[str]) -> TransformationScheduleList:
+        return self.client.transformations.schedules.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: TransformationScheduleWriteList) -> TransformationScheduleList:
+        return self.client.transformations.schedules.update(items)
+
     def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
         try:
             self.client.transformations.schedules.delete(
@@ -1173,14 +1693,13 @@ class ExtractionPipelineLoader(
         str, ExtractionPipelineWrite, ExtractionPipeline, ExtractionPipelineWriteList, ExtractionPipelineList
     ]
 ):
-    api_name = "extraction_pipelines"
     folder_name = "extraction_pipelines"
     filename_pattern = r"^(?:(?!\.config).)*$"  # Matches all yaml files except file names who's stem contain *.config.
     resource_cls = ExtractionPipeline
     resource_write_cls = ExtractionPipelineWrite
     list_cls = ExtractionPipelineList
     list_write_cls = ExtractionPipelineWriteList
-    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader})
+    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader, GroupAllScopedLoader})
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @classmethod
@@ -1199,10 +1718,49 @@ class ExtractionPipelineLoader(
         )
 
     @classmethod
-    def get_id(cls, item: ExtractionPipeline | ExtractionPipelineWrite) -> str:
+    def get_id(cls, item: ExtractionPipeline | ExtractionPipelineWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
-            raise ValueError("ExtractionPipeline must have external_id set.")
+            raise ToolkitRequiredValueError("ExtractionPipeline must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        if "rawTables" in item:
+            for entry in item["rawTables"]:
+                if "dbName" in entry:
+                    yield RawDatabaseLoader, RawDatabaseTable(db_name=entry["dbName"])
+                    if "tableName" in entry:
+                        yield RawTableLoader, RawDatabaseTable._load(entry)
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    "extraction pipeline",
+                    "externalId",
+                    identifier,
+                    "_",
+                )
+            )
+        elif not identifier.startswith("ep_"):
+            warning_list.append(
+                PrefixConventionWarning(
+                    filepath,
+                    "extraction pipeline",
+                    "externalId",
+                    identifier,
+                    "ep_",
+                )
+            )
+        return warning_list
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1239,6 +1797,12 @@ class ExtractionPipelineLoader(
                 return self.client.extraction_pipelines.create(items)
         return ExtractionPipelineList([])
 
+    def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineList:
+        return self.client.extraction_pipelines.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: ExtractionPipelineWriteList) -> ExtractionPipelineList:
+        return self.client.extraction_pipelines.update(items)
+
     def delete(self, ids: SequenceNotStr[str]) -> int:
         id_list = list(ids)
         try:
@@ -1252,6 +1816,16 @@ class ExtractionPipelineLoader(
                 return 0
         return len(id_list)
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        # Set on deploy time by toolkit
+        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=True, _is_nullable=False))
+        return spec
+
 
 @final
 class ExtractionPipelineConfigLoader(
@@ -1263,7 +1837,6 @@ class ExtractionPipelineConfigLoader(
         ExtractionPipelineConfigList,
     ]
 ):
-    api_name = "extraction_pipelines.config"
     folder_name = "extraction_pipelines"
     filename_pattern = r"^.*\.config$"
     resource_cls = ExtractionPipelineConfig
@@ -1280,10 +1853,17 @@ class ExtractionPipelineConfigLoader(
         return []
 
     @classmethod
-    def get_id(cls, item: ExtractionPipelineConfig | ExtractionPipelineConfigWrite) -> str:
+    def get_id(cls, item: ExtractionPipelineConfig | ExtractionPipelineConfigWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
-            raise ValueError("ExtractionPipelineConfig must have external_id set.")
+            raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "externalId" in item:
+            yield ExtractionPipelineLoader, item["externalId"]
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1294,28 +1874,39 @@ class ExtractionPipelineConfigLoader(
 
         for resource in resources:
             try:
-                resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
+                if config := resource.get("config", None):
+                    resource["config"] = yaml.dump(config, indent=4)
             except Exception:
                 print(
                     f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
                 )
-                resource["config"] = resource.get("config", "")
+                resource["config"] = resource.get("config", None)
 
         if len(resources) == 1:
             return ExtractionPipelineConfigWrite.load(resources[0])
         else:
             return ExtractionPipelineConfigWriteList.load(resources)
 
-    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        created = ExtractionPipelineConfigList([])
+    def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+        updated = ExtractionPipelineConfigList([])
         for item in items:
-            item_created = self.client.extraction_pipelines.config.create(item)
-            created.append(item_created)
-        return created
+            if not item.external_id:
+                raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
+            latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
+            if latest and self.are_equal(item, latest):
+                updated.append(latest)
+                continue
+            else:
+                created = self.client.extraction_pipelines.config.create(item)
+                updated.append(created)
+        return updated
+
+    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+        return self._upsert(items)
 
     # configs cannot be updated, instead new revision is created
     def update(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        return self.create(items)
+        return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:
         retrieved = ExtractionPipelineConfigList([])
@@ -1343,8 +1934,17 @@ class ExtractionPipelineConfigLoader(
                 if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
                     continue
             else:
-                count += len(result)
+                if result:
+                    count += 1
         return count
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("config", ANYTHING), frozenset({"dict"}), is_required=True, _is_nullable=False))
+        return spec
 
 
 @final
@@ -1352,13 +1952,12 @@ class FileMetadataLoader(
     ResourceContainerLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
 ):
     item_name = "file contents"
-    api_name = "files"
     folder_name = "files"
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
-    dependencies = frozenset({DataSetsLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -1375,10 +1974,20 @@ class FileMetadataLoader(
         return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)  # type: ignore[arg-type]
 
     @classmethod
-    def get_id(cls, item: FileMetadata | FileMetadataWrite) -> str:
+    def get_id(cls, item: FileMetadata | FileMetadataWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
-            raise ValueError("FileMetadata must have external_id set.")
+            raise ToolkitRequiredValueError("FileMetadata must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        if "securityCategoryNames" in item:
+            for security_category in item["securityCategoryNames"]:
+                yield SecurityCategoryLoader, security_category
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1390,6 +1999,13 @@ class FileMetadataLoader(
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+            if "securityCategoryNames" in resource:
+                if security_categories_names := resource.pop("securityCategoryNames", []):
+                    security_categories = ToolGlobals.verify_security_categories(
+                        security_categories_names, skip_validation
+                    )
+                    resource["securityCategories"] = security_categories
+
             files_metadata = FileMetadataWriteList([FileMetadataWrite.load(resource)])
         except Exception:
             files_metadata = FileMetadataWriteList.load(
@@ -1438,7 +2054,7 @@ class FileMetadataLoader(
                 )
         for meta in files_metadata:
             if meta.name is None:
-                raise ValueError(f"File {meta.external_id} has no name.")
+                raise ToolkitRequiredValueError(f"File {meta.external_id} has no name.")
             if not Path(filepath.parent / meta.name).exists():
                 raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
             if isinstance(meta.data_set_id, str):
@@ -1455,6 +2071,12 @@ class FileMetadataLoader(
                 if e.code == 409:
                     print(f"  [bold yellow]WARNING:[/] File {meta.external_id} already exists, skipping upload.")
         return created
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> FileMetadataList:
+        return self.client.files.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: FileMetadataWriteList) -> FileMetadataList:
+        return self.client.files.update(items)
 
     def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
         self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
@@ -1475,19 +2097,36 @@ class FileMetadataLoader(
         self.create(existing.as_write())
         return deleted_files
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        spec.add(ParameterSpec(("securityCategoryNames",), frozenset({"list"}), is_required=False, _is_nullable=False))
+
+        spec.add(
+            ParameterSpec(("securityCategoryNames", ANY_STR), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
+
+        return spec
+
 
 @final
 class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     item_name = "nodes and edges"
-    api_name = "data_modeling.spaces"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(space)$"
     resource_cls = Space
     resource_write_cls = SpaceApply
     list_write_cls = SpaceApplyList
     list_cls = SpaceList
-    _display_name = "spaces"
+    dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Spaces/operation/ApplySpaces"
+
+    @property
+    def display_name(self) -> str:
+        return "spaces"
 
     @classmethod
     def get_required_capability(cls, items: SpaceApplyList) -> list[Capability]:
@@ -1499,11 +2138,42 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         ]
 
     @classmethod
-    def get_id(cls, item: SpaceApply | Space) -> str:
+    def get_id(cls, item: SpaceApply | Space | dict) -> str:
+        if isinstance(item, dict):
+            return item["space"]
         return item.space
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    "space",
+                    "space",
+                    identifier,
+                    "_",
+                )
+            )
+        elif not identifier.startswith("sp_"):
+            if identifier in {"cognite_app_data", "APM_SourceData", "APM_Config"}:
+                if verbose:
+                    print(
+                        f"      [bold green]INFO:[/] the space {identifier} does not follow the recommended '_' based "
+                        "namespacing because Infield expects this specific name."
+                    )
+            else:
+                warning_list.append(PrefixConventionWarning(filepath, "space", "space", identifier, "sp_"))
+        return warning_list
 
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> SpaceList:
+        return self.client.data_modeling.spaces.retrieve(ids)
 
     def update(self, items: Sequence[SpaceApply]) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
@@ -1573,7 +2243,6 @@ class ContainerLoader(
     ResourceContainerLoader[ContainerId, ContainerApply, Container, ContainerApplyList, ContainerList]
 ):
     item_name = "nodes and edges"
-    api_name = "data_modeling.containers"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(container)$"
     resource_cls = Container
@@ -1593,8 +2262,18 @@ class ContainerLoader(
         )
 
     @classmethod
-    def get_id(cls, item: ContainerApply | Container) -> ContainerId:
+    def get_id(cls, item: ContainerApply | Container | dict) -> ContainerId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return ContainerId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "space" in item:
+            yield SpaceLoader, item["space"]
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1602,12 +2281,13 @@ class ContainerLoader(
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if not isinstance(raw_yaml, list):
             raw_yaml = [raw_yaml]
-        # When upgrading to SDK 7.37.0 there was a breaking change in the SDK requiring 'list' for direct relations.
-        # This patches the yaml to include the list key for direct relations if it is missing.
+        # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
+        # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
+        # is used as read and write in the SDK, and the read class has it required while the write class does not)
         for raw_instance in raw_yaml:
             for prop in raw_instance.get("properties", {}).values():
                 type_ = prop.get("type", {})
-                if type_.get("type") == "direct" and "list" not in type_:
+                if "list" not in type_:
                     type_["list"] = False
         items = ContainerApplyList.load(raw_yaml)
         if not skip_validation:
@@ -1625,6 +2305,9 @@ class ContainerLoader(
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)
+
+    def retrieve(self, ids: SequenceNotStr[ContainerId]) -> ContainerList:
+        return self.client.data_modeling.containers.retrieve(cast(Sequence, ids))
 
     def update(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.create(items)
@@ -1679,7 +2362,7 @@ class ContainerLoader(
     def _chunker(seq: Sequence, size: int) -> Iterable[Sequence]:
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
-    def _is_equal_custom(self, local: ContainerApply, remote: Container) -> bool:
+    def are_equal(self, local: ContainerApply, remote: Container) -> bool:
         local_dumped = local.dump(camel_case=True)
         if "usedFor" not in local_dumped:
             # Setting used_for to "node" as it is the default value in the CDF and will be set by
@@ -1688,9 +2371,54 @@ class ContainerLoader(
 
         return local_dumped == remote.as_write().dump(camel_case=True)
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        output = super().get_write_cls_parameter_spec()
+        # In the SDK this is called isList, while in the API it is called list.
+        output.discard(
+            ParameterSpec(
+                ("properties", ANY_STR, "type", "isList"), frozenset({"bool"}), is_required=True, _is_nullable=False
+            )
+        )
+        output.add(
+            ParameterSpec(
+                ("properties", ANY_STR, "type", "list"), frozenset({"bool"}), is_required=True, _is_nullable=False
+            )
+        )
+        # The parameters below are used by the SDK to load the correct class, and ase thus not part of the init
+        # that the spec is created from, so we need to add them manually.
+        output.update(
+            ParameterSpecSet(
+                {
+                    ParameterSpec(
+                        ("properties", ANY_STR, "type", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("constraints", ANY_STR, "constraintType"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("constraints", ANY_STR, "require", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("indexes", ANY_STR, "indexType"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                }
+            )
+        )
+        return output
+
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
-    api_name = "data_modeling.views"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(view)$"
     resource_cls = View
@@ -1702,8 +2430,8 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     _display_name = "views"
     _doc_url = "Views/operation/ApplyViews"
 
-    def __init__(self, client: CogniteClient):
-        super().__init__(client)
+    def __init__(self, client: CogniteClient, build_dir: Path) -> None:
+        super().__init__(client, build_dir)
         # Caching to avoid multiple lookups on the same interfaces.
         self._interfaces_by_id: dict[ViewId, View] = {}
 
@@ -1715,8 +2443,28 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
 
     @classmethod
-    def get_id(cls, item: ViewApply | View) -> ViewId:
+    def get_id(cls, item: ViewApply | View | dict) -> ViewId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return ViewId(space=item["space"], external_id=item["externalId"], version=item["version"])
         return item.as_id()
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "space" in item:
+            yield SpaceLoader, item["space"]
+        for prop in item.get("properties", {}).values():
+            if (container := prop.get("container", {})) and container.get("type") == "container":
+                if _in_dict(("space", "externalId"), container):
+                    yield ContainerLoader, ContainerId(container["space"], container["externalId"])
+            for key, dct_ in [("source", prop), ("edgeSource", prop), ("source", prop.get("through", {}))]:
+                if source := dct_.get(key, {}):
+                    if source.get("type") == "view" and _in_dict(("space", "externalId", "version"), source):
+                        yield ViewLoader, ViewId(source["space"], source["externalId"], source["version"])
+                    elif source.get("type") == "container" and _in_dict(("space", "externalId"), source):
+                        yield ContainerLoader, ContainerId(source["space"], source["externalId"])
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1727,7 +2475,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         return loaded
 
-    def _is_equal_custom(self, local: ViewApply, cdf_resource: View) -> bool:
+    def are_equal(self, local: ViewApply, cdf_resource: View) -> bool:
         local_dumped = local.dump()
         cdf_resource_dumped = cdf_resource.as_write().dump()
         if not cdf_resource.implements:
@@ -1753,6 +2501,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     def create(self, items: Sequence[ViewApply]) -> ViewList:
         return self.client.data_modeling.views.apply(items)
 
+    def retrieve(self, ids: SequenceNotStr[ViewId]) -> ViewList:
+        return self.client.data_modeling.views.retrieve(cast(Sequence, ids))
+
     def update(self, items: Sequence[ViewApply]) -> ViewList:
         return self.create(items)
 
@@ -1772,10 +2523,60 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
         return nr_of_deleted
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # The Filter class in the SDK class View implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        parameter_path = ("filter",)
+        length = len(parameter_path)
+        for item in spec:
+            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+        spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        # The following types are used by the SDK to load the correct class. They are not part of the init,
+        # so we need to add it manually.
+        spec.update(
+            ParameterSpecSet(
+                {
+                    ParameterSpec(
+                        ("implements", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "connectionType"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "source", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "container", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "edgeSource", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                }
+            )
+        )
+        return spec
+
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
-    api_name = "data_modeling.data_models"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(datamodel)$"
     resource_cls = DataModel
@@ -1783,8 +2584,11 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     list_cls = DataModelList
     list_write_cls = DataModelApplyList
     dependencies = frozenset({SpaceLoader, ViewLoader})
-    _display_name = "data models"
     _doc_url = "Data-models/operation/createDataModels"
+
+    @property
+    def display_name(self) -> str:
+        return "data models"
 
     @classmethod
     def get_required_capability(cls, items: DataModelApplyList) -> Capability:
@@ -1794,8 +2598,21 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         )
 
     @classmethod
-    def get_id(cls, item: DataModelApply | DataModel) -> DataModelId:
+    def get_id(cls, item: DataModelApply | DataModel | dict) -> DataModelId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return DataModelId(space=item["space"], external_id=item["externalId"], version=item["version"])
         return item.as_id()
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "space" in item:
+            yield SpaceLoader, item["space"]
+        for view in item.get("views", []):
+            if _in_dict(("space", "externalId"), view):
+                yield ViewLoader, ViewId(view["space"], view["externalId"], view.get("version"))
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -1806,7 +2623,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             ToolGlobals.verify_spaces(list({item.space for item in items}))
         return loaded
 
-    def _is_equal_custom(self, local: DataModelApply, cdf_resource: DataModel) -> bool:
+    def are_equal(self, local: DataModelApply, cdf_resource: DataModel) -> bool:
         local_dumped = local.dump()
         cdf_resource_dumped = cdf_resource.as_write().dump()
 
@@ -1824,14 +2641,28 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     def create(self, items: DataModelApplyList) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
 
+    def retrieve(self, ids: SequenceNotStr[DataModelId]) -> DataModelList:
+        return self.client.data_modeling.data_models.retrieve(cast(Sequence, ids))
+
     def update(self, items: DataModelApplyList) -> DataModelList:
         return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
+        return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # ViewIds have the type set in the API Spec, but this is hidden in the SDK classes,
+        # so we need to add it manually.
+        spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
+        return spec
 
 
 @final
 class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeList, NodeList]):
     item_name = "nodes"
-    api_name = "data_modeling.instances"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
     resource_cls = Node
@@ -1839,8 +2670,11 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     list_cls = NodeList
     list_write_cls = LoadedNodeList
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
-    _display_name = "nodes"
     _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    @property
+    def display_name(self) -> str:
+        return "nodes"
 
     @classmethod
     def get_required_capability(cls, items: LoadedNodeList) -> Capability:
@@ -1850,10 +2684,26 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
         )
 
     @classmethod
-    def get_id(cls, item: LoadedNode | Node) -> NodeId:
+    def get_id(cls, item: LoadedNode | Node | dict) -> NodeId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return NodeId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
-    def _is_equal_custom(self, local: LoadedNode, cdf_resource: Node) -> bool:
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "space" in item:
+            yield SpaceLoader, item["space"]
+        for source in item.get("sources", []):
+            if (identifier := source.get("source")) and isinstance(identifier, dict):
+                if identifier.get("type") == "view" and _in_dict(("space", "externalId", "version"), identifier):
+                    yield ViewLoader, ViewId(identifier["space"], identifier["externalId"], identifier["version"])
+                elif identifier.get("type") == "container" and _in_dict(("space", "externalId"), identifier):
+                    yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
+
+    def are_equal(self, local: LoadedNode, cdf_resource: Node) -> bool:
         """Comparison for nodes to include properties in the comparison
 
         Note this is an expensive operation as we to an extra retrieve to fetch the properties.
@@ -1954,17 +2804,43 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
         # Nodes will be deleted in .delete call.
         return 0
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Modifications to match the spec
+        for item in spec:
+            if item.path[0] == "apiCall" and len(item.path) > 1:
+                # Move up one level
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[1:])
+            elif item.path[0] == "node":
+                # Move into list
+                object.__setattr__(item, "path", ("nodes", ANY_INT, *item.path[1:]))
+        # Top level of nodes
+        spec.add(ParameterSpec(("nodes",), frozenset({"list"}), is_required=True, _is_nullable=False))
+        spec.add(
+            ParameterSpec(
+                ("nodes", ANY_INT, "sources", ANY_INT, "source", "type"),
+                frozenset({"str"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        # Not used
+        spec.discard(ParameterSpec(("apiCall",), frozenset({"dict"}), is_required=True, _is_nullable=False))
+        return spec
+
 
 @final
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
-    api_name = "workflows"
     folder_name = "workflows"
     filename_pattern = r"^.*\.Workflow$"
     resource_cls = Workflow
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
     list_write_cls = WorkflowUpsertList
-
+    dependencies = frozenset({GroupAllScopedLoader})
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
@@ -1976,9 +2852,11 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         )
 
     @classmethod
-    def get_id(cls, item: Workflow | WorkflowUpsert) -> str:
+    def get_id(cls, item: Workflow | WorkflowUpsert | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
         if item.external_id is None:
-            raise ValueError("Workflow must have external_id set.")
+            raise ToolkitRequiredValueError("Workflow must have external_id set.")
         return item.external_id
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> WorkflowUpsertList:
@@ -2005,6 +2883,17 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     def update(self, items: WorkflowUpsertList) -> WorkflowList:
         return self._upsert(items)
 
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        successes = 0
+        for id_ in ids:
+            try:
+                self.client.workflows.delete(external_id=id_)
+            except CogniteNotFoundError:
+                print(f"  [bold yellow]WARNING:[/] Workflow {id_} does not exist, skipping delete.")
+            else:
+                successes += 1
+        return successes
+
 
 @final
 class WorkflowVersionLoader(
@@ -2012,7 +2901,6 @@ class WorkflowVersionLoader(
         WorkflowVersionId, WorkflowVersionUpsert, WorkflowVersion, WorkflowVersionUpsertList, WorkflowVersionList
     ]
 ):
-    api_name = "workflows.versions"
     folder_name = "workflows"
     filename_pattern = r"^.*\.?(WorkflowVersion)$"
     resource_cls = WorkflowVersion
@@ -2032,8 +2920,18 @@ class WorkflowVersionLoader(
         )
 
     @classmethod
-    def get_id(cls, item: WorkflowVersion | WorkflowVersionUpsert) -> WorkflowVersionId:
+    def get_id(cls, item: WorkflowVersion | WorkflowVersionUpsert | dict) -> WorkflowVersionId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"workflowExternalId", "version"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return WorkflowVersionId(item["workflowExternalId"], item["version"])
         return item.as_id()
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "workflowExternalId" in item:
+            yield WorkflowLoader, item["workflowExternalId"]
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -2071,3 +2969,56 @@ class WorkflowVersionLoader(
             else:
                 successes += 1
         return successes
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # The Parameter class in the SDK class WorkflowVersion implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        parameter_path = ("workflowDefinition", "tasks", ANY_INT, "parameters")
+        length = len(parameter_path)
+        for item in spec:
+            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+        spec.add(ParameterSpec((*parameter_path, ANY_STR), frozenset({"dict"}), is_required=True, _is_nullable=False))
+        # The depends on is implemented as a list of string in the SDK, but in the API spec it
+        # is a list of objects with one 'externalId' field.
+        spec.add(
+            ParameterSpec(
+                ("workflowDefinition", "tasks", ANY_INT, "dependsOn", ANY_INT, "externalId"),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=False,
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("workflowDefinition", "tasks", ANY_INT, "type"),
+                frozenset({"str"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        return spec
+
+
+@final
+class GroupResourceScopedLoader(GroupLoader):
+    dependencies = frozenset(
+        {
+            SpaceLoader,
+            DataSetsLoader,
+            ExtractionPipelineLoader,
+            TimeSeriesLoader,
+        }
+    )
+
+    def __init__(self, client: CogniteClient, build_dir: Path | None):
+        super().__init__(client, build_dir, "resource_scoped_only")
+
+
+def _in_dict(keys: Iterable[str], dictionary: dict) -> bool:
+    return all(key in dictionary for key in keys)

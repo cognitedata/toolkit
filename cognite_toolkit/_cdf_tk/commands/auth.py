@@ -26,7 +26,7 @@ from rich.markup import escape
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from .utils import AuthVariables, CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import AuthVariables, CDFToolConfig
 
 
 def check_auth(

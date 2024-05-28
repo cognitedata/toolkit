@@ -10,7 +10,7 @@ jobs:
     name: Run linters
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -21,8 +21,24 @@ jobs:
       - name: Install dependencies and run lints
         run: |
           # Necessary for running the mypy pre-commit hook
+          poetry config virtualenvs.create false
           poetry install
-      - uses: pre-commit/action@v3.0.1
+      - name: Linting and static code checks
+        continue-on-error: true
+        id: pre-commit-first-run
+        uses: pre-commit/action@v3.0.1
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        id: auto-commit-action
+        with:
+          create_branch: false
+          commit_message: Linting and static code checks
+      # If the first run failed, run the checks again to ensure that the changes fixed the issue.
+      - name: Linting and static code checks try 2
+        if: steps.pre-commit-first-run.outcome != 'success'
+        uses: pre-commit/action@v3.0.1
+  
+
   test:
     name: Run tests
     runs-on: ubuntu-latest
@@ -41,7 +57,7 @@ jobs:
           # Skipping 3.10 and 3.11 as we assume it is covered by 3.9 and 3.12
           - "3.12"
     steps:
-      - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -55,7 +71,7 @@ jobs:
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: pytest tests
+        run: pytest tests -n8
   coverage:
     needs: test
     name: Create coverage report
@@ -68,7 +84,7 @@ jobs:
       IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
       IDP_TOKEN_URL: ${{ secrets.IDP_TOKEN_URL }}
     steps:
-      - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4
       - uses: actions/setup-python@v5
         with:
           python-version: 3.11
@@ -82,7 +98,7 @@ jobs:
       - name: Create test coverage report
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/
+        run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/ -n8
       - name: Push coverage report to PR
         uses: orgoro/coverage@v3.1
         with:

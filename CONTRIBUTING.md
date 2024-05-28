@@ -3,7 +3,7 @@
 ## How to contribute
 
 We are always looking for ways to improve the templates and the workflow. You can
-[file bugs](https://github.com/cognitedata/cdf-project-templates/issues/new/choose) in the repo.
+[file bugs](https://github.com/cognitedata/toolkit/issues/new/choose) in the repo.
 
 We are also looking for contributions to new modules, especially example modules can be very
 useful for others. Please open a PR with your suggested changes or propose a functionality

@@ -15,6 +15,44 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0a5] - 2024-05-28
+
+### Added
+
+- If a resource is referring to another resource, the `cdf-tk build` will now give a warning if the referred resource
+  is not found in the same build. For example, if you have a data model and is missing the space, the build command
+  will give a warning that the space required by the data model is missing.
+- The `cdf-tk build` command will now give warnings on duplicated resource. For example, if you have two files with
+  the same externalId in the same module, the build command will give a warning that the externalId is duplicated,
+  and that only the first file is used.
+- Support for `securityCategories` in the `auth` folder.
+- Added support for resource type `DatapointSubscription` in the `timeseries` folder.
+
+### Fixed
+
+- In a `function` config, if you did not set `fileId` you would get an error when running `cdf-tk deploy`,
+  `Missing required field: 'fileId'.`. The `fileId` is generated automatically when the function is created,
+  so it is not necessary to set it in the config file. This is now fixed.
+- If you do `cdf-tk init --upgrade`, on a pre `0.2.0a3` version, you are met with
+  `ERROR (ToolkitModuleVersionError): Failed to load previous version, ...`. This is now fixed.
+- The parameter `container.properties.<property>.type.list` was required to be set, even thought it is optional
+  in the CDF API. This is now fixed.
+- The `ExtractionPipelineConfig` create, update and delete report numbers were incorrect. This is now fixed.
+
+### Improved
+
+- Gives a more informative error message when the authentication segment of a transformation resource file is
+  missing a required field.
+- Transformation queries can be inline, i.e. set in either the Transformation `query` property in the yaml or
+  as a separate file. If set in both, an error is raised because it is ambiguous which query to use.
+- In the `cdf-tk pull` command, if an error occurs, the temporary directory was not removed. This is now fixed.
+- Improved error message when running `cdf-tk deploy/clean` before running `cdf-tk build`.
+
+### Changed
+
+- [BREAKING] In function YAML config `externalDataSetId` is renamed to `dataSetExternalId` to be consistent with
+  the naming convention used in the rest of the toolkit.
+
 ## [0.2.0a4] - 2024-04-29
 
 ### Removed

@@ -1,3 +1,5 @@
+from time import sleep
+
 import pandas as pd
 import pytest
 from cognite.client import CogniteClient
@@ -27,7 +29,7 @@ class TestTimeSeriesLoader:
             [{"timestamp": 0, timeseries.external_id: 0}, {"timestamp": 1, timeseries.external_id: 1}]
         ).set_index("timestamp")
         datapoints.index = pd.to_datetime(datapoints.index, unit="s")
-        loader = TimeSeriesLoader(client=cognite_client)
+        loader = TimeSeriesLoader(cognite_client, None)
         ts_ids = [timeseries.external_id]
 
         try:
@@ -87,7 +89,7 @@ class TestContainerLoader:
         )
         container_id = [node_container.as_id()]
 
-        loader = ContainerLoader(client=cognite_client)
+        loader = ContainerLoader(cognite_client, None)
 
         try:
             assert loader.count(container_id) == 0
@@ -106,6 +108,7 @@ class TestContainerLoader:
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
                 # so we need to retrieve the container to verify the update
+                sleep(1)
                 updated = loader.retrieve([node_container.as_id()])
             assert updated[0].description == write_container.description
         finally:
@@ -139,7 +142,7 @@ class TestContainerLoader:
         )
         container_id = [edge_container.as_id()]
 
-        loader = ContainerLoader(client=cognite_client)
+        loader = ContainerLoader(cognite_client, None)
 
         try:
             assert loader.count(container_id) == 0
@@ -158,6 +161,7 @@ class TestContainerLoader:
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
                 # so we need to retrieve the container to verify the update
+                sleep(1)
                 updated = loader.retrieve([write_container.as_id()])
             assert updated[0].description == write_container.description
         finally:

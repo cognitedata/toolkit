@@ -1,11 +1,10 @@
 #!/usr/bin/env python
-# The Typer parameters get mixed up if we use the __future__ import annotations
+# The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
 import contextlib
 import os
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
-from graphlib import TopologicalSorter
 from importlib import resources
 from pathlib import Path
 from typing import Annotated, NoReturn, Optional, Union, cast
@@ -16,45 +15,31 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk import auth
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.describe import describe_datamodel
-from cognite_toolkit._cdf_tk.dump import dump_datamodel_command
+from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand, auth
+from cognite_toolkit._cdf_tk.commands.describe import describe_datamodel
+from cognite_toolkit._cdf_tk.commands.dump import dump_datamodel_command
+from cognite_toolkit._cdf_tk.commands.pull import pull_command
+from cognite_toolkit._cdf_tk.commands.run import run_function, run_local_function, run_transformation
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitCleanResourceError,
-    ToolkitDeployResourceError,
     ToolkitError,
     ToolkitFileNotFoundError,
     ToolkitInvalidSettingsError,
-    ToolkitNotADirectoryError,
     ToolkitValidationError,
 )
 from cognite_toolkit._cdf_tk.load import (
     LOADER_BY_FOLDER_NAME,
-    AuthLoader,
-    DataSetsLoader,
-    DeployResults,
     NodeLoader,
-    ResourceLoader,
     TransformationLoader,
 )
-from cognite_toolkit._cdf_tk.pull import pull_command
-from cognite_toolkit._cdf_tk.run import run_function, run_local_function, run_transformation
 from cognite_toolkit._cdf_tk.templates import (
-    BUILD_ENVIRONMENT_FILE,
     COGNITE_MODULES,
-    build_config,
 )
 from cognite_toolkit._cdf_tk.templates.data_classes import (
-    BuildConfigYAML,
-    BuildEnvironment,
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,
-    SystemYAML,
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    read_yaml_file,
     sentry_exception_filter,
 )
 from cognite_toolkit._version import __version__ as current_version
@@ -257,28 +242,8 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
-    source_path = Path(source_dir)
-    if not source_path.is_dir():
-        raise ToolkitNotADirectoryError(str(source_path))
-
-    system_config = SystemYAML.load_from_directory(source_path, build_env_name)
-    config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
-    print(
-        Panel(
-            f"[bold]Building config files from templates into {build_dir!s} for environment {build_env_name} using {source_path!s} as sources...[/bold]"
-            f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}'"
-        )
-    )
-    config.set_environment_variables()
-
-    build_config(
-        build_dir=Path(build_dir),
-        source_dir=source_path,
-        config=config,
-        system_config=system_config,
-        clean=not no_clean,
-        verbose=ctx.obj.verbose,
-    )
+    cmd = BuildCommand()
+    cmd.execute(ctx, Path(source_dir), Path(build_dir), build_env_name, no_clean)
 
 
 @_app.command("deploy")
@@ -339,129 +304,9 @@ def deploy(
         ),
     ] = None,
 ) -> None:
-    """Deploy one or more resource types from the built configurations to a CDF project environment of your choice (as set in environments.yaml)."""
-    # Override cluster and project from the options/env variables
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-
-    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env_name, "deploy")
-    build_.set_environment_variables()
-
-    print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env_name}...[/]"))
-    build_path = Path(build_dir)
-    if not build_path.is_dir():
-        raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
-
+    cmd = DeployCommand(print_warning=True)
     include = _process_include(include, interactive)
-    if not _RUNNING_IN_BROWSER:
-        print(ToolGlobals.as_string())
-
-    # The 'auth' loader is excluded, as it is run twice,
-    # once with all_scoped_only and once with resource_scoped_only
-    selected_loaders = {
-        loader_cls: loader_cls.dependencies
-        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-        if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
-        for loader_cls in loader_classes
-    }
-    results = DeployResults([], "deploy", dry_run=dry_run)
-    ordered_loaders = list(TopologicalSorter(selected_loaders).static_order())
-    if len(ordered_loaders) > len(selected_loaders):
-        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
-    if drop or drop_data:
-        # Drop has to be done in the reverse order of deploy.
-        if drop and drop_data:
-            print(Panel("[bold] Cleaning resources as --drop and --drop-data are passed[/]"))
-        elif drop:
-            print(Panel("[bold] Cleaning resources as --drop is passed[/]"))
-        elif drop_data:
-            print(Panel("[bold] Cleaning resources as --drop-data is passed[/]"))
-
-        for loader_cls in reversed(ordered_loaders):
-            if not issubclass(loader_cls, ResourceLoader):
-                continue
-            loader = loader_cls.create_loader(ToolGlobals)
-            result = loader.clean_resources(
-                build_path / loader_cls.folder_name,
-                ToolGlobals,
-                drop=drop,
-                dry_run=dry_run,
-                drop_data=drop_data,
-                verbose=ctx.obj.verbose,
-            )
-            if result:
-                results[result.name] = result
-            if ToolGlobals.failed:
-                raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
-
-        if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-            result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
-                directory,
-                ToolGlobals,
-                drop=drop,
-                dry_run=dry_run,
-                verbose=ctx.obj.verbose,
-            )
-            if result:
-                results[result.name] = result
-            if ToolGlobals.failed:
-                # TODO: Clean auth? What does that mean?
-                raise ToolkitCleanResourceError("Failure to clean auth as expected.")
-
-        print("[bold]...cleaning complete![/]")
-
-    arguments = dict(
-        ToolGlobals=ToolGlobals,
-        dry_run=dry_run,
-        has_done_drop=drop,
-        has_dropped_data=drop_data,
-        verbose=ctx.obj.verbose,
-    )
-    if drop or drop_data:
-        print(Panel("[bold]DEPLOYING resources...[/]"))
-    if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        # First, we need to get all the generic access, so we can create the rest of the resources.
-        result = (
-            AuthLoader
-            .create_loader(ToolGlobals, target_scopes="all_scoped_only")
-            .deploy_resources(directory, **arguments)
-        )  # fmt: skip
-        if ToolGlobals.failed:
-            raise ToolkitDeployResourceError("Failure to deploy auth (groups) with ALL scope as expected.")
-        if result:
-            results[result.name] = result
-        if ctx.obj.verbose:
-            print("")  # Extra newline
-
-    for loader_cls in ordered_loaders:
-        result = loader_cls.create_loader(ToolGlobals).deploy_resources(  # type: ignore[assignment]
-            build_path / loader_cls.folder_name, **arguments
-        )
-        if ToolGlobals.failed:
-            if results and results.has_counts:
-                print(results.counts_table())
-            if results and results.has_uploads:
-                print(results.uploads_table())
-            raise ToolkitDeployResourceError(f"Failure to load/deploy {loader_cls.folder_name} as expected.")
-        if result:
-            results[result.name] = result
-        if ctx.obj.verbose:
-            print("")  # Extra newline
-
-    if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        # Last, we create the Groups again, but this time we do not filter out any capabilities
-        # and we do not skip validation as the resources should now have been created.
-        loader = AuthLoader.create_loader(ToolGlobals, target_scopes="resource_scoped_only")
-        result = loader.deploy_resources(directory, **arguments)
-        if ToolGlobals.failed:
-            raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")
-        if result:
-            results[result.name] = result
-    if results.has_counts:
-        print(results.counts_table())
-    if results.has_uploads:
-        print(results.uploads_table())
-    if ToolGlobals.failed:
-        raise ToolkitDeployResourceError("Failure to deploy auth (groups) scoped to resources as expected.")
+    cmd.execute(ctx, build_dir, build_env_name, dry_run, drop, drop_data, include)
 
 
 @_app.command("clean")
@@ -509,76 +354,9 @@ def clean(
 ) -> None:
     """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
     # Override cluster and project from the options/env variables
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-
-    build_ = BuildEnvironment.load(read_yaml_file(Path(build_dir) / BUILD_ENVIRONMENT_FILE), build_env_name, "clean")
-    build_.set_environment_variables()
-
-    Panel(f"[bold]Cleaning environment {build_env_name} based on config files from {build_dir}...[/]")
-    build_path = Path(build_dir)
-    if not build_path.is_dir():
-        raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
-
+    cmd = CleanCommand(print_warning=True)
     include = _process_include(include, interactive)
-
-    # The 'auth' loader is excluded, as it is run at the end.
-    selected_loaders = {
-        loader_cls: loader_cls.dependencies
-        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-        if folder_name in include and folder_name != "auth" and (build_path / folder_name).is_dir()
-        for loader_cls in loader_classes
-    }
-
-    print(ToolGlobals.as_string())
-    if ToolGlobals.failed:
-        raise ToolkitCleanResourceError("Failure to delete data models as expected.")
-
-    results = DeployResults([], "clean", dry_run=dry_run)
-    resolved_list = list(TopologicalSorter(selected_loaders).static_order())
-    if len(resolved_list) > len(selected_loaders):
-        print("[bold yellow]WARNING:[/] Some resources were added due to dependencies.")
-    for loader_cls in reversed(resolved_list):
-        if not issubclass(loader_cls, ResourceLoader):
-            continue
-        loader = loader_cls.create_loader(ToolGlobals)
-        if type(loader) is DataSetsLoader:
-            print("[bold yellow]WARNING:[/] Dataset cleaning is not supported, skipping...")
-            continue
-        result = loader.clean_resources(
-            build_path / loader_cls.folder_name,
-            ToolGlobals,
-            drop=True,
-            dry_run=dry_run,
-            drop_data=True,
-            verbose=ctx.obj.verbose,
-        )
-        if result:
-            results[result.name] = result
-        if ToolGlobals.failed:
-            if results and results.has_counts:
-                print(results.counts_table())
-            if results and results.has_uploads:
-                print(results.uploads_table())
-            raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
-
-    if "auth" in include and (directory := (Path(build_dir) / "auth")).is_dir():
-        result = AuthLoader.create_loader(ToolGlobals, target_scopes="all").clean_resources(
-            directory,
-            ToolGlobals,
-            drop=True,
-            dry_run=dry_run,
-            verbose=ctx.obj.verbose,
-        )
-        if ToolGlobals.failed:
-            raise ToolkitCleanResourceError("Failure to clean auth as expected.")
-        if result:
-            results[result.name] = result
-    if results.has_counts:
-        print(results.counts_table())
-    if results.has_uploads:
-        print(results.uploads_table())
-    if ToolGlobals.failed:
-        raise ToolkitCleanResourceError("Failure to clean auth as expected.")
+    cmd.execute(ctx, build_dir, build_env_name, dry_run, include)
 
 
 @auth_app.callback(invoke_without_command=True)
