@@ -71,6 +71,10 @@ class DeployCommand(ToolkitCommand):
         # Override cluster and project from the options/env variables
         ToolGlobals = CDFToolConfig.from_context(ctx)
         build_dir: Path = Path(build_dir_raw)
+        if not build_dir.exists():
+            raise ToolkitNotADirectoryError(
+                "The build directory does not exists. Did you forget to run `cdf-tk build` first?"
+            )
         build_ = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "deploy")
         build_.set_environment_variables()
         errors = build_.check_source_files_changed()

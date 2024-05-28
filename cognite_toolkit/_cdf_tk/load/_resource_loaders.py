@@ -31,6 +31,11 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     ClientCredentials,
     DatapointsList,
+    DatapointSubscription,
+    DatapointSubscriptionList,
+    DataPointSubscriptionUpdate,
+    DataPointSubscriptionWrite,
+    DatapointSubscriptionWriteList,
     DataSet,
     DataSetList,
     DataSetWrite,
@@ -88,6 +93,7 @@ from cognite.client.data_classes.capabilities import (
     SecurityCategoriesAcl,
     SessionsAcl,
     TimeSeriesAcl,
+    TimeSeriesSubscriptionsAcl,
     TransformationsAcl,
     WorkflowOrchestrationAcl,
 )
@@ -142,7 +148,11 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidParameterNameError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitInvalidParameterNameError,
+    ToolkitRequiredValueError,
+    ToolkitYAMLFormatError,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import (
     NamespacingConventionWarning,
     PrefixConventionWarning,
@@ -523,7 +533,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("DataSet must have external_id set.")
+            raise ToolkitRequiredValueError("DataSet must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -626,7 +636,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("Function must have external_id set.")
+            raise ToolkitRequiredValueError("Function must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -831,7 +841,7 @@ class FunctionScheduleLoader(
             return f"{item['functionExternalId']}:{item['cronExpression']}"
 
         if item.function_external_id is None or item.cron_expression is None:
-            raise ValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
+            raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
         return f"{item.function_external_id}:{item.cron_expression}"
 
     @classmethod
@@ -1160,6 +1170,7 @@ class RawTableLoader(
 class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     item_name = "datapoints"
     folder_name = "timeseries"
+    filename_pattern = r"^(?!.*DatapointSubscription$).*"
     resource_cls = TimeSeries
     resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
@@ -1183,7 +1194,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("TimeSeries must have external_id set.")
+            raise ToolkitRequiredValueError("TimeSeries must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1271,6 +1282,118 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
 
 
 @final
+class DatapointSubscriptionLoader(
+    ResourceLoader[
+        str,
+        DataPointSubscriptionWrite,
+        DatapointSubscription,
+        DatapointSubscriptionWriteList,
+        DatapointSubscriptionList,
+    ]
+):
+    folder_name = "timeseries"
+    filename_pattern = r"^.*\.DatapointSubscription$"  # Matches all yaml files who's endswith *.DatapointSubscription.
+    resource_cls = DatapointSubscription
+    resource_write_cls = DataPointSubscriptionWrite
+    list_cls = DatapointSubscriptionList
+    list_write_cls = DatapointSubscriptionWriteList
+    _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
+
+    @property
+    def display_name(self) -> str:
+        return "timeseries.subscription"
+
+    @classmethod
+    def get_id(cls, item: DataPointSubscriptionWrite | DatapointSubscription | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        return item.external_id
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        # The Filter class in the SDK class View implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        parameter_path = ("filter",)
+        length = len(parameter_path)
+        for item in spec:
+            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+        spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        for timeseries_id in item.get("timeSeriesIds", []):
+            yield TimeSeriesLoader, timeseries_id
+
+    @classmethod
+    def get_required_capability(cls, items: DatapointSubscriptionWriteList) -> Capability | list[Capability]:
+        return TimeSeriesSubscriptionsAcl(
+            [TimeSeriesSubscriptionsAcl.Action.Read, TimeSeriesSubscriptionsAcl.Action.Write],
+            TimeSeriesSubscriptionsAcl.Scope.All(),
+        )
+
+    def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
+        created = DatapointSubscriptionList([])
+        for item in items:
+            created.append(self.client.time_series.subscriptions.create(item))
+        return created
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> DatapointSubscriptionList:
+        items = DatapointSubscriptionList([])
+        for id_ in ids:
+            retrieved = self.client.time_series.subscriptions.retrieve(id_)
+            if retrieved:
+                items.append(retrieved)
+        return items
+
+    def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
+        updated = DatapointSubscriptionList([])
+        for item in items:
+            # Todo update SDK to support taking in Write object
+            update = self.client.time_series.subscriptions._update_multiple(
+                item,
+                list_cls=DatapointSubscriptionWriteList,
+                resource_cls=DataPointSubscriptionWrite,
+                update_cls=DataPointSubscriptionUpdate,
+            )
+            updated.append(update)
+
+        return updated
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.time_series.subscriptions.delete(ids)
+        except (CogniteAPIError, CogniteNotFoundError) as e:
+            non_existing = set(e.failed or [])
+            if existing := [id_ for id_ in ids if id_ not in non_existing]:
+                self.client.time_series.subscriptions.delete(existing)
+            return len(existing)
+        else:
+            # All deleted successfully
+            return len(ids)
+
+    def are_equal(self, local: DataPointSubscriptionWrite, cdf_resource: DatapointSubscription) -> bool:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Two subscription objects are equal if they have the same timeSeriesIds
+        if "timeSeriesIds" in local_dumped:
+            local_dumped["timeSeriesIds"] = set(local_dumped["timeSeriesIds"])
+        if "timeSeriesIds" in cdf_dumped:
+            local_dumped["timeSeriesIds"] = set(cdf_dumped["timeSeriesIds"])
+
+        return local_dumped == cdf_dumped
+
+
+@final
 class TransformationLoader(
     ResourceLoader[str, TransformationWrite, Transformation, TransformationWriteList, TransformationList]
 ):
@@ -1301,7 +1424,7 @@ class TransformationLoader(
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("Transformation must have external_id set.")
+            raise ToolkitRequiredValueError("Transformation must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1520,7 +1643,7 @@ class TransformationScheduleLoader(
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("TransformationSchedule must have external_id set.")
+            raise ToolkitRequiredValueError("TransformationSchedule must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1599,7 +1722,7 @@ class ExtractionPipelineLoader(
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("ExtractionPipeline must have external_id set.")
+            raise ToolkitRequiredValueError("ExtractionPipeline must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1734,7 +1857,7 @@ class ExtractionPipelineConfigLoader(
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("ExtractionPipelineConfig must have external_id set.")
+            raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1751,28 +1874,39 @@ class ExtractionPipelineConfigLoader(
 
         for resource in resources:
             try:
-                resource["config"] = yaml.dump(resource.get("config", ""), indent=4)
+                if config := resource.get("config", None):
+                    resource["config"] = yaml.dump(config, indent=4)
             except Exception:
                 print(
                     f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
                 )
-                resource["config"] = resource.get("config", "")
+                resource["config"] = resource.get("config", None)
 
         if len(resources) == 1:
             return ExtractionPipelineConfigWrite.load(resources[0])
         else:
             return ExtractionPipelineConfigWriteList.load(resources)
 
-    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        created = ExtractionPipelineConfigList([])
+    def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+        updated = ExtractionPipelineConfigList([])
         for item in items:
-            item_created = self.client.extraction_pipelines.config.create(item)
-            created.append(item_created)
-        return created
+            if not item.external_id:
+                raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
+            latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
+            if latest and self.are_equal(item, latest):
+                updated.append(latest)
+                continue
+            else:
+                created = self.client.extraction_pipelines.config.create(item)
+                updated.append(created)
+        return updated
+
+    def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
+        return self._upsert(items)
 
     # configs cannot be updated, instead new revision is created
     def update(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        return self.create(items)
+        return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ExtractionPipelineConfigList:
         retrieved = ExtractionPipelineConfigList([])
@@ -1800,7 +1934,8 @@ class ExtractionPipelineConfigLoader(
                 if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
                     continue
             else:
-                count += len(result)
+                if result:
+                    count += 1
         return count
 
     @classmethod
@@ -1843,7 +1978,7 @@ class FileMetadataLoader(
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("FileMetadata must have external_id set.")
+            raise ToolkitRequiredValueError("FileMetadata must have external_id set.")
         return item.external_id
 
     @classmethod
@@ -1919,7 +2054,7 @@ class FileMetadataLoader(
                 )
         for meta in files_metadata:
             if meta.name is None:
-                raise ValueError(f"File {meta.external_id} has no name.")
+                raise ToolkitRequiredValueError(f"File {meta.external_id} has no name.")
             if not Path(filepath.parent / meta.name).exists():
                 raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
             if isinstance(meta.data_set_id, str):
@@ -2721,7 +2856,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         if isinstance(item, dict):
             return item["externalId"]
         if item.external_id is None:
-            raise ValueError("Workflow must have external_id set.")
+            raise ToolkitRequiredValueError("Workflow must have external_id set.")
         return item.external_id
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> WorkflowUpsertList:
