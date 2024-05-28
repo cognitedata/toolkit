@@ -2,7 +2,17 @@ from asyncio import sleep
 
 import pytest
 from cognite.client import CogniteClient
-from cognite.client.data_classes import Function, FunctionSchedule, FunctionScheduleWriteList
+from cognite.client.data_classes import (
+    DataPointSubscriptionWrite,
+    Function,
+    FunctionSchedule,
+    FunctionScheduleWriteList,
+    filters,
+)
+from cognite.client.data_classes.datapoints_subscriptions import (
+    DatapointSubscriptionProperty,
+    DatapointSubscriptionWriteList,
+)
 
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.load import DataSetsLoader, FunctionScheduleLoader
@@ -95,7 +105,33 @@ class TestFunctionScheduleLoader:
 
 
 class TestDatapointSubscriptionLoader:
-    def test_delete_non_existing(self, cognite_client: CogniteClient):
+    def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
         loader = DatapointSubscriptionLoader(cognite_client, None)
         delete_count = loader.delete(["non_existing"])
         assert delete_count == 0
+
+    def test_create_update_delete_subscription(self, cognite_client: CogniteClient) -> None:
+        sub = DataPointSubscriptionWrite(
+            external_id="tmp_test_create_update_delete_subscription",
+            partition_count=1,
+            name="Initial name",
+            filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
+        )
+        update = DataPointSubscriptionWrite(
+            external_id="tmp_test_create_update_delete_subscription",
+            partition_count=1,
+            name="Updated name",
+            filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
+        )
+
+        loader = DatapointSubscriptionLoader(cognite_client, None)
+
+        try:
+            created = loader.create(DatapointSubscriptionWriteList([sub]))
+            assert len(created) == 1
+
+            updated = loader.update(DatapointSubscriptionWriteList([update]))
+            assert len(updated) == 1
+            assert updated[0].name == "Updated name"
+        finally:
+            loader.delete([sub.external_id])

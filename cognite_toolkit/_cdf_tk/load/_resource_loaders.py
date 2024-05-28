@@ -33,6 +33,7 @@ from cognite.client.data_classes import (
     DatapointsList,
     DatapointSubscription,
     DatapointSubscriptionList,
+    DataPointSubscriptionUpdate,
     DataPointSubscriptionWrite,
     DatapointSubscriptionWriteList,
     DataSet,
@@ -1232,12 +1233,18 @@ class DatapointSubscriptionLoader(
         return items
 
     def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
-        raise NotImplementedError()
-        # updated = DatapointSubscriptionList([])
-        # for item in items:
-        #     updated.append(self.client.time_series.subscriptions.update(item))
-        #
-        # return updated
+        updated = DatapointSubscriptionList([])
+        for item in items:
+            # Todo update SDK to support taking in Write object
+            update = self.client.time_series.subscriptions._update_multiple(
+                item,
+                list_cls=DatapointSubscriptionWriteList,
+                resource_cls=DataPointSubscriptionWrite,
+                update_cls=DataPointSubscriptionUpdate,
+            )
+            updated.append(update)
+
+        return updated
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
