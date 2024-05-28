@@ -1648,8 +1648,8 @@ class ExtractionPipelineConfigLoader(
 
         for resource in resources:
             try:
-                if resource.get("config", None):
-                    resource["config"] = yaml.dump(resource.get("config"), indent=4)
+                if config := resource.get("config", None):
+                    resource["config"] = yaml.dump(config, indent=4)
             except Exception:
                 print(
                     f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
