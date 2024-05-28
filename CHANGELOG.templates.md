@@ -20,6 +20,7 @@ Changes are grouped as follows:
 ### Added
 
 - Function used to schedule & trigger workflow
+- Example of `DatapoindSubscription` in `cognite_modules/examples/my_example_module`.
 
 ### Removed
 

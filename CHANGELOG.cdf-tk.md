@@ -25,6 +25,7 @@ Changes are grouped as follows:
 - The `cdf-tk build` command will now give warnings on duplicated resource. For example, if you have two files with
   the same externalId in the same module, the build command will give a warning that the externalId is duplicated,
   and that only the first file is used.
+- Added support for resource type `DatapointSubscription`
 
 ### Fixed
 
