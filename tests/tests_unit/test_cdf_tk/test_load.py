@@ -1,6 +1,5 @@
 import os
 import pathlib
-import re
 from collections.abc import Iterable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -773,7 +772,9 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
             if not loaders:
                 continue
-            loader = next((loader for loader in loaders if re.match(loader.filename_pattern, filepath.stem)), None)
+            loader = next((loader for loader in loaders if loader.is_supported_file(filepath)), None)
+            if loader is None:
+                raise ValueError(f"Could not find loader for {filepath}")
             if issubclass(loader, ResourceLoader):
                 raw = yaml.CSafeLoader(filepath.read_text()).get_data()
                 source_path = source_by_build_path[filepath]

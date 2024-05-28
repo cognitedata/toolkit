@@ -31,6 +31,11 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     ClientCredentials,
     DatapointsList,
+    DatapointSubscription,
+    DatapointSubscriptionList,
+    DataPointSubscriptionUpdate,
+    DataPointSubscriptionWrite,
+    DatapointSubscriptionWriteList,
     DataSet,
     DataSetList,
     DataSetWrite,
@@ -88,6 +93,7 @@ from cognite.client.data_classes.capabilities import (
     SecurityCategoriesAcl,
     SessionsAcl,
     TimeSeriesAcl,
+    TimeSeriesSubscriptionsAcl,
     TransformationsAcl,
     WorkflowOrchestrationAcl,
 )
@@ -1164,6 +1170,7 @@ class RawTableLoader(
 class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries, TimeSeriesWriteList, TimeSeriesList]):
     item_name = "datapoints"
     folder_name = "timeseries"
+    filename_pattern = r"^(?!.*DatapointSubscription$).*"
     resource_cls = TimeSeries
     resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
@@ -1272,6 +1279,118 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             ParameterSpec(("securityCategoryNames", ANY_STR), frozenset({"str"}), is_required=False, _is_nullable=False)
         )
         return spec
+
+
+@final
+class DatapointSubscriptionLoader(
+    ResourceLoader[
+        str,
+        DataPointSubscriptionWrite,
+        DatapointSubscription,
+        DatapointSubscriptionWriteList,
+        DatapointSubscriptionList,
+    ]
+):
+    folder_name = "timeseries"
+    filename_pattern = r"^.*\.DatapointSubscription$"  # Matches all yaml files who's endswith *.DatapointSubscription.
+    resource_cls = DatapointSubscription
+    resource_write_cls = DataPointSubscriptionWrite
+    list_cls = DatapointSubscriptionList
+    list_write_cls = DatapointSubscriptionWriteList
+    _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
+
+    @property
+    def display_name(self) -> str:
+        return "timeseries.subscription"
+
+    @classmethod
+    def get_id(cls, item: DataPointSubscriptionWrite | DatapointSubscription | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        return item.external_id
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        # The Filter class in the SDK class View implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        parameter_path = ("filter",)
+        length = len(parameter_path)
+        for item in spec:
+            if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+        spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        for timeseries_id in item.get("timeSeriesIds", []):
+            yield TimeSeriesLoader, timeseries_id
+
+    @classmethod
+    def get_required_capability(cls, items: DatapointSubscriptionWriteList) -> Capability | list[Capability]:
+        return TimeSeriesSubscriptionsAcl(
+            [TimeSeriesSubscriptionsAcl.Action.Read, TimeSeriesSubscriptionsAcl.Action.Write],
+            TimeSeriesSubscriptionsAcl.Scope.All(),
+        )
+
+    def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
+        created = DatapointSubscriptionList([])
+        for item in items:
+            created.append(self.client.time_series.subscriptions.create(item))
+        return created
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> DatapointSubscriptionList:
+        items = DatapointSubscriptionList([])
+        for id_ in ids:
+            retrieved = self.client.time_series.subscriptions.retrieve(id_)
+            if retrieved:
+                items.append(retrieved)
+        return items
+
+    def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
+        updated = DatapointSubscriptionList([])
+        for item in items:
+            # Todo update SDK to support taking in Write object
+            update = self.client.time_series.subscriptions._update_multiple(
+                item,
+                list_cls=DatapointSubscriptionWriteList,
+                resource_cls=DataPointSubscriptionWrite,
+                update_cls=DataPointSubscriptionUpdate,
+            )
+            updated.append(update)
+
+        return updated
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.time_series.subscriptions.delete(ids)
+        except (CogniteAPIError, CogniteNotFoundError) as e:
+            non_existing = set(e.failed or [])
+            if existing := [id_ for id_ in ids if id_ not in non_existing]:
+                self.client.time_series.subscriptions.delete(existing)
+            return len(existing)
+        else:
+            # All deleted successfully
+            return len(ids)
+
+    def are_equal(self, local: DataPointSubscriptionWrite, cdf_resource: DatapointSubscription) -> bool:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Two subscription objects are equal if they have the same timeSeriesIds
+        if "timeSeriesIds" in local_dumped:
+            local_dumped["timeSeriesIds"] = set(local_dumped["timeSeriesIds"])
+        if "timeSeriesIds" in cdf_dumped:
+            local_dumped["timeSeriesIds"] = set(cdf_dumped["timeSeriesIds"])
+
+        return local_dumped == cdf_dumped
 
 
 @final
