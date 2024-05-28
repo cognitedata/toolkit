@@ -46,6 +46,7 @@ Changes are grouped as follows:
 - Transformation queries can be inline, i.e. set in either the Transformation `query` property in the yaml or
   as a separate file. If set in both, an error is raised because it is ambiguous which query to use.
 - In the `cdf-tk pull` command, if an error occurs, the temporary directory was not removed. This is now fixed.
+- Improved error message when running `cdf-tk deploy/clean` before running `cdf-tk build`.
 
 ### Changed
 
