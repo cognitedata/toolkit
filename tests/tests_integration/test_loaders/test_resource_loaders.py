@@ -6,6 +6,7 @@ from cognite.client.data_classes import Function, FunctionSchedule, FunctionSche
 
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.load import DataSetsLoader, FunctionScheduleLoader
+from cognite_toolkit._cdf_tk.load._resource_loaders import DatapointSubscriptionLoader
 
 
 class TestDataSetsLoader:
@@ -91,3 +92,10 @@ class TestFunctionScheduleLoader:
             retrieved = loader.retrieve([identifier])
 
         assert retrieved[0].description == function_schedule.description
+
+
+class TestDatapointSubscriptionLoader:
+    def test_delete_non_existing(self, cognite_client: CogniteClient):
+        loader = DatapointSubscriptionLoader(cognite_client, None)
+        delete_count = loader.delete(["non_existing"])
+        assert delete_count == 0

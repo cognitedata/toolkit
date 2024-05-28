@@ -1225,8 +1225,8 @@ class DatapointSubscriptionLoader(
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DatapointSubscriptionList:
         items = DatapointSubscriptionList([])
-        for id in ids:
-            retrieved = self.client.time_series.subscriptions.retrieve(id)
+        for id_ in ids:
+            retrieved = self.client.time_series.subscriptions.retrieve(id_)
             if retrieved:
                 items.append(retrieved)
         return items
@@ -1242,10 +1242,10 @@ class DatapointSubscriptionLoader(
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
             self.client.time_series.subscriptions.delete(ids)
-        except CogniteNotFoundError:
-            existing = set(self.retrieve(ids).as_external_ids())
-            if existing:
-                self.client.time_series.subscriptions.delete(list(existing))
+        except CogniteAPIError as e:
+            non_existing = set(e.failed or [])
+            if existing := [id_ for id_ in ids if id_ not in non_existing]:
+                self.client.time_series.subscriptions.delete(existing)
             return len(existing)
         else:
             # All deleted successfully
