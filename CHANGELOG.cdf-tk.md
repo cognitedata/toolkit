@@ -26,7 +26,7 @@ Changes are grouped as follows:
   the same externalId in the same module, the build command will give a warning that the externalId is duplicated,
   and that only the first file is used.
 - Support for `securityCategories` in the `auth` folder.
-- Added support for resource type `DatapointSubscription`
+- Added support for resource type `DatapointSubscription` in the `timeseries` folder.
 
 ### Fixed
 
