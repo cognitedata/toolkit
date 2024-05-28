@@ -609,7 +609,6 @@ class TestExtractionPipelineDependencies:
             {"extraction_pipeline.config.yaml": yaml.CSafeLoader(self.config_yaml).get_data()}, monkeypatch
         )
 
-
         cmd = DeployCommand(print_warning=False)
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
         resources = loader.load_resource(Path("extraction_pipeline.config.yaml"), cdf_tool, skip_validation=False)
@@ -639,7 +638,6 @@ class TestExtractionPipelineDependencies:
             {"extraction_pipeline.config.yaml": yaml.CSafeLoader(self.config_yaml).get_data()}, monkeypatch
         )
 
-
         cmd = DeployCommand(print_warning=False)
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
         resources = loader.load_resource(Path("extraction_pipeline.config.yaml"), cdf_tool, skip_validation=False)
@@ -668,7 +666,6 @@ class TestExtractionPipelineDependencies:
         mock_read_yaml_file(
             {"extraction_pipeline.config.yaml": yaml.CSafeLoader(self.config_yaml).get_data()}, monkeypatch
         )
-
 
         cmd = CleanCommand(print_warning=False)
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
