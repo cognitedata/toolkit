@@ -17,6 +17,7 @@ from cognite.client.data_classes.datapoints_subscriptions import (
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.load import DataSetsLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.load._resource_loaders import DatapointSubscriptionLoader
+from tests.tests_integration.constants import RUN_UNIQUE_ID
 
 
 class TestDataSetsLoader:
@@ -34,7 +35,7 @@ class TestDataSetsLoader:
 
 @pytest.fixture
 def dummy_function(cognite_client: CogniteClient) -> Function:
-    external_id = "integration_test_function_dummy"
+    external_id = f"integration_test_function_dummy_{RUN_UNIQUE_ID}"
 
     if existing := cognite_client.functions.retrieve(external_id=external_id):
         return existing
@@ -61,7 +62,7 @@ def dummy_function(cognite_client: CogniteClient) -> Function:
 
 @pytest.fixture
 def dummy_schedule(cognite_client: CogniteClient, dummy_function: Function) -> FunctionSchedule:
-    name = "integration_test_schedule_dummy"
+    name = f"integration_test_schedule_dummy_{RUN_UNIQUE_ID}"
     if existing_list := cognite_client.functions.schedules.list(
         function_external_id=dummy_function.external_id, name=name
     ):
@@ -112,13 +113,13 @@ class TestDatapointSubscriptionLoader:
 
     def test_create_update_delete_subscription(self, cognite_client: CogniteClient) -> None:
         sub = DataPointSubscriptionWrite(
-            external_id="tmp_test_create_update_delete_subscription",
+            external_id=f"tmp_test_create_update_delete_subscription_{RUN_UNIQUE_ID}",
             partition_count=1,
             name="Initial name",
             filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
         )
         update = DataPointSubscriptionWrite(
-            external_id="tmp_test_create_update_delete_subscription",
+            external_id=f"tmp_test_create_update_delete_subscription_{RUN_UNIQUE_ID}",
             partition_count=1,
             name="Updated name",
             filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
