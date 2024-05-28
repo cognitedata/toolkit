@@ -190,7 +190,7 @@ class DataSetMissingWarning(IdentifiedResourceFileReadWarning):
 
 @dataclass(frozen=True)
 class SourceFileModifiedWarning(FileReadWarning):
-    severity = SeverityLevel.MEDIUM
+    severity = SeverityLevel.ERROR
 
     def get_message(self) -> str:
         message = (
