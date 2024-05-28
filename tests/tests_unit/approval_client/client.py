@@ -307,12 +307,16 @@ class ApprovalCogniteClient:
             return resource_list_cls.load(
                 [
                     {
-                        "isGlobal": False,
+                        # These are server set fields, so we need to set them manually
+                        # Note that many of them are only used for certain resources. This is not a problem
+                        # as any extra fields are ignored by the load method.
+                        "isGlobal": False,  # Data Modeling
                         "lastUpdatedTime": 0,
                         "createdTime": 0,
-                        "writable": True,
-                        "ignoreNullFields": False,
-                        "usedFor": "nodes",
+                        "writable": True,  # Data Modeling
+                        "ignoreNullFields": False,  # Transformations
+                        "usedFor": "nodes",  # Views
+                        "timeSeriesCount": 10,  # Datapoint subscription
                         **c.dump(camel_case=True),
                     }
                     for c in created
