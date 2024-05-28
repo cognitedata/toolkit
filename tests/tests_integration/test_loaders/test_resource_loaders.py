@@ -35,7 +35,7 @@ class TestDataSetsLoader:
 
 @pytest.fixture
 def dummy_function(cognite_client: CogniteClient) -> Function:
-    external_id = f"integration_test_function_dummy_{RUN_UNIQUE_ID}"
+    external_id = "integration_test_function_dummy"
 
     if existing := cognite_client.functions.retrieve(external_id=external_id):
         return existing
@@ -62,7 +62,7 @@ def dummy_function(cognite_client: CogniteClient) -> Function:
 
 @pytest.fixture
 def dummy_schedule(cognite_client: CogniteClient, dummy_function: Function) -> FunctionSchedule:
-    name = f"integration_test_schedule_dummy_{RUN_UNIQUE_ID}"
+    name = "integration_test_schedule_dummy"
     if existing_list := cognite_client.functions.schedules.list(
         function_external_id=dummy_function.external_id, name=name
     ):
