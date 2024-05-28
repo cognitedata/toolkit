@@ -104,7 +104,7 @@ class Loader(ABC):
             return False
         if cls.filename_pattern:
             if cls.filename_pattern not in _COMPILED_PATTERN:
-                _COMPILED_PATTERN[cls.filename_pattern] = re.compile(cls.filename_pattern)
+                _COMPILED_PATTERN[cls.filename_pattern] = re.compile(cls.filename_pattern, re.IGNORECASE)
             return _COMPILED_PATTERN[cls.filename_pattern].match(file.stem) is not None
         return True
 
