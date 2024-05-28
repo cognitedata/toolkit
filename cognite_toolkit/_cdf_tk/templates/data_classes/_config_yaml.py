@@ -23,7 +23,13 @@ from cognite_toolkit._cdf_tk.templates._constants import (
     SEARCH_VARIABLES_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.templates._utils import flatten_dict
-from cognite_toolkit._cdf_tk.utils import YAMLComment, YAMLWithComments
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    FileReadWarning,
+    MissingFileWarning,
+    SourceFileModifiedWarning,
+    WarningList,
+)
+from cognite_toolkit._cdf_tk.utils import YAMLComment, YAMLWithComments, calculate_str_or_file_hash
 from cognite_toolkit._version import __version__
 
 from ._base import ConfigCore, _load_version_variable
@@ -226,6 +232,15 @@ class BuildEnvironment(Environment):
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.name
         os.environ["CDF_BUILD_TYPE"] = self.build_type
+
+    def check_source_files_changed(self) -> WarningList[FileReadWarning]:
+        warning_list = WarningList[FileReadWarning]()
+        for file, hash_ in self.hash_by_source_file.items():
+            if not file.exists():
+                warning_list.append(MissingFileWarning(file, attempted_check="source file has changed."))
+            elif hash_ != calculate_str_or_file_hash(file):
+                warning_list.append(SourceFileModifiedWarning(file))
+        return warning_list
 
 
 @dataclass

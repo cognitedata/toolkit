@@ -10,6 +10,7 @@ from .fileread import (
     DataSetMissingWarning,
     DuplicatedItemWarning,
     FileReadWarning,
+    MissingFileWarning,
     MissingRequiredParameterWarning,
     NamespacingConventionWarning,
     NamingConventionWarning,
@@ -64,4 +65,5 @@ __all__ = [
     "ToolkitDependenciesIncludedWarning",
     "MissingDependencyWarning",
     "SourceFileModifiedWarning",
+    "MissingFileWarning",
 ]

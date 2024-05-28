@@ -190,7 +190,19 @@ class DataSetMissingWarning(IdentifiedResourceFileReadWarning):
 
 @dataclass(frozen=True)
 class SourceFileModifiedWarning(FileReadWarning):
-    severity = SeverityLevel.HIGH
+    severity = SeverityLevel.MEDIUM
 
     def get_message(self) -> str:
-        return f"{type(self).__name__}: The source file {self.filepath} has been modified since the last build. Please rebuild the project."
+        return (
+            f"{type(self).__name__}: The source file {self.filepath} has been modified since the last build. "
+            "Please rebuild the project."
+        )
+
+
+@dataclass(frozen=True)
+class MissingFileWarning(FileReadWarning):
+    severity = SeverityLevel.MEDIUM
+    attempted_check: str
+
+    def get_message(self) -> str:
+        return f"{type(self).__name__}: The file {self.filepath} is missing. Cannot verify {self.attempted_check}."

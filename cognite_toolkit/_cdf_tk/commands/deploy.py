@@ -73,6 +73,9 @@ class DeployCommand(ToolkitCommand):
         build_dir: Path = Path(build_dir_raw)
         build_ = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "deploy")
         build_.set_environment_variables()
+        warnings = build_.check_source_files_changed()
+        for warning in warnings:
+            self.warn(warning)
 
         print(Panel(f"[bold]Deploying config files from {build_dir_raw} to environment {build_env_name}...[/]"))
 
