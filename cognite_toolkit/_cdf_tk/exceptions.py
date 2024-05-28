@@ -116,3 +116,7 @@ class ToolkitInvalidParameterNameError(ToolkitValidationError):
     def __repr__(self) -> str:
         # Repr is what is called by rich when the exception is printed.
         return str(self)
+
+
+class ToolkitRequiredValueError(ToolkitError):
+    pass
