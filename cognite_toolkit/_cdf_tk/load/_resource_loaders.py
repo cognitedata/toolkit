@@ -2796,29 +2796,18 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Modifications to match the spec
-        for item in spec:
-            if item.path[0] == "apiCall" and len(item.path) > 1:
-                # Move up one level
-                # The spec class is immutable, so we use this trick to modify it.
-                object.__setattr__(item, "path", item.path[1:])
-            elif item.path[0] == "node":
-                # Move into list
-                object.__setattr__(item, "path", ("nodes", ANY_INT, *item.path[1:]))
-        # Top level of nodes
-        spec.add(ParameterSpec(("nodes",), frozenset({"list"}), is_required=True, _is_nullable=False))
-        spec.add(
+        node_spec = super().get_write_cls_parameter_spec()
+        # This is a deviation between the SDK and the API
+        node_spec.add(ParameterSpec(("instanceType",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        node_spec.add(
             ParameterSpec(
-                ("nodes", ANY_INT, "sources", ANY_INT, "source", "type"),
+                ("sources", ANY_INT, "source", "type"),
                 frozenset({"str"}),
                 is_required=True,
                 _is_nullable=False,
             )
         )
-        # Not used
-        spec.discard(ParameterSpec(("apiCall",), frozenset({"dict"}), is_required=True, _is_nullable=False))
-        return spec
+        return ParameterSpecSet(node_spec, spec_name=cls.__name__)
 
 
 @final

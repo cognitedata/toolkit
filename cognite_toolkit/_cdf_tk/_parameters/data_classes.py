@@ -173,9 +173,10 @@ class ParameterSet(Hashable, MutableSet, Generic[T_Parameter]):
 
 
 class ParameterSpecSet(ParameterSet[ParameterSpec]):
-    def __init__(self, iterable: Iterable[ParameterSpec] = ()) -> None:
+    def __init__(self, iterable: Iterable[ParameterSpec] = (), spec_name: str | None = None) -> None:
         super().__init__(iterable)
         self.is_complete = True
+        self.spec_name = spec_name
 
     def required(self, level: int | None = None) -> ParameterSet[ParameterSpec]:
         if level is None:
