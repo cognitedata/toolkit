@@ -91,9 +91,9 @@ def app() -> NoReturn:
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
         if featureflag.enabled("FF_INTERACTIVE_INIT"):
-            from cognite_toolkit._cdf_tk.prototypes import interactive_init
+            from cognite_toolkit._cdf_tk.prototypes.interactive_init import InteractiveInit
 
-            _app.add_typer(interactive_init.interactive_app, name="init")
+            _app.command("init")(InteractiveInit().interactive)
         _app()
     except ToolkitError as err:
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
