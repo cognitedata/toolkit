@@ -94,9 +94,9 @@ class RawTableList(WriteableCogniteResourceList[RawDatabaseTable, RawDatabaseTab
 
 @dataclass(frozen=True, order=True)
 class NodeAPICall:
-    auto_create_direct_relations: bool
-    skip_on_version_conflict: bool
-    replace: bool
+    auto_create_direct_relations: bool | None
+    skip_on_version_conflict: bool | None
+    replace: bool | None
 
     @classmethod
     def load(cls, resource: dict[str, Any]) -> NodeAPICall:
@@ -118,7 +118,7 @@ class NodeAPICall:
 
 @dataclass
 class LoadedNode(CogniteResource):
-    api_call: NodeAPICall
+    api_call: NodeAPICall | None
     node: NodeApply
 
     def as_id(self) -> NodeId:
