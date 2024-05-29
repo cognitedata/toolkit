@@ -16,6 +16,16 @@ It supports three different modes of operation:
    bundled with templates useful for getting started with Cognite Data Fusion, as well as for specific use cases
    delivered by Cognite or its partners. You can also create your own templates and share them.
 
+## Usage
+
+Install the Toolkit by running:
+
+```bash
+pip install cognite-toolkit
+```
+
+Then run `cdf-tk --help` to get started with the interactive command-line tool.
+
 ## For more information
 
 More details about the tool can be found at
