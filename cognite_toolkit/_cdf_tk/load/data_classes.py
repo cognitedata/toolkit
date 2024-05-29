@@ -24,12 +24,11 @@ from typing import Any, Literal
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
-    CogniteResource,
     CogniteResourceList,
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, NodeId
+from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList
 from rich.table import Table
 
 
@@ -119,15 +118,6 @@ class NodeAPICall:
         if self.replace is not None:
             output["replace"] = self.replace
         return output
-
-
-@dataclass
-class LoadedNode(CogniteResource):
-    api_call: NodeAPICall | None
-    node: NodeApply
-
-    def as_id(self) -> NodeId:
-        return self.node.as_id()
 
 
 class NodeApplyListWithCall(CogniteResourceList[NodeApply]):

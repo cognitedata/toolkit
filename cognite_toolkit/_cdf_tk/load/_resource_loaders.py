@@ -108,6 +108,7 @@ from cognite.client.data_classes.data_modeling import (
     DataModelApplyList,
     DataModelList,
     Node,
+    NodeApply,
     NodeApplyResultList,
     NodeList,
     Space,
@@ -167,7 +168,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
-from .data_classes import LoadedNode, NodeApplyListWithCall, RawDatabaseTable, RawTableList
+from .data_classes import NodeApplyListWithCall, RawDatabaseTable, RawTableList
 
 _MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
@@ -2661,12 +2662,12 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
 
 @final
-class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, NodeApplyListWithCall, NodeList]):
+class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListWithCall, NodeList]):
     item_name = "nodes"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
     resource_cls = Node
-    resource_write_cls = LoadedNode
+    resource_write_cls = NodeApply
     list_cls = NodeList
     list_write_cls = NodeApplyListWithCall
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
@@ -2684,7 +2685,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, NodeApplyList
         )
 
     @classmethod
-    def get_id(cls, item: LoadedNode | Node | dict) -> NodeId:
+    def get_id(cls, item: NodeApply | Node | dict) -> NodeId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -2703,17 +2704,16 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, NodeApplyList
                 elif identifier.get("type") == "container" and _in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
-    def are_equal(self, local: LoadedNode, cdf_resource: Node) -> bool:
+    def are_equal(self, local: NodeApply, cdf_resource: Node) -> bool:
         """Comparison for nodes to include properties in the comparison
 
         Note this is an expensive operation as we to an extra retrieve to fetch the properties.
         Thus, the cdf-tk should not be used to upload nodes that are data only nodes used for configuration.
         """
-        local_node = local.node
         # Note reading from a container is not supported.
         sources = [
             source_prop_pair.source
-            for source_prop_pair in local_node.sources or []
+            for source_prop_pair in local.sources or []
             if isinstance(source_prop_pair.source, ViewId)
         ]
         try:
@@ -2724,7 +2724,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, NodeApplyList
             # View does not exist, so node does not exist.
             return False
         cdf_resource_dumped = cdf_resource_with_properties.as_write().dump()
-        local_dumped = local_node.dump()
+        local_dumped = local.dump()
         if "existingVersion" not in local_dumped:
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
@@ -2740,10 +2740,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, NodeApplyList
         return loaded
 
     def dump_resource(
-        self, resource: LoadedNode, source_file: Path, local_resource: LoadedNode
+        self, resource: NodeApply, source_file: Path, local_resource: NodeApply
     ) -> tuple[dict[str, Any], dict[Path, str]]:
-        resource_node = resource.node
-        local_node = local_resource.node
+        resource_node = resource
+        local_node = local_resource
         # Retrieve node again to get properties.
         view_ids = {source.source for source in local_node.sources or [] if isinstance(source.source, ViewId)}
         nodes = self.client.data_modeling.instances.retrieve(nodes=local_node.as_id(), sources=list(view_ids)).nodes
@@ -2767,17 +2767,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, NodeApplyList
         if not isinstance(items, NodeApplyListWithCall):
             raise ValueError("Unexpected node format file format")
 
-        results = NodeApplyResultList([])
-        for api_call, item in itertools.groupby(sorted(items, key=lambda x: x.api_call), key=lambda x: x.api_call):
-            nodes = [node.node for node in item]
-            result = self.client.data_modeling.instances.apply(
-                nodes=nodes,
-                auto_create_direct_relations=api_call.auto_create_direct_relations,
-                skip_on_version_conflict=api_call.skip_on_version_conflict,
-                replace=api_call.replace,
-            )
-            results.extend(result.nodes)
-        return results
+        api_call_args = items.api_call.dump(camel_case=False) if items.api_call else {}
+        result = self.client.data_modeling.instances.apply(nodes=items, **api_call_args)
+        return result.nodes
 
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).nodes
