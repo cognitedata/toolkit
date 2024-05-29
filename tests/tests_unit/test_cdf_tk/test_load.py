@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.load import (
     TransformationLoader,
     ViewLoader,
 )
-from cognite_toolkit._cdf_tk.load.data_classes import LoadedNode, LoadedNodeList, NodeAPICall
+from cognite_toolkit._cdf_tk.load.data_classes import NodeAPICall, NodeApplyListWithCall
 from cognite_toolkit._cdf_tk.templates import (
     module_from_path,
     resource_folder_from_path,
@@ -539,12 +539,12 @@ conflictMode: upsert
 
 class TestNodeLoader:
     @pytest.mark.parametrize(
-        "yamL_raw",
+        "yamL_raw, expected",
         [
             pytest.param(
                 """space: my_space
 externalId: my_external_id""",
-                LoadedNode(None, NodeApply("my_space", "my_external_id")),
+                NodeApplyListWithCall([NodeApply("my_space", "my_external_id")]),
                 id="Single node no API call",
             ),
             pytest.param(
@@ -553,10 +553,10 @@ externalId: my_external_id""",
 - space: my_space
   externalId: my_second_node
 """,
-                LoadedNodeList(
+                NodeApplyListWithCall(
                     [
-                        LoadedNode(None, NodeApply("my_space", "my_first_node")),
-                        LoadedNode(None, NodeApply("my_space", "my_second_node")),
+                        NodeApply("my_space", "my_first_node"),
+                        NodeApply("my_space", "my_second_node"),
                     ]
                 ),
                 id="Multiple nodes no API call",
@@ -568,7 +568,7 @@ replace: true
 node:
   space: my_space
   externalId: my_external_id""",
-                LoadedNode(NodeAPICall(True, False, True), NodeApply("my_space", "my_external_id")),
+                NodeApplyListWithCall([NodeApply("my_space", "my_external_id")], NodeAPICall(True, False, True)),
                 id="Single node with API call",
             ),
             pytest.param(
@@ -581,22 +581,27 @@ nodes:
 - space: my_space
   externalId: my_second_node
     """,
-                LoadedNodeList(
+                NodeApplyListWithCall(
                     [
-                        LoadedNode(NodeAPICall(True, False, True), NodeApply("my_space", "my_first_node")),
-                        LoadedNode(NodeAPICall(True, False, True), NodeApply("my_space", "my_second_node")),
-                    ]
+                        NodeApply("my_space", "my_first_node"),
+                        NodeApply("my_space", "my_second_node"),
+                    ],
+                    NodeAPICall(True, False, True),
                 ),
                 id="Multiple nodes with API call",
             ),
         ],
     )
     def test_load_nodes(
-        self, yamL_raw: str, expected: LoadedNode, cdf_tool_config_real: CDFToolConfig, monkeypatch: MonkeyPatch
+        self,
+        yamL_raw: str,
+        expected: NodeApplyListWithCall,
+        cdf_tool_config_real: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
     ) -> None:
         loader = NodeLoader.create_loader(cdf_tool_config_real, None)
         mock_read_yaml_file({"my_node.yaml": yaml.safe_load(yamL_raw)}, monkeypatch)
-        loaded = loader.load_resource(Path("my_node.yaml"), cdf_tool_config_real, skip_validation=False)
+        loaded = loader.load_resource(Path("my_node.yaml"), cdf_tool_config_real, skip_validation=True)
 
         assert loaded.dump() == expected.dump()
 

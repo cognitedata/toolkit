@@ -167,7 +167,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
-from .data_classes import LoadedNode, LoadedNodeList, RawDatabaseTable, RawTableList
+from .data_classes import LoadedNode, NodeApplyListWithCall, RawDatabaseTable, RawTableList
 
 _MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
@@ -2661,14 +2661,14 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
 
 @final
-class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeList, NodeList]):
+class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, NodeApplyListWithCall, NodeList]):
     item_name = "nodes"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
     resource_cls = Node
     resource_write_cls = LoadedNode
     list_cls = NodeList
-    list_write_cls = LoadedNodeList
+    list_write_cls = NodeApplyListWithCall
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
@@ -2677,10 +2677,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
         return "nodes"
 
     @classmethod
-    def get_required_capability(cls, items: LoadedNodeList) -> Capability:
+    def get_required_capability(cls, items: NodeApplyListWithCall) -> Capability:
         return DataModelInstancesAcl(
             [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
-            DataModelInstancesAcl.Scope.SpaceID(list({item.node.space for item in items})),
+            DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items})),
         )
 
     @classmethod
@@ -2732,14 +2732,11 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
 
         return local_dumped == cdf_resource_dumped
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadedNodeList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyListWithCall:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        if isinstance(raw, dict):
-            loaded = LoadedNodeList._load(raw, cognite_client=self.client)
-        else:
-            raise ValueError(f"Unexpected node yaml file format {filepath.name}")
+        loaded = NodeApplyListWithCall._load(raw, cognite_client=self.client)
         if not skip_validation:
-            ToolGlobals.verify_spaces(list({item.node.space for item in loaded}))
+            ToolGlobals.verify_spaces(list({item.space for item in loaded}))
         return loaded
 
     def dump_resource(
@@ -2766,8 +2763,8 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
 
         return dumped, {}
 
-    def create(self, items: LoadedNodeList) -> NodeApplyResultList:
-        if not isinstance(items, LoadedNodeList):
+    def create(self, items: NodeApplyListWithCall) -> NodeApplyResultList:
+        if not isinstance(items, NodeApplyListWithCall):
             raise ValueError("Unexpected node format file format")
 
         results = NodeApplyResultList([])
@@ -2785,7 +2782,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).nodes
 
-    def update(self, items: LoadedNodeList) -> NodeApplyResultList:
+    def update(self, items: NodeApplyListWithCall) -> NodeApplyResultList:
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[NodeId]) -> int:
