@@ -42,13 +42,12 @@ class InteractiveInit(typer.Typer):
     def build_tree(self, item: Union[dict, list], tree: Tree) -> None:
         if isinstance(item, dict):
             for key, value in item.items():
-                subtree = tree.add(f"{key}")
+                subtree = tree.add(key)
                 for subvalue in value:
                     if isinstance(subvalue, dict):
                         self.build_tree(subvalue, subtree)
                     else:
-                        subtree.add(f"{subvalue}")
-                # self.build_tree(value, subtree)
+                        subtree.add(subvalue)
 
     def create(self, init_dir: str, selected: dict[str, list[str]]) -> None:
         pass
