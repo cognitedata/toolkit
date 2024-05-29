@@ -1,9 +1,11 @@
+from pathlib import Path
 from typing import Annotated, Any, Optional
 
 import typer
 from rich import print
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
+from rich.tree import Tree
 
 
 class InteractiveInit(typer.Typer):
@@ -17,7 +19,6 @@ class InteractiveInit(typer.Typer):
                 "name": "Quick Start",
                 "readme": "A set of modules for a CDF quick start project.",
                 "content": [
-                    {"data ingestion": ["sap", "pi", "mqtt"]},
                     {"data ingestion": ["sap", "pi", "mqtt"]},
                     {"data transformation": ["foo", "bar"]},
                     {"data contextualization": ["flash", "thunder"]},
@@ -38,6 +39,20 @@ class InteractiveInit(typer.Typer):
             },
         }
 
+    def build_tree(self, item: dict | list, tree: Tree) -> None:
+        if isinstance(item, dict):
+            for key, value in item.items():
+                subtree = tree.add(f"{key}")
+                for subvalue in value:
+                    if isinstance(subvalue, dict):
+                        self.build_tree(subvalue, subtree)
+                    else:
+                        subtree.add(f"{subvalue}")
+                # self.build_tree(value, subtree)
+
+    def create(self, init_dir: str, selected: dict[str, list[str]]) -> None:
+        pass
+
     def interactive(
         self,
         ctx: typer.Context,
@@ -56,62 +71,69 @@ class InteractiveInit(typer.Typer):
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
-        print(Panel("Initializing or upgrading a new CDF project with templates interactively."))
+        while True:
+            print(Panel("Initializing or upgrading a new CDF project with templates interactively."))
 
-        if not init_dir:
-            init_dir = Prompt.ask("[bold]Which directory would you like to use?[/] :sunglasses:", default="new_project")
-        else:
-            print(f"Using directory {init_dir}")
+            if not init_dir:
+                init_dir = Prompt.ask(
+                    "[bold]Which directory would you like to use?[/] :sunglasses:", default="new_project"
+                )
+            else:
+                print(f"Using directory {init_dir}")
 
-        if not arg_selected:
-            selected: dict[str, list[str]] = dict()
+            if Path(init_dir).is_dir():
+                if not Confirm.ask(f"Directory {init_dir} already exists. Would you like to overwrite?", default=False):
+                    print("Aborting...")
+                    raise typer.Exit()
 
-            print("\n[bold]Which modules would you like to include?[/] :rocket:")
-            total_items = len(self.get_packages())
-            for i, (package_id, package_content) in enumerate(self.get_packages().items(), start=1):
-                if package_content is None:
-                    package_content = {}
-                if Confirm.ask(
-                    f"\n    [bold green]{i}/{total_items}: {package_content.get('name', package_id)}[/]: {package_content.get('readme', '')}"
-                ):
-                    subpackages = package_content.get("content", [])
-                    if len(subpackages) == 0:
-                        selected[package_id] = subpackages
-                        continue
-                    elif len(subpackages) == 1:
-                        selected[package_id] = [subpackages[0]]
-                    else:
-                        if Confirm.ask(
-                            f"        [green]The package contains {len(subpackages)} modules. Would you like to include {'both modules' if len(subpackages) == 2 else 'all of them'}?[/]",
-                            default=True,
-                        ):
+            if not arg_selected:
+                selected: dict[str, list[str]] = dict()
+
+                print("\n[bold]Which modules would you like to include?[/] :rocket:")
+                total_items = len(self.get_packages())
+                for i, (package_id, package_content) in enumerate(self.get_packages().items(), start=1):
+                    if package_content is None:
+                        package_content = {}
+                    if Confirm.ask(
+                        f"\n    [bold green]{i}/{total_items}: {package_content.get('name', package_id)}[/]: {package_content.get('readme', '')}"
+                    ):
+                        subpackages = package_content.get("content", [])
+                        if len(subpackages) == 0:
                             selected[package_id] = subpackages
+                            continue
+                        elif len(subpackages) == 1:
+                            selected[package_id] = [subpackages[0]]
                         else:
-                            for j, subpackage in enumerate(subpackages, start=1):
-                                selected[package_id] = []
-                                if Confirm.ask(
-                                    f"        [green]{j}/{len(subpackages)}Would you like to include {subpackage} ?[/]",
-                                    default=True,
-                                ):
-                                    selected[package_id].append(subpackage)
+                            if Confirm.ask(
+                                f"        [green]The package contains {len(subpackages)} modules. Would you like to include {'both modules' if len(subpackages) == 2 else 'all of them'}?[/]",
+                                default=True,
+                            ):
+                                selected[package_id] = subpackages
+                            else:
+                                for j, subpackage in enumerate(subpackages, start=1):
+                                    selected[package_id] = []
+                                    if Confirm.ask(
+                                        f"        [yellow]{j}/{len(subpackages)} Would you like to include {subpackage} ?[/]",
+                                        default=True,
+                                    ):
+                                        selected[package_id].append(subpackage)
+            else:
+                selected = dict()  # arg_selected
 
-                    # selected = package
-                    # break
-                # include = Confirm.ask(f"[bold]Would you like to include {package} modules?[/]", default=True):
-                # if isinstance(module, dict):
-                #     print(f"- {package}")
-                #     for sub_package, sub_module in module.items():
-                #         print(f"  - {sub_package}")
-                #         for sub_sub_module in sub_module:
-                #             print(f"    - {sub_sub_module}")
-                # print(f"  - {module}")
+            print("\n[bold]You have selected the following modules:[/] :robot:\n")
 
-        print("You have selected...")
-        print(selected)
+            tree = Tree("modules")
+            self.build_tree(selected, tree)
+            print(tree)
 
-        if not Confirm.ask("[bold]Would you like to continue?[/bold]", default=True):
-            print("Exiting...")
-            raise typer.Exit()
+            if not Confirm.ask("[bold]Would you like to continue with creation?[/bold]", default=True):
+                if not Confirm.ask("[bold]Would you like to start over?[/bold]", default=False):
+                    print("Exiting...")
+                    raise typer.Exit()
+            else:
+                self.create(init_dir, selected)
+                print("Done!")
+                raise typer.Exit()
 
 
 command = InteractiveInit(
