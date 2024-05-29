@@ -2704,6 +2704,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
                 elif identifier.get("type") == "container" and _in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
+    @classmethod
+    def create_empty_of(cls, items: NodeApplyListWithCall) -> NodeApplyListWithCall:
+        return NodeApplyListWithCall([], items.api_call)
+
     def are_equal(self, local: NodeApply, cdf_resource: Node) -> bool:
         """Comparison for nodes to include properties in the comparison
 

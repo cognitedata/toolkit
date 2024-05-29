@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Support
+
 ## [0.2.0a5] - 2024-05-28
 
 ### Added
