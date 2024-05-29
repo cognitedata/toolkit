@@ -3,6 +3,7 @@ from typing import Annotated, Any, Optional, Union
 
 import typer
 from rich import print
+from rich.padding import Padding
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.tree import Tree
@@ -123,12 +124,15 @@ class InteractiveInit(typer.Typer):
 
             tree = Tree("modules")
             self.build_tree(selected, tree)
-            print(tree)
+            print(Padding.indent(tree, 5))
+            print("\n")
 
             if not Confirm.ask("[bold]Would you like to continue with creation?[/bold]", default=True):
                 if not Confirm.ask("[bold]Would you like to start over?[/bold]", default=False):
                     print("Exiting...")
                     raise typer.Exit()
+                else:
+                    continue
             else:
                 self.create(init_dir, selected)
                 print("Done!")
