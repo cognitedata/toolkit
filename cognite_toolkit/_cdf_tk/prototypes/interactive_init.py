@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Optional, Union
 
 import typer
 from rich import print
@@ -39,7 +39,7 @@ class InteractiveInit(typer.Typer):
             },
         }
 
-    def build_tree(self, item: dict | list, tree: Tree) -> None:
+    def build_tree(self, item: Union[dict, list], tree: Tree) -> None:
         if isinstance(item, dict):
             for key, value in item.items():
                 subtree = tree.add(f"{key}")
