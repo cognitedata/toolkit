@@ -45,6 +45,10 @@ class Environment:
     @classmethod
     def load(cls, data: dict[str, Any], build_name: str) -> Environment:
         if "selected_modules_and_packages" in data and "selected" not in data:
+            print(
+                "  [bold yellow]Warning:[/] Environment section: 'selected_modules_and_packages'"
+                "is deprecated, use 'selected' instead."
+            )
             data["selected"] = data.pop("selected_modules_and_packages")
         try:
             return Environment(
