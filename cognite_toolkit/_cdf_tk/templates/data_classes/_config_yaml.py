@@ -44,12 +44,8 @@ class Environment:
 
     @classmethod
     def load(cls, data: dict[str, Any], build_name: str) -> Environment:
-        if "selected_modules_and_packages" in data and "selected" not in data:
-            print(
-                "  [bold yellow]Warning:[/] Environment section: 'selected_modules_and_packages'"
-                "is deprecated, use 'selected' instead."
-            )
-            data["selected"] = data.pop("selected_modules_and_packages")
+        _deprecation_selected(data)
+
         try:
             return Environment(
                 name=build_name,
@@ -206,12 +202,13 @@ class BuildEnvironment(Environment):
         if build_name is None:
             raise ValueError("build_name must be specified")
         version = _load_version_variable(data, BUILD_ENVIRONMENT_FILE)
+        _deprecation_selected(data)
         try:
             return BuildEnvironment(
                 name=build_name,
                 project=data["project"],
                 build_type=data["type"],
-                selected=data["selected_modules_and_packages"],
+                selected=data["selected"],
                 cdf_toolkit_version=version,
                 hash_by_source_file={Path(file): hash_ for file, hash_ in data.get("source_files", {}).items()},
             )
@@ -245,6 +242,15 @@ class BuildEnvironment(Environment):
             elif hash_ != calculate_str_or_file_hash(file):
                 warning_list.append(SourceFileModifiedWarning(file))
         return warning_list
+
+
+def _deprecation_selected(data: dict[str, Any]) -> None:
+    if "selected_modules_and_packages" in data and "selected" not in data:
+        print(
+            "  [bold yellow]Warning:[/] Environment section: 'selected_modules_and_packages' "
+            "is deprecated, use 'selected' instead."
+        )
+        data["selected"] = data.pop("selected_modules_and_packages")
 
 
 @dataclass
