@@ -21,7 +21,7 @@ _DUMMY_ENVIRONMENT = Environment(
     name="not used",
     project="not used",
     build_type="not used",
-    selected_modules_and_packages=[],
+    selected=[],
 )
 
 
