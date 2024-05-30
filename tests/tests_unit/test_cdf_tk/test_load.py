@@ -1,5 +1,6 @@
 import os
 import pathlib
+from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -884,3 +885,14 @@ class TestResourceLoaders:
         warnings = validate_resource_yaml(content, spec, Path("test.yaml"))
 
         assert sorted(warnings) == []
+
+
+class TestLoaders:
+    def test_unique_display_names(self, cdf_tool_config: CDFToolConfig):
+        name_by_count = Counter(
+            [loader_cls.create_loader(cdf_tool_config, None).display_name for loader_cls in LOADER_LIST]
+        )
+
+        duplicates = {name: count for name, count in name_by_count.items() if count > 1}
+
+        assert not duplicates, f"Duplicate display names: {duplicates}"

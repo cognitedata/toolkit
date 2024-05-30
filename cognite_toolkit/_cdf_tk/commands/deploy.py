@@ -149,8 +149,9 @@ class DeployCommand(ToolkitCommand):
         if drop or drop_data:
             print(Panel("[bold]DEPLOYING resources...[/]"))
         for loader_cls in ordered_loaders:
+            loader_instance = loader_cls.create_loader(ToolGlobals, build_dir)
             result = self.deploy_resources(
-                loader_cls.create_loader(ToolGlobals, build_dir),
+                loader_instance,
                 ToolGlobals=ToolGlobals,
                 dry_run=dry_run,
                 has_done_drop=drop,
@@ -162,7 +163,7 @@ class DeployCommand(ToolkitCommand):
                     print(results.counts_table())
                 if results and results.has_uploads:
                     print(results.uploads_table())
-                raise ToolkitDeployResourceError(f"Failure to load/deploy {loader_cls.folder_name} as expected.")
+                raise ToolkitDeployResourceError(f"Failure to load/deploy {loader_instance.display_name} as expected.")
             if result:
                 results[result.name] = result
             if ctx.obj.verbose:
@@ -366,7 +367,8 @@ class DeployCommand(ToolkitCommand):
             if e.code == 409:
                 self.warn(LowSeverityWarning("Resource(s) already exist(s), skipping creation."))
             else:
-                print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+                print("[bold red]ERROR:[/] Failed to create resource(s).\n")
+                print(e)
                 return None
         except CogniteDuplicatedError as e:
             self.warn(

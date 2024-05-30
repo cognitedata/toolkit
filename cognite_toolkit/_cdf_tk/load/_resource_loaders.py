@@ -824,6 +824,10 @@ class FunctionScheduleLoader(
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
 
+    @property
+    def display_name(self) -> str:
+        return "function.schedules"
+
     @classmethod
     def get_required_capability(cls, items: FunctionScheduleWriteList) -> list[Capability]:
         return [
@@ -956,6 +960,10 @@ class RawDatabaseLoader(
         super().__init__(client, build_dir)
         self._loaded_db_names: set[str] = set()
 
+    @property
+    def display_name(self) -> str:
+        return "raw.databases"
+
     @classmethod
     def get_required_capability(cls, items: RawTableList) -> Capability:
         tables_by_database = defaultdict(list)
@@ -1057,6 +1065,10 @@ class RawTableLoader(
     def __init__(self, client: CogniteClient, build_dir: Path):
         super().__init__(client, build_dir)
         self._printed_warning = False
+
+    @property
+    def display_name(self) -> str:
+        return "raw.tables"
 
     @classmethod
     def get_required_capability(cls, items: RawTableList) -> Capability:
@@ -1633,6 +1645,10 @@ class TransformationScheduleLoader(
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
 
+    @property
+    def display_name(self) -> str:
+        return "transformation.schedules"
+
     @classmethod
     def get_required_capability(cls, items: TransformationScheduleWriteList) -> list[Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
@@ -1847,6 +1863,10 @@ class ExtractionPipelineConfigLoader(
     dependencies = frozenset({ExtractionPipelineLoader})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
 
+    @property
+    def display_name(self) -> str:
+        return "extraction_pipeline.config"
+
     @classmethod
     def get_required_capability(cls, items: ExtractionPipelineConfigWriteList) -> list[Capability]:
         # Access for extraction pipeline configs is checked by the extraction pipeline that is deployed
@@ -1893,7 +1913,10 @@ class ExtractionPipelineConfigLoader(
         for item in items:
             if not item.external_id:
                 raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
-            latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
+            try:
+                latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
+            except CogniteAPIError:
+                latest = None
             if latest and self.are_equal(item, latest):
                 updated.append(latest)
                 continue
@@ -2251,9 +2274,11 @@ class ContainerLoader(
     list_cls = ContainerList
     list_write_cls = ContainerApplyList
     dependencies = frozenset({SpaceLoader})
-
-    _display_name = "containers"
     _doc_url = "Containers/operation/ApplyContainers"
+
+    @property
+    def display_name(self) -> str:
+        return "containers"
 
     @classmethod
     def get_required_capability(cls, items: ContainerApplyList) -> Capability:
@@ -2427,14 +2452,16 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     list_cls = ViewList
     list_write_cls = ViewApplyList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
-
-    _display_name = "views"
     _doc_url = "Views/operation/ApplyViews"
 
     def __init__(self, client: CogniteClient, build_dir: Path) -> None:
         super().__init__(client, build_dir)
         # Caching to avoid multiple lookups on the same interfaces.
         self._interfaces_by_id: dict[ViewId, View] = {}
+
+    @property
+    def display_name(self) -> str:
+        return "views"
 
     @classmethod
     def get_required_capability(cls, items: ViewApplyList) -> Capability:
@@ -2893,6 +2920,10 @@ class WorkflowVersionLoader(
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflow-versions/operation/CreateOrUpdateWorkflowVersion"
+
+    @property
+    def display_name(self) -> str:
+        return "workflow.versions"
 
     @classmethod
     def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability:
