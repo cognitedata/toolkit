@@ -2427,8 +2427,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     list_cls = ViewList
     list_write_cls = ViewApplyList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
-
-    _display_name = "views"
     _doc_url = "Views/operation/ApplyViews"
 
     def __init__(self, client: CogniteClient, build_dir: Path) -> None:
