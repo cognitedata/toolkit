@@ -247,7 +247,7 @@ class BuildEnvironment(Environment):
 def _deprecation_selected(data: dict[str, Any]) -> None:
     if "selected_modules_and_packages" in data and "selected" not in data:
         print(
-            "  [bold yellow]Warning:[/] Environment section: 'selected_modules_and_packages' "
+            "  [bold yellow]Warning:[/] In environment section: 'selected_modules_and_packages' "
             "is deprecated, use 'selected' instead."
         )
         data["selected"] = data.pop("selected_modules_and_packages")
