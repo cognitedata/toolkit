@@ -28,6 +28,7 @@ Changes are grouped as follows:
 - Using display name instead of folder name on a failed `cdf-tk deploy` or `cdf-tk clean` command. For example,
   if `datapoints subscription` was failing the error message would be `Failure to load/deploy timeseries as expected`,
   now it is `Failure to load/deploy timeseries.subscription as expected`.
+- Unique display names for all resource types.
 
 ## [0.2.0a5] - 2024-05-28
 
