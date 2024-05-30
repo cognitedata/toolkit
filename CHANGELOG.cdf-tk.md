@@ -29,6 +29,8 @@ Changes are grouped as follows:
   if `datapoints subscription` was failing the error message would be `Failure to load/deploy timeseries as expected`,
   now it is `Failure to load/deploy timeseries.subscription as expected`.
 - Unique display names for all resource types.
+- Fixed bug when deploying extraction pipeline config, when none existed from before:
+  `There is no config stored for the extraction pipeline`.
 
 ## [0.2.0a5] - 2024-05-28
 

@@ -1913,7 +1913,10 @@ class ExtractionPipelineConfigLoader(
         for item in items:
             if not item.external_id:
                 raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
-            latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
+            try:
+                latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
+            except CogniteAPIError:
+                latest = None
             if latest and self.are_equal(item, latest):
                 updated.append(latest)
                 continue
