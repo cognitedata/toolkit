@@ -388,7 +388,7 @@ def pull_command(
         system_config = SystemYAML.load_from_directory(source_path, env)
         config = BuildConfigYAML.load_from_directory(source_path, env)
         config.set_environment_variables()
-        config.environment.selected_modules_and_packages = config.available_modules
+        config.environment.selected = config.available_modules
         print(
             Panel.fit(
                 f"[bold]Building all modules found in {config.filepath} (not only the modules under "

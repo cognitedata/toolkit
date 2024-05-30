@@ -46,7 +46,7 @@ def dummy_environment() -> Environment:
         name="dev",
         project="my_project",
         build_type="dev",
-        selected_modules_and_packages=["none"],
+        selected=["none"],
     )
 
 
@@ -319,7 +319,7 @@ class TestBuildConfigYAML:
         system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
         config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
         available_modules = {module.name for module, _ in iterate_modules(PYTEST_PROJECT)}
-        config.environment.selected_modules_and_packages = list(available_modules)
+        config.environment.selected = list(available_modules)
 
         BuildCommand().build_config(
             BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False

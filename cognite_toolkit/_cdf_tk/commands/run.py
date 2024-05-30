@@ -192,7 +192,7 @@ def run_local_function(
             continue
         for path in function_dir.iterdir():
             if path.is_dir() and path.name == external_id:
-                config.environment.selected_modules_and_packages = [module_from_path(path)]
+                config.environment.selected = [module_from_path(path)]
                 found = True
                 break
 

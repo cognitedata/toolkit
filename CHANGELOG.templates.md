@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0b1] - 2024-05-20
+
+### Fixed
+
+- Removed illegal characters from `DatapointSubscriptoin` description in
+  `cognite_modules/examples/my_example_module`.
+
 ## [0.2.0a5] - 2024-05-28
 
 ### Added

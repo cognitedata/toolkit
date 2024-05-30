@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.load import (
     NodeLoader,
     TransformationLoader,
 )
+from cognite_toolkit._cdf_tk.prototypes import featureflag
 from cognite_toolkit._cdf_tk.templates import (
     COGNITE_MODULES,
 )
@@ -89,6 +90,10 @@ def app() -> NoReturn:
     # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
+        if featureflag.enabled("FF_INTERACTIVE_INIT"):
+            from cognite_toolkit._cdf_tk.prototypes.interactive_init import InteractiveInit
+
+            _app.command("init")(InteractiveInit().interactive)
         _app()
     except ToolkitError as err:
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
@@ -453,7 +458,7 @@ def auth_verify(
         raise ToolkitValidationError("Failure to verify access rights.")
 
 
-@_app.command("init")
+@_app.command("init" if not featureflag.enabled("FF_INTERACTIVE_INIT") else "_init")
 def main_init(
     ctx: typer.Context,
     dry_run: Annotated[

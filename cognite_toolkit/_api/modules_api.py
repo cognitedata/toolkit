@@ -78,7 +78,7 @@ class ModulesAPI:
                 name=self._build_env,
                 project=self._project_name,
                 build_type=self._build_env,
-                selected_modules_and_packages=[module.name for module in modules],
+                selected=[module.name for module in modules],
             ),
             filepath=Path(""),
             variables=variables,
