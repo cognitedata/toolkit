@@ -1865,7 +1865,7 @@ class ExtractionPipelineConfigLoader(
 
     @property
     def display_name(self) -> str:
-        return "extraction_pipeline_config"
+        return "extraction_pipeline.config"
 
     @classmethod
     def get_required_capability(cls, items: ExtractionPipelineConfigWriteList) -> list[Capability]:
