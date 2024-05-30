@@ -824,6 +824,10 @@ class FunctionScheduleLoader(
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
 
+    @property
+    def display_name(self) -> str:
+        return "function.schedules"
+
     @classmethod
     def get_required_capability(cls, items: FunctionScheduleWriteList) -> list[Capability]:
         return [
@@ -956,6 +960,10 @@ class RawDatabaseLoader(
         super().__init__(client, build_dir)
         self._loaded_db_names: set[str] = set()
 
+    @property
+    def display_name(self) -> str:
+        return "raw.databases"
+
     @classmethod
     def get_required_capability(cls, items: RawTableList) -> Capability:
         tables_by_database = defaultdict(list)
@@ -1057,6 +1065,10 @@ class RawTableLoader(
     def __init__(self, client: CogniteClient, build_dir: Path):
         super().__init__(client, build_dir)
         self._printed_warning = False
+
+    @property
+    def display_name(self) -> str:
+        return "raw.tables"
 
     @classmethod
     def get_required_capability(cls, items: RawTableList) -> Capability:
@@ -1633,6 +1645,10 @@ class TransformationScheduleLoader(
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
 
+    @property
+    def display_name(self) -> str:
+        return "transformation.schedules"
+
     @classmethod
     def get_required_capability(cls, items: TransformationScheduleWriteList) -> list[Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
@@ -1846,6 +1862,10 @@ class ExtractionPipelineConfigLoader(
     list_write_cls = ExtractionPipelineConfigWriteList
     dependencies = frozenset({ExtractionPipelineLoader})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
+
+    @property
+    def display_name(self) -> str:
+        return "extraction_pipeline_config"
 
     @classmethod
     def get_required_capability(cls, items: ExtractionPipelineConfigWriteList) -> list[Capability]:
@@ -2897,6 +2917,10 @@ class WorkflowVersionLoader(
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflow-versions/operation/CreateOrUpdateWorkflowVersion"
+
+    @property
+    def display_name(self) -> str:
+        return "workflow.versions"
 
     @classmethod
     def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability:
