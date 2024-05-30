@@ -366,7 +366,8 @@ class DeployCommand(ToolkitCommand):
             if e.code == 409:
                 self.warn(LowSeverityWarning("Resource(s) already exist(s), skipping creation."))
             else:
-                print(f"[bold red]ERROR:[/] Failed to create resource(s).\n{e}")
+                print("[bold red]ERROR:[/] Failed to create resource(s).\n")
+                print(e)
                 return None
         except CogniteDuplicatedError as e:
             self.warn(
