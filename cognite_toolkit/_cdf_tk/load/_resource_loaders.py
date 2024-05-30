@@ -2251,9 +2251,11 @@ class ContainerLoader(
     list_cls = ContainerList
     list_write_cls = ContainerApplyList
     dependencies = frozenset({SpaceLoader})
-
-    _display_name = "containers"
     _doc_url = "Containers/operation/ApplyContainers"
+
+    @property
+    def display_name(self) -> str:
+        return "containers"
 
     @classmethod
     def get_required_capability(cls, items: ContainerApplyList) -> Capability:
@@ -2433,6 +2435,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         super().__init__(client, build_dir)
         # Caching to avoid multiple lookups on the same interfaces.
         self._interfaces_by_id: dict[ViewId, View] = {}
+
+    @property
+    def display_name(self) -> str:
+        return "views"
 
     @classmethod
     def get_required_capability(cls, items: ViewApplyList) -> Capability:
