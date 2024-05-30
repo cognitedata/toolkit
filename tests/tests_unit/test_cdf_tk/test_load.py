@@ -18,7 +18,7 @@ from cognite.client.data_classes import (
     Transformation,
     TransformationSchedule,
 )
-from cognite.client.data_classes.data_modeling import Edge, Node
+from cognite.client.data_classes.data_modeling import Edge, Node, NodeApply
 from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
@@ -38,12 +38,14 @@ from cognite_toolkit._cdf_tk.load import (
     GroupAllScopedLoader,
     GroupResourceScopedLoader,
     Loader,
+    NodeLoader,
     ResourceLoader,
     ResourceTypes,
     TimeSeriesLoader,
     TransformationLoader,
     ViewLoader,
 )
+from cognite_toolkit._cdf_tk.load.data_classes import NodeAPICall, NodeApplyListWithCall
 from cognite_toolkit._cdf_tk.templates import (
     module_from_path,
     resource_folder_from_path,
@@ -533,6 +535,75 @@ conflictMode: upsert
             with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
                 with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
                     loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+
+
+class TestNodeLoader:
+    @pytest.mark.parametrize(
+        "yamL_raw, expected",
+        [
+            pytest.param(
+                """space: my_space
+externalId: my_external_id""",
+                NodeApplyListWithCall([NodeApply("my_space", "my_external_id")]),
+                id="Single node no API call",
+            ),
+            pytest.param(
+                """- space: my_space
+  externalId: my_first_node
+- space: my_space
+  externalId: my_second_node
+""",
+                NodeApplyListWithCall(
+                    [
+                        NodeApply("my_space", "my_first_node"),
+                        NodeApply("my_space", "my_second_node"),
+                    ]
+                ),
+                id="Multiple nodes no API call",
+            ),
+            pytest.param(
+                """autoCreateDirectRelations: true
+skipOnVersionConflict: false
+replace: true
+node:
+  space: my_space
+  externalId: my_external_id""",
+                NodeApplyListWithCall([NodeApply("my_space", "my_external_id")], NodeAPICall(True, False, True)),
+                id="Single node with API call",
+            ),
+            pytest.param(
+                """autoCreateDirectRelations: true
+skipOnVersionConflict: false
+replace: true
+nodes:
+- space: my_space
+  externalId: my_first_node
+- space: my_space
+  externalId: my_second_node
+    """,
+                NodeApplyListWithCall(
+                    [
+                        NodeApply("my_space", "my_first_node"),
+                        NodeApply("my_space", "my_second_node"),
+                    ],
+                    NodeAPICall(True, False, True),
+                ),
+                id="Multiple nodes with API call",
+            ),
+        ],
+    )
+    def test_load_nodes(
+        self,
+        yamL_raw: str,
+        expected: NodeApplyListWithCall,
+        cdf_tool_config: CDFToolConfig,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        loader = NodeLoader.create_loader(cdf_tool_config, None)
+        mock_read_yaml_file({"my_node.yaml": yaml.safe_load(yamL_raw)}, monkeypatch)
+        loaded = loader.load_resource(Path("my_node.yaml"), cdf_tool_config, skip_validation=True)
+
+        assert loaded.dump() == expected.dump()
 
 
 class TestExtractionPipelineDependencies:

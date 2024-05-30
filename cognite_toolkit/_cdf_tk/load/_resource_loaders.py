@@ -108,6 +108,7 @@ from cognite.client.data_classes.data_modeling import (
     DataModelApplyList,
     DataModelList,
     Node,
+    NodeApply,
     NodeApplyResultList,
     NodeList,
     Space,
@@ -167,7 +168,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
-from .data_classes import LoadedNode, LoadedNodeList, RawDatabaseTable, RawTableList
+from .data_classes import NodeApplyListWithCall, RawDatabaseTable, RawTableList
 
 _MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 _MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
@@ -2661,14 +2662,14 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
 
 @final
-class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeList, NodeList]):
+class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListWithCall, NodeList]):
     item_name = "nodes"
     folder_name = "data_models"
     filename_pattern = r"^.*\.?(node)$"
     resource_cls = Node
-    resource_write_cls = LoadedNode
+    resource_write_cls = NodeApply
     list_cls = NodeList
-    list_write_cls = LoadedNodeList
+    list_write_cls = NodeApplyListWithCall
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
@@ -2677,14 +2678,14 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
         return "nodes"
 
     @classmethod
-    def get_required_capability(cls, items: LoadedNodeList) -> Capability:
+    def get_required_capability(cls, items: NodeApplyListWithCall) -> Capability:
         return DataModelInstancesAcl(
             [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
-            DataModelInstancesAcl.Scope.SpaceID(list({item.node.space for item in items})),
+            DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items})),
         )
 
     @classmethod
-    def get_id(cls, item: LoadedNode | Node | dict) -> NodeId:
+    def get_id(cls, item: NodeApply | Node | dict) -> NodeId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -2703,17 +2704,20 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
                 elif identifier.get("type") == "container" and _in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
-    def are_equal(self, local: LoadedNode, cdf_resource: Node) -> bool:
+    @classmethod
+    def create_empty_of(cls, items: NodeApplyListWithCall) -> NodeApplyListWithCall:
+        return NodeApplyListWithCall([], items.api_call)
+
+    def are_equal(self, local: NodeApply, cdf_resource: Node) -> bool:
         """Comparison for nodes to include properties in the comparison
 
         Note this is an expensive operation as we to an extra retrieve to fetch the properties.
         Thus, the cdf-tk should not be used to upload nodes that are data only nodes used for configuration.
         """
-        local_node = local.node
         # Note reading from a container is not supported.
         sources = [
             source_prop_pair.source
-            for source_prop_pair in local_node.sources or []
+            for source_prop_pair in local.sources or []
             if isinstance(source_prop_pair.source, ViewId)
         ]
         try:
@@ -2724,7 +2728,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
             # View does not exist, so node does not exist.
             return False
         cdf_resource_dumped = cdf_resource_with_properties.as_write().dump()
-        local_dumped = local_node.dump()
+        local_dumped = local.dump()
         if "existingVersion" not in local_dumped:
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
@@ -2732,21 +2736,18 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
 
         return local_dumped == cdf_resource_dumped
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> LoadedNodeList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyListWithCall:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        if isinstance(raw, dict):
-            loaded = LoadedNodeList._load(raw, cognite_client=self.client)
-        else:
-            raise ValueError(f"Unexpected node yaml file format {filepath.name}")
+        loaded = NodeApplyListWithCall._load(raw, cognite_client=self.client)
         if not skip_validation:
-            ToolGlobals.verify_spaces(list({item.node.space for item in loaded}))
+            ToolGlobals.verify_spaces(list({item.space for item in loaded}))
         return loaded
 
     def dump_resource(
-        self, resource: LoadedNode, source_file: Path, local_resource: LoadedNode
+        self, resource: NodeApply, source_file: Path, local_resource: NodeApply
     ) -> tuple[dict[str, Any], dict[Path, str]]:
-        resource_node = resource.node
-        local_node = local_resource.node
+        resource_node = resource
+        local_node = local_resource
         # Retrieve node again to get properties.
         view_ids = {source.source for source in local_node.sources or [] if isinstance(source.source, ViewId)}
         nodes = self.client.data_modeling.instances.retrieve(nodes=local_node.as_id(), sources=list(view_ids)).nodes
@@ -2766,26 +2767,18 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
 
         return dumped, {}
 
-    def create(self, items: LoadedNodeList) -> NodeApplyResultList:
-        if not isinstance(items, LoadedNodeList):
+    def create(self, items: NodeApplyListWithCall) -> NodeApplyResultList:
+        if not isinstance(items, NodeApplyListWithCall):
             raise ValueError("Unexpected node format file format")
 
-        results = NodeApplyResultList([])
-        for api_call, item in itertools.groupby(sorted(items, key=lambda x: x.api_call), key=lambda x: x.api_call):
-            nodes = [node.node for node in item]
-            result = self.client.data_modeling.instances.apply(
-                nodes=nodes,
-                auto_create_direct_relations=api_call.auto_create_direct_relations,
-                skip_on_version_conflict=api_call.skip_on_version_conflict,
-                replace=api_call.replace,
-            )
-            results.extend(result.nodes)
-        return results
+        api_call_args = items.api_call.dump(camel_case=False) if items.api_call else {}
+        result = self.client.data_modeling.instances.apply(nodes=items, **api_call_args)
+        return result.nodes
 
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).nodes
 
-    def update(self, items: LoadedNodeList) -> NodeApplyResultList:
+    def update(self, items: NodeApplyListWithCall) -> NodeApplyResultList:
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[NodeId]) -> int:
@@ -2807,29 +2800,18 @@ class NodeLoader(ResourceContainerLoader[NodeId, LoadedNode, Node, LoadedNodeLis
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Modifications to match the spec
-        for item in spec:
-            if item.path[0] == "apiCall" and len(item.path) > 1:
-                # Move up one level
-                # The spec class is immutable, so we use this trick to modify it.
-                object.__setattr__(item, "path", item.path[1:])
-            elif item.path[0] == "node":
-                # Move into list
-                object.__setattr__(item, "path", ("nodes", ANY_INT, *item.path[1:]))
-        # Top level of nodes
-        spec.add(ParameterSpec(("nodes",), frozenset({"list"}), is_required=True, _is_nullable=False))
-        spec.add(
+        node_spec = super().get_write_cls_parameter_spec()
+        # This is a deviation between the SDK and the API
+        node_spec.add(ParameterSpec(("instanceType",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        node_spec.add(
             ParameterSpec(
-                ("nodes", ANY_INT, "sources", ANY_INT, "source", "type"),
+                ("sources", ANY_INT, "source", "type"),
                 frozenset({"str"}),
                 is_required=True,
                 _is_nullable=False,
             )
         )
-        # Not used
-        spec.discard(ParameterSpec(("apiCall",), frozenset({"dict"}), is_required=True, _is_nullable=False))
-        return spec
+        return ParameterSpecSet(node_spec, spec_name=cls.__name__)
 
 
 @final

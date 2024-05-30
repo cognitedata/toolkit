@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Support for loading `nodes` with `APICall` arguments. The typical use case is when `node types` are part of a
+  data model, and the default `APICall` arguments are sufficient for all nodes
+
 ## [0.2.0a5] - 2024-05-28
 
 ### Added
