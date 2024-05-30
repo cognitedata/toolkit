@@ -134,12 +134,12 @@ class BuildCommand(ToolkitCommand):
         if duplicate_modules := {
             module_name: paths
             for module_name, paths in module_parts_by_name.items()
-            if len(paths) > 1 and module_name in config.environment.selected_modules_and_packages
+            if len(paths) > 1 and module_name in config.environment.selected
         }:
             raise ToolkitDuplicatedModuleError(
                 f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
             )
-        system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
+        system_config.validate_modules(available_modules, config.environment.selected)
 
         selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
 

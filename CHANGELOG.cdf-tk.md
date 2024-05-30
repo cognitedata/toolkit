@@ -32,6 +32,11 @@ Changes are grouped as follows:
 - Fixed bug when deploying extraction pipeline config, when none existed from before:
   `There is no config stored for the extraction pipeline`.
 
+### Changed
+
+- In `config.[env].yaml`, in the `environment` section, `selected_modules_and_packages` is renamed to `selected`.
+  The old names will still work, but will trigger a deprecation warning.
+
 ## [0.2.0a5] - 2024-05-28
 
 ### Added

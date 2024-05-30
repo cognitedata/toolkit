@@ -699,7 +699,7 @@ class TestDeployResources:
         build_env_name = "dev"
         system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
         config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
-        config.environment.selected_modules_and_packages = ["another_module"]
+        config.environment.selected = ["another_module"]
         build_cmd = BuildCommand()
         build_cmd.build_config(
             BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False
@@ -820,12 +820,12 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
                 name="not used",
                 project=os.environ.get("CDF_PROJECT", "<not set>"),
                 build_type="dev",
-                selected_modules_and_packages=[],
+                selected=[],
             )
         ).load_defaults(source_path)
         config = config_init.as_build_config()
         config.set_environment_variables()
-        config.environment.selected_modules_and_packages = config.available_modules
+        config.environment.selected = config.available_modules
 
         source_by_build_path = BuildCommand().build_config(
             build_dir=build_dir,
