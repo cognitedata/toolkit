@@ -282,7 +282,7 @@ class CleanCommand(ToolkitCommand):
                     print(results.counts_table())
                 if results and results.has_uploads:
                     print(results.uploads_table())
-                raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
+                raise ToolkitCleanResourceError(f"Failure to clean {loader.display_name} as expected.")
         if results.has_counts:
             print(results.counts_table())
         if results.has_uploads:
