@@ -6,7 +6,7 @@ DataSet:
   name: Example dataset.
   writeProtected: false
 DatapointSubscription:
-- description: All timeseries with externalId starting with 'ts_value'
+- description: All timeseries with externalId starting with ts_value
   externalId: my_subscription
   filter:
     prefix:
