@@ -20,7 +20,14 @@ Changes are grouped as follows:
 ### Added
 
 - Support for loading `nodes` with `APICall` arguments. The typical use case is when `node types` are part of a
-  data model, and the default `APICall` arguments are sufficient for all nodes
+  data model, and the default `APICall` arguments works well.
+
+### Fixed
+
+- Error message displayed to console on failed `cdf-tk deploy` command could be modified. This is now fixed.
+- Using display name instead of folder name on a failed `cdf-tk deploy` or `cdf-tk clean` command. For example,
+  if `datapoints subscription` was failing the error message would be `Failure to load/deploy timeseries as expected`,
+  now it is `Failure to load/deploy timeseries.subscription as expected`.
 
 ## [0.2.0a5] - 2024-05-28
 
