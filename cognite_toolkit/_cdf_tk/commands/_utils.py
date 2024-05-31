@@ -3,10 +3,10 @@ from __future__ import annotations
 from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.load import (
+from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.load._base_loaders import T_ID
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
 
 
 def _print_ids_or_length(resource_ids: SequenceNotStr[T_ID], limit: int = 10) -> str:

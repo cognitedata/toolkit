@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDeployResourceError,
     ToolkitNotADirectoryError,
 )
-from cognite_toolkit._cdf_tk.load import (
+from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     DataLoader,
     DeployResults,
@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.load import (
     ResourceContainerLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.load.data_classes import (
+from cognite_toolkit._cdf_tk.loaders.data_classes import (
     DatapointDeployResult,
     DeployResult,
     ResourceContainerDeployResult,

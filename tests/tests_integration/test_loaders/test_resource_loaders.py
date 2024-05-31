@@ -15,8 +15,8 @@ from cognite.client.data_classes.datapoints_subscriptions import (
 )
 
 from cognite_toolkit._cdf_tk.commands import DeployCommand
-from cognite_toolkit._cdf_tk.load import DataSetsLoader, FunctionScheduleLoader
-from cognite_toolkit._cdf_tk.load._resource_loaders import DatapointSubscriptionLoader
+from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, FunctionScheduleLoader
+from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
 from tests.tests_integration.constants import RUN_UNIQUE_ID
 
 

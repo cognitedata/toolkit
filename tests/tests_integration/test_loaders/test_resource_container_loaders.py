@@ -6,7 +6,7 @@ from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import TimeSeriesWrite, TimeSeriesWriteList
 
-from cognite_toolkit._cdf_tk.load import ContainerLoader, TimeSeriesLoader
+from cognite_toolkit._cdf_tk.loaders import ContainerLoader, TimeSeriesLoader
 from tests.tests_integration.constants import RUN_UNIQUE_ID
 
 

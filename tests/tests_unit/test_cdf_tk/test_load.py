@@ -26,7 +26,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, ParameterValue, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.load import (
+from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     LOADER_LIST,
     RESOURCE_LOADER_LIST,
@@ -46,7 +46,7 @@ from cognite_toolkit._cdf_tk.load import (
     TransformationLoader,
     ViewLoader,
 )
-from cognite_toolkit._cdf_tk.load.data_classes import NodeAPICall, NodeApplyListWithCall
+from cognite_toolkit._cdf_tk.loaders.data_classes import NodeAPICall, NodeApplyListWithCall
 from cognite_toolkit._cdf_tk.templates import (
     module_from_path,
     resource_folder_from_path,
