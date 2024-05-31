@@ -180,7 +180,7 @@ class DataSetMissingWarning(IdentifiedResourceFileReadWarning):
 
     def get_message(self) -> str:
         # Avoid circular import
-        from cognite_toolkit._cdf_tk.load import TransformationLoader
+        from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 
         if self.filepath.parent.name == TransformationLoader.folder_name:
             return f"{type(self).__name__}: It is recommended to use a data set if source or destination can be scoped with a data set. If not, ignore this warning."

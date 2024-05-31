@@ -19,7 +19,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.load import FunctionLoader, FunctionScheduleLoader
+from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.templates import (
     module_from_path,
 )
