@@ -239,11 +239,13 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             for acl, content in capability.items():
                 if scope := content.get("scope", {}):
                     if space_ids := scope.get(capabilities.SpaceIDScope._scope_name, []):
-                        for space_id in space_ids:
-                            yield SpaceLoader, space_id
+                        if isinstance(space_ids, dict) and "spaceIds" in space_ids:
+                            for space_id in space_ids["spaceIds"]:
+                                yield SpaceLoader, space_id
                     if data_set_ids := scope.get(capabilities.DataSetScope._scope_name, []):
-                        for data_set_id in data_set_ids:
-                            yield DataSetsLoader, data_set_id
+                        if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
+                            for data_set_id in data_set_ids["ids"]:
+                                yield DataSetsLoader, data_set_id
                     if table_ids := scope.get(capabilities.TableScope._scope_name, []):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
                             yield RawDatabaseLoader, RawDatabaseTable(db_name)

@@ -1,7 +1,7 @@
 import os
 import pathlib
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -34,14 +34,19 @@ from cognite_toolkit._cdf_tk.loaders import (
     DatapointsLoader,
     DataSetsLoader,
     ExtractionPipelineConfigLoader,
+    ExtractionPipelineLoader,
     FileMetadataLoader,
     FunctionLoader,
     GroupAllScopedLoader,
+    GroupLoader,
     GroupResourceScopedLoader,
     Loader,
     NodeLoader,
+    RawDatabaseLoader,
+    RawTableLoader,
     ResourceLoader,
     ResourceTypes,
+    SpaceLoader,
     TimeSeriesLoader,
     TransformationLoader,
     ViewLoader,
@@ -371,6 +376,58 @@ class TestGroupLoader:
 
         assert cognite_client_approval.create_calls()["Group"] == 1
         assert cognite_client_approval.delete_calls()["Group"] == 1
+
+    @pytest.mark.parametrize(
+        "item, expected",
+        [
+            pytest.param(
+                {"capabilities": [{"dataModelsAcl": {"scope": {"spaceIdScope": {"spaceIds": ["space1", "space2"]}}}}]},
+                [(SpaceLoader, "space1"), (SpaceLoader, "space2")],
+                id="SpaceId scope",
+            ),
+            pytest.param(
+                {"capabilities": [{"timeSeriesAcl": {"scope": {"datasetScope": {"ids": ["ds_datasest1"]}}}}]},
+                [
+                    (DataSetsLoader, "ds_dataset1"),
+                ],
+                id="Dataset scope",
+            ),
+            pytest.param(
+                {
+                    "capabilities": [
+                        {"extractionRunsAcl": {"scope": {"extractionpiplinescope": {"ids": ["ex_my_extraction"]}}}}
+                    ]
+                },
+                [
+                    (ExtractionPipelineLoader, "ex_my_extraction"),
+                ],
+                id="Extraction pipeline scope",
+            ),
+            pytest.param(
+                {"capabilities": [{"rawAcl": {"scope": {"tableScope": {"dbsToTables": {"my_db": ["my_table"]}}}}}]},
+                [(RawDatabaseLoader, "my_db"), (RawTableLoader, "my_table")],
+                id="Table scope",
+            ),
+            pytest.param(
+                {"capabilities": [{"datasetsAcl": {"scope": {"idscope": {"ids": ["ds_my_dataset"]}}}}]},
+                [
+                    (DataSetsLoader, "ds_my_dataset"),
+                ],
+                id="ID scope dataset",
+            ),
+            pytest.param(
+                {"capabilities": [{"extractionPipelinesAcl": {"scope": {"idscope": {"ids": ["ex_my_extraction"]}}}}]},
+                [
+                    (ExtractionPipelineLoader, "ex_my_extraction"),
+                ],
+                id="ID scope extractionpipline ",
+            ),
+        ],
+    )
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
+        actual_dependent_items = GroupLoader.get_dependent_items(item)
+
+        assert sorted(actual_dependent_items) == sorted(expected)
 
 
 class TestTimeSeriesLoader:
