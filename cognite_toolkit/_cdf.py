@@ -248,7 +248,7 @@ def build(
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
     cmd = BuildCommand()
-    cmd.execute(ctx, Path(source_dir), Path(build_dir), build_env_name, no_clean)
+    cmd.execute(ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
 
 
 @_app.command("deploy")
