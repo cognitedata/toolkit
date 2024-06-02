@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     LOADER_LIST,
     RESOURCE_LOADER_LIST,
+    ContainerLoader,
     DataModelLoader,
     DatapointsLoader,
     DataSetsLoader,
@@ -207,6 +208,62 @@ class TestViewLoader:
         assert len(to_create) == 0
         assert len(to_change) == 0
         assert len(unchanged) == 1
+
+    @pytest.mark.parametrize(
+        "item, expected",
+        [
+            pytest.param(
+                {
+                    "space": "sp_my_space",
+                    "properties": {
+                        "name": {
+                            "container": {
+                                "type": "container",
+                                "space": "my_container_space",
+                                "externalId": "my_container",
+                            }
+                        }
+                    },
+                },
+                [
+                    (SpaceLoader, "sp_my_space"),
+                    (ContainerLoader, dm.ContainerId(space="my_container_space", external_id="my_container")),
+                ],
+                id="View with one container property",
+            ),
+            pytest.param(
+                {
+                    "space": "sp_my_space",
+                    "properties": {
+                        "toEdge": {
+                            "source": {
+                                "type": "view",
+                                "space": "my_view_space",
+                                "externalId": "my_view",
+                                "version": "1",
+                            },
+                            "edgeSource": {
+                                "type": "view",
+                                "space": "my_other_view_space",
+                                "externalId": "my_edge_view",
+                                "version": "42",
+                            },
+                        }
+                    },
+                },
+                [
+                    (SpaceLoader, "sp_my_space"),
+                    (ViewLoader, dm.ViewId(space="my_view_space", external_id="my_view", version="1")),
+                    (ViewLoader, dm.ViewId(space="my_other_view_space", external_id="my_edge_view", version="42")),
+                ],
+                id="View with one container property",
+            ),
+        ],
+    )
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
+        actual = ViewLoader.get_dependent_items(item)
+
+        assert list(actual) == expected
 
 
 class TestDataModelLoader:
