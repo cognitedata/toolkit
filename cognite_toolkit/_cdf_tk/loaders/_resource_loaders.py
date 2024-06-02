@@ -1754,9 +1754,10 @@ class ExtractionPipelineLoader(
             yield DataSetsLoader, item["dataSetExternalId"]
         if "rawTables" in item:
             for entry in item["rawTables"]:
-                if "dbName" in entry and entry["dbName"] not in seen_databases:
-                    seen_databases.add(entry["dbName"])
-                    yield RawDatabaseLoader, RawDatabaseTable(db_name=entry["dbName"])
+                if db := entry.get("dbName"):
+                    if db not in seen_databases:
+                        seen_databases.add(db)
+                        yield RawDatabaseLoader, RawDatabaseTable(db_name=db)
                     if "tableName" in entry:
                         yield RawTableLoader, RawDatabaseTable._load(entry)
 
