@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+- Running the build command, `cdf-tk build`, with a `View` resource with a `hasData` filter would print a
+  `UnusedParameterWarning: Parameter 'externalId' is not used in section ('filter', 'hasData', 0, 'externalId').`.
+  This is incorrect and is now fixed to not print this warning.
+
 ## [0.2.0b1] - 2024-05-20
 
 ### Added
