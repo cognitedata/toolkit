@@ -597,6 +597,59 @@ conflictMode: upsert
                 with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
                     loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
 
+    @pytest.mark.parametrize(
+        "item, expected",
+        [
+            pytest.param(
+                {
+                    "dataSetExternalId": "ds_my_dataset",
+                    "destination": {
+                        "type": "instances",
+                        "dataModel": {
+                            "space": "sp_model_space",
+                            "externalId": "my_model",
+                            "version": "v1",
+                            "destinationType": "assets",
+                        },
+                        "instanceSpace": "sp_data_space",
+                    },
+                },
+                [
+                    (DataSetsLoader, "ds_my_dataset"),
+                    (SpaceLoader, "sp_data_space"),
+                    (DataModelLoader, dm.DataModelId(space="sp_model_space", external_id="my_model", version="v1")),
+                ],
+                id="Transformation to data model",
+            ),
+            pytest.param(
+                {
+                    "destination": {
+                        "type": "nodes",
+                        "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+                        "instanceSpace": "sp_data_space",
+                    }
+                },
+                [
+                    (ViewLoader, dm.ViewId(space="sp_space", external_id="my_view", version="v1")),
+                    (SpaceLoader, "sp_data_space"),
+                ],
+                id="Transformation to nodes ",
+            ),
+            pytest.param(
+                {"destination": {"type": "raw", "database": "my_db", "table": "my_table"}},
+                [
+                    (RawDatabaseLoader, RawDatabaseTable("my_db")),
+                    (RawTableLoader, RawDatabaseTable("my_db", "my_table")),
+                ],
+                id="Transformation to RAW table",
+            ),
+        ],
+    )
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
+        actual = TransformationLoader.get_dependent_items(item)
+
+        assert list(actual) == expected
+
 
 class TestNodeLoader:
     @pytest.mark.parametrize(
