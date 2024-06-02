@@ -141,6 +141,30 @@ class TestDataSetsLoader:
 
 
 class TestViewLoader:
+    @pytest.mark.parametrize(
+        "item",
+        [
+            pytest.param(
+                {
+                    "filter": {
+                        "hasData": [
+                            {"type": "container", "space": "sp_my_space", "externalId": "container_id"},
+                            {"type": "view", "space": "sp_my_space", "externalId": "view_id"},
+                        ]
+                    }
+                },
+                id="HasData Filter",
+            )
+        ],
+    )
+    def test_valid_spec(self, item: dict):
+        spec = ViewLoader.get_write_cls_parameter_spec()
+        dumped = read_parameters_from_dict(item)
+
+        extra = dumped - spec
+
+        assert not extra, f"Extra keys: {extra}"
+
     def test_update_view_with_interface(self, cognite_client_approval: ApprovalCogniteClient):
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
