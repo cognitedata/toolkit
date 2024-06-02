@@ -1749,11 +1749,13 @@ class ExtractionPipelineLoader(
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        seen_databases: set[str] = set()
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
         if "rawTables" in item:
             for entry in item["rawTables"]:
-                if "dbName" in entry:
+                if "dbName" in entry and entry["dbName"] not in seen_databases:
+                    seen_databases.add(entry["dbName"])
                     yield RawDatabaseLoader, RawDatabaseTable(db_name=entry["dbName"])
                     if "tableName" in entry:
                         yield RawTableLoader, RawDatabaseTable._load(entry)
