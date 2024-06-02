@@ -250,10 +250,11 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
                             yield RawDatabaseLoader, RawDatabaseTable(db_name)
                             for table in tables:
-                                yield RawDatabaseLoader, RawDatabaseTable(db_name, table)
+                                yield RawTableLoader, RawDatabaseTable(db_name, table)
                     if extraction_pipeline_ids := scope.get(capabilities.ExtractionPipelineScope._scope_name, []):
-                        for extraction_pipeline_id in extraction_pipeline_ids:
-                            yield ExtractionPipelineLoader, extraction_pipeline_id
+                        if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
+                            for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
+                                yield ExtractionPipelineLoader, extraction_pipeline_id
                     if (ids := scope.get(capabilities.IDScope._scope_name, [])) or (
                         ids := scope.get(capabilities.IDScopeLowerCase._scope_name, [])
                     ):
@@ -264,8 +265,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                             loader = ExtractionPipelineLoader
                         elif acl == capabilities.TimeSeriesAcl._capability_name:
                             loader = TimeSeriesLoader
-                        if loader is not None:
-                            for id_ in ids:
+                        if loader is not None and isinstance(ids, dict) and "ids" in ids:
+                            for id_ in ids["ids"]:
                                 yield loader, id_
 
     @classmethod

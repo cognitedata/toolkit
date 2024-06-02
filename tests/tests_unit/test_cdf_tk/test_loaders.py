@@ -51,7 +51,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
     ViewLoader,
 )
-from cognite_toolkit._cdf_tk.loaders.data_classes import NodeAPICall, NodeApplyListWithCall
+from cognite_toolkit._cdf_tk.loaders.data_classes import NodeAPICall, NodeApplyListWithCall, RawDatabaseTable
 from cognite_toolkit._cdf_tk.templates import (
     module_from_path,
     resource_folder_from_path,
@@ -386,7 +386,7 @@ class TestGroupLoader:
                 id="SpaceId scope",
             ),
             pytest.param(
-                {"capabilities": [{"timeSeriesAcl": {"scope": {"datasetScope": {"ids": ["ds_datasest1"]}}}}]},
+                {"capabilities": [{"timeSeriesAcl": {"scope": {"datasetScope": {"ids": ["ds_dataset1"]}}}}]},
                 [
                     (DataSetsLoader, "ds_dataset1"),
                 ],
@@ -395,7 +395,7 @@ class TestGroupLoader:
             pytest.param(
                 {
                     "capabilities": [
-                        {"extractionRunsAcl": {"scope": {"extractionpiplinescope": {"ids": ["ex_my_extraction"]}}}}
+                        {"extractionRunsAcl": {"scope": {"extractionPipelineScope": {"ids": ["ex_my_extraction"]}}}}
                     ]
                 },
                 [
@@ -405,7 +405,10 @@ class TestGroupLoader:
             ),
             pytest.param(
                 {"capabilities": [{"rawAcl": {"scope": {"tableScope": {"dbsToTables": {"my_db": ["my_table"]}}}}}]},
-                [(RawDatabaseLoader, "my_db"), (RawTableLoader, "my_table")],
+                [
+                    (RawDatabaseLoader, RawDatabaseTable("my_db")),
+                    (RawTableLoader, RawDatabaseTable("my_db", "my_table")),
+                ],
                 id="Table scope",
             ),
             pytest.param(
@@ -427,7 +430,7 @@ class TestGroupLoader:
     def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
         actual_dependent_items = GroupLoader.get_dependent_items(item)
 
-        assert sorted(actual_dependent_items) == sorted(expected)
+        assert list(actual_dependent_items) == expected
 
 
 class TestTimeSeriesLoader:
