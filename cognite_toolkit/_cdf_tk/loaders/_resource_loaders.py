@@ -1452,6 +1452,8 @@ class TransformationLoader(
                 yield RawDatabaseLoader, RawDatabaseTable(destination["database"])
                 yield RawTableLoader, RawDatabaseTable(destination["database"], destination["table"])
             elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
+                if space := destination.get("instanceSpace"):
+                    yield SpaceLoader, space
                 if _in_dict(("space", "externalId", "version"), view):
                     yield ViewLoader, ViewId.load(view)
             elif destination.get("type") == "instances":

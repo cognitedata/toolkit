@@ -630,8 +630,8 @@ conflictMode: upsert
                     }
                 },
                 [
-                    (ViewLoader, dm.ViewId(space="sp_space", external_id="my_view", version="v1")),
                     (SpaceLoader, "sp_data_space"),
+                    (ViewLoader, dm.ViewId(space="sp_space", external_id="my_view", version="v1")),
                 ],
                 id="Transformation to nodes ",
             ),
