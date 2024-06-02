@@ -807,6 +807,34 @@ class TestExtractionPipelineDependencies:
             assert res.deleted == 1
 
 
+class TestExtractionPipelineLoader:
+    @pytest.mark.parametrize(
+        "item, expected",
+        [
+            pytest.param(
+                {
+                    "dataSetExternalId": "ds_my_dataset",
+                    "rawTables": [
+                        {"dbName": "my_db", "tableName": "my_table"},
+                        {"dbName": "my_db", "tableName": "my_table2"},
+                    ],
+                },
+                [
+                    (DataSetsLoader, "ds_my_dataset"),
+                    (RawDatabaseLoader, RawDatabaseTable("my_db")),
+                    (RawTableLoader, RawDatabaseTable("my_db", "my_table")),
+                    (RawTableLoader, RawDatabaseTable("my_db", "my_table2")),
+                ],
+                id="Extraction pipeline to Table",
+            ),
+        ],
+    )
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
+        actual = ExtractionPipelineLoader.get_dependent_items(item)
+
+        assert list(actual) == expected
+
+
 class TestDeployResources:
     def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
         build_env_name = "dev"
