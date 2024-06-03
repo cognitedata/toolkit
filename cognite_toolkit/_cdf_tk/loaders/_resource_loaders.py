@@ -2893,12 +2893,16 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
 @final
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
     folder_name = "workflows"
-    filename_pattern = r"^.*\.Workflow$"
+    filename_pattern = r"^.*Workflow$"
     resource_cls = Workflow
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
     list_write_cls = WorkflowUpsertList
-    dependencies = frozenset({GroupAllScopedLoader})
+    dependencies = frozenset(
+        {
+            GroupAllScopedLoader,
+        }
+    )
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
