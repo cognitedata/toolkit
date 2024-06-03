@@ -170,6 +170,7 @@ def test_auth_verify_no_capabilities(
     assert len(cmd.warning_list) == 1
     assert set(cmd.warning_list) == {
         HighSeverityWarning(
-            "The service principal/application configured for this client does not have the basic group write access rights."
+            "The service principal/application configured for this client "
+            "does not have the basic group write access rights."
         )
     }
