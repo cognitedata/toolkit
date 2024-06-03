@@ -15,7 +15,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, TokenInspection
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.commands.auth import check_auth
+from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.conftest import ApprovalCogniteClient
 from tests.tests_unit.data import AUTH_DATA
@@ -101,7 +101,7 @@ def test_auth_verify_happypath(
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+    AuthCommand().check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])
@@ -128,7 +128,7 @@ def test_auth_verify_wrong_capabilities(
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+    AuthCommand().check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])
@@ -154,7 +154,7 @@ def test_auth_verify_two_groups(
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+    AuthCommand().check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])
@@ -183,7 +183,7 @@ def test_auth_verify_no_capabilities(
 
     cdf_tool_config.verify_client.side_effect = mock_verify_client
 
-    check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+    AuthCommand().check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])
