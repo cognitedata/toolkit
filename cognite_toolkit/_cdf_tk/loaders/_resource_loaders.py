@@ -2966,7 +2966,7 @@ class WorkflowVersionLoader(
     ]
 ):
     folder_name = "workflows"
-    filename_pattern = r"^.*\.?(WorkflowVersion)$"
+    filename_pattern = r"^.*WorkflowVersion$"
     resource_cls = WorkflowVersion
     resource_write_cls = WorkflowVersionUpsert
     list_cls = WorkflowVersionList
