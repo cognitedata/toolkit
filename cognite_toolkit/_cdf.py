@@ -15,10 +15,9 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand, auth
+from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand, PullCommand, auth
 from cognite_toolkit._cdf_tk.commands.describe import describe_datamodel
 from cognite_toolkit._cdf_tk.commands.dump import dump_datamodel_command
-from cognite_toolkit._cdf_tk.commands.pull import pull_command
 from cognite_toolkit._cdf_tk.commands.run import run_function, run_local_function, run_transformation
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -752,7 +751,7 @@ def pull_transformation_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified transformation and update its YAML file in the module folder"""
-    pull_command(
+    PullCommand().execute(
         source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
     )
 
@@ -803,7 +802,7 @@ def pull_node_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified node and update its YAML file in the module folder."""
-    pull_command(
+    PullCommand().execute(
         source_dir,
         NodeId(space, external_id),
         env,
