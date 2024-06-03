@@ -1649,7 +1649,7 @@ class TransformationScheduleLoader(
 ):
     folder_name = "transformations"
     # Matches all yaml files whose stem contain *schedule or *TransformationSchedule.
-    filename_pattern = r"^.*(schedule|TransformationSchedule)$"
+    filename_pattern = r"^.*schedule$"
     resource_cls = TransformationSchedule
     resource_write_cls = TransformationScheduleWrite
     list_cls = TransformationScheduleList
