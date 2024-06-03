@@ -1,3 +1,8 @@
+- version: 0.2.0b2
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: ""
 - version: 0.2.0b1
   cognite_modules: {}
   resources: {}
@@ -6,7 +11,7 @@
       steps:
         - For each config, go into the YAML config file and rename 'selected_modules_and_packages' to
           'selected'.
-  cognite_modules_hash: ""
+  cognite_modules_hash: "d6794a6792862cdef6f7b336bd35397b9d94b59587fea72cf46746cc7e222bfa"
 - version: 0.2.0a5
   cognite_modules: {}
   resources: {}

@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import typer
 import yaml
 from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes import FileMetadataList, FunctionList
@@ -30,7 +29,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.load import (
+from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     DatapointsLoader,
     FileLoader,
@@ -70,9 +69,7 @@ from cognite_toolkit._cdf_tk.validation import (
 
 
 class BuildCommand(ToolkitCommand):
-    def execute(
-        self, ctx: typer.Context, source_path: Path, build_dir: Path, build_env_name: str, no_clean: bool
-    ) -> None:
+    def execute(self, verbose: bool, source_path: Path, build_dir: Path, build_env_name: str, no_clean: bool) -> None:
         if not source_path.is_dir():
             raise ToolkitNotADirectoryError(str(source_path))
 
@@ -92,7 +89,7 @@ class BuildCommand(ToolkitCommand):
             config=config,
             system_config=system_config,
             clean=not no_clean,
-            verbose=ctx.obj.verbose,
+            verbose=verbose,
         )
 
     def build_config(

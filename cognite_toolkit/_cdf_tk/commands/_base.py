@@ -7,7 +7,7 @@ from cognite.client.data_classes._base import T_CogniteResourceList
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.load import (
+from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (

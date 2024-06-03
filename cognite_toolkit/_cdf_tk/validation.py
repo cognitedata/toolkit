@@ -9,7 +9,7 @@ from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
-from cognite_toolkit._cdf_tk.load import NodeLoader
+from cognite_toolkit._cdf_tk.loaders import NodeLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
