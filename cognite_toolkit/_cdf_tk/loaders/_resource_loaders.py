@@ -1308,7 +1308,7 @@ class DatapointSubscriptionLoader(
     ]
 ):
     folder_name = "timeseries"
-    filename_pattern = r"^.*\.DatapointSubscription$"  # Matches all yaml files who's endswith *.DatapointSubscription.
+    filename_pattern = r"^.*DatapointSubscription$"  # Matches all yaml files who's endswith *.DatapointSubscription.
     resource_cls = DatapointSubscription
     resource_write_cls = DataPointSubscriptionWrite
     list_cls = DatapointSubscriptionList
