@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidSettingsError, Tool
 from cognite_toolkit._cdf_tk.templates import (
     COGNITE_MODULES,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import AuthVariables, CDFToolConfig
 
 from ._base import ToolkitCommand
@@ -148,8 +149,10 @@ class AuthCommand(ToolkitCommand):
             )
             print("  [bold green]OK[/]")
         except Exception:
-            print(
-                "  [bold yellow]WARNING[/]: The service principal/application configured for this client does not have the basic group write access rights."
+            self.warn(
+                HighSeverityWarning(
+                    "The service principal/application configured for this client does not have the basic group write access rights."
+                )
             )
             print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
             try:
@@ -176,7 +179,7 @@ class AuthCommand(ToolkitCommand):
             tenant_id = oidc.get("tokenUrl").split("/")[2].split(".")[0]
             print(f"  [bold green]OK[/] - Auth0 with tenant id ({tenant_id}).")
         else:
-            print(f"  [bold yellow]WARNING[/]: Unknown identity provider {oidc.get('tokenUrl')}")
+            self.warn(MediumSeverityWarning(f"Unknown identity provider {oidc.get('tokenUrl')}"))
         accessClaims = [c.get("claimName") for c in oidc.get("accessClaims", {})]
         print(
             f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {accessClaims}"
@@ -212,8 +215,10 @@ class AuthCommand(ToolkitCommand):
                 multiple_groups_with_source_id += 1
         print(tbl)
         if len(groups) > 1:
-            print(
-                "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
+            self.warn(
+                LowSeverityWarning(
+                    "This service principal/application gets its access rights from more than one CDF group."
+                )
             )
             print(
                 "           This is not recommended. The group matching the group config file is marked in bold above if it is present."
@@ -252,14 +257,16 @@ class AuthCommand(ToolkitCommand):
             for d in diff:
                 diff_list.append(str(d))
             for s in sorted(diff_list):
-                print(f"  [bold yellow]WARNING[/]: The capability {s} is not present in the CDF project.")
+                self.warn(LowSeverityWarning(f"The capability {s} is not present in the CDF project."))
         else:
             print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
         # Flatten out into a list of acls in the existing project
         existing_cap_list = [c.capability for c in resp.capabilities]
         if len(groups) > 1:
-            print(
-                "  [bold yellow]WARNING[/]: This service principal/application gets its access rights from more than one CDF group."
+            self.warn(
+                LowSeverityWarning(
+                    "This service principal/application gets its access rights from more than one CDF group."
+                )
             )
         print("---------------------")
         if len(groups) > 1 and update_group > 1:
@@ -283,13 +290,18 @@ class AuthCommand(ToolkitCommand):
         if len(loosing) > 0:
             for d in loosing:
                 if len(groups) > 1:
-                    print(
-                        f"  [bold yellow]WARNING[/]: The capability {d} may be lost if\n"
-                        + "           switching to relying on only one group based on group config file for access."
+                    self.warn(
+                        LowSeverityWarning(
+                            f"The capability {d} may be lost if\n"
+                            "           switching to relying on only one group based on "
+                            "group config file for access."
+                        )
                     )
                 else:
-                    print(
-                        f"  [bold yellow]WARNING[/]: The capability {d} will be removed in the project if overwritten by group config file."
+                    self.warn(
+                        LowSeverityWarning(
+                            f"The capability {d} will be removed in the project if overwritten " "by group config file."
+                        )
                     )
         else:
             print(
