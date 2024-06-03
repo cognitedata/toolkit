@@ -267,12 +267,6 @@ class AuthCommand(ToolkitCommand):
             print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
         # Flatten out into a list of acls in the existing project
         existing_cap_list = [c.capability for c in resp.capabilities]
-        if len(groups) > 1:
-            self.warn(
-                LowSeverityWarning(
-                    "This service principal/application gets its access rights from more than one CDF group."
-                )
-            )
         print("---------------------")
         if len(groups) > 1 and update_group > 1:
             print(f"Checking group config file against capabilities only from the group {update_group}...")
