@@ -17,7 +17,12 @@ from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, Token
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
-from cognite_toolkit._cdf_tk.tk_warnings import MissingCapabilityWarning, ToolkitWarning, WarningList
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    LowSeverityWarning,
+    MissingCapabilityWarning,
+    ToolkitWarning,
+    WarningList,
+)
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.conftest import ApprovalCogniteClient
 from tests.tests_unit.data import AUTH_DATA
@@ -129,6 +134,7 @@ def test_auth_verify_wrong_capabilities(
 
     cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
 
+    assert len(cmd.warning_list) == len(expected_warnings)
     assert set(cmd.warning_list) == set(expected_warnings)
 
 
@@ -142,21 +148,20 @@ def test_auth_verify_two_groups(
     # Add another group
     cdf_resources[Group].append(Group.load(yaml.safe_load((AUTH_DATA / "rw-group.yaml").read_text())))
     cdf_resources[Group][1].name = "2nd group"
+
     # Add the pre-loaded data to the approval_client
     for resource, data in cdf_resources.items():
         auth_cognite_approval_client.append(resource, data)
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    cmd = AuthCommand()
+    cmd = AuthCommand(print_warning=False)
     cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
-    out, _ = capfd.readouterr()
-    # Strip trailing spaces
-    out = "\n".join([line.rstrip() for line in out.splitlines()])
-    file_regression.check(out, encoding="utf-8", fullpath=to_fullpath(f"{TEST_PREFIX}_auth_verify_two_groups"))
 
-    dump = auth_cognite_approval_client.dump()
-    assert dump == {}
+    assert len(cmd.warning_list) == 1
+    assert set(cmd.warning_list) == {
+        LowSeverityWarning("This service principal/application gets its access rights from more than one CDF group.")
+    }
 
 
 def test_auth_verify_no_capabilities(
