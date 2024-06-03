@@ -2901,6 +2901,8 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     dependencies = frozenset(
         {
             GroupAllScopedLoader,
+            TransformationLoader,
+            FunctionLoader,
         }
     )
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
