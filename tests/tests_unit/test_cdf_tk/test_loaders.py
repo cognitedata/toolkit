@@ -1,7 +1,7 @@
 import os
 import pathlib
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -30,23 +30,29 @@ from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     LOADER_LIST,
     RESOURCE_LOADER_LIST,
+    ContainerLoader,
     DataModelLoader,
     DatapointsLoader,
     DataSetsLoader,
     ExtractionPipelineConfigLoader,
+    ExtractionPipelineLoader,
     FileMetadataLoader,
     FunctionLoader,
     GroupAllScopedLoader,
+    GroupLoader,
     GroupResourceScopedLoader,
     Loader,
     NodeLoader,
+    RawDatabaseLoader,
+    RawTableLoader,
     ResourceLoader,
     ResourceTypes,
+    SpaceLoader,
     TimeSeriesLoader,
     TransformationLoader,
     ViewLoader,
 )
-from cognite_toolkit._cdf_tk.loaders.data_classes import NodeAPICall, NodeApplyListWithCall
+from cognite_toolkit._cdf_tk.loaders.data_classes import NodeAPICall, NodeApplyListWithCall, RawDatabaseTable
 from cognite_toolkit._cdf_tk.templates import (
     module_from_path,
     resource_folder_from_path,
@@ -252,6 +258,62 @@ class TestViewLoader:
         assert len(to_change) == 0
         assert len(unchanged) == 1
 
+    @pytest.mark.parametrize(
+        "item, expected",
+        [
+            pytest.param(
+                {
+                    "space": "sp_my_space",
+                    "properties": {
+                        "name": {
+                            "container": {
+                                "type": "container",
+                                "space": "my_container_space",
+                                "externalId": "my_container",
+                            }
+                        }
+                    },
+                },
+                [
+                    (SpaceLoader, "sp_my_space"),
+                    (ContainerLoader, dm.ContainerId(space="my_container_space", external_id="my_container")),
+                ],
+                id="View with one container property",
+            ),
+            pytest.param(
+                {
+                    "space": "sp_my_space",
+                    "properties": {
+                        "toEdge": {
+                            "source": {
+                                "type": "view",
+                                "space": "my_view_space",
+                                "externalId": "my_view",
+                                "version": "1",
+                            },
+                            "edgeSource": {
+                                "type": "view",
+                                "space": "my_other_view_space",
+                                "externalId": "my_edge_view",
+                                "version": "42",
+                            },
+                        }
+                    },
+                },
+                [
+                    (SpaceLoader, "sp_my_space"),
+                    (ViewLoader, dm.ViewId(space="my_view_space", external_id="my_view", version="1")),
+                    (ViewLoader, dm.ViewId(space="my_other_view_space", external_id="my_edge_view", version="42")),
+                ],
+                id="View with one container property",
+            ),
+        ],
+    )
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
+        actual = ViewLoader.get_dependent_items(item)
+
+        assert list(actual) == expected
+
 
 class TestDataModelLoader:
     def test_update_data_model_random_view_order(self, cognite_client_approval: ApprovalCogniteClient):
@@ -421,6 +483,61 @@ class TestGroupLoader:
         assert cognite_client_approval.create_calls()["Group"] == 1
         assert cognite_client_approval.delete_calls()["Group"] == 1
 
+    @pytest.mark.parametrize(
+        "item, expected",
+        [
+            pytest.param(
+                {"capabilities": [{"dataModelsAcl": {"scope": {"spaceIdScope": {"spaceIds": ["space1", "space2"]}}}}]},
+                [(SpaceLoader, "space1"), (SpaceLoader, "space2")],
+                id="SpaceId scope",
+            ),
+            pytest.param(
+                {"capabilities": [{"timeSeriesAcl": {"scope": {"datasetScope": {"ids": ["ds_dataset1"]}}}}]},
+                [
+                    (DataSetsLoader, "ds_dataset1"),
+                ],
+                id="Dataset scope",
+            ),
+            pytest.param(
+                {
+                    "capabilities": [
+                        {"extractionRunsAcl": {"scope": {"extractionPipelineScope": {"ids": ["ex_my_extraction"]}}}}
+                    ]
+                },
+                [
+                    (ExtractionPipelineLoader, "ex_my_extraction"),
+                ],
+                id="Extraction pipeline scope",
+            ),
+            pytest.param(
+                {"capabilities": [{"rawAcl": {"scope": {"tableScope": {"dbsToTables": {"my_db": ["my_table"]}}}}}]},
+                [
+                    (RawDatabaseLoader, RawDatabaseTable("my_db")),
+                    (RawTableLoader, RawDatabaseTable("my_db", "my_table")),
+                ],
+                id="Table scope",
+            ),
+            pytest.param(
+                {"capabilities": [{"datasetsAcl": {"scope": {"idscope": {"ids": ["ds_my_dataset"]}}}}]},
+                [
+                    (DataSetsLoader, "ds_my_dataset"),
+                ],
+                id="ID scope dataset",
+            ),
+            pytest.param(
+                {"capabilities": [{"extractionPipelinesAcl": {"scope": {"idscope": {"ids": ["ex_my_extraction"]}}}}]},
+                [
+                    (ExtractionPipelineLoader, "ex_my_extraction"),
+                ],
+                id="ID scope extractionpipline ",
+            ),
+        ],
+    )
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
+        actual_dependent_items = GroupLoader.get_dependent_items(item)
+
+        assert list(actual_dependent_items) == expected
+
 
 class TestTimeSeriesLoader:
     timeseries_yaml = """
@@ -586,6 +703,59 @@ conflictMode: upsert
                 with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
                     loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
 
+    @pytest.mark.parametrize(
+        "item, expected",
+        [
+            pytest.param(
+                {
+                    "dataSetExternalId": "ds_my_dataset",
+                    "destination": {
+                        "type": "instances",
+                        "dataModel": {
+                            "space": "sp_model_space",
+                            "externalId": "my_model",
+                            "version": "v1",
+                            "destinationType": "assets",
+                        },
+                        "instanceSpace": "sp_data_space",
+                    },
+                },
+                [
+                    (DataSetsLoader, "ds_my_dataset"),
+                    (SpaceLoader, "sp_data_space"),
+                    (DataModelLoader, dm.DataModelId(space="sp_model_space", external_id="my_model", version="v1")),
+                ],
+                id="Transformation to data model",
+            ),
+            pytest.param(
+                {
+                    "destination": {
+                        "type": "nodes",
+                        "view": {"space": "sp_space", "externalId": "my_view", "version": "v1"},
+                        "instanceSpace": "sp_data_space",
+                    }
+                },
+                [
+                    (SpaceLoader, "sp_data_space"),
+                    (ViewLoader, dm.ViewId(space="sp_space", external_id="my_view", version="v1")),
+                ],
+                id="Transformation to nodes ",
+            ),
+            pytest.param(
+                {"destination": {"type": "raw", "database": "my_db", "table": "my_table"}},
+                [
+                    (RawDatabaseLoader, RawDatabaseTable("my_db")),
+                    (RawTableLoader, RawDatabaseTable("my_db", "my_table")),
+                ],
+                id="Transformation to RAW table",
+            ),
+        ],
+    )
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
+        actual = TransformationLoader.get_dependent_items(item)
+
+        assert list(actual) == expected
+
 
 class TestNodeLoader:
     @pytest.mark.parametrize(
@@ -741,6 +911,34 @@ class TestExtractionPipelineDependencies:
         ):
             res = cmd.clean_resources(loader, cdf_tool, dry_run=True, drop=True)
             assert res.deleted == 1
+
+
+class TestExtractionPipelineLoader:
+    @pytest.mark.parametrize(
+        "item, expected",
+        [
+            pytest.param(
+                {
+                    "dataSetExternalId": "ds_my_dataset",
+                    "rawTables": [
+                        {"dbName": "my_db", "tableName": "my_table"},
+                        {"dbName": "my_db", "tableName": "my_table2"},
+                    ],
+                },
+                [
+                    (DataSetsLoader, "ds_my_dataset"),
+                    (RawDatabaseLoader, RawDatabaseTable("my_db")),
+                    (RawTableLoader, RawDatabaseTable("my_db", "my_table")),
+                    (RawTableLoader, RawDatabaseTable("my_db", "my_table2")),
+                ],
+                id="Extraction pipeline to Table",
+            ),
+        ],
+    )
+    def test_get_dependent_items(self, item: dict, expected: list[tuple[type[ResourceLoader], Hashable]]) -> None:
+        actual = ExtractionPipelineLoader.get_dependent_items(item)
+
+        assert list(actual) == expected
 
 
 class TestDeployResources:

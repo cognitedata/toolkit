@@ -239,19 +239,22 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             for acl, content in capability.items():
                 if scope := content.get("scope", {}):
                     if space_ids := scope.get(capabilities.SpaceIDScope._scope_name, []):
-                        for space_id in space_ids:
-                            yield SpaceLoader, space_id
+                        if isinstance(space_ids, dict) and "spaceIds" in space_ids:
+                            for space_id in space_ids["spaceIds"]:
+                                yield SpaceLoader, space_id
                     if data_set_ids := scope.get(capabilities.DataSetScope._scope_name, []):
-                        for data_set_id in data_set_ids:
-                            yield DataSetsLoader, data_set_id
+                        if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
+                            for data_set_id in data_set_ids["ids"]:
+                                yield DataSetsLoader, data_set_id
                     if table_ids := scope.get(capabilities.TableScope._scope_name, []):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
                             yield RawDatabaseLoader, RawDatabaseTable(db_name)
                             for table in tables:
-                                yield RawDatabaseLoader, RawDatabaseTable(db_name, table)
+                                yield RawTableLoader, RawDatabaseTable(db_name, table)
                     if extraction_pipeline_ids := scope.get(capabilities.ExtractionPipelineScope._scope_name, []):
-                        for extraction_pipeline_id in extraction_pipeline_ids:
-                            yield ExtractionPipelineLoader, extraction_pipeline_id
+                        if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
+                            for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
+                                yield ExtractionPipelineLoader, extraction_pipeline_id
                     if (ids := scope.get(capabilities.IDScope._scope_name, [])) or (
                         ids := scope.get(capabilities.IDScopeLowerCase._scope_name, [])
                     ):
@@ -262,8 +265,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                             loader = ExtractionPipelineLoader
                         elif acl == capabilities.TimeSeriesAcl._capability_name:
                             loader = TimeSeriesLoader
-                        if loader is not None:
-                            for id_ in ids:
+                        if loader is not None and isinstance(ids, dict) and "ids" in ids:
+                            for id_ in ids["ids"]:
                                 yield loader, id_
 
     @classmethod
@@ -1449,6 +1452,8 @@ class TransformationLoader(
                 yield RawDatabaseLoader, RawDatabaseTable(destination["database"])
                 yield RawTableLoader, RawDatabaseTable(destination["database"], destination["table"])
             elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
+                if space := destination.get("instanceSpace"):
+                    yield SpaceLoader, space
                 if _in_dict(("space", "externalId", "version"), view):
                     yield ViewLoader, ViewId.load(view)
             elif destination.get("type") == "instances":
@@ -1744,12 +1749,15 @@ class ExtractionPipelineLoader(
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        seen_databases: set[str] = set()
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
         if "rawTables" in item:
             for entry in item["rawTables"]:
-                if "dbName" in entry:
-                    yield RawDatabaseLoader, RawDatabaseTable(db_name=entry["dbName"])
+                if db := entry.get("dbName"):
+                    if db not in seen_databases:
+                        seen_databases.add(db)
+                        yield RawDatabaseLoader, RawDatabaseTable(db_name=db)
                     if "tableName" in entry:
                         yield RawTableLoader, RawDatabaseTable._load(entry)
 

@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Fixed
+
+- Running the build command, `cdf-tk build`, with `Group` resources scoped will read to incorrect
+  warning such as `WARNING [HIGH]: Space 'spaceIds' is missing and is required by:` and
+  `WARNING [HIGH]: DataSet 'ids' is missing and is required by:`. This is now fixed.
 - Running the build command, `cdf-tk build`, with a `View` resource with a `hasData` filter would print a
   `UnusedParameterWarning: Parameter 'externalId' is not used in section ('filter', 'hasData', 0, 'externalId').`.
   This is incorrect and is now fixed to not print this warning.
