@@ -15,6 +15,41 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0b2] - 2024-06-03
+
+### Fixed
+
+- Running the build command, `cdf-tk build`, with `Group` resources scoped will read to incorrect
+  warning such as `WARNING [HIGH]: Space 'spaceIds' is missing and is required by:` and
+  `WARNING [HIGH]: DataSet 'ids' is missing and is required by:`. This is now fixed.
+- Running the build command, `cdf-tk build`, with a `View` resource with a `hasData` filter would print a
+  `UnusedParameterWarning: Parameter 'externalId' is not used in section ('filter', 'hasData', 0, 'externalId').`.
+  This is incorrect and is now fixed to not print this warning.
+- If you had a `container` with a direct relation property with a required constraint, the `cdf-tk build` command
+  would incorrectly yield a warning that the `Parameter 'type' is not used ...`. This is now fixed.
+
+## [0.2.0b1] - 2024-05-20
+
+### Added
+
+- Support for loading `nodes` with `APICall` arguments. The typical use case is when `node types` are part of a
+  data model, and the default `APICall` arguments works well.
+
+### Fixed
+
+- Error message displayed to console on failed `cdf-tk deploy` command could be modified. This is now fixed.
+- Using display name instead of folder name on a failed `cdf-tk deploy` or `cdf-tk clean` command. For example,
+  if `datapoints subscription` was failing the error message would be `Failure to load/deploy timeseries as expected`,
+  now it is `Failure to load/deploy timeseries.subscription as expected`.
+- Unique display names for all resource types.
+- Fixed bug when deploying extraction pipeline config, when none existed from before:
+  `There is no config stored for the extraction pipeline`.
+
+### Changed
+
+- In `config.[env].yaml`, in the `environment` section, `selected_modules_and_packages` is renamed to `selected`.
+  The old names will still work, but will trigger a deprecation warning.
+
 ## [0.2.0a5] - 2024-05-28
 
 ### Added

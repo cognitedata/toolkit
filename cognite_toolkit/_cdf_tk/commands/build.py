@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import typer
 import yaml
 from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes import FileMetadataList, FunctionList
@@ -30,7 +29,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.load import (
+from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     DatapointsLoader,
     FileLoader,
@@ -70,9 +69,7 @@ from cognite_toolkit._cdf_tk.validation import (
 
 
 class BuildCommand(ToolkitCommand):
-    def execute(
-        self, ctx: typer.Context, source_path: Path, build_dir: Path, build_env_name: str, no_clean: bool
-    ) -> None:
+    def execute(self, verbose: bool, source_path: Path, build_dir: Path, build_env_name: str, no_clean: bool) -> None:
         if not source_path.is_dir():
             raise ToolkitNotADirectoryError(str(source_path))
 
@@ -92,7 +89,7 @@ class BuildCommand(ToolkitCommand):
             config=config,
             system_config=system_config,
             clean=not no_clean,
-            verbose=ctx.obj.verbose,
+            verbose=verbose,
         )
 
     def build_config(
@@ -134,12 +131,12 @@ class BuildCommand(ToolkitCommand):
         if duplicate_modules := {
             module_name: paths
             for module_name, paths in module_parts_by_name.items()
-            if len(paths) > 1 and module_name in config.environment.selected_modules_and_packages
+            if len(paths) > 1 and module_name in config.environment.selected
         }:
             raise ToolkitDuplicatedModuleError(
                 f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
             )
-        system_config.validate_modules(available_modules, config.environment.selected_modules_and_packages)
+        system_config.validate_modules(available_modules, config.environment.selected)
 
         selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
 

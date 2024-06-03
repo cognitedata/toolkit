@@ -16,15 +16,15 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitNotADirectoryError,
 )
-from cognite_toolkit._cdf_tk.load import (
+from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     DataSetsLoader,
     DeployResults,
     ResourceContainerLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.load._base_loaders import T_ID, Loader
-from cognite_toolkit._cdf_tk.load.data_classes import ResourceContainerDeployResult, ResourceDeployResult
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, Loader
+from cognite_toolkit._cdf_tk.loaders.data_classes import ResourceContainerDeployResult, ResourceDeployResult
 from cognite_toolkit._cdf_tk.templates import (
     BUILD_ENVIRONMENT_FILE,
 )
@@ -282,7 +282,7 @@ class CleanCommand(ToolkitCommand):
                     print(results.counts_table())
                 if results and results.has_uploads:
                     print(results.uploads_table())
-                raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
+                raise ToolkitCleanResourceError(f"Failure to clean {loader.display_name} as expected.")
         if results.has_counts:
             print(results.counts_table())
         if results.has_uploads:

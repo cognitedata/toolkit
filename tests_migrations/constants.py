@@ -14,6 +14,8 @@ SUPPORTED_TOOLKIT_VERSIONS = [
     "0.2.0a2",
     "0.2.0a3",
     "0.2.0a4",
+    "0.2.0a5",
+    "0.2.0b1",
 ]
 
 

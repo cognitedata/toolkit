@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitInvalidSettingsError,
     ToolkitValidationError,
 )
-from cognite_toolkit._cdf_tk.load import (
+from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     NodeLoader,
     TransformationLoader,
@@ -248,7 +248,7 @@ def build(
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
     cmd = BuildCommand()
-    cmd.execute(ctx, Path(source_dir), Path(build_dir), build_env_name, no_clean)
+    cmd.execute(ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
 
 
 @_app.command("deploy")

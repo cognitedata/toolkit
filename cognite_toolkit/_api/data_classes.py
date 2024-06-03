@@ -11,7 +11,7 @@ from typing import Any, cast
 
 import pandas as pd
 
-from cognite_toolkit._cdf_tk.load import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES_PATH
 from cognite_toolkit._cdf_tk.templates.data_classes import ConfigEntry, Environment, InitConfigYAML
 
@@ -21,7 +21,7 @@ _DUMMY_ENVIRONMENT = Environment(
     name="not used",
     project="not used",
     build_type="not used",
-    selected_modules_and_packages=[],
+    selected=[],
 )
 
 

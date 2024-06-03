@@ -9,6 +9,7 @@ from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
+from cognite_toolkit._cdf_tk.loaders import NodeLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
@@ -71,10 +72,27 @@ def validate_data_set_is_set(
 def validate_resource_yaml(
     data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None = None
 ) -> WarningList:
+    if spec.spec_name == NodeLoader.__name__:
+        # Special case for NodeLoader as it has options for API call parameters
+        if isinstance(data, list):
+            return _validate_resource_yaml(data, spec, source_file)
+        elif isinstance(data, dict) and "node" in data:
+            return _validate_resource_yaml(data["node"], spec, source_file)
+        elif isinstance(data, dict) and "nodes" in data:
+            return _validate_resource_yaml(data["nodes"], spec, source_file)
+        else:
+            return _validate_resource_yaml(data, spec, source_file)
+    else:
+        return _validate_resource_yaml(data, spec, source_file, element)
+
+
+def _validate_resource_yaml(
+    data: dict | list, spec: ParameterSpecSet, source_file: Path, element: int | None = None
+) -> WarningList:
     warnings: WarningList = WarningList()
     if isinstance(data, list):
         for no, item in enumerate(data, 1):
-            warnings.extend(validate_resource_yaml(item, spec, source_file, no))
+            warnings.extend(_validate_resource_yaml(item, spec, source_file, no))
         return warnings
     elif not isinstance(data, dict):
         raise NotImplementedError("Note: This function only supports top-level and lists dictionaries.")

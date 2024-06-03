@@ -1,3 +1,17 @@
+- version: 0.2.0b2
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: ""
+- version: 0.2.0b1
+  cognite_modules: {}
+  resources: {}
+  tool:
+    - title: "Parameter 'selected_modules_and_packages' is renamed to 'selected' in config.<env>.yaml"
+      steps:
+        - For each config, go into the YAML config file and rename 'selected_modules_and_packages' to
+          'selected'.
+  cognite_modules_hash: "d6794a6792862cdef6f7b336bd35397b9d94b59587fea72cf46746cc7e222bfa"
 - version: 0.2.0a5
   cognite_modules: {}
   resources: {}
@@ -7,7 +21,7 @@
         - For each function, go into the YAML config file and rename 'externalIdDataSet' to
           'dataSetExternalId'. This is a breaking change.
         - The motivation for this change is to make the naming consistent with the rest of the Toolkit.
-  cognite_modules_hash: ""
+  cognite_modules_hash: "54f7fd5e90879abac473263ea801f29178dfbecf948cbe011c003b06f11ec17f"
 - version: 0.2.0a4
   cognite_modules: {}
   resources: {}
