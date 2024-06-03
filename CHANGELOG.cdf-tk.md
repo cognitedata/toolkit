@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- If you had a `container` with a direct relation property with a required constraint, the `cdf-tk build` command
+  would incorrectly yield a warning that the `Parameter 'type' is not used ...`. This is now fixed.
+
 ## [0.2.0b1] - 2024-05-20
 
 ### Added

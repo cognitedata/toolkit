@@ -2424,6 +2424,13 @@ class ContainerLoader(
                         _is_nullable=False,
                     ),
                     ParameterSpec(
+                        # direct relations with constraint
+                        ("properties", ANY_STR, "type", "container", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
                         ("constraints", ANY_STR, "constraintType"),
                         frozenset({"str"}),
                         is_required=True,

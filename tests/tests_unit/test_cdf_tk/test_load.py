@@ -149,16 +149,19 @@ class TestContainerLoader:
                 {
                     "properties": {
                         "myDirectRelation": {
-                            "type": "direct",
-                            "container": {
-                                "type": "container",
-                                "space": "sp_my_space",
-                                "externalId": "my_container",
+                            "name": "my direct relation",
+                            "type": {
+                                "type": "direct",
+                                "container": {
+                                    "type": "container",
+                                    "space": "sp_my_space",
+                                    "externalId": "my_container",
+                                },
                             },
                         }
                     }
                 },
-                id="Direct relation property",
+                id="Direct relation property with require constraint.",
             ),
         ],
     )
