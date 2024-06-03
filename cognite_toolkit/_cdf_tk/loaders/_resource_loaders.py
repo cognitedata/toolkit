@@ -1314,6 +1314,12 @@ class DatapointSubscriptionLoader(
     list_cls = DatapointSubscriptionList
     list_write_cls = DatapointSubscriptionWriteList
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
+    dependencies = frozenset(
+        {
+            TimeSeriesLoader,
+            GroupAllScopedLoader,
+        }
+    )
 
     @property
     def display_name(self) -> str:
