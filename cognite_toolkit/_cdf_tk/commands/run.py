@@ -26,6 +26,11 @@ from cognite_toolkit._cdf_tk.templates import (
 from cognite_toolkit._cdf_tk.templates.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
 
+from ._base import ToolkitCommand
+
+
+class RunCommand(ToolkitCommand): ...
+
 
 def run_function(ToolGlobals: CDFToolConfig, external_id: str, payload: str, follow: bool = False) -> bool:
     """Run a function in CDF"""
