@@ -1,5 +1,4 @@
 import json
-import platform
 from pathlib import Path
 from typing import Union
 from unittest.mock import MagicMock
@@ -27,21 +26,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.conftest import ApprovalCogniteClient
 from tests.tests_unit.data import AUTH_DATA
-from tests.tests_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
-
-THIS_FOLDER = Path(__file__).resolve().parent
-
-TEST_PREFIX = "auth"
-SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / f"{TEST_PREFIX}_data_snapshots"
-SNAPSHOTS_DIR.mkdir(exist_ok=True)
-
-
-def to_fullpath(file_name: str) -> Path:
-    if platform.system() == "Windows":
-        # Windows console use different characters for tables in rich.
-        return SNAPSHOTS_DIR / f"{file_name}_windows.txt"
-    else:
-        return SNAPSHOTS_DIR / f"{file_name}.txt"
 
 
 @pytest.fixture
