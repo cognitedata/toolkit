@@ -439,7 +439,7 @@ class GroupAllScopedLoader(GroupLoader):
 class SecurityCategoryLoader(
     ResourceLoader[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
 ):
-    filename_pattern = r"^.*\.SecurityCategory$"  # Matches all yaml files who's stem ends with *.SecurityCategory.
+    filename_pattern = r"^.*SecurityCategory$"  # Matches all yaml files who's stem ends with *SecurityCategory.
     resource_cls = SecurityCategory
     resource_write_cls = SecurityCategoryWrite
     list_cls = SecurityCategoryList
@@ -2899,12 +2899,18 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
 @final
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
     folder_name = "workflows"
-    filename_pattern = r"^.*\.Workflow$"
+    filename_pattern = r"^.*Workflow$"
     resource_cls = Workflow
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
     list_write_cls = WorkflowUpsertList
-    dependencies = frozenset({GroupAllScopedLoader})
+    dependencies = frozenset(
+        {
+            GroupAllScopedLoader,
+            TransformationLoader,
+            FunctionLoader,
+        }
+    )
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
@@ -2966,7 +2972,7 @@ class WorkflowVersionLoader(
     ]
 ):
     folder_name = "workflows"
-    filename_pattern = r"^.*\.?(WorkflowVersion)$"
+    filename_pattern = r"^.*WorkflowVersion$"
     resource_cls = WorkflowVersion
     resource_write_cls = WorkflowVersionUpsert
     list_cls = WorkflowVersionList

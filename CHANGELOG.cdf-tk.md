@@ -19,6 +19,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- The toolkit now ensures `Transformations` and `Functions` are deployed before `Workflows`
 - The toolkit now ensures `TimeSeries` and `Groups` are deployed before `DatapointSubscriptions`.
 
 ## [0.2.0b2] - 2024-06-03
