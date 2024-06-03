@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Running the build command, `cdf-tk build`, with `Group` resources scoped will read to incorrect
+  warning such as `WARNING [HIGH]: Space 'spaceIds' is missing and is required by:` and
+  `WARNING [HIGH]: DataSet 'ids' is missing and is required by:`. This is now fixed.
+
 ## [0.2.0b1] - 2024-05-20
 
 ### Added
