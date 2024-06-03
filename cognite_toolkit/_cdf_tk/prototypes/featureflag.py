@@ -14,6 +14,7 @@ def enabled(flag: str) -> bool:
         bool: True if the feature flag is enabled, False otherwise.
     """
     if os.environ.get(flag, "false").lower() == "true":
-        print(f"Feature flag {flag} is enabled.")
+        if enabled("FF_PRINT_FLAGS"):
+            print(f"[yellow]Feature flag {flag} is enabled.[/]")
         return True
     return False

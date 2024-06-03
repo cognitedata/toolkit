@@ -1,12 +1,16 @@
 from pathlib import Path
 from typing import Annotated, Any, Optional, Union
 
+import questionary
 import typer
 from rich import print
 from rich.padding import Padding
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
 from rich.tree import Tree
+
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+
+INDENT = "  "
 
 
 class InteractiveInit(typer.Typer):
@@ -17,26 +21,38 @@ class InteractiveInit(typer.Typer):
     def get_packages(self) -> dict[str, dict[str, Any]]:
         return {
             "quickstart": {
-                "name": "Quick Start",
-                "readme": "A set of modules for a CDF quick start project.",
-                "content": [
-                    {"data ingestion": ["sap", "pi", "mqtt"]},
-                    {"data transformation": ["foo", "bar"]},
-                    {"data contextualization": ["flash", "thunder"]},
-                    {"infield": ["app"]},
-                ],
+                "title": "Quick Start: A set of modules for a CDF quick start project.",
+                "items": {
+                    "sap_data_pipeline": {
+                        "title": "SAP Data Pipeline",
+                    },
+                    "pi_data_pipeline": {
+                        "title": "PI Data Pipeline",
+                    },
+                    "mqtt_data_pipeline": {
+                        "title": "MQTT Data Pipeline",
+                    },
+                    "files_contextualization": {
+                        "title": "Files Contextualization",
+                    },
+                    "asset_data_transformation": {
+                        "title": "Asset Data Transformation",
+                    },
+                    "infield": {
+                        "title": "Infield",
+                    },
+                },
             },
             "examples": {
-                "name": "Examples",
-                "readme": "This is a set of example modules for inspiration",
-                "content": [
-                    {"cdf_data_pipeline_asset_valhall": []},
-                    {"cdf_data_pipeline_files_valhall": []},
-                ],
+                "title": "Examples: a set of example modules for inspiration",
+                "items": {
+                    "cdf_data_pipeline_asset_valhall": {"items": {}},
+                    "cdf_data_pipeline_files_valhall": {"items": {}},
+                },
             },
             "reference": {
-                "readme": "All supported resources as reference",
-                "content": [{"workflow": []}, {"transformations": []}, {"functions": []}, {"groups": []}],
+                "title": "All supported resources as reference",
+                "items": {"workflow": {}, "transformations": {}, "functions": {}, "groups": {}},
             },
         }
 
@@ -50,7 +66,7 @@ class InteractiveInit(typer.Typer):
                     else:
                         subtree.add(subvalue)
 
-    def create(self, init_dir: str, selected: dict[str, list[str]]) -> None:
+    def create(self, init_dir: str, selected: dict[str, list[str]], mode: str | None) -> None:
         pass
 
     def interactive(
@@ -71,54 +87,54 @@ class InteractiveInit(typer.Typer):
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
-        while True:
-            print(Panel("Initializing or upgrading a new CDF project with templates interactively."))
+        print(Panel("Initializing or upgrading a new CDF project with templates interactively."))
 
-            if not init_dir:
-                init_dir = Prompt.ask(
-                    "[bold]Which directory would you like to use?[/] :sunglasses:", default="new_project"
-                )
-            else:
-                print(f"Using directory {init_dir}")
+        selected: dict[str, Any] = {}
+        available = self.get_packages()
 
-            if Path(init_dir).is_dir():
-                if not Confirm.ask(f"Directory {init_dir} already exists. Would you like to overwrite?", default=False):
-                    print("Aborting...")
-                    raise typer.Exit()
+        if not init_dir:
+            init_dir = questionary.text("Which directory would you like to use?", default="new_project").ask()
 
+        if init_dir and Path(init_dir).is_dir():
+            mode = questionary.select(
+                "Directory already exists. What would you like to do?",
+                choices=[
+                    questionary.Choice("Abort", "abort"),
+                    questionary.Choice("Overwrite", "overwrite"),
+                    questionary.Choice("Update", "update"),
+                ],
+            ).ask()
+            if mode == "abort":
+                print("Aborting...")
+                raise typer.Exit()
+
+        if not init_dir:
+            raise ToolkitRequiredValueError("Directory path is required.")
+
+        print(f"  [{'yellow' if mode == 'overwrite' else 'green'}]Using directory [bold]{init_dir}[/]")
+
+        loop = True
+        while loop:
             if not arg_selected:
-                selected: dict[str, list[str]] = dict()
+                package_id = questionary.select(
+                    "Which package would you like to include?",
+                    instruction="Use arrow up/down and enter to select",
+                    choices=[questionary.Choice(value.get("title", key), key) for key, value in available.items()],
+                ).ask()
 
-                print("\n[bold]Which modules would you like to include?[/] :rocket:")
-                total_items = len(self.get_packages())
-                for i, (package_id, package_content) in enumerate(self.get_packages().items(), start=1):
-                    if package_content is None:
-                        package_content = {}
-                    if Confirm.ask(
-                        f"\n    [bold green]{i}/{total_items}: {package_content.get('name', package_id)}[/]: {package_content.get('readme', '')}"
-                    ):
-                        subpackages = package_content.get("content", [])
-                        if len(subpackages) == 0:
-                            selected[package_id] = subpackages
-                            continue
-                        elif len(subpackages) == 1:
-                            selected[package_id] = [subpackages[0]]
-                        else:
-                            if Confirm.ask(
-                                f"        [green]The package contains {len(subpackages)} modules. Would you like to include {'both modules' if len(subpackages) == 2 else 'all of them'}?[/]",
-                                default=True,
-                            ):
-                                selected[package_id] = subpackages
-                            else:
-                                for j, subpackage in enumerate(subpackages, start=1):
-                                    selected[package_id] = []
-                                    if Confirm.ask(
-                                        f"        [yellow]{j}/{len(subpackages)} Would you like to include {subpackage} ?[/]",
-                                        default=True,
-                                    ):
-                                        selected[package_id].append(subpackage)
-            else:
-                selected = dict()  # arg_selected
+                if package_id:
+                    selected[package_id] = []
+                    selection = questionary.checkbox(
+                        f"Which modules of {package_id} would you like to include?",
+                        instruction="Use arrow up/down, space to select and enter to save",
+                        choices=[
+                            questionary.Choice(value.get("title", key), key)
+                            for key, value in available[package_id].get("items", {}).items()
+                        ],
+                        qmark=INDENT,
+                    ).ask()
+                    selected[package_id] = selection
+                    available.pop(package_id)
 
             print("\n[bold]You have selected the following modules:[/] :robot:\n")
 
@@ -127,16 +143,18 @@ class InteractiveInit(typer.Typer):
             print(Padding.indent(tree, 5))
             print("\n")
 
-            if not Confirm.ask("[bold]Would you like to continue with creation?[/bold]", default=True):
-                if not Confirm.ask("[bold]Would you like to start over?[/bold]", default=False):
-                    print("Exiting...")
-                    raise typer.Exit()
-                else:
+            if len(available) > 0:
+                if questionary.confirm("Would you like to add more?", default=False).ask():
                     continue
-            else:
-                self.create(init_dir, selected)
-                print("Done!")
+
+            loop = False
+            if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
+                print("Exiting...")
                 raise typer.Exit()
+            else:
+                self.create(init_dir, selected, mode)
+                print("Done!")
+        raise typer.Exit()
 
 
 command = InteractiveInit(
