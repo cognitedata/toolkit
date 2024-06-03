@@ -23,7 +23,7 @@ from cognite.client.data_classes.data_modeling import Edge, Node, NodeApply
 from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSet, ParameterValue, read_parameters_from_dict
+from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import (
@@ -147,6 +147,55 @@ class TestDataSetsLoader:
 
 
 class TestViewLoader:
+    @pytest.mark.parametrize(
+        "item",
+        [
+            pytest.param(
+                {
+                    "filter": {
+                        "hasData": [
+                            {"type": "container", "space": "sp_my_space", "externalId": "container_id"},
+                            {"type": "view", "space": "sp_my_space", "externalId": "view_id"},
+                        ]
+                    }
+                },
+                id="HasData Filter",
+            ),
+            pytest.param(
+                {
+                    "properties": {
+                        "reverseDirectRelation": {
+                            "connectionType": "multi_reverse_direct_relation",
+                            "source": {
+                                "type": "view",
+                                "space": "sp_my_space",
+                                "externalId": "view_id",
+                                "version": "v42",
+                            },
+                            "through": {
+                                "source": {
+                                    "type": "view",
+                                    "space": "sp_my_space",
+                                    "externalId": "view_id",
+                                    "version": "v42",
+                                },
+                                "identifier": "view_property",
+                            },
+                        }
+                    }
+                },
+                id="Reverse Direct Relation Property",
+            ),
+        ],
+    )
+    def test_valid_spec(self, item: dict):
+        spec = ViewLoader.get_write_cls_parameter_spec()
+        dumped = read_parameters_from_dict(item)
+
+        extra = dumped - spec
+
+        assert not extra, f"Extra keys: {extra}"
+
     def test_update_view_with_interface(self, cognite_client_approval: ApprovalCogniteClient):
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
@@ -1074,7 +1123,7 @@ class TestResourceLoaders:
         # The spec is calculated based on the resource class __init__ method.
         # There can be deviations in the output from the dump. If that is the case,
         # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the DataModelLoader.
-        assert sorted(extra) == sorted(ParameterSet[ParameterValue]({}))
+        assert sorted(extra) == []
 
     @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
     def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceLoader], content: dict) -> None:

@@ -2571,7 +2571,13 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
                 # Add extra ANY_STR layer
                 # The spec class is immutable, so we use this trick to modify it.
-                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+                is_has_data_filter = item.path[1] in ["containers", "views"]
+                if is_has_data_filter:
+                    # Special handling of the HasData filter that deviates in SDK implementation from API Spec.
+                    object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length + 1 :])
+                else:
+                    object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+
         spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
         # The following types are used by the SDK to load the correct class. They are not part of the init,
         # so we need to add it manually.
@@ -2605,7 +2611,35 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                         is_required=True,
                         _is_nullable=False,
                     ),
+                    ParameterSpec(
+                        ("properties", ANY_STR, "through", "source", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        # In the SDK this is called "property"
+                        ("properties", ANY_STR, "through", "identifier"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        ("filter", "hasData", ANY_INT, "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
                 }
+            )
+        )
+        spec.discard(
+            ParameterSpec(
+                # The API spec calls this "identifier", while the SDK calls it "property".
+                ("properties", ANY_STR, "through", "property"),
+                frozenset({"str"}),
+                is_required=True,
+                _is_nullable=False,
             )
         )
         return spec
