@@ -6,9 +6,10 @@ from unittest.mock import MagicMock
 
 import pytest
 import yaml
-from cognite.client.data_classes._base import CogniteResource, CogniteResourceList
+from cognite.client.data_classes._base import CogniteResource, CogniteResourceList, CogniteResponse
 from cognite.client.data_classes.capabilities import (
     AllProjectsScope,
+    Capability,
     ProjectCapability,
     ProjectCapabilityList,
 )
@@ -16,6 +17,7 @@ from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, Token
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.tk_warnings import MissingCapabilityWarning, ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.tests_unit.conftest import ApprovalCogniteClient
 from tests.tests_unit.data import AUTH_DATA
@@ -55,10 +57,10 @@ def cdf_tool_config(
 
 
 @pytest.fixture
-def cdf_resources() -> dict[CogniteResource, Union[CogniteResource, CogniteResourceList]]:
+def cdf_resources() -> dict[type[CogniteResource] | type[CogniteResponse], CogniteResource | CogniteResourceList]:
     # Load the rw-group and add it to the mock client as an existing resource
     group = Group.load(yaml.safe_load((AUTH_DATA / "rw-group.yaml").read_text()))
-    project_capabilities: ProjectCapabilityList = []
+    project_capabilities: ProjectCapabilityList = ProjectCapabilityList([])
     for cap in group.capabilities:
         project_capabilities.append(ProjectCapability(capability=cap, project_scope=AllProjectsScope()))
     inspect_result = TokenInspection(
@@ -88,54 +90,46 @@ def auth_cognite_approval_client(
     return cognite_client_approval
 
 
-def test_auth_verify_happypath(
-    file_regression,
+def test_auth_verify_happy_path(
     cdf_tool_config: CDFToolConfig,
     auth_cognite_approval_client: ApprovalCogniteClient,
-    cdf_resources: dict[CogniteResource, Union[CogniteResource, CogniteResourceList]],
-    capfd,
+    cdf_resources: dict[type[CogniteResource], CogniteResource | CogniteResourceList],
 ):
-    # First add the pre-loaded data to the approval_client
+    # First, add the pre-loaded data to the approval_client
     for resource, data in cdf_resources.items():
         auth_cognite_approval_client.append(resource, data)
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    AuthCommand().check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
-    out, _ = capfd.readouterr()
-    # Strip trailing spaces
-    out = "\n".join([line.rstrip() for line in out.splitlines()])
-    file_regression.check(out, encoding="utf-8", fullpath=to_fullpath(f"{TEST_PREFIX}_auth_verify_happypath"))
+    cmd = AuthCommand()
+    cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
 
-    dump = auth_cognite_approval_client.dump()
-    assert dump == {}
+    assert list(cmd.warning_list) == []
 
 
 def test_auth_verify_wrong_capabilities(
-    file_regression,
     cdf_tool_config: CDFToolConfig,
     auth_cognite_approval_client: ApprovalCogniteClient,
-    cdf_resources: dict[CogniteResource, Union[CogniteResource, CogniteResourceList]],
-    capfd,
+    cdf_resources: dict[type[CogniteResource], CogniteResource | CogniteResourceList],
 ):
+    expected_warnings = WarningList[ToolkitWarning]()
     # Remove the last 3 capabilities from the inspect result to make a test case
     # with wrong capabilities in the current CDF group.
     for _ in range(1, 4):
-        del cdf_resources[TokenInspection].capabilities[-1]
+        capability = cdf_resources[TokenInspection].capabilities.pop()
+        for cap in capability.capability.as_tuples():
+            expected_warnings.append(MissingCapabilityWarning(str(Capability.from_tuple(cap))))
     # Add the pre-loaded data to the approval_client
     for resource, data in cdf_resources.items():
         auth_cognite_approval_client.append(resource, data)
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    AuthCommand().check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
-    out, _ = capfd.readouterr()
-    # Strip trailing spaces
-    out = "\n".join([line.rstrip() for line in out.splitlines()])
-    file_regression.check(out, encoding="utf-8", fullpath=to_fullpath(f"{TEST_PREFIX}_auth_verify_wrong_capabilities"))
+    cmd = AuthCommand()
 
-    dump = auth_cognite_approval_client.dump()
-    assert dump == {}
+    cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+
+    assert set(cmd.warning_list) == set(expected_warnings)
 
 
 def test_auth_verify_two_groups(
@@ -154,7 +148,8 @@ def test_auth_verify_two_groups(
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    AuthCommand().check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+    cmd = AuthCommand()
+    cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])
@@ -182,8 +177,8 @@ def test_auth_verify_no_capabilities(
         raise Exception("No capabilities")
 
     cdf_tool_config.verify_client.side_effect = mock_verify_client
-
-    AuthCommand().check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+    cmd = AuthCommand()
+    cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])

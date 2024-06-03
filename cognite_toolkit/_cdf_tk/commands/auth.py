@@ -34,7 +34,12 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidSettingsError, Tool
 from cognite_toolkit._cdf_tk.templates import (
     COGNITE_MODULES,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    HighSeverityWarning,
+    LowSeverityWarning,
+    MediumSeverityWarning,
+    MissingCapabilityWarning,
+)
 from cognite_toolkit._cdf_tk.utils import AuthVariables, CDFToolConfig
 
 from ._base import ToolkitCommand
@@ -257,7 +262,7 @@ class AuthCommand(ToolkitCommand):
             for d in diff:
                 diff_list.append(str(d))
             for s in sorted(diff_list):
-                self.warn(LowSeverityWarning(f"The capability {s} is not present in the CDF project."))
+                self.warn(MissingCapabilityWarning(str(s)))
         else:
             print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
         # Flatten out into a list of acls in the existing project
