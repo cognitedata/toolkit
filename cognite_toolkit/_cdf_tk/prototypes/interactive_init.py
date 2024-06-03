@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Annotated, Any, Optional, Union
 
@@ -66,7 +68,7 @@ class InteractiveInit(typer.Typer):
                     else:
                         subtree.add(subvalue)
 
-    def create(self, init_dir: str, selected: dict[str, list[str]], mode: Union[str | None]) -> None:
+    def create(self, init_dir: str, selected: dict[str, list[str]], mode: str | None) -> None:
         pass
 
     def interactive(
