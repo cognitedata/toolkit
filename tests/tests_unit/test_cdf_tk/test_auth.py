@@ -18,6 +18,7 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    HighSeverityWarning,
     LowSeverityWarning,
     MissingCapabilityWarning,
     ToolkitWarning,
@@ -106,7 +107,8 @@ def test_auth_verify_happy_path(
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    cmd = AuthCommand()
+    cmd = AuthCommand(print_warning=False)
+
     cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
 
     assert list(cmd.warning_list) == []
@@ -130,7 +132,7 @@ def test_auth_verify_wrong_capabilities(
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
-    cmd = AuthCommand()
+    cmd = AuthCommand(print_warning=False)
 
     cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
 
@@ -139,11 +141,9 @@ def test_auth_verify_wrong_capabilities(
 
 
 def test_auth_verify_two_groups(
-    file_regression,
     cdf_tool_config: CDFToolConfig,
     auth_cognite_approval_client: ApprovalCogniteClient,
     cdf_resources: dict[CogniteResource, Union[CogniteResource, CogniteResourceList]],
-    capfd,
 ):
     # Add another group
     cdf_resources[Group].append(Group.load(yaml.safe_load((AUTH_DATA / "rw-group.yaml").read_text())))
@@ -165,11 +165,9 @@ def test_auth_verify_two_groups(
 
 
 def test_auth_verify_no_capabilities(
-    file_regression,
     cdf_tool_config: CDFToolConfig,
     auth_cognite_approval_client: ApprovalCogniteClient,
     cdf_resources: dict[CogniteResource, Union[CogniteResource, CogniteResourceList]],
-    capfd,
 ):
     # Add the pre-loaded data to the approval_client
     for resource, data in cdf_resources.items():
@@ -182,12 +180,12 @@ def test_auth_verify_no_capabilities(
         raise Exception("No capabilities")
 
     cdf_tool_config.verify_client.side_effect = mock_verify_client
-    cmd = AuthCommand()
+    cmd = AuthCommand(print_warning=False)
     cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
-    out, _ = capfd.readouterr()
-    # Strip trailing spaces
-    out = "\n".join([line.rstrip() for line in out.splitlines()])
-    file_regression.check(out, encoding="utf-8", fullpath=to_fullpath(f"{TEST_PREFIX}_auth_verify_no_capabilities"))
 
-    dump = auth_cognite_approval_client.dump()
-    assert dump == {}
+    assert len(cmd.warning_list) == 1
+    assert set(cmd.warning_list) == {
+        HighSeverityWarning(
+            "The service principal/application configured for this client does not have the basic group write access rights."
+        )
+    }
