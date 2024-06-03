@@ -439,7 +439,7 @@ class GroupAllScopedLoader(GroupLoader):
 class SecurityCategoryLoader(
     ResourceLoader[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
 ):
-    filename_pattern = r"^.*SecurityCategory$"  # Matches all yaml files who's stem ends with *.SecurityCategory.
+    filename_pattern = r"^.*SecurityCategory$"  # Matches all yaml files who's stem ends with *SecurityCategory.
     resource_cls = SecurityCategory
     resource_write_cls = SecurityCategoryWrite
     list_cls = SecurityCategoryList
