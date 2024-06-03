@@ -2604,12 +2604,34 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                         _is_nullable=False,
                     ),
                     ParameterSpec(
+                        ("properties", ANY_STR, "through", "source", "type"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
+                        # In the SDK this is called "property"
+                        ("properties", ANY_STR, "through", "identifier"),
+                        frozenset({"str"}),
+                        is_required=True,
+                        _is_nullable=False,
+                    ),
+                    ParameterSpec(
                         ("filter", "hasData", ANY_INT, "type"),
                         frozenset({"str"}),
                         is_required=True,
                         _is_nullable=False,
                     ),
                 }
+            )
+        )
+        spec.discard(
+            ParameterSpec(
+                # The API spec calls this "identifier", while the SDK calls it "property".
+                ("properties", ANY_STR, "through", "property"),
+                frozenset({"str"}),
+                is_required=True,
+                _is_nullable=False,
             )
         )
         return spec

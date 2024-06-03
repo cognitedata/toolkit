@@ -154,7 +154,32 @@ class TestViewLoader:
                     }
                 },
                 id="HasData Filter",
-            )
+            ),
+            pytest.param(
+                {
+                    "properties": {
+                        "reverseDirectRelation": {
+                            "connectionType": "multi_reverse_direct_relation",
+                            "source": {
+                                "type": "view",
+                                "space": "sp_my_space",
+                                "externalId": "view_id",
+                                "version": "v42",
+                            },
+                            "through": {
+                                "source": {
+                                    "type": "view",
+                                    "space": "sp_my_space",
+                                    "externalId": "view_id",
+                                    "version": "v42",
+                                },
+                                "identifier": "view_property",
+                            },
+                        }
+                    }
+                },
+                id="Reverse Direct Relation Property",
+            ),
         ],
     )
     def test_valid_spec(self, item: dict):
