@@ -1308,12 +1308,18 @@ class DatapointSubscriptionLoader(
     ]
 ):
     folder_name = "timeseries"
-    filename_pattern = r"^.*\.DatapointSubscription$"  # Matches all yaml files who's endswith *.DatapointSubscription.
+    filename_pattern = r"^.*DatapointSubscription$"  # Matches all yaml files who end with *DatapointSubscription.
     resource_cls = DatapointSubscription
     resource_write_cls = DataPointSubscriptionWrite
     list_cls = DatapointSubscriptionList
     list_write_cls = DatapointSubscriptionWriteList
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
+    dependencies = frozenset(
+        {
+            TimeSeriesLoader,
+            GroupAllScopedLoader,
+        }
+    )
 
     @property
     def display_name(self) -> str:
