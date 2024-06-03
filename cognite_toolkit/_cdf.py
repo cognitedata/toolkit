@@ -15,9 +15,8 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand, auth
+from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand, DumpCommand, auth
 from cognite_toolkit._cdf_tk.commands.describe import describe_datamodel
-from cognite_toolkit._cdf_tk.commands.dump import dump_datamodel_command
 from cognite_toolkit._cdf_tk.commands.pull import pull_command
 from cognite_toolkit._cdf_tk.commands.run import run_function, run_local_function, run_transformation
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -814,6 +813,14 @@ def pull_node_cmd(
     )
 
 
+@dump_app.callback(invoke_without_command=True)
+def dump_main(ctx: typer.Context) -> None:
+    """Commands to dump resource configurations from CDF into a temporary directory."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk dump --help[/] for more information.")
+    return None
+
+
 @dump_app.command("datamodel")
 def dump_datamodel_cmd(
     ctx: typer.Context,
@@ -860,7 +867,8 @@ def dump_datamodel_cmd(
     ] = "tmp",
 ) -> None:
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-    dump_datamodel_command(
+    cmd = DumpCommand()
+    cmd.execute(
         CDFToolConfig.from_context(ctx),
         DataModelId(space, external_id, version),
         Path(output_dir),
