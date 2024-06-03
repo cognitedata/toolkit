@@ -19,6 +19,12 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- Running the build command, `cdf-tk build`, with `Group` resources scoped will read to incorrect
+  warning such as `WARNING [HIGH]: Space 'spaceIds' is missing and is required by:` and
+  `WARNING [HIGH]: DataSet 'ids' is missing and is required by:`. This is now fixed.
+- Running the build command, `cdf-tk build`, with a `View` resource with a `hasData` filter would print a
+  `UnusedParameterWarning: Parameter 'externalId' is not used in section ('filter', 'hasData', 0, 'externalId').`.
+  This is incorrect and is now fixed to not print this warning.
 - If you had a `container` with a direct relation property with a required constraint, the `cdf-tk build` command
   would incorrectly yield a warning that the `Parameter 'type' is not used ...`. This is now fixed.
 
