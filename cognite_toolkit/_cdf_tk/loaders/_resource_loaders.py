@@ -819,7 +819,7 @@ class FunctionScheduleLoader(
     ResourceLoader[str, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList]
 ):
     folder_name = "functions"
-    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files whose stem contains *.schedule.
+    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule
     resource_cls = FunctionSchedule
     resource_write_cls = FunctionScheduleWrite
     list_cls = FunctionSchedulesList
