@@ -15,8 +15,14 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand, DumpCommand, auth
-from cognite_toolkit._cdf_tk.commands.describe import describe_datamodel
+from cognite_toolkit._cdf_tk.commands import (
+    BuildCommand,
+    CleanCommand,
+    DeployCommand,
+    DescribeCommand,
+    DumpCommand,
+    auth,
+)
 from cognite_toolkit._cdf_tk.commands.pull import pull_command
 from cognite_toolkit._cdf_tk.commands.run import run_function, run_local_function, run_transformation
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -549,14 +555,14 @@ def describe_main(ctx: typer.Context) -> None:
 def describe_datamodel_cmd(
     ctx: typer.Context,
     space: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             "--space",
             "-s",
             prompt=True,
             help="Space where the data model to describe is located.",
         ),
-    ] = None,
+    ],
     data_model: Annotated[
         Optional[str],
         typer.Option(
@@ -569,11 +575,8 @@ def describe_datamodel_cmd(
 ) -> None:
     """This command will describe the characteristics of a data model given the space
     name and datamodel name."""
-    if space is None or len(space) == 0:
-        raise ToolkitValidationError("--space is required.")
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    describe_datamodel(ToolGlobals, space, data_model)
-    return None
+    cmd = DescribeCommand()
+    cmd.execute(CDFToolConfig.from_context(ctx), space, data_model)
 
 
 @run_app.callback(invoke_without_command=True)

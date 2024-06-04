@@ -819,7 +819,7 @@ class FunctionScheduleLoader(
     ResourceLoader[str, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList]
 ):
     folder_name = "functions"
-    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule.
+    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule
     resource_cls = FunctionSchedule
     resource_write_cls = FunctionScheduleWrite
     list_cls = FunctionSchedulesList
@@ -1648,7 +1648,8 @@ class TransformationScheduleLoader(
     ]
 ):
     folder_name = "transformations"
-    filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
+    # Matches all yaml files whose stem contains *schedule or *TransformationSchedule.
+    filename_pattern = r"^.*schedule$"
     resource_cls = TransformationSchedule
     resource_write_cls = TransformationScheduleWrite
     list_cls = TransformationScheduleList
@@ -1869,7 +1870,7 @@ class ExtractionPipelineConfigLoader(
     ]
 ):
     folder_name = "extraction_pipelines"
-    filename_pattern = r"^.*\.config$"
+    filename_pattern = r"^.*config$"
     resource_cls = ExtractionPipelineConfig
     resource_write_cls = ExtractionPipelineConfigWrite
     list_cls = ExtractionPipelineConfigList
@@ -2154,7 +2155,7 @@ class FileMetadataLoader(
 class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     item_name = "nodes and edges"
     folder_name = "data_models"
-    filename_pattern = r"^.*\.?(space)$"
+    filename_pattern = r"^.*space$"
     resource_cls = Space
     resource_write_cls = SpaceApply
     list_write_cls = SpaceApplyList
@@ -2282,7 +2283,7 @@ class ContainerLoader(
 ):
     item_name = "nodes and edges"
     folder_name = "data_models"
-    filename_pattern = r"^.*\.?(container)$"
+    filename_pattern = r"^.*container$"
     resource_cls = Container
     resource_write_cls = ContainerApply
     list_cls = ContainerList
@@ -2467,7 +2468,7 @@ class ContainerLoader(
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     folder_name = "data_models"
-    filename_pattern = r"^.*\.?(view)$"
+    filename_pattern = r"^.*view$"
     resource_cls = View
     resource_write_cls = ViewApply
     list_cls = ViewList
@@ -2661,7 +2662,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
     folder_name = "data_models"
-    filename_pattern = r"^.*\.?(datamodel)$"
+    filename_pattern = r"^.*datamodel$"
     resource_cls = DataModel
     resource_write_cls = DataModelApply
     list_cls = DataModelList
@@ -2747,7 +2748,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListWithCall, NodeList]):
     item_name = "nodes"
     folder_name = "data_models"
-    filename_pattern = r"^.*\.?(node)$"
+    filename_pattern = r"^.*node$"
     resource_cls = Node
     resource_write_cls = NodeApply
     list_cls = NodeList
