@@ -55,6 +55,9 @@ from cognite.client.data_classes import (
     FunctionScheduleWriteList,
     FunctionWrite,
     FunctionWriteList,
+    LabelDefinition,
+    LabelDefinitionList,
+    LabelDefinitionWrite,
     OidcCredentials,
     TimeSeries,
     TimeSeriesList,
@@ -80,6 +83,7 @@ from cognite.client.data_classes import (
     capabilities,
     filters,
 )
+from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
@@ -144,6 +148,7 @@ from cognite.client.data_classes.iam import (
     SecurityCategoryWrite,
     SecurityCategoryWriteList,
 )
+from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -610,6 +615,57 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
             )
         )
         return spec
+
+
+@final
+class LabelLoader(
+    ResourceLoader[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
+):
+    folder_name = "labels"
+    filename_pattern = r"^.*Label$"  # Matches all yaml files whose stem ends with *Label.
+    resource_cls = LabelDefinition
+    resource_write_cls = LabelDefinitionWrite
+    list_cls = LabelDefinitionList
+    list_write_cls = LabelDefinitionWriteList
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
+    _doc_url = "Labels/operation/createLabelDefinitions"
+
+    @classmethod
+    def get_id(cls, item: LabelDefinition | LabelDefinitionWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        if not item.external_id:
+            raise ToolkitRequiredValueError("LabelDefinition must have external_id set.")
+        return item.external_id
+
+    @classmethod
+    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+        return capabilities.LabelsAcl(
+            [capabilities.LabelsAcl.Action.Read, capabilities.LabelsAcl.Action.Write],
+            capabilities.LabelsAcl.Scope.All(),
+        )
+
+    def create(self, items: LabelDefinitionWriteList) -> LabelDefinitionList:
+        return self.client.labels.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> LabelDefinitionList:
+        # Todo check SDK.
+        raise NotImplementedError()
+
+    def update(self, items: T_CogniteResourceList) -> Sized:
+        raise NotImplementedError()
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.labels.delete(ids)
+        except (CogniteAPIError, CogniteNotFoundError) as e:
+            non_existing = set(e.failed or [])
+            if existing := [id_ for id_ in ids if id_ not in non_existing]:
+                self.client.labels.delete(existing)
+            return len(existing)
+        else:
+            # All deleted successfully
+            return len(ids)
 
 
 @final
