@@ -329,42 +329,42 @@ class RunFunctionCommand(ToolkitCommand):
         # Create temporary main file to execute
         (handler_file.parent / "tmpmain.py").write_text(
             """
-    from pathlib import Path
-    from handler import handle
-    import json
-    import inspect
-    import os
-    from collections import OrderedDict
+from pathlib import Path
+from handler import handle
+import json
+import inspect
+import os
+from collections import OrderedDict
 
-    from cognite.client import CogniteClient
+from cognite.client import CogniteClient
 
 
-    def get_args(fn, handle_args):
-        params = inspect.signature(fn).parameters
-        kwargs = OrderedDict()
-        for p in params.values():
-            if p.name in handle_args:
-                kwargs[p.name] = handle_args[p.name]
-        return kwargs
+def get_args(fn, handle_args):
+    params = inspect.signature(fn).parameters
+    kwargs = OrderedDict()
+    for p in params.values():
+        if p.name in handle_args:
+            kwargs[p.name] = handle_args[p.name]
+    return kwargs
 
-    if __name__ == "__main__":
-        client = CogniteClient.default_oauth_client_credentials(
-            client_id=os.getenv('IDP_CLIENT_ID'),
-            client_secret=os.getenv('IDP_CLIENT_SECRET'),
-            project=os.getenv('CDF_PROJECT'),
-            cdf_cluster=os.getenv('CDF_CLUSTER'),
-            tenant_id=os.getenv('IDP_TENANT_ID'),
-            client_name="cognite-toolkit",
-        )
-        data = json.loads(Path("./in.json").read_text())
-        args = get_args(handle, {
-            "client": client,
-            "data": data,
-            "secrets": {},
-            "function_call_info": {"local": True}
-        })
-        out = handle(**args)
-        Path("./out.json").write_text(json.dumps(out))
+if __name__ == "__main__":
+    client = CogniteClient.default_oauth_client_credentials(
+        client_id=os.getenv('IDP_CLIENT_ID'),
+        client_secret=os.getenv('IDP_CLIENT_SECRET'),
+        project=os.getenv('CDF_PROJECT'),
+        cdf_cluster=os.getenv('CDF_CLUSTER'),
+        tenant_id=os.getenv('IDP_TENANT_ID'),
+        client_name="cognite-toolkit",
+    )
+    data = json.loads(Path("./in.json").read_text())
+    args = get_args(handle, {
+        "client": client,
+        "data": data,
+        "secrets": {},
+        "function_call_info": {"local": True}
+    })
+    out = handle(**args)
+    Path("./out.json").write_text(json.dumps(out))
 
     """
         )

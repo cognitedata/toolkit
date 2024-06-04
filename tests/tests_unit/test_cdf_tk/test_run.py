@@ -83,14 +83,16 @@ def test_run_local_function(cognite_client_approval: ApprovalCogniteClient) -> N
         created_time=int(datetime.now().timestamp() / 1000),
     )
     cognite_client_approval.append(Function, function)
-    assert (
-        RunFunctionCommand().run_local_function(
-            ToolGlobals=cdf_tool,
-            source_path=RUN_DATA,
-            rebuild_env=True,
-            build_env_name="dev",
-            external_id="fn_test2",
-            payload='{"var1": "value"}',
-        )
-        is True
+
+    cmd = RunFunctionCommand()
+
+    result = cmd.run_local_function(
+        ToolGlobals=cdf_tool,
+        source_path=RUN_DATA,
+        rebuild_env=True,
+        build_env_name="dev",
+        external_id="fn_test2",
+        payload='{"var1": "value"}',
     )
+
+    assert result is True
