@@ -79,7 +79,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: CD
-    needs: [lint, test, build]
+    # This causes issues when CDF is down.
+    #needs: [lint, test, build]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
