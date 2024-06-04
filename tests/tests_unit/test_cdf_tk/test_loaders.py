@@ -1033,7 +1033,9 @@ class TestFormatConsistency:
 
         mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
 
-        loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_config, skip_validation=True
+        )
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
@@ -1060,7 +1062,9 @@ class TestFormatConsistency:
 
         mock_read_yaml_file({"dict.yaml": instances.dump()}, monkeypatch)
 
-        loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_config, skip_validation=True
+        )
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
