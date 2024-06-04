@@ -72,6 +72,7 @@ ResourceTypes: TypeAlias = Literal[
     "auth",
     "data_models",
     "data_sets",
+    "labels",
     "transformations",
     "files",
     "timeseries",
