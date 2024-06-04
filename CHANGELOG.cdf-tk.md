@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Changed
+
+- The toolkit now only gives a `TemplateVariableWarning` (`Variable my_variable has value <change_me> ...`) if
+  the variable is used by `selected` in the `config.[env].yaml`. This is to avoid unnecessary warnings.
+
 ## [0.2.0b3] - 2024-06-04
 
 ### Added
