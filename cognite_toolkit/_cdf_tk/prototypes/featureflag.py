@@ -1,10 +1,8 @@
 import os
-from functools import lru_cache
 
-import dotenv
+from rich import print
 
 
-@lru_cache(maxsize=128)
 def enabled(flag: str) -> bool:
     """
     Check if a feature flag is enabled.
@@ -15,8 +13,8 @@ def enabled(flag: str) -> bool:
     Returns:
         bool: True if the feature flag is enabled, False otherwise.
     """
-    dotenv.load_dotenv()
     if os.environ.get(flag, "false").lower() == "true":
-        print(f"Feature flag {flag} is enabled.")
+        if enabled("FF_PRINT_FLAGS"):
+            print(f"[yellow]Feature flag {flag} is enabled.[/]")
         return True
     return False
