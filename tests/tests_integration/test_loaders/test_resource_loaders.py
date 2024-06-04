@@ -153,7 +153,7 @@ class TestLabelLoader:
         )
         update = LabelDefinitionWrite(
             external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}",
-            name="Initial name",
+            name="Updated name",
         )
 
         loader = LabelLoader(cognite_client, None)

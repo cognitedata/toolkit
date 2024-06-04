@@ -652,7 +652,10 @@ class LabelLoader(
         return self.client.labels.retrieve(ids, ignore_unknown_ids=True)
 
     def update(self, items: T_CogniteResourceList) -> LabelDefinitionList:
-        raise NotImplementedError()
+        existing = self.client.labels.retrieve([item.external_id for item in items])
+        if existing:
+            self.delete([item.external_id for item in items])
+        return self.client.labels.create(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
