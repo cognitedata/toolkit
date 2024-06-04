@@ -651,7 +651,7 @@ class LabelLoader(
     def retrieve(self, ids: SequenceNotStr[str]) -> LabelDefinitionList:
         return self.client.labels.retrieve(ids, ignore_unknown_ids=True)
 
-    def update(self, items: T_CogniteResourceList) -> Sized:
+    def update(self, items: T_CogniteResourceList) -> LabelDefinitionList:
         raise NotImplementedError()
 
     def delete(self, ids: SequenceNotStr[str]) -> int:

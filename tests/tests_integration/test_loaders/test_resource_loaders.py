@@ -7,15 +7,17 @@ from cognite.client.data_classes import (
     Function,
     FunctionSchedule,
     FunctionScheduleWriteList,
+    LabelDefinitionWrite,
     filters,
 )
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionProperty,
     DatapointSubscriptionWriteList,
 )
+from cognite.client.data_classes.labels import LabelDefinitionWriteList
 
 from cognite_toolkit._cdf_tk.commands import DeployCommand
-from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, FunctionScheduleLoader
+from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, FunctionScheduleLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
 from tests.tests_integration.constants import RUN_UNIQUE_ID
 
@@ -136,3 +138,32 @@ class TestDatapointSubscriptionLoader:
             assert updated[0].name == "Updated name"
         finally:
             loader.delete([sub.external_id])
+
+
+class TestLabelLoader:
+    def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
+        loader = LabelLoader(cognite_client, None)
+        delete_count = loader.delete(["non_existing"])
+        assert delete_count == 0
+
+    def test_create_update_delete_label(self, cognite_client: CogniteClient) -> None:
+        initial = LabelDefinitionWrite(
+            external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}",
+            name="Initial name",
+        )
+        update = LabelDefinitionWrite(
+            external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}",
+            name="Initial name",
+        )
+
+        loader = LabelLoader(cognite_client, None)
+
+        try:
+            created = loader.create(LabelDefinitionWriteList([initial]))
+            assert len(created) == 1
+
+            updated = loader.update(LabelDefinitionWriteList([update]))
+            assert len(updated) == 1
+            assert updated[0].name == "Updated name"
+        finally:
+            loader.delete([initial.external_id])
