@@ -117,6 +117,12 @@ Group:
       - WRITE
       scope:
         all: {}
+  - labelsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
   metadata:
     origin: cdf-project-templates
   name: gp_admin_read_write
@@ -252,6 +258,11 @@ Group:
       scope:
         all: {}
   - timeSeriesSubscriptionsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - labelsAcl:
       actions:
       - READ
       scope:

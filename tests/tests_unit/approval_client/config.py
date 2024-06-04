@@ -38,6 +38,9 @@ from cognite.client.data_classes import (
     GroupList,
     GroupWrite,
     GroupWriteList,
+    LabelDefinition,
+    LabelDefinitionList,
+    LabelDefinitionWrite,
     Row,
     RowList,
     RowWrite,
@@ -100,6 +103,7 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.iam import TokenInspection
+from cognite.client.data_classes.labels import LabelDefinitionWriteList
 
 from .data_classes import APIResource, Method
 
@@ -450,6 +454,17 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="return_value"),
             ],
+        },
+    ),
+    APIResource(
+        api_name="labels",
+        resource_cls=LabelDefinition,
+        list_cls=LabelDefinitionList,
+        _write_cls=LabelDefinitionWrite,
+        _write_list_cls=LabelDefinitionWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
         },
     ),
 ]
