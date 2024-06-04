@@ -180,10 +180,11 @@ class BuildCommand(ToolkitCommand):
                     destination = build_dir / resource_folder / state.create_file_name(source_path)
                     destination.parent.mkdir(parents=True, exist_ok=True)
 
-                    is_function_non_yaml = (
-                        resource_folder == FunctionLoader.folder_name and source_path.suffix.lower() != ".yaml"
+                    is_function_non_yaml = resource_folder == FunctionLoader.folder_name and (
+                        source_path.suffix.lower() != ".yaml" or source_path.parent.name != FunctionLoader.folder_name
                     )
                     # We only want to process the yaml files for functions as the function code is handled separately.
+                    # Note that yaml files that are NOT in the root function folder are considered function code.
                     if not is_function_non_yaml:
                         content = source_path.read_text()
                         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
@@ -321,6 +322,11 @@ class BuildCommand(ToolkitCommand):
         build_dir: Path,
         verbose: bool = False,
     ) -> None:
+        if yaml_source_path.parent.name != FunctionLoader.folder_name:
+            # todo: Warning?
+            # The yaml file is not at the top level in the function
+            # thus we skip it.
+            return None
         try:
             functions: FunctionList = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
         except (KeyError, yaml.YAMLError) as e:

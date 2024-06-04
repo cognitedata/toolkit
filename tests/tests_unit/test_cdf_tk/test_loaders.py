@@ -1127,6 +1127,9 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             loader = next((loader for loader in loaders if loader.is_supported_file(filepath)), None)
             if loader is None:
                 raise ValueError(f"Could not find loader for {filepath}")
+            if loader is FunctionLoader and filepath.parent.name != loader.folder_name:
+                # Functions will only accept YAML in root function folder.
+                continue
             if issubclass(loader, ResourceLoader):
                 raw = yaml.CSafeLoader(filepath.read_text()).get_data()
                 source_path = source_by_build_path[filepath]
