@@ -145,8 +145,9 @@ class BuildCommand(ToolkitCommand):
             for module_dir, source_paths in iterate_modules(source_dir)
             if self._is_selected_module(module_dir.relative_to(source_dir), selected_modules)
         ]
+        selected_variables = self._get_selected_variables(config.variables, module_directories)
 
-        warnings = validate_modules_variables(config.variables, config.filepath)
+        warnings = validate_modules_variables(selected_variables, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
             for warning in warnings:
@@ -259,6 +260,30 @@ class BuildCommand(ToolkitCommand):
                 for required, path in state.dependencies_by_required[(resource_cls, id_)]
             }
             self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
+
+    @staticmethod
+    def _get_selected_variables(
+        config_variables: dict[str, Any], module_directories: list[tuple[Path, list[Path]]]
+    ) -> dict[str, Any]:
+        selected_paths = {
+            dir_.parts[1:i]
+            for dir_, _ in module_directories
+            if len(dir_.parts) > 1
+            for i in range(2, len(dir_.parts) + 1)
+        }
+        selected_variables: dict[str, Any] = {}
+        to_check: list[tuple[tuple[str, ...], dict[str, Any]]] = [(tuple(), config_variables)]
+        while to_check:
+            path, current = to_check.pop()
+            for key, value in current.items():
+                if isinstance(value, dict):
+                    to_check.append(((*path, key), value))
+                elif path in selected_paths:
+                    selected = selected_variables
+                    for part in path:
+                        selected = selected.setdefault(part, {})
+                    selected[key] = value
+        return selected_variables
 
     @staticmethod
     def _is_selected_module(relative_module_dir: Path, selected_modules: list[str | tuple[str, ...]]) -> bool:
