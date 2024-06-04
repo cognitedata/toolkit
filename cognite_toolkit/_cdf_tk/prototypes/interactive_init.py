@@ -93,6 +93,7 @@ class InteractiveInit(typer.Typer):
 
         selected: dict[str, Any] = {}
         available = self.get_packages()
+        mode = None
 
         if not init_dir:
             init_dir = questionary.text("Which directory would you like to use?", default="new_project").ask()
@@ -113,6 +114,8 @@ class InteractiveInit(typer.Typer):
         if not init_dir:
             raise ToolkitRequiredValueError("Directory path is required.")
 
+        if not mode:
+            mode = "new"
         print(f"  [{'yellow' if mode == 'overwrite' else 'green'}]Using directory [bold]{init_dir}[/]")
 
         loop = True
