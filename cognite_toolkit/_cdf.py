@@ -15,10 +15,17 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand, DescribeCommand, auth
-from cognite_toolkit._cdf_tk.commands.dump import dump_datamodel_command
-from cognite_toolkit._cdf_tk.commands.pull import pull_command
-from cognite_toolkit._cdf_tk.commands.run import run_function, run_local_function, run_transformation
+from cognite_toolkit._cdf_tk.commands import (
+    BuildCommand,
+    CleanCommand,
+    DeployCommand,
+    DescribeCommand,
+    DumpCommand,
+    PullCommand,
+    RunFunctionCommand,
+    RunTransformationCommand,
+    auth,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
     ToolkitFileNotFoundError,
@@ -584,33 +591,32 @@ def run_main(ctx: typer.Context) -> None:
 def run_transformation_cmd(
     ctx: typer.Context,
     external_id: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             "--external-id",
             "-e",
             prompt=True,
             help="External id of the transformation to run.",
         ),
-    ] = None,
+    ],
 ) -> None:
     """This command will run the specified transformation using a one-time session."""
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    external_id = cast(str, external_id).strip()
-    run_transformation(ToolGlobals, external_id)
+    cmd = RunTransformationCommand()
+    cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id)
 
 
 @run_app.command("function")
 def run_function_cmd(
     ctx: typer.Context,
     external_id: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             "--external-id",
             "-e",
             prompt=True,
             help="External id of the function to run.",
         ),
-    ] = None,
+    ],
     payload: Annotated[
         Optional[str],
         typer.Option(
@@ -675,32 +681,19 @@ def run_function_cmd(
     ] = "dev",
 ) -> None:
     """This command will run the specified function using a one-time session."""
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    external_id = cast(str, external_id).strip()
-    if not local:
-        run_function(ToolGlobals, external_id=external_id, payload=payload or "", follow=follow)
-        return None
-    if follow:
-        print("  [bold yellow]WARNING:[/] --follow is not supported when running locally and should not be specified.")
-    if source_dir is None:
-        source_dir = "./"
-    source_path = Path(source_dir)
-    system_yaml = Path(source_path / "cognite_modules/_system.yaml")
-    if not source_path.is_dir() or not system_yaml.is_file():
-        raise ToolkitValidationError(
-            f"{source_path} is not a valid project directory. Expecting to find in {system_yaml}."
-        )
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    run_local_function(
-        ToolGlobals=ToolGlobals,
-        source_path=source_path,
-        external_id=external_id,
-        payload=payload or "{}",
-        schedule=schedule,
-        build_env_name=build_env_name,
-        rebuild_env=rebuild_env,
-        verbose=ctx.obj.verbose,
-        no_cleanup=no_cleanup,
+    cmd = RunFunctionCommand()
+    cmd.execute(
+        CDFToolConfig.from_context(ctx),
+        external_id,
+        payload,
+        follow,
+        local,
+        rebuild_env,
+        no_cleanup,
+        source_dir,
+        schedule,
+        build_env_name,
+        ctx.obj.verbose,
     )
 
 
@@ -748,7 +741,7 @@ def pull_transformation_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified transformation and update its YAML file in the module folder"""
-    pull_command(
+    PullCommand().execute(
         source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
     )
 
@@ -799,7 +792,7 @@ def pull_node_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified node and update its YAML file in the module folder."""
-    pull_command(
+    PullCommand().execute(
         source_dir,
         NodeId(space, external_id),
         env,
@@ -808,6 +801,14 @@ def pull_node_cmd(
         CDFToolConfig.from_context(ctx),
         NodeLoader,
     )
+
+
+@dump_app.callback(invoke_without_command=True)
+def dump_main(ctx: typer.Context) -> None:
+    """Commands to dump resource configurations from CDF into a temporary directory."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk dump --help[/] for more information.")
+    return None
 
 
 @dump_app.command("datamodel")
@@ -856,7 +857,8 @@ def dump_datamodel_cmd(
     ] = "tmp",
 ) -> None:
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-    dump_datamodel_command(
+    cmd = DumpCommand()
+    cmd.execute(
         CDFToolConfig.from_context(ctx),
         DataModelId(space, external_id, version),
         Path(output_dir),
