@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Support for resource type `Label` in the  `labels` folder.
+
 ### Fixed
 
 - The toolkit now ensures `Transformations` and `Functions` are deployed before `Workflows`

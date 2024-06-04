@@ -55,6 +55,9 @@ from cognite.client.data_classes import (
     FunctionScheduleWriteList,
     FunctionWrite,
     FunctionWriteList,
+    LabelDefinition,
+    LabelDefinitionList,
+    LabelDefinitionWrite,
     OidcCredentials,
     TimeSeries,
     TimeSeriesList,
@@ -80,6 +83,7 @@ from cognite.client.data_classes import (
     capabilities,
     filters,
 )
+from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
@@ -144,6 +148,7 @@ from cognite.client.data_classes.iam import (
     SecurityCategoryWrite,
     SecurityCategoryWriteList,
 )
+from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -610,6 +615,89 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
             )
         )
         return spec
+
+
+@final
+class LabelLoader(
+    ResourceLoader[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
+):
+    folder_name = "labels"
+    filename_pattern = r"^.*Label$"  # Matches all yaml files whose stem ends with *Label.
+    resource_cls = LabelDefinition
+    resource_write_cls = LabelDefinitionWrite
+    list_cls = LabelDefinitionList
+    list_write_cls = LabelDefinitionWriteList
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
+    _doc_url = "Labels/operation/createLabelDefinitions"
+
+    @classmethod
+    def get_id(cls, item: LabelDefinition | LabelDefinitionWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        if not item.external_id:
+            raise ToolkitRequiredValueError("LabelDefinition must have external_id set.")
+        return item.external_id
+
+    @classmethod
+    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+        return capabilities.LabelsAcl(
+            [capabilities.LabelsAcl.Action.Read, capabilities.LabelsAcl.Action.Write],
+            capabilities.LabelsAcl.Scope.All(),
+        )
+
+    def create(self, items: LabelDefinitionWriteList) -> LabelDefinitionList:
+        return self.client.labels.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> LabelDefinitionList:
+        return self.client.labels.retrieve(ids, ignore_unknown_ids=True)
+
+    def update(self, items: T_CogniteResourceList) -> LabelDefinitionList:
+        existing = self.client.labels.retrieve([item.external_id for item in items])
+        if existing:
+            self.delete([item.external_id for item in items])
+        return self.client.labels.create(items)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.labels.delete(ids)
+        except (CogniteAPIError, CogniteNotFoundError) as e:
+            non_existing = set(e.failed or [])
+            if existing := [id_ for id_ in ids if id_ not in non_existing]:
+                self.client.labels.delete(existing)
+            return len(existing)
+        else:
+            # All deleted successfully
+            return len(ids)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> LabelDefinitionWrite | LabelDefinitionWriteList | None:
+        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        items: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
+        for item in items:
+            if "dataSetExternalId" in item:
+                ds_external_id = item.pop("dataSetExternalId")
+                item["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation=skip_validation)
+        loaded = LabelDefinitionWriteList.load(items)
+        return loaded[0] if isinstance(raw_yaml, dict) else loaded
 
 
 @final
@@ -1996,7 +2084,7 @@ class FileMetadataLoader(
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
-    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, LabelLoader})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -2027,6 +2115,12 @@ class FileMetadataLoader(
         if "securityCategoryNames" in item:
             for security_category in item["securityCategoryNames"]:
                 yield SecurityCategoryLoader, security_category
+        if "labels" in item:
+            for label in item["labels"]:
+                if isinstance(label, dict):
+                    yield LabelLoader, label["externalId"]
+                elif isinstance(label, str):
+                    yield LabelLoader, label
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
