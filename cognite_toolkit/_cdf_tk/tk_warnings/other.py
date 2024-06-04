@@ -136,5 +136,5 @@ class MissingCapabilityWarning(GeneralWarning):
     capability: str
 
     def get_message(self) -> str:
-        msg = f"The capability {self.capability} is not present in the CDF project."
+        msg = f"The principal lacks the required access capability {self.capability} in the CDF project"
         return SeverityFormat.get_rich_severity_format(self.severity, msg)
