@@ -149,7 +149,7 @@ class AuthCommand(ToolkitCommand):
             ToolGlobals.verify_client(
                 capabilities={
                     "projectsAcl": ["LIST", "READ"],
-                    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"],
+                    "groupsAcl": ["LIST", "READ"],
                 }
             )
             print("  [bold green]OK[/]")
