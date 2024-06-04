@@ -649,8 +649,7 @@ class LabelLoader(
         return self.client.labels.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> LabelDefinitionList:
-        # Todo check SDK.
-        raise NotImplementedError()
+        return self.client.labels.retrieve(ids, ignore_unknown_ids=True)
 
     def update(self, items: T_CogniteResourceList) -> Sized:
         raise NotImplementedError()
