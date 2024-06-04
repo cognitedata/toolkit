@@ -15,6 +15,17 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0b3] - 2024-06-04
+
+### Added
+
+- Support for resource type `Label` in the  `labels` folder.
+
+### Fixed
+
+- The toolkit now ensures `Transformations` and `Functions` are deployed before `Workflows`
+- The toolkit now ensures `TimeSeries` and `Groups` are deployed before `DatapointSubscriptions`.
+
 ## [0.2.0b2] - 2024-06-03
 
 ### Fixed

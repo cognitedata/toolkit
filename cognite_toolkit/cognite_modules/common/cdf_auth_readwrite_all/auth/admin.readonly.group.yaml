@@ -137,3 +137,8 @@ capabilities:
         - READ
       scope:
         all: {}
+  - labelsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}

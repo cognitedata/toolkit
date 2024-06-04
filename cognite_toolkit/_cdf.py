@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
-import contextlib
+
 import os
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
-from importlib import resources
 from pathlib import Path
-from typing import Annotated, NoReturn, Optional, Union, cast
+from typing import Annotated, NoReturn, Optional, Union
 
 import typer
 from cognite.client.data_classes.data_modeling import DataModelId, NodeId
@@ -15,11 +14,17 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand, auth
-from cognite_toolkit._cdf_tk.commands.describe import describe_datamodel
-from cognite_toolkit._cdf_tk.commands.dump import dump_datamodel_command
-from cognite_toolkit._cdf_tk.commands.pull import pull_command
-from cognite_toolkit._cdf_tk.commands.run import run_function, run_local_function, run_transformation
+from cognite_toolkit._cdf_tk.commands import (
+    AuthCommand,
+    BuildCommand,
+    CleanCommand,
+    DeployCommand,
+    DescribeCommand,
+    DumpCommand,
+    PullCommand,
+    RunFunctionCommand,
+    RunTransformationCommand,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
     ToolkitFileNotFoundError,
@@ -32,9 +37,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
 )
 from cognite_toolkit._cdf_tk.prototypes import featureflag
-from cognite_toolkit._cdf_tk.templates import (
-    COGNITE_MODULES,
-)
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,
@@ -430,32 +432,8 @@ def auth_verify(
 
     The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
-    # TODO: Check if groupsAcl.UPDATE does nothing?
-    if create_group is not None and update_group != 0:
-        raise ToolkitInvalidSettingsError("--create-group and --update-group are mutually exclusive.")
-    with contextlib.redirect_stdout(None):
-        # Remove the Error message from failing to load the config
-        # This is verified in check_auth
-        ToolGlobals = CDFToolConfig.from_context(ctx)
-
-    if group_file is None:
-        template_dir = cast(Path, resources.files("cognite_toolkit"))
-        group_path = template_dir.joinpath(
-            Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/admin.readwrite.group.yaml")
-        )
-    else:
-        group_path = Path(group_file)
-    auth.check_auth(
-        ToolGlobals,
-        group_file=group_path,
-        update_group=update_group,
-        create_group=create_group,
-        interactive=interactive,
-        dry_run=dry_run,
-        verbose=ctx.obj.verbose,
-    )
-    if ToolGlobals.failed:
-        raise ToolkitValidationError("Failure to verify access rights.")
+    cmd = AuthCommand()
+    cmd.execute(ctx, dry_run, interactive, group_file, update_group, create_group)
 
 
 @_app.command("init" if not featureflag.enabled("FF_INTERACTIVE_INIT") else "_init")
@@ -550,14 +528,14 @@ def describe_main(ctx: typer.Context) -> None:
 def describe_datamodel_cmd(
     ctx: typer.Context,
     space: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             "--space",
             "-s",
             prompt=True,
             help="Space where the data model to describe is located.",
         ),
-    ] = None,
+    ],
     data_model: Annotated[
         Optional[str],
         typer.Option(
@@ -570,11 +548,8 @@ def describe_datamodel_cmd(
 ) -> None:
     """This command will describe the characteristics of a data model given the space
     name and datamodel name."""
-    if space is None or len(space) == 0:
-        raise ToolkitValidationError("--space is required.")
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    describe_datamodel(ToolGlobals, space, data_model)
-    return None
+    cmd = DescribeCommand()
+    cmd.execute(CDFToolConfig.from_context(ctx), space, data_model)
 
 
 @run_app.callback(invoke_without_command=True)
@@ -588,33 +563,32 @@ def run_main(ctx: typer.Context) -> None:
 def run_transformation_cmd(
     ctx: typer.Context,
     external_id: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             "--external-id",
             "-e",
             prompt=True,
             help="External id of the transformation to run.",
         ),
-    ] = None,
+    ],
 ) -> None:
     """This command will run the specified transformation using a one-time session."""
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    external_id = cast(str, external_id).strip()
-    run_transformation(ToolGlobals, external_id)
+    cmd = RunTransformationCommand()
+    cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id)
 
 
 @run_app.command("function")
 def run_function_cmd(
     ctx: typer.Context,
     external_id: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             "--external-id",
             "-e",
             prompt=True,
             help="External id of the function to run.",
         ),
-    ] = None,
+    ],
     payload: Annotated[
         Optional[str],
         typer.Option(
@@ -679,32 +653,19 @@ def run_function_cmd(
     ] = "dev",
 ) -> None:
     """This command will run the specified function using a one-time session."""
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    external_id = cast(str, external_id).strip()
-    if not local:
-        run_function(ToolGlobals, external_id=external_id, payload=payload or "", follow=follow)
-        return None
-    if follow:
-        print("  [bold yellow]WARNING:[/] --follow is not supported when running locally and should not be specified.")
-    if source_dir is None:
-        source_dir = "./"
-    source_path = Path(source_dir)
-    system_yaml = Path(source_path / "cognite_modules/_system.yaml")
-    if not source_path.is_dir() or not system_yaml.is_file():
-        raise ToolkitValidationError(
-            f"{source_path} is not a valid project directory. Expecting to find in {system_yaml}."
-        )
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    run_local_function(
-        ToolGlobals=ToolGlobals,
-        source_path=source_path,
-        external_id=external_id,
-        payload=payload or "{}",
-        schedule=schedule,
-        build_env_name=build_env_name,
-        rebuild_env=rebuild_env,
-        verbose=ctx.obj.verbose,
-        no_cleanup=no_cleanup,
+    cmd = RunFunctionCommand()
+    cmd.execute(
+        CDFToolConfig.from_context(ctx),
+        external_id,
+        payload,
+        follow,
+        local,
+        rebuild_env,
+        no_cleanup,
+        source_dir,
+        schedule,
+        build_env_name,
+        ctx.obj.verbose,
     )
 
 
@@ -752,7 +713,7 @@ def pull_transformation_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified transformation and update its YAML file in the module folder"""
-    pull_command(
+    PullCommand().execute(
         source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
     )
 
@@ -803,7 +764,7 @@ def pull_node_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified node and update its YAML file in the module folder."""
-    pull_command(
+    PullCommand().execute(
         source_dir,
         NodeId(space, external_id),
         env,
@@ -812,6 +773,14 @@ def pull_node_cmd(
         CDFToolConfig.from_context(ctx),
         NodeLoader,
     )
+
+
+@dump_app.callback(invoke_without_command=True)
+def dump_main(ctx: typer.Context) -> None:
+    """Commands to dump resource configurations from CDF into a temporary directory."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk dump --help[/] for more information.")
+    return None
 
 
 @dump_app.command("datamodel")
@@ -860,7 +829,8 @@ def dump_datamodel_cmd(
     ] = "tmp",
 ) -> None:
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-    dump_datamodel_command(
+    cmd = DumpCommand()
+    cmd.execute(
         CDFToolConfig.from_context(ctx),
         DataModelId(space, external_id, version),
         Path(output_dir),

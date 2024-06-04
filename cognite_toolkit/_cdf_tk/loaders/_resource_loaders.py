@@ -55,6 +55,9 @@ from cognite.client.data_classes import (
     FunctionScheduleWriteList,
     FunctionWrite,
     FunctionWriteList,
+    LabelDefinition,
+    LabelDefinitionList,
+    LabelDefinitionWrite,
     OidcCredentials,
     TimeSeries,
     TimeSeriesList,
@@ -80,6 +83,7 @@ from cognite.client.data_classes import (
     capabilities,
     filters,
 )
+from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
@@ -144,6 +148,7 @@ from cognite.client.data_classes.iam import (
     SecurityCategoryWrite,
     SecurityCategoryWriteList,
 )
+from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -439,7 +444,7 @@ class GroupAllScopedLoader(GroupLoader):
 class SecurityCategoryLoader(
     ResourceLoader[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
 ):
-    filename_pattern = r"^.*\.SecurityCategory$"  # Matches all yaml files who's stem ends with *.SecurityCategory.
+    filename_pattern = r"^.*SecurityCategory$"  # Matches all yaml files who's stem ends with *SecurityCategory.
     resource_cls = SecurityCategory
     resource_write_cls = SecurityCategoryWrite
     list_cls = SecurityCategoryList
@@ -610,6 +615,89 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
             )
         )
         return spec
+
+
+@final
+class LabelLoader(
+    ResourceLoader[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
+):
+    folder_name = "labels"
+    filename_pattern = r"^.*Label$"  # Matches all yaml files whose stem ends with *Label.
+    resource_cls = LabelDefinition
+    resource_write_cls = LabelDefinitionWrite
+    list_cls = LabelDefinitionList
+    list_write_cls = LabelDefinitionWriteList
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
+    _doc_url = "Labels/operation/createLabelDefinitions"
+
+    @classmethod
+    def get_id(cls, item: LabelDefinition | LabelDefinitionWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        if not item.external_id:
+            raise ToolkitRequiredValueError("LabelDefinition must have external_id set.")
+        return item.external_id
+
+    @classmethod
+    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+        return capabilities.LabelsAcl(
+            [capabilities.LabelsAcl.Action.Read, capabilities.LabelsAcl.Action.Write],
+            capabilities.LabelsAcl.Scope.All(),
+        )
+
+    def create(self, items: LabelDefinitionWriteList) -> LabelDefinitionList:
+        return self.client.labels.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> LabelDefinitionList:
+        return self.client.labels.retrieve(ids, ignore_unknown_ids=True)
+
+    def update(self, items: T_CogniteResourceList) -> LabelDefinitionList:
+        existing = self.client.labels.retrieve([item.external_id for item in items])
+        if existing:
+            self.delete([item.external_id for item in items])
+        return self.client.labels.create(items)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.labels.delete(ids)
+        except (CogniteAPIError, CogniteNotFoundError) as e:
+            non_existing = set(e.failed or [])
+            if existing := [id_ for id_ in ids if id_ not in non_existing]:
+                self.client.labels.delete(existing)
+            return len(existing)
+        else:
+            # All deleted successfully
+            return len(ids)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> LabelDefinitionWrite | LabelDefinitionWriteList | None:
+        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        items: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
+        for item in items:
+            if "dataSetExternalId" in item:
+                ds_external_id = item.pop("dataSetExternalId")
+                item["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation=skip_validation)
+        loaded = LabelDefinitionWriteList.load(items)
+        return loaded[0] if isinstance(raw_yaml, dict) else loaded
 
 
 @final
@@ -819,7 +907,7 @@ class FunctionScheduleLoader(
     ResourceLoader[str, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList]
 ):
     folder_name = "functions"
-    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule.
+    filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule
     resource_cls = FunctionSchedule
     resource_write_cls = FunctionScheduleWrite
     list_cls = FunctionSchedulesList
@@ -1308,12 +1396,18 @@ class DatapointSubscriptionLoader(
     ]
 ):
     folder_name = "timeseries"
-    filename_pattern = r"^.*\.DatapointSubscription$"  # Matches all yaml files who's endswith *.DatapointSubscription.
+    filename_pattern = r"^.*DatapointSubscription$"  # Matches all yaml files who end with *DatapointSubscription.
     resource_cls = DatapointSubscription
     resource_write_cls = DataPointSubscriptionWrite
     list_cls = DatapointSubscriptionList
     list_write_cls = DatapointSubscriptionWriteList
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
+    dependencies = frozenset(
+        {
+            TimeSeriesLoader,
+            GroupAllScopedLoader,
+        }
+    )
 
     @property
     def display_name(self) -> str:
@@ -1642,7 +1736,8 @@ class TransformationScheduleLoader(
     ]
 ):
     folder_name = "transformations"
-    filename_pattern = r"^.*\.schedule$"  # Matches all yaml files who's stem contain *.schedule.
+    # Matches all yaml files whose stem contains *schedule or *TransformationSchedule.
+    filename_pattern = r"^.*schedule$"
     resource_cls = TransformationSchedule
     resource_write_cls = TransformationScheduleWrite
     list_cls = TransformationScheduleList
@@ -1863,7 +1958,7 @@ class ExtractionPipelineConfigLoader(
     ]
 ):
     folder_name = "extraction_pipelines"
-    filename_pattern = r"^.*\.config$"
+    filename_pattern = r"^.*config$"
     resource_cls = ExtractionPipelineConfig
     resource_write_cls = ExtractionPipelineConfigWrite
     list_cls = ExtractionPipelineConfigList
@@ -1989,7 +2084,7 @@ class FileMetadataLoader(
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
-    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, LabelLoader})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -2020,6 +2115,12 @@ class FileMetadataLoader(
         if "securityCategoryNames" in item:
             for security_category in item["securityCategoryNames"]:
                 yield SecurityCategoryLoader, security_category
+        if "labels" in item:
+            for label in item["labels"]:
+                if isinstance(label, dict):
+                    yield LabelLoader, label["externalId"]
+                elif isinstance(label, str):
+                    yield LabelLoader, label
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -2148,7 +2249,7 @@ class FileMetadataLoader(
 class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList, SpaceList]):
     item_name = "nodes and edges"
     folder_name = "data_models"
-    filename_pattern = r"^.*\.?(space)$"
+    filename_pattern = r"^.*space$"
     resource_cls = Space
     resource_write_cls = SpaceApply
     list_write_cls = SpaceApplyList
@@ -2276,7 +2377,7 @@ class ContainerLoader(
 ):
     item_name = "nodes and edges"
     folder_name = "data_models"
-    filename_pattern = r"^.*\.?(container)$"
+    filename_pattern = r"^.*container$"
     resource_cls = Container
     resource_write_cls = ContainerApply
     list_cls = ContainerList
@@ -2461,7 +2562,7 @@ class ContainerLoader(
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     folder_name = "data_models"
-    filename_pattern = r"^.*\.?(view)$"
+    filename_pattern = r"^.*view$"
     resource_cls = View
     resource_write_cls = ViewApply
     list_cls = ViewList
@@ -2655,7 +2756,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
     folder_name = "data_models"
-    filename_pattern = r"^.*\.?(datamodel)$"
+    filename_pattern = r"^.*datamodel$"
     resource_cls = DataModel
     resource_write_cls = DataModelApply
     list_cls = DataModelList
@@ -2741,7 +2842,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListWithCall, NodeList]):
     item_name = "nodes"
     folder_name = "data_models"
-    filename_pattern = r"^.*\.?(node)$"
+    filename_pattern = r"^.*node$"
     resource_cls = Node
     resource_write_cls = NodeApply
     list_cls = NodeList
@@ -2893,12 +2994,18 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
 @final
 class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpsertList, WorkflowList]):
     folder_name = "workflows"
-    filename_pattern = r"^.*\.Workflow$"
+    filename_pattern = r"^.*Workflow$"
     resource_cls = Workflow
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
     list_write_cls = WorkflowUpsertList
-    dependencies = frozenset({GroupAllScopedLoader})
+    dependencies = frozenset(
+        {
+            GroupAllScopedLoader,
+            TransformationLoader,
+            FunctionLoader,
+        }
+    )
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
@@ -2960,7 +3067,7 @@ class WorkflowVersionLoader(
     ]
 ):
     folder_name = "workflows"
-    filename_pattern = r"^.*\.?(WorkflowVersion)$"
+    filename_pattern = r"^.*WorkflowVersion$"
     resource_cls = WorkflowVersion
     resource_write_cls = WorkflowVersionUpsert
     list_cls = WorkflowVersionList
