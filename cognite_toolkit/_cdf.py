@@ -19,13 +19,13 @@ from cognite_toolkit._cdf_tk.commands import (
     BuildCommand,
     CleanCommand,
     DeployCommand,
+    DescribeCommand,
+    DumpCommand,
+    PullCommand,
     RunFunctionCommand,
     RunTransformationCommand,
     auth,
 )
-from cognite_toolkit._cdf_tk.commands.describe import describe_datamodel
-from cognite_toolkit._cdf_tk.commands.dump import dump_datamodel_command
-from cognite_toolkit._cdf_tk.commands.pull import pull_command
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
     ToolkitFileNotFoundError,
@@ -556,14 +556,14 @@ def describe_main(ctx: typer.Context) -> None:
 def describe_datamodel_cmd(
     ctx: typer.Context,
     space: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             "--space",
             "-s",
             prompt=True,
             help="Space where the data model to describe is located.",
         ),
-    ] = None,
+    ],
     data_model: Annotated[
         Optional[str],
         typer.Option(
@@ -576,11 +576,8 @@ def describe_datamodel_cmd(
 ) -> None:
     """This command will describe the characteristics of a data model given the space
     name and datamodel name."""
-    if space is None or len(space) == 0:
-        raise ToolkitValidationError("--space is required.")
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    describe_datamodel(ToolGlobals, space, data_model)
-    return None
+    cmd = DescribeCommand()
+    cmd.execute(CDFToolConfig.from_context(ctx), space, data_model)
 
 
 @run_app.callback(invoke_without_command=True)
@@ -744,7 +741,7 @@ def pull_transformation_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified transformation and update its YAML file in the module folder"""
-    pull_command(
+    PullCommand().execute(
         source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
     )
 
@@ -795,7 +792,7 @@ def pull_node_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified node and update its YAML file in the module folder."""
-    pull_command(
+    PullCommand().execute(
         source_dir,
         NodeId(space, external_id),
         env,
@@ -804,6 +801,14 @@ def pull_node_cmd(
         CDFToolConfig.from_context(ctx),
         NodeLoader,
     )
+
+
+@dump_app.callback(invoke_without_command=True)
+def dump_main(ctx: typer.Context) -> None:
+    """Commands to dump resource configurations from CDF into a temporary directory."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk dump --help[/] for more information.")
+    return None
 
 
 @dump_app.command("datamodel")
@@ -852,7 +857,8 @@ def dump_datamodel_cmd(
     ] = "tmp",
 ) -> None:
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-    dump_datamodel_command(
+    cmd = DumpCommand()
+    cmd.execute(
         CDFToolConfig.from_context(ctx),
         DataModelId(space, external_id, version),
         Path(output_dir),
