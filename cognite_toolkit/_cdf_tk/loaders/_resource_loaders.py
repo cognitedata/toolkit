@@ -2083,7 +2083,7 @@ class FileMetadataLoader(
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
-    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, LabelLoader})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -2114,6 +2114,12 @@ class FileMetadataLoader(
         if "securityCategoryNames" in item:
             for security_category in item["securityCategoryNames"]:
                 yield SecurityCategoryLoader, security_category
+        if "labels" in item:
+            for label in item["labels"]:
+                if isinstance(label, dict):
+                    yield LabelLoader, label["externalId"]
+                elif isinstance(label, str):
+                    yield LabelLoader, label
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
