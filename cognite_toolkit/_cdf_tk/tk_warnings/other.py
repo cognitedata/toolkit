@@ -127,3 +127,14 @@ class MissingDependencyWarning(GeneralWarning):
         for identifier, path in self.required_by:
             msg += f"\n- {identifier!r} in {path}"
         return SeverityFormat.get_rich_severity_format(self.severity, msg)
+
+
+@dataclass(frozen=True)
+class MissingCapabilityWarning(GeneralWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.MEDIUM
+    message: ClassVar[str] = "Missing capability:"
+    capability: str
+
+    def get_message(self) -> str:
+        msg = f"The principal lacks the required access capability {self.capability} in the CDF project"
+        return SeverityFormat.get_rich_severity_format(self.severity, msg)

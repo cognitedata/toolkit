@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
-import contextlib
+
 import os
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
-from importlib import resources
 from pathlib import Path
-from typing import Annotated, NoReturn, Optional, Union, cast
+from typing import Annotated, NoReturn, Optional, Union
 
 import typer
 from cognite.client.data_classes.data_modeling import DataModelId, NodeId
@@ -16,6 +15,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands import (
+    AuthCommand,
     BuildCommand,
     CleanCommand,
     DeployCommand,
@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk.commands import (
     PullCommand,
     RunFunctionCommand,
     RunTransformationCommand,
-    auth,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -38,9 +37,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
 )
 from cognite_toolkit._cdf_tk.prototypes import featureflag
-from cognite_toolkit._cdf_tk.templates import (
-    COGNITE_MODULES,
-)
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,
@@ -436,32 +432,8 @@ def auth_verify(
 
     The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
-    # TODO: Check if groupsAcl.UPDATE does nothing?
-    if create_group is not None and update_group != 0:
-        raise ToolkitInvalidSettingsError("--create-group and --update-group are mutually exclusive.")
-    with contextlib.redirect_stdout(None):
-        # Remove the Error message from failing to load the config
-        # This is verified in check_auth
-        ToolGlobals = CDFToolConfig.from_context(ctx)
-
-    if group_file is None:
-        template_dir = cast(Path, resources.files("cognite_toolkit"))
-        group_path = template_dir.joinpath(
-            Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/admin.readwrite.group.yaml")
-        )
-    else:
-        group_path = Path(group_file)
-    auth.check_auth(
-        ToolGlobals,
-        group_file=group_path,
-        update_group=update_group,
-        create_group=create_group,
-        interactive=interactive,
-        dry_run=dry_run,
-        verbose=ctx.obj.verbose,
-    )
-    if ToolGlobals.failed:
-        raise ToolkitValidationError("Failure to verify access rights.")
+    cmd = AuthCommand()
+    cmd.execute(ctx, dry_run, interactive, group_file, update_group, create_group)
 
 
 @_app.command("init" if not featureflag.enabled("FF_INTERACTIVE_INIT") else "_init")
