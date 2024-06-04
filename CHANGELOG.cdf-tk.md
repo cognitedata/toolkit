@@ -15,6 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Changed
+
+- [BREAKING] In `functions`, the function config file must be in the root function directory. This means
+  that, for example, `my_module/function/some_folder/function.yaml` will no longer be included by
+  the `cdf-tk build` command. Instead, it must be in `my_module/function/function.yaml`. The motivation
+  is to allow arbitrary YAML files as part of the function code.
+
 ## [0.2.0b3] - 2024-06-04
 
 ### Added
