@@ -7,7 +7,7 @@ import shutil
 import sys
 import traceback
 from collections import ChainMap, defaultdict
-from collections.abc import Hashable, Mapping
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -140,13 +140,19 @@ class BuildCommand(ToolkitCommand):
 
         selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
 
+        module_directories = [
+            (module_dir, source_paths)
+            for module_dir, source_paths in iterate_modules(source_dir)
+            if self._is_selected_module(module_dir.relative_to(source_dir), selected_modules)
+        ]
+
         warnings = validate_modules_variables(config.variables, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
             for warning in warnings:
                 print(f"    {warning.get_message()}")
 
-        state = self.process_config_files(source_dir, selected_modules, build_dir, config, verbose)
+        state = self.process_config_files(source_dir, module_directories, build_dir, config, verbose)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
@@ -157,15 +163,13 @@ class BuildCommand(ToolkitCommand):
     def process_config_files(
         self,
         project_config_dir: Path,
-        selected_modules: list[str | tuple[str, ...]],
+        module_directories: Sequence[tuple[Path, list[Path]]],
         build_dir: Path,
         config: BuildConfigYAML,
         verbose: bool = False,
     ) -> _BuildState:
         state = _BuildState.create(config)
-        for module_dir, source_paths in iterate_modules(project_config_dir):
-            if not self._is_selected_module(module_dir.relative_to(project_config_dir), selected_modules):
-                continue
+        for module_dir, source_paths in module_directories:
             if verbose:
                 print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
 
