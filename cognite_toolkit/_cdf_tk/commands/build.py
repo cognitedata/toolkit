@@ -326,7 +326,7 @@ class BuildCommand(ToolkitCommand):
             self.warn(
                 LowSeverityWarning(
                     f"The file {yaml_source_path} is considered an arbitrary YAML. If this is a "
-                    f"function config please move it to {FunctionLoader.folder_name}"
+                    f"function config please move it to {FunctionLoader.folder_name} folder."
                 )
             )
             return None
