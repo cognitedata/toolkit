@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 from cognite.client.data_classes.data_modeling import Container, DataModel, Space, View
 
-from cognite_toolkit._cdf_tk.commands.describe import describe_datamodel
+from cognite_toolkit._cdf_tk.commands import DescribeCommand
 from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataModelLoader,
@@ -79,7 +79,7 @@ def test_describe_datamodel(
     cognite_client_approval.append(View, views)
     cognite_client_approval.append(DataModel, data_models)
 
-    describe_datamodel(cdf_tool, "test", "test")
+    DescribeCommand().execute(cdf_tool, "test", "test")
     out, _ = capfd.readouterr()
     # Strip trailing spaces
     out = "\n".join([line.rstrip() for line in out.splitlines()])
