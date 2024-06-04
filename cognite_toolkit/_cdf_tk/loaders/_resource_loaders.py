@@ -667,6 +667,36 @@ class LabelLoader(
             # All deleted successfully
             return len(ids)
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> LabelDefinitionWrite | LabelDefinitionWriteList | None:
+        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        items: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
+        for item in items:
+            if "dataSetExternalId" in item:
+                ds_external_id = item.pop("dataSetExternalId")
+                item["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation=skip_validation)
+        loaded = LabelDefinitionWriteList.load(items)
+        return loaded[0] if isinstance(raw_yaml, dict) else loaded
+
 
 @final
 class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
