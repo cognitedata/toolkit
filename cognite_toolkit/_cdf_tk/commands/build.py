@@ -323,9 +323,12 @@ class BuildCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> None:
         if yaml_source_path.parent.name != FunctionLoader.folder_name:
-            # todo: Warning?
-            # The yaml file is not at the top level in the function
-            # thus we skip it.
+            self.warn(
+                LowSeverityWarning(
+                    f"The file {yaml_source_path} is considered an arbitrary YAML. If this is a "
+                    f"function config please move it to {FunctionLoader.folder_name}"
+                )
+            )
             return None
         try:
             functions: FunctionList = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
