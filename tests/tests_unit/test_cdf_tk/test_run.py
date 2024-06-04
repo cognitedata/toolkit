@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 from cognite.client.data_classes.functions import Function
 from cognite.client.data_classes.transformations import Transformation
 
-from cognite_toolkit._cdf_tk.commands.run import run_function, run_local_function, run_transformation
+from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.data import RUN_DATA
@@ -34,7 +34,7 @@ def test_run_transformation(cognite_client_approval: ApprovalCogniteClient):
     )
     cognite_client_approval.append(Transformation, transformation)
 
-    assert run_transformation(cdf_tool, "test") is True
+    assert RunTransformationCommand().run_transformation(cdf_tool, "test") is True
 
 
 def test_run_function(cognite_client_approval: ApprovalCogniteClient):
@@ -55,9 +55,15 @@ def test_run_function(cognite_client_approval: ApprovalCogniteClient):
         secrets={"my_secret": "a_secret,"},
     )
     cognite_client_approval.append(Function, function)
-    assert run_function(cdf_tool, external_id="test", payload='{"var1": "value"}', follow=False) is True
+    assert (
+        RunFunctionCommand().run_function(cdf_tool, external_id="test", payload='{"var1": "value"}', follow=False)
+        is True
+    )
     cdf_tool.client.functions.calls.get_response.return_value = {}
-    assert run_function(cdf_tool, external_id="test", payload='{"var1": "value"}', follow=True) is True
+    assert (
+        RunFunctionCommand().run_function(cdf_tool, external_id="test", payload='{"var1": "value"}', follow=True)
+        is True
+    )
 
 
 def test_run_local_function(cognite_client_approval: ApprovalCogniteClient) -> None:
@@ -78,7 +84,7 @@ def test_run_local_function(cognite_client_approval: ApprovalCogniteClient) -> N
     )
     cognite_client_approval.append(Function, function)
     assert (
-        run_local_function(
+        RunFunctionCommand().run_local_function(
             ToolGlobals=cdf_tool,
             source_path=RUN_DATA,
             rebuild_env=True,
