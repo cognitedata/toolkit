@@ -28,6 +28,11 @@ Changes are grouped as follows:
 - The `FeaturePrevieWarnings` are no longer printed when running `cdf-tk deploy` or `cdf-tk clean`. These warnings
   are from the `cognite-sdk` and can be confusing to the user.
 
+### Fixed
+
+- When running `cdf-tk init --upgrade` from version `0.1.4` the user would get a `ToolkitMigrationError`.
+  This is now fixed.
+
 ## [0.2.0b3] - 2024-06-04
 
 ### Added
