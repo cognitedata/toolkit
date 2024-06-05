@@ -19,6 +19,12 @@ Changes are grouped as follows:
 
 ### Changed
 
+- [BREAKING] In `functions`, the function config file must be in the root function directory. This means
+  that, for example, `my_module/function/some_folder/function.yaml` will no longer be included by
+  the `cdf-tk build` command. Instead, it must be in `my_module/function/function.yaml`. The motivation
+  is to allow arbitrary YAML files as part of the function code.
+- The toolkit now only gives a `TemplateVariableWarning` (`Variable my_variable has value <change_me> ...`) if
+  the variable is used by `selected` in the `config.[env].yaml`. This is to avoid unnecessary warnings.
 - The `FeaturePrevieWarnings` are no longer printed when running `cdf-tk deploy` or `cdf-tk clean`. These warnings
   are from the `cognite-sdk` and can be confusing to the user.
 

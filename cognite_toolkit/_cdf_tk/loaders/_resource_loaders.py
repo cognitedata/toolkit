@@ -739,6 +739,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionWrite | FunctionWriteList | None:
+        if filepath.parent.name != self.folder_name:
+            # Functions configs needs to be in the root function folder.
+            # Thi is to allow arbitrary YAML files inside the function code folder.
+            return None
+
         functions = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
 
         if isinstance(functions, dict):
