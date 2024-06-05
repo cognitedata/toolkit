@@ -102,6 +102,12 @@ class InteractiveInit(typer.Typer):
                 help="List of modules to include. Options are 'get_content()'",
             ),
         ] = None,
+        arrow: Annotated[
+            Optional[bool],
+            typer.Option(
+                help="List of modules to include. Options are 'get_content()'",
+            ),
+        ] = False,
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
@@ -126,16 +132,30 @@ class InteractiveInit(typer.Typer):
             ).ask()
 
         if init_dir and Path(init_dir).is_dir():
-            mode = questionary.rawselect(
-                "Directory already exists. What would you like to do?",
-                choices=[
-                    questionary.Choice("Abort", "abort"),
-                    questionary.Choice("Overwrite (clean existing)", "overwrite"),
-                    questionary.Choice("Update (add to or replace existing)", "update"),
-                ],
-                pointer=POINTER,
-                style=custom_style_fancy,
-            ).ask()
+            if not arrow:
+                mode = questionary.rawselect(
+                    "Directory already exists. What would you like to do?",
+                    choices=[
+                        questionary.Choice("Abort", "abort"),
+                        questionary.Choice("Overwrite (clean existing)", "overwrite"),
+                        questionary.Choice("Update (add to or replace existing)", "update"),
+                    ],
+                    pointer=POINTER,
+                    style=custom_style_fancy,
+                    instruction="(Press 1, 2 or 3)",
+                ).ask()
+            else:
+                questionary.select(
+                    "Directory already exists. What would you like to do?",
+                    choices=[
+                        questionary.Choice("Abort", "abort"),
+                        questionary.Choice("Overwrite (clean existing)", "overwrite"),
+                        questionary.Choice("Update (add to or replace existing)", "update"),
+                    ],
+                    pointer=POINTER,
+                    style=custom_style_fancy,
+                    instruction="use arrow up/down and " + "⮐ " + " to save",
+                ).ask()
             if mode == "abort":
                 print("Aborting...")
                 raise typer.Exit()
