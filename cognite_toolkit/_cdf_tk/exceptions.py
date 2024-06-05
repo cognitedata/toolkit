@@ -57,7 +57,7 @@ class ToolkitDuplicatedModuleError(ToolkitError):
         self.duplicated = duplicated
 
     def __str__(self) -> str:
-        from cognite_toolkit._cdf_tk.templates._constants import MODULE_PATH_SEP
+        from cognite_toolkit._cdf_tk.constants import MODULE_PATH_SEP
 
         lines = [super().__str__()]
         for module_name, paths in self.duplicated.items():

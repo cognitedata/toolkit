@@ -30,10 +30,8 @@ from rich.markup import escape
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidSettingsError, ToolkitValidationError
-from cognite_toolkit._cdf_tk.templates import (
-    COGNITE_MODULES,
-)
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,

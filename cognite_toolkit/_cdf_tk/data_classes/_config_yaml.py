@@ -13,23 +13,22 @@ from typing import Any, Literal
 import yaml
 from rich import print
 
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
-from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.templates._constants import (
+from cognite_toolkit._cdf_tk.constants import (
+    _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
     DEFAULT_CONFIG_FILE,
     MODULE_PATH_SEP,
     SEARCH_VARIABLES_SUFFIX,
 )
-from cognite_toolkit._cdf_tk.templates._utils import flatten_dict
+from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
+from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     MissingFileWarning,
     SourceFileModifiedWarning,
     WarningList,
 )
-from cognite_toolkit._cdf_tk.utils import YAMLComment, YAMLWithComments, calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils import YAMLComment, YAMLWithComments, calculate_str_or_file_hash, flatten_dict
 from cognite_toolkit._version import __version__
 
 from ._base import ConfigCore, _load_version_variable

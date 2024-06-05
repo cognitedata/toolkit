@@ -6,9 +6,9 @@ from typing import Any, ClassVar
 
 from rich import print
 
+from cognite_toolkit._cdf_tk.constants import MODULE_PATH_SEP
+from cognite_toolkit._cdf_tk.data_classes._base import ConfigCore, _load_version_variable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingModuleError
-from cognite_toolkit._cdf_tk.templates._constants import MODULE_PATH_SEP
-from cognite_toolkit._cdf_tk.templates.data_classes._base import ConfigCore, _load_version_variable
 
 
 @dataclass

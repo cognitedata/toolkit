@@ -25,6 +25,10 @@ from cognite_toolkit._cdf_tk.commands import (
     RunFunctionCommand,
     RunTransformationCommand,
 )
+from cognite_toolkit._cdf_tk.data_classes import (
+    ProjectDirectoryInit,
+    ProjectDirectoryUpgrade,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
     ToolkitFileNotFoundError,
@@ -37,10 +41,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
 )
 from cognite_toolkit._cdf_tk.prototypes import featureflag
-from cognite_toolkit._cdf_tk.templates.data_classes import (
-    ProjectDirectoryInit,
-    ProjectDirectoryUpgrade,
-)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     sentry_exception_filter,
