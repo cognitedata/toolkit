@@ -8,18 +8,18 @@ import pytest
 import yaml
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
-from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.templates import (
-    flatten_dict,
-    iterate_modules,
-    module_from_path,
-)
-from cognite_toolkit._cdf_tk.templates.data_classes import (
+from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     ConfigEntry,
     Environment,
     InitConfigYAML,
     SystemYAML,
+)
+from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.templates import (
+    flatten_dict,
+    iterate_modules,
+    module_from_path,
 )
 from cognite_toolkit._cdf_tk.utils import YAMLComment
 from tests.tests_unit.data import PYTEST_PROJECT

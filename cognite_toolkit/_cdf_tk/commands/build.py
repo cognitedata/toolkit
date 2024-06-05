@@ -27,6 +27,10 @@ from cognite_toolkit._cdf_tk.constants import (
     PROC_TMPL_VARS_SUFFIX,
     ROOT_MODULES,
 )
+from cognite_toolkit._cdf_tk.data_classes import (
+    BuildConfigYAML,
+    SystemYAML,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
     ToolkitFileExistsError,
@@ -47,10 +51,6 @@ from cognite_toolkit._cdf_tk.templates._utils import (
     iterate_modules,
     module_from_path,
     resource_folder_from_path,
-)
-from cognite_toolkit._cdf_tk.templates.data_classes import (
-    BuildConfigYAML,
-    SystemYAML,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
