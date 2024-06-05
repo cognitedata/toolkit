@@ -81,7 +81,7 @@ def test_changelog_entry_date(changelog_name: str) -> None:
 
 @pytest.fixture(scope="session")
 def migrations() -> list[dict[Any]]:
-    migration_yaml = REPO_ROOT / "cognite_toolkit" / "_cdf_tk" / "templates" / "_migration.yaml"
+    migration_yaml = REPO_ROOT / "cognite_toolkit" / "_cdf_tk" / "_migration.yaml"
     assert migration_yaml.exists(), f"{migration_yaml} does not exist. It has been moved"
 
     migrations = yaml.safe_load(migration_yaml.read_text())

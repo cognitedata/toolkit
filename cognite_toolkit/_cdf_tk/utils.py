@@ -1163,6 +1163,7 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
         Iterator[tuple[Path, list[Path]]]: A tuple containing the module directory and a list of all files in the module
 
     """
+    # local import to avoid circular import
     from .constants import EXCL_FILES
     from .loaders import LOADER_BY_FOLDER_NAME
 
@@ -1191,6 +1192,7 @@ def module_from_path(path: Path, return_resource_folder: Literal[False] = False)
 
 def module_from_path(path: Path, return_resource_folder: bool = False) -> str | tuple[str, str]:
     """Get the module name from a path"""
+    # local import to avoid circular import
     from .loaders import LOADER_BY_FOLDER_NAME
 
     if len(path.parts) == 1:
@@ -1207,6 +1209,7 @@ def module_from_path(path: Path, return_resource_folder: bool = False) -> str | 
 
 def resource_folder_from_path(path: Path) -> str:
     """Get the resource_folder from a path"""
+    # local import to avoid circular import
     from .loaders import LOADER_BY_FOLDER_NAME
 
     for part in path.parts:
