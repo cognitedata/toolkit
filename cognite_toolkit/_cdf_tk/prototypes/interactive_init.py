@@ -180,7 +180,7 @@ class InteractiveInit(typer.Typer):
                     selected[package_id] = []
                     selection = questionary.checkbox(
                         f"Which modules of {package_id} would you like to include?",
-                        instruction="Use arrow up/down, space to select (one or more) and enter to save",
+                        instruction="Use arrow up/down, press space to select item(s) and enter to save",
                         choices=[
                             questionary.Choice(value.get("title", key), key)
                             for key, value in available[package_id].get("items", {}).items()
