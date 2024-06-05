@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Support for resource type `TransformationNotification` in the `transformations` folder.
+
 ### Changed
 
 - [BREAKING] In `functions`, the function config file must be in the root function directory. This means

@@ -116,6 +116,8 @@
                 //"--env=local",
                 //"--include=transformations"
                 //"--init-dir=foo"
+                //"--arrow"
+                //"--help"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
