@@ -168,13 +168,23 @@ class InteractiveInit(typer.Typer):
         loop = True
         while loop:
             if not arg_selected:
-                package_id = questionary.rawselect(
-                    "Which package would you like to include?",
-                    instruction="Use arrow up/down and ⮐ to save",
-                    choices=[questionary.Choice(value.get("title", key), key) for key, value in available.items()],
-                    pointer=POINTER,
-                    style=custom_style_fancy,
-                ).ask()
+                if not arrow:
+                    package_id = questionary.rawselect(
+                        "Which package would you like to include?",
+                        instruction="Type the number of your choice and press enter",
+                        choices=[questionary.Choice(value.get("title", key), key) for key, value in available.items()],
+                        pointer=POINTER,
+                        style=custom_style_fancy,
+                    ).ask()
+
+                else:
+                    package_id = questionary.select(
+                        "Which package would you like to include?",
+                        instruction="Use arrow up/down and ⮐ to save",
+                        choices=[questionary.Choice(value.get("title", key), key) for key, value in available.items()],
+                        pointer=POINTER,
+                        style=custom_style_fancy,
+                    ).ask()
 
                 if package_id:
                     selected[package_id] = []
