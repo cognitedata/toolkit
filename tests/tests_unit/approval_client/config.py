@@ -59,6 +59,8 @@ from cognite.client.data_classes import (
     TimeSeriesWriteList,
     Transformation,
     TransformationList,
+    TransformationNotification,
+    TransformationNotificationList,
     TransformationSchedule,
     TransformationScheduleList,
     TransformationScheduleWrite,
@@ -104,6 +106,10 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
+from cognite.client.data_classes.transformations.notifications import (
+    TransformationNotificationWrite,
+    TransformationNotificationWriteList,
+)
 
 from .data_classes import APIResource, Method
 
@@ -462,6 +468,17 @@ API_RESOURCES = [
         list_cls=LabelDefinitionList,
         _write_cls=LabelDefinitionWrite,
         _write_list_cls=LabelDefinitionWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
+        },
+    ),
+    APIResource(
+        api_name="transformations.notifications",
+        resource_cls=TransformationNotification,
+        list_cls=TransformationNotificationList,
+        _write_cls=TransformationNotificationWrite,
+        _write_list_cls=TransformationNotificationWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
