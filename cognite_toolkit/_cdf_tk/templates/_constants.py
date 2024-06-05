@@ -4,10 +4,6 @@ from pathlib import Path
 DEFAULT_CONFIG_FILE = "default.config.yaml"
 # The environment file:
 BUILD_ENVIRONMENT_FILE = "_build_environment.yaml"
-# The local config file:
-CONFIG_FILE_SUFFIX = "config.yaml"
-# The global config file
-GLOBAL_CONFIG_FILE = "global.yaml"
 
 COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
