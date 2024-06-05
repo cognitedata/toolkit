@@ -401,6 +401,7 @@ class CDFToolConfig:
         self._client: CogniteClient | None = None
 
         global_config.disable_pypi_version_check = True
+        global_config.silence_feature_preview_warnings = True
         if _RUNNING_IN_BROWSER:
             self._initialize_in_browser()
             return

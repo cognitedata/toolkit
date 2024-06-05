@@ -1,6 +1,12 @@
 DataSet:
 - description: This is an example dataset used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
+  externalId: ds_labels_foo
+  metadata: {}
+  name: Example dataset.
+  writeProtected: false
+- description: This is an example dataset used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
   externalId: ds_timeseries_foo
   metadata: {}
   name: Example dataset.
@@ -28,7 +34,7 @@ Function:
   externalId: fn_first_function
   functionPath: ./src/handler.py
   metadata:
-    cdf-toolkit-function-hash: 31407820253d00b05da67d6d9ff7f009df975e0f99e5d08914c0c23e95d7f121
+    cdf-toolkit-function-hash: a63720560f48030aaf994e92b02b1de1932514aa79b3115ced9d65fba8440aff
     version: '1'
   name: first:example:function
   owner: Anonymous
@@ -43,6 +49,15 @@ FunctionSchedule:
     lunch: 'today: greek salad and water'
   description: Run every day at 8am UTC
   name: daily-8am-utc
+LabelDefinition:
+- dataSetId: 42
+  description: Labels used for relationships that represent flows
+  externalId: label_flow
+  name: Flows
+- dataSetId: 42
+  description: Pump label
+  externalId: label_pump
+  name: Pump
 SecurityCategory:
 - name: sc_demo_category
 TimeSeries:
