@@ -52,7 +52,7 @@ class SystemYAML(ConfigCore):
         for package, modules in self.packages.items():
             if package not in selected_packages:
                 # We do not check packages that are not selected.
-                # Typically, the user will delete the modules that are irrelevant for them,
+                # Typically, the user will delete the modules that are irrelevant for them;
                 # thus we only check the selected packages.
                 continue
             if missing := set(modules) - available_modules:
