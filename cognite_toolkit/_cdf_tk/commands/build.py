@@ -325,7 +325,7 @@ class BuildCommand(ToolkitCommand):
         if yaml_source_path.parent.name != FunctionLoader.folder_name:
             self.warn(
                 LowSeverityWarning(
-                    f"The file {yaml_source_path} is considered an arbitrary YAML. If this is a "
+                    f"The file {yaml_source_path} is considered part of the Function's code and will not be processed as a CDF resource. If this is a "
                     f"function config please move it to {FunctionLoader.folder_name} folder."
                 )
             )
