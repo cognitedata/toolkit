@@ -1914,6 +1914,16 @@ class TransformationNotificationLoader(
             self.client.transformations.notifications.delete([item.id for item in existing])  # type: ignore[misc]
         return len(existing)
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        if "transformationExternalId" in item:
+            yield TransformationLoader, item["transformationExternalId"]
+
 
 @final
 class ExtractionPipelineLoader(
