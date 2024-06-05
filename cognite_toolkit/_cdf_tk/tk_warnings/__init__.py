@@ -28,6 +28,7 @@ from .other import (
     IncorrectResourceWarning,
     LowSeverityWarning,
     MediumSeverityWarning,
+    MissingCapabilityWarning,
     MissingDependencyWarning,
     ToolkitBugWarning,
     ToolkitDependenciesIncludedWarning,
@@ -66,4 +67,5 @@ __all__ = [
     "MissingDependencyWarning",
     "SourceFileModifiedWarning",
     "MissingFileWarning",
+    "MissingCapabilityWarning",
 ]

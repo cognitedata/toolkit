@@ -1033,7 +1033,9 @@ class TestFormatConsistency:
 
         mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
 
-        loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_config, skip_validation=True
+        )
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
@@ -1060,7 +1062,9 @@ class TestFormatConsistency:
 
         mock_read_yaml_file({"dict.yaml": instances.dump()}, monkeypatch)
 
-        loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_config, skip_validation=True
+        )
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
@@ -1127,6 +1131,9 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             loader = next((loader for loader in loaders if loader.is_supported_file(filepath)), None)
             if loader is None:
                 raise ValueError(f"Could not find loader for {filepath}")
+            if loader is FunctionLoader and filepath.parent.name != loader.folder_name:
+                # Functions will only accept YAML in root function folder.
+                continue
             if issubclass(loader, ResourceLoader):
                 raw = yaml.CSafeLoader(filepath.read_text()).get_data()
                 source_path = source_by_build_path[filepath]
