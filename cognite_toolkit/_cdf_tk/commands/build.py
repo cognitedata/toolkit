@@ -21,7 +21,12 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.constants import (
+    _RUNNING_IN_BROWSER,
+    EXCL_INDEX_SUFFIX,
+    PROC_TMPL_VARS_SUFFIX,
+    ROOT_MODULES,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
     ToolkitFileExistsError,
@@ -37,7 +42,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     Loader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.templates._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
 from cognite_toolkit._cdf_tk.templates._utils import (
     iterate_functions,
     iterate_modules,

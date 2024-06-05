@@ -13,7 +13,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, BUILD_ENVIRONMENT_FILE
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitDeployResourceError,
@@ -33,9 +33,6 @@ from cognite_toolkit._cdf_tk.loaders.data_classes import (
     ResourceContainerDeployResult,
     ResourceDeployResult,
     UploadDeployResult,
-)
-from cognite_toolkit._cdf_tk.templates import (
-    BUILD_ENVIRONMENT_FILE,
 )
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildEnvironment,

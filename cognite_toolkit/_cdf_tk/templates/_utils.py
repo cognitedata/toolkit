@@ -7,11 +7,10 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any, Literal, overload
 
+from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES, EXCL_FILES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitModuleVersionError
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
-
-from ._constants import COGNITE_MODULES, EXCL_FILES
 
 
 def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:

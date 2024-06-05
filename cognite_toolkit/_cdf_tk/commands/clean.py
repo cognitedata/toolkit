@@ -12,6 +12,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitNotADirectoryError,
@@ -25,9 +26,6 @@ from cognite_toolkit._cdf_tk.loaders import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, Loader
 from cognite_toolkit._cdf_tk.loaders.data_classes import ResourceContainerDeployResult, ResourceDeployResult
-from cognite_toolkit._cdf_tk.templates import (
-    BUILD_ENVIRONMENT_FILE,
-)
 from cognite_toolkit._cdf_tk.templates.data_classes import (
     BuildEnvironment,
 )

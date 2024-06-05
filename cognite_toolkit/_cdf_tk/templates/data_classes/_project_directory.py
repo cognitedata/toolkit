@@ -12,16 +12,13 @@ from typing import ClassVar
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES, ROOT_MODULES
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
     ToolkitFileNotFoundError,
     ToolkitIsADirectoryError,
     ToolkitMigrationError,
     ToolkitNotADirectoryError,
-)
-from cognite_toolkit._cdf_tk.templates._constants import (
-    COGNITE_MODULES,
-    ROOT_MODULES,
 )
 from cognite_toolkit._cdf_tk.templates._utils import _get_cognite_module_version, iterate_modules
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, read_yaml_file
