@@ -1139,3 +1139,15 @@ def tmp_build_directory() -> typing.Generator[Path, None, None]:
         yield build_dir
     finally:
         shutil.rmtree(build_dir)
+
+
+def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
+    """Flatten a dictionary to a list of tuples with the key path and value."""
+    items: dict[tuple[str, ...], Any] = {}
+    for key, value in dct.items():
+        if isinstance(value, dict):
+            for sub_key, sub_value in flatten_dict(value).items():
+                items[(key, *sub_key)] = sub_value
+        else:
+            items[(key,)] = value
+    return items

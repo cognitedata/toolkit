@@ -7,7 +7,7 @@ import shutil
 import sys
 import traceback
 from collections import ChainMap, defaultdict
-from collections.abc import Hashable, Mapping, Sequence
+from collections.abc import Hashable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -46,10 +46,9 @@ from cognite_toolkit._cdf_tk.loaders import (
     Loader,
     ResourceLoader,
 )
+from cognite_toolkit._cdf_tk.templates import module_from_path
 from cognite_toolkit._cdf_tk.templates._utils import (
-    iterate_functions,
     iterate_modules,
-    module_from_path,
     resource_folder_from_path,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -370,7 +369,7 @@ class BuildCommand(ToolkitCommand):
 
         for func in functions:
             found = False
-            for function_subdirs in iterate_functions(module_dir):
+            for function_subdirs in self.iterate_functions(module_dir):
                 for function_dir in function_subdirs:
                     if (fn_xid := func.external_id) == function_dir.name:
                         found = True
@@ -556,6 +555,15 @@ class BuildCommand(ToolkitCommand):
                 )
             )
         return loader
+
+    @staticmethod
+    def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
+        for function_dir in module_dir.glob(f"**/{FunctionLoader.folder_name}"):
+            if not function_dir.is_dir():
+                continue
+            function_directories = [path for path in function_dir.iterdir() if path.is_dir()]
+            if function_directories:
+                yield function_directories
 
 
 @dataclass

@@ -5,6 +5,7 @@ import tempfile
 import urllib
 import zipfile
 from abc import abstractmethod
+from contextlib import suppress
 from importlib import resources
 from pathlib import Path
 from typing import ClassVar
@@ -18,9 +19,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitIsADirectoryError,
     ToolkitMigrationError,
+    ToolkitModuleVersionError,
     ToolkitNotADirectoryError,
 )
-from cognite_toolkit._cdf_tk.templates._utils import _get_cognite_module_version, iterate_modules
+from cognite_toolkit._cdf_tk.templates._utils import iterate_modules
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, read_yaml_file
 from cognite_toolkit._version import __version__ as current_version
 
@@ -173,7 +175,7 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
             # Need to do this check here, as we load version from the project directory.
             raise ToolkitNotADirectoryError(f"Found no directory {self.target_dir_display} to upgrade.")
 
-        self._cognite_module_version = _get_cognite_module_version(self.project_dir)
+        self._cognite_module_version = self._get_cognite_module_version(self.project_dir)
         changes = MigrationYAML.load()
         version_hash = next(
             (entry.cognite_modules_hash for entry in changes if entry.version == self._cognite_module_version),
@@ -309,3 +311,35 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
                     "the `https://github.com/cognitedata/toolkit` repository?"
                 ) from e
         return Path(extract_dir) / f"cdf-project-templates-{git_branch}" / "cognite_toolkit"
+
+    @classmethod
+    def _get_cognite_module_version(cls, project_dir: Path) -> str:
+        previous_version = None
+        system_yaml_file = cls._search_system_yaml(project_dir)
+        if system_yaml_file is not None:
+            system_yaml = read_yaml_file(system_yaml_file)
+            with suppress(KeyError):
+                previous_version = system_yaml["cdf_toolkit_version"]
+
+        elif (project_dir / "environments.yaml").exists():
+            environments_yaml = read_yaml_file(project_dir / "environments.yaml")
+            with suppress(KeyError):
+                previous_version = environments_yaml["__system"]["cdf_toolkit_version"]
+
+        if previous_version is None:
+            raise ToolkitModuleVersionError(
+                "Failed to load previous version, have you changed the "
+                "'_system.yaml' or 'environments.yaml' (before 0.1.0b6) file?"
+            )
+        return previous_version
+
+    @staticmethod
+    def _search_system_yaml(project_dir: Path) -> Path | None:
+        if (project_dir / "_system.yaml").exists():
+            return project_dir / "_system.yaml"
+        if (project_dir / COGNITE_MODULES / "_system.yaml").exists():
+            # This is here to ensure that we check this path first
+            return project_dir / COGNITE_MODULES / "_system.yaml"
+        for path in project_dir.rglob("_system.yaml"):
+            return path
+        return None
