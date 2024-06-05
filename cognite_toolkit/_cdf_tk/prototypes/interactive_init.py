@@ -31,48 +31,49 @@ custom_style_fancy = questionary.Style(
 )
 
 
+def get_packages() -> dict[str, dict[str, Any]]:
+    return {
+        "quickstart": {
+            "title": "Quick Start: A set of modules for a CDF quick start project.",
+            "items": {
+                "sap_data_pipeline": {
+                    "title": "SAP Data Pipeline",
+                },
+                "pi_data_pipeline": {
+                    "title": "PI Data Pipeline",
+                },
+                "mqtt_data_pipeline": {
+                    "title": "MQTT Data Pipeline",
+                },
+                "files_contextualization": {
+                    "title": "Files Contextualization",
+                },
+                "asset_data_transformation": {
+                    "title": "Asset Data Transformation",
+                },
+                "infield": {
+                    "title": "Infield",
+                },
+            },
+        },
+        "examples": {
+            "title": "Examples: a set of example modules for inspiration",
+            "items": {
+                "cdf_data_pipeline_asset_valhall": {"items": {}},
+                "cdf_data_pipeline_files_valhall": {"items": {}},
+            },
+        },
+        "reference": {
+            "title": "All supported resources as reference",
+            "items": {"workflow": {}, "transformations": {}, "functions": {}, "groups": {}},
+        },
+    }
+
+
 class InteractiveInit(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
         self.command()(self.interactive)
-
-    def get_packages(self) -> dict[str, dict[str, Any]]:
-        return {
-            "quickstart": {
-                "title": "Quick Start: A set of modules for a CDF quick start project.",
-                "items": {
-                    "sap_data_pipeline": {
-                        "title": "SAP Data Pipeline",
-                    },
-                    "pi_data_pipeline": {
-                        "title": "PI Data Pipeline",
-                    },
-                    "mqtt_data_pipeline": {
-                        "title": "MQTT Data Pipeline",
-                    },
-                    "files_contextualization": {
-                        "title": "Files Contextualization",
-                    },
-                    "asset_data_transformation": {
-                        "title": "Asset Data Transformation",
-                    },
-                    "infield": {
-                        "title": "Infield",
-                    },
-                },
-            },
-            "examples": {
-                "title": "Examples: a set of example modules for inspiration",
-                "items": {
-                    "cdf_data_pipeline_asset_valhall": {"items": {}},
-                    "cdf_data_pipeline_files_valhall": {"items": {}},
-                },
-            },
-            "reference": {
-                "title": "All supported resources as reference",
-                "items": {"workflow": {}, "transformations": {}, "functions": {}, "groups": {}},
-            },
-        }
 
     def build_tree(self, item: Union[dict, list], tree: Tree) -> None:
         if isinstance(item, dict):
@@ -99,7 +100,7 @@ class InteractiveInit(typer.Typer):
         arg_selected: Annotated[
             Optional[str],
             typer.Option(
-                help="List of modules to include. Options are 'get_content()'",
+                help=f"List of modules to include. Options are '{list(get_packages().keys())}'",
             ),
         ] = None,
         numeric: Annotated[
@@ -122,7 +123,7 @@ class InteractiveInit(typer.Typer):
         )
 
         selected: dict[str, Any] = {}
-        available = self.get_packages()
+        available = get_packages()
         mode = "new"
 
         if not init_dir:
