@@ -65,6 +65,8 @@ from cognite.client.data_classes import (
     TimeSeriesWriteList,
     Transformation,
     TransformationList,
+    TransformationNotification,
+    TransformationNotificationList,
     TransformationSchedule,
     TransformationScheduleList,
     TransformationScheduleWrite,
@@ -83,7 +85,7 @@ from cognite.client.data_classes import (
     capabilities,
     filters,
 )
-from cognite.client.data_classes._base import T_CogniteResourceList
+from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
@@ -149,6 +151,10 @@ from cognite.client.data_classes.iam import (
     SecurityCategoryWriteList,
 )
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
+from cognite.client.data_classes.transformations.notifications import (
+    TransformationNotificationWrite,
+    TransformationNotificationWriteList,
+)
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -172,7 +178,7 @@ from cognite_toolkit._cdf_tk.utils import (
     retrieve_view_ancestors,
 )
 
-from ._base_loaders import ResourceContainerLoader, ResourceLoader
+from ._base_loaders import T_ID, ResourceContainerLoader, ResourceLoader, T_WritableCogniteResourceList
 from .data_classes import NodeApplyListWithCall, RawDatabaseTable, RawTableList
 
 _MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
@@ -1514,7 +1520,8 @@ class TransformationLoader(
 ):
     folder_name = "transformations"
     filename_pattern = (
-        r"^(?:(?!\.schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
+        # Matches all yaml files except file names whose stem contain *.schedule. or Notification
+        r"^(?!.*schedule.*|.*notification$).*$"
     )
     resource_cls = Transformation
     resource_write_cls = TransformationWrite
@@ -1807,6 +1814,47 @@ class TransformationScheduleLoader(
             return len(cast(SequenceNotStr[str], ids))
         except CogniteNotFoundError as e:
             return len(cast(SequenceNotStr[str], ids)) - len(e.not_found)
+
+
+@final
+class TransformationNotification(
+    ResourceLoader[
+        str,
+        TransformationNotificationWrite,
+        TransformationNotification,
+        TransformationNotificationWriteList,
+        TransformationNotificationList,
+    ]
+):
+    folder_name = "transformations"
+    # Matches all yaml files whose stem ends with *Notification.
+    filename_pattern = r"^.*Notification$"
+    resource_cls = TransformationNotification
+    resource_write_cls = TransformationNotificationWrite
+    list_cls = TransformationNotificationList
+    list_write_cls = TransformationNotificationWriteList
+    dependencies = frozenset({TransformationLoader})
+    _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
+
+    @classmethod
+    def get_id(cls, item: T_WriteClass | T_WritableCogniteResource | dict) -> T_ID:
+        pass
+
+    @classmethod
+    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+        pass
+
+    def create(self, items: T_CogniteResourceList) -> Sized:
+        pass
+
+    def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
+        pass
+
+    def update(self, items: T_CogniteResourceList) -> Sized:
+        pass
+
+    def delete(self, ids: SequenceNotStr[T_ID]) -> int:
+        pass
 
 
 @final
