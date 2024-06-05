@@ -102,10 +102,10 @@ class InteractiveInit(typer.Typer):
                 help="List of modules to include. Options are 'get_content()'",
             ),
         ] = None,
-        arrow: Annotated[
+        numeric: Annotated[
             Optional[bool],
             typer.Option(
-                help="List of modules to include. Options are 'get_content()'",
+                help="Use numeric selection instead of arrow keys.",
             ),
         ] = False,
     ) -> None:
@@ -132,7 +132,7 @@ class InteractiveInit(typer.Typer):
             ).ask()
 
         if init_dir and Path(init_dir).is_dir():
-            if not arrow:
+            if numeric:
                 mode = questionary.rawselect(
                     "Directory already exists. What would you like to do?",
                     choices=[
@@ -168,7 +168,7 @@ class InteractiveInit(typer.Typer):
         loop = True
         while loop:
             if not arg_selected:
-                if not arrow:
+                if numeric:
                     package_id = questionary.rawselect(
                         "Which package would you like to include?",
                         instruction="Type the number of your choice and press enter",
@@ -180,7 +180,7 @@ class InteractiveInit(typer.Typer):
                 else:
                     package_id = questionary.select(
                         "Which package would you like to include?",
-                        instruction="Use arrow up/down and ⮐ to save",
+                        instruction="Use arrow up/down and ⮐  to save",
                         choices=[questionary.Choice(value.get("title", key), key) for key, value in available.items()],
                         pointer=POINTER,
                         style=custom_style_fancy,
@@ -199,7 +199,10 @@ class InteractiveInit(typer.Typer):
                         pointer=POINTER,
                         style=custom_style_fancy,
                     ).ask()
-                    selected[package_id] = selection
+                    if len(selection) > 0:
+                        selected[package_id] = selection
+                    else:
+                        selected[package_id] = available[package_id].get("items", {}).keys()
                     available.pop(package_id)
 
             print("\n[bold]You have selected the following modules:[/] :robot:\n")
