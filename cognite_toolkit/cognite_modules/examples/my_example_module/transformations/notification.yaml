@@ -1,0 +1,4 @@
+- transformationExternalId: tr_first_transformation
+  destination: john.smith@example.com
+- transformationExternalId: tr_first_transformation
+  destination: jane.smith@example.com

@@ -685,10 +685,18 @@ class ApprovalCogniteClient:
             if values:
                 dumped_resource = (value.dump(camel_case=True) if hasattr(value, "dump") else value for value in values)
                 if sort:
-                    dumped[key] = sorted(
-                        dumped_resource,
-                        key=lambda x: x.get("externalId", x.get("dbName", x.get("db_name", x.get("name")))),
-                    )
+
+                    def sort_key(v: dict[str, Any]) -> str:
+                        for identifier_name in ["externalId", "external_id", "dbName", "name", "workflowExternalId"]:
+                            if identifier_name in v:
+                                return v[identifier_name]
+                        if "dbName" in v and "name" in v and isinstance(v["name"], list):
+                            return v["dbName"] + "/" + v["name"][0]
+                        if "transformationExternalId" in v and "destination" in v:
+                            return v["transformationExternalId"] + v["destination"]
+                        raise ValueError(f"Could not find identifier in {v}")
+
+                    dumped[key] = sorted(dumped_resource, key=sort_key)
                 else:
                     dumped[key] = list(dumped_resource)
 
