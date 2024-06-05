@@ -59,11 +59,12 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
 )
 from cognite_toolkit._cdf_tk.loaders.data_classes import NodeAPICall, NodeApplyListWithCall, RawDatabaseTable
-from cognite_toolkit._cdf_tk.templates import (
+from cognite_toolkit._cdf_tk.utils import (
+    CDFToolConfig,
     module_from_path,
     resource_folder_from_path,
+    tmp_build_directory,
 )
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, tmp_build_directory
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient

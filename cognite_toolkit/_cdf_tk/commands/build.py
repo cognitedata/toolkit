@@ -46,11 +46,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     Loader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.templates import module_from_path
-from cognite_toolkit._cdf_tk.templates._utils import (
-    iterate_modules,
-    resource_folder_from_path,
-)
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,
@@ -63,7 +58,12 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import DuplicatedItemWarning, MissingRequiredIdentifierWarning
-from cognite_toolkit._cdf_tk.utils import calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_str_or_file_hash,
+    iterate_modules,
+    module_from_path,
+    resource_folder_from_path,
+)
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,

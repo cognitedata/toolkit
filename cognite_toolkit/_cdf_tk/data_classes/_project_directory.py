@@ -22,8 +22,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitModuleVersionError,
     ToolkitNotADirectoryError,
 )
-from cognite_toolkit._cdf_tk.templates._utils import iterate_modules
-from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, read_yaml_file
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, read_yaml_file
 from cognite_toolkit._version import __version__ as current_version
 
 from ._config_yaml import ConfigYAMLs

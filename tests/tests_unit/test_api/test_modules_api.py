@@ -5,8 +5,7 @@ import pytest
 from cognite_toolkit._api import CogniteToolkit
 from cognite_toolkit._api import data_classes as dc
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
-from cognite_toolkit._cdf_tk.templates import iterate_modules
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
 from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 

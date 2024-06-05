@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES, COGNITE_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, InitConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.loaders import ResourceTypes
-from cognite_toolkit._cdf_tk.templates import iterate_modules
+from cognite_toolkit._cdf_tk.utils import iterate_modules
 
 
 class ModulesAPI:
