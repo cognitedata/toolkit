@@ -67,6 +67,10 @@ def get_packages() -> dict[str, dict[str, Any]]:
             "title": "All supported resources as reference",
             "items": {"workflow": {}, "transformations": {}, "functions": {}, "groups": {}},
         },
+        "none": {
+            "title": "None: I want to create my own modules",
+            "items": {},
+        },
     }
 
 
@@ -115,7 +119,14 @@ class InteractiveInit(typer.Typer):
         print("\n")
         print(
             Panel(
-                "This wizard will help you prepare modules in the folder you enter. The modules are thematically bundled in packages you can choose between.",
+                "\n".join(
+                    [
+                        "Welcome to the CDF Toolkit!",
+                        "This wizard will help you prepare modules in the folder you enter.",
+                        "The modules are thematically bundled in packages you can choose between. You can add more by repeating the process.",
+                        "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
+                    ]
+                ),
                 title="Interactive template wizard",
                 style="green",
                 padding=(1, 2),
@@ -188,6 +199,9 @@ class InteractiveInit(typer.Typer):
                     ).ask()
 
                 if package_id:
+                    if package_id == "none":
+                        break
+
                     selected[package_id] = []
                     selection = questionary.checkbox(
                         f"Which modules of {package_id} would you like to include?",
