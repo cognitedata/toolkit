@@ -117,7 +117,8 @@
                 //"--include=transformations"
                 //"--init-dir=foo"
                 //"--arrow"
-                //"--help"
+                //"--help",
+                "--packages=quickstart examples"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
