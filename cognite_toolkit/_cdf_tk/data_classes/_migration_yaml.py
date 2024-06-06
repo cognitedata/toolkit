@@ -10,10 +10,9 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
-from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES
-from cognite_toolkit._cdf_tk.templates._utils import iterate_modules
-from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import iterate_modules, load_yaml_inject_variables
 from cognite_toolkit._version import __version__ as current_version
 
 
@@ -151,4 +150,4 @@ if __name__ == "__main__":
     # to the console. It is not used in the toolkit itself, but can be used
     # in the development of the toolkit.
     m = MigrationYAML.load_from_version("0.1.0b1")
-    m.print(Path(__file__).parent.parent.parent, "0.1.0b1")
+    m.print(Path(__file__).parent.parent, "0.1.0b1")

@@ -7,7 +7,7 @@ from typing import Any
 import yaml
 from packaging import version
 
-from cognite_toolkit._cdf_tk.templates import iterate_modules
+from cognite_toolkit._cdf_tk.utils import iterate_modules
 from cognite_toolkit._version import __version__
 
 

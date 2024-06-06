@@ -11,9 +11,9 @@ from typing import Any, cast
 
 import pandas as pd
 
+from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES_PATH
+from cognite_toolkit._cdf_tk.data_classes import ConfigEntry, Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES_PATH
-from cognite_toolkit._cdf_tk.templates.data_classes import ConfigEntry, Environment, InitConfigYAML
 
 NOT_SET = object()
 
