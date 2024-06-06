@@ -7,7 +7,7 @@ import shutil
 import sys
 import traceback
 from collections import ChainMap, defaultdict
-from collections.abc import Hashable, Mapping
+from collections.abc import Hashable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -21,7 +21,16 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.constants import (
+    _RUNNING_IN_BROWSER,
+    EXCL_INDEX_SUFFIX,
+    PROC_TMPL_VARS_SUFFIX,
+    ROOT_MODULES,
+)
+from cognite_toolkit._cdf_tk.data_classes import (
+    BuildConfigYAML,
+    SystemYAML,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
     ToolkitFileExistsError,
@@ -37,17 +46,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     Loader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.templates._constants import EXCL_INDEX_SUFFIX, PROC_TMPL_VARS_SUFFIX, ROOT_MODULES
-from cognite_toolkit._cdf_tk.templates._utils import (
-    iterate_functions,
-    iterate_modules,
-    module_from_path,
-    resource_folder_from_path,
-)
-from cognite_toolkit._cdf_tk.templates.data_classes import (
-    BuildConfigYAML,
-    SystemYAML,
-)
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,
@@ -60,7 +58,12 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import DuplicatedItemWarning, MissingRequiredIdentifierWarning
-from cognite_toolkit._cdf_tk.utils import calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_str_or_file_hash,
+    iterate_modules,
+    module_from_path,
+    resource_folder_from_path,
+)
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,
@@ -140,13 +143,20 @@ class BuildCommand(ToolkitCommand):
 
         selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
 
-        warnings = validate_modules_variables(config.variables, config.filepath)
+        module_directories = [
+            (module_dir, source_paths)
+            for module_dir, source_paths in iterate_modules(source_dir)
+            if self._is_selected_module(module_dir.relative_to(source_dir), selected_modules)
+        ]
+        selected_variables = self._get_selected_variables(config.variables, module_directories)
+
+        warnings = validate_modules_variables(selected_variables, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
             for warning in warnings:
                 print(f"    {warning.get_message()}")
 
-        state = self.process_config_files(source_dir, selected_modules, build_dir, config, verbose)
+        state = self.process_config_files(source_dir, module_directories, build_dir, config, verbose)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
@@ -157,15 +167,13 @@ class BuildCommand(ToolkitCommand):
     def process_config_files(
         self,
         project_config_dir: Path,
-        selected_modules: list[str | tuple[str, ...]],
+        module_directories: Sequence[tuple[Path, list[Path]]],
         build_dir: Path,
         config: BuildConfigYAML,
         verbose: bool = False,
     ) -> _BuildState:
         state = _BuildState.create(config)
-        for module_dir, source_paths in iterate_modules(project_config_dir):
-            if not self._is_selected_module(module_dir.relative_to(project_config_dir), selected_modules):
-                continue
+        for module_dir, source_paths in module_directories:
             if verbose:
                 print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
 
@@ -180,10 +188,11 @@ class BuildCommand(ToolkitCommand):
                     destination = build_dir / resource_folder / state.create_file_name(source_path)
                     destination.parent.mkdir(parents=True, exist_ok=True)
 
-                    is_function_non_yaml = (
-                        resource_folder == FunctionLoader.folder_name and source_path.suffix.lower() != ".yaml"
+                    is_function_non_yaml = resource_folder == FunctionLoader.folder_name and (
+                        source_path.suffix.lower() != ".yaml" or source_path.parent.name != FunctionLoader.folder_name
                     )
                     # We only want to process the yaml files for functions as the function code is handled separately.
+                    # Note that yaml files that are NOT in the root function folder are considered function code.
                     if not is_function_non_yaml:
                         content = source_path.read_text()
                         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
@@ -257,6 +266,30 @@ class BuildCommand(ToolkitCommand):
             self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
 
     @staticmethod
+    def _get_selected_variables(
+        config_variables: dict[str, Any], module_directories: list[tuple[Path, list[Path]]]
+    ) -> dict[str, Any]:
+        selected_paths = {
+            dir_.parts[1:i]
+            for dir_, _ in module_directories
+            if len(dir_.parts) > 1
+            for i in range(2, len(dir_.parts) + 1)
+        }
+        selected_variables: dict[str, Any] = {}
+        to_check: list[tuple[tuple[str, ...], dict[str, Any]]] = [(tuple(), config_variables)]
+        while to_check:
+            path, current = to_check.pop()
+            for key, value in current.items():
+                if isinstance(value, dict):
+                    to_check.append(((*path, key), value))
+                elif path in selected_paths:
+                    selected = selected_variables
+                    for part in path:
+                        selected = selected.setdefault(part, {})
+                    selected[key] = value
+        return selected_variables
+
+    @staticmethod
     def _is_selected_module(relative_module_dir: Path, selected_modules: list[str | tuple[str, ...]]) -> bool:
         module_parts = relative_module_dir.parts
         is_in_selected_modules = relative_module_dir.name in selected_modules or module_parts in selected_modules
@@ -321,6 +354,14 @@ class BuildCommand(ToolkitCommand):
         build_dir: Path,
         verbose: bool = False,
     ) -> None:
+        if yaml_source_path.parent.name != FunctionLoader.folder_name:
+            self.warn(
+                LowSeverityWarning(
+                    f"The file {yaml_source_path} is considered part of the Function's code and will not be processed as a CDF resource. If this is a "
+                    f"function config please move it to {FunctionLoader.folder_name} folder."
+                )
+            )
+            return None
         try:
             functions: FunctionList = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
         except (KeyError, yaml.YAMLError) as e:
@@ -328,7 +369,7 @@ class BuildCommand(ToolkitCommand):
 
         for func in functions:
             found = False
-            for function_subdirs in iterate_functions(module_dir):
+            for function_subdirs in self.iterate_functions(module_dir):
                 for function_dir in function_subdirs:
                     if (fn_xid := func.external_id) == function_dir.name:
                         found = True
@@ -514,6 +555,15 @@ class BuildCommand(ToolkitCommand):
                 )
             )
         return loader
+
+    @staticmethod
+    def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
+        for function_dir in module_dir.glob(f"**/{FunctionLoader.folder_name}"):
+            if not function_dir.is_dir():
+                continue
+            function_directories = [path for path in function_dir.iterdir() if path.is_dir()]
+            if function_directories:
+                yield function_directories
 
 
 @dataclass

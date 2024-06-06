@@ -6,9 +6,9 @@ from typing import Any, ClassVar
 
 from rich import print
 
+from cognite_toolkit._cdf_tk.constants import MODULE_PATH_SEP
+from cognite_toolkit._cdf_tk.data_classes._base import ConfigCore, _load_version_variable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingModuleError
-from cognite_toolkit._cdf_tk.templates._constants import MODULE_PATH_SEP
-from cognite_toolkit._cdf_tk.templates.data_classes._base import ConfigCore, _load_version_variable
 
 
 @dataclass
@@ -52,7 +52,7 @@ class SystemYAML(ConfigCore):
         for package, modules in self.packages.items():
             if package not in selected_packages:
                 # We do not check packages that are not selected.
-                # Typically, the user will delete the modules that are irrelevant for them,
+                # Typically, the user will delete the modules that are irrelevant for them;
                 # thus we only check the selected packages.
                 continue
             if missing := set(modules) - available_modules:

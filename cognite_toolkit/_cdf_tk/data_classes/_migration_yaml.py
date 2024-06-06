@@ -6,14 +6,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from packaging.version import Version
+from packaging.version import parse as parse_version
 from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
-from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES
-from cognite_toolkit._cdf_tk.templates._utils import iterate_modules
-from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import iterate_modules, load_yaml_inject_variables
 from cognite_toolkit._version import __version__ as current_version
 
 
@@ -41,16 +42,17 @@ class Change:
 
 @dataclass
 class VersionChanges:
-    version: str
+    version: Version
     cognite_modules_hash: str
     cognite_modules: dict[str, list[Change]]
     resources: dict[str, list[Change]]
     tool: list[Change]
+    from_version: Version | None = None
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> VersionChanges:
         return cls(
-            version=data["version"],
+            version=parse_version(data["version"]),
             cognite_modules_hash=data["cognite_modules_hash"],
             cognite_modules={
                 key: [Change.load(change) for change in changes] for key, changes in data[COGNITE_MODULES].items()
@@ -119,8 +121,14 @@ class MigrationYAML(UserList[VersionChanges]):
 
         return migration_yaml.slice_from(previous_version).as_one_change()
 
-    def slice_from(self, previous_version: str) -> MigrationYAML:
-        from_version = next((no for no, entry in enumerate(self) if entry.version == previous_version), None)
+    def slice_from(self, previous_version: str | Version) -> MigrationYAML:
+        previous_version_parsed = (
+            parse_version(previous_version) if isinstance(previous_version, str) else previous_version
+        )
+        from_version = max(
+            (no + 1 for no, entry in enumerate(self) if entry.version >= previous_version_parsed), default=0
+        )
+        from_version = min(from_version, len(self) - 1)
         if from_version is None:
             raise ToolkitMigrationError(f"Failed to find migration from version '{previous_version}'.")
 
@@ -138,11 +146,12 @@ class MigrationYAML(UserList[VersionChanges]):
                 cognite_modules[module].extend(changes)
 
         return VersionChanges(
-            version=f"{self[0].version} - {self[-1].version}",
+            version=self[-1].version,
             tool=tool,
             resources=resources,
             cognite_modules=cognite_modules,
             cognite_modules_hash=self[-1].cognite_modules_hash,
+            from_version=self[0].version,
         )
 
 
@@ -150,5 +159,5 @@ if __name__ == "__main__":
     # This is a simple convinced to print the content of ../_migration.yaml
     # to the console. It is not used in the toolkit itself, but can be used
     # in the development of the toolkit.
-    m = MigrationYAML.load_from_version("0.1.0b1")
-    m.print(Path(__file__).parent.parent.parent, "0.1.0b1")
+    m = MigrationYAML.load_from_version("0.1.4")
+    m.print(Path(__file__).parent.parent, "0.1.4")

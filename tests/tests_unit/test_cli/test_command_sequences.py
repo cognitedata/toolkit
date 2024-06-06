@@ -15,8 +15,8 @@ import typer
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import build, clean, deploy, main_init
-from cognite_toolkit._cdf_tk.templates import COGNITE_MODULES, iterate_modules
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
 from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
 from tests.tests_unit.utils import mock_read_yaml_file

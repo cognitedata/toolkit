@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0b4] - 2024-06-06
+
+### Added
+
+- Extended `cognite_modules/examples/my_example_module` with a `TransformationNotification` case.
+
 ## [0.2.0b3] - 2024-06-04
 
 ### Added

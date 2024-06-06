@@ -15,6 +15,28 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.0b4] - 2024-06-06
+
+### Added
+
+- Support for resource type `TransformationNotification` in the `transformations` folder.
+
+### Changed
+
+- [BREAKING] In `functions`, the function config file must be in the root function directory. This means
+  that, for example, `my_module/function/some_folder/function.yaml` will no longer be included by
+  the `cdf-tk build` command. Instead, it must be in `my_module/function/function.yaml`. The motivation
+  is to allow arbitrary YAML files as part of the function code.
+- The toolkit now only gives a `TemplateVariableWarning` (`Variable my_variable has value <change_me> ...`) if
+  the variable is used by `selected` in the `config.[env].yaml`. This is to avoid unnecessary warnings.
+- The `FeaturePrevieWarnings` are no longer printed when running `cdf-tk deploy` or `cdf-tk clean`. These warnings
+  are from the `cognite-sdk` and can be confusing to the user.
+
+### Fixed
+
+- When running `cdf-tk init --upgrade` from version `0.1.4` the user would get a `ToolkitMigrationError`.
+  This is now fixed.
+
 ## [0.2.0b3] - 2024-06-04
 
 ### Added

@@ -23,7 +23,7 @@ def run() -> None:
     if args.modules == "all":
         import yaml
 
-        from cognite_toolkit._cdf_tk.templates import iterate_modules
+        from cognite_toolkit._cdf_tk.utils import iterate_modules
 
         all_modules = [module.name for module, _ in iterate_modules(THIS_FOLDER.parent / "cognite_toolkit")]
 

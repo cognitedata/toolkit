@@ -34,7 +34,7 @@ Function:
   externalId: fn_first_function
   functionPath: ./src/handler.py
   metadata:
-    cdf-toolkit-function-hash: 31407820253d00b05da67d6d9ff7f009df975e0f99e5d08914c0c23e95d7f121
+    cdf-toolkit-function-hash: a63720560f48030aaf994e92b02b1de1932514aa79b3115ced9d65fba8440aff
     version: '1'
   name: first:example:function
   owner: Anonymous
@@ -104,6 +104,11 @@ Transformation:
     clientSecret: dummy
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
+TransformationNotification:
+- destination: jane.smith@example.com
+  transformationExternalId: tr_first_transformation
+- destination: john.smith@example.com
+  transformationExternalId: tr_first_transformation
 TransformationSchedule:
 - externalId: tr_first_transformation
   interval: 7 * * * *

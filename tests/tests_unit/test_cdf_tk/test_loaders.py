@@ -25,6 +25,12 @@ from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
+from cognite_toolkit._cdf_tk.data_classes import (
+    BuildConfigYAML,
+    Environment,
+    InitConfigYAML,
+    SystemYAML,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
@@ -53,17 +59,12 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
 )
 from cognite_toolkit._cdf_tk.loaders.data_classes import NodeAPICall, NodeApplyListWithCall, RawDatabaseTable
-from cognite_toolkit._cdf_tk.templates import (
+from cognite_toolkit._cdf_tk.utils import (
+    CDFToolConfig,
     module_from_path,
     resource_folder_from_path,
+    tmp_build_directory,
 )
-from cognite_toolkit._cdf_tk.templates.data_classes import (
-    BuildConfigYAML,
-    Environment,
-    InitConfigYAML,
-    SystemYAML,
-)
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, tmp_build_directory
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
@@ -1033,7 +1034,9 @@ class TestFormatConsistency:
 
         mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
 
-        loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_config, skip_validation=True
+        )
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
@@ -1060,7 +1063,9 @@ class TestFormatConsistency:
 
         mock_read_yaml_file({"dict.yaml": instances.dump()}, monkeypatch)
 
-        loaded = loader.load_resource(filepath=Path("dict.yaml"), ToolGlobals=cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(
+            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_config, skip_validation=True
+        )
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
@@ -1127,6 +1132,9 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             loader = next((loader for loader in loaders if loader.is_supported_file(filepath)), None)
             if loader is None:
                 raise ValueError(f"Could not find loader for {filepath}")
+            if loader is FunctionLoader and filepath.parent.name != loader.folder_name:
+                # Functions will only accept YAML in root function folder.
+                continue
             if issubclass(loader, ResourceLoader):
                 raw = yaml.CSafeLoader(filepath.read_text()).get_data()
                 source_path = source_by_build_path[filepath]

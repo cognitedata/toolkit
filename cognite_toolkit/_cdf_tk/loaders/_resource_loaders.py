@@ -65,6 +65,8 @@ from cognite.client.data_classes import (
     TimeSeriesWriteList,
     Transformation,
     TransformationList,
+    TransformationNotification,
+    TransformationNotificationList,
     TransformationSchedule,
     TransformationScheduleList,
     TransformationScheduleWrite,
@@ -149,6 +151,10 @@ from cognite.client.data_classes.iam import (
     SecurityCategoryWriteList,
 )
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
+from cognite.client.data_classes.transformations.notifications import (
+    TransformationNotificationWrite,
+    TransformationNotificationWriteList,
+)
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -739,6 +745,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionWrite | FunctionWriteList | None:
+        if filepath.parent.name != self.folder_name:
+            # Functions configs needs to be in the root function folder.
+            # Thi is to allow arbitrary YAML files inside the function code folder.
+            return None
+
         functions = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
 
         if isinstance(functions, dict):
@@ -1509,7 +1520,8 @@ class TransformationLoader(
 ):
     folder_name = "transformations"
     filename_pattern = (
-        r"^(?:(?!\.schedule).)*$"  # Matches all yaml files except file names who's stem contain *.schedule.
+        # Matches all yaml files except file names whose stem contain *.schedule. or Notification
+        r"^(?!.*schedule.*|.*notification$).*$"
     )
     resource_cls = Transformation
     resource_write_cls = TransformationWrite
@@ -1802,6 +1814,115 @@ class TransformationScheduleLoader(
             return len(cast(SequenceNotStr[str], ids))
         except CogniteNotFoundError as e:
             return len(cast(SequenceNotStr[str], ids)) - len(e.not_found)
+
+
+@final
+class TransformationNotificationLoader(
+    ResourceLoader[
+        str,
+        TransformationNotificationWrite,
+        TransformationNotification,
+        TransformationNotificationWriteList,
+        TransformationNotificationList,
+    ]
+):
+    folder_name = "transformations"
+    # Matches all yaml files whose stem ends with *Notification.
+    filename_pattern = r"^.*Notification$"
+    resource_cls = TransformationNotification
+    resource_write_cls = TransformationNotificationWrite
+    list_cls = TransformationNotificationList
+    list_write_cls = TransformationNotificationWriteList
+    dependencies = frozenset({TransformationLoader})
+    _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
+
+    @property
+    def display_name(self) -> str:
+        return "transformation.notifications"
+
+    @classmethod
+    def get_id(cls, item: TransformationNotification | TransformationNotificationWrite | dict) -> str:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"transformationExternalId", "destination"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return f"{item['transformationExternalId']}:{item['destination']}"
+
+        return f"{item.transformation_external_id}:{item.destination}"
+
+    @classmethod
+    def get_required_capability(cls, items: TransformationNotificationWriteList) -> Capability | list[Capability]:
+        # Access for transformation notification is checked by the transformation that is deployed
+        # first, so we don't need to check for any capabilities here.
+        return []
+
+    def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
+        # Todo bug in SDK not accepting TransformationNotificationWrite
+        return self.client.transformations.notifications.create(items)  # type: ignore[return-value]
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:
+        retrieved = TransformationNotificationList([])
+        for id_ in ids:
+            try:
+                transformation_external_id, destination = id_.split(":")
+            except ValueError:
+                # This should never happen, and is a bug in the toolkit if it occurs. Creating a nice error message
+                # here so that if it does happen, it will be easier to debug.
+                raise ValueError(
+                    f"Invalid externalId: {id_}. Must be in the format 'transformationExternalId:destination'"
+                )
+            result = self.client.transformations.notifications.list(
+                transformation_external_id=transformation_external_id, destination=destination, limit=-1
+            )
+            retrieved.extend(result)
+        return retrieved
+
+    def update(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
+        # Note that since a notification is identified by the combination of transformationExternalId and destination,
+        # which is the entire object, an update should never happen. However, implementing just in case.
+        item_by_id = {self.get_id(item): item for item in items}
+        existing = self.retrieve(list(item_by_id.keys()))
+        exiting_by_id = {self.get_id(item): item for item in existing}
+        create: list[TransformationNotificationWrite] = []
+        unchanged: list[str] = []
+        delete: list[int] = []
+        for id_, item in item_by_id.items():
+            existing_item = exiting_by_id.get(id_)
+            if existing_item and self.are_equal(item, existing_item):
+                unchanged.append(self.get_id(existing_item))
+            else:
+                create.append(item)
+            if existing_item:
+                delete.append(cast(int, existing_item.id))
+        if delete:
+            self.client.transformations.notifications.delete(delete)
+        updated_by_id: dict[str, TransformationNotification] = {}
+        if create:
+            # Bug in SDK
+            created = self.client.transformations.notifications.create(create)  # type: ignore[arg-type]
+            updated_by_id.update({self.get_id(item): item for item in created})  # type: ignore[union-attr]
+        if unchanged:
+            updated_by_id.update({id_: exiting_by_id[id_] for id_ in unchanged})
+        return TransformationNotificationList([updated_by_id[id_] for id_ in item_by_id.keys()])
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        # Note that it is theoretically possible that more items will be deleted than
+        # input ids. This is because TransformationNotifications are identified by an internal id,
+        # while the toolkit uses the transformationExternalId + destination as the id. Thus, there could
+        # be multiple notifications for the same transformationExternalId + destination.
+        if existing := self.retrieve(ids):
+            self.client.transformations.notifications.delete([item.id for item in existing])  # type: ignore[misc]
+        return len(existing)
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        if "transformationExternalId" in item:
+            yield TransformationLoader, item["transformationExternalId"]
 
 
 @final

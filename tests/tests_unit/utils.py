@@ -73,10 +73,8 @@ def mock_read_yaml_file(
         return load_yaml_inject_variables(filepath, variables, required_return_type)
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.read_yaml_file", fake_read_yaml_file)
-    monkeypatch.setattr("cognite_toolkit._cdf_tk.templates.data_classes._base.read_yaml_file", fake_read_yaml_file)
-    monkeypatch.setattr(
-        "cognite_toolkit._cdf_tk.templates.data_classes._project_directory.read_yaml_file", fake_read_yaml_file
-    )
+    monkeypatch.setattr("cognite_toolkit._cdf_tk.data_classes._base.read_yaml_file", fake_read_yaml_file)
+    monkeypatch.setattr("cognite_toolkit._cdf_tk.data_classes._project_directory.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.deploy.read_yaml_file", fake_read_yaml_file)
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.load_yaml_inject_variables", fake_load_yaml_inject_variables)
