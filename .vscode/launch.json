@@ -118,7 +118,7 @@
                 //"--init-dir=foo"
                 //"--arrow"
                 //"--help",
-                "--packages=quickstart examples"
+                //"--packages=quickstart examples"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Annotated, Any, Optional, Union
 
@@ -13,6 +12,7 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.prototypes import _packages
 
 INDENT = "  "
 POINTER = INDENT + "▶"
@@ -46,17 +46,12 @@ class Packages:
     def _get_packages(self) -> dict[str, dict[str, Any]] | None:
         packages = {}
 
-        package_dir = Path(__file__).parent / ".packages"
-        if not Path.exists(package_dir):
-            raise FileNotFoundError(f"No packages dir found at {package_dir}")
-
-        for root, dirs, _ in os.walk(package_dir):
-            for subdir in dirs:
-                yaml_file_path = os.path.join(root, subdir, "manifest.yaml")
-                if os.path.exists(yaml_file_path):
-                    with open(yaml_file_path) as file:
-                        content = file.read()
-                        packages[subdir] = yaml.CSafeLoader(content).get_data()
+        for module in _packages.__all__:
+            manifest = Path(_packages.__file__).parent / module / "manifest.yaml"
+            if not Path(manifest).exists():
+                raise FileNotFoundError(f"Manifest file not found for package {module}")
+            with open(manifest) as file:
+                packages[manifest.parent.name] = yaml.CSafeLoader(file.read()).get_data()
         return packages
 
 
