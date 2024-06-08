@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceUpdateError,
-    ToolkitCleanResourceError,
     ToolkitDeployResourceError,
     ToolkitNotADirectoryError,
     UploadFileError,
@@ -142,8 +141,6 @@ class DeployCommand(ToolkitCommand):
                 )
                 if result:
                     results[result.name] = result
-                if ToolGlobals.failed:
-                    raise ToolkitCleanResourceError(f"Failure to clean {loader_cls.folder_name} as expected.")
             print("[bold]...cleaning complete![/]")
 
         if drop or drop_data:
@@ -158,12 +155,6 @@ class DeployCommand(ToolkitCommand):
                 has_dropped_data=drop_data,
                 verbose=ctx.obj.verbose,
             )
-            if ToolGlobals.failed:
-                if results and results.has_counts:
-                    print(results.counts_table())
-                if results and results.has_uploads:
-                    print(results.uploads_table())
-                raise ToolkitDeployResourceError(f"Failure to load/deploy {loader_instance.display_name} as expected.")
             if result:
                 results[result.name] = result
             if ctx.obj.verbose:
