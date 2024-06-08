@@ -233,6 +233,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
     @classmethod
     def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return GroupsAcl(
             [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
             GroupsAcl.Scope.All(),
@@ -489,6 +491,8 @@ class SecurityCategoryLoader(
 
     @classmethod
     def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return SecurityCategoriesAcl(
             actions=[
                 SecurityCategoriesAcl.Action.Create,
@@ -537,7 +541,9 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     _doc_url = "Data-sets/operation/createDataSets"
 
     @classmethod
-    def get_required_capability(cls, items: DataSetWriteList) -> Capability:
+    def get_required_capability(cls, items: DataSetWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataSetsAcl(
             [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write],
             DataSetsAcl.Scope.All(),
@@ -730,7 +736,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     _doc_url = "Functions/operation/postFunctions"
 
     @classmethod
-    def get_required_capability(cls, items: FunctionWriteList) -> list[Capability]:
+    def get_required_capability(cls, items: FunctionWriteList) -> list[Capability] | list[Capability]:
+        if not items:
+            return []
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
             FilesAcl(
@@ -941,6 +949,8 @@ class FunctionScheduleLoader(
 
     @classmethod
     def get_required_capability(cls, items: FunctionScheduleWriteList) -> list[Capability]:
+        if not items:
+            return []
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
             SessionsAcl(
@@ -3245,7 +3255,9 @@ class WorkflowVersionLoader(
         return "workflow.versions"
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability:
+    def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return WorkflowOrchestrationAcl(
             [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
             WorkflowOrchestrationAcl.Scope.All(),
