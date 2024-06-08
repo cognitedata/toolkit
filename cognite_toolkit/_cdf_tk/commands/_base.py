@@ -21,8 +21,9 @@ from cognite_toolkit._cdf_tk.utils import (
 
 
 class ToolkitCommand:
-    def __init__(self, print_warning: bool = True):
+    def __init__(self, print_warning: bool = True, user_command: str | None = None):
         self.print_warning = print_warning
+        self.user_command = user_command
         self.warning_list = WarningList[ToolkitWarning]()
 
     def warn(self, warning: ToolkitWarning) -> None:
