@@ -512,7 +512,10 @@ class TestGroupLoader:
         assert len(to_change) == 1
         assert len(unchanged) == 0
 
-        cmd._update_resources(to_change, loader, False)
+        cmd._update_resources(
+            to_change,
+            loader,
+        )
 
         assert cognite_client_approval.create_calls()["Group"] == 1
         assert cognite_client_approval.delete_calls()["Group"] == 1
