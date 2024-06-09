@@ -47,6 +47,10 @@ class ToolkitMissingModuleError(ToolkitError):
     pass
 
 
+class ToolkitMissingModulesError(ToolkitError):
+    pass
+
+
 class ToolkitDuplicatedResourceError(ToolkitError):
     pass
 
