@@ -1163,9 +1163,13 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
         Iterator[tuple[Path, list[Path]]]: A tuple containing the module directory and a list of all files in the module
 
     """
-    if root_dir.name not in ROOT_MODULES:
-        raise ValueError(f"Root directory {root_dir} is not a root directory for modules")
-    yield from _iterate_modules(root_dir)
+    if root_dir.name in ROOT_MODULES:
+        yield from _iterate_modules(root_dir)
+        return
+    for root_module in ROOT_MODULES:
+        module_dir = root_dir / root_module
+        if module_dir.exists():
+            yield from _iterate_modules(module_dir)
 
 
 def _iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
