@@ -159,5 +159,5 @@ if __name__ == "__main__":
     # This is a simple convinced to print the content of ../_migration.yaml
     # to the console. It is not used in the toolkit itself, but can be used
     # in the development of the toolkit.
-    m = MigrationYAML.load_from_version("0.1.4")
-    m.print(Path(__file__).parent.parent, "0.1.4")
+    m = MigrationYAML.load_from_version("0.2.b3")
+    m.print(Path(__file__).parent.parent, "0.3.b3")
