@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- When deploying `containers` resources with an index, the `cdf-tk deploy` would consider the resource as changed
+  even though it was not. This is now fixed.
+
 ## [0.2.0b4] - 2024-06-06
 
 ### Added
