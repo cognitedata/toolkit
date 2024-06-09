@@ -2620,10 +2620,14 @@ class ContainerLoader(
 
     def are_equal(self, local: ContainerApply, remote: Container) -> bool:
         local_dumped = local.dump(camel_case=True)
+        # 'usedFor' and 'cursorable' have default values set on the server side,
+        # but not when loading the container using the SDK. Thus, we set the default
+        # values here if they are not present.
         if "usedFor" not in local_dumped:
-            # Setting used_for to "node" as it is the default value in the CDF and will be set by
-            # the server side if it is not set.
             local_dumped["usedFor"] = "node"
+        for index in local_dumped.get("indexes", {}).values():
+            if "cursorable" not in index:
+                index["cursorable"] = False
 
         return local_dumped == remote.as_write().dump(camel_case=True)
 
