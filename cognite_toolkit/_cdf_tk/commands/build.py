@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
     ToolkitFileExistsError,
+    ToolkitMissingModulesError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
     ToolkitYAMLFormatError,
@@ -78,10 +79,19 @@ class BuildCommand(ToolkitCommand):
 
         system_config = SystemYAML.load_from_directory(source_path, build_env_name, self.warn)
         config = BuildConfigYAML.load_from_directory(source_path, build_env_name, self.warn)
+        sources = [module_dir for root_module in ROOT_MODULES if (module_dir := source_path / root_module).exists()]
+        if not sources:
+            directories = "\n┣ 📂".join(ROOT_MODULES[:-1])
+            raise ToolkitMissingModulesError(
+                f"Could not find the source modules directory.\nExpected to find one\n"
+                f"{source_path.name}\n{directories}\n ┗ 📂{ROOT_MODULES[-1]}"
+            )
+
         print(
             Panel(
                 f"[bold]Building config files from templates into {build_dir!s} for environment {build_env_name} using {source_path!s} as sources...[/bold]"
-                f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}'"
+                f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}'",
+                expand=False,
             )
         )
         config.set_environment_variables()
