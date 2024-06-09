@@ -43,7 +43,7 @@ from cognite.client.testing import CogniteClientMock
 from rich import print
 from rich.prompt import Confirm, Prompt
 
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitResourceMissingError, ToolkitYAMLFormatError
 from cognite_toolkit._version import __version__
 
@@ -1163,6 +1163,12 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
         Iterator[tuple[Path, list[Path]]]: A tuple containing the module directory and a list of all files in the module
 
     """
+    if root_dir.name not in ROOT_MODULES:
+        raise ValueError(f"Root directory {root_dir} is not a root directory for modules")
+    yield from _iterate_modules(root_dir)
+
+
+def _iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
     # local import to avoid circular import
     from .constants import EXCL_FILES
     from .loaders import LOADER_BY_FOLDER_NAME
@@ -1179,7 +1185,7 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
             yield module_dir, [path for path in module_dir.rglob("*") if path.is_file() and path.name not in EXCL_FILES]
             # Stop searching for modules in subdirectories
             continue
-        yield from iterate_modules(module_dir)
+        yield from _iterate_modules(module_dir)
 
 
 @overload
