@@ -87,7 +87,7 @@ class BuildCommand(ToolkitCommand):
                 f"📦{source_path.name}\n{directories}\n   ┗ 📂 {ROOT_MODULES[-1]}"
             )
         directory_name = "current directory" if source_path == Path(".") else f"project '{source_path!s}'"
-        module_locations = "\n".join(f"  - Module directory -'{source!s}'" for source in sources)
+        module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
         print(
             Panel(
                 f"Building {directory_name}:\n  - Environment {build_env_name!r}\n  - Config '{config.filepath!s}'"
