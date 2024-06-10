@@ -1564,8 +1564,8 @@ class TransformationLoader(
 ):
     folder_name = "transformations"
     filename_pattern = (
-        # Matches all yaml files except file names whose stem contain *.schedule. or Notification
-        r"^(?!.*schedule.*|.*notification$).*$"
+        # Matches all yaml files except file names whose stem contain *.schedule.
+        r"^(?!.*schedule.*).*$"
     )
     resource_cls = Transformation
     resource_write_cls = TransformationWrite
