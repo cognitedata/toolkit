@@ -100,10 +100,11 @@ class TestFunctionScheduleLoader:
         retrieved = loader.retrieve([identifier])
         if not retrieved or retrieved[0].description != function_schedule.description:
             # The service can be a bit slow in returning the updated description,
-            # so we wait a bit and try again.
-            sleep(1)
+            # so we wait a bit and try again. (Eventual consistency)
+            sleep(2)
             retrieved = loader.retrieve([identifier])
 
+        assert retrieved, "Function schedule not found after update."
         assert retrieved[0].description == function_schedule.description
 
 
