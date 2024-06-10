@@ -189,6 +189,7 @@ _HAS_DATA_FILTER_LIMIT = 10
 class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList], ABC):
     folder_name = "auth"
     filename_pattern = r"^(?!.*SecurityCategory$).*"
+    kind = "Group"
     resource_cls = Group
     resource_write_cls = GroupWrite
     list_cls = GroupList
@@ -233,6 +234,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
     @classmethod
     def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return GroupsAcl(
             [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
             GroupsAcl.Scope.All(),
@@ -455,6 +458,7 @@ class SecurityCategoryLoader(
     resource_write_cls = SecurityCategoryWrite
     list_cls = SecurityCategoryList
     list_write_cls = SecurityCategoryWriteList
+    kind = "SecurityCategory"
     folder_name = "auth"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Security-categories/operation/createSecurityCategories"
@@ -489,6 +493,8 @@ class SecurityCategoryLoader(
 
     @classmethod
     def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return SecurityCategoriesAcl(
             actions=[
                 SecurityCategoriesAcl.Action.Create,
@@ -533,11 +539,14 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     resource_write_cls = DataSetWrite
     list_cls = DataSetList
     list_write_cls = DataSetWriteList
+    kind = "DataSet"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Data-sets/operation/createDataSets"
 
     @classmethod
-    def get_required_capability(cls, items: DataSetWriteList) -> Capability:
+    def get_required_capability(cls, items: DataSetWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataSetsAcl(
             [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write],
             DataSetsAcl.Scope.All(),
@@ -633,6 +642,7 @@ class LabelLoader(
     resource_write_cls = LabelDefinitionWrite
     list_cls = LabelDefinitionList
     list_write_cls = LabelDefinitionWriteList
+    kind = "Label"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Labels/operation/createLabelDefinitions"
 
@@ -645,10 +655,19 @@ class LabelLoader(
         return item.external_id
 
     @classmethod
-    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: LabelDefinitionWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
+        scope = (
+            capabilities.LabelsAcl.Scope.DataSet(list(data_set_ids))
+            if data_set_ids
+            else capabilities.LabelsAcl.Scope.All()
+        )
+
         return capabilities.LabelsAcl(
             [capabilities.LabelsAcl.Action.Read, capabilities.LabelsAcl.Action.Write],
-            capabilities.LabelsAcl.Scope.All(),
+            scope,  # type: ignore[arg-type]
         )
 
     def create(self, items: LabelDefinitionWriteList) -> LabelDefinitionList:
@@ -717,11 +736,14 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     resource_write_cls = FunctionWrite
     list_cls = FunctionList
     list_write_cls = FunctionWriteList
+    kind = "Function"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
 
     @classmethod
-    def get_required_capability(cls, items: FunctionWriteList) -> list[Capability]:
+    def get_required_capability(cls, items: FunctionWriteList) -> list[Capability] | list[Capability]:
+        if not items:
+            return []
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
             FilesAcl(
@@ -923,6 +945,7 @@ class FunctionScheduleLoader(
     resource_write_cls = FunctionScheduleWrite
     list_cls = FunctionSchedulesList
     list_write_cls = FunctionScheduleWriteList
+    kind = "Schedule"
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
 
@@ -932,6 +955,8 @@ class FunctionScheduleLoader(
 
     @classmethod
     def get_required_capability(cls, items: FunctionScheduleWriteList) -> list[Capability]:
+        if not items:
+            return []
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
             SessionsAcl(
@@ -1055,6 +1080,7 @@ class RawDatabaseLoader(
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
+    kind = "Database"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Raw/operation/createDBs"
 
@@ -1067,7 +1093,9 @@ class RawDatabaseLoader(
         return "raw.databases"
 
     @classmethod
-    def get_required_capability(cls, items: RawTableList) -> Capability:
+    def get_required_capability(cls, items: RawTableList) -> Capability | list[Capability]:
+        if not items:
+            return []
         tables_by_database = defaultdict(list)
         for item in items:
             tables_by_database[item.db_name].append(item.table_name)
@@ -1161,6 +1189,7 @@ class RawTableLoader(
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
+    kind = "Table"
     dependencies = frozenset({RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Raw/operation/createTables"
 
@@ -1173,7 +1202,9 @@ class RawTableLoader(
         return "raw.tables"
 
     @classmethod
-    def get_required_capability(cls, items: RawTableList) -> Capability:
+    def get_required_capability(cls, items: RawTableList) -> Capability | list[Capability]:
+        if not items:
+            return []
         tables_by_database = defaultdict(list)
         for item in items:
             tables_by_database[item.db_name].append(item.table_name)
@@ -1290,11 +1321,15 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
     list_write_cls = TimeSeriesWriteList
+    kind = "TimeSeries"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @classmethod
-    def get_required_capability(cls, items: TimeSeriesWriteList) -> Capability:
+    def get_required_capability(cls, items: TimeSeriesWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+
         dataset_ids = {item.data_set_id for item in items if item.data_set_id}
 
         scope = TimeSeriesAcl.Scope.DataSet(list(dataset_ids)) if dataset_ids else TimeSeriesAcl.Scope.All()
@@ -1412,6 +1447,7 @@ class DatapointSubscriptionLoader(
     resource_write_cls = DataPointSubscriptionWrite
     list_cls = DatapointSubscriptionList
     list_write_cls = DatapointSubscriptionWriteList
+    kind = "DatapointSubscription"
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
     dependencies = frozenset(
         {
@@ -1457,9 +1493,17 @@ class DatapointSubscriptionLoader(
 
     @classmethod
     def get_required_capability(cls, items: DatapointSubscriptionWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
+        scope = (
+            TimeSeriesSubscriptionsAcl.Scope.DataSet(list(data_set_ids))
+            if data_set_ids
+            else TimeSeriesSubscriptionsAcl.Scope.All()
+        )
         return TimeSeriesSubscriptionsAcl(
             [TimeSeriesSubscriptionsAcl.Action.Read, TimeSeriesSubscriptionsAcl.Action.Write],
-            TimeSeriesSubscriptionsAcl.Scope.All(),
+            scope,  # type: ignore[arg-type]
         )
 
     def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
@@ -1520,18 +1564,21 @@ class TransformationLoader(
 ):
     folder_name = "transformations"
     filename_pattern = (
-        # Matches all yaml files except file names whose stem contain *.schedule. or Notification
-        r"^(?!.*schedule.*|.*notification$).*$"
+        # Matches all yaml files except file names whose stem contain *.schedule. or .Notification
+        r"^(?!.*schedule.*|.*\.notification$).*$"
     )
     resource_cls = Transformation
     resource_write_cls = TransformationWrite
     list_cls = TransformationList
     list_write_cls = TransformationWriteList
+    kind = "Transformation"
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Transformations/operation/createTransformations"
 
     @classmethod
-    def get_required_capability(cls, items: TransformationWriteList) -> Capability:
+    def get_required_capability(cls, items: TransformationWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         data_set_ids = {item.data_set_id for item in items if item.data_set_id}
 
         scope = TransformationsAcl.Scope.DataSet(list(data_set_ids)) if data_set_ids else TransformationsAcl.Scope.All()
@@ -1754,6 +1801,7 @@ class TransformationScheduleLoader(
     resource_write_cls = TransformationScheduleWrite
     list_cls = TransformationScheduleList
     list_write_cls = TransformationScheduleWriteList
+    kind = "Schedule"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
 
@@ -1833,6 +1881,7 @@ class TransformationNotificationLoader(
     resource_write_cls = TransformationNotificationWrite
     list_cls = TransformationNotificationList
     list_write_cls = TransformationNotificationWriteList
+    kind = "Notification"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
 
@@ -1937,11 +1986,14 @@ class ExtractionPipelineLoader(
     resource_write_cls = ExtractionPipelineWrite
     list_cls = ExtractionPipelineList
     list_write_cls = ExtractionPipelineWriteList
+    kind = "ExtractionPipeline"
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader, GroupAllScopedLoader})
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @classmethod
-    def get_required_capability(cls, items: ExtractionPipelineWriteList) -> Capability:
+    def get_required_capability(cls, items: ExtractionPipelineWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         data_set_id = {item.data_set_id for item in items if item.data_set_id}
 
         scope = (
@@ -2084,6 +2136,7 @@ class ExtractionPipelineConfigLoader(
     resource_write_cls = ExtractionPipelineConfigWrite
     list_cls = ExtractionPipelineConfigList
     list_write_cls = ExtractionPipelineConfigWriteList
+    kind = "Config"
     dependencies = frozenset({ExtractionPipelineLoader})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
 
@@ -2205,6 +2258,7 @@ class FileMetadataLoader(
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
+    kind = "FileMetadata"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, LabelLoader})
 
     _doc_url = "Files/operation/initFileUpload"
@@ -2214,7 +2268,9 @@ class FileMetadataLoader(
         return "file_metadata"
 
     @classmethod
-    def get_required_capability(cls, items: FileMetadataWriteList) -> Capability:
+    def get_required_capability(cls, items: FileMetadataWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         data_set_ids = {item.data_set_id for item in items if item.data_set_id}
 
         scope = FilesAcl.Scope.DataSet(list(data_set_ids)) if data_set_ids else FilesAcl.Scope.All()
@@ -2375,6 +2431,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     resource_write_cls = SpaceApply
     list_write_cls = SpaceApplyList
     list_cls = SpaceList
+    kind = "Space"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Spaces/operation/ApplySpaces"
 
@@ -2383,7 +2440,9 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         return "spaces"
 
     @classmethod
-    def get_required_capability(cls, items: SpaceApplyList) -> list[Capability]:
+    def get_required_capability(cls, items: SpaceApplyList) -> list[Capability] | list[Capability]:
+        if not items:
+            return []
         return [
             DataModelsAcl(
                 [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
@@ -2503,6 +2562,7 @@ class ContainerLoader(
     resource_write_cls = ContainerApply
     list_cls = ContainerList
     list_write_cls = ContainerApplyList
+    kind = "Container"
     dependencies = frozenset({SpaceLoader})
     _doc_url = "Containers/operation/ApplyContainers"
 
@@ -2511,7 +2571,9 @@ class ContainerLoader(
         return "containers"
 
     @classmethod
-    def get_required_capability(cls, items: ContainerApplyList) -> Capability:
+    def get_required_capability(cls, items: ContainerApplyList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
             DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
@@ -2620,10 +2682,14 @@ class ContainerLoader(
 
     def are_equal(self, local: ContainerApply, remote: Container) -> bool:
         local_dumped = local.dump(camel_case=True)
+        # 'usedFor' and 'cursorable' have default values set on the server side,
+        # but not when loading the container using the SDK. Thus, we set the default
+        # values here if they are not present.
         if "usedFor" not in local_dumped:
-            # Setting used_for to "node" as it is the default value in the CDF and will be set by
-            # the server side if it is not set.
             local_dumped["usedFor"] = "node"
+        for index in local_dumped.get("indexes", {}).values():
+            if "cursorable" not in index:
+                index["cursorable"] = False
 
         return local_dumped == remote.as_write().dump(camel_case=True)
 
@@ -2688,6 +2754,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     resource_write_cls = ViewApply
     list_cls = ViewList
     list_write_cls = ViewApplyList
+    kind = "View"
     dependencies = frozenset({SpaceLoader, ContainerLoader})
     _doc_url = "Views/operation/ApplyViews"
 
@@ -2701,7 +2768,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return "views"
 
     @classmethod
-    def get_required_capability(cls, items: ViewApplyList) -> Capability:
+    def get_required_capability(cls, items: ViewApplyList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
             DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
@@ -2882,6 +2951,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     resource_write_cls = DataModelApply
     list_cls = DataModelList
     list_write_cls = DataModelApplyList
+    kind = "DataModel"
     dependencies = frozenset({SpaceLoader, ViewLoader})
     _doc_url = "Data-models/operation/createDataModels"
 
@@ -2890,7 +2960,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return "data models"
 
     @classmethod
-    def get_required_capability(cls, items: DataModelApplyList) -> Capability:
+    def get_required_capability(cls, items: DataModelApplyList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
             DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
@@ -2968,6 +3040,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
     resource_write_cls = NodeApply
     list_cls = NodeList
     list_write_cls = NodeApplyListWithCall
+    kind = "Node"
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
@@ -2976,7 +3049,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
         return "nodes"
 
     @classmethod
-    def get_required_capability(cls, items: NodeApplyListWithCall) -> Capability:
+    def get_required_capability(cls, items: NodeApplyListWithCall) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataModelInstancesAcl(
             [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
             DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items})),
@@ -3120,6 +3195,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
     list_write_cls = WorkflowUpsertList
+    kind = "Workflow"
     dependencies = frozenset(
         {
             GroupAllScopedLoader,
@@ -3131,7 +3207,9 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowUpsertList) -> Capability:
+    def get_required_capability(cls, items: WorkflowUpsertList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return WorkflowOrchestrationAcl(
             [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
             WorkflowOrchestrationAcl.Scope.All(),
@@ -3193,6 +3271,7 @@ class WorkflowVersionLoader(
     resource_write_cls = WorkflowVersionUpsert
     list_cls = WorkflowVersionList
     list_write_cls = WorkflowVersionUpsertList
+    kind = "WorkflowVersion"
     dependencies = frozenset({WorkflowLoader})
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
@@ -3203,7 +3282,9 @@ class WorkflowVersionLoader(
         return "workflow.versions"
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability:
+    def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return WorkflowOrchestrationAcl(
             [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
             WorkflowOrchestrationAcl.Scope.All(),

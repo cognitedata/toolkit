@@ -44,6 +44,7 @@ class Loader(ABC):
 
     filetypes: frozenset[str]
     folder_name: str
+    kind: str
     filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()

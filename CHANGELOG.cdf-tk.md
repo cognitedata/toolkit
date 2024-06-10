@@ -15,7 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.2.0] - 2024-06-10
+
+### Fixed
+
+- When running `cdf-tk clean` or `cdf-tk deploy --drop --drop-data` there was an edge case that triggered the bug
+  `ValueError: No capabilities given`. This is now fixed.
+- When deploying `containers` resources with an index, the `cdf-tk deploy` would consider the resource as changed
+  even though it was not. This is now fixed.
+
+## [0.2.0b4] - 2024-06-06
 
 ### Added
 
@@ -31,6 +40,11 @@ Changes are grouped as follows:
   the variable is used by `selected` in the `config.[env].yaml`. This is to avoid unnecessary warnings.
 - The `FeaturePrevieWarnings` are no longer printed when running `cdf-tk deploy` or `cdf-tk clean`. These warnings
   are from the `cognite-sdk` and can be confusing to the user.
+
+### Fixed
+
+- When running `cdf-tk init --upgrade` from version `0.1.4` the user would get a `ToolkitMigrationError`.
+  This is now fixed.
 
 ## [0.2.0b3] - 2024-06-04
 

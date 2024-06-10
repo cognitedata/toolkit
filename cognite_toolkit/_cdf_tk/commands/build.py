@@ -32,8 +32,10 @@ from cognite_toolkit._cdf_tk.data_classes import (
     SystemYAML,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
+    AmbiguousResourceFileError,
     ToolkitDuplicatedModuleError,
     ToolkitFileExistsError,
+    ToolkitMissingModulesError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
     ToolkitYAMLFormatError,
@@ -43,7 +45,9 @@ from cognite_toolkit._cdf_tk.loaders import (
     DatapointsLoader,
     FileLoader,
     FunctionLoader,
+    GroupLoader,
     Loader,
+    RawDatabaseLoader,
     ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -76,14 +80,25 @@ class BuildCommand(ToolkitCommand):
         if not source_path.is_dir():
             raise ToolkitNotADirectoryError(str(source_path))
 
-        system_config = SystemYAML.load_from_directory(source_path, build_env_name, self.warn)
+        system_config = SystemYAML.load_from_directory(source_path, build_env_name, self.warn, self.user_command)
         config = BuildConfigYAML.load_from_directory(source_path, build_env_name, self.warn)
+        sources = [module_dir for root_module in ROOT_MODULES if (module_dir := source_path / root_module).exists()]
+        if not sources:
+            directories = "\n".join(f"   ┣ {name}" for name in ROOT_MODULES[:-1])
+            raise ToolkitMissingModulesError(
+                f"Could not find the source modules directory.\nExpected to find one of the following directories\n"
+                f"{source_path.name}\n{directories}\n   ┗  {ROOT_MODULES[-1]}"
+            )
+        directory_name = "current directory" if source_path == Path(".") else f"project '{source_path!s}'"
+        module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
         print(
             Panel(
-                f"[bold]Building config files from templates into {build_dir!s} for environment {build_env_name} using {source_path!s} as sources...[/bold]"
-                f"\n[bold]Config file:[/] '{config.filepath.absolute()!s}'"
+                f"Building {directory_name}:\n  - Environment {build_env_name!r}\n  - Config '{config.filepath!s}'"
+                f"\n{module_locations}",
+                expand=False,
             )
         )
+
         config.set_environment_variables()
 
         self.build_config(
@@ -542,19 +557,29 @@ class BuildCommand(ToolkitCommand):
 
     def _get_loader(self, resource_folder: str, destination: Path) -> type[Loader] | None:
         loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
-        loader: type[Loader] | None
-        if len(loaders) == 1:
-            return loaders[0]
-        else:
-            loader = next((loader for loader in loaders if loader.is_supported_file(destination)), None)
-        if loader is None:
+        loaders = [loader for loader in loaders if loader.is_supported_file(destination)]
+        if len(loaders) == 0:
             self.warn(
                 ToolkitNotSupportedWarning(
                     f"the resource {resource_folder!r}",
                     details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
                 )
             )
-        return loader
+        elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
+            # Multiple raw loaders load from the same file.
+            return RawDatabaseLoader
+        elif len(loaders) > 1 and all(issubclass(loader, GroupLoader) for loader in loaders):
+            # There are two group loaders, one for resource scoped and one for all scoped.
+            return GroupLoader
+        elif len(loaders) > 1:
+            names = " or ".join(f"{destination.stem}.{loader.kind}{destination.suffix}" for loader in loaders)
+            raise AmbiguousResourceFileError(
+                f"Ambiguous resource file {destination.name} in {destination.parent.name} folder. "
+                f"Unclear whether it is {' or '.join(loader.kind for loader in loaders)}."
+                f"\nPlease name the file {names}."
+            )
+
+        return loaders[0]
 
     @staticmethod
     def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:

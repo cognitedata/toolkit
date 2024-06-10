@@ -47,6 +47,10 @@ class ToolkitMissingModuleError(ToolkitError):
     pass
 
 
+class ToolkitMissingModulesError(ToolkitError):
+    pass
+
+
 class ToolkitDuplicatedResourceError(ToolkitError):
     pass
 
@@ -131,3 +135,19 @@ class ToolkitResourceMissingError(ToolkitError):
 
     def __str__(self) -> str:
         return f"{super().__str__()}\nResource {self.resource!r} is missing"
+
+
+class UploadFileError(ToolkitError):
+    pass
+
+
+class ResourceCreationError(ToolkitError):
+    pass
+
+
+class ResourceUpdateError(ToolkitError):
+    pass
+
+
+class AmbiguousResourceFileError(ToolkitError):
+    pass

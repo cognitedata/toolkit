@@ -10,6 +10,8 @@ from importlib import resources
 from pathlib import Path
 from typing import ClassVar
 
+from packaging.version import Version
+from packaging.version import parse as parse_version
 from rich import print
 from rich.panel import Panel
 
@@ -174,7 +176,8 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
             # Need to do this check here, as we load version from the project directory.
             raise ToolkitNotADirectoryError(f"Found no directory {self.target_dir_display} to upgrade.")
 
-        self._cognite_module_version = self._get_cognite_module_version(self.project_dir)
+        cognite_module_version_raw = self._get_cognite_module_version(self.project_dir)
+        self._cognite_module_version = parse_version(cognite_module_version_raw)
         changes = MigrationYAML.load()
         version_hash = next(
             (entry.cognite_modules_hash for entry in changes if entry.version == self._cognite_module_version),
@@ -187,7 +190,7 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
         self._changes = changes.slice_from(self._cognite_module_version).as_one_change()
 
     @property
-    def cognite_module_version(self) -> str:
+    def cognite_module_version(self) -> Version:
         return self._cognite_module_version
 
     def create_project_directory(self, clean: bool) -> None:
@@ -278,7 +281,7 @@ class ProjectDirectoryUpgrade(ProjectDirectory):
         # If we updated the cognite_modules, we do not print the changes as there are no manual steps needed.
         self._changes.print(
             self.project_dir,
-            self._cognite_module_version,
+            str(self._cognite_module_version),
             print_cognite_module_changes=self._has_changed_cognite_modules,
         )
 
