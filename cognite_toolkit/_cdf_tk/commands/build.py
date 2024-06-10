@@ -84,7 +84,7 @@ class BuildCommand(ToolkitCommand):
             directories = "\n".join(f"   ┣ {name}" for name in ROOT_MODULES[:-1])
             raise ToolkitMissingModulesError(
                 f"Could not find the source modules directory.\nExpected to find one of the following directories\n"
-                f"📦{source_path.name}\n{directories}\n   ┗ 📂 {ROOT_MODULES[-1]}"
+                f"{source_path.name}\n{directories}\n   ┗  {ROOT_MODULES[-1]}"
             )
         directory_name = "current directory" if source_path == Path(".") else f"project '{source_path!s}'"
         module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
