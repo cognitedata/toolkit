@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from cognite.client.data_classes._base import T_CogniteResourceList
+from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
 
 
 def _print_ids_or_length(resource_ids: SequenceNotStr[T_ID], limit: int = 10) -> str:
@@ -19,7 +19,10 @@ def _print_ids_or_length(resource_ids: SequenceNotStr[T_ID], limit: int = 10) ->
 
 
 def _remove_duplicates(
-    loaded_resources: T_CogniteResourceList, loader: ResourceLoader
+    loaded_resources: T_CogniteResourceList,
+    loader: ResourceLoader[
+        T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+    ],
 ) -> tuple[T_CogniteResourceList, list[T_ID]]:
     seen: set[T_ID] = set()
     output = loader.create_empty_of(loaded_resources)
