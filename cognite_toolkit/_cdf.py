@@ -249,7 +249,8 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
-    cmd = BuildCommand()
+    user_command = f"cdf-tk {' '.join(sys.argv[1:])}"
+    cmd = BuildCommand(user_command=user_command)
     cmd.execute(ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
 
 
