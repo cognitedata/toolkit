@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import shutil
+import warnings
+from collections.abc import MutableMapping
 from pathlib import Path
 from typing import Annotated, Any, Optional, Union
 
@@ -34,26 +36,21 @@ custom_style_fancy = questionary.Style(
 )
 
 
-class Packages:
-    def __init__(self) -> None:
-        self._packages: dict[str, dict[str, Any]] | None = None
-
-    @property
-    def content(self) -> dict[str, dict[str, Any]] | None:
-        if self._packages is None:
-            self._packages = self._get_packages()
-        return self._packages
-
-    def _get_packages(self) -> dict[str, dict[str, Any]] | None:
+class Packages(dict, MutableMapping[str, dict[str, Any]]):
+    @classmethod
+    def load(cls) -> Packages:
         packages = {}
-
         for module in _packages.__all__:
             manifest = Path(_packages.__file__).parent / module / "manifest.yaml"
-            if not Path(manifest).exists():
-                raise FileNotFoundError(f"Manifest file not found for package {module}")
-            with open(manifest) as file:
-                packages[manifest.parent.name] = yaml.CSafeLoader(file.read()).get_data()
-        return packages
+            if not manifest.exists():
+                warnings.warn(f"Bug in Cognite-Toolkit. Manifest file not found for package {module}")
+                continue
+            content = manifest.read_text()
+            if yaml.__with_libyaml__:
+                packages[manifest.parent.name] = yaml.CSafeLoader(content).get_data()
+            else:
+                packages[manifest.parent.name] = yaml.SafeLoader(content).get_data()
+        return cls(packages)
 
 
 class InteractiveInit(typer.Typer):
@@ -141,8 +138,8 @@ class InteractiveInit(typer.Typer):
             )
         )
 
-        available = Packages().content
-        if not available:
+        packages = Packages.load()
+        if not packages:
             raise ToolkitRequiredValueError("No available packages found at location")
 
         mode = "new"
@@ -176,12 +173,12 @@ class InteractiveInit(typer.Typer):
 
         selected: dict[str, dict[str, Any]] = {}
         if package:
-            if not available.get(package):
+            if not packages.get(package):
                 raise ToolkitRequiredValueError(
-                    f"Package {package} is not known. Available packages are {', '.join(available.keys())}"
+                    f"Package {package} is not known. Available packages are {', '.join(packages.keys())}"
                 )
 
-            selected[package] = available[package].get("modules", {}).keys()
+            selected[package] = packages[package].get("modules", {}).keys()
 
         loop = True
         while loop:
@@ -193,7 +190,7 @@ class InteractiveInit(typer.Typer):
                 print(Padding.indent(tree, 5))
                 print("\n")
 
-                if len(available) > 0:
+                if len(packages) > 0:
                     if not questionary.confirm("Would you like to add more?", default=False).ask():
                         loop = False
                         continue
@@ -201,7 +198,7 @@ class InteractiveInit(typer.Typer):
                 package_id = questionary.select(
                     "Which package would you like to include?",
                     instruction="Use arrow up/down and ⮐  to save",
-                    choices=[questionary.Choice(value.get("title", key), key) for key, value in available.items()],
+                    choices=[questionary.Choice(value.get("title", key), key) for key, value in packages.items()],
                     pointer=POINTER,
                     style=custom_style_fancy,
                 ).ask()
@@ -216,7 +213,7 @@ class InteractiveInit(typer.Typer):
                     instruction="Use arrow up/down, press space to select item(s) and enter to save",
                     choices=[
                         questionary.Choice(value.get("title", key), key)
-                        for key, value in available[package_id].get("modules", {}).items()
+                        for key, value in packages[package_id].get("modules", {}).items()
                     ],
                     qmark=INDENT,
                     pointer=POINTER,
@@ -226,8 +223,8 @@ class InteractiveInit(typer.Typer):
                 if len(selection) > 0:
                     selected[package_id] = selection
                 else:
-                    selected[package_id] = available[package_id].get("modules", {}).keys()
-                available.pop(package_id)
+                    selected[package_id] = packages[package_id].get("modules", {}).keys()
+                packages.pop(package_id)
 
         if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
             print("Exiting...")
