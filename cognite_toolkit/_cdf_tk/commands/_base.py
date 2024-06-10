@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import traceback
 from pathlib import Path
 
-from cognite.client.data_classes._base import T_CogniteResourceList
+from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from rich import print
-from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
 )
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
     ToolkitWarning,
@@ -21,8 +21,9 @@ from cognite_toolkit._cdf_tk.utils import (
 
 
 class ToolkitCommand:
-    def __init__(self, print_warning: bool = True):
+    def __init__(self, print_warning: bool = True, user_command: str | None = None):
         self.print_warning = print_warning
+        self.user_command = user_command
         self.warning_list = WarningList[ToolkitWarning]()
 
     def warn(self, warning: ToolkitWarning) -> None:
@@ -32,28 +33,27 @@ class ToolkitCommand:
 
     def _load_files(
         self,
-        loader: ResourceLoader,
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
         filepaths: list[Path],
         ToolGlobals: CDFToolConfig,
         skip_validation: bool,
-        verbose: bool = False,
-    ) -> T_CogniteResourceList | None:
+    ) -> T_CogniteResourceList:
         loaded_resources = loader.create_empty_of(loader.list_write_cls([]))
         for filepath in filepaths:
             try:
                 resource = loader.load_resource(filepath, ToolGlobals, skip_validation)
             except KeyError as e:
                 # KeyError means that we are missing a required field in the yaml file.
-                print(
-                    f"[bold red]ERROR:[/] Failed to load {filepath.name} with {loader.display_name}. Missing required field: {e}."
-                    f"[bold red]ERROR:[/] Please compare with the API specification at {loader.doc_url()}."
+                raise ToolkitRequiredValueError(
+                    f"Failed to load {filepath.name} with {loader.display_name}. Missing required field: {e}."
+                    f"\nPlease compare with the API specification at {loader.doc_url()}."
                 )
-                return None
             except Exception as e:
-                print(f"[bold red]ERROR:[/] Failed to load {filepath.name} with {loader.display_name}. Error: {e!r}.")
-                if verbose:
-                    print(Panel(traceback.format_exc()))
-                return None
+                raise ToolkitYAMLFormatError(
+                    f"Failed to load {filepath.name} with {loader.display_name}. Error: {e!r}."
+                )
             if resource is None:
                 # This is intentional. It is, for example, used by the AuthLoader to skip groups with resource scopes.
                 continue

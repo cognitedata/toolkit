@@ -1,6 +1,6 @@
 import os
 import pathlib
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Hashable, Iterable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -512,7 +512,10 @@ class TestGroupLoader:
         assert len(to_change) == 1
         assert len(unchanged) == 0
 
-        cmd._update_resources(to_change, loader, False)
+        cmd._update_resources(
+            to_change,
+            loader,
+        )
 
         assert cognite_client_approval.create_calls()["Group"] == 1
         assert cognite_client_approval.delete_calls()["Group"] == 1
@@ -1173,6 +1176,26 @@ class TestResourceLoaders:
         warnings = validate_resource_yaml(content, spec, Path("test.yaml"))
 
         assert sorted(warnings) == []
+
+    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
+    def test_empty_required_capabilities_when_no_items(
+        self, loader_cls: type[ResourceLoader], cdf_tool_config: CDFToolConfig
+    ):
+        actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]))
+
+        assert actual == []
+
+    def test_unique_kind_by_folder(self):
+        kind = defaultdict(list)
+        for loader_cls in RESOURCE_LOADER_LIST:
+            kind[loader_cls.folder_name].append(loader_cls.kind)
+
+        duplicated = {folder: Counter(kinds) for folder, kinds in kind.items() if len(set(kinds)) != len(kinds)}
+        # we have two types Group loaders, one for scoped and one for all
+        # this is intended and thus not an issue.
+        duplicated.pop("auth")
+
+        assert not duplicated, f"Duplicated kind by folder: {duplicated!s}"
 
 
 class TestLoaders:
