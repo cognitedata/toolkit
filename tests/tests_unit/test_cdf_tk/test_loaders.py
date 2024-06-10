@@ -1174,6 +1174,14 @@ class TestResourceLoaders:
 
         assert sorted(warnings) == []
 
+    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
+    def test_empty_required_capabilities_when_no_items(
+        self, loader_cls: type[ResourceLoader], cdf_tool_config: CDFToolConfig
+    ):
+        actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]))
+
+        assert actual == []
+
 
 class TestLoaders:
     def test_unique_display_names(self, cdf_tool_config: CDFToolConfig):
