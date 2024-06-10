@@ -53,6 +53,10 @@ class Packages(dict, MutableMapping[str, dict[str, Any]]):
                 packages[manifest.parent.name] = yaml.SafeLoader(content).get_data()
         return cls(packages)
 
+    @property
+    def available(self) -> list[str]:
+        return sorted(self.keys())
+
 
 class InteractiveInit(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
@@ -115,7 +119,7 @@ class InteractiveInit(typer.Typer):
                 help="Directory path to project to initialize or upgrade with templates.",
             ),
         ] = None,
-        package: Annotated[
+        package_name: Annotated[
             Optional[str],
             typer.Option(
                 help="Name of package to include",
@@ -172,64 +176,60 @@ class InteractiveInit(typer.Typer):
                 raise typer.Exit()
 
         if not init_dir:
-            raise ToolkitRequiredValueError("Directory path is required.")
+            raise ToolkitRequiredValueError("Project directory path is required.")
 
         print(f"  [{'yellow' if mode == 'overwrite' else 'green'}]Using directory [bold]{init_dir}[/]")
 
         selected: dict[str, dict[str, Any]] = {}
-        if package:
-            if not packages.get(package):
+        if package_name:
+            if package_name not in packages:
                 raise ToolkitRequiredValueError(
-                    f"Package {package} is not known. Available packages are {', '.join(packages.keys())}"
+                    f"Package {package_name} is not known. Available packages are {', '.join(packages.available)}"
                 )
 
-            selected[package] = packages[package].get("modules", {}).keys()
+            selected[package_name] = packages[package_name].get("modules", {}).keys()
 
-        loop = True
-        while loop:
-            if len(selected) > 0:
-                print("\n[bold]You have selected the following modules:[/] :robot:\n")
+        while selected:
+            print("\n[bold]You have selected the following modules:[/] :robot:\n")
 
-                tree = Tree("modules")
-                self.build_tree(selected, tree)
-                print(Padding.indent(tree, 5))
-                print("\n")
+            tree = Tree("modules")
+            self.build_tree(selected, tree)
+            print(Padding.indent(tree, 5))
+            print("\n")
 
-                if len(packages) > 0:
-                    if not questionary.confirm("Would you like to add more?", default=False).ask():
-                        loop = False
-                        continue
+            if len(packages) > 0:
+                if not questionary.confirm("Would you like to add more?", default=False).ask():
+                    break
 
-                package_id = questionary.select(
-                    "Which package would you like to include?",
-                    instruction="Use arrow up/down and ⮐  to save",
-                    choices=[questionary.Choice(value.get("title", key), key) for key, value in packages.items()],
-                    pointer=POINTER,
-                    style=custom_style_fancy,
-                ).ask()
+            package_id = questionary.select(
+                "Which package would you like to include?",
+                instruction="Use arrow up/down and ⮐  to save",
+                choices=[questionary.Choice(value.get("title", key), key) for key, value in packages.items()],
+                pointer=POINTER,
+                style=custom_style_fancy,
+            ).ask()
 
-                if package_id:
-                    if package_id == "none":
-                        break
+            if package_id == "none":
+                break
 
-                selected[package_id] = {}
-                selection = questionary.checkbox(
-                    f"Which modules of {package_id} would you like to include?",
-                    instruction="Use arrow up/down, press space to select item(s) and enter to save",
-                    choices=[
-                        questionary.Choice(value.get("title", key), key)
-                        for key, value in packages[package_id].get("modules", {}).items()
-                    ],
-                    qmark=INDENT,
-                    pointer=POINTER,
-                    style=custom_style_fancy,
-                ).ask()
+            selected[package_id] = {}
+            selection = questionary.checkbox(
+                f"Which modules of {package_id} would you like to include?",
+                instruction="Use arrow up/down, press space to select item(s) and enter to save",
+                choices=[
+                    questionary.Choice(value.get("title", key), key)
+                    for key, value in packages[package_id].get("modules", {}).items()
+                ],
+                qmark=INDENT,
+                pointer=POINTER,
+                style=custom_style_fancy,
+            ).ask()
 
-                if len(selection) > 0:
-                    selected[package_id] = selection
-                else:
-                    selected[package_id] = packages[package_id].get("modules", {}).keys()
-                packages.pop(package_id)
+            if len(selection) > 0:
+                selected[package_id] = selection
+            else:
+                selected[package_id] = packages[package_id].get("modules", {}).keys()
+            packages.pop(package_id)
 
         if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
             print("Exiting...")
