@@ -81,7 +81,7 @@ class BuildCommand(ToolkitCommand):
         config = BuildConfigYAML.load_from_directory(source_path, build_env_name, self.warn)
         sources = [module_dir for root_module in ROOT_MODULES if (module_dir := source_path / root_module).exists()]
         if not sources:
-            directories = "\n".join(f"   ┣ 📂 {name}" for name in ROOT_MODULES[:-1])
+            directories = "\n".join(f"   ┣ {name}" for name in ROOT_MODULES[:-1])
             raise ToolkitMissingModulesError(
                 f"Could not find the source modules directory.\nExpected to find one of the following directories\n"
                 f"📦{source_path.name}\n{directories}\n   ┗ 📂 {ROOT_MODULES[-1]}"
