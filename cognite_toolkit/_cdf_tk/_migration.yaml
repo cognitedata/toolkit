@@ -7,7 +7,7 @@
   cognite_modules: {}
   resources: {}
   tool:
-    - title: "Function config YAML files must be in the function directori"
+    - title: "Function config YAML files must be in the function directory"
       steps:
         - Before functions config YAML files were allowed in subdirectories of the function directory. For example,
           `functions/my_function/my_function.yaml` was allowed. This is no longer supported. The function config YAML
