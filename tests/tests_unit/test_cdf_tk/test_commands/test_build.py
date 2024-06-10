@@ -9,6 +9,6 @@ from cognite_toolkit._cdf_tk.exceptions import AmbiguousResourceFileError
 class TestBuildCommand:
     def test_get_loader_raises_ambiguous_error(self):
         with pytest.raises(AmbiguousResourceFileError):
-            BuildCommand._get_loader(
+            BuildCommand()._get_loader(
                 "transformations", destination=Path("my_module") / "transformations" / "notification.yaml"
             )

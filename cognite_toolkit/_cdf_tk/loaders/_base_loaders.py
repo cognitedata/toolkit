@@ -44,6 +44,7 @@ class Loader(ABC):
 
     filetypes: frozenset[str]
     folder_name: str
+    kind: str
     filename_pattern: str = ""
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     exclude_filetypes: frozenset[str] = frozenset()
@@ -142,7 +143,6 @@ class ResourceLoader(
     resource_cls: type[T_WritableCogniteResource]
     list_cls: type[T_WritableCogniteResourceList]
     list_write_cls: type[T_CogniteResourceList]
-    kind: str
     # Optional to set in the subclass
     support_drop = True
     filetypes = frozenset({"yaml", "yml"})
