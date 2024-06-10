@@ -189,6 +189,7 @@ _HAS_DATA_FILTER_LIMIT = 10
 class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList], ABC):
     folder_name = "auth"
     filename_pattern = r"^(?!.*SecurityCategory$).*"
+    kind = "Group"
     resource_cls = Group
     resource_write_cls = GroupWrite
     list_cls = GroupList
@@ -457,6 +458,7 @@ class SecurityCategoryLoader(
     resource_write_cls = SecurityCategoryWrite
     list_cls = SecurityCategoryList
     list_write_cls = SecurityCategoryWriteList
+    kind = "SecurityCategory"
     folder_name = "auth"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Security-categories/operation/createSecurityCategories"
@@ -537,6 +539,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     resource_write_cls = DataSetWrite
     list_cls = DataSetList
     list_write_cls = DataSetWriteList
+    kind = "DataSet"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Data-sets/operation/createDataSets"
 
@@ -639,6 +642,7 @@ class LabelLoader(
     resource_write_cls = LabelDefinitionWrite
     list_cls = LabelDefinitionList
     list_write_cls = LabelDefinitionWriteList
+    kind = "Label"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Labels/operation/createLabelDefinitions"
 
@@ -732,6 +736,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     resource_write_cls = FunctionWrite
     list_cls = FunctionList
     list_write_cls = FunctionWriteList
+    kind = "Function"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
 
@@ -940,6 +945,7 @@ class FunctionScheduleLoader(
     resource_write_cls = FunctionScheduleWrite
     list_cls = FunctionSchedulesList
     list_write_cls = FunctionScheduleWriteList
+    kind = "Schedule"
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
 
@@ -1074,6 +1080,7 @@ class RawDatabaseLoader(
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
+    kind = "Database"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Raw/operation/createDBs"
 
@@ -1182,6 +1189,7 @@ class RawTableLoader(
     resource_write_cls = RawDatabaseTable
     list_cls = RawTableList
     list_write_cls = RawTableList
+    kind = "Table"
     dependencies = frozenset({RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Raw/operation/createTables"
 
@@ -1313,6 +1321,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
     list_write_cls = TimeSeriesWriteList
+    kind = "TimeSeries"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Time-series/operation/postTimeSeries"
 
@@ -1438,6 +1447,7 @@ class DatapointSubscriptionLoader(
     resource_write_cls = DataPointSubscriptionWrite
     list_cls = DatapointSubscriptionList
     list_write_cls = DatapointSubscriptionWriteList
+    kind = "DatapointSubscription"
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
     dependencies = frozenset(
         {
@@ -1554,13 +1564,14 @@ class TransformationLoader(
 ):
     folder_name = "transformations"
     filename_pattern = (
-        # Matches all yaml files except file names whose stem contain *.schedule. or Notification
-        r"^(?!.*schedule.*|.*notification$).*$"
+        # Matches all yaml files except file names whose stem contain *.schedule. or .Notification
+        r"^(?!.*schedule.*|.*\.notification$).*$"
     )
     resource_cls = Transformation
     resource_write_cls = TransformationWrite
     list_cls = TransformationList
     list_write_cls = TransformationWriteList
+    kind = "Transformation"
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Transformations/operation/createTransformations"
 
@@ -1790,6 +1801,7 @@ class TransformationScheduleLoader(
     resource_write_cls = TransformationScheduleWrite
     list_cls = TransformationScheduleList
     list_write_cls = TransformationScheduleWriteList
+    kind = "Schedule"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
 
@@ -1869,6 +1881,7 @@ class TransformationNotificationLoader(
     resource_write_cls = TransformationNotificationWrite
     list_cls = TransformationNotificationList
     list_write_cls = TransformationNotificationWriteList
+    kind = "Notification"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
 
@@ -1973,6 +1986,7 @@ class ExtractionPipelineLoader(
     resource_write_cls = ExtractionPipelineWrite
     list_cls = ExtractionPipelineList
     list_write_cls = ExtractionPipelineWriteList
+    kind = "ExtractionPipeline"
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader, GroupAllScopedLoader})
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
@@ -2122,6 +2136,7 @@ class ExtractionPipelineConfigLoader(
     resource_write_cls = ExtractionPipelineConfigWrite
     list_cls = ExtractionPipelineConfigList
     list_write_cls = ExtractionPipelineConfigWriteList
+    kind = "Config"
     dependencies = frozenset({ExtractionPipelineLoader})
     _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
 
@@ -2243,6 +2258,7 @@ class FileMetadataLoader(
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
+    kind = "FileMetadata"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, LabelLoader})
 
     _doc_url = "Files/operation/initFileUpload"
@@ -2415,6 +2431,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     resource_write_cls = SpaceApply
     list_write_cls = SpaceApplyList
     list_cls = SpaceList
+    kind = "Space"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Spaces/operation/ApplySpaces"
 
@@ -2545,6 +2562,7 @@ class ContainerLoader(
     resource_write_cls = ContainerApply
     list_cls = ContainerList
     list_write_cls = ContainerApplyList
+    kind = "Container"
     dependencies = frozenset({SpaceLoader})
     _doc_url = "Containers/operation/ApplyContainers"
 
@@ -2736,6 +2754,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     resource_write_cls = ViewApply
     list_cls = ViewList
     list_write_cls = ViewApplyList
+    kind = "View"
     dependencies = frozenset({SpaceLoader, ContainerLoader})
     _doc_url = "Views/operation/ApplyViews"
 
@@ -2932,6 +2951,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     resource_write_cls = DataModelApply
     list_cls = DataModelList
     list_write_cls = DataModelApplyList
+    kind = "DataModel"
     dependencies = frozenset({SpaceLoader, ViewLoader})
     _doc_url = "Data-models/operation/createDataModels"
 
@@ -3020,6 +3040,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
     resource_write_cls = NodeApply
     list_cls = NodeList
     list_write_cls = NodeApplyListWithCall
+    kind = "Node"
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
@@ -3174,6 +3195,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     resource_write_cls = WorkflowUpsert
     list_cls = WorkflowList
     list_write_cls = WorkflowUpsertList
+    kind = "Workflow"
     dependencies = frozenset(
         {
             GroupAllScopedLoader,
@@ -3249,6 +3271,7 @@ class WorkflowVersionLoader(
     resource_write_cls = WorkflowVersionUpsert
     list_cls = WorkflowVersionList
     list_write_cls = WorkflowVersionUpsertList
+    kind = "WorkflowVersion"
     dependencies = frozenset({WorkflowLoader})
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"

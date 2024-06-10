@@ -22,6 +22,7 @@ from .data_classes import RawDatabaseTable
 class DatapointsLoader(DataLoader):
     item_name = "datapoints"
     folder_name = "timeseries_datapoints"
+    kind = "Datapoints"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({TimeSeriesLoader})
     _doc_url = "Time-series/operation/postMultiTimeSeriesDatapoints"
@@ -70,6 +71,7 @@ class DatapointsLoader(DataLoader):
 class FileLoader(DataLoader):
     item_name = "file contents"
     folder_name = "files"
+    kind = "File"
     filetypes = frozenset()
     exclude_filetypes = frozenset({"yml", "yaml"})
     dependencies = frozenset({FileMetadataLoader})
@@ -122,6 +124,7 @@ class RawFileLoader(DataLoader):
     item_name = "rows"
     folder_name = "raw"
     filetypes = frozenset({"csv", "parquet"})
+    kind = "Raw"
     dependencies = frozenset({RawDatabaseLoader, RawTableLoader})
     _doc_url = "Raw/operation/postRows"
 

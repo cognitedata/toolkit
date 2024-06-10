@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     SystemYAML,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
+    AmbiguousResourceFileError,
     ToolkitDuplicatedModuleError,
     ToolkitFileExistsError,
     ToolkitMissingModulesError,
@@ -44,7 +45,9 @@ from cognite_toolkit._cdf_tk.loaders import (
     DatapointsLoader,
     FileLoader,
     FunctionLoader,
+    GroupLoader,
     Loader,
+    RawDatabaseLoader,
     ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -554,19 +557,29 @@ class BuildCommand(ToolkitCommand):
 
     def _get_loader(self, resource_folder: str, destination: Path) -> type[Loader] | None:
         loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
-        loader: type[Loader] | None
-        if len(loaders) == 1:
-            return loaders[0]
-        else:
-            loader = next((loader for loader in loaders if loader.is_supported_file(destination)), None)
-        if loader is None:
+        loaders = [loader for loader in loaders if loader.is_supported_file(destination)]
+        if len(loaders) == 0:
             self.warn(
                 ToolkitNotSupportedWarning(
                     f"the resource {resource_folder!r}",
                     details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
                 )
             )
-        return loader
+        elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
+            # Multiple raw loaders load from the same file.
+            return RawDatabaseLoader
+        elif len(loaders) > 1 and all(issubclass(loader, GroupLoader) for loader in loaders):
+            # There are two group loaders, one for resource scoped and one for all scoped.
+            return GroupLoader
+        elif len(loaders) > 1:
+            names = " or ".join(f"{destination.stem}.{loader.kind}{destination.suffix}" for loader in loaders)
+            raise AmbiguousResourceFileError(
+                f"Ambiguous resource file {destination.name} in {destination.parent.name} folder. "
+                f"Unclear whether it is {' or '.join(loader.kind for loader in loaders)}."
+                f"\nPlease name the file {names}."
+            )
+
+        return loaders[0]
 
     @staticmethod
     def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:

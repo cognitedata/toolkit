@@ -147,3 +147,7 @@ class ResourceCreationError(ToolkitError):
 
 class ResourceUpdateError(ToolkitError):
     pass
+
+
+class AmbiguousResourceFileError(ToolkitError):
+    pass
