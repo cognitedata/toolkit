@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     FileLoader,
     FunctionLoader,
     Loader,
+    RawTableLoader,
     ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -551,6 +552,9 @@ class BuildCommand(ToolkitCommand):
                     details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
                 )
             )
+        elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
+            # Multiple raw loaders load from the same file, we use the RAWTable loader in this case.
+            return RawTableLoader
         elif len(loaders) > 1:
             names = " or ".join(f"{destination.stem}.{loader.kind}{destination.suffix}" for loader in loaders)
             raise AmbiguousResourceFileError(
