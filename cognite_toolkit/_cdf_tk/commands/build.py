@@ -47,7 +47,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     FunctionLoader,
     GroupLoader,
     Loader,
-    RawTableLoader,
+    RawDatabaseLoader,
     ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -566,8 +566,8 @@ class BuildCommand(ToolkitCommand):
                 )
             )
         elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
-            # Multiple raw loaders load from the same file, we use the RAWTable loader in this case.
-            return RawTableLoader
+            # Multiple raw loaders load from the same file.
+            return RawDatabaseLoader
         elif len(loaders) > 1 and all(issubclass(loader, GroupLoader) for loader in loaders):
             # There are two group loaders, one for resource scoped and one for all scoped.
             return GroupLoader
