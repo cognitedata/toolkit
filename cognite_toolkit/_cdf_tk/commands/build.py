@@ -552,10 +552,10 @@ class BuildCommand(ToolkitCommand):
                 )
             )
         elif len(loaders) > 1:
-            names = " or ".join(f"{destination.name}.{loader.kind}" for loader in loaders)
+            names = " or ".join(f"{destination.stem}.{loader.kind}{destination.suffix}" for loader in loaders)
             raise AmbiguousResourceFileError(
                 f"Ambiguous resource file {destination.name} in {destination.parent.name} folder. "
-                f"Unclear whether it is {', '.join(loader.kind for loader in loaders)}."
+                f"Unclear whether it is {' or '.join(loader.kind for loader in loaders)}."
                 f"\nPlease name the file {names}."
             )
 
