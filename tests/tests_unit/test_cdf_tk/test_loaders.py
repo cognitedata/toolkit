@@ -512,7 +512,10 @@ class TestGroupLoader:
         assert len(to_change) == 1
         assert len(unchanged) == 0
 
-        cmd._update_resources(to_change, loader, False)
+        cmd._update_resources(
+            to_change,
+            loader,
+        )
 
         assert cognite_client_approval.create_calls()["Group"] == 1
         assert cognite_client_approval.delete_calls()["Group"] == 1
@@ -1173,6 +1176,14 @@ class TestResourceLoaders:
         warnings = validate_resource_yaml(content, spec, Path("test.yaml"))
 
         assert sorted(warnings) == []
+
+    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
+    def test_empty_required_capabilities_when_no_items(
+        self, loader_cls: type[ResourceLoader], cdf_tool_config: CDFToolConfig
+    ):
+        actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]))
+
+        assert actual == []
 
 
 class TestLoaders:

@@ -77,7 +77,7 @@ class BuildCommand(ToolkitCommand):
         if not source_path.is_dir():
             raise ToolkitNotADirectoryError(str(source_path))
 
-        system_config = SystemYAML.load_from_directory(source_path, build_env_name, self.warn)
+        system_config = SystemYAML.load_from_directory(source_path, build_env_name, self.warn, self.user_command)
         config = BuildConfigYAML.load_from_directory(source_path, build_env_name, self.warn)
         sources = [module_dir for root_module in ROOT_MODULES if (module_dir := source_path / root_module).exists()]
         if not sources:
