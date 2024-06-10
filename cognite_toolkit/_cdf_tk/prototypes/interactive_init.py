@@ -14,6 +14,7 @@ from rich.padding import Padding
 from rich.panel import Panel
 from rich.tree import Tree
 
+from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.prototypes import _packages
 
@@ -59,37 +60,39 @@ class InteractiveInit(typer.Typer):
         self.command()(self.interactive)
 
     def build_tree(self, item: Union[dict, list], tree: Tree) -> None:
-        if isinstance(item, dict):
-            for key, value in item.items():
-                subtree = tree.add(key)
-                for subvalue in value:
-                    if isinstance(subvalue, dict):
-                        self.build_tree(subvalue, subtree)
-                    else:
-                        subtree.add(subvalue)
+        if not isinstance(item, dict):
+            return
+        for key, value in item.items():
+            subtree = tree.add(key)
+            for subvalue in value:
+                if isinstance(subvalue, dict):
+                    self.build_tree(subvalue, subtree)
+                else:
+                    subtree.add(subvalue)
 
-    def create(self, init_dir: str, selected: dict[str, dict[str, Any]], mode: str | None) -> None:
+    def create(self, init_dir_raw: str, selected: dict[str, dict[str, Any]], mode: str | None) -> None:
+        init_dir = Path(init_dir_raw)
         if mode == "overwrite":
             print(f"{INDENT}[yellow]Clearing directory[/]")
-            if Path.is_dir(Path(init_dir)):
+            if init_dir.is_dir():
                 shutil.rmtree(init_dir)
 
-        modules_dir = Path(init_dir) / "modules"
+        modules_dir = init_dir / ALT_CUSTOM_MODULES
         modules_dir.mkdir(parents=True, exist_ok=True)
 
         includes = []
 
-        for package, modules in selected.items():
-            print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating package {package}[/]")
+        for package_name, modules in selected.items():
+            print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating package {package_name}[/]")
 
-            package_dir = modules_dir / package
+            package_dir = modules_dir / package_name
 
             for module in modules:
                 includes.append(package_dir)
                 print(f"{INDENT*2}[{'yellow' if mode == 'overwrite' else 'green'}]Creating module {module}[/]")
-                source_dir = Path(_packages.__file__).parent / package / module
+                source_dir = Path(_packages.__file__).parent / package_name / module
                 if not Path(source_dir).exists():
-                    print(f"{INDENT*3}[red]Module {module} not found in package {package}. Skipping...[/]")
+                    print(f"{INDENT*3}[red]Module {module} not found in package {package_name}. Skipping...[/]")
                     continue
                 module_dir = package_dir / module
                 if Path(module_dir).exists() and mode == "update":
@@ -128,8 +131,10 @@ class InteractiveInit(typer.Typer):
                     [
                         "Welcome to the CDF Toolkit!",
                         "This wizard will help you prepare modules in the folder you enter.",
-                        "The modules are thematically bundled in packages you can choose between. You can add more by repeating the process.",
-                        "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
+                        "The modules are thematically bundled in packages you can choose between. You can add more by "
+                        "repeating the process.",
+                        "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to "
+                        "continue with your selection.",
                     ]
                 ),
                 title="Interactive template wizard",
