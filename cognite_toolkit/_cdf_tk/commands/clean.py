@@ -5,7 +5,7 @@ from graphlib import TopologicalSorter
 from pathlib import Path
 
 import typer
-from cognite.client.data_classes._base import T_CogniteResourceList
+from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceContainerLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, Loader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, Loader, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.loaders.data_classes import ResourceContainerDeployResult, ResourceDeployResult
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
@@ -46,13 +46,15 @@ from ._utils import _print_ids_or_length, _remove_duplicates
 class CleanCommand(ToolkitCommand):
     def clean_resources(
         self,
-        loader: ResourceLoader,
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
         ToolGlobals: CDFToolConfig,
         dry_run: bool = False,
         drop: bool = True,
         drop_data: bool = False,
         verbose: bool = False,
-    ) -> ResourceDeployResult | None:
+    ) -> ResourceDeployResult:
         if not isinstance(loader, ResourceContainerLoader) and not drop:
             # Skipping silently as this, we will not drop data or delete this resource
             return ResourceDeployResult(name=loader.display_name)
@@ -70,14 +72,10 @@ class CleanCommand(ToolkitCommand):
         filepaths = loader.find_files()
 
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-        loaded_resources = self._load_files(loader, filepaths, ToolGlobals, skip_validation=True, verbose=verbose)
-        if loaded_resources is None:
-            ToolGlobals.failed = True
-            return None
+        loaded_resources = self._load_files(loader, filepaths, ToolGlobals, skip_validation=True)
 
-        # Duplicates should be handled on the build step,
-        # but in case any of them slip through, we do it here as well to
-        # avoid an error.
+        # Duplicates are warned in the build step, but the use might continue, so we
+        # need to check for duplicates here as well.
         loaded_resources, duplicates = _remove_duplicates(loaded_resources, loader)
 
         capabilities = loader.get_required_capability(loaded_resources)
@@ -275,12 +273,6 @@ class CleanCommand(ToolkitCommand):
             )
             if result:
                 results[result.name] = result
-            if ToolGlobals.failed:
-                if results and results.has_counts:
-                    print(results.counts_table())
-                if results and results.has_uploads:
-                    print(results.uploads_table())
-                raise ToolkitCleanResourceError(f"Failure to clean {loader.display_name} as expected.")
         if results.has_counts:
             print(results.counts_table())
         if results.has_uploads:

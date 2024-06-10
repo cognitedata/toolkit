@@ -19,6 +19,8 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- When running `cdf-tk clean` or `cdf-tk deploy --drop --drop-data` there was an edge case that triggered the bug
+  `ValueError: No capabilities given`. This is now fixed.
 - When deploying `containers` resources with an index, the `cdf-tk deploy` would consider the resource as changed
   even though it was not. This is now fixed.
 

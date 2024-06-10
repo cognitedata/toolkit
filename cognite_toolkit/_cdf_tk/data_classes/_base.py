@@ -30,6 +30,7 @@ class ConfigCore(ABC):
         source_path: Path,
         build_env_name: str,
         warn: Callable[[ToolkitWarning], None] | None = None,
+        command: str | None = None,
     ) -> T_BuildConfig:
         file_name = cls._file_name(build_env_name)
         filepath = source_path / file_name
@@ -47,7 +48,14 @@ class ConfigCore(ABC):
                 print(warning.get_message())
             filepath = old_filepath
         elif not filepath.is_file():
-            raise ToolkitFileNotFoundError(f"{filepath.name!r} does not exist")
+            if not (result := next(source_path.glob(f"**/{file_name}"), None)):
+                raise ToolkitFileNotFoundError(f"{file_name!r} does not exist.")
+
+            relative = result.absolute().relative_to(Path.cwd())
+            hint = "/".join(relative.parts[:-1])
+            if command:
+                hint = f"{command} {hint}"
+            raise ToolkitFileNotFoundError(f"{file_name!r} does not exist. Did you mean {hint!r}?")
 
         return cls.load(read_yaml_file(filepath), build_env_name, filepath)
 

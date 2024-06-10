@@ -233,6 +233,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
     @classmethod
     def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return GroupsAcl(
             [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
             GroupsAcl.Scope.All(),
@@ -489,6 +491,8 @@ class SecurityCategoryLoader(
 
     @classmethod
     def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return SecurityCategoriesAcl(
             actions=[
                 SecurityCategoriesAcl.Action.Create,
@@ -537,7 +541,9 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     _doc_url = "Data-sets/operation/createDataSets"
 
     @classmethod
-    def get_required_capability(cls, items: DataSetWriteList) -> Capability:
+    def get_required_capability(cls, items: DataSetWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataSetsAcl(
             [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write],
             DataSetsAcl.Scope.All(),
@@ -645,10 +651,19 @@ class LabelLoader(
         return item.external_id
 
     @classmethod
-    def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: LabelDefinitionWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
+        scope = (
+            capabilities.LabelsAcl.Scope.DataSet(list(data_set_ids))
+            if data_set_ids
+            else capabilities.LabelsAcl.Scope.All()
+        )
+
         return capabilities.LabelsAcl(
             [capabilities.LabelsAcl.Action.Read, capabilities.LabelsAcl.Action.Write],
-            capabilities.LabelsAcl.Scope.All(),
+            scope,  # type: ignore[arg-type]
         )
 
     def create(self, items: LabelDefinitionWriteList) -> LabelDefinitionList:
@@ -721,7 +736,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     _doc_url = "Functions/operation/postFunctions"
 
     @classmethod
-    def get_required_capability(cls, items: FunctionWriteList) -> list[Capability]:
+    def get_required_capability(cls, items: FunctionWriteList) -> list[Capability] | list[Capability]:
+        if not items:
+            return []
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
             FilesAcl(
@@ -932,6 +949,8 @@ class FunctionScheduleLoader(
 
     @classmethod
     def get_required_capability(cls, items: FunctionScheduleWriteList) -> list[Capability]:
+        if not items:
+            return []
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
             SessionsAcl(
@@ -1067,7 +1086,9 @@ class RawDatabaseLoader(
         return "raw.databases"
 
     @classmethod
-    def get_required_capability(cls, items: RawTableList) -> Capability:
+    def get_required_capability(cls, items: RawTableList) -> Capability | list[Capability]:
+        if not items:
+            return []
         tables_by_database = defaultdict(list)
         for item in items:
             tables_by_database[item.db_name].append(item.table_name)
@@ -1173,7 +1194,9 @@ class RawTableLoader(
         return "raw.tables"
 
     @classmethod
-    def get_required_capability(cls, items: RawTableList) -> Capability:
+    def get_required_capability(cls, items: RawTableList) -> Capability | list[Capability]:
+        if not items:
+            return []
         tables_by_database = defaultdict(list)
         for item in items:
             tables_by_database[item.db_name].append(item.table_name)
@@ -1294,7 +1317,10 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @classmethod
-    def get_required_capability(cls, items: TimeSeriesWriteList) -> Capability:
+    def get_required_capability(cls, items: TimeSeriesWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+
         dataset_ids = {item.data_set_id for item in items if item.data_set_id}
 
         scope = TimeSeriesAcl.Scope.DataSet(list(dataset_ids)) if dataset_ids else TimeSeriesAcl.Scope.All()
@@ -1457,9 +1483,17 @@ class DatapointSubscriptionLoader(
 
     @classmethod
     def get_required_capability(cls, items: DatapointSubscriptionWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
+        scope = (
+            TimeSeriesSubscriptionsAcl.Scope.DataSet(list(data_set_ids))
+            if data_set_ids
+            else TimeSeriesSubscriptionsAcl.Scope.All()
+        )
         return TimeSeriesSubscriptionsAcl(
             [TimeSeriesSubscriptionsAcl.Action.Read, TimeSeriesSubscriptionsAcl.Action.Write],
-            TimeSeriesSubscriptionsAcl.Scope.All(),
+            scope,  # type: ignore[arg-type]
         )
 
     def create(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
@@ -1531,7 +1565,9 @@ class TransformationLoader(
     _doc_url = "Transformations/operation/createTransformations"
 
     @classmethod
-    def get_required_capability(cls, items: TransformationWriteList) -> Capability:
+    def get_required_capability(cls, items: TransformationWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         data_set_ids = {item.data_set_id for item in items if item.data_set_id}
 
         scope = TransformationsAcl.Scope.DataSet(list(data_set_ids)) if data_set_ids else TransformationsAcl.Scope.All()
@@ -1941,7 +1977,9 @@ class ExtractionPipelineLoader(
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @classmethod
-    def get_required_capability(cls, items: ExtractionPipelineWriteList) -> Capability:
+    def get_required_capability(cls, items: ExtractionPipelineWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         data_set_id = {item.data_set_id for item in items if item.data_set_id}
 
         scope = (
@@ -2214,7 +2252,9 @@ class FileMetadataLoader(
         return "file_metadata"
 
     @classmethod
-    def get_required_capability(cls, items: FileMetadataWriteList) -> Capability:
+    def get_required_capability(cls, items: FileMetadataWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
         data_set_ids = {item.data_set_id for item in items if item.data_set_id}
 
         scope = FilesAcl.Scope.DataSet(list(data_set_ids)) if data_set_ids else FilesAcl.Scope.All()
@@ -2383,7 +2423,9 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         return "spaces"
 
     @classmethod
-    def get_required_capability(cls, items: SpaceApplyList) -> list[Capability]:
+    def get_required_capability(cls, items: SpaceApplyList) -> list[Capability] | list[Capability]:
+        if not items:
+            return []
         return [
             DataModelsAcl(
                 [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
@@ -2511,7 +2553,9 @@ class ContainerLoader(
         return "containers"
 
     @classmethod
-    def get_required_capability(cls, items: ContainerApplyList) -> Capability:
+    def get_required_capability(cls, items: ContainerApplyList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
             DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
@@ -2705,7 +2749,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return "views"
 
     @classmethod
-    def get_required_capability(cls, items: ViewApplyList) -> Capability:
+    def get_required_capability(cls, items: ViewApplyList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
             DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
@@ -2894,7 +2940,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return "data models"
 
     @classmethod
-    def get_required_capability(cls, items: DataModelApplyList) -> Capability:
+    def get_required_capability(cls, items: DataModelApplyList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
             DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
@@ -2980,7 +3028,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
         return "nodes"
 
     @classmethod
-    def get_required_capability(cls, items: NodeApplyListWithCall) -> Capability:
+    def get_required_capability(cls, items: NodeApplyListWithCall) -> Capability | list[Capability]:
+        if not items:
+            return []
         return DataModelInstancesAcl(
             [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
             DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items})),
@@ -3135,7 +3185,9 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowUpsertList) -> Capability:
+    def get_required_capability(cls, items: WorkflowUpsertList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return WorkflowOrchestrationAcl(
             [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
             WorkflowOrchestrationAcl.Scope.All(),
@@ -3207,7 +3259,9 @@ class WorkflowVersionLoader(
         return "workflow.versions"
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability:
+    def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability | list[Capability]:
+        if not items:
+            return []
         return WorkflowOrchestrationAcl(
             [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
             WorkflowOrchestrationAcl.Scope.All(),
