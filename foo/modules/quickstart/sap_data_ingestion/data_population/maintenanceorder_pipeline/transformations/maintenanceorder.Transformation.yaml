@@ -1,0 +1,14 @@
+externalId: tr_idm_MaintenanceOrder_upsert
+name: idm_MaintenanceOrder_upsert
+destination:
+  type: instances
+  dataModel:
+    space: sp_idm_model
+    externalId: IDM
+    version: v1
+    destinationType: MaintenanceOrder
+  instanceSpace: sp_sap_maia
+conflictMode: upsert
+isPublic: true
+ignoreNullFields: true
+dataSetExternalId: ds_sap_population

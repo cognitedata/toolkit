@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Annotated, Any, Optional, Union
 
@@ -71,7 +72,39 @@ class InteractiveInit(typer.Typer):
                         subtree.add(subvalue)
 
     def create(self, init_dir: str, selected: dict[str, dict[str, Any]], mode: str | None) -> None:
-        pass
+        if mode == "overwrite":
+            print(f"{INDENT}[yellow]Clearing directory[/]")
+            if Path.is_dir(Path(init_dir)):
+                shutil.rmtree(init_dir)
+
+        modules_dir = Path(init_dir) / "modules"
+        modules_dir.mkdir(parents=True, exist_ok=True)
+
+        includes = []
+
+        for package, modules in selected.items():
+            print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating package {package}[/]")
+
+            package_dir = modules_dir / package
+
+            for module in modules:
+                includes.append(package_dir)
+                print(f"{INDENT*2}[{'yellow' if mode == 'overwrite' else 'green'}]Creating module {module}[/]")
+                source_dir = Path(_packages.__file__).parent / package / module
+                if not Path(source_dir).exists():
+                    print(f"{INDENT*3}[red]Module {module} not found in package {package}. Skipping...[/]")
+                    continue
+                module_dir = package_dir / module
+                if Path(module_dir).exists() and mode == "update":
+                    if questionary.confirm(
+                        f"{INDENT}Module {module} already exists in folder {package_dir}. Would you like to overwrite?",
+                        default=False,
+                    ).ask():
+                        shutil.rmtree(module_dir)
+                    else:
+                        continue
+
+                shutil.copytree(source_dir, module_dir)
 
     def interactive(
         self,
@@ -85,15 +118,9 @@ class InteractiveInit(typer.Typer):
         package: Annotated[
             Optional[str],
             typer.Option(
-                help="Name of packages to include",
+                help="Name of package to include",
             ),
         ] = None,
-        numeric: Annotated[
-            Optional[bool],
-            typer.Option(
-                help="Use numeric selection instead of arrow keys.",
-            ),
-        ] = False,
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
@@ -127,30 +154,17 @@ class InteractiveInit(typer.Typer):
             ).ask()
 
         if init_dir and Path(init_dir).is_dir():
-            if numeric:
-                mode = questionary.rawselect(
-                    "Directory already exists. What would you like to do?",
-                    choices=[
-                        questionary.Choice("Abort", "abort"),
-                        questionary.Choice("Overwrite (clean existing)", "overwrite"),
-                        questionary.Choice("Update (add to or replace existing)", "update"),
-                    ],
-                    pointer=POINTER,
-                    style=custom_style_fancy,
-                    instruction="(Press 1, 2 or 3)",
-                ).ask()
-            else:
-                questionary.select(
-                    "Directory already exists. What would you like to do?",
-                    choices=[
-                        questionary.Choice("Abort", "abort"),
-                        questionary.Choice("Overwrite (clean existing)", "overwrite"),
-                        questionary.Choice("Update (add to or replace existing)", "update"),
-                    ],
-                    pointer=POINTER,
-                    style=custom_style_fancy,
-                    instruction="use arrow up/down and " + "⮐ " + " to save",
-                ).ask()
+            mode = questionary.select(
+                "Directory already exists. What would you like to do?",
+                choices=[
+                    questionary.Choice("Abort", "abort"),
+                    questionary.Choice("Overwrite (clean existing)", "overwrite"),
+                    questionary.Choice("Update (add to or replace existing)", "update"),
+                ],
+                pointer=POINTER,
+                style=custom_style_fancy,
+                instruction="use arrow up/down and " + "⮐ " + " to save",
+            ).ask()
             if mode == "abort":
                 print("Aborting...")
                 raise typer.Exit()
@@ -162,7 +176,12 @@ class InteractiveInit(typer.Typer):
 
         selected: dict[str, dict[str, Any]] = {}
         if package:
-            selected = {package: {}}
+            if not available.get(package):
+                raise ToolkitRequiredValueError(
+                    f"Package {package} is not known. Available packages are {', '.join(available.keys())}"
+                )
+
+            selected[package] = available[package].get("modules", {}).keys()
 
         loop = True
         while loop:
@@ -179,16 +198,6 @@ class InteractiveInit(typer.Typer):
                         loop = False
                         continue
 
-            if numeric:
-                package_id = questionary.rawselect(
-                    "Which package would you like to include?",
-                    instruction="Type the number of your choice and press enter",
-                    choices=[questionary.Choice(value.get("title", key), key) for key, value in available.items()],
-                    pointer=POINTER,
-                    style=custom_style_fancy,
-                ).ask()
-
-            else:
                 package_id = questionary.select(
                     "Which package would you like to include?",
                     instruction="Use arrow up/down and ⮐  to save",
@@ -220,13 +229,12 @@ class InteractiveInit(typer.Typer):
                     selected[package_id] = available[package_id].get("modules", {}).keys()
                 available.pop(package_id)
 
-            loop = False
-            if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
-                print("Exiting...")
-                raise typer.Exit()
-            else:
-                self.create(init_dir, selected, mode)
-                print("Done!")
+        if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
+            print("Exiting...")
+            raise typer.Exit()
+        else:
+            self.create(init_dir, selected, mode)
+            print("Done!")
         raise typer.Exit()
 
 

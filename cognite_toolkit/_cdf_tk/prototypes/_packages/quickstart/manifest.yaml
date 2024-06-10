@@ -1,6 +1,6 @@
 "title": "Quick Start: A set of modules for a CDF quick start project."
 "modules": {
-    "sap_data_pipeline": {
+    "sap_data_ingestion": {
         "title": "SAP Data Pipeline",
     },
     "pi_data_pipeline": {
