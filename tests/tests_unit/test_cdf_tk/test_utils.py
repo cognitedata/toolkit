@@ -21,6 +21,7 @@ from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock, monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
 from cognite_toolkit._cdf_tk.utils import (
     AuthVariables,
@@ -322,18 +323,6 @@ def auth_variables_validate_test_cases():
         id="Happy path Client credentials login",
     )
 
-    yield pytest.param(
-        {
-            "CDF_CLUSTER": "my_cluster",
-            "CDF_PROJECT": "",
-        },
-        False,
-        "error",
-        ["  CDF project URL name is not set.", "  [bold red]ERROR[/]: CDF Cluster and project are required."],
-        {},
-        id="Missing project",
-    )
-
 
 class TestEnvironmentVariables:
     def test_env_variable(self):
@@ -370,3 +359,9 @@ class TestAuthVariables:
 
             if expected_vars:
                 assert vars(auth_var) == expected_vars
+
+    def test_missing_project_raise_authentication_error(self):
+        with mock.patch.dict(os.environ, {"CDF_CLUSTER": "my_cluster"}, clear=True):
+            with pytest.raises(AuthenticationError) as exc_info:
+                AuthVariables.from_env().validate(False)
+            assert str(exc_info.value) == "CDF Cluster and project are required. Missing: project."

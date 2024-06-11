@@ -44,7 +44,12 @@ from rich import print
 from rich.prompt import Confirm, Prompt
 
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES
-from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitResourceMissingError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import (
+    AuthenticationError,
+    ToolkitError,
+    ToolkitResourceMissingError,
+    ToolkitYAMLFormatError,
+)
 from cognite_toolkit._version import __version__
 
 if sys.version_info < (3, 10):
@@ -185,9 +190,8 @@ class AuthVariables:
         self._set_cluster_defaults()
         self.project = reader.prompt_user("project")
         if not (self.cluster and self.project):
-            reader.status = "error"
-            reader.messages.append("  [bold red]ERROR[/]: CDF Cluster and project are required.")
-            return reader
+            missing = [field for field in ["cluster", "project"] if not getattr(self, field)]
+            raise AuthenticationError(f"CDF Cluster and project are required. Missing: {', '.join(missing)}.")
         self.cdf_url = reader.prompt_user("cdf_url", expected=f"https://{self.cluster}.cognitedata.com")
         self.login_flow = reader.prompt_user("login_flow", choices=self.login_flow_options())  # type: ignore[assignment]
         if self.login_flow == "token":
@@ -212,8 +216,7 @@ class AuthVariables:
             if self.login_flow == "client_credentials":
                 self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
         else:
-            reader.status = "error"
-            reader.messages.append(f"The login flow {self.login_flow} is not supported")
+            raise AuthenticationError(f"The login flow {self.login_flow} is not supported")
 
         if not skip_prompt:
             if Path(".env").exists():
@@ -296,7 +299,7 @@ class AuthReaderValidation:
 
     def __init__(self, auth_vars: AuthVariables, verbose: bool, skip_prompt: bool = False):
         self._auth_vars = auth_vars
-        self.status: Literal["ok", "error", "warning"] = "ok"
+        self.status: Literal["ok", "warning"] = "ok"
         self.messages: list[str] = []
         self.verbose = verbose
         self.skip_prompt = skip_prompt
