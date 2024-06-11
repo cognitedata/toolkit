@@ -36,7 +36,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceDeleteError,
     ResourceRetrievalError,
     ToolkitInvalidSettingsError,
-    ToolkitValidationError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -83,8 +82,6 @@ class AuthCommand(ToolkitCommand):
             dry_run=dry_run,
             verbose=ctx.obj.verbose,
         )
-        if ToolGlobals.failed:
-            raise ToolkitValidationError("Failure to verify access rights.")
 
     def check_auth(
         self,

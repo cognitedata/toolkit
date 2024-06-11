@@ -411,7 +411,6 @@ class CDFToolConfig:
 
         auth_vars = AuthVariables.from_env(self._environ)
         self.initialize_from_auth_variables(auth_vars)
-        self._failed = False
 
     def _initialize_in_browser(self) -> None:
         try:
@@ -554,16 +553,6 @@ class CDFToolConfig:
         return f"Cluster {self._cluster} with project {self._project} and config:\n" + json.dumps(
             environment, indent=2, sort_keys=True
         )
-
-    @property
-    # Flag set if something that should have worked failed if a data set is
-    # loaded and/or deleted.
-    def failed(self) -> bool:
-        return self._failed
-
-    @failed.setter
-    def failed(self, value: bool) -> None:
-        self._failed = value
 
     @property
     def client(self) -> CogniteClient:
