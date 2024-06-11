@@ -160,6 +160,10 @@ class InitCommand(ToolkitCommand):
 
         while True:
             if len(selected) > 0:
+                # special case for no packages, i.e. the user wants to skip selection
+                if "none" in selected:
+                    break
+
                 print("\n[bold]You have selected the following modules:[/]\n")
 
                 tree = Tree("modules")
@@ -178,10 +182,6 @@ class InitCommand(ToolkitCommand):
                 pointer=POINTER,
                 style=custom_style_fancy,
             ).ask()
-
-            if package_id:
-                if package_id == "none":
-                    break
 
             selected[package_id] = {}
             selection = questionary.checkbox(
