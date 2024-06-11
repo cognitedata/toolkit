@@ -75,7 +75,7 @@ class InitCommand(ToolkitCommand):
         includes = []
 
         for package, modules in selected.items():
-            print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating package {package}[/]")
+            print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating {package}[/]")
 
             package_dir = modules_dir / package
 
@@ -161,7 +161,7 @@ class InitCommand(ToolkitCommand):
         while True:
             if len(selected) > 0:
                 # special case for no packages, i.e. the user wants to skip selection
-                if "none" in selected:
+                if "empty" in selected:
                     break
 
                 print("\n[bold]You have selected the following modules:[/]\n")
