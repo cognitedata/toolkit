@@ -141,8 +141,14 @@ class UploadFileError(ToolkitError):
     pass
 
 
+class ResourceRetrievalError(ToolkitError): ...
+
+
 class ResourceCreationError(ToolkitError):
     pass
+
+
+class ResourceDeleteError(ToolkitError): ...
 
 
 class ResourceUpdateError(ToolkitError):

@@ -20,7 +20,6 @@ from time import sleep
 from typing import cast
 
 import typer
-from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
     UserProfilesAcl,
 )
@@ -31,7 +30,14 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
-from cognite_toolkit._cdf_tk.exceptions import ToolkitInvalidSettingsError, ToolkitValidationError
+from cognite_toolkit._cdf_tk.exceptions import (
+    AuthorizationError,
+    ResourceCreationError,
+    ResourceDeleteError,
+    ResourceRetrievalError,
+    ToolkitInvalidSettingsError,
+    ToolkitValidationError,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
@@ -89,7 +95,7 @@ class AuthCommand(ToolkitCommand):
         interactive: bool = False,
         dry_run: bool = False,
         verbose: bool = False,
-    ) -> CogniteClient | None:
+    ) -> None:
         print("[bold]Checking current service principal/application and environment configurations...[/]")
         auth_vars = AuthVariables.from_env()
         if interactive:
@@ -107,33 +113,26 @@ class AuthCommand(ToolkitCommand):
             # correct access for what you want to do.
             resp = ToolGlobals.client.iam.token.inspect()
             if resp is None or len(resp.capabilities) == 0:
-                print(
-                    "  [bold red]ERROR[/]: Valid authentication token, but it does not give any access rights. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
+                raise AuthorizationError(
+                    "Valid authentication token, but it does not give any access rights."
+                    " Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
                 )
-                ToolGlobals.failed = True
-                return None
             print("  [bold green]OK[/]")
         except Exception:
-            print(
-                "  [bold red]ERROR[/]: Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
+            raise AuthorizationError(
+                "Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
             )
-            ToolGlobals.failed = True
-            return None
         try:
             print("Checking projects that the service principal/application has access to...")
             if len(resp.projects) == 0:
-                print(
-                    "  [bold red]ERROR[/]: The service principal/application configured for this client does not have access to any projects."
+                raise AuthorizationError(
+                    "The service principal/application configured for this client does not have access to any projects."
                 )
-                ToolGlobals.failed = True
-                return None
             projects = ""
             projects = projects.join(f"  - {p.url_name}\n" for p in resp.projects)
             print(projects[0:-1])
         except Exception as e:
-            print(f"  [bold red]ERROR[/]: Failed to process project information from inspect()\n{e}")
-            ToolGlobals.failed = True
-            return None
+            raise AuthorizationError(f"Failed to process project information from inspect()\n{e}")
         print(f"[italic]Focusing on current project {auth_vars.project} only from here on.[/]")
         print(
             "Checking basic project and group manipulation access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
@@ -162,11 +161,9 @@ class AuthCommand(ToolkitCommand):
                 )
                 print("  [bold green]OK[/] - can continue with checks.")
             except Exception:
-                print(
-                    "    [bold red]ERROR[/]: Unable to continue, the service principal/application configured for this client does not have the basic read group access rights."
+                raise AuthorizationError(
+                    "Unable to continue, the service principal/application configured for this client does not have the basic read group access rights."
                 )
-                ToolGlobals.failed = True
-                return None
         project_info = ToolGlobals.client.get(f"/api/v1/projects/{auth_vars.project}").json()
         print("Checking identity provider settings...")
         oidc = project_info.get("oidcConfiguration", {})
@@ -178,17 +175,15 @@ class AuthCommand(ToolkitCommand):
             print(f"  [bold green]OK[/] - Auth0 with tenant id ({tenant_id}).")
         else:
             self.warn(MediumSeverityWarning(f"Unknown identity provider {oidc.get('tokenUrl')}"))
-        accessClaims = [c.get("claimName") for c in oidc.get("accessClaims", {})]
+        access_claims = [c.get("claimName") for c in oidc.get("accessClaims", {})]
         print(
-            f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {accessClaims}"
+            f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {access_claims}"
         )
         print("Checking CDF group memberships for the current client configured...")
         try:
             groups = ToolGlobals.client.iam.groups.list().data
         except Exception:
-            print("  [bold red]ERROR[/]: Unable to retrieve CDF groups.")
-            ToolGlobals.failed = True
-            return None
+            raise AuthorizationError("Unable to retrieve CDF groups.")
         if group_file.exists():
             file_text = group_file.read_text()
         else:
@@ -222,12 +217,11 @@ class AuthCommand(ToolkitCommand):
                 "           This is not recommended. The group matching the group config file is marked in bold above if it is present."
             )
             if update_group == 1:
-                print(
-                    "  [bold red]ERROR[/]: You have specified --update-group=1.\n"
-                    + "         With multiple groups available, you must use the --update_group=<full-group-i> option to specify which group to update."
+                raise AuthorizationError(
+                    "You have specified --update-group=1.\n"
+                    "         With multiple groups available, you must use the --update_group=<full-group-i> "
+                    "option to specify which group to update."
                 )
-                ToolGlobals.failed = True
-                return None
         else:
             print("  [bold green]OK[/] - Only one group is used for this service principal/application.")
         print("---------------------")
@@ -328,9 +322,7 @@ class AuthCommand(ToolkitCommand):
                         group = g
                         break
                 if group is None:
-                    print(f"  [bold red]ERROR[/]: Unable to find --group-id={update_group} in CDF.")
-                    ToolGlobals.failed = True
-                    return None
+                    raise ResourceRetrievalError(f"Unable to find --group-id={update_group} in CDF.")
                 read_write.name = group.name
                 read_write.source_id = group.source_id
                 read_write.metadata = group.metadata
@@ -352,9 +344,7 @@ class AuthCommand(ToolkitCommand):
                         f"  [bold green]OK[/] - Would have created new group with {len(read_write.capabilities or [])} capabilities."
                     )
             except Exception as e:
-                print(f"  [bold red]ERROR[/]: Unable to create new group {read_write.name}.\n{e}")
-                ToolGlobals.failed = True
-                return None
+                raise ResourceCreationError(f"Unable to create new group {read_write.name}.\n{e}")
             if update_group:
                 try:
                     if not dry_run:
@@ -363,9 +353,7 @@ class AuthCommand(ToolkitCommand):
                     else:
                         print(f"  [bold green]OK[/] - Would have deleted old group {update_group}.")
                 except Exception as e:
-                    print(f"  [bold red]ERROR[/]: Unable to delete old group {update_group}.\n{e}")
-                    ToolGlobals.failed = True
-                    return None
+                    raise ResourceDeleteError(f"Unable to delete old group {update_group}.\n{e}")
         print("Checking function service status...")
         function_status = ToolGlobals.client.functions.status()
         if function_status.status != "activated":
