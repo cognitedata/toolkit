@@ -194,8 +194,7 @@ class InteractiveInit(typer.Typer):
 
                 if len(available) > 0:
                     if not questionary.confirm("Would you like to add more?", default=False).ask():
-                        loop = False
-                        continue
+                        break
 
                 package_id = questionary.select(
                     "Which package would you like to include?",
