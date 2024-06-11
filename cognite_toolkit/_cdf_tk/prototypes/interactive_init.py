@@ -182,8 +182,7 @@ class InteractiveInit(typer.Typer):
 
             selected[package] = available[package].get("modules", {}).keys()
 
-        loop = True
-        while loop:
+        while True:
             if len(selected) > 0:
                 print("\n[bold]You have selected the following modules:[/] :robot:\n")
 
