@@ -34,26 +34,25 @@ custom_style_fancy = questionary.Style(
 )
 
 
-class Packages:
-    def __init__(self) -> None:
-        self._packages: dict[str, dict[str, Any]] | None = None
-
-    @property
-    def content(self) -> dict[str, dict[str, Any]] | None:
-        if self._packages is None:
-            self._packages = self._get_packages()
-        return self._packages
-
-    def _get_packages(self) -> dict[str, dict[str, Any]] | None:
+class Packages(dict, MutableMapping[str, dict[str, Any]]):
+    @classmethod
+    def load(cls) -> Packages:
         packages = {}
-
         for module in _packages.__all__:
             manifest = Path(_packages.__file__).parent / module / "manifest.yaml"
-            if not Path(manifest).exists():
-                raise FileNotFoundError(f"Manifest file not found for package {module}")
-            with open(manifest) as file:
-                packages[manifest.parent.name] = yaml.CSafeLoader(file.read()).get_data()
-        return packages
+            if not manifest.exists():
+                warnings.warn(f"Bug in Cognite-Toolkit. Manifest file not found for package {module}")
+                continue
+            content = manifest.read_text()
+            if yaml.__with_libyaml__:
+                packages[manifest.parent.name] = yaml.CSafeLoader(content).get_data()
+            else:
+                packages[manifest.parent.name] = yaml.SafeLoader(content).get_data()
+        return cls(packages)
+
+    @property
+    def available(self) -> list[str]:
+        return sorted(self.keys())
 
 
 class InteractiveInit(typer.Typer):
