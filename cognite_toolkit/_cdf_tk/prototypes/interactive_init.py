@@ -114,7 +114,7 @@ class InteractiveInit(typer.Typer):
                 help="Directory path to project to initialize or upgrade with templates.",
             ),
         ] = None,
-        package: Annotated[
+        package_name: Annotated[
             Optional[str],
             typer.Option(
                 help="Name of package to include",
