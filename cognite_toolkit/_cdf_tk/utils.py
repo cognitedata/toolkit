@@ -410,28 +410,28 @@ class CDFToolConfig:
             return
 
         auth_vars = AuthVariables.from_env(self._environ)
-        self._failed = not self.initialize_from_auth_variables(auth_vars)
+        self.initialize_from_auth_variables(auth_vars)
+        self._failed = False
 
     def _initialize_in_browser(self) -> None:
         try:
             self._client = CogniteClient()
         except Exception as e:
-            print(f"[bold red]Error[/] Failed to initialize CogniteClient in browser: {e}")
-        else:
-            if self._cluster or self._project:
-                print("[bold yellow]Warning[/] Cluster and project are arguments ignored when running in the browser.")
-            self._cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
-            self._project = self._client.config.project
-            self._cdf_url = self._client.config.base_url
+            raise AuthenticationError(f"Failed to initialize CogniteClient in browser: {e}")
 
-    def initialize_from_auth_variables(self, auth: AuthVariables) -> bool:
+        if self._cluster or self._project:
+            print("[bold yellow]Warning[/] Cluster and project are arguments ignored when running in the browser.")
+        self._cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
+        self._project = self._client.config.project
+        self._cdf_url = self._client.config.base_url
+
+    def initialize_from_auth_variables(self, auth: AuthVariables) -> None:
         """Initialize the CDFToolConfig from the AuthVariables and returns whether it was successful or not."""
         cluster = auth.cluster or self._cluster
         project = auth.project or self._project
 
         if cluster is None or project is None:
-            print("  [bold red]Error[/] Cluster and Project must be set to authenticate the client.")
-            return False
+            raise AuthenticationError("Cluster and Project must be set to authenticate the client.")
 
         self._cluster = cluster
         self._project = project
@@ -439,18 +439,16 @@ class CDFToolConfig:
 
         if auth.login_flow == "token":
             if not auth.token:
-                print("  [bold red]Error[/] Login flow=token is set but no CDF_TOKEN is not provided.")
-                return False
+                raise AuthenticationError("Login flow=token is set but no CDF_TOKEN is not provided.")
             self._credentials_provider = Token(auth.token)
         elif auth.login_flow == "interactive":
             if auth.scopes:
                 self._scopes = [auth.scopes]
             if not (auth.client_id and auth.authority_url and auth.scopes):
-                print(
-                    "  [bold red]Error[/] Login flow=interactive is set but missing required authentication "
+                raise AuthenticationError(
+                    "Login flow=interactive is set but missing required authentication "
                     "variables: IDP_CLIENT_ID and IDP_TENANT_ID (or IDP_AUTHORITY_URL). Cannot authenticate the client."
                 )
-                return False
             self._credentials_provider = OAuthInteractive(
                 authority_url=auth.authority_url,
                 client_id=auth.client_id,
@@ -468,12 +466,11 @@ class CDFToolConfig:
                 self._audience = auth.audience
 
             if not (auth.token_url and auth.client_id and auth.client_secret and self._scopes and self._audience):
-                print(
-                    "  [bold yellow]Error[/] Login flow=client_credentials is set but missing required authentication "
+                raise AuthenticationError(
+                    "Login flow=client_credentials is set but missing required authentication "
                     "variables: IDP_CLIENT_ID, IDP_CLIENT_SECRET and IDP_TENANT_ID (or IDP_TOKEN_URL). "
                     "Cannot authenticate the client."
                 )
-                return False
 
             self._credentials_provider = OAuthClientCredentials(
                 token_url=auth.token_url,
@@ -483,8 +480,7 @@ class CDFToolConfig:
                 audience=self._audience,
             )
         else:
-            print(f"  [bold red]Error[/] Login flow {auth.login_flow} is not supported.")
-            return False
+            raise AuthenticationError(f"Login flow {auth.login_flow} is not supported.")
 
         self._client = CogniteClient(
             ClientConfig(
@@ -495,7 +491,6 @@ class CDFToolConfig:
             )
         )
         self._update_environment_variables()
-        return True
 
     def reinitialize_client(self) -> None:
         """Reinitialize the client with the current configuration."""

@@ -98,13 +98,8 @@ class AuthCommand(ToolkitCommand):
             result = auth_vars.validate(verbose)
         if result.messages:
             print("\n".join(result.messages))
-        if result.status == "error":
-            ToolGlobals.failed = True
-            return None
         print("  [bold green]OK[/]")
-        if not ToolGlobals.initialize_from_auth_variables(auth_vars):
-            ToolGlobals.failed = True
-            return None
+        ToolGlobals.initialize_from_auth_variables(auth_vars)
         print("Checking basic project configuration...")
         try:
             # Using the token/inspect endpoint to check if the client has access to the project.
