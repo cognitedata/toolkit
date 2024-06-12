@@ -18,6 +18,7 @@ from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, Token
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
@@ -167,7 +168,8 @@ def test_auth_verify_no_capabilities(
 
     cdf_tool_config.verify_client.side_effect = mock_verify_client
     cmd = AuthCommand(print_warning=False)
-    cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+    with pytest.raises(AuthorizationError) as e:
+        cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
 
     assert len(cmd.warning_list) == 1
     assert set(cmd.warning_list) == {
@@ -176,3 +178,7 @@ def test_auth_verify_no_capabilities(
             "does not have the basic group write access rights."
         )
     }
+    assert str(e.value) == (
+        "Unable to continue, the service principal/application configured for this "
+        "client does not have the basic read group access rights."
+    )

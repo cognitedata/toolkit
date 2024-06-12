@@ -141,8 +141,14 @@ class UploadFileError(ToolkitError):
     pass
 
 
+class ResourceRetrievalError(ToolkitError): ...
+
+
 class ResourceCreationError(ToolkitError):
     pass
+
+
+class ResourceDeleteError(ToolkitError): ...
 
 
 class ResourceUpdateError(ToolkitError):
@@ -150,4 +156,12 @@ class ResourceUpdateError(ToolkitError):
 
 
 class AmbiguousResourceFileError(ToolkitError):
+    pass
+
+
+class AuthenticationError(ToolkitError):
+    pass
+
+
+class AuthorizationError(ToolkitError):
     pass
