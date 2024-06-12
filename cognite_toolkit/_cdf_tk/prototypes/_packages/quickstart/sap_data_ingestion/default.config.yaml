@@ -1,0 +1,4 @@
+# Values here are only valid for this module.
+data_model_space: sp_idm_model
+data_model_external_id: IDM
+data_space: <change_me>

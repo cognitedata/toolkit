@@ -14,6 +14,7 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.data_classes._config_yaml import Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.prototypes import _packages
 
@@ -54,42 +55,42 @@ class Packages(dict, MutableMapping[str, dict[str, Any]]):
 
 class InitCommand(ToolkitCommand):
     def _build_tree(self, item: dict | list, tree: Tree) -> None:
-        if isinstance(item, dict):
-            for key, value in item.items():
-                subtree = tree.add(key)
-                for subvalue in value:
-                    if isinstance(subvalue, dict):
-                        self._build_tree(subvalue, subtree)
-                    else:
-                        subtree.add(subvalue)
+        if not isinstance(item, dict):
+            return
+        for key, value in item.items():
+            subtree = tree.add(key)
+            for subvalue in value:
+                if isinstance(subvalue, dict):
+                    self._build_tree(subvalue, subtree)
+                else:
+                    subtree.add(subvalue)
 
-    def _create(self, init_dir: str, selected: dict[str, dict[str, Any]], mode: str | None) -> None:
+    def _create(
+        self, init_dir: str, selected: dict[str, dict[str, Any]], environments: list[str], mode: str | None
+    ) -> None:
         if mode == "overwrite":
             print(f"{INDENT}[yellow]Clearing directory[/]")
             if Path.is_dir(Path(init_dir)):
                 shutil.rmtree(init_dir)
 
-        modules_dir = Path(init_dir) / "modules"
-        modules_dir.mkdir(parents=True, exist_ok=True)
-
-        includes = []
+        modules_root_dir = Path(init_dir) / "modules"
+        modules_root_dir.mkdir(parents=True, exist_ok=True)
 
         for package, modules in selected.items():
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating {package}[/]")
 
-            package_dir = modules_dir / package
+            # package_dir = modules_dir / package
 
             for module in modules:
-                includes.append(package_dir)
                 print(f"{INDENT*2}[{'yellow' if mode == 'overwrite' else 'green'}]Creating module {module}[/]")
                 source_dir = Path(_packages.__file__).parent / package / module
                 if not Path(source_dir).exists():
                     print(f"{INDENT*3}[red]Module {module} not found in package {package}. Skipping...[/]")
                     continue
-                module_dir = package_dir / module
+                module_dir = modules_root_dir / package / module
                 if Path(module_dir).exists() and mode == "update":
                     if questionary.confirm(
-                        f"{INDENT}Module {module} already exists in folder {package_dir}. Would you like to overwrite?",
+                        f"{INDENT}Module {module} already exists in folder {module_dir}. Would you like to overwrite?",
                         default=False,
                     ).ask():
                         shutil.rmtree(module_dir)
@@ -97,6 +98,19 @@ class InitCommand(ToolkitCommand):
                         continue
 
                 shutil.copytree(source_dir, module_dir)
+
+        for environment in environments:
+            # if mode == "update":
+            config_init = InitConfigYAML(
+                Environment(
+                    name=environment,
+                    project=f"<my-project-{environment}>",
+                    build_type="dev" if environment == "dev" else "prod",
+                    selected=list(selected.keys()) if selected else ["empty"],
+                )
+            ).load_defaults(module_dir)
+            print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating config.{environment}.yaml[/]")
+            Path(init_dir + f"/config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
     def run(self, ctx: typer.Context, init_dir: Optional[str] = None, arg_package: Optional[str] = None) -> None:
         print("\n")
@@ -129,22 +143,21 @@ class InitCommand(ToolkitCommand):
             ).ask()
             if not init_dir or init_dir.strip() == "":
                 raise ToolkitRequiredValueError("You must provide a directory name.")
-        else:
-            if Path(init_dir).is_dir():
-                mode = questionary.select(
-                    "Directory already exists. What would you like to do?",
-                    choices=[
-                        questionary.Choice("Abort", "abort"),
-                        questionary.Choice("Overwrite (clean existing)", "overwrite"),
-                        questionary.Choice("Update (add to or replace existing)", "update"),
-                    ],
-                    pointer=POINTER,
-                    style=custom_style_fancy,
-                    instruction="use arrow up/down and " + "⮐ " + " to save",
-                ).ask()
-                if mode == "abort":
-                    print("Aborting...")
-                    raise typer.Exit()
+
+        if Path(init_dir + "/modules").is_dir():
+            mode = questionary.select(
+                f"Directory {init_dir}/modules already exists. What would you like to do?",
+                choices=[
+                    questionary.Choice("Abort", "abort"),
+                    questionary.Choice("Overwrite (clean existing)", "overwrite"),
+                ],
+                pointer=POINTER,
+                style=custom_style_fancy,
+                instruction="use arrow up/down and " + "⮐ " + " to save",
+            ).ask()
+            if mode == "abort":
+                print("Aborting...")
+                raise typer.Exit()
 
         print(f"  [{'yellow' if mode == 'overwrite' else 'green'}]Using directory [bold]{init_dir}[/]")
 
@@ -160,10 +173,6 @@ class InitCommand(ToolkitCommand):
 
         while True:
             if len(selected) > 0:
-                # special case for no packages, i.e. the user wants to skip selection
-                if "empty" in selected:
-                    break
-
                 print("\n[bold]You have selected the following modules:[/]\n")
 
                 tree = Tree("modules")
@@ -172,7 +181,9 @@ class InitCommand(ToolkitCommand):
                 print("\n")
 
                 if len(available) > 0:
-                    if not questionary.confirm("Would you like to add more?", default=False).ask():
+                    if not questionary.confirm(
+                        "Would you like to add more or modify the selection?", default=False
+                    ).ask():
                         break
 
             package_id = questionary.select(
@@ -183,12 +194,13 @@ class InitCommand(ToolkitCommand):
                 style=custom_style_fancy,
             ).ask()
 
-            selected[package_id] = {}
             selection = questionary.checkbox(
                 f"Which modules of {package_id} would you like to include?",
                 instruction="Use arrow up/down, press space to select item(s) and enter to save",
                 choices=[
-                    questionary.Choice(value.get("title", key), key)
+                    questionary.Choice(
+                        value.get("title", key), key, checked=True if key in selected.get(package_id, {}) else False
+                    )
                     for key, value in available[package_id].get("modules", {}).items()
                 ],
                 qmark=INDENT,
@@ -200,12 +212,39 @@ class InitCommand(ToolkitCommand):
                 selected[package_id] = selection
             else:
                 selected[package_id] = available[package_id].get("modules", {}).keys()
-            available.pop(package_id)
 
         if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
             print("Exiting...")
             raise typer.Exit()
         else:
-            self._create(init_dir, selected, mode)
-            print("Done!")
+            environments = questionary.checkbox(
+                "Which environments would you like to include?",
+                instruction="Use arrow up/down, press space to select item(s) and enter to save",
+                choices=[
+                    questionary.Choice(title="dev", checked=True),
+                    questionary.Choice(title="prod", checked=True),
+                    questionary.Choice(title="staging", checked=False),
+                ],
+                qmark=INDENT,
+                pointer=POINTER,
+                style=custom_style_fancy,
+            ).ask()
+            self._create(init_dir, selected, environments, mode)
+            print(
+                Panel(
+                    f"""Modules have been prepared in [bold]{init_dir}[/]. \nNext steps:
+    1. Run `cdf-tk auth verify --interactive to set up credentials.
+    2. Configure your project in the config files. Use cdf-tk build for assistance.
+    3. Run `cdf-tk deploy --dry-run` to verify the deployment.""",
+                    style="green",
+                )
+            )
+
+            if "empty" in selected:
+                print(
+                    Panel(
+                        "Please check out https://developer.cognite.com/sdks/toolkit/modules/ for guidance on writing custom modules",
+                    )
+                )
+
         raise typer.Exit()

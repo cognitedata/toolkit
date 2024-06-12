@@ -115,10 +115,10 @@
                 //"--dry-run",
                 //"--env=local",
                 //"--include=transformations"
-                "--init-dir=foo",
+                //"--init-dir=foo",
                 //"--help",
                 //"--package=quickstart"
-                "--package=none",
+                //"--package=empty",
             ],
             "console": "integratedTerminal",
             "justMyCode": false
