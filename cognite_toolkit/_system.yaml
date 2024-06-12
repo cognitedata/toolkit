@@ -26,3 +26,6 @@ packages:
 
 # This part is used by cdf-toolkit to keep track of the version and help you upgrade.
 cdf_toolkit_version: 0.2.0
+
+FF_INTERACTIVE_INIT: True
+FF_PRINT_FLAGS: False

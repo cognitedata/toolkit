@@ -40,7 +40,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     NodeLoader,
     TransformationLoader,
 )
-from cognite_toolkit._cdf_tk.prototypes import featureflag
+from cognite_toolkit._cdf_tk.prototypes.featureflag import FeatureFlag
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     sentry_exception_filter,
@@ -92,7 +92,7 @@ def app() -> NoReturn:
     # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
-        if featureflag.enabled("FF_INTERACTIVE_INIT"):
+        if FeatureFlag.enabled("FF_INTERACTIVE_INIT"):
             from cognite_toolkit._cdf_tk.prototypes.interactive_init import InteractiveInit
 
             _app.command("init")(InteractiveInit().interactive)
@@ -437,7 +437,7 @@ def auth_verify(
     cmd.execute(ctx, dry_run, interactive, group_file, update_group, create_group)
 
 
-@_app.command("init" if not featureflag.enabled("FF_INTERACTIVE_INIT") else "_init")
+@_app.command("init" if not FeatureFlag.enabled("FF_INTERACTIVE_INIT") else "_init")
 def main_init(
     ctx: typer.Context,
     dry_run: Annotated[
