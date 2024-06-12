@@ -1113,6 +1113,8 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
         ).load_defaults(source_path)
         config = config_init.as_build_config()
         config.set_environment_variables()
+        # TODO: Consider other ways to identify modules
+        config.variables.pop("_cdf_tk", None)
         config.environment.selected = config.available_modules
 
         source_by_build_path = BuildCommand().build_config(
