@@ -143,7 +143,7 @@ class AuthCommand(ToolkitCommand):
                         "LIST",
                         "READ",
                     ],
-                    "groupsAcl": ["LIST", "READ", "UPDATE", "DELETE"],
+                    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"],
                 }
             )
             print("  [bold green]OK[/]")
