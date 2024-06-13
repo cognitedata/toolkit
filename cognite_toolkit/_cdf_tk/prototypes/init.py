@@ -73,7 +73,7 @@ class InitCommand(ToolkitCommand):
             if Path.is_dir(Path(init_dir)):
                 shutil.rmtree(init_dir)
 
-        modules_root_dir = Path(init_dir) / "modules"
+        modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
         modules_root_dir.mkdir(parents=True, exist_ok=True)
 
         for package, modules in selected.items():
