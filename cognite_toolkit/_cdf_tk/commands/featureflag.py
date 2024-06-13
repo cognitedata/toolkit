@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 
 class Flags(Enum):
     INTERACTIVE_INIT: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables interactive init"}
+    INTERNAL: ClassVar[dict[str, Any]] = {"visible": False, "description": "Does nothing"}
 
 
 class FeatureFlag:
