@@ -314,7 +314,8 @@ def deploy(
 ) -> None:
     cmd = DeployCommand(print_warning=True)
     include = _process_include(include, interactive)
-    cmd.execute(ctx, build_dir, build_env_name, dry_run, drop, drop_data, include)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
+    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, ctx.obj.verbose)
 
 
 @_app.command("clean")
