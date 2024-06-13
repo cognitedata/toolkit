@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import getpass
 from pathlib import Path
 
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
+from mixpanel import Mixpanel
 from rich import print
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitYAMLFormatError
@@ -19,12 +21,22 @@ from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
 )
 
+_COGNITE_TOOLKIT_MIXPANEL_TOKEN: str | None = None
+
 
 class ToolkitCommand:
     def __init__(self, print_warning: bool = True, user_command: str | None = None):
         self.print_warning = print_warning
         self.user_command = user_command
         self.warning_list = WarningList[ToolkitWarning]()
+        if _COGNITE_TOOLKIT_MIXPANEL_TOKEN is not None:
+            self._track_command(user_command)
+
+    def _track_command(self, user_command: str | None) -> None:
+        mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN)
+        distinct_id = getpass.getuser().replace(" ", "_")
+        cmd = type(self).__name__.removesuffix("Command")
+        mp.track(distinct_id, f"command_{cmd}", {"user_input": user_command or ""})
 
     def warn(self, warning: ToolkitWarning) -> None:
         self.warning_list.append(warning)
