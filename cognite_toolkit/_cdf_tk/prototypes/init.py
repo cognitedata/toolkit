@@ -175,7 +175,7 @@ class InitCommand(ToolkitCommand):
             if len(selected) > 0:
                 print("\n[bold]You have selected the following modules:[/]\n")
 
-                tree = Tree("modules")
+                tree = Tree(ALT_CUSTOM_MODULES)
                 self._build_tree(selected, tree)
                 print(Padding.indent(tree, 5))
                 print("\n")
