@@ -363,6 +363,7 @@ class AuthCommand(ToolkitCommand):
         has_function_read_access = not ToolGlobals.client.iam.compare_capabilities(
             token_inspection.capabilities,
             FunctionsAcl([FunctionsAcl.Action.Read], FunctionsAcl.Scope.All()),
+            project=auth_vars.project,
         )
         if not has_function_read_access:
             self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
