@@ -25,11 +25,11 @@ _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str | None = None
 
 
 class ToolkitCommand:
-    def __init__(self, print_warning: bool = True, user_command: str | None = None):
+    def __init__(self, print_warning: bool = True, user_command: str | None = None, skip_tracking: bool = False):
         self.print_warning = print_warning
         self.user_command = user_command
         self.warning_list = WarningList[ToolkitWarning]()
-        if _COGNITE_TOOLKIT_MIXPANEL_TOKEN is not None:
+        if not skip_tracking and _COGNITE_TOOLKIT_MIXPANEL_TOKEN is not None:
             self._track_command(user_command)
 
     def _track_command(self, user_command: str | None) -> None:
