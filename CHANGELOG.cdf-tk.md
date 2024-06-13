@@ -21,6 +21,8 @@ Changes are grouped as follows:
 
 - When running `cdf-tk auth verify`, if the client does not have access to the `CDF_PROJECT` the user will now get
   a more informative error message.
+- When running `cdf-tk auth verify` and missing the `FunctionAcl(READ)` capability, the user will now get a more
+  informative error message when checking the function service status
 
 ## [0.2.0] - 2024-06-10
 
