@@ -364,7 +364,8 @@ def clean(
     # Override cluster and project from the options/env variables
     cmd = CleanCommand(print_warning=True)
     include = _process_include(include, interactive)
-    cmd.execute(ctx, build_dir, build_env_name, dry_run, include)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
+    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, ctx.obj.verbose)
 
 
 @auth_app.callback(invoke_without_command=True)
