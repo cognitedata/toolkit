@@ -97,7 +97,7 @@ class InitCommand(ToolkitCommand):
                     else:
                         continue
 
-                shutil.copytree(source_dir, module_dir)
+                shutil.copytree(source_dir, module_dir, ignore=shutil.ignore_patterns("default.*"))
 
         for environment in environments:
             # if mode == "update":
