@@ -21,6 +21,7 @@ from typing import cast
 
 import typer
 from cognite.client.data_classes.capabilities import (
+    FunctionsAcl,
     UserProfilesAcl,
 )
 from cognite.client.data_classes.iam import Group
@@ -359,6 +360,13 @@ class AuthCommand(ToolkitCommand):
                 except Exception as e:
                     raise ResourceDeleteError(f"Unable to delete old group {update_group}.\n{e}")
         print("Checking function service status...")
+        has_function_read_access = not ToolGlobals.client.iam.compare_capabilities(
+            token_inspection.capabilities,
+            FunctionsAcl([FunctionsAcl.Action.Read], FunctionsAcl.Scope.All()),
+        )
+        if not has_function_read_access:
+            self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
+            return None
         function_status = ToolGlobals.client.functions.status()
         if function_status.status != "activated":
             if function_status.status == "requested":
