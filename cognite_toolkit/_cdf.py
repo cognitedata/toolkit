@@ -249,8 +249,7 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
-    user_command = f"cdf-tk {' '.join(sys.argv[1:])}"
-    cmd = BuildCommand(user_command=user_command)
+    cmd = BuildCommand(user_command=_get_user_command())
     cmd.execute(ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
 
 
@@ -312,7 +311,7 @@ def deploy(
         ),
     ] = None,
 ) -> None:
-    cmd = DeployCommand(print_warning=True)
+    cmd = DeployCommand(print_warning=True, user_command=_get_user_command())
     include = _process_include(include, interactive)
     cmd.execute(ctx, build_dir, build_env_name, dry_run, drop, drop_data, include)
 
@@ -362,7 +361,7 @@ def clean(
 ) -> None:
     """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
     # Override cluster and project from the options/env variables
-    cmd = CleanCommand(print_warning=True)
+    cmd = CleanCommand(print_warning=True, user_command=_get_user_command())
     include = _process_include(include, interactive)
     cmd.execute(ctx, build_dir, build_env_name, dry_run, include)
 
@@ -433,7 +432,7 @@ def auth_verify(
 
     The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
-    cmd = AuthCommand()
+    cmd = AuthCommand(user_command=_get_user_command())
     cmd.execute(ctx, dry_run, interactive, group_file, update_group, create_group)
 
 
@@ -549,7 +548,7 @@ def describe_datamodel_cmd(
 ) -> None:
     """This command will describe the characteristics of a data model given the space
     name and datamodel name."""
-    cmd = DescribeCommand()
+    cmd = DescribeCommand(user_command=_get_user_command())
     cmd.execute(CDFToolConfig.from_context(ctx), space, data_model)
 
 
@@ -574,7 +573,7 @@ def run_transformation_cmd(
     ],
 ) -> None:
     """This command will run the specified transformation using a one-time session."""
-    cmd = RunTransformationCommand()
+    cmd = RunTransformationCommand(user_command=_get_user_command())
     cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id)
 
 
@@ -654,7 +653,7 @@ def run_function_cmd(
     ] = "dev",
 ) -> None:
     """This command will run the specified function using a one-time session."""
-    cmd = RunFunctionCommand()
+    cmd = RunFunctionCommand(user_command=_get_user_command())
     cmd.execute(
         CDFToolConfig.from_context(ctx),
         external_id,
@@ -714,7 +713,7 @@ def pull_transformation_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified transformation and update its YAML file in the module folder"""
-    PullCommand().execute(
+    PullCommand(user_command=_get_user_command()).execute(
         source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
     )
 
@@ -765,7 +764,7 @@ def pull_node_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified node and update its YAML file in the module folder."""
-    PullCommand().execute(
+    PullCommand(user_command=_get_user_command()).execute(
         source_dir,
         NodeId(space, external_id),
         env,
@@ -830,7 +829,7 @@ def dump_datamodel_cmd(
     ] = "tmp",
 ) -> None:
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-    cmd = DumpCommand()
+    cmd = DumpCommand(user_command=_get_user_command())
     cmd.execute(
         CDFToolConfig.from_context(ctx),
         DataModelId(space, external_id, version),
@@ -868,6 +867,10 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
             return [mapping[int(answer)]]
         except ValueError:
             raise ToolkitInvalidSettingsError(f"Invalid selection: {answer}")
+
+
+def _get_user_command() -> str:
+    return f"cdf-tk {' '.join(sys.argv[1:])}"
 
 
 if __name__ == "__main__":
