@@ -79,7 +79,6 @@ class InitCommand(ToolkitCommand):
         for package, modules in selected.items():
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating {package}[/]")
 
-            # package_dir = modules_dir / package
 
             for module in modules:
                 print(f"{INDENT*2}[{'yellow' if mode == 'overwrite' else 'green'}]Creating module {module}[/]")
