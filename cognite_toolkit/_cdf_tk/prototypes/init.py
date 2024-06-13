@@ -144,7 +144,7 @@ class InitCommand(ToolkitCommand):
             if not init_dir or init_dir.strip() == "":
                 raise ToolkitRequiredValueError("You must provide a directory name.")
 
-        if Path(init_dir + "/modules").is_dir():
+        if Path(init_dir + ALT_CUSTOM_MODULES).is_dir():
             mode = questionary.select(
                 f"Directory {init_dir}/modules already exists. What would you like to do?",
                 choices=[
