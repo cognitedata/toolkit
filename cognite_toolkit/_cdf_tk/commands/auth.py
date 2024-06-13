@@ -24,7 +24,7 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     UserProfilesAcl,
 )
-from cognite.client.data_classes.iam import Group
+from cognite.client.data_classes.iam import Group, TokenInspection
 from rich import print
 from rich.markup import escape
 from rich.prompt import Confirm, Prompt
@@ -359,11 +359,16 @@ class AuthCommand(ToolkitCommand):
                         print(f"  [bold green]OK[/] - Would have deleted old group {update_group}.")
                 except Exception as e:
                     raise ResourceDeleteError(f"Unable to delete old group {update_group}.\n{e}")
+        self.check_function_service_status(ToolGlobals, token_inspection, auth_vars.project, dry_run)
+
+    def check_function_service_status(
+        self, ToolGlobals: CDFToolConfig, token_inspection: TokenInspection, project: str | None, dry_run: bool
+    ) -> None:
         print("Checking function service status...")
         has_function_read_access = not ToolGlobals.client.iam.compare_capabilities(
             token_inspection.capabilities,
             FunctionsAcl([FunctionsAcl.Action.Read], FunctionsAcl.Scope.All()),
-            project=auth_vars.project,
+            project=project,
         )
         if not has_function_read_access:
             self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
