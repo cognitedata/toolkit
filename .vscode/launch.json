@@ -129,15 +129,35 @@
             "request": "launch",
             "program": "./cdf-tk-dev.py",
             "args": [
-                "feature",
+                "features",
                 "list",
-                //"--dry-run",
-                //"--env=local",
-                //"--include=transformations"
-                //"--init-dir=foo",
-                //"--help",
-                //"--package=quickstart"
-                //"--package=empty",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: feature flag set",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "features",
+                "set",
+                "--flag=interactive_init",
+                "--enabled=true",
+
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: feature flags reset",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "features",
+                "reset",
             ],
             "console": "integratedTerminal",
             "justMyCode": false

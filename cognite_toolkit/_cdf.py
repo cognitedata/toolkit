@@ -13,7 +13,6 @@ from cognite.client.data_classes.data_modeling import DataModelId, NodeId
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
-from rich.table import Table
 
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
@@ -22,10 +21,12 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployCommand,
     DescribeCommand,
     DumpCommand,
+    FeatureFlagCommand,
     PullCommand,
     RunFunctionCommand,
     RunTransformationCommand,
 )
+from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.data_classes import (
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,
@@ -41,7 +42,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     NodeLoader,
     TransformationLoader,
 )
-from cognite_toolkit._cdf_tk.prototypes.featureflag import FeatureFlag
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     sentry_exception_filter,
@@ -88,14 +88,14 @@ _app.add_typer(describe_app, name="describe")
 _app.add_typer(run_app, name="run")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
-_app.add_typer(feature_flag_app, name="feature")
+_app.add_typer(feature_flag_app, name="features")
 
 
 def app() -> NoReturn:
     # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
-        if FeatureFlag.is_enabled("FF_INTERACTIVE_INIT"):
+        if FeatureFlag.is_enabled(Flags.INTERACTIVE_INIT):
             from cognite_toolkit._cdf_tk.prototypes.interactive_init import InteractiveInit
 
             _app.command("init")(InteractiveInit().interactive)
@@ -440,7 +440,7 @@ def auth_verify(
     cmd.execute(ctx, dry_run, interactive, group_file, update_group, create_group)
 
 
-@_app.command("init" if not FeatureFlag.is_enabled("FF_INTERACTIVE_INIT") else "_init")
+@_app.command("init" if not FeatureFlag.is_enabled(Flags.INTERACTIVE_INIT) else "_init")
 def main_init(
     ctx: typer.Context,
     dry_run: Annotated[
@@ -847,30 +847,57 @@ def dump_datamodel_cmd(
 def feature_flag_main(ctx: typer.Context) -> None:
     """Commands to enable and disable feature flags for the toolkit."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk feature list[/] or [bold yellow]cdf-tk feature enable [flag][/]")
+        print(
+            Panel(
+                "[yellow]Warning: enabling feature flags may have undesired side effects."
+                "\nDo not enable a flag unless you are familiar with what it does.[/]"
+            )
+        )
+        print("Use [bold yellow]cdf-tk feature list[/] or [bold yellow]cdf-tk feature --[flag] --enabled=True|False[/]")
     return None
 
 
 @feature_flag_app.command("list")
 def feature_flag_list() -> None:
     """List all available feature flags."""
-    flags = FeatureFlag.list()
-    print(
-        Panel(
-            "[yellow]Warning: enabling feature flags may have undesired side effects."
-            "\nDo not enable a flag unless you are familiar with what it does.[/]"
-        )
-    )
 
-    table = Table(title="feature flags")
-    table.add_column("Name", justify="left")
-    table.add_column("Description", justify="left")
-    table.add_column("Status", justify="left")
+    cmd = FeatureFlagCommand()
+    cmd.list()
 
-    for flag, description, enabled in flags:
-        table.add_row(flag, description, "enabled" if enabled else "disabled", style="yellow" if enabled else "")
 
-    print(table)
+@feature_flag_app.command("set")
+def feature_flag_set(
+    flag: Annotated[
+        str,
+        typer.Option(
+            "--flag",
+            "-f",
+            prompt=True,
+            help="Which flag to set",
+        ),
+    ],
+    enabled: Annotated[
+        str,
+        typer.Option(
+            "--enabled",
+            "-e",
+            help="Enable the flag, default is False",
+        ),
+    ],
+) -> None:
+    """Enable or disable a feature flag."""
+
+    cmd = FeatureFlagCommand()
+    value = enabled.casefold() == "true"
+    cmd.set(flag, value)
+
+
+@feature_flag_app.command("reset")
+def feature_flag_reset() -> None:
+    """Reset all feature flags to their default values."""
+
+    cmd = FeatureFlagCommand()
+    cmd.reset()
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
