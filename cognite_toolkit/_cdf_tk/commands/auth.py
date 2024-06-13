@@ -21,6 +21,7 @@ from typing import cast
 
 import typer
 from cognite.client.data_classes.capabilities import (
+    FunctionsAcl,
     UserProfilesAcl,
 )
 from cognite.client.data_classes.iam import Group
@@ -133,20 +134,25 @@ class AuthCommand(ToolkitCommand):
 
         print(f"[italic]Focusing on current project {auth_vars.project} only from here on.[/]")
         print(
-            "Checking basic project and group manipulation access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
+            "Checking basic project and group manipulation access rights "
+            "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
         )
         try:
             ToolGlobals.verify_client(
                 capabilities={
-                    "projectsAcl": ["LIST", "READ"],
-                    "groupsAcl": ["LIST", "READ"],
+                    "projectsAcl": [
+                        "LIST",
+                        "READ",
+                    ],
+                    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"],
                 }
             )
             print("  [bold green]OK[/]")
         except Exception:
             self.warn(
                 HighSeverityWarning(
-                    "The service principal/application configured for this client does not have the basic group write access rights."
+                    "The service principal/application configured for this client "
+                    "does not have the basic group write access rights."
                 )
             )
             print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
@@ -160,7 +166,8 @@ class AuthCommand(ToolkitCommand):
                 print("  [bold green]OK[/] - can continue with checks.")
             except Exception:
                 raise AuthorizationError(
-                    "Unable to continue, the service principal/application configured for this client does not have the basic read group access rights."
+                    "Unable to continue, the service principal/application configured for this client does not"
+                    " have the basic read group access rights."
                 )
         project_info = ToolGlobals.client.get(f"/api/v1/projects/{auth_vars.project}").json()
         print("Checking identity provider settings...")
@@ -353,6 +360,14 @@ class AuthCommand(ToolkitCommand):
                 except Exception as e:
                     raise ResourceDeleteError(f"Unable to delete old group {update_group}.\n{e}")
         print("Checking function service status...")
+        has_function_read_access = not ToolGlobals.client.iam.compare_capabilities(
+            token_inspection.capabilities,
+            FunctionsAcl([FunctionsAcl.Action.Read], FunctionsAcl.Scope.All()),
+            project=auth_vars.project,
+        )
+        if not has_function_read_access:
+            self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
+            return None
         function_status = ToolGlobals.client.functions.status()
         if function_status.status != "activated":
             if function_status.status == "requested":
