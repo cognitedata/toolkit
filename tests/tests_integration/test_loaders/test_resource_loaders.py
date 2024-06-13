@@ -82,6 +82,8 @@ def dummy_schedule(cognite_client: CogniteClient, dummy_function: Function) -> F
 
 
 class TestFunctionScheduleLoader:
+    # The function schedule service is fairly unstable, so we need to rerun the tests if they fail.
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError"])
     def test_update_function_schedule(
         self, cognite_client: CogniteClient, dummy_function: Function, dummy_schedule: FunctionSchedule
     ) -> None:
