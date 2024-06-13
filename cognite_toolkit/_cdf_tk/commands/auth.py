@@ -108,8 +108,8 @@ class AuthCommand(ToolkitCommand):
             # Using the token/inspect endpoint to check if the client has access to the project.
             # The response also includes access rights, which can be used to check if the client has the
             # correct access for what you want to do.
-            resp = ToolGlobals.client.iam.token.inspect()
-            if resp is None or len(resp.capabilities) == 0:
+            token_inspection = ToolGlobals.client.iam.token.inspect()
+            if token_inspection is None or len(token_inspection.capabilities) == 0:
                 raise AuthorizationError(
                     "Valid authentication token, but it does not give any access rights."
                     " Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
@@ -119,17 +119,14 @@ class AuthCommand(ToolkitCommand):
             raise AuthorizationError(
                 "Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
             )
-        try:
-            print("Checking projects that the service principal/application has access to...")
-            if len(resp.projects) == 0:
-                raise AuthorizationError(
-                    "The service principal/application configured for this client does not have access to any projects."
-                )
-            projects = ""
-            projects = projects.join(f"  - {p.url_name}\n" for p in resp.projects)
-            print(projects[0:-1])
-        except Exception as e:
-            raise AuthorizationError(f"Failed to process project information from inspect()\n{e}")
+
+        print("Checking projects that the service principal/application has access to...")
+        if len(token_inspection.projects) == 0:
+            raise AuthorizationError(
+                "The service principal/application configured for this client does not have access to any projects."
+            )
+        print("\n".join(f"  - {p.url_name}" for p in token_inspection.projects))
+
         print(f"[italic]Focusing on current project {auth_vars.project} only from here on.[/]")
         print(
             "Checking basic project and group manipulation access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
@@ -237,7 +234,7 @@ class AuthCommand(ToolkitCommand):
         print(f"\nChecking CDF groups access right against capabilities in {group_file.name} ...")
 
         diff = ToolGlobals.client.iam.compare_capabilities(
-            resp.capabilities,
+            token_inspection.capabilities,
             read_write.capabilities or [],
             project=auth_vars.project,
         )
@@ -250,7 +247,7 @@ class AuthCommand(ToolkitCommand):
         else:
             print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
         # Flatten out into a list of acls in the existing project
-        existing_cap_list = [c.capability for c in resp.capabilities]
+        existing_cap_list = [c.capability for c in token_inspection.capabilities]
         print("---------------------")
         if len(groups) > 1 and update_group > 1:
             print(f"Checking group config file against capabilities only from the group {update_group}...")
@@ -266,7 +263,7 @@ class AuthCommand(ToolkitCommand):
 
         loosing = ToolGlobals.client.iam.compare_capabilities(
             existing_cap_list,
-            resp.capabilities,
+            token_inspection.capabilities,
             project=auth_vars.project,
         )
         loosing = [l for l in loosing if type(l) is not UserProfilesAcl]  # noqa: E741
