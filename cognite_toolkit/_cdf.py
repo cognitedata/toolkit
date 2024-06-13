@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
-
+import contextlib
 import os
 import sys
 from collections.abc import Sequence
@@ -434,7 +434,11 @@ def auth_verify(
     The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
     cmd = AuthCommand()
-    cmd.execute(ctx, dry_run, interactive, group_file, update_group, create_group)
+    with contextlib.redirect_stdout(None):
+        # Remove the Error message from failing to load the config
+        # This is verified in check_auth
+        ToolGlobals = CDFToolConfig.from_context(ctx)
+    cmd.execute(ToolGlobals, dry_run, interactive, group_file, update_group, create_group, ctx.obj.verbose)
 
 
 @_app.command("init" if not featureflag.enabled("FF_INTERACTIVE_INIT") else "_init")
