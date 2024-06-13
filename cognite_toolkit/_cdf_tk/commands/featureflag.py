@@ -36,10 +36,12 @@ class FeatureFlag:
         settings = FeatureFlag._load_user_settings()
         settings.update({flag.name: enabled})
         FeatureFlag._get_file().write_text(yaml.dump(settings))
+        FeatureFlag.is_enabled.cache_clear()
 
     @staticmethod
     def _reset_user_settings() -> None:
         FeatureFlag._get_file().unlink()
+        FeatureFlag.is_enabled.cache_clear()
 
     @staticmethod
     @lru_cache(typed=True)
