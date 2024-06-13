@@ -19,6 +19,9 @@ class FeatureFlag:
 
     @staticmethod
     def enabled(flag: str) -> bool:
+        if flag == "FF_INTERACTIVE_INIT":
+            return True
+
         if FeatureFlag._flags is None:
             system_yaml_path = FeatureFlag._get_system_yaml_path()
             if system_yaml_path:

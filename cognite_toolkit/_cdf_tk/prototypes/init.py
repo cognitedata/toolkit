@@ -14,6 +14,7 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES
 from cognite_toolkit._cdf_tk.data_classes._config_yaml import Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.prototypes import _packages
@@ -108,7 +109,7 @@ class InitCommand(ToolkitCommand):
                     build_type="dev" if environment == "dev" else "prod",
                     selected=list(selected.keys()) if selected else ["empty"],
                 )
-            ).load_defaults(module_dir)
+            ).load_selected_defaults(Path(_packages.__file__).parent)
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating config.{environment}.yaml[/]")
             Path(init_dir + f"/config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
@@ -144,7 +145,7 @@ class InitCommand(ToolkitCommand):
             if not init_dir or init_dir.strip() == "":
                 raise ToolkitRequiredValueError("You must provide a directory name.")
 
-        if Path(init_dir + ALT_CUSTOM_MODULES).is_dir():
+        if (Path(init_dir) / ALT_CUSTOM_MODULES).is_dir():
             mode = questionary.select(
                 f"Directory {init_dir}/modules already exists. What would you like to do?",
                 choices=[
