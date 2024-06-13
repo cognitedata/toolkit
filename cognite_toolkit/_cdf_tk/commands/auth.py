@@ -128,7 +128,7 @@ class AuthCommand(ToolkitCommand):
         print("\n".join(f"  - {p.url_name}" for p in token_inspection.projects))
         if auth_vars.project not in {p.url_name for p in token_inspection.projects}:
             raise AuthorizationError(
-                f"The service principal/application configured for this client does not have access to the CDF_PROJECT{auth_vars.project}."
+                f"The service principal/application configured for this client does not have access to the CDF_PROJECT={auth_vars.project!r}."
             )
 
         print(f"[italic]Focusing on current project {auth_vars.project} only from here on.[/]")
