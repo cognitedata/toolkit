@@ -1,0 +1,14 @@
+externalId: tr_idm_Asset_upsert
+name: idm_Asset_upsert
+destination:
+  type: instances
+  dataModel:
+    space: '{{ model_space }}'
+    externalId: IDM
+    version: v1
+    destinationType: Asset
+  instanceSpace: '{{ data_space }}'
+conflictMode: upsert
+isPublic: true
+ignoreNullFields: true
+dataSetExternalId: '{{ dataset }}'

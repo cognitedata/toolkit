@@ -1,0 +1,5 @@
+"title": "Examples: a set of example modules for inspiration"
+"modules": {
+      "cdf_data_pipeline_asset_valhall": {"items": {}},
+      "cdf_data_pipeline_files_valhall": {"items": {}}
+}

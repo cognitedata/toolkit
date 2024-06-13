@@ -178,6 +178,32 @@ variable4: "value with #in it" # But a comment after
         assert ("variables", "cognite_modules", "infield", "shared_variable") in config.keys()
         assert ("variables", "cognite_modules", "infield", "cdf_infield_common", "shared_variable") not in config.keys()
 
+    def test_finds_selected_defaults(
+        self,
+    ) -> None:
+        environment = Environment(
+            name="dev",
+            project="my_project",
+            build_type="dev",
+            selected=["cognite_modules/a_module"],
+        )
+
+        config_all = InitConfigYAML(environment).load_defaults(PYTEST_PROJECT)
+        config_selected = InitConfigYAML(environment).load_selected_defaults(PYTEST_PROJECT)
+
+        assert len(config_all) > len(config_selected)
+        assert ("variables", "cognite_modules", "a_module", "readonly_source_id") in config_all.keys()
+        assert ("variables", "cognite_modules", "a_module", "readonly_source_id") in config_selected.keys()
+
+        assert ("variables", "cognite_modules", "parent_module", "child_module", "child_variable") in config_all.keys()
+        assert (
+            "variables",
+            "cognite_modules",
+            "parent_module",
+            "child_module",
+            "child_variable",
+        ) not in config_selected.keys()
+
 
 @pytest.mark.parametrize(
     "input_, expected",
