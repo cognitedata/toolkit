@@ -90,6 +90,7 @@ class FeatureFlagCommand(ToolkitCommand):
                 f"Unknown flag: [bold]{flag}[/]. Use the [bold]list[/] command to see available flags"
             )
         FeatureFlag._save_user_settings(fflag, enabled)
+        print(f"Feature flag [bold yellow]{flag}[/] has been [bold yellow]{'enabled' if enabled else 'disabled'}[/]")
 
     def reset(self) -> None:
         FeatureFlag._reset_user_settings()
