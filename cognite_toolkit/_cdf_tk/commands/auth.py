@@ -133,20 +133,25 @@ class AuthCommand(ToolkitCommand):
 
         print(f"[italic]Focusing on current project {auth_vars.project} only from here on.[/]")
         print(
-            "Checking basic project and group manipulation access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
+            "Checking basic project and group manipulation access rights "
+            "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
         )
         try:
             ToolGlobals.verify_client(
                 capabilities={
-                    "projectsAcl": ["LIST", "READ"],
-                    "groupsAcl": ["LIST", "READ"],
+                    "projectsAcl": [
+                        "LIST",
+                        "READ",
+                    ],
+                    "groupsAcl": ["LIST", "READ", "UPDATE", "DELETE"],
                 }
             )
             print("  [bold green]OK[/]")
         except Exception:
             self.warn(
                 HighSeverityWarning(
-                    "The service principal/application configured for this client does not have the basic group write access rights."
+                    "The service principal/application configured for this client "
+                    "does not have the basic group write access rights."
                 )
             )
             print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
@@ -160,7 +165,8 @@ class AuthCommand(ToolkitCommand):
                 print("  [bold green]OK[/] - can continue with checks.")
             except Exception:
                 raise AuthorizationError(
-                    "Unable to continue, the service principal/application configured for this client does not have the basic read group access rights."
+                    "Unable to continue, the service principal/application configured for this client does not"
+                    " have the basic read group access rights."
                 )
         project_info = ToolGlobals.client.get(f"/api/v1/projects/{auth_vars.project}").json()
         print("Checking identity provider settings...")
