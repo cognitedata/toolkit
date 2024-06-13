@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+## Improved
+
+- When running `cdf-tk auth verify`, if the client does not have access to the `CDF_PROJECT` the user will now get
+  a more informative error message.
+
 ## [0.2.0] - 2024-06-10
 
 ### Fixed
