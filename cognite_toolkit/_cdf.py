@@ -13,6 +13,7 @@ from cognite.client.data_classes.data_modeling import DataModelId, NodeId
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
+from rich.table import Table
 
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
@@ -81,18 +82,20 @@ describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+feature_flag_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
 _app.add_typer(run_app, name="run")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
+_app.add_typer(feature_flag_app, name="feature")
 
 
 def app() -> NoReturn:
     # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
-        if FeatureFlag.enabled("FF_INTERACTIVE_INIT"):
+        if FeatureFlag.is_enabled("FF_INTERACTIVE_INIT"):
             from cognite_toolkit._cdf_tk.prototypes.interactive_init import InteractiveInit
 
             _app.command("init")(InteractiveInit().interactive)
@@ -437,7 +440,7 @@ def auth_verify(
     cmd.execute(ctx, dry_run, interactive, group_file, update_group, create_group)
 
 
-@_app.command("init" if not FeatureFlag.enabled("FF_INTERACTIVE_INIT") else "_init")
+@_app.command("init" if not FeatureFlag.is_enabled("FF_INTERACTIVE_INIT") else "_init")
 def main_init(
     ctx: typer.Context,
     dry_run: Annotated[
@@ -838,6 +841,36 @@ def dump_datamodel_cmd(
         clean,
         ctx.obj.verbose,
     )
+
+
+@feature_flag_app.callback(invoke_without_command=True)
+def feature_flag_main(ctx: typer.Context) -> None:
+    """Commands to enable and disable feature flags for the toolkit."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk feature list[/] or [bold yellow]cdf-tk feature enable [flag][/]")
+    return None
+
+
+@feature_flag_app.command("list")
+def feature_flag_list() -> None:
+    """List all available feature flags."""
+    flags = FeatureFlag.list()
+    print(
+        Panel(
+            "[yellow]Warning: enabling feature flags may have undesired side effects."
+            "\nDo not enable a flag unless you are familiar with what it does.[/]"
+        )
+    )
+
+    table = Table(title="feature flags")
+    table.add_column("Name", justify="left")
+    table.add_column("Description", justify="left")
+    table.add_column("Status", justify="left")
+
+    for flag, description, enabled in flags:
+        table.add_row(flag, description, "enabled" if enabled else "disabled", style="yellow" if enabled else "")
+
+    print(table)
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:

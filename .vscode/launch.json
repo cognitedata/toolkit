@@ -123,5 +123,24 @@
             "console": "integratedTerminal",
             "justMyCode": false
         },
+        {
+            "name": "Python: feature flags",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "feature",
+                "list",
+                //"--dry-run",
+                //"--env=local",
+                //"--include=transformations"
+                //"--init-dir=foo",
+                //"--help",
+                //"--package=quickstart"
+                //"--package=empty",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
     ]
 }
