@@ -94,32 +94,8 @@ class AuthCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
     ) -> None:
-        print("[bold]Checking current service principal/application and environment configurations...[/]")
-        auth_vars = AuthVariables.from_env()
-        if interactive:
-            result = auth_vars.from_interactive_with_validation(verbose)
-        else:
-            result = auth_vars.validate(verbose)
-        if result.messages:
-            print("\n".join(result.messages))
-        print("  [bold green]OK[/]")
-        ToolGlobals.initialize_from_auth_variables(auth_vars)
-        print("Checking basic project configuration...")
-        try:
-            # Using the token/inspect endpoint to check if the client has access to the project.
-            # The response also includes access rights, which can be used to check if the client has the
-            # correct access for what you want to do.
-            token_inspection = ToolGlobals.client.iam.token.inspect()
-            if token_inspection is None or len(token_inspection.capabilities) == 0:
-                raise AuthorizationError(
-                    "Valid authentication token, but it does not give any access rights."
-                    " Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
-                )
-            print("  [bold green]OK[/]")
-        except Exception:
-            raise AuthorizationError(
-                "Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
-            )
+        auth_vars = self.initialize_client(ToolGlobals, interactive, verbose)
+        token_inspection = self.check_has_any_access(ToolGlobals)
 
         print("Checking projects that the service principal/application has access to...")
         if len(token_inspection.projects) == 0:
@@ -359,7 +335,40 @@ class AuthCommand(ToolkitCommand):
                         print(f"  [bold green]OK[/] - Would have deleted old group {update_group}.")
                 except Exception as e:
                     raise ResourceDeleteError(f"Unable to delete old group {update_group}.\n{e}")
+
         self.check_function_service_status(ToolGlobals, token_inspection, auth_vars.project, dry_run)
+
+    def initialize_client(self, ToolGlobals: CDFToolConfig, interactive: bool, verbose: bool) -> AuthVariables:
+        print("[bold]Checking current service principal/application and environment configurations...[/]")
+        auth_vars = AuthVariables.from_env()
+        if interactive:
+            result = auth_vars.from_interactive_with_validation(verbose)
+        else:
+            result = auth_vars.validate(verbose)
+        if result.messages:
+            print("\n".join(result.messages))
+        print("  [bold green]OK[/]")
+        ToolGlobals.initialize_from_auth_variables(auth_vars)
+        return auth_vars
+
+    def check_has_any_access(self, ToolGlobals: CDFToolConfig) -> TokenInspection:
+        print("Checking basic project configuration...")
+        try:
+            # Using the token/inspect endpoint to check if the client has access to the project.
+            # The response also includes access rights, which can be used to check if the client has the
+            # correct access for what you want to do.
+            token_inspection = ToolGlobals.client.iam.token.inspect()
+            if token_inspection is None or len(token_inspection.capabilities) == 0:
+                raise AuthorizationError(
+                    "Valid authentication token, but it does not give any access rights."
+                    " Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
+                )
+            print("  [bold green]OK[/]")
+        except Exception:
+            raise AuthorizationError(
+                "Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
+            )
+        return token_inspection
 
     def check_function_service_status(
         self, ToolGlobals: CDFToolConfig, token_inspection: TokenInspection, project: str | None, dry_run: bool
@@ -389,4 +398,3 @@ class AuthCommand(ToolkitCommand):
                     )
         else:
             print("  [bold green]OK[/] - Function service has been activated.")
-        return None
