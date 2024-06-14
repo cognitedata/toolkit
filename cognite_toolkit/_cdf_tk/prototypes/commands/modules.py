@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from collections.abc import MutableMapping
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Optional
 
 import questionary
 import typer
 import yaml
+from packaging.version import parse as parse_version
 from rich import print
 from rich.padding import Padding
 from rich.panel import Panel
@@ -15,9 +18,11 @@ from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES
-from cognite_toolkit._cdf_tk.data_classes._config_yaml import Environment, InitConfigYAML
+from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.prototypes import _packages
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._version import __version__
 
 custom_style_fancy = questionary.Style(
     [
@@ -247,4 +252,55 @@ class ModulesCommand(ToolkitCommand):
         raise typer.Exit()
 
     def upgrade(self, project_dir: Optional[str] = None) -> None:
-        raise NotImplementedError()
+        project_path = Path(project_dir or ".")
+
+        # Validation.
+        system_yaml = SystemYAML.load_from_directory(project_path, build_env_name="dev")
+        SystemYAML.validate_module_dir(project_path)
+
+        cli_version = parse_version(__version__)
+        if cli_version < system_yaml.module_version:
+            upgrade = "poetry add cognite-toolkit@" if CLICommands.use_poetry() else "pip install cognite-toolkit=="
+            print(
+                f"Modules are at a higher version ({system_yaml.module_version}) than the installed CLI ({__version__})."
+                f"Please upgrade the CLI to match the modules: `{upgrade}{system_yaml.module_version}`."
+            )
+            return
+
+        if not CLICommands.use_git():
+            self.warn(MediumSeverityWarning("git is not installed. It is strongly recommended to use version control."))
+        else:
+            if not CLICommands.has_initiated_repo():
+                self.warn(MediumSeverityWarning("git repository not initiated. Did you forget to run `git init`?"))
+            else:
+                if CLICommands.has_uncommitted_changes():
+                    print("Uncommitted changes detected. Please commit your changes before upgrading the modules.")
+                    return
+
+
+class CLICommands:
+    @classmethod
+    def use_poetry(cls) -> bool:
+        with suppress(Exception):
+            return shutil.which("poetry") is not None
+        return False
+
+    @classmethod
+    def use_git(cls) -> bool:
+        with suppress(Exception):
+            return shutil.which("git") is not None
+        return False
+
+    @classmethod
+    def has_initiated_repo(cls) -> bool:
+        with suppress(Exception):
+            result = subprocess.run("git rev-parse --is-inside-work-tree".split(), stdout=subprocess.PIPE)
+            return result.returncode == 0
+        return False
+
+    @classmethod
+    def has_uncommitted_changes(cls) -> bool:
+        with suppress(Exception):
+            result = subprocess.run("git diff --quiet".split(), stdout=subprocess.PIPE)
+            return result.returncode != 0
+        return False

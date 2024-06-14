@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
+from packaging.version import Version
+from packaging.version import parse as parse_version
 from rich import print
 
 from cognite_toolkit._cdf_tk.constants import MODULE_PATH_SEP, ROOT_MODULES
@@ -16,6 +18,10 @@ class SystemYAML(ConfigCore):
     file_name: ClassVar[str] = "_system.yaml"
     cdf_toolkit_version: str
     packages: dict[str, list[str | tuple[str, ...]]] = field(default_factory=dict)
+
+    @property
+    def module_version(self) -> Version:
+        return parse_version(self.cdf_toolkit_version)
 
     @classmethod
     def _file_name(cls, build_env_name: str) -> str:
