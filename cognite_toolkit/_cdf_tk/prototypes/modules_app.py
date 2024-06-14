@@ -4,10 +4,10 @@ from typing import Annotated, Optional
 
 import typer
 
-from cognite_toolkit._cdf_tk.prototypes.init import InitCommand
+from cognite_toolkit._cdf_tk.prototypes.commands.modules import ModulesCommand
 
 
-class InteractiveInit(typer.Typer):
+class Modules(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
         self.command()(self.interactive)
@@ -32,7 +32,7 @@ class InteractiveInit(typer.Typer):
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
-        cmd = InitCommand()
+        cmd = ModulesCommand()
         cmd.run(
             ctx,
             init_dir=arg_init_dir,
@@ -40,6 +40,4 @@ class InteractiveInit(typer.Typer):
         )
 
 
-command = InteractiveInit(
-    name="init", help="Initialize or upgrade a new CDF project with templates interactively."
-).interactive
+command = Modules(name="init", help="Initialize or upgrade a new CDF project with templates interactively.").interactive

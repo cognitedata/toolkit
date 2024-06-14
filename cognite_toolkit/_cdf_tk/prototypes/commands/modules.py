@@ -54,7 +54,7 @@ class Packages(dict, MutableMapping[str, dict[str, Any]]):
         return cls(packages)
 
 
-class InitCommand(ToolkitCommand):
+class ModulesCommand(ToolkitCommand):
     def _build_tree(self, item: dict | list, tree: Tree) -> None:
         if not isinstance(item, dict):
             return
