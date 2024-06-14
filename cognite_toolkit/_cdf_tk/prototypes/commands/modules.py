@@ -255,7 +255,7 @@ class ModulesCommand(ToolkitCommand):
         project_path = Path(project_dir or ".")
 
         # Validation.
-        system_yaml = SystemYAML.load_from_directory(project_path, build_env_name="dev")
+        system_yaml = SystemYAML.load_from_directory(project_path, build_env_name="dev", skip_validation=True)
         SystemYAML.validate_module_dir(project_path)
 
         cli_version = parse_version(__version__)

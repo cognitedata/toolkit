@@ -28,8 +28,8 @@ class SystemYAML(ConfigCore):
         return cls.file_name
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> SystemYAML:
-        version = _load_version_variable(data, filepath.name)
+    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path, skip_validation: bool) -> SystemYAML:
+        version = _load_version_variable(data, filepath.name, skip_validation)
         packages = data.get("packages", {})
         if not packages:
             print(f"  [bold yellow]Warning:[/] No packages defined in {cls.file_name}.")
