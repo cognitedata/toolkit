@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILD_ENVIRONMENT_FILE,
     DEFAULT_CONFIG_FILE,
     MODULE_PATH_SEP,
+    ROOT_MODULES,
     SEARCH_VARIABLES_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
@@ -352,9 +353,17 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         return self._load_defaults(cognite_root_module, relevant_defaults)
 
     def load_defaults(self, cognite_root_module: Path) -> InitConfigYAML:
-        default_files = sorted(
-            cognite_root_module.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(cognite_root_module)
+        """Loads all default.config.yaml files in the cognite root module."""
+
+        default_files_iterable = itertools.chain(
+            *[
+                (cognite_root_module / root_module).glob(f"**/{DEFAULT_CONFIG_FILE}")
+                for root_module in ROOT_MODULES
+                if (cognite_root_module / root_module).exists()
+            ]
         )
+
+        default_files = sorted(default_files_iterable, key=lambda f: f.relative_to(cognite_root_module))
         return self._load_defaults(cognite_root_module, default_files)
 
     def _load_defaults(self, cognite_root_module: Path, defaults_files: list[Path]) -> InitConfigYAML:
