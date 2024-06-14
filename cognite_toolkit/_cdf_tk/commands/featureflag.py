@@ -28,18 +28,18 @@ class FeatureFlag:
         return f
 
     @staticmethod
-    def _load_user_settings() -> dict[str, bool]:
+    def load_user_settings() -> dict[str, bool]:
         return yaml.safe_load(FeatureFlag._get_file().read_text())
 
     @staticmethod
-    def _save_user_settings(flag: Flags, enabled: bool) -> None:
-        settings = FeatureFlag._load_user_settings()
+    def save_user_settings(flag: Flags, enabled: bool) -> None:
+        settings = FeatureFlag.load_user_settings()
         settings.update({flag.name: enabled})
         FeatureFlag._get_file().write_text(yaml.dump(settings))
         FeatureFlag.is_enabled.cache_clear()
 
     @staticmethod
-    def _reset_user_settings() -> None:
+    def reset_user_settings() -> None:
         FeatureFlag._get_file().unlink()
         FeatureFlag.is_enabled.cache_clear()
 
@@ -54,7 +54,7 @@ class FeatureFlag:
         if not fflag:
             return False
 
-        user_settings = FeatureFlag._load_user_settings()
+        user_settings = FeatureFlag.load_user_settings()
         return user_settings.get(fflag.name, False)
 
     @staticmethod
@@ -68,7 +68,7 @@ class FeatureFlag:
 
 class FeatureFlagCommand(ToolkitCommand):
     def list(self) -> None:
-        user_settings = FeatureFlag._load_user_settings()
+        user_settings = FeatureFlag.load_user_settings()
         table = Table(title="feature flags")
         table.add_column("Name", justify="left")
         table.add_column("Description", justify="left")
@@ -91,9 +91,9 @@ class FeatureFlagCommand(ToolkitCommand):
             raise ToolkitRequiredValueError(
                 f"Unknown flag: [bold]{flag}[/]. Use the [bold]list[/] command to see available flags"
             )
-        FeatureFlag._save_user_settings(fflag, enabled)
+        FeatureFlag.save_user_settings(fflag, enabled)
         print(f"Feature flag [bold yellow]{flag}[/] has been [bold yellow]{'enabled' if enabled else 'disabled'}[/]")
 
     def reset(self) -> None:
-        FeatureFlag._reset_user_settings()
+        FeatureFlag.reset_user_settings()
         print("Feature flags have been reset")
