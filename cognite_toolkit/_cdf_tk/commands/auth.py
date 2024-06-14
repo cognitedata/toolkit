@@ -366,6 +366,8 @@ class AuthCommand(ToolkitCommand):
             return None
         try:
             function_status = ToolGlobals.client.functions.status()
+        except CogniteAPIError as e:
+            self.warn(HighSeverityWarning(f"Unable to check function service status.\n{e}"))
             if function_status.status != "activated":
                 if function_status.status == "requested":
                     print(
