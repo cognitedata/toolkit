@@ -4,7 +4,6 @@ import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
 
-import typer
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -208,9 +207,14 @@ class CleanCommand(ToolkitCommand):
             )
 
     def execute(
-        self, ctx: typer.Context, build_dir_raw: str, build_env_name: str, dry_run: bool, include: list[str]
+        self,
+        ToolGlobals: CDFToolConfig,
+        build_dir_raw: str,
+        build_env_name: str,
+        dry_run: bool,
+        include: list[str],
+        verbose: bool,
     ) -> None:
-        ToolGlobals = CDFToolConfig.from_context(ctx)
         build_dir = Path(build_dir_raw)
         if not build_dir.exists():
             raise ToolkitNotADirectoryError(
@@ -269,7 +273,7 @@ class CleanCommand(ToolkitCommand):
                 drop=True,
                 dry_run=dry_run,
                 drop_data=True,
-                verbose=ctx.obj.verbose,
+                verbose=verbose,
             )
             if result:
                 results[result.name] = result
