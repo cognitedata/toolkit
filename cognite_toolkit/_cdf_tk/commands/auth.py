@@ -13,13 +13,11 @@
 # limitations under the License.
 from __future__ import annotations
 
-import contextlib
 from importlib import resources
 from pathlib import Path
 from time import sleep
 from typing import cast
 
-import typer
 from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
@@ -55,20 +53,17 @@ from ._base import ToolkitCommand
 class AuthCommand(ToolkitCommand):
     def execute(
         self,
-        ctx: typer.Context,
+        ToolGlobals: CDFToolConfig,
         dry_run: bool,
         interactive: bool,
         group_file: str | None,
         update_group: int,
         create_group: str | None,
+        verbose: bool,
     ) -> None:
         # TODO: Check if groupsAcl.UPDATE does nothing?
         if create_group is not None and update_group != 0:
             raise ToolkitInvalidSettingsError("--create-group and --update-group are mutually exclusive.")
-        with contextlib.redirect_stdout(None):
-            # Remove the Error message from failing to load the config
-            # This is verified in check_auth
-            ToolGlobals = CDFToolConfig.from_context(ctx)
 
         if group_file is None:
             template_dir = cast(Path, resources.files("cognite_toolkit"))
@@ -84,7 +79,7 @@ class AuthCommand(ToolkitCommand):
             create_group=create_group,
             interactive=interactive,
             dry_run=dry_run,
-            verbose=ctx.obj.verbose,
+            verbose=verbose,
         )
 
     def check_auth(
