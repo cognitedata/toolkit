@@ -129,7 +129,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         return None
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path, skip_validation: bool) -> BuildConfigYAML:
+    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> BuildConfigYAML:
         if missing := {"environment", "variables"}.difference(data):
             err_msg = f"Expected {list(missing)} section(s) in {filepath!s}."
             if "modules" in data and "variables" in missing:

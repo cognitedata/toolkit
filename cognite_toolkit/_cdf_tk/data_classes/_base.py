@@ -31,7 +31,6 @@ class ConfigCore(ABC):
         build_env_name: str,
         warn: Callable[[ToolkitWarning], None] | None = None,
         command: str | None = None,
-        skip_validation: bool = False,
     ) -> T_BuildConfig:
         file_name = cls._file_name(build_env_name)
         filepath = source_path / file_name
@@ -58,20 +57,18 @@ class ConfigCore(ABC):
                 hint = f"{command} {hint}"
             raise ToolkitFileNotFoundError(f"{file_name!r} does not exist. Did you mean {hint!r}?")
 
-        return cls.load(read_yaml_file(filepath), build_env_name, filepath, skip_validation)
+        return cls.load(read_yaml_file(filepath), build_env_name, filepath)
 
     @classmethod
     @abstractmethod
-    def load(
-        cls: type[T_BuildConfig], data: dict[str, Any], build_env: str, filepath: Path, skip_validation: bool
-    ) -> T_BuildConfig:
+    def load(cls: type[T_BuildConfig], data: dict[str, Any], build_env: str, filepath: Path) -> T_BuildConfig:
         raise NotImplementedError
 
 
 T_BuildConfig = TypeVar("T_BuildConfig", bound=ConfigCore)
 
 
-def _load_version_variable(data: dict[str, Any], file_name: str, skip_validation: bool = False) -> str:
+def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
     try:
         cdf_tk_version: str = data["cdf_toolkit_version"]
     except KeyError:
@@ -84,7 +81,7 @@ def _load_version_variable(data: dict[str, Any], file_name: str, skip_validation
             err_msg.format("Run `cdf-tk init --upgrade` to initialize the modules again to create a correct file.")
         )
 
-    if not skip_validation and cdf_tk_version != _version.__version__:
+    if cdf_tk_version != _version.__version__:
         raise ToolkitVersionError(
             f"The version of the modules ({cdf_tk_version}) does not match the version of the installed CLI "
             f"({_version.__version__}). Please either run `cdf-tk init --upgrade` to upgrade the modules OR "
