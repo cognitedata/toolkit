@@ -892,11 +892,12 @@ def feature_flag_set(
     cmd = FeatureFlagCommand()
     if enabled.casefold() == "true":
         cmd.set(flag, True)
-    if enabled.casefold() == "false":
+    elif enabled.casefold() == "false":
         cmd.set(flag, False)
-    raise ToolkitValidationError(
-        f"Invalid value for [bold]enabled[/]: [red]'{enabled}'[/]. Acceped values are: 'true' or 'false'"
-    )
+    else:
+        raise ToolkitValidationError(
+            f"Invalid value for [bold]enabled[/]: [red]'{enabled}'[/]. Acceped values are: 'true' or 'false'"
+        )
 
 
 @feature_flag_app.command("reset")
