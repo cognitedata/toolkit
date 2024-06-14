@@ -245,3 +245,6 @@ class ModulesCommand(ToolkitCommand):
                 )
 
         raise typer.Exit()
+
+    def upgrade(self, project_dir: Optional[str] = None) -> None:
+        raise NotImplementedError()
