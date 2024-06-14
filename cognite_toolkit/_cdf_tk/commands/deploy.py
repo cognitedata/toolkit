@@ -5,7 +5,6 @@ import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
 
-import typer
 from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from rich import print
@@ -53,22 +52,22 @@ from ._utils import _print_ids_or_length, _remove_duplicates
 
 
 class DeployCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True):
-        super().__init__(print_warning)
-        self._clean_command = CleanCommand(print_warning)
+    def __init__(self, print_warning: bool = True, user_command: str | None = None):
+        super().__init__(print_warning, user_command)
+        self._clean_command = CleanCommand(print_warning, skip_tracking=True)
 
     def execute(
         self,
-        ctx: typer.Context,
+        ToolGlobals: CDFToolConfig,
         build_dir_raw: str,
         build_env_name: str,
         dry_run: bool,
         drop: bool,
         drop_data: bool,
         include: list[str],
+        verbose: bool,
     ) -> None:
         # Override cluster and project from the options/env variables
-        ToolGlobals = CDFToolConfig.from_context(ctx)
         build_dir: Path = Path(build_dir_raw)
         if not build_dir.exists():
             raise ToolkitNotADirectoryError(
@@ -137,7 +136,7 @@ class DeployCommand(ToolkitCommand):
                     drop=drop,
                     dry_run=dry_run,
                     drop_data=drop_data,
-                    verbose=ctx.obj.verbose,
+                    verbose=verbose,
                 )
                 if result:
                     results[result.name] = result
@@ -153,11 +152,11 @@ class DeployCommand(ToolkitCommand):
                 dry_run=dry_run,
                 has_done_drop=drop,
                 has_dropped_data=drop_data,
-                verbose=ctx.obj.verbose,
+                verbose=verbose,
             )
             if result:
                 results[result.name] = result
-            if ctx.obj.verbose:
+            if verbose:
                 print("")  # Extra newline
 
         if results.has_counts:

@@ -32,6 +32,9 @@ Changes are grouped as follows:
   `ValueError: No capabilities given`. This is now fixed.
 - When deploying `containers` resources with an index, the `cdf-tk deploy` would consider the resource as changed
   even though it was not. This is now fixed.
+- When parsing yaml without `libyaml`, `cognite-toolkit` would raise an
+  `AttributeError: module 'yaml' has no attribute 'CSafeLoader'`. This is now fixed by falling back to the
+  python `yaml` parser if `libyaml` (c-based) is not available.
 
 ## [0.2.0b4] - 2024-06-06
 
