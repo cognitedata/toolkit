@@ -20,11 +20,13 @@ from time import sleep
 from typing import cast
 
 import typer
+from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     UserProfilesAcl,
 )
-from cognite.client.data_classes.iam import Group, TokenInspection
+from cognite.client.data_classes.iam import Group, GroupList, TokenInspection
+from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.markup import escape
 from rich.prompt import Confirm, Prompt
@@ -36,6 +38,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceDeleteError,
     ResourceRetrievalError,
+    ToolkitFileNotFoundError,
     ToolkitInvalidSettingsError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -106,8 +109,120 @@ class AuthCommand(ToolkitCommand):
 
         self.check_has_group_access(ToolGlobals)
 
+        self.check_identity_provider(ToolGlobals, cdf_project)
+
+        try:
+            groups = ToolGlobals.client.iam.groups.list()
+        except CogniteAPIError as e:
+            raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
+
+        read_write, matched_group_id = self.check_group_membership(groups, group_file, update_group)
+
+        self.check_has_toolkit_required_capabilities(
+            ToolGlobals.client, token_inspection, read_write, cdf_project, group_file.name
+        )
+        print("---------------------")
+        self.check_capabilities_against_groups(ToolGlobals, token_inspection, auth_vars, groups, update_group)
+
+        self.update_group(
+            ToolGlobals,
+            groups,
+            group_file,
+            read_write,
+            matched_group_id,
+            update_group,
+            create_group,
+            interactive,
+            dry_run,
+        )
+        self.check_function_service_status(ToolGlobals, token_inspection, cdf_project, dry_run)
+
+    def initialize_client(self, ToolGlobals: CDFToolConfig, interactive: bool, verbose: bool) -> AuthVariables:
+        print("[bold]Checking current service principal/application and environment configurations...[/]")
+        auth_vars = AuthVariables.from_env()
+        if interactive:
+            result = auth_vars.from_interactive_with_validation(verbose)
+        else:
+            result = auth_vars.validate(verbose)
+        if result.messages:
+            print("\n".join(result.messages))
+        print("  [bold green]OK[/]")
+        ToolGlobals.initialize_from_auth_variables(auth_vars)
+        return auth_vars
+
+    def check_has_any_access(self, ToolGlobals: CDFToolConfig) -> TokenInspection:
+        print("Checking basic project configuration...")
+        try:
+            # Using the token/inspect endpoint to check if the client has access to the project.
+            # The response also includes access rights, which can be used to check if the client has the
+            # correct access for what you want to do.
+            token_inspection = ToolGlobals.client.iam.token.inspect()
+            if token_inspection is None or len(token_inspection.capabilities) == 0:
+                raise AuthorizationError(
+                    "Valid authentication token, but it does not give any access rights."
+                    " Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
+                )
+            print("  [bold green]OK[/]")
+        except Exception:
+            raise AuthorizationError(
+                "Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
+            )
+        return token_inspection
+
+    def check_has_project_access(self, token_inspection: TokenInspection, cdf_project: str) -> None:
+        print("Checking projects that the service principal/application has access to...")
+        if len(token_inspection.projects) == 0:
+            raise AuthorizationError(
+                "The service principal/application configured for this client does not have access to any projects."
+            )
+        print("\n".join(f"  - {p.url_name}" for p in token_inspection.projects))
+        if cdf_project not in {p.url_name for p in token_inspection.projects}:
+            raise AuthorizationError(
+                f"The service principal/application configured for this client does not have access to the CDF_PROJECT={cdf_project!r}."
+            )
+
+    def check_has_group_access(self, ToolGlobals: CDFToolConfig) -> None:
+        # Todo rewrite to use the token inspection instead.
+        print(
+            "Checking basic project and group manipulation access rights "
+            "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
+        )
+        try:
+            ToolGlobals.verify_client(
+                capabilities={
+                    "projectsAcl": [
+                        "LIST",
+                        "READ",
+                    ],
+                    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"],
+                }
+            )
+            print("  [bold green]OK[/]")
+        except Exception:
+            self.warn(
+                HighSeverityWarning(
+                    "The service principal/application configured for this client "
+                    "does not have the basic group write access rights."
+                )
+            )
+            print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
+            try:
+                ToolGlobals.verify_client(
+                    capabilities={
+                        "projectsAcl": ["LIST", "READ"],
+                        "groupsAcl": ["LIST", "READ"],
+                    }
+                )
+                print("  [bold green]OK[/] - can continue with checks.")
+            except Exception:
+                raise AuthorizationError(
+                    "Unable to continue, the service principal/application configured for this client does not"
+                    " have the basic read group access rights."
+                )
+
+    def check_identity_provider(self, ToolGlobals: CDFToolConfig, cdf_project: str) -> None:
         print("Checking identity provider settings...")
-        project_info = ToolGlobals.client.get(f"/api/v1/projects/{auth_vars.project}").json()
+        project_info = ToolGlobals.client.get(f"/api/v1/projects/{cdf_project}").json()
         oidc = project_info.get("oidcConfiguration", {})
         if "https://login.windows.net" in oidc.get("tokenUrl"):
             tenant_id = oidc.get("tokenUrl").split("/")[-3]
@@ -121,15 +236,13 @@ class AuthCommand(ToolkitCommand):
         print(
             f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {access_claims}"
         )
+
+    def check_group_membership(self, groups: GroupList, group_file: Path, update_group: int) -> tuple[Group, int]:
         print("Checking CDF group memberships for the current client configured...")
-        try:
-            groups = ToolGlobals.client.iam.groups.list().data
-        except Exception:
-            raise AuthorizationError("Unable to retrieve CDF groups.")
         if group_file.exists():
             file_text = group_file.read_text()
         else:
-            raise FileNotFoundError(f"Group config file does not exist: {group_file.as_posix()}")
+            raise ToolkitFileNotFoundError(f"Group config file does not exist: {group_file.as_posix()}")
         read_write = Group.load(file_text)
         tbl = Table(title="CDF Group ids, Names, and Source Ids")
         tbl.add_column("Id", justify="left")
@@ -179,12 +292,22 @@ class AuthCommand(ToolkitCommand):
             print(
                 "  This group's id should be configured as the [italic]readwrite_source_id[/] for the common/cdf_auth_readwrite_all module."
             )
-        print(f"\nChecking CDF groups access right against capabilities in {group_file.name} ...")
+        return read_write, matched_group_id
 
-        diff = ToolGlobals.client.iam.compare_capabilities(
+    def check_has_toolkit_required_capabilities(
+        self,
+        client: CogniteClient,
+        token_inspection: TokenInspection,
+        read_write: Group,
+        cdf_project: str,
+        group_file_name: str,
+    ) -> None:
+        print(f"\nChecking CDF groups access right against capabilities in {group_file_name} ...")
+
+        diff = client.iam.compare_capabilities(
             token_inspection.capabilities,
             read_write.capabilities or [],
-            project=auth_vars.project,
+            project=cdf_project,
         )
         if len(diff) > 0:
             diff_list: list[str] = []
@@ -194,14 +317,22 @@ class AuthCommand(ToolkitCommand):
                 self.warn(MissingCapabilityWarning(str(s)))
         else:
             print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
+
+    def check_capabilities_against_groups(
+        self,
+        ToolGlobals: CDFToolConfig,
+        token_inspection: TokenInspection,
+        auth_vars: AuthVariables,
+        groups: GroupList,
+        update_group: int,
+    ) -> None:
         # Flatten out into a list of acls in the existing project
         existing_cap_list = [c.capability for c in token_inspection.capabilities]
-        print("---------------------")
         if len(groups) > 1 and update_group > 1:
             print(f"Checking group config file against capabilities only from the group {update_group}...")
             for g in groups:
                 if g.id == update_group:
-                    existing_cap_list = g.capabilities
+                    existing_cap_list = g.capabilities or []
                     break
         else:
             if len(groups) > 1:
@@ -236,6 +367,19 @@ class AuthCommand(ToolkitCommand):
                 "  [bold green]OK[/] - All capabilities from the CDF project are also present in the group config file."
             )
         print("---------------------")
+
+    def update_group(
+        self,
+        ToolGlobals: CDFToolConfig,
+        groups: GroupList,
+        group_file: Path,
+        read_write: Group,
+        matched_group_id: int,
+        update_group: int,
+        create_group: str | None,
+        interactive: bool,
+        dry_run: bool,
+    ) -> None:
         if interactive and matched_group_id != 0:
             push_group = Confirm.ask(
                 f"Do you want to update the group with id {matched_group_id} and name {read_write.name} with the capabilities from {group_file.as_posix()} ?",
@@ -297,99 +441,14 @@ class AuthCommand(ToolkitCommand):
                 except Exception as e:
                     raise ResourceDeleteError(f"Unable to delete old group {update_group}.\n{e}")
 
-        self.check_function_service_status(ToolGlobals, token_inspection, auth_vars.project, dry_run)
-
-    def initialize_client(self, ToolGlobals: CDFToolConfig, interactive: bool, verbose: bool) -> AuthVariables:
-        print("[bold]Checking current service principal/application and environment configurations...[/]")
-        auth_vars = AuthVariables.from_env()
-        if interactive:
-            result = auth_vars.from_interactive_with_validation(verbose)
-        else:
-            result = auth_vars.validate(verbose)
-        if result.messages:
-            print("\n".join(result.messages))
-        print("  [bold green]OK[/]")
-        ToolGlobals.initialize_from_auth_variables(auth_vars)
-        return auth_vars
-
-    def check_has_any_access(self, ToolGlobals: CDFToolConfig) -> TokenInspection:
-        print("Checking basic project configuration...")
-        try:
-            # Using the token/inspect endpoint to check if the client has access to the project.
-            # The response also includes access rights, which can be used to check if the client has the
-            # correct access for what you want to do.
-            token_inspection = ToolGlobals.client.iam.token.inspect()
-            if token_inspection is None or len(token_inspection.capabilities) == 0:
-                raise AuthorizationError(
-                    "Valid authentication token, but it does not give any access rights."
-                    " Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
-                )
-            print("  [bold green]OK[/]")
-        except Exception:
-            raise AuthorizationError(
-                "Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
-            )
-        return token_inspection
-
-    def check_has_project_access(self, token_inspection: TokenInspection, project: str) -> None:
-        print("Checking projects that the service principal/application has access to...")
-        if len(token_inspection.projects) == 0:
-            raise AuthorizationError(
-                "The service principal/application configured for this client does not have access to any projects."
-            )
-        print("\n".join(f"  - {p.url_name}" for p in token_inspection.projects))
-        if project not in {p.url_name for p in token_inspection.projects}:
-            raise AuthorizationError(
-                f"The service principal/application configured for this client does not have access to the CDF_PROJECT={project!r}."
-            )
-
-    def check_has_group_access(self, ToolGlobals: CDFToolConfig) -> None:
-        # Todo rewrite to use the token inspection instead.
-        print(
-            "Checking basic project and group manipulation access rights "
-            "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
-        )
-        try:
-            ToolGlobals.verify_client(
-                capabilities={
-                    "projectsAcl": [
-                        "LIST",
-                        "READ",
-                    ],
-                    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"],
-                }
-            )
-            print("  [bold green]OK[/]")
-        except Exception:
-            self.warn(
-                HighSeverityWarning(
-                    "The service principal/application configured for this client "
-                    "does not have the basic group write access rights."
-                )
-            )
-            print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
-            try:
-                ToolGlobals.verify_client(
-                    capabilities={
-                        "projectsAcl": ["LIST", "READ"],
-                        "groupsAcl": ["LIST", "READ"],
-                    }
-                )
-                print("  [bold green]OK[/] - can continue with checks.")
-            except Exception:
-                raise AuthorizationError(
-                    "Unable to continue, the service principal/application configured for this client does not"
-                    " have the basic read group access rights."
-                )
-
     def check_function_service_status(
-        self, ToolGlobals: CDFToolConfig, token_inspection: TokenInspection, project: str | None, dry_run: bool
+        self, ToolGlobals: CDFToolConfig, token_inspection: TokenInspection, cdf_project: str, dry_run: bool
     ) -> None:
         print("Checking function service status...")
         has_function_read_access = not ToolGlobals.client.iam.compare_capabilities(
             token_inspection.capabilities,
             FunctionsAcl([FunctionsAcl.Action.Read], FunctionsAcl.Scope.All()),
-            project=project,
+            project=cdf_project,
         )
         if not has_function_read_access:
             self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
