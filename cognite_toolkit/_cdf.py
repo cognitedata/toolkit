@@ -871,21 +871,25 @@ def feature_flag_list() -> None:
 def feature_flag_set(
     flag: Annotated[
         str,
-        typer.Option(
-            "--flag",
-            "-f",
-            prompt=True,
+        typer.Argument(
             help="Which flag to set",
         ),
     ],
-    enabled: Annotated[
-        str,
+    enable: Annotated[
+        bool,
         typer.Option(
-            "--enabled",
+            "--enable",
             "-e",
-            help="Enable the flag, default is False",
+            help="Enable the flag.",
         ),
-    ],
+    ] = False,
+    disable: Annotated[
+        bool,
+        typer.Option(
+            "--disable",
+            help="Disable the flag.",
+        ),
+    ] = False,
 ) -> None:
     """Enable or disable a feature flag."""
 
