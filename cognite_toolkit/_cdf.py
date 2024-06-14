@@ -76,7 +76,7 @@ except AttributeError as e:
         f"This was triggered by the error: {e!r}"
     )
 
-_app = typer.Typer(**default_typer_kws, hidden=False)  # type: ignore [arg-type]
+_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 auth_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
