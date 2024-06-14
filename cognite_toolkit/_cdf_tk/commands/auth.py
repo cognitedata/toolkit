@@ -378,7 +378,10 @@ class AuthCommand(ToolkitCommand):
                         print(
                             "  [bold yellow]INFO:[/] Function service has not been activated, activating now, this may take up to 2 hours..."
                         )
-                        ToolGlobals.client.functions.activate()
+                        try:
+                            ToolGlobals.client.functions.activate()
+                        except CogniteAPIError as e:
+                            self.warn(HighSeverityWarning(f"Unable to activate function service.\n{e}"))
                     else:
                         print(
                             "  [bold yellow]INFO:[/] Function service has not been activated, would have activated (will take up to 2 hours)..."
