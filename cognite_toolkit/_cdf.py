@@ -904,7 +904,7 @@ def feature_flag_set(
 def feature_flag_reset() -> None:
     """Reset all feature flags to their default values."""
 
-    cmd = FeatureFlagCommand()
+    cmd = FeatureFlagCommand(user_command=_get_user_command())
     cmd.reset()
 
 
