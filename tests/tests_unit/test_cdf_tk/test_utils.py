@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import shutil
 import tempfile
@@ -27,10 +29,13 @@ from cognite_toolkit._cdf_tk.utils import (
     AuthVariables,
     CDFToolConfig,
     calculate_directory_hash,
+    flatten_dict,
+    iterate_modules,
     load_yaml_inject_variables,
+    module_from_path,
 )
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
-from tests.tests_unit.data import DATA_FOLDER
+from tests.tests_unit.data import DATA_FOLDER, PYTEST_PROJECT
 from tests.tests_unit.utils import PrintCapture
 
 
@@ -365,3 +370,50 @@ class TestAuthVariables:
             with pytest.raises(AuthenticationError) as exc_info:
                 AuthVariables.from_env().validate(False)
             assert str(exc_info.value) == "CDF Cluster and project are required. Missing: project."
+
+
+class TestModuleFromPath:
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            pytest.param(Path("cognite_modules/a_module/data_models/my_model.datamodel.yaml"), "a_module"),
+            pytest.param(Path("cognite_modules/another_module/data_models/views/my_view.view.yaml"), "another_module"),
+            pytest.param(
+                Path("cognite_modules/parent_module/child_module/data_models/containers/my_container.container.yaml"),
+                "child_module",
+            ),
+            pytest.param(
+                Path("cognite_modules/parent_module/child_module/data_models/auth/my_group.group.yaml"), "child_module"
+            ),
+            pytest.param(Path("custom_modules/child_module/functions/functions.yaml"), "child_module"),
+            pytest.param(Path("custom_modules/parent_module/child_module/functions/functions.yaml"), "child_module"),
+        ],
+    )
+    def test_module_from_path(self, path: Path, expected: str):
+        assert module_from_path(path) == expected
+
+
+class TestIterateModules:
+    def test_modules_project_for_tests(self):
+        expected_modules = {
+            PYTEST_PROJECT / "cognite_modules" / "a_module",
+            PYTEST_PROJECT / "cognite_modules" / "another_module",
+            PYTEST_PROJECT / "cognite_modules" / "parent_module" / "child_module",
+        }
+
+        actual_modules = {module for module, _ in iterate_modules(PYTEST_PROJECT)}
+
+        assert actual_modules == expected_modules
+
+
+@pytest.mark.parametrize(
+    "input_, expected",
+    [
+        pytest.param({"a": {"b": 1, "c": 2}}, {("a", "b"): 1, ("a", "c"): 2}, id="Simple"),
+        pytest.param({"a": {"b": {"c": 1}}}, {("a", "b", "c"): 1}, id="Nested"),
+    ],
+)
+def test_flatten_dict(input_: dict[str, Any], expected: dict[str, Any]) -> None:
+    actual = flatten_dict(input_)
+
+    assert actual == expected
