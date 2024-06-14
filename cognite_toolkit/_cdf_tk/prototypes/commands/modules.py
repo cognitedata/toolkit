@@ -111,7 +111,7 @@ class ModulesCommand(ToolkitCommand):
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating config.{environment}.yaml[/]")
             Path(init_dir + f"/config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
-    def run(self, ctx: typer.Context, init_dir: Optional[str] = None, arg_package: Optional[str] = None) -> None:
+    def init(self, init_dir: Optional[str] = None, arg_package: Optional[str] = None) -> None:
         print("\n")
         print(
             Panel(
@@ -180,9 +180,7 @@ class ModulesCommand(ToolkitCommand):
                 print("\n")
 
                 if len(available) > 0:
-                    if not questionary.confirm(
-                        "Would you like to add more or modify the selection?", default=False
-                    ).ask():
+                    if not questionary.confirm("Would you like to add more?", default=False).ask():
                         break
 
             package_id = questionary.select(
@@ -194,7 +192,7 @@ class ModulesCommand(ToolkitCommand):
             ).ask()
 
             selection = questionary.checkbox(
-                f"Which modules of {package_id} would you like to include?",
+                f"Which modules in {package_id} would you like to include?",
                 instruction="Use arrow up/down, press space to select item(s) and enter to save",
                 choices=[
                     questionary.Choice(

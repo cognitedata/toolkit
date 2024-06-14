@@ -8,9 +8,10 @@ from rich.panel import Panel
 class Landing(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
-        self.command()(self.main)
+        self.command()(self.main_init)
 
-    def main(self) -> None:
+    def main_init(self) -> None:
+        """Guidance on how to get started"""
         print(
             Panel("""Welcome to the Cognite Toolkit!
                     \n1. Run `cdf-tk repo init (folder_name)` to initialize a new CDF project

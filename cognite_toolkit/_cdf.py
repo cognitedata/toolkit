@@ -101,9 +101,9 @@ def app() -> NoReturn:
             from cognite_toolkit._cdf_tk.prototypes.modules_app import Modules
 
             # original init is replaced with the modules subapp
-            modules_app = Modules(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
+            modules_app = Modules(**default_typer_kws)  # type: ignore [arg-type]
             _app.add_typer(modules_app, name="modules")
-            _app.command("init")(Landing().main)
+            _app.command("init")(Landing().main_init)
         else:
             _app.command("init")(main_init)
 
