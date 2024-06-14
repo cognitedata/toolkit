@@ -83,6 +83,7 @@ run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
+
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
 _app.add_typer(run_app, name="run")
@@ -95,10 +96,14 @@ def app() -> NoReturn:
     # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
-        if FeatureFlag.is_enabled(Flags.INTERACTIVE_INIT):
-            from cognite_toolkit._cdf_tk.prototypes.interactive_init import InteractiveInit
+        if FeatureFlag.is_enabled(Flags.MODULES_CMD):
+            from cognite_toolkit._cdf_tk.prototypes.landing_app import Landing
+            from cognite_toolkit._cdf_tk.prototypes.modules_app import Modules
 
-            _app.command("init")(InteractiveInit().interactive)
+            # original init is replaced with the modules subapp
+            modules_app = Modules(**default_typer_kws)  # type: ignore [arg-type]
+            _app.add_typer(modules_app, name="modules")
+            _app.command("init")(Landing().main_init)
         else:
             _app.command("init")(main_init)
 
