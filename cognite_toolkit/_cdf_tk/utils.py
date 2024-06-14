@@ -841,8 +841,11 @@ def load_yaml_inject_variables(
             f"It is expected in {filepath.name}."
         )
 
-    # CSafeLoader is faster than yaml.safe_load
-    result = yaml.CSafeLoader(content).get_data()
+    if yaml.__with_libyaml__:
+        # CSafeLoader is faster than yaml.safe_load
+        result = yaml.CSafeLoader(content).get_data()
+    else:
+        result = yaml.safe_load(content)
     if required_return_type == "any":
         return result
     elif required_return_type == "list":
@@ -873,8 +876,11 @@ def read_yaml_file(
     filepath: path to the YAML file
     """
     try:
-        # CSafeLoader is faster than yaml.safe_load
-        config_data = yaml.CSafeLoader(filepath.read_text()).get_data()
+        if yaml.__with_libyaml__:
+            # CSafeLoader is faster than yaml.safe_load
+            config_data = yaml.CSafeLoader(filepath.read_text()).get_data()
+        else:
+            config_data = yaml.safe_load(filepath.read_text())
     except yaml.YAMLError as e:
         print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
         return {}

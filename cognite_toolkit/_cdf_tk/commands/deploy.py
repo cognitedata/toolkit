@@ -5,7 +5,6 @@ import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
 
-import typer
 from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from rich import print
@@ -59,16 +58,16 @@ class DeployCommand(ToolkitCommand):
 
     def execute(
         self,
-        ctx: typer.Context,
+        ToolGlobals: CDFToolConfig,
         build_dir_raw: str,
         build_env_name: str,
         dry_run: bool,
         drop: bool,
         drop_data: bool,
         include: list[str],
+        verbose: bool,
     ) -> None:
         # Override cluster and project from the options/env variables
-        ToolGlobals = CDFToolConfig.from_context(ctx)
         build_dir: Path = Path(build_dir_raw)
         if not build_dir.exists():
             raise ToolkitNotADirectoryError(
@@ -137,7 +136,7 @@ class DeployCommand(ToolkitCommand):
                     drop=drop,
                     dry_run=dry_run,
                     drop_data=drop_data,
-                    verbose=ctx.obj.verbose,
+                    verbose=verbose,
                 )
                 if result:
                     results[result.name] = result
@@ -153,11 +152,11 @@ class DeployCommand(ToolkitCommand):
                 dry_run=dry_run,
                 has_done_drop=drop,
                 has_dropped_data=drop_data,
-                verbose=ctx.obj.verbose,
+                verbose=verbose,
             )
             if result:
                 results[result.name] = result
-            if ctx.obj.verbose:
+            if verbose:
                 print("")  # Extra newline
 
         if results.has_counts:
