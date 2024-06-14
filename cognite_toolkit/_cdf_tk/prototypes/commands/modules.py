@@ -251,7 +251,7 @@ class ModulesCommand(ToolkitCommand):
 
         raise typer.Exit()
 
-    def upgrade(self, project_dir: Optional[str] = None) -> None:
+    def upgrade(self, project_dir: str | Path | None = None) -> None:
         project_path = Path(project_dir or ".")
 
         # Validation.

@@ -4,10 +4,7 @@ import subprocess
 from collections.abc import Iterable
 from pathlib import Path
 
-from constants import SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT
-
-PROJECT_INIT_DIR = Path(__file__).resolve().parent / "project_init"
-PROJECT_INIT_DIR.mkdir(exist_ok=True)
+from constants import PROJECT_INIT_DIR, SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT
 
 
 def cdf_tk_cmd_all_versions() -> Iterable[tuple[Path, str]]:
