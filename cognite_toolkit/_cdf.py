@@ -890,14 +890,11 @@ def feature_flag_set(
     """Enable or disable a feature flag."""
 
     cmd = FeatureFlagCommand()
-    if enabled.casefold() == "true":
-        cmd.set(flag, True)
-    elif enabled.casefold() == "false":
-        cmd.set(flag, False)
-    else:
-        raise ToolkitValidationError(
-            f"Invalid value for [bold]enabled[/]: [red]'{enabled}'[/]. Acceped values are: 'true' or 'false'"
-        )
+    if enable and disable:
+        raise ToolkitValidationError("Cannot enable and disable a flag at the same time.")
+    if not enable and not disable:
+        raise ToolkitValidationError("Must specify either --enable or --disable.")
+    cmd.set(flag, enable)
 
 
 @feature_flag_app.command("reset")
