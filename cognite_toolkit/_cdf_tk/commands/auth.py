@@ -95,58 +95,19 @@ class AuthCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> None:
         auth_vars = self.initialize_client(ToolGlobals, interactive, verbose)
+        if auth_vars.project is None:
+            raise AuthorizationError("CDF_PROJECT is not set.")
+        cdf_project = auth_vars.project
         token_inspection = self.check_has_any_access(ToolGlobals)
 
-        print("Checking projects that the service principal/application has access to...")
-        if len(token_inspection.projects) == 0:
-            raise AuthorizationError(
-                "The service principal/application configured for this client does not have access to any projects."
-            )
-        print("\n".join(f"  - {p.url_name}" for p in token_inspection.projects))
-        if auth_vars.project not in {p.url_name for p in token_inspection.projects}:
-            raise AuthorizationError(
-                f"The service principal/application configured for this client does not have access to the CDF_PROJECT={auth_vars.project!r}."
-            )
+        self.check_has_project_access(token_inspection, cdf_project)
 
-        print(f"[italic]Focusing on current project {auth_vars.project} only from here on.[/]")
-        print(
-            "Checking basic project and group manipulation access rights "
-            "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
-        )
-        try:
-            ToolGlobals.verify_client(
-                capabilities={
-                    "projectsAcl": [
-                        "LIST",
-                        "READ",
-                    ],
-                    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"],
-                }
-            )
-            print("  [bold green]OK[/]")
-        except Exception:
-            self.warn(
-                HighSeverityWarning(
-                    "The service principal/application configured for this client "
-                    "does not have the basic group write access rights."
-                )
-            )
-            print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
-            try:
-                ToolGlobals.verify_client(
-                    capabilities={
-                        "projectsAcl": ["LIST", "READ"],
-                        "groupsAcl": ["LIST", "READ"],
-                    }
-                )
-                print("  [bold green]OK[/] - can continue with checks.")
-            except Exception:
-                raise AuthorizationError(
-                    "Unable to continue, the service principal/application configured for this client does not"
-                    " have the basic read group access rights."
-                )
-        project_info = ToolGlobals.client.get(f"/api/v1/projects/{auth_vars.project}").json()
+        print(f"[italic]Focusing on current project {cdf_project} only from here on.[/]")
+
+        self.check_has_group_access(ToolGlobals)
+
         print("Checking identity provider settings...")
+        project_info = ToolGlobals.client.get(f"/api/v1/projects/{auth_vars.project}").json()
         oidc = project_info.get("oidcConfiguration", {})
         if "https://login.windows.net" in oidc.get("tokenUrl"):
             tenant_id = oidc.get("tokenUrl").split("/")[-3]
@@ -369,6 +330,57 @@ class AuthCommand(ToolkitCommand):
                 "Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
             )
         return token_inspection
+
+    def check_has_project_access(self, token_inspection: TokenInspection, project: str) -> None:
+        print("Checking projects that the service principal/application has access to...")
+        if len(token_inspection.projects) == 0:
+            raise AuthorizationError(
+                "The service principal/application configured for this client does not have access to any projects."
+            )
+        print("\n".join(f"  - {p.url_name}" for p in token_inspection.projects))
+        if project not in {p.url_name for p in token_inspection.projects}:
+            raise AuthorizationError(
+                f"The service principal/application configured for this client does not have access to the CDF_PROJECT={project!r}."
+            )
+
+    def check_has_group_access(self, ToolGlobals: CDFToolConfig) -> None:
+        # Todo rewrite to use the token inspection instead.
+        print(
+            "Checking basic project and group manipulation access rights "
+            "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
+        )
+        try:
+            ToolGlobals.verify_client(
+                capabilities={
+                    "projectsAcl": [
+                        "LIST",
+                        "READ",
+                    ],
+                    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"],
+                }
+            )
+            print("  [bold green]OK[/]")
+        except Exception:
+            self.warn(
+                HighSeverityWarning(
+                    "The service principal/application configured for this client "
+                    "does not have the basic group write access rights."
+                )
+            )
+            print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
+            try:
+                ToolGlobals.verify_client(
+                    capabilities={
+                        "projectsAcl": ["LIST", "READ"],
+                        "groupsAcl": ["LIST", "READ"],
+                    }
+                )
+                print("  [bold green]OK[/] - can continue with checks.")
+            except Exception:
+                raise AuthorizationError(
+                    "Unable to continue, the service principal/application configured for this client does not"
+                    " have the basic read group access rights."
+                )
 
     def check_function_service_status(
         self, ToolGlobals: CDFToolConfig, token_inspection: TokenInspection, project: str | None, dry_run: bool
