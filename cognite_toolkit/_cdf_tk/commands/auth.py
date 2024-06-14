@@ -23,6 +23,7 @@ from cognite.client.data_classes.capabilities import (
     UserProfilesAcl,
 )
 from cognite.client.data_classes.iam import Group
+from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.markup import escape
 from rich.prompt import Confirm, Prompt
@@ -363,20 +364,25 @@ class AuthCommand(ToolkitCommand):
         if not has_function_read_access:
             self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
             return None
-        function_status = ToolGlobals.client.functions.status()
-        if function_status.status != "activated":
-            if function_status.status == "requested":
-                print("  [bold yellow]INFO:[/] Function service activation is in progress (may take up to 2 hours)...")
-            else:
-                if not dry_run:
+        try:
+            function_status = ToolGlobals.client.functions.status()
+            if function_status.status != "activated":
+                if function_status.status == "requested":
                     print(
-                        "  [bold yellow]INFO:[/] Function service has not been activated, activating now, this may take up to 2 hours..."
+                        "  [bold yellow]INFO:[/] Function service activation is in progress (may take up to 2 hours)..."
                     )
-                    ToolGlobals.client.functions.activate()
                 else:
-                    print(
-                        "  [bold yellow]INFO:[/] Function service has not been activated, would have activated (will take up to 2 hours)..."
-                    )
-        else:
-            print("  [bold green]OK[/] - Function service has been activated.")
+                    if not dry_run:
+                        print(
+                            "  [bold yellow]INFO:[/] Function service has not been activated, activating now, this may take up to 2 hours..."
+                        )
+                        ToolGlobals.client.functions.activate()
+                    else:
+                        print(
+                            "  [bold yellow]INFO:[/] Function service has not been activated, would have activated (will take up to 2 hours)..."
+                        )
+            else:
+                print("  [bold green]OK[/] - Function service has been activated.")
+        except CogniteAPIError as e:
+            self.warn(HighSeverityWarning(f"Unable to check function service status.\n{e}"))
         return None
