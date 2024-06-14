@@ -39,11 +39,15 @@ def local_build_path() -> Path:
     yield build_path
 
 
+# This test is not part of the ordinary test suite, as it requires test data that is in the order of 100MB
+# and thus is not suitable for running on every test run or committing to the repository.
 @pytest.mark.parametrize("previous_version", list(SUPPORTED_TOOLKIT_VERSIONS))
 def tests_modules_upgrade_(
     previous_version: Path, local_tmp_project_path: Path, local_build_path: Path, tool_globals: CDFToolConfig
 ) -> None:
     project_init = PROJECT_INIT_DIR / f"project_{previous_version}"
+    if not project_init.exists():
+        pytest.skip(f"Project init for version {previous_version} does not exist.")
     shutil.copytree(project_init, local_tmp_project_path, dirs_exist_ok=True)
 
     with chdir(TEST_DIR_ROOT):
