@@ -893,7 +893,7 @@ def feature_flag_set(
 ) -> None:
     """Enable or disable a feature flag."""
 
-    cmd = FeatureFlagCommand()
+    cmd = FeatureFlagCommand(user_command=_get_user_command())
     if enable and disable:
         raise ToolkitValidationError("Cannot enable and disable a flag at the same time.")
     if not enable and not disable:
