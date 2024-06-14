@@ -6,9 +6,9 @@ from typing import Any, ClassVar
 
 from rich import print
 
-from cognite_toolkit._cdf_tk.constants import MODULE_PATH_SEP
+from cognite_toolkit._cdf_tk.constants import MODULE_PATH_SEP, ROOT_MODULES
 from cognite_toolkit._cdf_tk.data_classes._base import ConfigCore, _load_version_variable
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingModuleError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingModuleError, ToolkitMissingModulesError
 
 
 @dataclass
@@ -60,3 +60,14 @@ class SystemYAML(ConfigCore):
                     f"Package {package} defined in {self.filepath.name!s} is referring "
                     f"the following missing modules {missing}."
                 )
+
+    @staticmethod
+    def validate_module_dir(source_path: Path) -> list[Path]:
+        sources = [module_dir for root_module in ROOT_MODULES if (module_dir := source_path / root_module).exists()]
+        if not sources:
+            directories = "\n".join(f"   ┣ {name}" for name in ROOT_MODULES[:-1])
+            raise ToolkitMissingModulesError(
+                f"Could not find the source modules directory.\nExpected to find one of the following directories\n"
+                f"{source_path.name}\n{directories}\n   ┗  {ROOT_MODULES[-1]}"
+            )
+        return sources
