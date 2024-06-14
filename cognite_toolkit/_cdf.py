@@ -868,7 +868,7 @@ def feature_flag_main(ctx: typer.Context) -> None:
 def feature_flag_list() -> None:
     """List all available feature flags."""
 
-    cmd = FeatureFlagCommand()
+    cmd = FeatureFlagCommand(user_command=_get_user_command())
     cmd.list()
 
 
@@ -898,7 +898,7 @@ def feature_flag_set(
 ) -> None:
     """Enable or disable a feature flag."""
 
-    cmd = FeatureFlagCommand()
+    cmd = FeatureFlagCommand(user_command=_get_user_command())
     if enable and disable:
         raise ToolkitValidationError("Cannot enable and disable a flag at the same time.")
     if not enable and not disable:
@@ -910,7 +910,7 @@ def feature_flag_set(
 def feature_flag_reset() -> None:
     """Reset all feature flags to their default values."""
 
-    cmd = FeatureFlagCommand()
+    cmd = FeatureFlagCommand(user_command=_get_user_command())
     cmd.reset()
 
 
