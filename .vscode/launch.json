@@ -123,5 +123,44 @@
             "console": "integratedTerminal",
             "justMyCode": false
         },
+        {
+            "name": "Python: feature flags",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "features",
+                "list",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: feature flag set",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "features",
+                "set",
+                "--flag=interactive_init",
+                "--enabled=true",
+
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: feature flags reset",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "features",
+                "reset",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
     ]
 }
