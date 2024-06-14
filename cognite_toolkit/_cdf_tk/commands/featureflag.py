@@ -60,11 +60,10 @@ class FeatureFlag:
     @staticmethod
     @lru_cache
     def to_flag(flag: str) -> Flags | None:
-        flag = flag.upper()
-        for member in Flags:
-            if member.name == flag:
-                return member
-        return None
+        try:
+            return Flags[flag.upper()]
+        except KeyError:
+            return None
 
 
 class FeatureFlagCommand(ToolkitCommand):
