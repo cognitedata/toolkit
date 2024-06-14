@@ -76,13 +76,13 @@ except AttributeError as e:
         f"This was triggered by the error: {e!r}"
     )
 
-_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+_app = typer.Typer(**default_typer_kws, hidden=False)  # type: ignore [arg-type]
 auth_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
-feature_flag_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+feature_flag_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
 _app.add_typer(run_app, name="run")
@@ -99,6 +99,9 @@ def app() -> NoReturn:
             from cognite_toolkit._cdf_tk.prototypes.interactive_init import InteractiveInit
 
             _app.command("init")(InteractiveInit().interactive)
+        else:
+            _app.command("init")(main_init)
+
         _app()
     except ToolkitError as err:
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
@@ -440,7 +443,6 @@ def auth_verify(
     cmd.execute(ctx, dry_run, interactive, group_file, update_group, create_group)
 
 
-@_app.command("init" if not FeatureFlag.is_enabled(Flags.INTERACTIVE_INIT) else "_init")
 def main_init(
     ctx: typer.Context,
     dry_run: Annotated[
@@ -888,8 +890,13 @@ def feature_flag_set(
     """Enable or disable a feature flag."""
 
     cmd = FeatureFlagCommand()
-    value = enabled.casefold() == "true"
-    cmd.set(flag, value)
+    if enabled.casefold() == "true":
+        cmd.set(flag, True)
+    if enabled.casefold() == "false":
+        cmd.set(flag, False)
+    raise ToolkitValidationError(
+        f"Invalid value for [bold]enabled[/]: [red]'{enabled}'[/]. Acceped values are: 'true' or 'false'"
+    )
 
 
 @feature_flag_app.command("reset")
