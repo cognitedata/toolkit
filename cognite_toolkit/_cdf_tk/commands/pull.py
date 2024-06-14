@@ -392,6 +392,8 @@ class PullCommand(ToolkitCommand):
             system_config = SystemYAML.load_from_directory(source_path, env)
             config = BuildConfigYAML.load_from_directory(source_path, env)
             config.set_environment_variables()
+            # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
+            config.variables.pop("_cdf_tk", None)
             config.environment.selected = config.available_modules
             print(
                 Panel.fit(

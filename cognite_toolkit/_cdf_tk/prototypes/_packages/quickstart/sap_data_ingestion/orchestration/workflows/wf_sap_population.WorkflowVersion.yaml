@@ -1,0 +1,79 @@
+workflowExternalId: wf_sap_population
+version: '1'
+workflowDefinition:
+  tasks:
+  - externalId: idm_Asset_upsert
+    type: transformation
+    parameters:
+      transformation:
+        externalId: tr_idm_Asset_upsert
+        concurrencyPolicy: fail
+    retries: 3
+    timeout: 3600
+    onFailure: abortWorkflow
+  - externalId: idm_Notification_upsert
+    type: transformation
+    parameters:
+      transformation:
+        externalId: tr_idm_Notification_upsert
+        concurrencyPolicy: fail
+    retries: 3
+    timeout: 3600
+    onFailure: abortWorkflow
+  - externalId: idm_MaintenanceOrder_upsert
+    type: transformation
+    parameters:
+      transformation:
+        externalId: tr_idm_MaintenanceOrder_upsert
+        concurrencyPolicy: fail
+    retries: 3
+    timeout: 3600
+    onFailure: abortWorkflow
+  - externalId: idm_Asset_to_parent_upsert
+    type: transformation
+    parameters:
+      transformation:
+        externalId: tr_idm_Asset_to_parent_upsert
+        concurrencyPolicy: fail
+    retries: 3
+    timeout: 3600
+    onFailure: abortWorkflow
+    dependsOn:
+    - externalId: idm_Asset_upsert
+  - externalId: idm_Notification_to_asset_upsert
+    type: transformation
+    parameters:
+      transformation:
+        externalId: tr_idm_Notification_to_asset_upsert
+        concurrencyPolicy: fail
+    retries: 3
+    timeout: 3600
+    onFailure: abortWorkflow
+    dependsOn:
+    - externalId: idm_Notification_upsert
+    - externalId: idm_Asset_upsert
+  - externalId: idm_MaintenanceOrder_to_asset_upsert
+    type: transformation
+    parameters:
+      transformation:
+        externalId: tr_idm_MaintenanceOrder_to_asset_upsert
+        concurrencyPolicy: fail
+    retries: 3
+    timeout: 3600
+    onFailure: abortWorkflow
+    dependsOn:
+    - externalId: idm_MaintenanceOrder_upsert
+    - externalId: idm_Asset_upsert
+  - externalId: idm_Notification_to_maintenanceOrder_upsert
+    type: transformation
+    parameters:
+      transformation:
+        externalId: tr_idm_Notification_to_maintenanceOrder_upsert
+        concurrencyPolicy: fail
+    retries: 3
+    timeout: 3600
+    onFailure: abortWorkflow
+    dependsOn:
+    - externalId: idm_Notification_upsert
+    - externalId: idm_MaintenanceOrder_upsert
+  description: Sap Ingestion
