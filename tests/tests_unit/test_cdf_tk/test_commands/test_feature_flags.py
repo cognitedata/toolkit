@@ -7,7 +7,8 @@ class TestFeatureCommand:
 
     def test_user_setting_is_stored(self):
         FeatureFlag.reset_user_settings()
-        assert FeatureFlag.is_enabled("INTERACTIVE_INIT") is False
+        assert FeatureFlag.is_enabled("MODULES_CMD") is False
 
-        FeatureFlag.save_user_settings(FeatureFlag.to_flag("interactive_init"), True)
-        assert FeatureFlag.is_enabled(Flags.MODULES_INIT_INTERACTIVE)
+    def test_user_setting_is_read(self):
+        FeatureFlag.save_user_settings(FeatureFlag.to_flag("modules_cmd"), True)
+        assert FeatureFlag.is_enabled(Flags.MODULES_CMD)

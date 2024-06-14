@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 
 
 class Flags(Enum):
-    MODULES_INIT_INTERACTIVE: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables interactive init"}
+    MODULES_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the modules management subapp"}
     INTERNAL: ClassVar[dict[str, Any]] = {"visible": False, "description": "Does nothing"}
 
 

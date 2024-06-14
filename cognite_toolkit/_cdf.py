@@ -96,7 +96,7 @@ def app() -> NoReturn:
     # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
-        if FeatureFlag.is_enabled(Flags.MODULES_INIT_INTERACTIVE):
+        if FeatureFlag.is_enabled(Flags.MODULES_CMD):
             from cognite_toolkit._cdf_tk.prototypes.landing_app import Landing
             from cognite_toolkit._cdf_tk.prototypes.modules_app import Modules
 
