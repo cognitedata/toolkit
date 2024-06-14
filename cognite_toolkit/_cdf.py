@@ -863,7 +863,7 @@ def feature_flag_main(ctx: typer.Context) -> None:
 def feature_flag_list() -> None:
     """List all available feature flags."""
 
-    cmd = FeatureFlagCommand()
+    cmd = FeatureFlagCommand(user_command=_get_user_command())
     cmd.list()
 
 
