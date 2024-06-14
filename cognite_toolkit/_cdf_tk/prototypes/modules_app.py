@@ -56,6 +56,8 @@ class Modules(typer.Typer):
             ),
         ] = None,
     ) -> None:
-        f"""Upgrade the existing CDF project modules to the version {__version__}."""
         cmd = ModulesCommand(user_command=_get_user_command())
         cmd.upgrade(project_dir=project_dir)
+
+
+Modules.upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
