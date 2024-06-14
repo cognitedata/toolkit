@@ -6,8 +6,8 @@ class TestFeatureCommand:
         assert FeatureFlag.is_enabled("unknown_flag") is False
 
     def test_user_setting_is_stored(self):
-        FeatureFlag._reset_user_settings()
+        FeatureFlag.reset_user_settings()
         assert FeatureFlag.is_enabled("INTERACTIVE_INIT") is False
 
-        FeatureFlag._save_user_settings(FeatureFlag.to_flag("interactive_init"), True)
+        FeatureFlag.save_user_settings(FeatureFlag.to_flag("interactive_init"), True)
         assert FeatureFlag.is_enabled(Flags.INTERACTIVE_INIT)
