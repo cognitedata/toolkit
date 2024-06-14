@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
-
+import contextlib
 import os
 import sys
 from collections.abc import Sequence
@@ -313,7 +313,8 @@ def deploy(
 ) -> None:
     cmd = DeployCommand(print_warning=True, user_command=_get_user_command())
     include = _process_include(include, interactive)
-    cmd.execute(ctx, build_dir, build_env_name, dry_run, drop, drop_data, include)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
+    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, ctx.obj.verbose)
 
 
 @_app.command("clean")
@@ -363,7 +364,8 @@ def clean(
     # Override cluster and project from the options/env variables
     cmd = CleanCommand(print_warning=True, user_command=_get_user_command())
     include = _process_include(include, interactive)
-    cmd.execute(ctx, build_dir, build_env_name, dry_run, include)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
+    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, ctx.obj.verbose)
 
 
 @auth_app.callback(invoke_without_command=True)
@@ -433,7 +435,11 @@ def auth_verify(
     The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
     cmd = AuthCommand(user_command=_get_user_command())
-    cmd.execute(ctx, dry_run, interactive, group_file, update_group, create_group)
+    with contextlib.redirect_stdout(None):
+        # Remove the Error message from failing to load the config
+        # This is verified in check_auth
+        ToolGlobals = CDFToolConfig.from_context(ctx)
+    cmd.execute(ToolGlobals, dry_run, interactive, group_file, update_group, create_group, ctx.obj.verbose)
 
 
 @_app.command("init" if not FeatureFlag.enabled("FF_INTERACTIVE_INIT") else "_init")
