@@ -282,6 +282,10 @@ class ModulesCommand(ToolkitCommand):
                 if CLICommands.has_uncommitted_changes():
                     print("Uncommitted changes detected. Please commit your changes before upgrading the modules.")
                     return
+        # Update the docstring of the change 'UpdateModuleVersion' to be more informative
+        UpdateModuleVersion.__doc__ = (UpdateModuleVersion.__doc__ or "").format(
+            module_version=module_version, cli_version=cli_version
+        )
 
         changes = Changes.load(module_version, project_path)
         if not changes:
@@ -610,11 +614,11 @@ class UpdateModuleVersion(Change):
     For example, in _system.yaml:
     Before:
         ```yaml
-        cdf_toolkit_version: 0.2.0b3
+        cdf_toolkit_version: {module_version}
         ```
     After:
         ```yaml
-        cdf_toolkit_version: 0.2.0b3
+        cdf_toolkit_version: {cli_version}
         ```
     """
 
