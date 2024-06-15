@@ -327,9 +327,10 @@ class ModulesCommand(ToolkitCommand):
                     else:
                         print("No files changed.")
                 elif isinstance(change, ManualChange):
+                    to_change = change.need_to_change()
                     print("This change requires manual intervention.")
                     print("Please follow the instructions below:")
-                    print(Markdown(change.instructions()))
+                    print(Markdown(change.instructions(to_change)))
 
         use_git = CLICommands.use_git() and CLICommands.has_initiated_repo()
         summary = ["All changes have been applied."]

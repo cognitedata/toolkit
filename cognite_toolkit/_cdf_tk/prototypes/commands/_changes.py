@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import itertools
-import shutil
 from collections.abc import Iterator, MutableSequence
 from pathlib import Path
 
@@ -38,7 +37,7 @@ class ManualChange(Change):
     def need_to_change(self) -> set[Path]:
         return set()
 
-    def instructions(self) -> str:
+    def instructions(self, files: set[Path]) -> str:
         return ""
 
 
@@ -137,19 +136,38 @@ class CommonFunctionCodeNotSupported(ManualChange):
     has_file_changes = True
 
     def need_to_change(self) -> set[Path]:
-        # Check for common function code.
-        # It is complex to move the common functions code, so we will just remove
-        # the one module that uses it
-        # Todo implement this
-        cdf_functions_dummy = self._project_path / "cognite_modules" / "examples" / "cdf_functions_dummy"
-
-        if not cdf_functions_dummy.exists():
+        common_function_code = self._project_path / "common_function_code"
+        if not common_function_code.exists():
             return set()
-        shutil.rmtree(cdf_functions_dummy)
-        return {cdf_functions_dummy}
+        needs_change = {common_function_code}
+        for py_file in common_function_code.rglob("*.py"):
+            content = py_file.read_text().splitlines()
+            use_common_function_code = any(
+                (line.startswith("from common") or line.startswith("import common")) for line in content
+            )
+            if use_common_function_code:
+                needs_change.add(py_file)
+        return needs_change
 
-    def instructions(self) -> str:
-        return "The common functions code is no longer supported. Please remove the module that uses it."
+    def instructions(self, files: set[Path]) -> str:
+        to_update = []
+        for module, py_files in itertools.groupby(files, key=self.get_module_name):
+            to_update.append(f"  - {module}")
+            for py_file in py_files:
+                to_update.append(f"    - {py_file.name}")
+        to_update_str = "\n".join(to_update)
+        return (
+            f"The common functions code is no longer supported.\nPlease update the following files:\n{to_update_str}"
+            f"\nThen remove the '{self._project_path.name}/common_function_code' folder."
+        )
+
+    @staticmethod
+    def get_module_name(file_path: Path) -> str:
+        while file_path.parent:
+            if file_path.name == "functions":
+                return file_path.parent.name
+            file_path = file_path.parent
+        return ""
 
 
 class FunctionExternalDataSetIdRenamed(AutomaticChange):
