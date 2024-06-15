@@ -324,7 +324,7 @@ _CHANGES: list[type[Change]] = [
 ]
 
 
-class Changes(list, MutableSequence[AutomaticChange]):
+class Changes(list, MutableSequence[Change]):
     @classmethod
     def load(cls, module_version: Version, project_path: Path) -> Changes:
         return cls([change(project_path) for change in _CHANGES if change.deprecated_from >= module_version])
@@ -337,5 +337,5 @@ class Changes(list, MutableSequence[AutomaticChange]):
     def optional_changes(self) -> Changes:
         return Changes([change for change in self if change.required_from is None])
 
-    def __iter__(self) -> Iterator[AutomaticChange]:
+    def __iter__(self) -> Iterator[Change]:
         return super().__iter__()
