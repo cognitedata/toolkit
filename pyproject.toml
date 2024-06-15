@@ -62,6 +62,10 @@ exclude = ["cognite_toolkit/cognite_modules",
 [tool.ruff]
 line-length = 120
 
+[tool.ruff.format]
+# Ruff messes up the docstrings which are expected to be in Markdown format
+exclude = ["cognite_toolkit/_cdf_tk/prototypes/commands/_changes.py"]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -79,21 +79,21 @@ class RenamedModulesSection(AutomaticChange):
 
                         For example in config.dev.yaml:
                         Before:
-    ```yaml
-        modules:
-          cognite_modules:
-            cdf_cluster: ${CDF_CLUSTER}
-            cicd_clientId: ${IDP_CLIENT_ID}
-            cicd_clientSecret: ${IDP_CLIENT_SECRET}
-    ```
+```yaml
+    modules:
+      cognite_modules:
+        cdf_cluster: ${CDF_CLUSTER}
+        cicd_clientId: ${IDP_CLIENT_ID}
+        cicd_clientSecret: ${IDP_CLIENT_SECRET}
+```
                         After:
-    ```yaml
-        variables:
-          cognite_modules:
-            cdf_cluster: ${CDF_CLUSTER}
-            cicd_clientId: ${IDP_CLIENT_ID}
-            cicd_clientSecret: ${IDP_CLIENT_SECRET}
-    ```
+```yaml
+    variables:
+      cognite_modules:
+        cdf_cluster: ${CDF_CLUSTER}
+        cicd_clientId: ${IDP_CLIENT_ID}
+        cicd_clientSecret: ${IDP_CLIENT_SECRET}
+```
     """
 
     deprecated_from = Version("0.2.0a3")
@@ -184,13 +184,13 @@ class FunctionExternalDataSetIdRenamed(AutomaticChange):
         For example, in functions/my_function.yaml:
 
         Before:
-    ```yaml
-    externalDataSetId: my_external_id
-    ```
+```yaml
+externalDataSetId: my_external_id
+```
         After:
-    ```yaml
-    dataSetExternalId: my_external_id
-    ```
+```yaml
+dataSetExternalId: my_external_id
+```
     """
 
     deprecated_from = Version("0.2.0a5")
@@ -217,17 +217,17 @@ class ConfigYAMLSelectedRenaming(AutomaticChange):
         For example, in config.dev.yaml:
 
         Before:
-    ```yaml
-    environment:
-      selected_modules_and_packages:
-        - my_module
-    ```
+```yaml
+environment:
+  selected_modules_and_packages:
+    - my_module
+```
         After:
-    ```yaml
-    environment:
-      selected:
-        - my_module
-    ```
+```yaml
+environment:
+  selected:
+    - my_module
+```
     """
 
     deprecated_from = Version("0.2.0b1")
@@ -252,20 +252,20 @@ class RequiredFunctionLocation(AutomaticChange):
 
         For example:
         Before:
-    ```bash
-        modules/
-          my_module/
-              functions/
-                some_subdirectory/
-                    my_function.yaml
-    ```
-        After:
-    ```bash
-        modules/
-          my_module/
-              functions/
+```bash
+    modules/
+      my_module/
+          functions/
+            some_subdirectory/
                 my_function.yaml
-    ```
+```
+        After:
+```bash
+    modules/
+      my_module/
+          functions/
+            my_function.yaml
+```
     """
 
     deprecated_from = Version("0.2.0b3")
