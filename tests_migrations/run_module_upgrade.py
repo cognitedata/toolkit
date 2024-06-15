@@ -3,6 +3,7 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -28,6 +29,8 @@ PROJECT_INIT_DIR.mkdir(exist_ok=True)
 
 
 def run() -> None:
+    only_last = len(sys.argv) > 1 and sys.argv[1] == "--only-last"
+
     versions = get_versions_since(SUPPORT_MODULE_UPGRADE_FROM_VERSION)
     for version in versions:
         create_project_init(str(version))
@@ -47,6 +50,8 @@ def run() -> None:
             title="cdf-tk module upgrade",
         )
     )
+    if only_last:
+        versions = versions[-1:]
     for version in versions:
         with local_tmp_project_path() as project_path, local_build_path() as build_path, tool_globals() as cdf_tool_config:
             run_modules_upgrade(version, project_path, build_path, cdf_tool_config)

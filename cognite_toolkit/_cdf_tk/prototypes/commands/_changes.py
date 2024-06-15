@@ -23,11 +23,25 @@ class Change:
     def __init__(self, project_dir: Path) -> None:
         self._project_path = project_dir
 
+
+class AutomaticChange(Change):
+    """An automatic change is a change that can be applied automatically to a project."""
+
     def do(self) -> set[Path]:
         return set()
 
 
-class SystemYAMLMoved(Change):
+class ManualChange(Change):
+    """A manual change is a change that requires manual intervention to be applied to a project."""
+
+    def need_to_change(self) -> set[Path]:
+        return set()
+
+    def instructions(self) -> str:
+        return ""
+
+
+class SystemYAMLMoved(AutomaticChange):
     """The _system.yaml file is now expected to in the root of the project.
     Before it was expected to be in the cognite_modules folder.
     This change moves the file to the root of the project.
@@ -55,7 +69,7 @@ class SystemYAMLMoved(Change):
         return {system_yaml}
 
 
-class RenamedModulesSection(Change):
+class RenamedModulesSection(AutomaticChange):
     """The 'modules' section in the config files has been renamed to 'variables'.
     This change updates the config files to use the new name.
 
@@ -98,7 +112,7 @@ class RenamedModulesSection(Change):
         return changed
 
 
-class BuildCleanFlag(Change):
+class BuildCleanFlag(AutomaticChange):
     """The `cdf-tk build` command no longer accepts the `--clean` flag.
 
     The build command now always cleans the build directory before building.
@@ -110,14 +124,15 @@ class BuildCleanFlag(Change):
     has_file_changes = False
 
 
-class CommonFunctionCodeNotSupported(Change):
+class CommonFunctionCodeNotSupported(ManualChange):
     """Cognite-Toolkit no longer supports the common functions code."""
 
     deprecated_from = Version("0.2.0a4")
     required_from = Version("0.2.0a4")
     has_file_changes = True
 
-    def do(self) -> set[Path]:
+    def need_to_change(self) -> set[Path]:
+        # Check for common function code.
         # It is complex to move the common functions code, so we will just remove
         # the one module that uses it
         # Todo implement this
@@ -128,8 +143,11 @@ class CommonFunctionCodeNotSupported(Change):
         shutil.rmtree(cdf_functions_dummy)
         return {cdf_functions_dummy}
 
+    def instructions(self) -> str:
+        return "The common functions code is no longer supported. Please remove the module that uses it."
 
-class FunctionExternalDataSetIdRenamed(Change):
+
+class FunctionExternalDataSetIdRenamed(AutomaticChange):
     """The 'externalDataSetId' field in function YAML files has been renamed to 'dataSetExternalId'.
     This change updates the function YAML files to use the new name.
 
@@ -163,7 +181,7 @@ class FunctionExternalDataSetIdRenamed(Change):
         return changed
 
 
-class ConfigYAMLSelectedRenaming(Change):
+class ConfigYAMLSelectedRenaming(AutomaticChange):
     """The 'environment.selected_modules_and_packages' field in the config.yaml files has been
     renamed to 'selected'.
     This change updates the config files to use the new name.
@@ -198,7 +216,7 @@ class ConfigYAMLSelectedRenaming(Change):
         return changed
 
 
-class RequiredFunctionLocation(Change):
+class RequiredFunctionLocation(AutomaticChange):
     """Function Resource YAML files are now expected to be in the 'functions' folder.
     Before they could be in subfolders inside the 'functions' folder.
 
@@ -252,7 +270,7 @@ class RequiredFunctionLocation(Change):
         return resource_yaml
 
 
-class UpdateModuleVersion(Change):
+class UpdateModuleVersion(AutomaticChange):
     """In the _system.yaml file, the 'cdf_toolkit_version' field has been updated to the same version as the CLI.
 
     This change updates the 'cdf_toolkit_version' field in the _system.yaml file to the same version as the CLI.
@@ -290,10 +308,10 @@ class UpdateModuleVersion(Change):
         return changes
 
 
-_CHANGES: list[type[Change]] = [change for change in Change.__subclasses__()]
+_CHANGES: list[type[AutomaticChange]] = [change for change in AutomaticChange.__subclasses__()]
 
 
-class Changes(list, MutableSequence[Change]):
+class Changes(list, MutableSequence[AutomaticChange]):
     @classmethod
     def load(cls, module_version: Version, project_path: Path) -> Changes:
         return cls([change(project_path) for change in _CHANGES if change.deprecated_from >= module_version])
@@ -306,5 +324,5 @@ class Changes(list, MutableSequence[Change]):
     def optional_changes(self) -> Changes:
         return Changes([change for change in self if change.required_from is None])
 
-    def __iter__(self) -> Iterator[Change]:
+    def __iter__(self) -> Iterator[AutomaticChange]:
         return super().__iter__()
