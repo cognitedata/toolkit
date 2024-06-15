@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.prototypes.commands import ModulesCommand
 from cognite_toolkit._cdf_tk.prototypes.commands._changes import ManualChange
 from cognite_toolkit._cdf_tk.prototypes.commands.modules import CLICommands
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, module_from_path
+from cognite_toolkit._version import __version__
 
 TEST_DIR_ROOT = Path(__file__).resolve().parent
 PROJECT_INIT_DIR = TEST_DIR_ROOT / "project_inits"
@@ -154,7 +155,11 @@ def run_modules_upgrade(
         )
 
     print(
-        Panel(f"Module upgrade for version {previous_version!s} completed successfully.", expand=False, style="green")
+        Panel(
+            f"Module upgrade for version {previous_version!s} to {__version__} completed successfully.",
+            expand=False,
+            style="green",
+        )
     )
 
 
