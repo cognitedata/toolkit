@@ -141,7 +141,7 @@ def run_modules_upgrade(
 
         build = BuildCommand(print_warning=False)
         build.execute(False, project_path, build_path, build_env_name="dev", no_clean=False)
-        return
+
         deploy = DeployCommand(print_warning=False)
         deploy.execute(
             cdf_tool_config,
