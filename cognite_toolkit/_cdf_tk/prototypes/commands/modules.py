@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from collections.abc import MutableMapping
+from collections.abc import Iterator, MutableMapping, MutableSequence
 from contextlib import suppress
 from pathlib import Path
 from typing import Any, Optional
@@ -13,6 +13,7 @@ import yaml
 from packaging.version import Version
 from packaging.version import parse as parse_version
 from rich import print
+from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.tree import Tree
@@ -280,7 +281,45 @@ class ModulesCommand(ToolkitCommand):
                     print("Uncommitted changes detected. Please commit your changes before upgrading the modules.")
                     return
 
-    def _get_module_version(self, project_path: Path) -> Version:
+        changes = Changes.load(module_version, project_path)
+        if not changes:
+            print("No changes required.")
+            return
+
+        print(
+            Panel(
+                f"Found {len(changes)} from {module_version} to {cli_version}", title="Upgrade Modules", style="green"
+            )
+        )
+
+        total_changed: set[Path] = set()
+        for change in changes:
+            print(Markdown(change.__doc__ or type(change).__name__))
+            if change.has_file_changes:
+                changed_files = change.do()
+                if changed_files:
+                    total_changed.update(changed_files)
+                    print(f"Changed files: {', '.join(file.as_posix() for file in changed_files)}")
+                else:
+                    print("No files changed.")
+
+        use_git = CLICommands.use_git() and CLICommands.has_initiated_repo()
+        summary = ["All changes have been applied."]
+        if total_changed:
+            summary.append(f"A total of {len(total_changed)} files have been changed.")
+        else:
+            summary.append("No files have been changed.")
+        if use_git and total_changed:
+            summary.append("Please review the changes and commit them if you are satisfied.")
+            summary.append("You can use `git diff` to see the changes or use your IDE to inspect the changes.")
+            summary.append(
+                "If you are not satisfied with the changes, you can use `git checkout -- <file>` to revert "
+                "a file or `git checkout .` to revert all changes."
+            )
+        print(Panel("\n".join(summary), title="Upgrade Complete", style="green"))
+
+    @staticmethod
+    def _get_module_version(project_path: Path) -> Version:
         if (system_yaml := project_path / SystemYAML.file_name).exists():
             # From 0.2.0a3 we have the _system.yaml on the root of the project
             content = read_yaml_file(system_yaml)
@@ -330,8 +369,8 @@ class Change:
     def __init__(self, project_dir: Path) -> None:
         self._project_path = project_dir
 
-    def do(self) -> bool:
-        return False
+    def do(self) -> set[Path]:
+        return set()
 
 
 class SystemYAMLMoved(Change):
@@ -349,16 +388,17 @@ class SystemYAMLMoved(Change):
             _system.yaml
     """
 
+    deprecated_from = Version("0.2.0a3")
     required_from = Version("0.2.0a3")
     has_file_changes = True
 
-    def do(self) -> bool:
+    def do(self) -> set[Path]:
         system_yaml = self._project_path / COGNITE_MODULES / SystemYAML.file_name
         if not system_yaml.exists():
-            return False
+            return set()
         new_system_yaml = self._project_path / SystemYAML.file_name
         system_yaml.rename(new_system_yaml)
-        return True
+        return {system_yaml}
 
 
 class RenamedModulesSection(Change):
@@ -384,23 +424,24 @@ class RenamedModulesSection(Change):
         ```
     """
 
+    deprecated_from = Version("0.2.0a3")
     required_from = Version("0.2.0a3")
     has_file_changes = True
 
-    def do(self) -> bool:
-        change_performed = False
+    def do(self) -> set[Path]:
+        changed: set[Path] = set()
         for config_yaml in self._project_path.glob("config.*.yaml"):
             data_raw = config_yaml.read_text()
             # We do not parse the YAML file to avoid removing comments
             updated_file: list[str] = []
             for line in data_raw.splitlines():
                 if line.startswith("modules:"):
-                    change_performed = True
+                    changed.add(config_yaml)
                     updated_file.append(line.replace("modules:", "variables:"))
                 else:
                     updated_file.append(line)
             config_yaml.write_text("\n".join(updated_file))
-        return change_performed
+        return changed
 
 
 class BuildCleanFlag(Change):
@@ -410,6 +451,7 @@ class BuildCleanFlag(Change):
     To avoid cleaning the build directory, you can use the `--no-clean` flag.
     """
 
+    deprecated_from = Version("0.2.0a3")
     required_from = Version("0.2.0a3")
     has_file_changes = False
 
@@ -417,19 +459,20 @@ class BuildCleanFlag(Change):
 class CommonFunctionCodeNotSupported(Change):
     """Cognite-Toolkit no longer supports the common functions code."""
 
+    deprecated_from = Version("0.2.0a4")
     required_from = Version("0.2.0a4")
     has_file_changes = True
 
-    def do(self) -> bool:
+    def do(self) -> set[Path]:
         # It is complex to move the common functions code, so we will just remove
         # the one module that uses it
         # Todo implement this
         cdf_functions_dummy = self._project_path / "cognite_modules" / "examples" / "cdf_functions_dummy"
 
         if not cdf_functions_dummy.exists():
-            return False
+            return set()
         shutil.rmtree(cdf_functions_dummy)
-        return True
+        return {cdf_functions_dummy}
 
 
 class FunctionExternalDataSetIdRenamed(Change):
@@ -450,17 +493,20 @@ class FunctionExternalDataSetIdRenamed(Change):
         ```
     """
 
+    deprecated_from = Version("0.2.0a5")
     required_from = Version("0.2.0a5")
     has_file_changes = True
 
-    def do(self) -> bool:
+    def do(self) -> set[Path]:
+        changed: set[Path] = set()
         for resource_yaml in self._project_path.glob("*.yaml"):
             if resource_yaml.parent == "functions":
                 content = resource_yaml.read_text()
-                # Todo Write to Console that the change is being made to this file
-                content = content.replace("externalDataSetId", "dataSetExternalId")
-                resource_yaml.write_text(content)
-        return True
+                if "externalDataSetId" in content:
+                    changed.add(resource_yaml)
+                    content = content.replace("externalDataSetId", "dataSetExternalId")
+                    resource_yaml.write_text(content)
+        return changed
 
 
 class ConfigYAMLSelectedRenaming(Change):
@@ -487,15 +533,15 @@ class ConfigYAMLSelectedRenaming(Change):
     deprecated_from = Version("0.2.0b1")
     has_file_changes = True
 
-    def do(self) -> bool:
-        change_performed = False
+    def do(self) -> set[Path]:
+        changed = set()
         for config_yaml in self._project_path.glob("config.*.yaml"):
             data = config_yaml.read_text()
             if "selected_modules_and_packages" in data:
-                change_performed = True
+                changed.add(config_yaml)
                 data = data.replace("selected_modules_and_packages", "selected")
                 config_yaml.write_text(data)
-        return change_performed
+        return changed
 
 
 class RequiredFunctionLocation(Change):
@@ -518,18 +564,19 @@ class RequiredFunctionLocation(Change):
                 my_function.yaml
     """
 
+    deprecated_from = Version("0.2.0b3")
     required_from = Version("0.2.0b3")
     has_file_changes = True
 
-    def do(self) -> bool:
-        change_performed = False
+    def do(self) -> set[Path]:
+        changed = set()
         for resource_yaml in self._project_path.glob("functions/**/*.yaml"):
             if self._is_function(resource_yaml):
                 new_path = self._new_path(resource_yaml)
                 if new_path != resource_yaml:
                     resource_yaml.rename(new_path)
-                    change_performed = True
-        return change_performed
+                    changed.add(new_path)
+        return changed
 
     @staticmethod
     def _is_function(resource_yaml: Path) -> bool:
@@ -549,3 +596,23 @@ class RequiredFunctionLocation(Change):
             if parent.name == "functions":
                 return parent / resource_yaml.name
         return resource_yaml
+
+
+_CHANGES: list[type[Change]] = [change for change in Change.__subclasses__()]
+
+
+class Changes(list, MutableSequence[Change]):
+    @classmethod
+    def load(cls, module_version: Version, project_path: Path) -> Changes:
+        return cls([change(project_path) for change in _CHANGES if change.deprecated_from > module_version])
+
+    @property
+    def required_changes(self) -> Changes:
+        return Changes([change for change in self if change.required_from is not None])
+
+    @property
+    def optional_changes(self) -> Changes:
+        return Changes([change for change in self if change.required_from is None])
+
+    def __iter__(self) -> Iterator[Change]:
+        return super().__iter__()
