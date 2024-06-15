@@ -40,6 +40,17 @@ def run() -> None:
         )
     )
 
+    print(
+        Panel(
+            "Running module upgrade for all supported versions.",
+            expand=False,
+            title="cdf-tk module upgrade",
+        )
+    )
+    for version in versions:
+        with local_tmp_project_path() as project_path, local_build_path() as build_path, tool_globals() as cdf_tool_config:
+            run_modules_upgrade(str(version), project_path, build_path, cdf_tool_config)
+
 
 def get_versions_since(support_upgrade_from_version: str) -> list[Version]:
     result = subprocess.run("pip index versions cognite-toolkit --pre".split(), stdout=subprocess.PIPE)
