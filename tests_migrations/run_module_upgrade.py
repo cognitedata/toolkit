@@ -103,9 +103,9 @@ def create_project_init(version: str) -> None:
 
 
 def run_modules_upgrade(
-    previous_version: str, project_path: Path, build_path: Path, cdf_tool_config: CDFToolConfig
+    previous_version: Version, project_path: Path, build_path: Path, cdf_tool_config: CDFToolConfig
 ) -> None:
-    project_init = PROJECT_INIT_DIR / f"project_{previous_version}"
+    project_init = PROJECT_INIT_DIR / f"project_{previous_version!s}"
     # Copy the project to a temporary location as the upgrade command modifies the project.
     shutil.copytree(project_init, project_path, dirs_exist_ok=True)
 
@@ -116,27 +116,19 @@ def run_modules_upgrade(
             modules.upgrade(project_path)
 
         # Update the config file to run include all modules.
-        config_yaml = local_tmp_project_path / "config.dev.yaml"
-        assert config_yaml.exists()
-        yaml_data = yaml.safe_load(config_yaml.read_text())
-        yaml_data["environment"]["selected"] = []
-        for root_module in ROOT_MODULES:
-            if (local_tmp_project_path / root_module).exists() and any(
-                yaml_file for yaml_file in (local_tmp_project_path / root_module).rglob("*.yaml")
-            ):
-                yaml_data["environment"]["selected"].append(f"{root_module}/")
-        config_yaml.write_text(yaml.dump(yaml_data))
+        update_config_yaml_to_select_all_modules(project_path)
 
-        # Bug in pre 0.2.0a4 versions
-        pump_view = (
-            local_tmp_project_path
-            / "cognite_modules"
-            / "experimental"
-            / "example_pump_data_model"
-            / "data_models"
-            / "4.Pump.view.yaml"
-        )
-        pump_view.write_text(pump_view.read_text().replace("external_id", "externalId"))
+        if previous_version < parse_version("0.2.0a4"):
+            # Bug in pre 0.2.0a4 versions
+            pump_view = (
+                project_path
+                / "cognite_modules"
+                / "experimental"
+                / "example_pump_data_model"
+                / "data_models"
+                / "4.Pump.view.yaml"
+            )
+            pump_view.write_text(pump_view.read_text().replace("external_id", "externalId"))
 
         build = BuildCommand(print_warning=False)
         build.execute(False, project_path, build_path, build_env_name="dev", no_clean=False)
@@ -144,7 +136,7 @@ def run_modules_upgrade(
         deploy = DeployCommand(print_warning=False)
         deploy.execute(
             cdf_tool_config,
-            str(local_build_path),
+            str(build_path),
             build_env_name="dev",
             dry_run=True,
             drop=False,
@@ -153,7 +145,22 @@ def run_modules_upgrade(
             verbose=False,
         )
 
-    assert True
+    print(
+        Panel(f"Module upgrade for version {previous_version!s} completed successfully.", expand=False, style="green")
+    )
+
+
+def update_config_yaml_to_select_all_modules(project_path):
+    config_yaml = project_path / "config.dev.yaml"
+    assert config_yaml.exists()
+    yaml_data = yaml.safe_load(config_yaml.read_text())
+    yaml_data["environment"]["selected"] = []
+    for root_module in ROOT_MODULES:
+        if (project_path / root_module).exists() and any(
+            yaml_file for yaml_file in (project_path / root_module).rglob("*.yaml")
+        ):
+            yaml_data["environment"]["selected"].append(f"{root_module}/")
+    config_yaml.write_text(yaml.dump(yaml_data))
 
 
 @contextlib.contextmanager
