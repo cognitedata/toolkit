@@ -19,7 +19,7 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES, COGNITE_MODULES
+from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES, COGNITE_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
 from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.prototypes import _packages
@@ -267,8 +267,10 @@ class ModulesCommand(ToolkitCommand):
             )
             return
 
-        if module_version < Version("0.1.0"):
-            print("The modules upgrade command is not supported for versions below 0.1.0.")
+        if module_version < Version(SUPPORT_MODULE_UPGRADE_FROM_VERSION):
+            print(
+                f"The modules upgrade command is not supported for versions below {SUPPORT_MODULE_UPGRADE_FROM_VERSION}."
+            )
             return
 
         if not CLICommands.use_git():

@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 TEST_DIR_ROOT = Path(__file__).resolve().parent
-PROJECT_INIT_DIR = TEST_DIR_ROOT / "project_init"
+PROJECT_INIT_DIR = TEST_DIR_ROOT / "project_inits"
 PROJECT_INIT_DIR.mkdir(exist_ok=True)
 
 SUPPORTED_TOOLKIT_VERSIONS = [

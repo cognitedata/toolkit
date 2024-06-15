@@ -60,4 +60,5 @@ class Modules(typer.Typer):
         cmd.upgrade(project_dir=project_dir)
 
 
+# This is a trick to use an f-string for the docstring
 Modules.upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
