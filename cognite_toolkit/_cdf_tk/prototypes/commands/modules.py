@@ -288,7 +288,9 @@ class ModulesCommand(ToolkitCommand):
 
         print(
             Panel(
-                f"Found {len(changes)} from {module_version} to {cli_version}", title="Upgrade Modules", style="green"
+                f"Found {len(changes)} changes from {module_version} to {cli_version}",
+                title="Upgrade Modules",
+                style="green",
             )
         )
 

@@ -7,6 +7,7 @@ import yaml
 from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
+from cognite_toolkit._cdf_tk.constants import ROOT_MODULES
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.prototypes.commands import ModulesCommand
 from cognite_toolkit._cdf_tk.prototypes.commands.modules import CLICommands
@@ -47,7 +48,7 @@ def local_build_path() -> Path:
 @pytest.mark.parametrize("previous_version", list(SUPPORTED_TOOLKIT_VERSIONS))
 # This is to allow running the test with having uncommitted changes in the repository.
 @patch.object(CLICommands, "has_uncommitted_changes", lambda: False)
-def tests_modules_upgrade_(
+def tests_modules_upgrade(
     previous_version: Path, local_tmp_project_path: Path, local_build_path: Path, tool_globals: CDFToolConfig
 ) -> None:
     project_init = PROJECT_INIT_DIR / f"project_{previous_version}"
@@ -60,12 +61,30 @@ def tests_modules_upgrade_(
         modules = ModulesCommand()
         modules.upgrade(local_tmp_project_path)
 
-        build = BuildCommand(print_warning=False)
+        # Update the config file to run include all modules.
         config_yaml = local_tmp_project_path / "config.dev.yaml"
         assert config_yaml.exists()
         yaml_data = yaml.safe_load(config_yaml.read_text())
-        yaml_data["environment"]["selected"] = ["cognite_modules/", "custom_modules/"]
+        yaml_data["environment"]["selected"] = []
+        for root_module in ROOT_MODULES:
+            if (local_tmp_project_path / root_module).exists() and any(
+                yaml_file for yaml_file in (local_tmp_project_path / root_module).rglob("*.yaml")
+            ):
+                yaml_data["environment"]["selected"].append(f"{root_module}/")
         config_yaml.write_text(yaml.dump(yaml_data))
+
+        # Bug in pre 0.2.0a4 versions
+        pump_view = (
+            local_tmp_project_path
+            / "cognite_modules"
+            / "experimental"
+            / "example_pump_data_model"
+            / "data_models"
+            / "4.Pump.view.yaml"
+        )
+        pump_view.write_text(pump_view.read_text().replace("external_id", "externalId"))
+
+        build = BuildCommand(print_warning=False)
         build.execute(False, local_tmp_project_path, local_build_path, build_env_name="dev", no_clean=False)
 
         deploy = DeployCommand(print_warning=False)
