@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from dotenv import load_dotenv
@@ -7,6 +8,7 @@ from dotenv import load_dotenv
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.prototypes.commands import ModulesCommand
+from cognite_toolkit._cdf_tk.prototypes.commands.modules import CLICommands
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests_migrations.constants import PROJECT_INIT_DIR, SUPPORTED_TOOLKIT_VERSIONS, TEST_DIR_ROOT, chdir
 
@@ -42,6 +44,8 @@ def local_build_path() -> Path:
 # This test is not part of the ordinary test suite, as it requires test data that is in the order of 100MB
 # and thus is not suitable for running on every test run or committing to the repository.
 @pytest.mark.parametrize("previous_version", list(SUPPORTED_TOOLKIT_VERSIONS))
+# This is to allow running the test with having uncommitted changes in the repository.
+@patch.object(CLICommands, "has_uncommitted_changes", lambda: False)
 def tests_modules_upgrade_(
     previous_version: Path, local_tmp_project_path: Path, local_build_path: Path, tool_globals: CDFToolConfig
 ) -> None:
