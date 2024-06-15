@@ -17,12 +17,18 @@ Changes are grouped as follows:
 
 ## TBD
 
-## Improved
+### Improved
 
 - When running `cdf-tk auth verify`, if the client does not have access to the `CDF_PROJECT` the user will now get
   a more informative error message.
 - When running `cdf-tk auth verify` and missing the `FunctionAcl(READ)` capability, the user will now get a more
   informative error message when checking the function service status
+
+### Added
+
+- Preview feature `MODULES_CMD` to allow interactive init and automatic upgrade of modules. Activate by running
+  `cdf-tk features set MODULES_CMD --enable`, and deactivate by running `cdf-tk features set MODULES_CMD --disable`.
+  Run `cdf-tk modules init/upgrade` to interactively initialize or upgrade modules.
 
 ## [0.2.0] - 2024-06-10
 
