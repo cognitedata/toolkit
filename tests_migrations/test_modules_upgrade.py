@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import yaml
 from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
@@ -60,6 +61,11 @@ def tests_modules_upgrade_(
         modules.upgrade(local_tmp_project_path)
 
         build = BuildCommand(print_warning=False)
+        config_yaml = local_tmp_project_path / "config.dev.yaml"
+        assert config_yaml.exists()
+        yaml_data = yaml.safe_load(config_yaml.read_text())
+        yaml_data["environment"]["selected"] = ["cognite_modules/", "custom_modules/"]
+        config_yaml.write_text(yaml.dump(yaml_data))
         build.execute(False, local_tmp_project_path, local_build_path, build_env_name="dev", no_clean=False)
 
         deploy = DeployCommand(print_warning=False)
