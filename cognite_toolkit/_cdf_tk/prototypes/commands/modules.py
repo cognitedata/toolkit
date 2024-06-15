@@ -16,6 +16,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
+from rich.rule import Rule
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -261,7 +262,7 @@ class ModulesCommand(ToolkitCommand):
 
         raise typer.Exit()
 
-    def upgrade(self, project_dir: str | Path | None = None) -> Changes:
+    def upgrade(self, project_dir: str | Path | None = None, verbose: bool = False) -> Changes:
         project_path = Path(project_dir or ".")
         module_version = self._get_module_version(project_path)
         cli_version = parse_version(__version__)
@@ -309,35 +310,49 @@ class ModulesCommand(ToolkitCommand):
 
         total_changed: set[Path] = set()
         for change in changes:
-            print(
-                Panel(
-                    f"Change: {type(change).__name__}",
-                    style="yellow" if isinstance(change, AutomaticChange) else "red",
-                    expand=False,
-                )
-            )
-            if change.__doc__:
-                print(Markdown(change.__doc__))
+            color = "green"
+            changed_files: set[Path] = set()
             if change.has_file_changes:
                 if isinstance(change, AutomaticChange):
                     changed_files = change.do()
-                    if changed_files:
-                        total_changed.update(changed_files)
-                        print(f"Changed files: {', '.join(file.as_posix() for file in changed_files)}")
-                    else:
-                        print("No files changed.")
+                    color = "yellow" if changed_files else "green"
+                    total_changed.update(changed_files)
                 elif isinstance(change, ManualChange):
-                    to_change = change.need_to_change()
-                    print("This change requires manual intervention.")
-                    print("Please follow the instructions below:")
-                    print(Markdown(change.instructions(to_change)))
+                    changed_files = change.needs_to_change()
+                    color = "red" if changed_files else "green"
+            print(
+                Panel(
+                    f"Change: {type(change).__name__}",
+                    style=color,
+                    expand=False,
+                )
+            )
+            if not changed_files and change.has_file_changes:
+                suffix = "have been changed" if isinstance(change, AutomaticChange) else "need to be changed"
+                print(f"No files {suffix}.")
+            else:
+                if isinstance(change, ManualChange):
+                    print(Markdown(change.instructions(changed_files)))
+                elif isinstance(change, AutomaticChange):
+                    print("The following files have been changed:")
+                    for file in changed_files:
+                        print(Markdown(f"  - {file.relative_to(project_path).as_posix()}"))
+            if changed_files or not change.has_file_changes or verbose:
+                print(Markdown(change.__doc__ or "Missing description."))
+            print(Rule())
 
         use_git = CLICommands.use_git() and CLICommands.has_initiated_repo()
-        summary = ["All changes have been applied."]
+        summary = ["All automatic changes have been applied."]
+        color = "green"
         if total_changed:
             summary.append(f"A total of {len(total_changed)} files have been changed.")
         else:
             summary.append("No files have been changed.")
+        if manual_changes := [change for change in changes if isinstance(change, ManualChange)]:
+            summary.append(
+                f"A total of {len(manual_changes)} changes require manual intervention: {', '.join([type(change).__name__ for change in manual_changes])}."
+            )
+            color = "yellow"
         if use_git and total_changed:
             summary.append("Please review the changes and commit them if you are satisfied.")
             summary.append("You can use `git diff` to see the changes or use your IDE to inspect the changes.")
@@ -345,7 +360,7 @@ class ModulesCommand(ToolkitCommand):
                 "If you are not satisfied with the changes, you can use `git checkout -- <file>` to revert "
                 "a file or `git checkout .` to revert all changes."
             )
-        print(Panel("\n".join(summary), title="Upgrade Complete", style="green"))
+        print(Panel("\n".join(summary), title="Upgrade Complete", style=color))
         return changes
 
     @staticmethod

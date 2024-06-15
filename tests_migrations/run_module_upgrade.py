@@ -141,7 +141,7 @@ def run_modules_upgrade(
 
         build = BuildCommand(print_warning=False)
         build.execute(False, project_path, build_path, build_env_name="dev", no_clean=False)
-
+        return
         deploy = DeployCommand(print_warning=False)
         deploy.execute(
             cdf_tool_config,
@@ -167,7 +167,7 @@ def delete_modules_requiring_manual_changes(changes):
     for change in changes:
         if not isinstance(change, ManualChange):
             continue
-        for file in change.need_to_change():
+        for file in change.needs_to_change():
             if file.is_dir():
                 shutil.rmtree(file)
             else:

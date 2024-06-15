@@ -35,7 +35,7 @@ class AutomaticChange(Change):
 class ManualChange(Change):
     """A manual change is a change that requires manual intervention to be applied to a project."""
 
-    def need_to_change(self) -> set[Path]:
+    def needs_to_change(self) -> set[Path]:
         return set()
 
     def instructions(self, files: set[Path]) -> str:
@@ -47,7 +47,6 @@ class SystemYAMLMoved(AutomaticChange):
             Before it was expected to be in the cognite_modules folder.
             This change moves the file to the root of the project.
 
-            For example:
             Before:
     ```bash
         my_project/
@@ -130,13 +129,13 @@ class BuildCleanFlag(AutomaticChange):
 
 
 class CommonFunctionCodeNotSupported(ManualChange):
-    """Cognite-Toolkit no longer supports the common functions code."""
+    """."""
 
     deprecated_from = Version("0.2.0a4")
     required_from = Version("0.2.0a4")
     has_file_changes = True
 
-    def need_to_change(self) -> set[Path]:
+    def needs_to_change(self) -> set[Path]:
         common_function_code = self._project_path / "common_function_code"
         if not common_function_code.exists():
             return set()
@@ -161,7 +160,7 @@ class CommonFunctionCodeNotSupported(ManualChange):
                 to_update.append(f"    - In file {py_file.relative_to(module).as_posix()!r}")
         to_update_str = "\n".join(to_update)
         return (
-            f"The common functions code is no longer supported.\n"
+            "Cognite-Toolkit no longer supports the common functions code.\n"
             f"Please update the following files to not use 'common' module:\n{to_update_str}"
             f"\n\nThen remove the '{self._project_path.name}/common_function_code' folder."
         )
@@ -330,7 +329,7 @@ UPDATE_MODULE_VERSION_DOCSTRING = """In the _system.yaml file, the 'cdf_toolkit_
 
     This change updates the 'cdf_toolkit_version' field in the _system.yaml file to the same version as the CLI.
 
-    For example, in _system.yaml:
+    In _system.yaml:
     Before:
 ```yaml
 cdf_toolkit_version: {module_version}
