@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 from collections.abc import Iterator, MutableSequence
+from functools import lru_cache
 from pathlib import Path
 
 from packaging.version import Version
@@ -140,7 +141,7 @@ class CommonFunctionCodeNotSupported(ManualChange):
         if not common_function_code.exists():
             return set()
         needs_change = {common_function_code}
-        for py_file in common_function_code.rglob("*.py"):
+        for py_file in self._project_path.rglob("*.py"):
             content = py_file.read_text().splitlines()
             use_common_function_code = any(
                 (line.startswith("from common") or line.startswith("import common")) for line in content
@@ -151,23 +152,28 @@ class CommonFunctionCodeNotSupported(ManualChange):
 
     def instructions(self, files: set[Path]) -> str:
         to_update = []
-        for module, py_files in itertools.groupby(files, key=self.get_module_name):
-            to_update.append(f"  - {module}")
+        for module, py_files in itertools.groupby(sorted(files, key=self.get_module_name), key=self.get_module_name):
+            if module == Path("."):
+                # This is the common_function_code folder
+                continue
+            to_update.append(f"  - In module {module.relative_to(self._project_path).as_posix()!r}:")
             for py_file in py_files:
-                to_update.append(f"    - {py_file.name}")
+                to_update.append(f"    - In file {py_file.relative_to(module).as_posix()!r}")
         to_update_str = "\n".join(to_update)
         return (
-            f"The common functions code is no longer supported.\nPlease update the following files:\n{to_update_str}"
-            f"\nThen remove the '{self._project_path.name}/common_function_code' folder."
+            f"The common functions code is no longer supported.\n"
+            f"Please update the following files to not use 'common' module:\n{to_update_str}"
+            f"\n\nThen remove the '{self._project_path.name}/common_function_code' folder."
         )
 
     @staticmethod
-    def get_module_name(file_path: Path) -> str:
-        while file_path.parent:
+    @lru_cache(maxsize=128)
+    def get_module_name(file_path: Path) -> Path:
+        while file_path.parent != file_path:
             if file_path.name == "functions":
-                return file_path.parent.name
+                return file_path.parent
             file_path = file_path.parent
-        return ""
+        return Path(".")
 
 
 class FunctionExternalDataSetIdRenamed(AutomaticChange):

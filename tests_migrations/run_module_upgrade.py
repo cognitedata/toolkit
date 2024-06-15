@@ -29,7 +29,7 @@ PROJECT_INIT_DIR.mkdir(exist_ok=True)
 
 
 def run() -> None:
-    only_last = len(sys.argv) > 1 and sys.argv[1] == "--only-last"
+    only_first = len(sys.argv) > 1 and sys.argv[1] == "--only-first"
 
     versions = get_versions_since(SUPPORT_MODULE_UPGRADE_FROM_VERSION)
     for version in versions:
@@ -50,7 +50,7 @@ def run() -> None:
             title="cdf-tk module upgrade",
         )
     )
-    if only_last:
+    if only_first:
         versions = versions[-1:]
     for version in versions:
         with local_tmp_project_path() as project_path, local_build_path() as build_path, tool_globals() as cdf_tool_config:
