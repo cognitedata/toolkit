@@ -354,7 +354,7 @@ class ModulesCommand(ToolkitCommand):
             )
             color = "yellow"
         if use_git and total_changed:
-            summary.append("Please review the changes and commit them if you are satisfied.")
+            summary.append("\nPlease review the changes and commit them if you are satisfied.")
             summary.append("You can use `git diff` to see the changes or use your IDE to inspect the changes.")
             summary.append(
                 "If you are not satisfied with the changes, you can use `git checkout -- <file>` to revert "
