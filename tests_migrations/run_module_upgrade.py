@@ -184,8 +184,7 @@ def chdir(new_dir: Path) -> Iterator[None]:
 
 @contextmanager
 def tool_globals() -> Iterator[CDFToolConfig]:
-    with chdir(TEST_DIR_ROOT.parent):
-        load_dotenv(".env")
+    load_dotenv(TEST_DIR_ROOT.parent / ".env")
 
     try:
         yield CDFToolConfig()
