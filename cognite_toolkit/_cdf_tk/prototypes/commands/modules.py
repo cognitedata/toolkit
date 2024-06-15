@@ -266,6 +266,10 @@ class ModulesCommand(ToolkitCommand):
             )
             return
 
+        if module_version < Version("0.1.0"):
+            print("The modules upgrade command is not supported for versions below 0.1.0.")
+            return
+
         if not CLICommands.use_git():
             self.warn(MediumSeverityWarning("git is not installed. It is strongly recommended to use version control."))
         else:
@@ -314,3 +318,234 @@ class CLICommands:
             result = subprocess.run("git diff --quiet".split(), stdout=subprocess.PIPE)
             return result.returncode != 0
         return False
+
+
+class Change:
+    """A change is a single migration step that can be applied to a project."""
+
+    deprecated_from: Version
+    required_from: Version | None = None
+    has_file_changes: bool = False
+
+    def __init__(self, project_dir: Path) -> None:
+        self._project_path = project_dir
+
+    def do(self) -> bool:
+        return False
+
+
+class SystemYAMLMoved(Change):
+    """The _system.yaml file is now expected to in the root of the project.
+    Before it was expected to be in the cognite_modules folder.
+    This change moves the file to the root of the project.
+
+    For example:
+    Before:
+        my_project/
+            cognite_modules/
+                _system.yaml
+    After:
+        my_project/
+            _system.yaml
+    """
+
+    required_from = Version("0.2.0a3")
+    has_file_changes = True
+
+    def do(self) -> bool:
+        system_yaml = self._project_path / COGNITE_MODULES / SystemYAML.file_name
+        if not system_yaml.exists():
+            return False
+        new_system_yaml = self._project_path / SystemYAML.file_name
+        system_yaml.rename(new_system_yaml)
+        return True
+
+
+class RenamedModulesSection(Change):
+    """The 'modules' section in the config files has been renamed to 'variables'.
+    This change updates the config files to use the new name.
+
+    For example in config.dev.yaml:
+    Before:
+        ```yaml
+            variables:
+              cognite_modules:
+                cdf_cluster: ${CDF_CLUSTER}
+                cicd_clientId: ${IDP_CLIENT_ID}
+                cicd_clientSecret: ${IDP_CLIENT_SECRET}
+        ```
+    After:
+        ```yaml
+            variables:
+              cognite_modules:
+                cdf_cluster: ${CDF_CLUSTER}
+                cicd_clientId: ${IDP_CLIENT_ID}
+                cicd_clientSecret: ${IDP_CLIENT_SECRET}
+        ```
+    """
+
+    required_from = Version("0.2.0a3")
+    has_file_changes = True
+
+    def do(self) -> bool:
+        change_performed = False
+        for config_yaml in self._project_path.glob("config.*.yaml"):
+            data_raw = config_yaml.read_text()
+            # We do not parse the YAML file to avoid removing comments
+            updated_file: list[str] = []
+            for line in data_raw.splitlines():
+                if line.startswith("modules:"):
+                    change_performed = True
+                    updated_file.append(line.replace("modules:", "variables:"))
+                else:
+                    updated_file.append(line)
+            config_yaml.write_text("\n".join(updated_file))
+        return change_performed
+
+
+class BuildCleanFlag(Change):
+    """The `cdf-tk build` command no longer accepts the `--clean` flag.
+
+    The build command now always cleans the build directory before building.
+    To avoid cleaning the build directory, you can use the `--no-clean` flag.
+    """
+
+    required_from = Version("0.2.0a3")
+    has_file_changes = False
+
+
+class CommonFunctionCodeNotSupported(Change):
+    """Cognite-Toolkit no longer supports the common functions code."""
+
+    required_from = Version("0.2.0a4")
+    has_file_changes = True
+
+    def do(self) -> bool:
+        # It is complex to move the common functions code, so we will just remove
+        # the one module that uses it
+        # Todo implement this
+        cdf_functions_dummy = self._project_path / "cognite_modules" / "examples" / "cdf_functions_dummy"
+
+        if not cdf_functions_dummy.exists():
+            return False
+        shutil.rmtree(cdf_functions_dummy)
+        return True
+
+
+class FunctionExternalDataSetIdRenamed(Change):
+    """The 'externalDataSetId' field in function YAML files has been renamed to 'dataSetExternalId'.
+    This change updates the function YAML files to use the new name.
+
+    The motivation for this change is to make the naming consistent with the rest of the Toolkit.
+
+    For example, in functions/my_function.yaml:
+
+    Before:
+        ```yaml
+        externalDataSetId: my_external_id
+        ```
+    After:
+        ```yaml
+        dataSetExternalId: my_external_id
+        ```
+    """
+
+    required_from = Version("0.2.0a5")
+    has_file_changes = True
+
+    def do(self) -> bool:
+        for resource_yaml in self._project_path.glob("*.yaml"):
+            if resource_yaml.parent == "functions":
+                content = resource_yaml.read_text()
+                # Todo Write to Console that the change is being made to this file
+                content = content.replace("externalDataSetId", "dataSetExternalId")
+                resource_yaml.write_text(content)
+        return True
+
+
+class ConfigYAMLSelectedRenaming(Change):
+    """The 'environment.selected_modules_and_packages' field in the config.yaml files has been
+    renamed to 'selected'.
+    This change updates the config files to use the new name.
+
+    For example, in config.dev.yaml:
+
+    Before:
+        ```yaml
+        environment:
+          selected_modules_and_packages:
+            - my_module
+        ```
+    After:
+        ```yaml
+        environment:
+          selected:
+            - my_module
+        ```
+    """
+
+    deprecated_from = Version("0.2.0b1")
+    has_file_changes = True
+
+    def do(self) -> bool:
+        change_performed = False
+        for config_yaml in self._project_path.glob("config.*.yaml"):
+            data = config_yaml.read_text()
+            if "selected_modules_and_packages" in data:
+                change_performed = True
+                data = data.replace("selected_modules_and_packages", "selected")
+                config_yaml.write_text(data)
+        return change_performed
+
+
+class RequiredFunctionLocation(Change):
+    """Function Resource YAML files are now expected to be in the 'functions' folder.
+    Before they could be in subfolders inside the 'functions' folder.
+
+    This change moves the function YAML files to the 'functions' folder.
+
+    For example:
+    Before:
+        modules/
+          my_module/
+              functions/
+                some_subdirectory/
+                    my_function.yaml
+    After:
+        modules/
+          my_module/
+              functions/
+                my_function.yaml
+    """
+
+    required_from = Version("0.2.0b3")
+    has_file_changes = True
+
+    def do(self) -> bool:
+        change_performed = False
+        for resource_yaml in self._project_path.glob("functions/**/*.yaml"):
+            if self._is_function(resource_yaml):
+                new_path = self._new_path(resource_yaml)
+                if new_path != resource_yaml:
+                    resource_yaml.rename(new_path)
+                    change_performed = True
+        return change_performed
+
+    @staticmethod
+    def _is_function(resource_yaml: Path) -> bool:
+        # Functions require a 'name' field and to distinguish from a FunctionSchedule
+        # we check that the 'cronExpression' field is not present
+        parsed = read_yaml_file(resource_yaml)
+        if isinstance(parsed, dict):
+            return "name" in parsed and "cronExpression" not in parsed
+        elif isinstance(parsed, list):
+            return all("name" in item and "cronExpression" not in item for item in parsed)
+        return False
+
+    @staticmethod
+    def _new_path(resource_yaml: Path) -> Path:
+        # Search the path for the 'functions' folder and move the file there
+        for parent in resource_yaml.parents:
+            if parent.name == "functions":
+                return parent / resource_yaml.name
+        return resource_yaml
