@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import shutil
 from collections.abc import Iterator, MutableSequence
 from pathlib import Path
@@ -43,17 +44,21 @@ class ManualChange(Change):
 
 class SystemYAMLMoved(AutomaticChange):
     """The _system.yaml file is now expected to in the root of the project.
-    Before it was expected to be in the cognite_modules folder.
-    This change moves the file to the root of the project.
+        Before it was expected to be in the cognite_modules folder.
+        This change moves the file to the root of the project.
 
-    For example:
-    Before:
+        For example:
+        Before:
+    ```bash
         my_project/
             cognite_modules/
                 _system.yaml
-    After:
+    ```
+        After:
+    ```bash
         my_project/
             _system.yaml
+    ```
     """
 
     deprecated_from = Version("0.2.0a3")
@@ -71,25 +76,25 @@ class SystemYAMLMoved(AutomaticChange):
 
 class RenamedModulesSection(AutomaticChange):
     """The 'modules' section in the config files has been renamed to 'variables'.
-    This change updates the config files to use the new name.
+        This change updates the config files to use the new name.
 
-    For example in config.dev.yaml:
-    Before:
-        ```yaml
-            variables:
-              cognite_modules:
-                cdf_cluster: ${CDF_CLUSTER}
-                cicd_clientId: ${IDP_CLIENT_ID}
-                cicd_clientSecret: ${IDP_CLIENT_SECRET}
-        ```
-    After:
-        ```yaml
-            variables:
-              cognite_modules:
-                cdf_cluster: ${CDF_CLUSTER}
-                cicd_clientId: ${IDP_CLIENT_ID}
-                cicd_clientSecret: ${IDP_CLIENT_SECRET}
-        ```
+        For example in config.dev.yaml:
+        Before:
+    ```yaml
+        modules:
+          cognite_modules:
+            cdf_cluster: ${CDF_CLUSTER}
+            cicd_clientId: ${IDP_CLIENT_ID}
+            cicd_clientSecret: ${IDP_CLIENT_SECRET}
+    ```
+        After:
+    ```yaml
+        variables:
+          cognite_modules:
+            cdf_cluster: ${CDF_CLUSTER}
+            cicd_clientId: ${IDP_CLIENT_ID}
+            cicd_clientSecret: ${IDP_CLIENT_SECRET}
+    ```
     """
 
     deprecated_from = Version("0.2.0a3")
@@ -149,20 +154,20 @@ class CommonFunctionCodeNotSupported(ManualChange):
 
 class FunctionExternalDataSetIdRenamed(AutomaticChange):
     """The 'externalDataSetId' field in function YAML files has been renamed to 'dataSetExternalId'.
-    This change updates the function YAML files to use the new name.
+        This change updates the function YAML files to use the new name.
 
-    The motivation for this change is to make the naming consistent with the rest of the Toolkit.
+        The motivation for this change is to make the naming consistent with the rest of the Toolkit.
 
-    For example, in functions/my_function.yaml:
+        For example, in functions/my_function.yaml:
 
-    Before:
-        ```yaml
-        externalDataSetId: my_external_id
-        ```
-    After:
-        ```yaml
-        dataSetExternalId: my_external_id
-        ```
+        Before:
+    ```yaml
+    externalDataSetId: my_external_id
+    ```
+        After:
+    ```yaml
+    dataSetExternalId: my_external_id
+    ```
     """
 
     deprecated_from = Version("0.2.0a5")
@@ -183,23 +188,23 @@ class FunctionExternalDataSetIdRenamed(AutomaticChange):
 
 class ConfigYAMLSelectedRenaming(AutomaticChange):
     """The 'environment.selected_modules_and_packages' field in the config.yaml files has been
-    renamed to 'selected'.
-    This change updates the config files to use the new name.
+        renamed to 'selected'.
+        This change updates the config files to use the new name.
 
-    For example, in config.dev.yaml:
+        For example, in config.dev.yaml:
 
-    Before:
-        ```yaml
-        environment:
-          selected_modules_and_packages:
-            - my_module
-        ```
-    After:
-        ```yaml
-        environment:
-          selected:
-            - my_module
-        ```
+        Before:
+    ```yaml
+    environment:
+      selected_modules_and_packages:
+        - my_module
+    ```
+        After:
+    ```yaml
+    environment:
+      selected:
+        - my_module
+    ```
     """
 
     deprecated_from = Version("0.2.0b1")
@@ -218,22 +223,26 @@ class ConfigYAMLSelectedRenaming(AutomaticChange):
 
 class RequiredFunctionLocation(AutomaticChange):
     """Function Resource YAML files are now expected to be in the 'functions' folder.
-    Before they could be in subfolders inside the 'functions' folder.
+        Before they could be in subfolders inside the 'functions' folder.
 
-    This change moves the function YAML files to the 'functions' folder.
+        This change moves the function YAML files to the 'functions' folder.
 
-    For example:
-    Before:
+        For example:
+        Before:
+    ```bash
         modules/
           my_module/
               functions/
                 some_subdirectory/
                     my_function.yaml
-    After:
+    ```
+        After:
+    ```bash
         modules/
           my_module/
               functions/
                 my_function.yaml
+    ```
     """
 
     deprecated_from = Version("0.2.0b3")
@@ -271,21 +280,6 @@ class RequiredFunctionLocation(AutomaticChange):
 
 
 class UpdateModuleVersion(AutomaticChange):
-    """In the _system.yaml file, the 'cdf_toolkit_version' field has been updated to the same version as the CLI.
-
-    This change updates the 'cdf_toolkit_version' field in the _system.yaml file to the same version as the CLI.
-
-    For example, in _system.yaml:
-    Before:
-        ```yaml
-        cdf_toolkit_version: {module_version}
-        ```
-    After:
-        ```yaml
-        cdf_toolkit_version: {cli_version}
-        ```
-    """
-
     deprecated_from = parse_version(__version__)
     required_from = parse_version(__version__)
     has_file_changes = True
@@ -308,7 +302,26 @@ class UpdateModuleVersion(AutomaticChange):
         return changes
 
 
-_CHANGES: list[type[AutomaticChange]] = [change for change in AutomaticChange.__subclasses__()]
+UPDATE_MODULE_VERSION_DOCSTRING = """In the _system.yaml file, the 'cdf_toolkit_version' field has been updated to the same version as the CLI.
+
+    This change updates the 'cdf_toolkit_version' field in the _system.yaml file to the same version as the CLI.
+
+    For example, in _system.yaml:
+    Before:
+```yaml
+cdf_toolkit_version: {module_version}
+```
+    After:
+```yaml
+cdf_toolkit_version: {cli_version}
+```
+    """
+UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING
+
+
+_CHANGES: list[type[Change]] = [
+    change for change in itertools.chain(AutomaticChange.__subclasses__(), ManualChange.__subclasses__())
+]
 
 
 class Changes(list, MutableSequence[AutomaticChange]):

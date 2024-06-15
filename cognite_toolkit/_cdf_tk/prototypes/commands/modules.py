@@ -23,7 +23,13 @@ from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES, COGNITE_MODULE
 from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.prototypes import _packages
-from cognite_toolkit._cdf_tk.prototypes.commands._changes import Changes, UpdateModuleVersion
+from cognite_toolkit._cdf_tk.prototypes.commands._changes import (
+    UPDATE_MODULE_VERSION_DOCSTRING,
+    AutomaticChange,
+    Changes,
+    ManualChange,
+    UpdateModuleVersion,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from cognite_toolkit._version import __version__
@@ -284,7 +290,7 @@ class ModulesCommand(ToolkitCommand):
                     print("Uncommitted changes detected. Please commit your changes before upgrading the modules.")
                     return Changes()
         # Update the docstring of the change 'UpdateModuleVersion' to be more informative
-        UpdateModuleVersion.__doc__ = (UpdateModuleVersion.__doc__ or "").format(
+        UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING.format(
             module_version=module_version, cli_version=cli_version
         )
 
@@ -303,14 +309,27 @@ class ModulesCommand(ToolkitCommand):
 
         total_changed: set[Path] = set()
         for change in changes:
-            print(Markdown(change.__doc__ or type(change).__name__))
+            print(
+                Panel(
+                    f"Change: {type(change).__name__}",
+                    style="yellow" if isinstance(change, AutomaticChange) else "red",
+                    expand=False,
+                )
+            )
+            if change.__doc__:
+                print(Markdown(change.__doc__))
             if change.has_file_changes:
-                changed_files = change.do()
-                if changed_files:
-                    total_changed.update(changed_files)
-                    print(f"Changed files: {', '.join(file.as_posix() for file in changed_files)}")
-                else:
-                    print("No files changed.")
+                if isinstance(change, AutomaticChange):
+                    changed_files = change.do()
+                    if changed_files:
+                        total_changed.update(changed_files)
+                        print(f"Changed files: {', '.join(file.as_posix() for file in changed_files)}")
+                    else:
+                        print("No files changed.")
+                elif isinstance(change, ManualChange):
+                    print("This change requires manual intervention.")
+                    print("Please follow the instructions below:")
+                    print(Markdown(change.instructions()))
 
         use_git = CLICommands.use_git() and CLICommands.has_initiated_repo()
         summary = ["All changes have been applied."]
