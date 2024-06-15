@@ -598,13 +598,51 @@ class RequiredFunctionLocation(Change):
         return resource_yaml
 
 
+class UpdateModuleVersion(Change):
+    """In the _system.yaml file, the 'cdf_toolkit_version' field has been updated to the same version as the CLI.
+
+    This change updates the 'cdf_toolkit_version' field in the _system.yaml file to the same version as the CLI.
+
+    For example, in _system.yaml:
+    Before:
+        ```yaml
+        cdf_toolkit_version: 0.2.0b3
+        ```
+    After:
+        ```yaml
+        cdf_toolkit_version: 0.2.0b3
+        ```
+    """
+
+    deprecated_from = parse_version(__version__)
+    required_from = parse_version(__version__)
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        system_yaml = self._project_path / SystemYAML.file_name
+        if not system_yaml.exists():
+            return set()
+        raw = system_yaml.read_text()
+        new_system_yaml = []
+        changes: set[Path] = set()
+        # We do not parse the YAML file to avoid removing comments
+        for line in raw.splitlines():
+            if line.startswith("cdf_toolkit_version:"):
+                new_system_yaml.append(f"cdf_toolkit_version: {__version__}")
+                changes.add(system_yaml)
+            else:
+                new_system_yaml.append(line)
+        system_yaml.write_text("\n".join(new_system_yaml))
+        return changes
+
+
 _CHANGES: list[type[Change]] = [change for change in Change.__subclasses__()]
 
 
 class Changes(list, MutableSequence[Change]):
     @classmethod
     def load(cls, module_version: Version, project_path: Path) -> Changes:
-        return cls([change(project_path) for change in _CHANGES if change.deprecated_from > module_version])
+        return cls([change(project_path) for change in _CHANGES if change.deprecated_from >= module_version])
 
     @property
     def required_changes(self) -> Changes:
