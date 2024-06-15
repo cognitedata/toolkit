@@ -48,11 +48,12 @@ def tests_modules_upgrade_(
     project_init = PROJECT_INIT_DIR / f"project_{previous_version}"
     if not project_init.exists():
         pytest.skip(f"Project init for version {previous_version} does not exist.")
+    # Copy the project to a temporary location as the upgrade command modifies the project.
     shutil.copytree(project_init, local_tmp_project_path, dirs_exist_ok=True)
 
     with chdir(TEST_DIR_ROOT):
         modules = ModulesCommand()
-        modules.upgrade(local_build_path)
+        modules.upgrade(local_tmp_project_path)
 
         build = BuildCommand(print_warning=False)
         build.execute(False, local_tmp_project_path, local_build_path, build_env_name="dev", no_clean=False)

@@ -10,6 +10,7 @@ from typing import Any, Optional
 import questionary
 import typer
 import yaml
+from packaging.version import Version
 from packaging.version import parse as parse_version
 from rich import print
 from rich.padding import Padding
@@ -17,11 +18,12 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES
+from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES, COGNITE_MODULES
 from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.prototypes import _packages
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from cognite_toolkit._version import __version__
 
 custom_style_fancy = questionary.Style(
@@ -253,17 +255,14 @@ class ModulesCommand(ToolkitCommand):
 
     def upgrade(self, project_dir: str | Path | None = None) -> None:
         project_path = Path(project_dir or ".")
-
-        # Validation.
-        system_yaml = SystemYAML.load_from_directory(project_path, build_env_name="dev")
-        SystemYAML.validate_module_dir(project_path)
-
+        module_version = self._get_module_version(project_path)
         cli_version = parse_version(__version__)
-        if cli_version < system_yaml.module_version:
+
+        if cli_version < module_version:
             upgrade = "poetry add cognite-toolkit@" if CLICommands.use_poetry() else "pip install cognite-toolkit=="
             print(
-                f"Modules are at a higher version ({system_yaml.module_version}) than the installed CLI ({__version__})."
-                f"Please upgrade the CLI to match the modules: `{upgrade}{system_yaml.module_version}`."
+                f"Modules are at a higher version ({module_version}) than the installed CLI ({__version__})."
+                f"Please upgrade the CLI to match the modules: `{upgrade}{module_version}`."
             )
             return
 
@@ -276,6 +275,17 @@ class ModulesCommand(ToolkitCommand):
                 if CLICommands.has_uncommitted_changes():
                     print("Uncommitted changes detected. Please commit your changes before upgrading the modules.")
                     return
+
+    def _get_module_version(self, project_path: Path) -> Version:
+        if (system_yaml := project_path / SystemYAML.file_name).exists():
+            # From 0.2.0a3 we have the _system.yaml on the root of the project
+            content = read_yaml_file(system_yaml)
+        elif (system_yaml := project_path / COGNITE_MODULES / SystemYAML.file_name).exists():
+            # Up to 0.2.0a2 we have the _system.yaml in the cognite_modules folder
+            content = read_yaml_file(system_yaml)
+        else:
+            raise ToolkitRequiredValueError("No system.yaml file found in project.")
+        return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
 
 class CLICommands:
