@@ -44,20 +44,20 @@ class ManualChange(Change):
 
 class SystemYAMLMoved(AutomaticChange):
     """The _system.yaml file is now expected to in the root of the project.
-            Before it was expected to be in the cognite_modules folder.
-            This change moves the file to the root of the project.
+    Before it was expected to be in the cognite_modules folder.
+    This change moves the file to the root of the project.
 
-            Before:
-    ```bash
-        my_project/
-            cognite_modules/
-                _system.yaml
-    ```
-            After:
-    ```bash
-        my_project/
+    Before:
+```bash
+    my_project/
+        cognite_modules/
             _system.yaml
-    ```
+```
+   After:
+```bash
+    my_project/
+        _system.yaml
+```
     """
 
     deprecated_from = Version("0.2.0a3")
