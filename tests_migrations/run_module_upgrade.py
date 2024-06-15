@@ -20,8 +20,9 @@ from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
 from cognite_toolkit._cdf_tk.constants import ROOT_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.prototypes.commands import ModulesCommand
+from cognite_toolkit._cdf_tk.prototypes.commands._changes import ManualChange
 from cognite_toolkit._cdf_tk.prototypes.commands.modules import CLICommands
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, module_from_path
 
 TEST_DIR_ROOT = Path(__file__).resolve().parent
 PROJECT_INIT_DIR = TEST_DIR_ROOT / "project_inits"
@@ -118,7 +119,9 @@ def run_modules_upgrade(
         modules = ModulesCommand(print_warning=False)
         # This is to allow running the function with having uncommitted changes in the repository.
         with patch.object(CLICommands, "has_uncommitted_changes", lambda: False):
-            modules.upgrade(project_path)
+            changes = modules.upgrade(project_path)
+
+        delete_modules_requiring_manual_changes(changes)
 
         # Update the config file to run include all modules.
         update_config_yaml_to_select_all_modules(project_path)
@@ -153,6 +156,23 @@ def run_modules_upgrade(
     print(
         Panel(f"Module upgrade for version {previous_version!s} completed successfully.", expand=False, style="green")
     )
+
+
+def delete_modules_requiring_manual_changes(changes):
+    for change in changes:
+        if not isinstance(change, ManualChange):
+            continue
+        for file in change.need_to_change():
+            if file.is_dir():
+                shutil.rmtree(file)
+            else:
+                module = module_from_path(file)
+                for part in reversed(file.parts):
+                    if part == module:
+                        break
+                    file = file.parent
+                if file.exists():
+                    shutil.rmtree(file)
 
 
 def update_config_yaml_to_select_all_modules(project_path):

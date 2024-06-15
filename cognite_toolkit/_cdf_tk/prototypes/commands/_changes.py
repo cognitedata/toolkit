@@ -44,17 +44,17 @@ class ManualChange(Change):
 
 class SystemYAMLMoved(AutomaticChange):
     """The _system.yaml file is now expected to in the root of the project.
-        Before it was expected to be in the cognite_modules folder.
-        This change moves the file to the root of the project.
+            Before it was expected to be in the cognite_modules folder.
+            This change moves the file to the root of the project.
 
-        For example:
-        Before:
+            For example:
+            Before:
     ```bash
         my_project/
             cognite_modules/
                 _system.yaml
     ```
-        After:
+            After:
     ```bash
         my_project/
             _system.yaml
@@ -76,10 +76,10 @@ class SystemYAMLMoved(AutomaticChange):
 
 class RenamedModulesSection(AutomaticChange):
     """The 'modules' section in the config files has been renamed to 'variables'.
-        This change updates the config files to use the new name.
+                        This change updates the config files to use the new name.
 
-        For example in config.dev.yaml:
-        Before:
+                        For example in config.dev.yaml:
+                        Before:
     ```yaml
         modules:
           cognite_modules:
@@ -87,7 +87,7 @@ class RenamedModulesSection(AutomaticChange):
             cicd_clientId: ${IDP_CLIENT_ID}
             cicd_clientSecret: ${IDP_CLIENT_SECRET}
     ```
-        After:
+                        After:
     ```yaml
         variables:
           cognite_modules:
