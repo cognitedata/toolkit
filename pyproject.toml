@@ -59,6 +59,11 @@ follow_imports = "normal"
 ignore_missing_imports = true
 exclude = ["cognite_toolkit/cognite_modules",
             "cognite_toolkit/build*"]
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+docstring-code-format = false
 
 [build-system]
 requires = ["poetry-core"]
