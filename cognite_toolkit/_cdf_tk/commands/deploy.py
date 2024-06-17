@@ -306,12 +306,23 @@ class DeployCommand(ToolkitCommand):
 
         for item in resources:
             cdf_resource = cdf_resource_by_id.get(loader.get_id(item))
-            if cdf_resource and loader.are_equal(item, cdf_resource):
+            try:
+                are_equal = cdf_resource and loader.are_equal(item, cdf_resource)
+            except CogniteAPIError as e:
+                self.warn(
+                    MediumSeverityWarning(
+                        f"Failed to compare {loader.display_name} {loader.get_id(item)} for equality. Proceeding assuming not data in CDF. Error {e}."
+                    )
+                )
+                print(Panel(traceback.format_exc()))
+                are_equal = False
+            if are_equal:
                 unchanged.append(item)
             elif cdf_resource:
                 to_update.append(item)
             else:
                 to_create.append(item)
+
         return to_create, to_update, unchanged
 
     def _verbose_print(
