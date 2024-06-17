@@ -162,5 +162,31 @@
             "console": "integratedTerminal",
             "justMyCode": false
         },
+        {
+            "name": "Python: modules init",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "modules",
+                "init",
+                "--init-dir=foo",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: modules upgrade",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "modules",
+                "upgrade",
+                "--project_dir=foo",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
     ]
 }

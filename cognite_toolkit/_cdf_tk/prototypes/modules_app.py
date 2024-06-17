@@ -27,7 +27,7 @@ class Modules(typer.Typer):
         arg_init_dir: Annotated[
             Optional[str],
             typer.Option(
-                "--init-dir",
+                "project_dir",
                 help="Directory path to project to initialize or upgrade with templates.",
             ),
         ] = None,
