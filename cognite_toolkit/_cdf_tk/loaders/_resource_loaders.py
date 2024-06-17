@@ -416,6 +416,9 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         self.client.iam.groups.delete(found)
         return len(found)
 
+    def iterate(self) -> Iterable[Group]:
+        return self.client.iam.groups.list(all=True)
+
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
@@ -530,6 +533,9 @@ class SecurityCategoryLoader(
             self.client.iam.security_categories.delete([item.id for item in retrieved if item.id])
         return len(retrieved)
 
+    def iterate(self) -> Iterable[SecurityCategory]:
+        return self.client.iam.security_categories.list(limit=-1)
+
 
 @final
 class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList, DataSetList]):
@@ -619,6 +625,9 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
+    def iterate(self) -> Iterable[DataSet]:
+        return iter(self.client.data_sets)
+
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
@@ -693,6 +702,9 @@ class LabelLoader(
         else:
             # All deleted successfully
             return len(ids)
+
+    def iterate(self) -> Iterable[LabelDefinition]:
+        return iter(self.client.labels)
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -924,6 +936,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         self.client.functions.delete(external_id=cast(SequenceNotStr[str], ids))
         return len(ids)
 
+    def iterate(self) -> Iterable[Function]:
+        return iter(self.client.functions)
+
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
@@ -1055,6 +1070,9 @@ class FunctionScheduleLoader(
             count += 1
         return count
 
+    def iterate(self) -> Iterable[FunctionSchedule]:
+        return iter(self.client.functions.schedules)
+
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
@@ -1151,6 +1169,9 @@ class RawDatabaseLoader(
             else:
                 raise e
         return len(db_names)
+
+    def iterate(self) -> Iterable[RawDatabaseTable]:
+        return (RawDatabaseTable(db_name=cast(str, db.name)) for db in self.client.raw.databases)
 
     def count(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
         nr_of_tables = 0
@@ -1292,6 +1313,13 @@ class RawTableLoader(
                 count += len(tables)
         return count
 
+    def iterate(self) -> Iterable[RawDatabaseTable]:
+        return (
+            RawDatabaseTable(db_name=cast(str, db.name), table_name=cast(str, table.name))
+            for db in self.client.raw.databases
+            for table in self.client.raw.tables(cast(str, db.name))
+        )
+
     def count(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
         if not self._printed_warning:
             print("  [bold green]INFO:[/] Raw rows do not support count (there is no aggregation method).")
@@ -1390,6 +1418,9 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         if existing:
             self.client.time_series.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
+
+    def iterate(self) -> Iterable[TimeSeries]:
+        return iter(self.client.time_series)
 
     def count(self, ids: str | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
         datapoints = cast(
@@ -1545,6 +1576,9 @@ class DatapointSubscriptionLoader(
         else:
             # All deleted successfully
             return len(ids)
+
+    def iterate(self) -> Iterable[DatapointSubscription]:
+        return iter(self.client.time_series.subscriptions)
 
     def are_equal(self, local: DataPointSubscriptionWrite, cdf_resource: DatapointSubscription) -> bool:
         local_dumped = local.dump()
@@ -1747,6 +1781,9 @@ class TransformationLoader(
             self.client.transformations.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
 
+    def iterate(self) -> Iterable[Transformation]:
+        return iter(self.client.transformations)
+
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
@@ -1863,6 +1900,9 @@ class TransformationScheduleLoader(
         except CogniteNotFoundError as e:
             return len(cast(SequenceNotStr[str], ids)) - len(e.not_found)
 
+    def iterate(self) -> Iterable[TransformationSchedule]:
+        return iter(self.client.transformations.schedules)
+
 
 @final
 class TransformationNotificationLoader(
@@ -1962,6 +2002,9 @@ class TransformationNotificationLoader(
         if existing := self.retrieve(ids):
             self.client.transformations.notifications.delete([item.id for item in existing])  # type: ignore[misc]
         return len(existing)
+
+    def iterate(self) -> Iterable[TransformationNotification]:
+        return iter(self.client.transformations.notifications)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -2109,6 +2152,9 @@ class ExtractionPipelineLoader(
                 return 0
         return len(id_list)
 
+    def iterate(self) -> Iterable[ExtractionPipeline]:
+        return iter(self.client.extraction_pipelines)
+
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
@@ -2238,6 +2284,12 @@ class ExtractionPipelineConfigLoader(
                 if result:
                     count += 1
         return count
+
+    def iterate(self) -> Iterable[ExtractionPipelineConfig]:
+        return (
+            self.client.extraction_pipelines.config.retrieve(external_id=cast(str, pipeline.external_id))
+            for pipeline in self.client.extraction_pipelines
+        )
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -2392,6 +2444,9 @@ class FileMetadataLoader(
         self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
         return len(cast(SequenceNotStr[str], ids))
 
+    def iterate(self) -> Iterable[FileMetadata]:
+        return iter(self.client.files)
+
     def count(self, ids: SequenceNotStr[str]) -> int:
         return sum(
             1
@@ -2501,6 +2556,9 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         to_delete = [space for space in ids if space not in is_global]
         deleted = self.client.data_modeling.spaces.delete(to_delete)
         return len(deleted)
+
+    def iterate(self) -> Iterable[Space]:
+        return iter(self.client.data_modeling.spaces)
 
     def count(self, ids: SequenceNotStr[str]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
@@ -2633,6 +2691,9 @@ class ContainerLoader(
     def delete(self, ids: SequenceNotStr[ContainerId]) -> int:
         deleted = self.client.data_modeling.containers.delete(cast(Sequence, ids))
         return len(deleted)
+
+    def iterate(self) -> Iterable[Container]:
+        return iter(self.client.data_modeling.containers)
 
     def count(self, ids: SequenceNotStr[ContainerId]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
@@ -2857,6 +2918,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
         return nr_of_deleted
 
+    def iterate(self) -> Iterable[View]:
+        return iter(self.client.data_modeling.views)
+
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
@@ -3021,6 +3085,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
         return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))
 
+    def iterate(self) -> Iterable[DataModel]:
+        return iter(self.client.data_modeling.data_models)
+
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
@@ -3163,6 +3230,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
             raise e
         return len(deleted.nodes)
 
+    def iterate(self) -> Iterable[Node]:
+        return iter(self.client.data_modeling.instances)
+
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
         return len(ids)
 
@@ -3258,6 +3328,9 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
                 successes += 1
         return successes
 
+    def iterate(self) -> Iterable[Workflow]:
+        return self.client.workflows.list(limit=-1)
+
 
 @final
 class WorkflowVersionLoader(
@@ -3340,6 +3413,9 @@ class WorkflowVersionLoader(
             else:
                 successes += 1
         return successes
+
+    def iterate(self) -> Iterable[WorkflowVersion]:
+        return self.client.workflows.versions.list(limit=-1)
 
     @classmethod
     @lru_cache(maxsize=1)
