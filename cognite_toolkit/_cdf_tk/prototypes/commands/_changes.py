@@ -311,8 +311,10 @@ class UpdateModuleVersion(AutomaticChange):
         # We do not parse the YAML file to avoid removing comments
         for line in raw.splitlines():
             if line.startswith("cdf_toolkit_version:"):
-                new_system_yaml.append(f"cdf_toolkit_version: {__version__}")
-                changes.add(system_yaml)
+                new_line = f"cdf_toolkit_version: {__version__}"
+                new_system_yaml.append(new_line)
+                if new_line != line:
+                    changes.add(system_yaml)
             else:
                 new_system_yaml.append(line)
         system_yaml.write_text("\n".join(new_system_yaml))
