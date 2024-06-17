@@ -29,6 +29,11 @@ Changes are grouped as follows:
 - Preview feature `MODULES_CMD` to allow interactive init and automatic upgrade of modules. Activate by running
   `cdf-tk features set MODULES_CMD --enable`, and deactivate by running `cdf-tk features set MODULES_CMD --disable`.
   Run `cdf-tk modules init/upgrade` to interactively initialize or upgrade modules.
+  
+## Fixed
+
+- When running `cdf-tk build`, you would get a `DuplicatedItemWarning` on RAW Databases that are used with multiple
+  tables. This is now fixed.
 
 ## [0.2.0] - 2024-06-10
 
