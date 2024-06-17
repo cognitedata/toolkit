@@ -59,7 +59,6 @@ from cognite.client.data_classes import (
     LabelDefinitionList,
     LabelDefinitionWrite,
     OidcCredentials,
-    Table,
     TimeSeries,
     TimeSeriesList,
     TimeSeriesWrite,
@@ -938,8 +937,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         return len(ids)
 
     def iterate(self) -> Iterable[Function]:
-        # Todo fix SDK to support iter and __call__
-        return self.client.functions.list(limit=-1)
+        return iter(self.client.functions)
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -1073,8 +1071,7 @@ class FunctionScheduleLoader(
         return count
 
     def iterate(self) -> Iterable[FunctionSchedule]:
-        # Todo fix SDK to support iter and __call__
-        return self.client.functions.schedules.list(limit=-1)
+        return iter(self.client.functions.schedules)
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -1318,7 +1315,7 @@ class RawTableLoader(
 
     def iterate(self) -> Iterable[RawDatabaseTable]:
         return (
-            RawDatabaseTable(db_name=cast(str, db.name), table_name=cast(str, cast(Table, table).name))
+            RawDatabaseTable(db_name=cast(str, db.name), table_name=cast(str, table.name))
             for db in self.client.raw.databases
             for table in self.client.raw.tables(cast(str, db.name))
         )
@@ -1581,7 +1578,7 @@ class DatapointSubscriptionLoader(
             return len(ids)
 
     def iterate(self) -> Iterable[DatapointSubscription]:
-        return self.client.time_series.subscriptions.list(limit=-1)
+        return iter(self.client.time_series.subscriptions)
 
     def are_equal(self, local: DataPointSubscriptionWrite, cdf_resource: DatapointSubscription) -> bool:
         local_dumped = local.dump()
@@ -1785,8 +1782,7 @@ class TransformationLoader(
         return len(existing)
 
     def iterate(self) -> Iterable[Transformation]:
-        # Todo: Fix SDK to support iteration
-        return self.client.transformations.list(limit=-1)
+        return iter(self.client.transformations)
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -1905,8 +1901,7 @@ class TransformationScheduleLoader(
             return len(cast(SequenceNotStr[str], ids)) - len(e.not_found)
 
     def iterate(self) -> Iterable[TransformationSchedule]:
-        # Todo: Fix SDK to support iteration
-        return self.client.transformations.schedules.list(limit=-1)
+        return iter(self.client.transformations.schedules)
 
 
 @final
@@ -2009,8 +2004,7 @@ class TransformationNotificationLoader(
         return len(existing)
 
     def iterate(self) -> Iterable[TransformationNotification]:
-        # Todo fix SDK to support iteration
-        return self.client.transformations.notifications.list(limit=-1)
+        return iter(self.client.transformations.notifications)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -2159,8 +2153,7 @@ class ExtractionPipelineLoader(
         return len(id_list)
 
     def iterate(self) -> Iterable[ExtractionPipeline]:
-        # Todo fix SDK to support iteration
-        return self.client.extraction_pipelines.list(limit=-1)
+        return iter(self.client.extraction_pipelines)
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -2293,11 +2286,9 @@ class ExtractionPipelineConfigLoader(
         return count
 
     def iterate(self) -> Iterable[ExtractionPipelineConfig]:
-        # Todo fix SDK to support iteration
-
         return (
             self.client.extraction_pipelines.config.retrieve(external_id=cast(str, pipeline.external_id))
-            for pipeline in self.client.extraction_pipelines.list(limit=-1)
+            for pipeline in self.client.extraction_pipelines
         )
 
     @classmethod
