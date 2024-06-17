@@ -170,6 +170,7 @@
             "args": [
                 "modules",
                 "init",
+                "new_project",
             ],
             "console": "integratedTerminal",
             "justMyCode": false
@@ -182,7 +183,8 @@
             "args": [
                 "modules",
                 "upgrade",
-                "new_project",
+                "./cognite_toolkit"
+
             ],
             "console": "integratedTerminal",
             "justMyCode": false
