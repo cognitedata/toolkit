@@ -69,6 +69,19 @@ class DuplicatedItemWarning(YAMLFileWarning):
 
 
 @dataclass(frozen=True)
+class UnknownResourceTypeWarning(YAMLFileWarning):
+    severity = SeverityLevel.MEDIUM
+
+    suggestion: str | None
+
+    def get_message(self) -> str:
+        msg = f"{type(self).__name__}: In file {self.filepath.as_posix()!r}."
+        if self.suggestion:
+            msg += f" Did you mean to call the file {self.suggestion!r}?"
+        return SeverityFormat.get_rich_severity_format(self.severity, msg)
+
+
+@dataclass(frozen=True)
 class UnusedParameterWarning(YAMLFileWithElementWarning):
     severity = SeverityLevel.LOW
     actual: str
