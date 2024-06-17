@@ -528,7 +528,9 @@ class BuildCommand(ToolkitCommand):
                 warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
 
             if first_seen := state.ids_by_resource_type[loader].get(identifier):
-                warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
+                if loader is not RawDatabaseLoader:
+                    # RAW Database will pick up all Raw Tables, so we don't want to warn about duplicates.
+                    warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
             else:
                 state.ids_by_resource_type[loader][identifier] = source_path
 
