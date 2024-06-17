@@ -170,7 +170,6 @@
             "args": [
                 "modules",
                 "init",
-                "--init-dir=foo",
             ],
             "console": "integratedTerminal",
             "justMyCode": false
@@ -183,7 +182,7 @@
             "args": [
                 "modules",
                 "upgrade",
-                "--project_dir=foo",
+                "new_project",
             ],
             "console": "integratedTerminal",
             "justMyCode": false
