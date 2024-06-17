@@ -1,193 +1,175 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Python: build",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "--verbose",
-                "--override-env",
-                "build",
-                "--build-dir=build",
-                "--env=local",
-                "./cognite_toolkit/"
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: deploy",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "deploy",
-                "--dry-run",
-                //"--drop",
-                //"--drop-data",
-                "--env=local",
-                //"--include=transformations",
-                "./build"
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: clean",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "clean",
-                //"--dry-run",
-                "--env=local",
-                //"--include=transformations"
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: auth verify",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "--override-env",
-                "auth",
-                "verify",
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: cdf.py",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                //"--project=TEST",
-                "run",
-                "function",
-                "--external_id=fn_test2",
-                "--local",
-                "--env=local",
-                "./cognite_toolkit/"
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: P&ID annotation function test",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_files_valhall/functions/fn_context_files_oid_fileshare_annotation/handler.py",
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: TS - Asset Contextualization function test",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_timeseries_valhall/functions/fn_context_timeseries_oid_opcua_asset/handler.py",
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: TS - Star of workflow test",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_files_valhall/functions/fn_workflow_files_oid_fileshare_annotation/handler.py",
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: init",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "init",
-                //"--dry-run",
-                //"--env=local",
-                //"--include=transformations"
-                //"--init-dir=foo",
-                //"--help",
-                //"--package=quickstart"
-                //"--package=empty",
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: feature flags",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "features",
-                "list",
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: feature flag set",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "features",
-                "set",
-                "--flag=interactive_init",
-                "--enabled=true",
-
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: feature flags reset",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "features",
-                "reset",
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: modules init",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "modules",
-                "init",
-                "new_project",
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "Python: modules upgrade",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "./cdf-tk-dev.py",
-            "args": [
-                "modules",
-                "upgrade",
-                "./cognite_toolkit"
-
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-    ]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python Debugger: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: build",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "--verbose",
+        "--override-env",
+        "build",
+        "--build-dir=build",
+        "--env=local",
+        "./cognite_toolkit/"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: deploy",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "deploy",
+        "--dry-run",
+        //"--drop",
+        //"--drop-data",
+        "--env=local",
+        //"--include=transformations",
+        "./build"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: clean",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "clean",
+        //"--dry-run",
+        "--env=local"
+        //"--include=transformations"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: auth verify",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": ["--override-env", "auth", "verify"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: cdf.py",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        //"--project=TEST",
+        "run",
+        "function",
+        "--external_id=fn_test2",
+        "--local",
+        "--env=local",
+        "./cognite_toolkit/"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: P&ID annotation function test",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_files_valhall/functions/fn_context_files_oid_fileshare_annotation/handler.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: TS - Asset Contextualization function test",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_timeseries_valhall/functions/fn_context_timeseries_oid_opcua_asset/handler.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: TS - Star of workflow test",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_files_valhall/functions/fn_workflow_files_oid_fileshare_annotation/handler.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: init",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "init"
+        //"--dry-run",
+        //"--env=local",
+        //"--include=transformations"
+        //"--init-dir=foo",
+        //"--help",
+        //"--package=quickstart"
+        //"--package=empty",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: feature flags",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": ["features", "list"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: feature flag set",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": ["features", "set", "--flag=interactive_init", "--enabled=true"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: feature flags reset",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": ["features", "reset"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: modules init",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": ["modules", "init", "new_project"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: modules upgrade",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": ["modules", "upgrade", "./cognite_toolkit"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
 }
