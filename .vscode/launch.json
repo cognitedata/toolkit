@@ -162,5 +162,16 @@
             "console": "integratedTerminal",
             "justMyCode": false
         },
+        {
+            "name": "Python: modules init",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./cdf-tk-dev.py",
+            "args": [
+                "modules",
+                "init"            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
     ]
 }
