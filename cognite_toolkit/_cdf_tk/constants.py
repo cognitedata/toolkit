@@ -36,3 +36,5 @@ PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", 
 
 ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
+
+SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.1.0"

@@ -7,6 +7,7 @@ from rich import print
 
 from cognite_toolkit._cdf import _get_user_command
 from cognite_toolkit._cdf_tk.prototypes.commands.modules import ModulesCommand
+from cognite_toolkit._version import __version__
 
 
 class Modules(typer.Typer):
@@ -14,6 +15,7 @@ class Modules(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
+        self.command()(self.upgrade)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""
@@ -44,3 +46,19 @@ class Modules(typer.Typer):
             init_dir=arg_init_dir,
             arg_package=arg_package,
         )
+
+    def upgrade(
+        self,
+        project_dir: Annotated[
+            Optional[str],
+            typer.Argument(
+                help="Directory path to project to upgrade with templates. Defaults to current directory.",
+            ),
+        ] = None,
+    ) -> None:
+        cmd = ModulesCommand(user_command=_get_user_command())
+        cmd.upgrade(project_dir=project_dir)
+
+
+# This is a trick to use an f-string for the docstring
+Modules.upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
