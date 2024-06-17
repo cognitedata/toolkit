@@ -24,6 +24,11 @@ Changes are grouped as follows:
 - When running `cdf-tk auth verify` and missing the `FunctionAcl(READ)` capability, the user will now get a more
   informative error message when checking the function service status
 
+## Fixed
+
+- When running `cdf-tk build`, you would get a `DuplicatedItemWarning` on RAW Databases that are used with multiple
+  tables. This is now fixed.
+
 ### Added
 
 - Preview feature `MODULES_CMD` to allow interactive init and automatic upgrade of modules. Activate by running
