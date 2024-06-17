@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import difflib
 import io
 import re
 import shutil
@@ -35,7 +36,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
     ToolkitDuplicatedModuleError,
     ToolkitFileExistsError,
-    ToolkitMissingModulesError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
     ToolkitYAMLFormatError,
@@ -61,7 +61,11 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     UnresolvedVariableWarning,
     WarningList,
 )
-from cognite_toolkit._cdf_tk.tk_warnings.fileread import DuplicatedItemWarning, MissingRequiredIdentifierWarning
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
+    DuplicatedItemWarning,
+    MissingRequiredIdentifierWarning,
+    UnknownResourceTypeWarning,
+)
 from cognite_toolkit._cdf_tk.utils import (
     calculate_str_or_file_hash,
     iterate_modules,
@@ -81,14 +85,9 @@ class BuildCommand(ToolkitCommand):
             raise ToolkitNotADirectoryError(str(source_path))
 
         system_config = SystemYAML.load_from_directory(source_path, build_env_name, self.warn, self.user_command)
+        sources = SystemYAML.validate_module_dir(source_path)
         config = BuildConfigYAML.load_from_directory(source_path, build_env_name, self.warn)
-        sources = [module_dir for root_module in ROOT_MODULES if (module_dir := source_path / root_module).exists()]
-        if not sources:
-            directories = "\n".join(f"   ┣ {name}" for name in ROOT_MODULES[:-1])
-            raise ToolkitMissingModulesError(
-                f"Could not find the source modules directory.\nExpected to find one of the following directories\n"
-                f"{source_path.name}\n{directories}\n   ┗  {ROOT_MODULES[-1]}"
-            )
+
         directory_name = "current directory" if source_path == Path(".") else f"project '{source_path!s}'"
         module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
         print(
@@ -503,7 +502,7 @@ class BuildCommand(ToolkitCommand):
                 f"YAML validation error for {destination.name} after substituting config variables: {e}"
             )
 
-        loader = self._get_loader(resource_folder, destination)
+        loader = self._get_loader(resource_folder, destination, source_path)
         if loader is None:
             return warning_list
         if not issubclass(loader, ResourceLoader):
@@ -523,7 +522,9 @@ class BuildCommand(ToolkitCommand):
                 warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
 
             if first_seen := state.ids_by_resource_type[loader].get(identifier):
-                warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
+                if loader is not RawDatabaseLoader:
+                    # RAW Database will pick up all Raw Tables, so we don't want to warn about duplicates.
+                    warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
             else:
                 state.ids_by_resource_type[loader][identifier] = source_path
 
@@ -555,16 +556,27 @@ class BuildCommand(ToolkitCommand):
             )
         return api_spec
 
-    def _get_loader(self, resource_folder: str, destination: Path) -> type[Loader] | None:
-        loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
-        loaders = [loader for loader in loaders if loader.is_supported_file(destination)]
-        if len(loaders) == 0:
+    def _get_loader(self, resource_folder: str, destination: Path, source_path: Path) -> type[Loader] | None:
+        folder_loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
+        if not folder_loaders:
             self.warn(
                 ToolkitNotSupportedWarning(
-                    f"the resource {resource_folder!r}",
+                    f"resource of type {resource_folder!r} in {source_path.name}.",
                     details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
                 )
             )
+            return None
+
+        loaders = [loader for loader in folder_loaders if loader.is_supported_file(destination)]
+        if len(loaders) == 0:
+            suggestion: str | None = None
+            if "." in source_path.stem:
+                core, kind = source_path.stem.rsplit(".", 1)
+                match = difflib.get_close_matches(kind, [loader.kind for loader in folder_loaders])
+                if match:
+                    suggestion = f"{core}.{match[0]}{source_path.suffix}"
+            self.warn(UnknownResourceTypeWarning(source_path, suggestion))
+            return None
         elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
             # Multiple raw loaders load from the same file.
             return RawDatabaseLoader

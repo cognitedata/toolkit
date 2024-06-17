@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
-
+import contextlib
 import os
 import sys
 from collections.abc import Sequence
@@ -21,10 +21,12 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployCommand,
     DescribeCommand,
     DumpCommand,
+    FeatureFlagCommand,
     PullCommand,
     RunFunctionCommand,
     RunTransformationCommand,
 )
+from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.data_classes import (
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,
@@ -40,7 +42,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     NodeLoader,
     TransformationLoader,
 )
-from cognite_toolkit._cdf_tk.prototypes import featureflag
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     sentry_exception_filter,
@@ -81,21 +82,31 @@ describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+feature_flag_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
+
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
 _app.add_typer(run_app, name="run")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
+_app.add_typer(feature_flag_app, name="features")
 
 
 def app() -> NoReturn:
     # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
-        if featureflag.enabled("FF_INTERACTIVE_INIT"):
-            from cognite_toolkit._cdf_tk.prototypes.interactive_init import InteractiveInit
+        if FeatureFlag.is_enabled(Flags.MODULES_CMD):
+            from cognite_toolkit._cdf_tk.prototypes.landing_app import Landing
+            from cognite_toolkit._cdf_tk.prototypes.modules_app import Modules
 
-            _app.command("init")(InteractiveInit().interactive)
+            # original init is replaced with the modules subapp
+            modules_app = Modules(**default_typer_kws)  # type: ignore [arg-type]
+            _app.add_typer(modules_app, name="modules")
+            _app.command("init")(Landing().main_init)
+        else:
+            _app.command("init")(main_init)
+
         _app()
     except ToolkitError as err:
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
@@ -249,8 +260,7 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
-    user_command = f"cdf-tk {' '.join(sys.argv[1:])}"
-    cmd = BuildCommand(user_command=user_command)
+    cmd = BuildCommand(user_command=_get_user_command())
     cmd.execute(ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
 
 
@@ -312,9 +322,10 @@ def deploy(
         ),
     ] = None,
 ) -> None:
-    cmd = DeployCommand(print_warning=True)
+    cmd = DeployCommand(print_warning=True, user_command=_get_user_command())
     include = _process_include(include, interactive)
-    cmd.execute(ctx, build_dir, build_env_name, dry_run, drop, drop_data, include)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
+    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, ctx.obj.verbose)
 
 
 @_app.command("clean")
@@ -362,9 +373,10 @@ def clean(
 ) -> None:
     """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
     # Override cluster and project from the options/env variables
-    cmd = CleanCommand(print_warning=True)
+    cmd = CleanCommand(print_warning=True, user_command=_get_user_command())
     include = _process_include(include, interactive)
-    cmd.execute(ctx, build_dir, build_env_name, dry_run, include)
+    ToolGlobals = CDFToolConfig.from_context(ctx)
+    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, ctx.obj.verbose)
 
 
 @auth_app.callback(invoke_without_command=True)
@@ -433,11 +445,14 @@ def auth_verify(
 
     The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
-    cmd = AuthCommand()
-    cmd.execute(ctx, dry_run, interactive, group_file, update_group, create_group)
+    cmd = AuthCommand(user_command=_get_user_command())
+    with contextlib.redirect_stdout(None):
+        # Remove the Error message from failing to load the config
+        # This is verified in check_auth
+        ToolGlobals = CDFToolConfig.from_context(ctx)
+    cmd.execute(ToolGlobals, dry_run, interactive, group_file, update_group, create_group, ctx.obj.verbose)
 
 
-@_app.command("init" if not featureflag.enabled("FF_INTERACTIVE_INIT") else "_init")
 def main_init(
     ctx: typer.Context,
     dry_run: Annotated[
@@ -549,7 +564,7 @@ def describe_datamodel_cmd(
 ) -> None:
     """This command will describe the characteristics of a data model given the space
     name and datamodel name."""
-    cmd = DescribeCommand()
+    cmd = DescribeCommand(user_command=_get_user_command())
     cmd.execute(CDFToolConfig.from_context(ctx), space, data_model)
 
 
@@ -574,7 +589,7 @@ def run_transformation_cmd(
     ],
 ) -> None:
     """This command will run the specified transformation using a one-time session."""
-    cmd = RunTransformationCommand()
+    cmd = RunTransformationCommand(user_command=_get_user_command())
     cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id)
 
 
@@ -654,7 +669,7 @@ def run_function_cmd(
     ] = "dev",
 ) -> None:
     """This command will run the specified function using a one-time session."""
-    cmd = RunFunctionCommand()
+    cmd = RunFunctionCommand(user_command=_get_user_command())
     cmd.execute(
         CDFToolConfig.from_context(ctx),
         external_id,
@@ -714,7 +729,7 @@ def pull_transformation_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified transformation and update its YAML file in the module folder"""
-    PullCommand().execute(
+    PullCommand(user_command=_get_user_command()).execute(
         source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
     )
 
@@ -765,7 +780,7 @@ def pull_node_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified node and update its YAML file in the module folder."""
-    PullCommand().execute(
+    PullCommand(user_command=_get_user_command()).execute(
         source_dir,
         NodeId(space, external_id),
         env,
@@ -830,7 +845,7 @@ def dump_datamodel_cmd(
     ] = "tmp",
 ) -> None:
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-    cmd = DumpCommand()
+    cmd = DumpCommand(user_command=_get_user_command())
     cmd.execute(
         CDFToolConfig.from_context(ctx),
         DataModelId(space, external_id, version),
@@ -838,6 +853,70 @@ def dump_datamodel_cmd(
         clean,
         ctx.obj.verbose,
     )
+
+
+@feature_flag_app.callback(invoke_without_command=True)
+def feature_flag_main(ctx: typer.Context) -> None:
+    """Commands to enable and disable feature flags for the toolkit."""
+    if ctx.invoked_subcommand is None:
+        print(
+            Panel(
+                "[yellow]Warning: enabling feature flags may have undesired side effects."
+                "\nDo not enable a flag unless you are familiar with what it does.[/]"
+            )
+        )
+        print("Use [bold yellow]cdf-tk feature list[/] or [bold yellow]cdf-tk feature --[flag] --enabled=True|False[/]")
+    return None
+
+
+@feature_flag_app.command("list")
+def feature_flag_list() -> None:
+    """List all available feature flags."""
+
+    cmd = FeatureFlagCommand(user_command=_get_user_command())
+    cmd.list()
+
+
+@feature_flag_app.command("set")
+def feature_flag_set(
+    flag: Annotated[
+        str,
+        typer.Argument(
+            help="Which flag to set",
+        ),
+    ],
+    enable: Annotated[
+        bool,
+        typer.Option(
+            "--enable",
+            "-e",
+            help="Enable the flag.",
+        ),
+    ] = False,
+    disable: Annotated[
+        bool,
+        typer.Option(
+            "--disable",
+            help="Disable the flag.",
+        ),
+    ] = False,
+) -> None:
+    """Enable or disable a feature flag."""
+
+    cmd = FeatureFlagCommand(user_command=_get_user_command())
+    if enable and disable:
+        raise ToolkitValidationError("Cannot enable and disable a flag at the same time.")
+    if not enable and not disable:
+        raise ToolkitValidationError("Must specify either --enable or --disable.")
+    cmd.set(flag, enable)
+
+
+@feature_flag_app.command("reset")
+def feature_flag_reset() -> None:
+    """Reset all feature flags to their default values."""
+
+    cmd = FeatureFlagCommand(user_command=_get_user_command())
+    cmd.reset()
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
@@ -868,6 +947,10 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
             return [mapping[int(answer)]]
         except ValueError:
             raise ToolkitInvalidSettingsError(f"Invalid selection: {answer}")
+
+
+def _get_user_command() -> str:
+    return f"cdf-tk {' '.join(sys.argv[1:])}"
 
 
 if __name__ == "__main__":

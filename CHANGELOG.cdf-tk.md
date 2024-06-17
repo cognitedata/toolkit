@@ -15,6 +15,26 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.1] - 2024-06-17
+
+### Improved
+
+- When running `cdf-tk auth verify`, if the client does not have access to the `CDF_PROJECT` the user will now get
+  a more informative error message.
+- When running `cdf-tk auth verify` and missing the `FunctionAcl(READ)` capability, the user will now get a more
+  informative error message when checking the function service status
+
+## Fixed
+
+- When running `cdf-tk build`, you would get a `DuplicatedItemWarning` on RAW Databases that are used with multiple
+  tables. This is now fixed.
+
+### Added
+
+- Preview feature `MODULES_CMD` to allow interactive init and automatic upgrade of modules. Activate by running
+  `cdf-tk features set MODULES_CMD --enable`, and deactivate by running `cdf-tk features set MODULES_CMD --disable`.
+  Run `cdf-tk modules init/upgrade` to interactively initialize or upgrade modules.
+
 ## [0.2.0] - 2024-06-10
 
 ### Fixed
@@ -23,6 +43,9 @@ Changes are grouped as follows:
   `ValueError: No capabilities given`. This is now fixed.
 - When deploying `containers` resources with an index, the `cdf-tk deploy` would consider the resource as changed
   even though it was not. This is now fixed.
+- When parsing yaml without `libyaml`, `cognite-toolkit` would raise an
+  `AttributeError: module 'yaml' has no attribute 'CSafeLoader'`. This is now fixed by falling back to the
+  python `yaml` parser if `libyaml` (c-based) is not available.
 
 ## [0.2.0b4] - 2024-06-06
 

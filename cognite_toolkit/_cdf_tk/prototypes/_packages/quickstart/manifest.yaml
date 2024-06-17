@@ -1,0 +1,21 @@
+"title": "Quick Start: A set of modules for a CDF quick start project."
+"modules": {
+    "sap_data_ingestion": {
+        "title": "SAP Data Pipeline",
+    },
+    "pi_data_pipeline": {
+        "title": "PI Data Pipeline",
+    },
+    "mqtt_data_pipeline": {
+        "title": "MQTT Data Pipeline",
+    },
+    "files_contextualization": {
+        "title": "Files Contextualization",
+    },
+    "asset_data_transformation": {
+        "title": "Asset Data Transformation",
+    },
+    "infield": {
+        "title": "Infield",
+    },
+}

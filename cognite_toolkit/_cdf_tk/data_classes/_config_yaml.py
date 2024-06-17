@@ -5,7 +5,7 @@ import os
 import re
 from abc import ABC
 from collections import UserDict, defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILD_ENVIRONMENT_FILE,
     DEFAULT_CONFIG_FILE,
     MODULE_PATH_SEP,
+    ROOT_MODULES,
     SEARCH_VARIABLES_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
@@ -341,7 +342,35 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
     def as_build_config(self) -> BuildConfigYAML:
         return BuildConfigYAML(environment=self.environment, variables=self.dump()[self._variables], filepath=Path(""))
 
+    def load_selected_defaults(self, cognite_root_module: Path) -> InitConfigYAML:
+        if not self.environment.selected or len(self.environment.selected) == 0:
+            return self.load_defaults(cognite_root_module)
+
+        relevant_defaults: list[Path] = []
+        for selected in self.environment.selected:
+            relevant_defaults.extend(cognite_root_module.glob(f"**/{selected}/**/{DEFAULT_CONFIG_FILE}"))
+
+        return self._load_defaults(cognite_root_module, relevant_defaults)
+
     def load_defaults(self, cognite_root_module: Path) -> InitConfigYAML:
+        """Loads all default.config.yaml files in the cognite root module."""
+
+        default_files_iterable: Iterable[Path]
+        if cognite_root_module.name in ROOT_MODULES:
+            default_files_iterable = cognite_root_module.glob(f"**/{DEFAULT_CONFIG_FILE}")
+        else:
+            default_files_iterable = itertools.chain(
+                *[
+                    (cognite_root_module / root_module).glob(f"**/{DEFAULT_CONFIG_FILE}")
+                    for root_module in ROOT_MODULES
+                    if (cognite_root_module / root_module).exists()
+                ]
+            )
+
+        default_files = sorted(default_files_iterable, key=lambda f: f.relative_to(cognite_root_module))
+        return self._load_defaults(cognite_root_module, default_files)
+
+    def _load_defaults(self, cognite_root_module: Path, defaults_files: list[Path]) -> InitConfigYAML:
         """Loads all default.config.yaml files in the cognite root module.
 
         This extracts the default values from the default.config.yaml files and
@@ -353,10 +382,8 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         Returns:
             self
         """
-        defaults = sorted(
-            cognite_root_module.glob(f"**/{DEFAULT_CONFIG_FILE}"), key=lambda f: f.relative_to(cognite_root_module)
-        )
-        for default_config in defaults:
+
+        for default_config in defaults_files:
             parts = default_config.parent.relative_to(cognite_root_module).parts
             raw_file = default_config.read_text()
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
