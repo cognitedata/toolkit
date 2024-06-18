@@ -392,12 +392,6 @@ class BuildCommand(ToolkitCommand):
                         found = True
                         if verbose:
                             print(f"      [bold green]INFO:[/] Found function {fn_xid}")
-                        if func.file_id != "<will_be_generated>":
-                            self.warn(
-                                LowSeverityWarning(
-                                    f"Function {fn_xid} in {yaml_source_path} has set a file_id. Expects '<will_be_generated>' and this will be ignored."
-                                )
-                            )
                         destination = build_dir / "functions" / fn_xid
                         if destination.exists():
                             raise ToolkitFileExistsError(
