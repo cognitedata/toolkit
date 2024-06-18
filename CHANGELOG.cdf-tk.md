@@ -21,6 +21,8 @@ Changes are grouped as follows:
 
 - The command line messages have been improved to be more informative and user-friendly when running
   `cdf-tk auth verify`.
+- The `variables` section in `config.[env].yaml` is now optional.
+- In `cdf-tk build`, more informative error message when a variable is unresolved in a resource file.
 
 ### Fixed
 
@@ -30,6 +32,8 @@ Changes are grouped as follows:
   would raise an `AuthentciationError`, instead of prompting the user for cluster and project. This is now fixed.
 - In the `cdf-tk auth verify` command, the if function service was not activated, the toolkit will
   now activate it.
+- When running `cdf-tk build`, and a resource file was missing its identifier, for example, `externalId` for a
+  dataset, an error such as `AttributeError: 'NoneType' object has no attribute 'split'` was raised. This is now fixed.
 
 ## [0.2.1] - 2024-06-17
 
