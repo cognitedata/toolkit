@@ -121,14 +121,16 @@ class AuthCommand(ToolkitCommand):
                 "The Cognite Toolkit expects the following:\n"
                 " - The principal used with the Toolkit [yellow]should[/yellow] be connected to "
                 "only ONE CDF Group.\n"
-                f" - This group [red]must[/red] be named {admin_write_group.name}.\n"
-                f" - The group {admin_write_group.name} [red]must[/red] have capabilities to "
+                f" - This group [red]must[/red] be named {admin_write_group.name!r}.\n"
+                f" - The group {admin_write_group.name!r} [red]must[/red] have capabilities to "
                 f"all resources the Toolkit is managing\n"
                 " - All he capabilities [yellow]should[/yellow] be scoped to all resources.",
                 title="Toolkit Access Group",
                 expand=False,
             )
         )
+        if interactive and not Confirm.ask("Do you want to continue?", choices=["y", "n"]):
+            return None
 
         self.check_principal_groups(principal_groups, admin_write_group)
 
@@ -321,8 +323,6 @@ class AuthCommand(ToolkitCommand):
             # Todo: New feature ask user to cleanup groups with the same name.
             #    Should compare the groups to the admin_group and ask to cleanup the groups
             #    that are not the same.
-        else:
-            print("  [bold green]OK[/] - Only one group is used for this service principal/application.")
 
         # Check for the reuse of Source ID
         unique_source_ids = set(group.source_id for group in principal_groups)
