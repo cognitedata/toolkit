@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- The `variables` section in `config.[env].yaml` is now optional.
+- In `cdf-tk build`, more informative error message when a variable is unresolved in a resource file.
+
 ## [0.2.1] - 2024-06-17
 
 ### Improved
