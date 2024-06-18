@@ -62,6 +62,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
+    CannotContinueWarning,
     DuplicatedItemWarning,
     MissingRequiredIdentifierWarning,
     UnknownResourceTypeWarning,
@@ -497,9 +498,12 @@ class BuildCommand(ToolkitCommand):
             return warning_list
 
         if all_unmatched:
-            print(
-                f"    [bold]INFO:[/] Cannot continue validation for {source_path.name!r} due to unresolved variables.\n"
-                f"Please fix all {UnresolvedVariableWarning.__name__} to continue validation."
+            warning_list.append(
+                CannotContinueWarning(
+                    source_path,
+                    reason="unresolved variables",
+                    fix=f"Please fix all {UnresolvedVariableWarning.__name__!r} to continue validation",
+                )
             )
             return warning_list
 

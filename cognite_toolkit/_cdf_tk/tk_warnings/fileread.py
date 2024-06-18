@@ -56,6 +56,21 @@ class YAMLFileWithElementWarning(YAMLFileWarning, ABC):
 
 
 @dataclass(frozen=True)
+class CannotContinueWarning(YAMLFileWarning):
+    severity = SeverityLevel.HIGH
+    description: ClassVar[str] = "Cannot continue validation of '{filename}' due to {reason}."
+
+    reason: str
+    fix: str | None = None
+
+    def get_message(self) -> str:
+        message = self.description.format(filename=self.filepath.name, reason=self.reason)
+        if self.fix:
+            message += f" {self.fix}"
+        return SeverityFormat.get_rich_severity_format(self.severity, message)
+
+
+@dataclass(frozen=True)
 class DuplicatedItemWarning(YAMLFileWarning):
     severity = SeverityLevel.MEDIUM
     identifier: Hashable

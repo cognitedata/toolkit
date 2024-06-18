@@ -6,6 +6,7 @@ from .base import (
     WarningList,
 )
 from .fileread import (
+    CannotContinueWarning,
     CaseTypoWarning,
     DataSetMissingWarning,
     DuplicatedItemWarning,
@@ -68,4 +69,5 @@ __all__ = [
     "SourceFileModifiedWarning",
     "MissingFileWarning",
     "MissingCapabilityWarning",
+    "CannotContinueWarning",
 ]
