@@ -78,6 +78,7 @@ from cognite_toolkit._cdf_tk.validation import (
     validate_modules_variables,
     validate_resource_yaml,
 )
+from cognite_toolkit._version import __version__
 
 
 class BuildCommand(ToolkitCommand):
@@ -93,7 +94,8 @@ class BuildCommand(ToolkitCommand):
         module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
         print(
             Panel(
-                f"Building {directory_name}:\n  - Environment {build_env_name!r}\n  - Config '{config.filepath!s}'"
+                f"Building {directory_name}:\n  - Environment {build_env_name!r}\n"
+                f"  - Config '{config.filepath!s}'\n  - Toolkit Version '{__version__!s}'"
                 f"\n{module_locations}",
                 expand=False,
             )
