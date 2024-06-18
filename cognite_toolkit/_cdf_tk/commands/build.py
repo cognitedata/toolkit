@@ -94,8 +94,9 @@ class BuildCommand(ToolkitCommand):
         module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
         print(
             Panel(
-                f"Building {directory_name}:\n  - Environment {build_env_name!r}\n"
-                f"  - Config '{config.filepath!s}'\n  - Toolkit Version '{__version__!s}'"
+                f"Building {directory_name}:\n  - Toolkit Version '{__version__!s}'\n"
+                f"  - Environment {build_env_name!r}\n"
+                f"  - Config '{config.filepath!s}'"
                 f"\n{module_locations}",
                 expand=False,
             )
