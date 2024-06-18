@@ -403,7 +403,8 @@ def auth_verify(
         typer.Option(
             "--interactive",
             "-i",
-            help="Will run the verification in interactive mode, prompting for input. Used to bootstrap a new project.",
+            help="Will run the verification in interactive mode, prompting for input. Used to bootstrap a new project."
+            "If this mode is selected the --update-group and --create-group options will be ignored.",
         ),
     ] = False,
     group_file: Annotated[
@@ -411,7 +412,8 @@ def auth_verify(
         typer.Option(
             "--group-file",
             "-f",
-            help="Path to group yaml configuration file to use for group verification. Defaults to admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.",
+            help="Path to group yaml configuration file to use for group verification. "
+            "Defaults to admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.",
         ),
     ] = None,
     update_group: Annotated[
@@ -419,7 +421,8 @@ def auth_verify(
         typer.Option(
             "--update-group",
             "-u",
-            help="Used to update an existing group with the configurations from the configuration file. Set to the group id to update or 1 to update the default write-all group (if the tool is only member of one group).",
+            help="If --interactive is not set. Used to update an existing group with the configurations."
+            "Set to the group id or 1 to update the default write-all group.",
         ),
     ] = 0,
     create_group: Annotated[
@@ -427,7 +430,8 @@ def auth_verify(
         typer.Option(
             "--create-group",
             "-c",
-            help="Used to create a new group with the configurations from the configuration file. Set to the source id that the new group should be configured with.",
+            help="If --interactive is not set. Used to create a new group with the configurations."
+            "Set to the source id of the new group.",
         ),
     ] = None,
 ) -> None:
