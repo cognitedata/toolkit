@@ -515,11 +515,11 @@ class BuildCommand(ToolkitCommand):
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no
 
-            identifier: Any | None = None
             try:
                 identifier = loader.get_id(item)
             except KeyError as error:
                 warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
+                continue
 
             if first_seen := state.ids_by_resource_type[loader].get(identifier):
                 if loader is not RawDatabaseLoader:
