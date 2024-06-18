@@ -27,6 +27,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, TokenInspection
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
+from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
@@ -115,6 +116,20 @@ class AuthCommand(ToolkitCommand):
             raise ToolkitFileNotFoundError(f"Group config file does not exist: {admin_group_file.as_posix()}")
         admin_write_group = GroupWrite.load(admin_group_file.read_text())
 
+        print(
+            Panel(
+                "The Cognite Toolkit expects the following:\n"
+                " - The principal used with the Toolkit [yellow]should[/yellow] be connected to "
+                "only ONE CDF Group.\n"
+                f" - This group [red]must[/red] be named {admin_write_group.name}.\n"
+                f" - The group {admin_write_group.name} [red]must[/red] have capabilities to "
+                f"all resources the Toolkit is managing\n"
+                " - All he capabilities [yellow]should[/yellow] be scoped to all resources.",
+                title="Toolkit Access Group",
+                expand=False,
+            )
+        )
+
         self.check_principal_groups(principal_groups, admin_write_group)
 
         self.check_has_toolkit_required_capabilities(
@@ -131,6 +146,7 @@ class AuthCommand(ToolkitCommand):
             )
 
         has_added_capabilities = False
+        created: Group | None = None
         if dry_run:
             if not to_create and not to_delete:
                 print("No groups  would have been made or modified.")
@@ -143,8 +159,20 @@ class AuthCommand(ToolkitCommand):
                     f"Would have updated group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
                 )
         elif to_create:
-            self.upsert_group(ToolGlobals.client, to_create, to_delete, principal_groups, interactive, cdf_project)
+            created = self.upsert_group(
+                ToolGlobals.client, to_create, to_delete, principal_groups, interactive, cdf_project
+            )
             has_added_capabilities = True
+
+        must_switch_principal = created and created.id not in {group.id for group in principal_groups}
+        if must_switch_principal and created:
+            print(
+                Panel(
+                    f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red]"
+                    f"to the principal with source-id{created.source_id}.",
+                    title="Switch Principal",
+                )
+            )
 
         self.check_function_service_status(ToolGlobals.client, dry_run, has_added_capabilities)
 
@@ -415,7 +443,7 @@ class AuthCommand(ToolkitCommand):
         principal_groups: GroupList,
         interactive: bool,
         cdf_project: str,
-    ) -> None:
+    ) -> Group | None:
         existing_groups = [
             group
             for group in principal_groups
@@ -474,6 +502,7 @@ class AuthCommand(ToolkitCommand):
         print(
             f"  [bold green]OK[/] - {action.capitalize()}d new group {created.name} with {len(created.capabilities or [])} capabilities."
         )
+        return created
 
     def check_function_service_status(self, client: CogniteClient, dry_run: bool, has_added_capabilities: bool) -> None:
         print("Checking function service status...")
