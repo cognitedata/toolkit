@@ -4,6 +4,7 @@ Group:
       actions:
       - LIST
       - READ
+      - UPDATE
       scope:
         all: {}
   - groupsAcl:
