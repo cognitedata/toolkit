@@ -478,7 +478,8 @@ class BuildCommand(ToolkitCommand):
         module = module_from_path(source_path)
         resource_folder = resource_folder_from_path(source_path)
 
-        for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
+        all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
+        for unmatched in all_unmatched:
             warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
             variable = unmatched[2:-2]
             if modules := state.modules_by_variable.get(variable):
@@ -493,6 +494,13 @@ class BuildCommand(ToolkitCommand):
                 )
 
         if destination.suffix not in {".yaml", ".yml"}:
+            return warning_list
+
+        if all_unmatched:
+            print(
+                f"    [bold]INFO:[/] Cannot continue validation for {source_path.name!r} due to unresolved variables.\n"
+                f"Please fix all {UnresolvedVariableWarning.__name__} to continue validation."
+            )
             return warning_list
 
         try:
