@@ -130,8 +130,8 @@ class AuthCommand(ToolkitCommand):
                 expand=False,
             )
         )
-        if interactive and not Confirm.ask("Do you want to continue?", choices=["y", "n"]):
-            return None
+        if interactive:
+            Prompt.ask("Press enter key to continue...")
 
         self.check_principal_groups(principal_groups, admin_write_group)
 
