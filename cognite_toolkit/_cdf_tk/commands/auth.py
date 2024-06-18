@@ -166,13 +166,14 @@ class AuthCommand(ToolkitCommand):
             )
             has_added_capabilities = True
 
-        must_switch_principal = created and created.id not in {group.id for group in principal_groups}
+        must_switch_principal = created and created.source_id not in {group.source_id for group in principal_groups}
         if must_switch_principal and created:
             print(
                 Panel(
-                    f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red]"
-                    f"to the principal with source-id{created.source_id}.",
+                    f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red] "
+                    f"to the principal with source-id {created.source_id!r}.",
                     title="Switch Principal",
+                    expand=False,
                 )
             )
 
