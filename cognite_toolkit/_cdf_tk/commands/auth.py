@@ -22,6 +22,7 @@ from typing import cast
 import questionary
 from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
+    Capability,
     FunctionsAcl,
 )
 from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, TokenInspection
@@ -134,48 +135,47 @@ class AuthCommand(ToolkitCommand):
 
         self.check_principal_groups(principal_groups, admin_write_group)
 
-        self.check_has_toolkit_required_capabilities(
+        missing_capabilities = self.check_has_toolkit_required_capabilities(
             ToolGlobals.client, token_inspection, admin_write_group, cdf_project, admin_write_group.name
         )
-
         print("---------------------")
-
-        if interactive:
-            to_create, to_delete = self.upsert_toolkit_group_interactive(principal_groups, admin_write_group)
-        else:
-            to_create, to_delete = self.upsert_toolkit_group(
-                principal_groups, admin_write_group, update_group, create_group
-            )
-
         has_added_capabilities = False
-        created: Group | None = None
-        if dry_run:
-            if not to_create and not to_delete:
-                print("No groups  would have been made or modified.")
-            elif to_create and not to_delete:
-                print(
-                    f"Would have created group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
+        if missing_capabilities:
+            if interactive:
+                to_create, to_delete = self.upsert_toolkit_group_interactive(principal_groups, admin_write_group)
+            else:
+                to_create, to_delete = self.upsert_toolkit_group(
+                    principal_groups, admin_write_group, update_group, create_group
                 )
-            elif to_create and to_create:
-                print(
-                    f"Would have updated group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
-                )
-        elif to_create:
-            created = self.upsert_group(
-                ToolGlobals.client, to_create, to_delete, principal_groups, interactive, cdf_project
-            )
-            has_added_capabilities = True
 
-        must_switch_principal = created and created.source_id not in {group.source_id for group in principal_groups}
-        if must_switch_principal and created:
-            print(
-                Panel(
-                    f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red] "
-                    f"to the principal with source-id {created.source_id!r}.",
-                    title="Switch Principal",
-                    expand=False,
+            created: Group | None = None
+            if dry_run:
+                if not to_create and not to_delete:
+                    print("No groups  would have been made or modified.")
+                elif to_create and not to_delete:
+                    print(
+                        f"Would have created group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
+                    )
+                elif to_create and to_create:
+                    print(
+                        f"Would have updated group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
+                    )
+            elif to_create:
+                created = self.upsert_group(
+                    ToolGlobals.client, to_create, to_delete, principal_groups, interactive, cdf_project
                 )
-            )
+                has_added_capabilities = True
+
+            must_switch_principal = created and created.source_id not in {group.source_id for group in principal_groups}
+            if must_switch_principal and created:
+                print(
+                    Panel(
+                        f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red] "
+                        f"to the principal with source-id {created.source_id!r}.",
+                        title="Switch Principal",
+                        expand=False,
+                    )
+                )
 
         self.check_function_service_status(ToolGlobals.client, dry_run, has_added_capabilities)
 
@@ -352,7 +352,7 @@ class AuthCommand(ToolkitCommand):
         admin_group: GroupWrite,
         cdf_project: str,
         group_file_name: str,
-    ) -> None:
+    ) -> list[Capability]:
         print(f"\nChecking CDF groups access right against capabilities in {group_file_name} ...")
 
         missing_capabilities = client.iam.compare_capabilities(
@@ -365,6 +365,7 @@ class AuthCommand(ToolkitCommand):
                 self.warn(MissingCapabilityWarning(s))
         else:
             print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
+        return missing_capabilities
 
     def upsert_toolkit_group_interactive(
         self, principal_groups: GroupList, admin_group: GroupWrite
