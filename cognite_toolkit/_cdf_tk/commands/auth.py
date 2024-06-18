@@ -376,7 +376,7 @@ class AuthCommand(ToolkitCommand):
         has_candidates = len(update_candidates) > 0
         update_group: Group | None = None
         if has_candidates and Confirm.ask(
-            f"Do you want to update the group with name {admin_group.name} with the capabilities "
+            f"Do you want to update the group with name {admin_group.name!r} with the capabilities "
             "from the group config file?",
             choices=["y", "n"],
         ):
@@ -509,15 +509,7 @@ class AuthCommand(ToolkitCommand):
 
     def check_function_service_status(self, client: CogniteClient, dry_run: bool, has_added_capabilities: bool) -> None:
         print("Checking function service status...")
-        t0 = time.perf_counter()
-        while has_function_read_access := not client.iam.verify_capabilities(
-            FunctionsAcl([FunctionsAcl.Action.Read], FunctionsAcl.Scope.All()),
-        ):
-            if not has_function_read_access and has_added_capabilities and (time.perf_counter() - t0 < 5.0):
-                # Wait for the IAM service to update the capabilities
-                sleep(1.0)
-            else:
-                break
+        has_function_read_access = self.has_function_rights(client, [FunctionsAcl.Action.Read], has_added_capabilities)
         if not has_function_read_access:
             self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
             return None
@@ -535,6 +527,12 @@ class AuthCommand(ToolkitCommand):
                 "would have activated (will take up to 2 hours)..."
             )
         elif not dry_run and function_status.status != "activated":
+            has_function_write_access = self.has_function_rights(
+                client, [FunctionsAcl.Action.Write], has_added_capabilities
+            )
+            if not has_function_write_access:
+                self.warn(HighSeverityWarning("Cannot activate function service, missing function write access."))
+                return None
             try:
                 client.functions.activate()
             except CogniteAPIError as e:
@@ -549,3 +547,19 @@ class AuthCommand(ToolkitCommand):
             print("  [bold green]OK[/] - Function service has been activated.")
 
         return None
+
+    def has_function_rights(
+        self, client: CogniteClient, actions: list[FunctionsAcl.Action], has_added_capabilities: bool
+    ) -> bool:
+        t0 = time.perf_counter()
+        while not (
+            has_function_access := not client.iam.verify_capabilities(
+                FunctionsAcl(actions, FunctionsAcl.Scope.All()),
+            )
+        ):
+            if has_added_capabilities and (time.perf_counter() - t0 < 5.0):
+                # Wait for the IAM service to update the capabilities
+                sleep(1.0)
+            else:
+                break
+        return has_function_access
