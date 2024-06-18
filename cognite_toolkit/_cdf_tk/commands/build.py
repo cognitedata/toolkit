@@ -62,7 +62,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
-    CannotContinueWarning,
     DuplicatedItemWarning,
     MissingRequiredIdentifierWarning,
     UnknownResourceTypeWarning,
@@ -502,19 +501,11 @@ class BuildCommand(ToolkitCommand):
         if destination.suffix not in {".yaml", ".yml"}:
             return warning_list
 
-        if all_unmatched:
-            warning_list.append(
-                CannotContinueWarning(
-                    source_path,
-                    reason="unresolved variables",
-                    fix=f"Please fix all {UnresolvedVariableWarning.__name__!r} to continue validation",
-                )
-            )
-            return warning_list
-
         try:
             parsed = yaml.safe_load(content)
         except yaml.YAMLError as e:
+            if self.print_warning:
+                print(str(warning_list))
             raise ToolkitYAMLFormatError(
                 f"YAML validation error for {destination.name} after substituting config variables: {e}"
             )
