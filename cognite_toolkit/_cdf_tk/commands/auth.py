@@ -462,7 +462,7 @@ class AuthCommand(ToolkitCommand):
         if to_delete:
             existing_capabilities = to_delete.capabilities or []
             new_capabilities = to_create.capabilities or []
-            loosing = client.iam.compare_capabilities(existing_capabilities, new_capabilities, project=cdf_project)
+            loosing = client.iam.compare_capabilities(new_capabilities, existing_capabilities, project=cdf_project)
             for capability in loosing:
                 if len(principal_groups) > 1:
                     self.warn(
