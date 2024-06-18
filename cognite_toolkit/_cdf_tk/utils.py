@@ -326,7 +326,7 @@ class AuthReaderValidation:
             raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
 
         extra_args: dict[str, Any] = {}
-        if password is False:
+        if password is True:
             extra_args["default"] = ""
         else:
             extra_args["default"] = default
