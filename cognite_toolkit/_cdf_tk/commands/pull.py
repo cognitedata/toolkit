@@ -394,6 +394,7 @@ class PullCommand(ToolkitCommand):
             config.set_environment_variables()
             # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
             config.variables.pop("_cdf_tk", None)
+            # Todo do not use the variables to find the available modules.
             config.environment.selected = config.available_modules
             print(
                 Panel.fit(
