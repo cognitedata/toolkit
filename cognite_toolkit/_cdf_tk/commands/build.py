@@ -77,6 +77,7 @@ from cognite_toolkit._cdf_tk.validation import (
     validate_modules_variables,
     validate_resource_yaml,
 )
+from cognite_toolkit._version import __version__
 
 
 class BuildCommand(ToolkitCommand):
@@ -92,7 +93,9 @@ class BuildCommand(ToolkitCommand):
         module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
         print(
             Panel(
-                f"Building {directory_name}:\n  - Environment {build_env_name!r}\n  - Config '{config.filepath!s}'"
+                f"Building {directory_name}:\n  - Toolkit Version '{__version__!s}'\n"
+                f"  - Environment {build_env_name!r}\n"
+                f"  - Config '{config.filepath!s}'"
                 f"\n{module_locations}",
                 expand=False,
             )
@@ -446,6 +449,8 @@ class BuildCommand(ToolkitCommand):
             file_def = FileMetadataList.load(yaml_dest_path.read_text())
         except KeyError as e:
             raise ToolkitValidationError(f"Failed to load file definitions file {yaml_dest_path}, error in key: {e}")
+        except yaml.YAMLError as e:
+            raise ToolkitYAMLFormatError(f"Failed to load file definitions file {yaml_dest_path} due to: {e}")
         # We only support one file template definition per module.
         if len(file_def) == 1:
             if file_def[0].name and "$FILENAME" in file_def[0].name and file_def[0].name != "$FILENAME":
@@ -478,7 +483,8 @@ class BuildCommand(ToolkitCommand):
         module = module_from_path(source_path)
         resource_folder = resource_folder_from_path(source_path)
 
-        for unmatched in re.findall(pattern=r"\{\{.*?\}\}", string=content):
+        all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
+        for unmatched in all_unmatched:
             warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
             variable = unmatched[2:-2]
             if modules := state.modules_by_variable.get(variable):
@@ -498,6 +504,8 @@ class BuildCommand(ToolkitCommand):
         try:
             parsed = yaml.safe_load(content)
         except yaml.YAMLError as e:
+            if self.print_warning:
+                print(str(warning_list))
             raise ToolkitYAMLFormatError(
                 f"YAML validation error for {destination.name} after substituting config variables: {e}"
             )

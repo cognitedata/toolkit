@@ -21,6 +21,8 @@ Changes are grouped as follows:
 
 - The command line messages have been improved to be more informative and user-friendly when running
   `cdf-tk auth verify`.
+- The `variables` section in `config.[env].yaml` is now optional.
+- In `cdf-tk build`, more informative error message when a variable is unresolved in a resource file.
 
 ### Fixed
 
