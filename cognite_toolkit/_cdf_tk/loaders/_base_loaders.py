@@ -175,6 +175,10 @@ class ResourceLoader(
     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
 
+    @abstractmethod
+    def iterate(self) -> Iterable[T_WritableCogniteResource]:
+        raise NotImplementedError
+
     # The methods below have default implementations that can be overwritten in subclasses
     @classmethod
     @lru_cache(maxsize=1)

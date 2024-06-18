@@ -80,6 +80,8 @@ def auth_cognite_approval_client(
 
     # Set the mock get call to return the project info
     cognite_client_approval.client.get.side_effect = mock_get_json
+    # Returning empty list means no capabilities are missing
+    cognite_client_approval.client.iam.verify_capabilities.return_value = []
     return cognite_client_approval
 
 
@@ -96,7 +98,7 @@ def test_auth_verify_happy_path(
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
     cmd = AuthCommand(print_warning=False)
 
-    cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+    cmd.check_auth(cdf_tool_config, admin_group_file=Path(AUTH_DATA / "rw-group.yaml"))
 
     assert list(cmd.warning_list) == []
 
@@ -121,7 +123,7 @@ def test_auth_verify_wrong_capabilities(
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
     cmd = AuthCommand(print_warning=False)
 
-    cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+    cmd.check_auth(cdf_tool_config, admin_group_file=Path(AUTH_DATA / "rw-group.yaml"))
 
     assert len(cmd.warning_list) == len(expected_warnings)
     assert set(cmd.warning_list) == set(expected_warnings)
@@ -143,11 +145,17 @@ def test_auth_verify_two_groups(
     # the approval_client
     cdf_tool_config.client = auth_cognite_approval_client.mock_client
     cmd = AuthCommand(print_warning=False)
-    cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+    cmd.check_auth(cdf_tool_config, admin_group_file=Path(AUTH_DATA / "rw-group.yaml"))
 
     assert len(cmd.warning_list) == 1
     assert set(cmd.warning_list) == {
-        LowSeverityWarning("This service principal/application gets its access rights from more than one CDF group.")
+        LowSeverityWarning(
+            "This service principal/application gets its "
+            "access rights from more than one CDF "
+            "group.           This is not recommended. The "
+            "group matching the group config file is "
+            "marked in bold above if it is present."
+        )
     }
 
 
@@ -169,7 +177,7 @@ def test_auth_verify_no_capabilities(
     cdf_tool_config.verify_client.side_effect = mock_verify_client
     cmd = AuthCommand(print_warning=False)
     with pytest.raises(AuthorizationError) as e:
-        cmd.check_auth(cdf_tool_config, group_file=Path(AUTH_DATA / "rw-group.yaml"))
+        cmd.check_auth(cdf_tool_config, admin_group_file=Path(AUTH_DATA / "rw-group.yaml"))
 
     assert len(cmd.warning_list) == 1
     assert set(cmd.warning_list) == {
