@@ -232,31 +232,30 @@ class AuthCommand(ToolkitCommand):
             f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {access_claims}"
         )
 
-    def check_group_membership(self, groups: GroupList, group_file: Path, update_group: int) -> tuple[Group, int]:
+    def check_group_membership(self, groups: GroupList, read_write_file: Path, update_group: int) -> tuple[Group, int]:
         print("Checking CDF group memberships for the current client configured...")
-        if group_file.exists():
-            file_text = group_file.read_text()
-        else:
-            raise ToolkitFileNotFoundError(f"Group config file does not exist: {group_file.as_posix()}")
-        read_write = Group.load(file_text)
-        tbl = Table(title="CDF Group ids, Names, and Source Ids")
-        tbl.add_column("Id", justify="left")
-        tbl.add_column("Name", justify="left")
-        tbl.add_column("Source Id", justify="left")
+        if not read_write_file.exists():
+            raise ToolkitFileNotFoundError(f"Group config file does not exist: {read_write_file.as_posix()}")
+        read_write = Group.load(read_write_file.read_text())
+
+        table = Table(title="CDF Group ids, Names, and Source Ids")
+        table.add_column("Id", justify="left")
+        table.add_column("Name", justify="left")
+        table.add_column("Source Id", justify="left")
         matched_group_source_id = None
         matched_group_id = 0
-        for g in groups:
-            if len(groups) > 1 and g.name == read_write.name:
-                matched_group_source_id = g.source_id
-                matched_group_id = g.id
-                tbl.add_row(str(g.id), "[bold]" + g.name + "[/]", g.source_id)
-            else:
-                tbl.add_row(str(g.id), g.name, g.source_id)
-        multiple_groups_with_source_id = 0
-        for g in groups:
-            if g.source_id == matched_group_source_id:
-                multiple_groups_with_source_id += 1
-        print(tbl)
+        for group in groups:
+            name = group.name
+            if len(groups) > 1 and group.name == read_write.name:
+                matched_group_source_id = group.source_id
+                matched_group_id = group.id
+                name = f"[bold]{group.name}[/]"
+
+            table.add_row(str(group.id), name, group.source_id)
+        print(table)
+
+        group_with_source_id_count = sum(1 for group in groups if group.source_id == matched_group_source_id)
+
         if len(groups) > 1:
             self.warn(
                 LowSeverityWarning(
@@ -264,7 +263,8 @@ class AuthCommand(ToolkitCommand):
                 )
             )
             print(
-                "           This is not recommended. The group matching the group config file is marked in bold above if it is present."
+                "           This is not recommended. The group matching the group config file is marked in "
+                "bold above if it is present."
             )
             if update_group == 1:
                 raise AuthorizationError(
@@ -275,18 +275,13 @@ class AuthCommand(ToolkitCommand):
         else:
             print("  [bold green]OK[/] - Only one group is used for this service principal/application.")
         print("---------------------")
+
         if matched_group_source_id is not None:
             print("[bold green]RECOMMENDATION[/]:")
-            print(f"  You have {multiple_groups_with_source_id} groups with source id {matched_group_source_id},")
-            print(
-                f"  which is the same source id as the [italic]{escape(read_write.name)}[/] group in the group config file."
-            )
-            print(
-                "  It is recommended that this admin (CI/CD) application/service principal only is member of one group in the identity provider."
-            )
-            print(
-                "  This group's id should be configured as the [italic]readwrite_source_id[/] for the common/cdf_auth_readwrite_all module."
-            )
+            print(f"""You have {group_with_source_id_count} groups with source id {matched_group_source_id},
+  which is the same source id as the [italic]{escape(read_write.name)}[/] group in the group config file.
+  It is recommended that this admin (CI/CD) application/service principal only is member of one group in the identity provider.
+  This group's id should be configured as the [italic]readwrite_source_id[/] for the common/cdf_auth_readwrite_all module.""")
         return read_write, matched_group_id
 
     def check_has_toolkit_required_capabilities(
@@ -376,18 +371,16 @@ class AuthCommand(ToolkitCommand):
         dry_run: bool,
     ) -> None:
         if interactive and matched_group_id != 0:
-            push_group = Confirm.ask(
+            if Confirm.ask(
                 f"Do you want to update the group with id {matched_group_id} and name {read_write.name} with the capabilities from {group_file.as_posix()} ?",
                 choices=["y", "n"],
-            )
-            if push_group:
+            ):
                 update_group = matched_group_id
         elif interactive:
-            push_group = Confirm.ask(
+            if Confirm.ask(
                 "Do you want to create a new group with the capabilities from the group config file ?",
                 choices=["y", "n"],
-            )
-            if push_group:
+            ):
                 create_group = Prompt.ask(
                     "What is the source id for the new group (typically a group id in the identity provider)? "
                 )
