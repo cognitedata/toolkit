@@ -15,6 +15,22 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- The command line messages have been improved to be more informative and user-friendly when running
+  `cdf-tk auth verify`.
+
+### Fixed
+
+- In the `cdf-tk auth verify` command, if the flag `--interactive` was set, the `--update-group` and `create-group`
+  flags were not ignored. This is now fixed.
+- In the `cdf-tk auth verify` command, if there was no `.env` or `--cluster` and `--project` flags, the toolkit
+  would raise an `AuthentciationError`, instead of prompting the user for cluster and project. This is now fixed.
+- In the `cdf-tk auth verify` command, the if function service was not activated, the toolkit will
+  now activate it.
+
 ## [0.2.1] - 2024-06-17
 
 ### Improved
