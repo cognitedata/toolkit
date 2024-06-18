@@ -294,17 +294,14 @@ class AuthCommand(ToolkitCommand):
     ) -> None:
         print(f"\nChecking CDF groups access right against capabilities in {group_file_name} ...")
 
-        diff = client.iam.compare_capabilities(
+        missing_cabilities = client.iam.compare_capabilities(
             token_inspection.capabilities,
             read_write.capabilities or [],
             project=cdf_project,
         )
-        if len(diff) > 0:
-            diff_list: list[str] = []
-            for d in diff:
-                diff_list.append(str(d))
-            for s in sorted(diff_list):
-                self.warn(MissingCapabilityWarning(str(s)))
+        if missing_cabilities:
+            for s in sorted(map(str, missing_cabilities)):
+                self.warn(MissingCapabilityWarning(s))
         else:
             print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
 
