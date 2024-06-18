@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- When running `cdf-tk build`, and a resource file was missing its identifier, for example, `externalId` for a
+  dataset, an error such as `AttributeError: 'NoneType' object has no attribute 'split'` was raised. This is now fixed.
+
 ## [0.2.1] - 2024-06-17
 
 ### Improved
