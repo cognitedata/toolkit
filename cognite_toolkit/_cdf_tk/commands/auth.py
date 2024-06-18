@@ -130,6 +130,7 @@ class AuthCommand(ToolkitCommand):
             interactive,
             dry_run,
         )
+
         self.check_function_service_status(ToolGlobals, token_inspection, cdf_project, dry_run)
 
     def initialize_client(self, ToolGlobals: CDFToolConfig, interactive: bool, verbose: bool) -> AuthVariables:
@@ -294,13 +295,13 @@ class AuthCommand(ToolkitCommand):
     ) -> None:
         print(f"\nChecking CDF groups access right against capabilities in {group_file_name} ...")
 
-        missing_cabilities = client.iam.compare_capabilities(
+        missing_capabilities = client.iam.compare_capabilities(
             token_inspection.capabilities,
             read_write.capabilities or [],
             project=cdf_project,
         )
-        if missing_cabilities:
-            for s in sorted(map(str, missing_cabilities)):
+        if missing_capabilities:
+            for s in sorted(map(str, missing_capabilities)):
                 self.warn(MissingCapabilityWarning(s))
         else:
             print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
@@ -317,9 +318,9 @@ class AuthCommand(ToolkitCommand):
         existing_cap_list = [c.capability for c in token_inspection.capabilities]
         if len(groups) > 1 and update_group > 1:
             print(f"Checking group config file against capabilities only from the group {update_group}...")
-            for g in groups:
-                if g.id == update_group:
-                    existing_cap_list = g.capabilities or []
+            for group in groups:
+                if group.id == update_group:
+                    existing_cap_list = group.capabilities or []
                     break
         else:
             if len(groups) > 1:
@@ -346,7 +347,7 @@ class AuthCommand(ToolkitCommand):
                 else:
                     self.warn(
                         LowSeverityWarning(
-                            f"The capability {d} will be removed in the project if overwritten " "by group config file."
+                            f"The capability {d} will be removed in the project if overwritten by group config file."
                         )
                     )
         else:
@@ -440,18 +441,29 @@ class AuthCommand(ToolkitCommand):
             return None
         try:
             function_status = ToolGlobals.client.functions.status()
-            if function_status.status != "activated":
-                if function_status.status == "requested":
-                    print(
-                        "  [bold yellow]INFO:[/] Function service activation is in progress (may take up to 2 hours)..."
-                    )
-                else:
-                    print(
-                        "  [bold yellow]INFO:[/] Function service has not been activated, would have activated (will take up to 2 hours)..."
-                    )
-            else:
-                print("  [bold green]OK[/] - Function service has been activated.")
         except CogniteAPIError as e:
             self.warn(HighSeverityWarning(f"Unable to check function service status.\n{e}"))
+            return None
+
+        if function_status.status == "requested":
+            print("  [bold yellow]INFO:[/] Function service activation is in progress (may take up to 2 hours)...")
+        elif dry_run and function_status.status != "activated":
+            print(
+                "  [bold yellow]INFO:[/] Function service has not been activated, "
+                "would have activated (will take up to 2 hours)..."
+            )
+        elif not dry_run and function_status.status != "activated":
+            try:
+                ToolGlobals.client.functions.activate()
+            except CogniteAPIError as e:
+                self.warn(HighSeverityWarning(f"Unable to activate function service.\n{e}"))
+                return None
+            print(
+                "  [bold green]OK[/] - Function service has been activated. "
+                "This may take up to 2 hours to take effect."
+            )
+
+        else:
+            print("  [bold green]OK[/] - Function service has been activated.")
 
         return None
