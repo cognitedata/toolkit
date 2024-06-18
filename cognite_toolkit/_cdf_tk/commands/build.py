@@ -447,6 +447,8 @@ class BuildCommand(ToolkitCommand):
             file_def = FileMetadataList.load(yaml_dest_path.read_text())
         except KeyError as e:
             raise ToolkitValidationError(f"Failed to load file definitions file {yaml_dest_path}, error in key: {e}")
+        except yaml.YAMLError as e:
+            raise ToolkitYAMLFormatError(f"Failed to load file definitions file {yaml_dest_path} due to: {e}")
         # We only support one file template definition per module.
         if len(file_def) == 1:
             if file_def[0].name and "$FILENAME" in file_def[0].name and file_def[0].name != "$FILENAME":
