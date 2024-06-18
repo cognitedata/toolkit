@@ -326,7 +326,7 @@ class AuthReaderValidation:
             raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
 
         extra_args: dict[str, Any] = {}
-        if password is False:
+        if password is True:
             extra_args["default"] = ""
         else:
             extra_args["default"] = default
@@ -379,7 +379,13 @@ class CDFToolConfig:
         data_set_id_by_external_id: dict[str, int] = field(default_factory=dict)
         security_categories_by_name: dict[str, int] = field(default_factory=dict)
 
-    def __init__(self, token: str | None = None, cluster: str | None = None, project: str | None = None) -> None:
+    def __init__(
+        self,
+        token: str | None = None,
+        cluster: str | None = None,
+        project: str | None = None,
+        skip_initialization: bool = False,
+    ) -> None:
         self._cache = self._Cache()
         self._environ: dict[str, str | None] = {}
         # If cluster, project, or token are passed as arguments, we override the environment variables.
@@ -410,7 +416,8 @@ class CDFToolConfig:
             return
 
         auth_vars = AuthVariables.from_env(self._environ)
-        self.initialize_from_auth_variables(auth_vars)
+        if not skip_initialization:
+            self.initialize_from_auth_variables(auth_vars)
 
     def _initialize_in_browser(self) -> None:
         try:
