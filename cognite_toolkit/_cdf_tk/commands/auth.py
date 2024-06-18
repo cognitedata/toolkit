@@ -208,6 +208,7 @@ class AuthCommand(ToolkitCommand):
         except Exception:
             raise AuthorizationError(
                 "Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
+                "This could also be due to the service principal/application not having access to any Groups."
             )
         return token_inspection
 
