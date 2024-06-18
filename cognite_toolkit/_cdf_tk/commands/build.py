@@ -515,24 +515,25 @@ class BuildCommand(ToolkitCommand):
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no
 
+            identifier: Any | None = None
             try:
                 identifier = loader.get_id(item)
             except KeyError as error:
                 warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
-                continue
 
-            if first_seen := state.ids_by_resource_type[loader].get(identifier):
-                if loader is not RawDatabaseLoader:
-                    # RAW Database will pick up all Raw Tables, so we don't want to warn about duplicates.
-                    warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
-            else:
-                state.ids_by_resource_type[loader][identifier] = source_path
+            if identifier:
+                if first_seen := state.ids_by_resource_type[loader].get(identifier):
+                    if loader is not RawDatabaseLoader:
+                        # RAW Database will pick up all Raw Tables, so we don't want to warn about duplicates.
+                        warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
+                else:
+                    state.ids_by_resource_type[loader][identifier] = source_path
 
-            warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
-            warning_list.extend(warnings)
+                warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
+                warning_list.extend(warnings)
 
-            for dependency in loader.get_dependent_items(item):
-                state.dependencies_by_required[dependency].append((identifier, source_path))
+                for dependency in loader.get_dependent_items(item):
+                    state.dependencies_by_required[dependency].append((identifier, source_path))
 
             if api_spec is not None:
                 resource_warnings = validate_resource_yaml(parsed, api_spec, source_path, element_no)
