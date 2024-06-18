@@ -190,6 +190,9 @@ class DeployCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
         filepaths = loader.find_files()
+        if not filepaths:
+            self.warn(LowSeverityWarning(f"No {loader.display_name} files found. Skipping..."))
+            return None
 
         def sort_key(p: Path) -> int:
             if result := re.findall(r"^(\d+)", p.stem):
