@@ -7,8 +7,6 @@ capabilities:
       actions:
         - LIST
         - READ
-        - CREATE
-        - UPDATE
       scope:
         all: {}
   - groupsAcl:
