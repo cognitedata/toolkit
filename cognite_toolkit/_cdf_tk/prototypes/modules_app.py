@@ -24,10 +24,9 @@ class Modules(typer.Typer):
 
     def init(
         self,
-        arg_init_dir: Annotated[
+        project_dir: Annotated[
             Optional[str],
-            typer.Option(
-                "--init-dir",
+            typer.Argument(
                 help="Directory path to project to initialize or upgrade with templates.",
             ),
         ] = None,
@@ -43,7 +42,7 @@ class Modules(typer.Typer):
 
         cmd = ModulesCommand(user_command=_get_user_command())
         cmd.init(
-            init_dir=arg_init_dir,
+            init_dir=project_dir,
             arg_package=arg_package,
         )
 
