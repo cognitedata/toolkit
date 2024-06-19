@@ -869,7 +869,9 @@ def feature_flag_main(ctx: typer.Context) -> None:
                 "\nDo not enable a flag unless you are familiar with what it does.[/]"
             )
         )
-        print("Use [bold yellow]cdf-tk feature list[/] or [bold yellow]cdf-tk feature --[flag] --enabled=True|False[/]")
+        print(
+            "Use [bold yellow]cdf-tk features list[/] or [bold yellow]cdf-tk features set <flag> --enabled/--disabled[/]"
+        )
     return None
 
 
