@@ -1,3 +1,0 @@
-externalId: tr_asset_{{default_location}}_{{source_asset}}_asset_hierarchy_example
-interval: '{{scheduleHourly}}'
-isPaused: false

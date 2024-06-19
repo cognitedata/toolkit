@@ -1,3 +1,0 @@
-externalId: tr_pump_model-populate-pump_container
-interval: '{{scheduleHourly}}'
-isPaused: true

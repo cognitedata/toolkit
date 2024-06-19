@@ -286,7 +286,7 @@ my_project/
 
 # Hide environments used for migration testing
 **/.venv*
-tests_migrations/tmp*
+module_upgrade/tmp*
 
 cognite_toolkit/config.local.yaml
 **/functions/**/common
