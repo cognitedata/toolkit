@@ -63,8 +63,7 @@ class TestViewLoader:
 
     def test_update_view_with_interface(self, cognite_client_approval: ApprovalCogniteClient):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
         prop1 = dm.MappedProperty(
             dm.ContainerId(space="sp_space", external_id="container_id"),

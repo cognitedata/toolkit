@@ -13,8 +13,7 @@ from tests.tests_unit.data import RUN_DATA
 def test_get_oneshot_session(cognite_client_approval: ApprovalCogniteClient):
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.client = cognite_client_approval.mock_client
-    cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-    cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+    cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
     session = get_oneshot_session(cdf_tool.client)
     assert session.id == 5192234284402249
     assert session.nonce == "QhlCnImCBwBNc72N"
@@ -25,8 +24,7 @@ def test_get_oneshot_session(cognite_client_approval: ApprovalCogniteClient):
 def test_run_transformation(cognite_client_approval: ApprovalCogniteClient):
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.client = cognite_client_approval.mock_client
-    cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-    cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+    cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
     transformation = Transformation(
         name="Test transformation",
         external_id="test",
@@ -40,8 +38,7 @@ def test_run_transformation(cognite_client_approval: ApprovalCogniteClient):
 def test_run_function(cognite_client_approval: ApprovalCogniteClient):
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.client = cognite_client_approval.mock_client
-    cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-    cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+    cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
     function = Function(
         id=1234567890,
         name="Test function",
@@ -69,8 +66,7 @@ def test_run_function(cognite_client_approval: ApprovalCogniteClient):
 def test_run_local_function(cognite_client_approval: ApprovalCogniteClient) -> None:
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.client = cognite_client_approval.mock_client
-    cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-    cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+    cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
     function = Function(
         id=1234567890,
         name="Test function",
