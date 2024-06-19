@@ -13,7 +13,7 @@ This could have been part of the test suite, but it is not for two reasons:
 
 ## Workflow
 
-1. The contstants `cognite_toolkit/_cdf_tk/constants.py:SUPPORT_MODULE_UPGRADE_FROM_VERSION` controls the
+1. The constant `cognite_toolkit/_cdf_tk/constants.py:SUPPORT_MODULE_UPGRADE_FROM_VERSION` controls the
    earliest version that the `cdf-tk module upgrade` command should support.
 2. Run `python module_upgrade/run_check.py` to check that the `cdf-tk module upgrade` command works as expected.
    If any exceptions are raised, you need to update the `_changes.py` file in the `modules` commands, so that the
