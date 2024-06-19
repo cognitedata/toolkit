@@ -10,4 +10,6 @@ class ImportTransformationCLI(ToolkitCommand):
         print(f"Importing transformation CLI manifests from {source} to {destination}...")
         print(f"Overwrite: {overwrite}")
         print(f"Flatten: {flatten}")
+        # Check manifest at:
+        # https://cognite-transformations-cli.readthedocs-hosted.com/en/latest/quickstart.html#transformation-manifest
         raise NotImplementedError()
