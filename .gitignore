@@ -295,3 +295,4 @@ cognite_toolkit/config.local.yaml
 build.*
 cognite_toolkit/.env.*
 tests_migrations/project_inits
+module_upgrade/project_inits
