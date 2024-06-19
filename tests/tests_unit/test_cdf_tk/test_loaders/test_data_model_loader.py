@@ -11,8 +11,7 @@ from tests.tests_unit.approval_client import ApprovalCogniteClient
 class TestDataModelLoader:
     def test_update_data_model_random_view_order(self, cognite_client_approval: ApprovalCogniteClient):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
         cdf_data_model = dm.DataModel(
             space="sp_space",

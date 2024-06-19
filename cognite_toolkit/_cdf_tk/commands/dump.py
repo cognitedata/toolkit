@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 from cognite.client import data_modeling as dm
+from cognite.client.data_classes.capabilities import DataModelsAcl
 from cognite.client.data_classes.data_modeling import DataModelId
 from rich import print
 from rich.panel import Panel
@@ -26,7 +27,9 @@ class DumpCommand(ToolkitCommand):
     ) -> None:
         print(f"Dumping {data_model_id} from project {ToolGlobals.project}...")
         print("Verifying access rights...")
-        client = ToolGlobals.verify_client(capabilities={"dataModelsAcl": ["READ", "WRITE"]})
+        client = ToolGlobals.verify_authorization(
+            DataModelsAcl([DataModelsAcl.Action.Read], DataModelsAcl.Scope.All()),
+        )
 
         data_models = client.data_modeling.data_models.retrieve(data_model_id, inline_views=True)
         if not data_models:
