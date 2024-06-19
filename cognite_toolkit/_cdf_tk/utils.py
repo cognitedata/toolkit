@@ -38,6 +38,7 @@ from cognite.client.credentials import CredentialProvider, OAuthClientCredential
 from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes.capabilities import Capability, SecurityCategoriesAcl
 from cognite.client.data_classes.data_modeling import View, ViewId
+from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
 from cognite.client.testing import CogniteClientMock
 from rich import print
@@ -378,6 +379,7 @@ class CDFToolConfig:
         existing_spaces: set[str] = field(default_factory=set)
         data_set_id_by_external_id: dict[str, int] = field(default_factory=dict)
         security_categories_by_name: dict[str, int] = field(default_factory=dict)
+        token_inspect: TokenInspection | None = None
 
     def __init__(
         self,
@@ -498,19 +500,6 @@ class CDFToolConfig:
         )
         self._update_environment_variables()
 
-    def reinitialize_client(self) -> None:
-        """Reinitialize the client with the current configuration."""
-        if self._client is None or self._credentials_provider is None or self._cdf_url is None or self._project is None:
-            raise ValueError("Client is not initialized.")
-        self._client = CogniteClient(
-            ClientConfig(
-                client_name=self._client_name,
-                base_url=self._cdf_url,
-                project=self._project,
-                credentials=self._credentials_provider,
-            )
-        )
-
     def _update_environment_variables(self) -> None:
         """This updates the cache environment variables with the auth
         variables.
@@ -610,6 +599,12 @@ class CDFToolConfig:
 
         self._environ[attr] = var
         return var
+
+    @property
+    def _token_inspection(self) -> TokenInspection:
+        if self._cache.token_inspect is None:
+            self._cache.token_inspect = self.client.iam.token.inspect()
+        return self._cache.token_inspect
 
     def verify_client(
         self,
