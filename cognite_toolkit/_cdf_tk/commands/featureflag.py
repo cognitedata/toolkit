@@ -62,7 +62,7 @@ class FeatureFlag:
     @lru_cache
     def to_flag(flag: str) -> Flags | None:
         try:
-            return Flags[flag.upper()]
+            return Flags[flag.upper().replace("-", "_")]
         except KeyError:
             return None
 
