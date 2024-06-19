@@ -38,8 +38,7 @@ class TestExtractionPipelineDependencies:
         self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
 
         cognite_client_approval.append(
@@ -54,8 +53,7 @@ class TestExtractionPipelineDependencies:
         self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
 
         cognite_client_approval.append(
@@ -83,8 +81,7 @@ class TestExtractionPipelineDependencies:
         self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
     ):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
 
         cognite_client_approval.append(

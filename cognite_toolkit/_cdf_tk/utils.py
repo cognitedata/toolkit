@@ -36,16 +36,24 @@ from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import CreatedSession
-from cognite.client.data_classes.capabilities import Capability, SecurityCategoriesAcl
+from cognite.client.data_classes.capabilities import (
+    Capability,
+    DataSetsAcl,
+    ExtractionPipelinesAcl,
+    SecurityCategoriesAcl,
+)
 from cognite.client.data_classes.data_modeling import View, ViewId
-from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
+from cognite.client.data_classes.iam import TokenInspection
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.testing import CogniteClientMock
 from rich import print
 from rich.prompt import Confirm, Prompt
 
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
+    AuthorizationError,
+    ResourceRetrievalError,
     ToolkitError,
     ToolkitResourceMissingError,
     ToolkitYAMLFormatError,
@@ -377,7 +385,9 @@ class CDFToolConfig:
     class _Cache:
         existing_spaces: set[str] = field(default_factory=set)
         data_set_id_by_external_id: dict[str, int] = field(default_factory=dict)
+        extraction_pipeline_id_by_external_id: dict[str, int] = field(default_factory=dict)
         security_categories_by_name: dict[str, int] = field(default_factory=dict)
+        token_inspect: TokenInspection | None = None
 
     def __init__(
         self,
@@ -498,19 +508,6 @@ class CDFToolConfig:
         )
         self._update_environment_variables()
 
-    def reinitialize_client(self) -> None:
-        """Reinitialize the client with the current configuration."""
-        if self._client is None or self._credentials_provider is None or self._cdf_url is None or self._project is None:
-            raise ValueError("Client is not initialized.")
-        self._client = CogniteClient(
-            ClientConfig(
-                client_name=self._client_name,
-                base_url=self._cdf_url,
-                project=self._project,
-                credentials=self._credentials_provider,
-            )
-        )
-
     def _update_environment_variables(self) -> None:
         """This updates the cache environment variables with the auth
         variables.
@@ -611,76 +608,51 @@ class CDFToolConfig:
         self._environ[attr] = var
         return var
 
-    def verify_client(
-        self,
-        capabilities: dict[str, list[str]] | None = None,
-        data_set_id: int = 0,
-        space_id: str | None = None,
+    @property
+    def _token_inspection(self) -> TokenInspection:
+        if self._cache.token_inspect is None:
+            try:
+                self._cache.token_inspect = self.client.iam.token.inspect()
+            except CogniteAPIError as e:
+                raise AuthorizationError(
+                    f"Don't seem to have any access rights. {e}\n"
+                    f"Please visit [link={URL.configure_access}]the documentation[/link] "
+                    f"and ensure you have configured your access correctly."
+                ) from e
+        return self._cache.token_inspect
+
+    def verify_authorization(
+        self, capabilities: Capability | Sequence[Capability], action: str | None = None
     ) -> CogniteClient:
         """Verify that the client has correct credentials and required access rights
 
-        Supply requirement CDF ACLs to verify if you have correct access
-        capabilities = {
-            "filesAcl": ["READ", "WRITE"],
-            "datasetsAcl": ["READ", "WRITE"]
-        }
-        The data_set_id will be used when verifying that the client has access to the dataset.
-        This approach can be reused for any usage of the Cognite Python SDK.
-
         Args:
-            capabilities (dict[list], optional): access capabilities to verify
-            data_set_id (int): id of dataset that access should be granted to
-            space_id (str): id of space that access should be granted to
+            capabilities (Capability | Sequence[Capability]): access capabilities to verify
+            action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
 
-        Yields:
+        Returns:
             CogniteClient: Verified client with access rights
-            Re-raises underlying SDK exception
         """
-        capabilities = capabilities or {}
-        try:
-            # Using the token/inspect endpoint to check if the client has access to the project.
-            # The response also includes access rights, which can be used to check if the client has the
-            # correct access for what you want to do.
-            resp = self.client.iam.token.inspect()
-            if resp is None or len(resp.capabilities.data) == 0:
-                raise CogniteAuthError("Don't have any access rights. Check credentials.")
-        except Exception as e:
-            raise e
-        scope: dict[str, dict[str, Any]] = {}
-        if data_set_id > 0:
-            scope["dataSetScope"] = {"ids": [data_set_id]}
-        if space_id is not None:
-            scope["spaceScope"] = {"ids": [space_id]}
-        if space_id is None and data_set_id == 0:
-            scope["all"] = {}
-        try:
-            caps = [
-                Capability.load(
-                    {
-                        cap: {
-                            "actions": actions,
-                            "scope": scope,
-                        },
-                    }
-                )
-                for cap, actions in capabilities.items()
-            ]
-        except Exception:
-            raise ValueError(f"Failed to load capabilities from {capabilities}. Wrong syntax?")
-        comp = self.client.iam.compare_capabilities(resp.capabilities, caps)
-        if len(comp) > 0:
-            print(f"Missing necessary CDF access capabilities: {comp}")
-            raise CogniteAuthError("Don't have correct access rights.")
+        token_inspect = self._token_inspection
+        missing_capabilities = self.client.iam.compare_capabilities(token_inspect.capabilities, capabilities)
+        if missing_capabilities:
+            missing = "  - \n".join(repr(c) for c in missing_capabilities)
+            first_sentence = "Don't have correct access rights"
+            if action:
+                first_sentence += f" to {action}."
+            else:
+                first_sentence += "."
+
+            raise AuthorizationError(
+                f"{first_sentence} Missing:\n{missing}\n"
+                f"Please [blue][link={URL.auth_toolkit}]click here[/link][/blue] to visit the documentation "
+                "and ensure that you have setup authentication for the CDF toolkit correctly."
+            )
         return self.client
 
-    def verify_capabilities(self, capability: Capability | Sequence[Capability]) -> CogniteClient:
-        missing_capabilities = self.client.iam.verify_capabilities(capability)
-        if len(missing_capabilities) > 0:
-            print(f"Missing necessary CDF access capabilities: {missing_capabilities}")
-
-        return self.client
-
-    def verify_dataset(self, data_set_external_id: str, skip_validation: bool = False) -> int:
+    def verify_dataset(
+        self, data_set_external_id: str, skip_validation: bool = False, action: str | None = None
+    ) -> int:
         """Verify that the configured data set exists and is accessible
 
         Args:
@@ -688,33 +660,41 @@ class CDFToolConfig:
             skip_validation (bool): Skip validation of the data set. If this is set, the function will
                 not check for access rights to the data set and return -1 if the dataset does not exist
                 or you don't have access rights to it. Defaults to False.
+           action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
+
         Returns:
             data_set_id (int)
-            Re-raises underlying SDK exception
         """
         if data_set_external_id in self._cache.data_set_id_by_external_id:
             return self._cache.data_set_id_by_external_id[data_set_external_id]
+        if skip_validation:
+            return -1
+
+        self.verify_authorization(
+            DataSetsAcl(
+                [DataSetsAcl.Action.Read],
+                ExtractionPipelinesAcl.Scope.All(),
+            ),
+            action=action,
+        )
 
         try:
             data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
         except CogniteAPIError as e:
-            if skip_validation:
-                return -1
-            raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on datasetsAcl.") from e
-        except Exception as e:
-            if skip_validation:
-                return -1
-            raise e
+            raise ResourceRetrievalError(f"Failed to retrieve data set {data_set_external_id}: {e}")
+
         if data_set is not None and data_set.id is not None:
             self._cache.data_set_id_by_external_id[data_set_external_id] = data_set.id
             return data_set.id
-        if skip_validation:
-            return -1
-        raise ValueError(
-            f"Data set {data_set_external_id} does not exist, you need to create it first. Do this by adding a config file to the data_sets folder."
+        raise ToolkitResourceMissingError(
+            f"Data set {data_set_external_id} does not exist, you need to create it first. "
+            f"Do this by adding a config file to the data_sets folder.",
+            data_set_external_id,
         )
 
-    def verify_extraction_pipeline(self, external_id: str, skip_validation: bool = False) -> int:
+    def verify_extraction_pipeline(
+        self, external_id: str, skip_validation: bool = False, action: str | None = None
+    ) -> int:
         """Verify that the configured extraction pipeline exists and is accessible
 
         Args:
@@ -722,70 +702,45 @@ class CDFToolConfig:
             skip_validation (bool): Skip validation of the extraction pipeline. If this is set, the function will
                 not check for access rights to the extraction pipeline and return -1 if the extraction pipeline does not exist
                 or you don't have access rights to it. Defaults to False.
+            action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
+
         Yields:
             extraction pipeline id (int)
-            Re-raises underlying SDK exception
         """
-        if not skip_validation:
-            self.verify_client(capabilities={"extractionPipelinesAcl": ["READ"]})
+        if external_id in self._cache.extraction_pipeline_id_by_external_id:
+            return self._cache.extraction_pipeline_id_by_external_id[external_id]
+        if skip_validation:
+            return -1
+
+        self.verify_authorization(
+            ExtractionPipelinesAcl([ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.All()), action
+        )
         try:
             pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
         except CogniteAPIError as e:
-            if skip_validation:
-                return -1
-            raise CogniteAuthError("Don't have correct access rights. Need READ on extractionPipelinesAcl.") from e
-        except Exception as e:
-            if skip_validation:
-                return -1
-            raise e
+            raise ResourceRetrievalError(f"Failed to retrieve extraction pipeline {external_id}: {e}")
 
         if pipeline is not None and pipeline.id is not None:
+            self._cache.extraction_pipeline_id_by_external_id[external_id] = pipeline.id
             return pipeline.id
 
-        if not skip_validation:
-            print(
-                f"  [bold yellow]WARNING[/] Extraction pipeline {external_id} does not exist. It may have been deleted, or not been part of the module."
-            )
-        return -1
-
-    def verify_spaces(self, space: str | list[str]) -> list[str]:
-        """Verify that the configured space exists and is accessible
-
-        Args:
-            space (str): External id of the space to verify
-
-        Yields:
-            spaces (str)
-            Re-raises underlying SDK exception
-        """
-        if isinstance(space, str):
-            spaces = [space]
-        else:
-            spaces = space
-
-        if all([s in self._cache.existing_spaces for s in spaces]):
-            return spaces
-
-        self.verify_client(capabilities={"dataModelsAcl": ["READ"]})
-        try:
-            existing = self.client.data_modeling.spaces.retrieve(spaces)
-        except CogniteAPIError as e:
-            raise CogniteAuthError("Don't have correct access rights. Need READ on dataModelsAcl.") from e
-
-        if missing := (set(spaces) - set(existing.as_ids())):
-            raise ValueError(
-                f"Space {missing} does not exist, you need to create it first. Do this by adding a config file to the data model folder."
-            )
-        self._cache.existing_spaces.update([space.space for space in existing])
-        return [space.space for space in existing]
+        raise ToolkitResourceMissingError(
+            "Extraction pipeline does not exist. You need to create it first.", external_id
+        )
 
     @overload
-    def verify_security_categories(self, names: str, skip_validation: bool = False) -> int: ...
+    def verify_security_categories(
+        self, names: str, skip_validation: bool = False, action: str | None = None
+    ) -> int: ...
 
     @overload
-    def verify_security_categories(self, names: list[str], skip_validation: bool = False) -> list[int]: ...
+    def verify_security_categories(
+        self, names: list[str], skip_validation: bool = False, action: str | None = None
+    ) -> list[int]: ...
 
-    def verify_security_categories(self, names: str | list[str], skip_validation: bool = False) -> int | list[int]:
+    def verify_security_categories(
+        self, names: str | list[str], skip_validation: bool = False, action: str | None = None
+    ) -> int | list[int]:
         if skip_validation:
             return [-1 for _ in range(len(names))] if isinstance(names, list) else -1
         if isinstance(names, str) and names in self._cache.security_categories_by_name:
@@ -798,7 +753,10 @@ class CDFToolConfig:
             }
             if len(existing_by_name) == len(names):
                 return [existing_by_name[name] for name in names]
-        self.verify_client(capabilities={SecurityCategoriesAcl._capability_name: ["LIST"]})
+
+        self.verify_authorization(
+            SecurityCategoriesAcl([SecurityCategoriesAcl.Action.List], SecurityCategoriesAcl.Scope.All()), action
+        )
 
         all_security_categories = self.client.iam.security_categories.list(limit=-1)
         self._cache.security_categories_by_name.update(

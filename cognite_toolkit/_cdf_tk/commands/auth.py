@@ -24,6 +24,8 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
     Capability,
     FunctionsAcl,
+    GroupsAcl,
+    ProjectsAcl,
 )
 from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, TokenInspection
 from cognite.client.exceptions import CogniteAPIError
@@ -231,14 +233,20 @@ class AuthCommand(ToolkitCommand):
             "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
         )
         try:
-            ToolGlobals.verify_client(
-                capabilities={
-                    "projectsAcl": [
-                        "LIST",
-                        "READ",
-                    ],
-                    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"],
-                }
+            ToolGlobals.verify_authorization(
+                [
+                    ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
+                    GroupsAcl(
+                        [
+                            GroupsAcl.Action.Read,
+                            GroupsAcl.Action.List,
+                            GroupsAcl.Action.Create,
+                            GroupsAcl.Action.Update,
+                            GroupsAcl.Action.Delete,
+                        ],
+                        GroupsAcl.Scope.All(),
+                    ),
+                ]
             )
             print("  [bold green]OK[/]")
         except Exception:
@@ -250,11 +258,11 @@ class AuthCommand(ToolkitCommand):
             )
             print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
             try:
-                ToolGlobals.verify_client(
-                    capabilities={
-                        "projectsAcl": ["LIST", "READ"],
-                        "groupsAcl": ["LIST", "READ"],
-                    }
+                ToolGlobals.verify_authorization(
+                    capabilities=[
+                        ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
+                        GroupsAcl([GroupsAcl.Action.Read, GroupsAcl.Action.List], GroupsAcl.Scope.All()),
+                    ]
                 )
                 print("  [bold green]OK[/] - can continue with checks.")
             except Exception:
