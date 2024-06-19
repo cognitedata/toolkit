@@ -36,7 +36,12 @@ from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import CreatedSession
-from cognite.client.data_classes.capabilities import Capability, SecurityCategoriesAcl
+from cognite.client.data_classes.capabilities import (
+    Capability,
+    DataModelsAcl,
+    ExtractionPipelinesAcl,
+    SecurityCategoriesAcl,
+)
 from cognite.client.data_classes.data_modeling import View, ViewId
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
@@ -44,9 +49,10 @@ from cognite.client.testing import CogniteClientMock
 from rich import print
 from rich.prompt import Confirm, Prompt
 
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
+    AuthorizationError,
     ToolkitError,
     ToolkitResourceMissingError,
     ToolkitYAMLFormatError,
@@ -603,56 +609,43 @@ class CDFToolConfig:
     @property
     def _token_inspection(self) -> TokenInspection:
         if self._cache.token_inspect is None:
-            self._cache.token_inspect = self.client.iam.token.inspect()
+            try:
+                self._cache.token_inspect = self.client.iam.token.inspect()
+            except CogniteAPIError as e:
+                raise AuthorizationError(
+                    f"Don't seem to have any access rights. {e}\n"
+                    f"Please visit [link={URL.configure_access}]the documentation[/link] "
+                    f"and ensure you have configured your access correctly."
+                ) from e
         return self._cache.token_inspect
 
-    def verify_client(self, capabilities: dict[str, list[str]] | None = None) -> CogniteClient:
+    def verify_authorization(
+        self, capabilities: Capability | Sequence[Capability], action: str | None = None
+    ) -> CogniteClient:
         """Verify that the client has correct credentials and required access rights
 
-        Supply requirement CDF ACLs to verify if you have correct access
-        capabilities = {
-            "filesAcl": ["READ", "WRITE"],
-            "datasetsAcl": ["READ", "WRITE"]
-        }
-        The data_set_id will be used when verifying that the client has access to the dataset.
-        This approach can be reused for any usage of the Cognite Python SDK.
-
         Args:
-            capabilities (dict[list], optional): access capabilities to verify
+            capabilities (Capability | Sequence[Capability]): access capabilities to verify
+            action (str, optional): What you are trying to do. It is used with the error mesaage Defaults to None.
 
-        Yields:
+        Returns:
             CogniteClient: Verified client with access rights
-            Re-raises underlying SDK exception
         """
-        capabilities = capabilities or {}
-        try:
-            # Using the token/inspect endpoint to check if the client has access to the project.
-            # The response also includes access rights, which can be used to check if the client has the
-            # correct access for what you want to do.
-            resp = self.client.iam.token.inspect()
-            if resp is None or len(resp.capabilities.data) == 0:
-                raise CogniteAuthError("Don't have any access rights. Check credentials.")
-        except Exception as e:
-            raise e
-        scope: dict[str, dict[str, Any]] = {"all": {}}
-        try:
-            caps = [
-                Capability.load(
-                    {
-                        cap: {
-                            "actions": actions,
-                            "scope": scope,
-                        },
-                    }
-                )
-                for cap, actions in capabilities.items()
-            ]
-        except Exception:
-            raise ValueError(f"Failed to load capabilities from {capabilities}. Wrong syntax?")
-        comp = self.client.iam.compare_capabilities(resp.capabilities, caps)
-        if len(comp) > 0:
-            print(f"Missing necessary CDF access capabilities: {comp}")
-            raise CogniteAuthError("Don't have correct access rights.")
+        token_inspect = self._token_inspection
+        missing_capabilities = self.client.iam.compare_capabilities(token_inspect.capabilities, capabilities)
+        if missing_capabilities:
+            missing = "  - \n".join(repr(c) for c in missing_capabilities)
+            first_sentence = "Don't have correct access rights"
+            if action:
+                first_sentence += f" to {action}."
+            else:
+                first_sentence += "."
+
+            raise AuthorizationError(
+                f"{first_sentence} Missing:\n{missing}\n"
+                f"Please visit [link={URL.auth_toolkit}]the documentation[/link] and ensure"
+                f"you have setup authentication for the CDF toolkit correctly,"
+            )
         return self.client
 
     def verify_capabilities(self, capability: Capability | Sequence[Capability]) -> CogniteClient:
@@ -709,7 +702,11 @@ class CDFToolConfig:
             Re-raises underlying SDK exception
         """
         if not skip_validation:
-            self.verify_client(capabilities={"extractionPipelinesAcl": ["READ"]})
+            self.verify_authorization(
+                capabilities=ExtractionPipelinesAcl(
+                    [ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.All()
+                )
+            )
         try:
             pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
         except CogniteAPIError as e:
@@ -748,7 +745,7 @@ class CDFToolConfig:
         if all([s in self._cache.existing_spaces for s in spaces]):
             return spaces
 
-        self.verify_client(capabilities={"dataModelsAcl": ["READ"]})
+        self.verify_authorization(capabilities=DataModelsAcl([DataModelsAcl.Action.Read], DataModelsAcl.Scope.All()))
         try:
             existing = self.client.data_modeling.spaces.retrieve(spaces)
         except CogniteAPIError as e:
@@ -780,7 +777,12 @@ class CDFToolConfig:
             }
             if len(existing_by_name) == len(names):
                 return [existing_by_name[name] for name in names]
-        self.verify_client(capabilities={SecurityCategoriesAcl._capability_name: ["LIST"]})
+        if not skip_validation:
+            self.verify_authorization(
+                capabilities=SecurityCategoriesAcl(
+                    [SecurityCategoriesAcl.Action.List], SecurityCategoriesAcl.Scope.All()
+                )
+            )
 
         all_security_categories = self.client.iam.security_categories.list(limit=-1)
         self._cache.security_categories_by_name.update(

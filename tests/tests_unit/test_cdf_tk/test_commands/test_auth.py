@@ -174,7 +174,7 @@ def test_auth_verify_no_capabilities(
     def mock_verify_client(*args, **kwargs):
         raise Exception("No capabilities")
 
-    cdf_tool_config.verify_client.side_effect = mock_verify_client
+    cdf_tool_config.verify_authorization.side_effect = mock_verify_client
     cmd = AuthCommand(print_warning=False)
     with pytest.raises(AuthorizationError) as e:
         cmd.check_auth(cdf_tool_config, admin_group_file=Path(AUTH_DATA / "rw-group.yaml"))
