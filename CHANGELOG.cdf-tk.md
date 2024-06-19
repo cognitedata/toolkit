@@ -15,6 +15,18 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- When running `cdf-tk build` and missing `CDF_PROJECT` environment variable, the user will now get a more informative
+  error message.
+
+### Fixed
+
+- The variable `type` in the `environment` section of the `config.[env].yaml` now raises an error if it is not
+  set to `dev`, `staging`, or `prod`.
+
 ## [0.2.2] - 2024-06-18
 
 ### Improved

@@ -5,7 +5,7 @@ import shutil
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, overload
+from typing import Any, Literal, cast, overload
 from unittest.mock import MagicMock
 
 import typer
@@ -78,7 +78,7 @@ class ModulesAPI:
             environment=Environment(
                 name=self._build_env,
                 project=self._project_name,
-                build_type=self._build_env,
+                build_type=cast(Literal["dev"], self._build_env),
                 selected=[module.name for module in modules],
             ),
             filepath=Path(""),
