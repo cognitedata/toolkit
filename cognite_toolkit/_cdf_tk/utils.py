@@ -606,12 +606,7 @@ class CDFToolConfig:
             self._cache.token_inspect = self.client.iam.token.inspect()
         return self._cache.token_inspect
 
-    def verify_client(
-        self,
-        capabilities: dict[str, list[str]] | None = None,
-        data_set_id: int = 0,
-        space_id: str | None = None,
-    ) -> CogniteClient:
+    def verify_client(self, capabilities: dict[str, list[str]] | None = None) -> CogniteClient:
         """Verify that the client has correct credentials and required access rights
 
         Supply requirement CDF ACLs to verify if you have correct access
@@ -624,8 +619,6 @@ class CDFToolConfig:
 
         Args:
             capabilities (dict[list], optional): access capabilities to verify
-            data_set_id (int): id of dataset that access should be granted to
-            space_id (str): id of space that access should be granted to
 
         Yields:
             CogniteClient: Verified client with access rights
@@ -641,13 +634,7 @@ class CDFToolConfig:
                 raise CogniteAuthError("Don't have any access rights. Check credentials.")
         except Exception as e:
             raise e
-        scope: dict[str, dict[str, Any]] = {}
-        if data_set_id > 0:
-            scope["dataSetScope"] = {"ids": [data_set_id]}
-        if space_id is not None:
-            scope["spaceScope"] = {"ids": [space_id]}
-        if space_id is None and data_set_id == 0:
-            scope["all"] = {}
+        scope: dict[str, dict[str, Any]] = {"all": {}}
         try:
             caps = [
                 Capability.load(
