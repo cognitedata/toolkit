@@ -31,8 +31,7 @@ def test_describe_datamodel(
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.project = "test"
     cdf_tool.client = cognite_client_approval.mock_client
-    cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-    cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+    cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
 
     space_loader = SpaceLoader.create_loader(cdf_tool, None)
     data_model_loader = DataModelLoader.create_loader(cdf_tool, None)
