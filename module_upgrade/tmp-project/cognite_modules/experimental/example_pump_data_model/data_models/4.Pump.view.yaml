@@ -1,0 +1,59 @@
+externalId: Pump
+name: Pump
+space: '{{model_space}}'
+version: '{{view_Pump_version}}'
+implements:
+  - type: view
+    space: cdf_core
+    externalId: Sourceable
+    version: v1
+  - type: view
+    space: cdf_core
+    externalId: Describable
+    version: v1
+properties:
+  liftStation:
+   container:
+     externalId: Asset
+     space: cdf_core
+     type: container
+   containerPropertyIdentifier: parent
+   name: liftStation
+   source:
+     externalId: LiftStation
+     space: '{{model_space}}'
+     version: '{{view_LiftStation_version}}'
+  DesignPointFlowGPM:
+    container:
+      externalId: Pump
+      space: '{{model_space}}'
+      type: container
+    containerPropertyIdentifier: DesignPointFlowGPM
+    name: DesignPointFlowGPM
+  DesignPointHeadFT:
+    container:
+      externalId: Pump
+      space: '{{model_space}}'
+      type: container
+    containerPropertyIdentifier: DesignPointHeadFT
+    name: DesignPointHeadFT
+  LowHeadFT:
+    container:
+      externalId: Pump
+      space: '{{model_space}}'
+      type: container
+    containerPropertyIdentifier: LowHeadFT
+    name: LowHeadFT
+  LowHeadFlowGPM:
+    container:
+      externalId: Pump
+      space: '{{model_space}}'
+      type: container
+    containerPropertyIdentifier: LowHeadFlowGPM
+    name: LowHeadFlowGPM
+filter:
+  prefix:
+    property:
+      - node
+      - externalId
+    value: pump

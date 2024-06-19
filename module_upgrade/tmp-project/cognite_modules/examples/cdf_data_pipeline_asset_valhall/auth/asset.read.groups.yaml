@@ -1,0 +1,15 @@
+# This role is identical to the normal users, but is used to group user with additional InField feature capabilities for checklist admins.
+# Typical Team captain / Supervisor users
+name: 'gp_asset_{{location_name}}_read'
+sourceId: '{{asset_location_read_group_source_id}}'
+metadata:
+  origin: 'cdf-project-templates'
+capabilities:
+  - assetsAcl: 
+      actions:      
+        - READ
+      scope: 
+        datasetScope: {
+            ids: ['ds_asset_{{location_name}}']
+        }
+               

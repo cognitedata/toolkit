@@ -1,0 +1,26 @@
+externalId: tr_workorder_{{default_location}}_{{source_workorder}}_apm_simple_load_workitems2assets
+name: workorder:{{default_location}}:{{source_workorder}}:apm_simple:load_workitems2assets
+destination:
+  dataModel:
+    space: {{space}}
+    externalId: {{datamodel}}
+    version: '1'
+    destinationType: WorkItem
+    destinationRelationshipFromType: linkedAssets
+  instanceSpace: {{space}}
+  type: instances
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+dataSetExternalId: ds_transformations_{{default_location}}
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the cicd_scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the cicd_audience
+  audience: {{cicd_audience}}

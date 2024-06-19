@@ -1,0 +1,24 @@
+externalId: tr_asset_{{second_location}}_{{source_asset}}_infield_sync_assets_from_hierarchy_to_apm
+name: asset:{{second_location}}:{{source_asset}}:infield:sync_assets_from_hierarchy_to_apm
+destination:
+  view:
+    space:  cdf_core
+    externalId: Asset
+    version: 'v1'
+  instanceSpace: 'sp_asset_{{second_location}}_source'
+  type: nodes
+ignoreNullFields: true
+dataSetExternalId: ds_transformations_{{second_location}}
+isPublic: true
+conflictMode: upsert
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the audience
+  audience: {{cicd_audience}}

@@ -1,0 +1,19 @@
+externalId: 'tr_files_{{location_name}}_{{source_name}}_file_metadata'
+dataSetExternalId: 'ds_files_{{location_name}}'
+name: 'files:{{location_name}}:{{source_name}}:file_metadata'
+destination:
+  type: "files"
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the cicd_scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the cicd_audience
+  audience: {{cicd_audience}}

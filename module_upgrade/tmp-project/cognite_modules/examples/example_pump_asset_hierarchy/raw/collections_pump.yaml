@@ -1,0 +1,2 @@
+dbName: {{raw_db}}
+tableName: collections_pump

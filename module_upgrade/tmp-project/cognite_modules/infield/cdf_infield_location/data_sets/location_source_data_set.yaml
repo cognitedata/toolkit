@@ -1,0 +1,20 @@
+# NOTE!!! These data sets are also created in the cdf_oid_example_data module to
+# ensure that they are created independent on whether the demo data are used.
+- externalId: ds_asset_{{first_location}}
+  name: asset:{{first_location}}
+  description: This dataset contains asset data for the {{first_location}} location.
+- externalId: ds_files_{{first_location}}
+  name: files:{{first_location}}
+  description: This dataset contains files for the {{first_location}} location.
+- externalId: ds_timeseries_{{first_location}}
+  name: timeseries:{{first_location}}
+  description: This dataset contains timeseries for the {{first_location}} location.
+- externalId: ds_3d_{{first_location}}
+  name: 3d:{{first_location}}
+  description: This dataset contains 3D data for the {{first_location}} location.
+- externalId: ds_relationships_{{first_location}}
+  name: relationships:{{first_location}}
+  description: This dataset contains relationships data for the {{first_location}} location.
+- externalId: ds_transformations_{{first_location}}
+  name: transformations:{{first_location}}
+  description: This dataset contains transformations data for the {{first_location}} location.

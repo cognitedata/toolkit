@@ -1,0 +1,13 @@
+externalId: ds_files_{{location_name}}
+name:  files:{{location_name}}
+description: File data for {{location_name}}
+metadata:
+  consoleSource:
+    names:
+      - '{{source_name}}'
+  rawTables:
+    - databaseName: files_{{location_name}}_{{source_name}}
+      tableName: 'files_metadata'
+  transformations:
+    - externalId: tr_files_{{location_name}}_{{source_name}}_file_metadata
+      type: 'Transformations'
