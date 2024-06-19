@@ -307,8 +307,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                 scope = values.get("scope", {})
 
                 verify_method: Callable[[str, bool, str], int]
-                for scope_name, verify_method in [
-                    ("datasetScope", ToolGlobals.verify_dataset),
+                for scope_name, verify_method, action in [
+                    ("datasetScope", ToolGlobals.verify_dataset, "replace datasetExternalId with dataSetId in group"),
                     (
                         "idScope",
                         (
@@ -316,12 +316,17 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                             if acl == "extractionPipelinesAcl"
                             else ToolGlobals.verify_dataset
                         ),
+                        "replace extractionPipelineExternalId with extractionPipelineId in group",
                     ),
-                    ("extractionPipelineScope", ToolGlobals.verify_extraction_pipeline),
+                    (
+                        "extractionPipelineScope",
+                        ToolGlobals.verify_extraction_pipeline,
+                        "replace extractionPipelineExternalId with extractionPipelineId in group",
+                    ),
                 ]:
                     if ids := scope.get(scope_name, {}).get("ids", []):
                         values["scope"][scope_name]["ids"] = [
-                            verify_method(ext_id, skip_validation) if isinstance(ext_id, str) else ext_id
+                            verify_method(ext_id, skip_validation, action) if isinstance(ext_id, str) else ext_id
                             for ext_id in ids
                         ]
         return group
@@ -733,7 +738,11 @@ class LabelLoader(
         for item in items:
             if "dataSetExternalId" in item:
                 ds_external_id = item.pop("dataSetExternalId")
-                item["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation=skip_validation)
+                item["dataSetId"] = ToolGlobals.verify_dataset(
+                    ds_external_id,
+                    skip_validation=skip_validation,
+                    action="replace dataSetExternalId with dataSetId in label",
+                )
         loaded = LabelDefinitionWriteList.load(items)
         return loaded[0] if isinstance(raw_yaml, dict) else loaded
 
@@ -795,7 +804,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 self.extra_configs[func["externalId"]] = {}
             if func.get("dataSetExternalId") is not None:
                 self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
-                    func.get("dataSetExternalId", ""), skip_validation=skip_validation
+                    func.get("dataSetExternalId", ""),
+                    skip_validation=skip_validation,
+                    action="replace datasetExternalId with dataSetId in function",
                 )
             if "fileId" not in func:
                 # The fileID is required for the function to be created, but in the `.create` method
@@ -1391,11 +1402,15 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+                resource["dataSetId"] = ToolGlobals.verify_dataset(
+                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in time series"
+                )
             if "securityCategoryNames" in resource:
                 if security_categories_names := resource.pop("securityCategoryNames", []):
                     security_categories = ToolGlobals.verify_security_categories(
-                        security_categories_names, skip_validation
+                        security_categories_names,
+                        skip_validation,
+                        action="replace securityCategoryNames with securityCategoryIDs in time series",
                     )
                     resource["securityCategories"] = security_categories
             if resource.get("securityCategories") is None:
@@ -1718,7 +1733,9 @@ class TransformationLoader(
             )
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+                resource["dataSetId"] = ToolGlobals.verify_dataset(
+                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in transformation"
+                )
             if resource.get("conflictMode") is None:
                 # Todo; Bug SDK missing default value
                 resource["conflictMode"] = "upsert"
@@ -2109,7 +2126,11 @@ class ExtractionPipelineLoader(
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+                resource["dataSetId"] = ToolGlobals.verify_dataset(
+                    ds_external_id,
+                    skip_validation,
+                    action="replace datasetExternalId with dataSetId in extraction pipeline",
+                )
             if resource.get("createdBy") is None:
                 # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
                 resource["createdBy"] = "unknown"
@@ -2361,11 +2382,15 @@ class FileMetadataLoader(
             )
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(ds_external_id, skip_validation)
+                resource["dataSetId"] = ToolGlobals.verify_dataset(
+                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in file metadata"
+                )
             if "securityCategoryNames" in resource:
                 if security_categories_names := resource.pop("securityCategoryNames", []):
                     security_categories = ToolGlobals.verify_security_categories(
-                        security_categories_names, skip_validation
+                        security_categories_names,
+                        skip_validation,
+                        action="replace securityCategoryNames with securityCategoriesIDs in file metadata",
                     )
                     resource["securityCategories"] = security_categories
 
@@ -2422,7 +2447,11 @@ class FileMetadataLoader(
                 raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
             if isinstance(meta.data_set_id, str):
                 # Replace external_id with internal id
-                meta.data_set_id = ToolGlobals.verify_dataset(meta.data_set_id, skip_validation)
+                meta.data_set_id = ToolGlobals.verify_dataset(
+                    meta.data_set_id,
+                    skip_validation,
+                    action="replace dataSetExternalId with dataSetId in file metadata",
+                )
         return files_metadata
 
     def create(self, items: FileMetadataWriteList) -> FileMetadataList:
