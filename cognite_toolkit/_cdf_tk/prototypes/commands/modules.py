@@ -204,7 +204,7 @@ class ModulesCommand(ToolkitCommand):
                 print("\n")
 
                 if len(available) > 0:
-                    if not questionary.confirm("Would you like to add more?", default=False).ask():
+                    if not questionary.confirm("Would you like to change the selection?", default=False).ask():
                         break
 
             package_id = questionary.select(
@@ -215,24 +215,24 @@ class ModulesCommand(ToolkitCommand):
                 style=custom_style_fancy,
             ).ask()
 
-            selection = questionary.checkbox(
-                f"Which modules in {package_id} would you like to include?",
-                instruction="Use arrow up/down, press space to select item(s) and enter to save",
-                choices=[
-                    questionary.Choice(
-                        value.get("title", key), key, checked=True if key in selected.get(package_id, {}) else False
-                    )
-                    for key, value in available[package_id].get("modules", {}).items()
-                ],
-                qmark=INDENT,
-                pointer=POINTER,
-                style=custom_style_fancy,
-            ).ask()
-
-            if len(selection) > 0:
-                selected[package_id] = selection
+            if len(available[package_id].get("modules", {}).items()) > 1:
+                selection = questionary.checkbox(
+                    f"Which modules in {package_id} would you like to include?",
+                    instruction="Use arrow up/down, press space to select item(s) and enter to save",
+                    choices=[
+                        questionary.Choice(
+                            value.get("title", key), key, checked=True if key in selected.get(package_id, {}) else False
+                        )
+                        for key, value in available[package_id].get("modules", {}).items()
+                    ],
+                    qmark=INDENT,
+                    pointer=POINTER,
+                    style=custom_style_fancy,
+                ).ask()
             else:
-                selected[package_id] = available[package_id].get("modules", {}).keys()
+                selection = list(available[package_id].get("modules", {}).keys())
+
+            selected[package_id] = selection
 
         if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
             print("Exiting...")
