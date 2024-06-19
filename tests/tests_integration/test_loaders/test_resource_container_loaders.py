@@ -79,6 +79,8 @@ def edge_container(cognite_client: CogniteClient, integration_space: dm.Space) -
 
 
 class TestContainerLoader:
+    # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError"])
     def test_populate_count_drop_data_node_container(
         self, node_container: dm.Container, cognite_client: CogniteClient
     ) -> None:
@@ -114,6 +116,8 @@ class TestContainerLoader:
         finally:
             loader.drop_data(container_id)
 
+    # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError"])
     def test_populate_count_drop_data_edge_container(
         self, edge_container: dm.Container, cognite_client: CogniteClient
     ) -> None:
