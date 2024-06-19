@@ -66,8 +66,7 @@ def test_loader_class(
     data_regression: DataRegressionFixture,
 ):
     cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-    cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+    cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
     cdf_tool.client = cognite_client_approval.mock_client
     cdf_tool.data_set_id = 999
 
@@ -91,8 +90,7 @@ class TestDeployResources:
         )
         expected_order = ["MyView", "MyOtherView"]
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_client.return_value = cognite_client_approval.mock_client
-        cdf_tool.verify_capabilities.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
 
         cmd = DeployCommand(print_warning=False)

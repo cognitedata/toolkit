@@ -108,8 +108,8 @@ To release a new version of the `cdf-tk` tool and the templates, you need to do 
       - `tests/tests_unit/test_cdf_tk/project_for_test/cognite_modules/_system.yaml`
    4. Run `poetry lock` to update the `poetry.lock` file.
    5. Run `pytest tests` locally to ensure that tests pass.
-   6. Follow the guide in [tests_migration](tests_migration/README.md) do detect breaking changes, and
-      update the migration instructions in `cognite_toolkit/templates/_migration.py` if necessary.
+   6. Run `python module_upgrade/run_check.py` to ensure that the `cdf-tk modules upgrade` command works as expected.
+      against previous versions. See [Module Upgrade](module_upgrade/README.md) for more information.
 2. Get approval to squash merge the branch into `main`:
    1. Verify that all Github actions pass.
 3. Create a release branch: `release-x.y.z` from `main`:

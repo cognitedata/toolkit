@@ -2,7 +2,6 @@ from pathlib import Path
 
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes import DataSet
 
 from cognite_toolkit._cdf_tk.loaders import TimeSeriesLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
@@ -42,7 +41,7 @@ description: PH 1stStgSuctCool Gas Out
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        cognite_client_approval.append(DataSet, DataSet(id=12345, external_id="ds_timeseries_oid"))
+        cdf_tool_config_real._cache.data_set_id_by_external_id["ds_timeseries_oid"] = 12345
         loader = TimeSeriesLoader(cognite_client_approval.mock_client, None)
 
         mock_read_yaml_file({"timeseries.yaml": yaml.safe_load(self.timeseries_yaml)}, monkeypatch)
