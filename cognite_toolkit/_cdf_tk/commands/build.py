@@ -94,7 +94,7 @@ class BuildCommand(ToolkitCommand):
         print(
             Panel(
                 f"Building {directory_name}:\n  - Toolkit Version '{__version__!s}'\n"
-                f"  - Environment name {build_env_name!r}, type {config.environment.build_type}\n"
+                f"  - Environment name {build_env_name!r}, type {config.environment.build_type!r}.\n"
                 f"  - Config '{config.filepath!s}'"
                 f"\n{module_locations}",
                 expand=False,
@@ -136,7 +136,8 @@ class BuildCommand(ToolkitCommand):
         else:
             build_dir.mkdir(exist_ok=True)
 
-        config.validate_environment()
+        if issue := config.validate_environment():
+            self.warn(issue)
 
         module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
         available_modules: set[str | tuple[str, ...]] = set()

@@ -25,8 +25,10 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingMo
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
+    MediumSeverityWarning,
     MissingFileWarning,
     SourceFileModifiedWarning,
+    ToolkitWarning,
     WarningList,
 )
 from cognite_toolkit._cdf_tk.utils import YAMLComment, YAMLWithComments, calculate_str_or_file_hash, flatten_dict
@@ -120,24 +122,36 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         os.environ["CDF_ENVIRON"] = self.environment.name
         os.environ["CDF_BUILD_TYPE"] = self.environment.build_type
 
-    def validate_environment(self) -> None:
+    def validate_environment(self) -> ToolkitWarning | None:
         if _RUNNING_IN_BROWSER:
             return None
-        env_name, env_project = self.environment.name, self.environment.project
+        project = self.environment.project
+        project_env = os.environ.get("CDF_PROJECT")
+        if project_env == project:
+            return None
+
+        build_type = self.environment.build_type
+        env_name = self.environment.name
         file_name = self._file_name(env_name)
-        if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != env_project:
-            if env_name in {"dev", "local", "demo"}:
-                print(
-                    f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between {file_name!s} "
-                    f"({env_project}) and what is defined in environment ({project_env}). "
-                    f"Environment is {env_name}, continuing (would have STOPPED for staging and prod)..."
-                )
-            else:
-                raise ToolkitEnvError(
-                    f"Project name mismatch (CDF_PROJECT) between {file_name!s} ({env_project}) and what is "
-                    f"defined in environment ({project_env=} != {env_project=})."
-                )
-        return None
+        missing_message = (
+            "No 'CDF_PROJECT' environment variable set. This is expected to match the project "
+            f"set in the {file_name!r} in the 'environment' section.\nThis is required for "
+            "building configurations for staging and prod environments to ensure you do "
+            "not accidentally deploy to the wrong project."
+        )
+        mismatch_message = (
+            f"Project name mismatch between {file_name!r}:environment.project and environ 'CDF_PROJECT', "
+            f"{project} ≠ {project_env}. This is required for building configurations for staging and prod "
+            "environments to ensure you do not accidentally deploy to the wrong project."
+        )
+        if build_type != "dev" and project_env is None:
+            raise ToolkitEnvError(missing_message)
+        elif build_type != "dev":
+            raise ToolkitEnvError(mismatch_message)
+        elif build_type == "dev" and project_env is None:
+            return MediumSeverityWarning(missing_message)
+        else:
+            return MediumSeverityWarning(mismatch_message)
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> BuildConfigYAML:
