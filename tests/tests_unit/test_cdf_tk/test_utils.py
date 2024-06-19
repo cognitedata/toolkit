@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import yaml
-from cognite.client._api.iam import TokenAPI, TokenInspection
+from cognite.client._api.iam import IAMAPI, TokenAPI, TokenInspection
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
 from cognite.client.data_classes.capabilities import (
     DataSetsAcl,
@@ -62,6 +62,7 @@ def test_dataset_create():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         instance = CDFToolConfig()
         instance._client.config.project = "cdf-project-templates"
+        instance._client.iam.compare_capabilities = IAMAPI.compare_capabilities
         instance._client.iam.token.inspect = Mock(
             spec=TokenAPI.inspect,
             return_value=TokenInspection(
