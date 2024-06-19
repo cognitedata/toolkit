@@ -38,12 +38,13 @@ from cognite.client.credentials import CredentialProvider, OAuthClientCredential
 from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes.capabilities import (
     Capability,
+    DataSetsAcl,
     ExtractionPipelinesAcl,
     SecurityCategoriesAcl,
 )
 from cognite.client.data_classes.data_modeling import View, ViewId
 from cognite.client.data_classes.iam import TokenInspection
-from cognite.client.exceptions import CogniteAPIError, CogniteAuthError
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.testing import CogniteClientMock
 from rich import print
 from rich.prompt import Confirm, Prompt
@@ -52,6 +53,7 @@ from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES,
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
+    ResourceRetrievalError,
     ToolkitError,
     ToolkitResourceMissingError,
     ToolkitYAMLFormatError,
@@ -383,6 +385,7 @@ class CDFToolConfig:
     class _Cache:
         existing_spaces: set[str] = field(default_factory=set)
         data_set_id_by_external_id: dict[str, int] = field(default_factory=dict)
+        extraction_pipeline_id_by_external_id: dict[str, int] = field(default_factory=dict)
         security_categories_by_name: dict[str, int] = field(default_factory=dict)
         token_inspect: TokenInspection | None = None
 
@@ -625,7 +628,7 @@ class CDFToolConfig:
 
         Args:
             capabilities (Capability | Sequence[Capability]): access capabilities to verify
-            action (str, optional): What you are trying to do. It is used with the error mesaage Defaults to None.
+            action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
 
         Returns:
             CogniteClient: Verified client with access rights
@@ -647,7 +650,9 @@ class CDFToolConfig:
             )
         return self.client
 
-    def verify_dataset(self, data_set_external_id: str, skip_validation: bool = False) -> int:
+    def verify_dataset(
+        self, data_set_external_id: str, skip_validation: bool = False, action: str | None = None
+    ) -> int:
         """Verify that the configured data set exists and is accessible
 
         Args:
@@ -655,33 +660,41 @@ class CDFToolConfig:
             skip_validation (bool): Skip validation of the data set. If this is set, the function will
                 not check for access rights to the data set and return -1 if the dataset does not exist
                 or you don't have access rights to it. Defaults to False.
+           action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
+
         Returns:
             data_set_id (int)
-            Re-raises underlying SDK exception
         """
         if data_set_external_id in self._cache.data_set_id_by_external_id:
             return self._cache.data_set_id_by_external_id[data_set_external_id]
+        if skip_validation:
+            return -1
+
+        self.verify_authorization(
+            DataSetsAcl(
+                [DataSetsAcl.Action.Read],
+                ExtractionPipelinesAcl.Scope.All(),
+            ),
+            action=action,
+        )
 
         try:
             data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
         except CogniteAPIError as e:
-            if skip_validation:
-                return -1
-            raise CogniteAuthError("Don't have correct access rights. Need READ and WRITE on datasetsAcl.") from e
-        except Exception as e:
-            if skip_validation:
-                return -1
-            raise e
+            raise ResourceRetrievalError(f"Failed to retrieve data set {data_set_external_id}: {e}")
+
         if data_set is not None and data_set.id is not None:
             self._cache.data_set_id_by_external_id[data_set_external_id] = data_set.id
             return data_set.id
-        if skip_validation:
-            return -1
-        raise ValueError(
-            f"Data set {data_set_external_id} does not exist, you need to create it first. Do this by adding a config file to the data_sets folder."
+        raise ToolkitResourceMissingError(
+            f"Data set {data_set_external_id} does not exist, you need to create it first. "
+            f"Do this by adding a config file to the data_sets folder.",
+            data_set_external_id,
         )
 
-    def verify_extraction_pipeline(self, external_id: str, skip_validation: bool = False) -> int:
+    def verify_extraction_pipeline(
+        self, external_id: str, skip_validation: bool = False, action: str | None = None
+    ) -> int:
         """Verify that the configured extraction pipeline exists and is accessible
 
         Args:
@@ -689,43 +702,45 @@ class CDFToolConfig:
             skip_validation (bool): Skip validation of the extraction pipeline. If this is set, the function will
                 not check for access rights to the extraction pipeline and return -1 if the extraction pipeline does not exist
                 or you don't have access rights to it. Defaults to False.
+            action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
+
         Yields:
             extraction pipeline id (int)
-            Re-raises underlying SDK exception
         """
-        if not skip_validation:
-            self.verify_authorization(
-                capabilities=ExtractionPipelinesAcl(
-                    [ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.All()
-                )
-            )
+        if external_id in self._cache.extraction_pipeline_id_by_external_id:
+            return self._cache.extraction_pipeline_id_by_external_id[external_id]
+        if skip_validation:
+            return -1
+
+        self.verify_authorization(
+            ExtractionPipelinesAcl([ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.All()), action
+        )
         try:
             pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
         except CogniteAPIError as e:
-            if skip_validation:
-                return -1
-            raise CogniteAuthError("Don't have correct access rights. Need READ on extractionPipelinesAcl.") from e
-        except Exception as e:
-            if skip_validation:
-                return -1
-            raise e
+            raise ResourceRetrievalError(f"Failed to retrieve extraction pipeline {external_id}: {e}")
 
         if pipeline is not None and pipeline.id is not None:
+            self._cache.extraction_pipeline_id_by_external_id[external_id] = pipeline.id
             return pipeline.id
 
-        if not skip_validation:
-            print(
-                f"  [bold yellow]WARNING[/] Extraction pipeline {external_id} does not exist. It may have been deleted, or not been part of the module."
-            )
-        return -1
+        raise ToolkitResourceMissingError(
+            "Extraction pipeline does not exist. You need to create it first.", external_id
+        )
 
     @overload
-    def verify_security_categories(self, names: str, skip_validation: bool = False) -> int: ...
+    def verify_security_categories(
+        self, names: str, skip_validation: bool = False, action: str | None = None
+    ) -> int: ...
 
     @overload
-    def verify_security_categories(self, names: list[str], skip_validation: bool = False) -> list[int]: ...
+    def verify_security_categories(
+        self, names: list[str], skip_validation: bool = False, action: str | None = None
+    ) -> list[int]: ...
 
-    def verify_security_categories(self, names: str | list[str], skip_validation: bool = False) -> int | list[int]:
+    def verify_security_categories(
+        self, names: str | list[str], skip_validation: bool = False, action: str | None = None
+    ) -> int | list[int]:
         if skip_validation:
             return [-1 for _ in range(len(names))] if isinstance(names, list) else -1
         if isinstance(names, str) and names in self._cache.security_categories_by_name:
@@ -738,12 +753,10 @@ class CDFToolConfig:
             }
             if len(existing_by_name) == len(names):
                 return [existing_by_name[name] for name in names]
-        if not skip_validation:
-            self.verify_authorization(
-                capabilities=SecurityCategoriesAcl(
-                    [SecurityCategoriesAcl.Action.List], SecurityCategoriesAcl.Scope.All()
-                )
-            )
+
+        self.verify_authorization(
+            SecurityCategoriesAcl([SecurityCategoriesAcl.Action.List], SecurityCategoriesAcl.Scope.All()), action
+        )
 
         all_security_categories = self.client.iam.security_categories.list(limit=-1)
         self._cache.security_categories_by_name.update(

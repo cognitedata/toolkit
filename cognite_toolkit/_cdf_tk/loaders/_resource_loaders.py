@@ -18,7 +18,7 @@ import json
 import re
 from abc import ABC
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Callable, Hashable, Iterable, Sequence, Sized
 from functools import lru_cache
 from numbers import Number
 from pathlib import Path
@@ -306,6 +306,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             for acl, values in capability.items():
                 scope = values.get("scope", {})
 
+                verify_method: Callable[[str, bool, str], int]
                 for scope_name, verify_method in [
                     ("datasetScope", ToolGlobals.verify_dataset),
                     (
