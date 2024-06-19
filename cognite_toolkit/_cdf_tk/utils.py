@@ -645,8 +645,8 @@ class CDFToolConfig:
 
             raise AuthorizationError(
                 f"{first_sentence} Missing:\n{missing}\n"
-                f"Please visit [link={URL.auth_toolkit}]the documentation[/link] and ensure"
-                f"you have setup authentication for the CDF toolkit correctly,"
+                f"Please [blue][link={URL.auth_toolkit}]click here[/link][/blue] to visit the documentation "
+                "and ensure that you have setup authentication for the CDF toolkit correctly."
             )
         return self.client
 

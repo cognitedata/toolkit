@@ -43,3 +43,4 @@ SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.1.0"
 class URL:
     configure_access = "https://docs.cognite.com/cdf/deploy/cdf_deploy/cdf_deploy_access_management"
     auth_toolkit = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/configure_deploy_modules#configure-the-cdf-toolkit-authentication"
+    docs = "https://docs.cognite.com/"
