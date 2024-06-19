@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 class Flags(Enum):
     MODULES_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the modules management subapp"}
     INTERNAL: ClassVar[dict[str, Any]] = {"visible": False, "description": "Does nothing"}
+    IMPORT_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the import sup application"}
 
 
 class FeatureFlag:

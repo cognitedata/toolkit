@@ -107,6 +107,11 @@ def app() -> NoReturn:
         else:
             _app.command("init")(main_init)
 
+        if FeatureFlag.is_enabled(Flags.IMPORT_CMD):
+            from cognite_toolkit._cdf_tk.prototypes.import_app import import_app
+
+            _app.add_typer(import_app, name="import")
+
         _app()
     except ToolkitError as err:
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
