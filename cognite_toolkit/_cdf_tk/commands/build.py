@@ -94,7 +94,7 @@ class BuildCommand(ToolkitCommand):
         print(
             Panel(
                 f"Building {directory_name}:\n  - Toolkit Version '{__version__!s}'\n"
-                f"  - Environment {build_env_name!r}\n"
+                f"  - Environment name {build_env_name!r}, type {config.environment.build_type}\n"
                 f"  - Config '{config.filepath!s}'"
                 f"\n{module_locations}",
                 expand=False,
