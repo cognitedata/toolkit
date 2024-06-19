@@ -36,7 +36,7 @@ def run() -> None:
     versions = get_versions_since(SUPPORT_MODULE_UPGRADE_FROM_VERSION)
     for version in versions:
         create_project_init(str(version))
-
+    return
     print(
         Panel(
             "All projects inits created successfully.",
@@ -85,13 +85,24 @@ def create_project_init(version: str) -> None:
     if (TEST_DIR_ROOT / environment_directory).exists():
         print(f"Environment for version {version} already exists")
     else:
-        print(f"Creating environment for version {version}")
-        subprocess.run(["python", "-m", "venv", environment_directory])
-        if platform.system() == "Windows":
-            subprocess.run([f"{environment_directory}/Scripts/pip", "install", f"cognite-toolkit=={version}"])
-        else:
-            subprocess.run([f"{environment_directory}/bin/pip", "install", f"cognite-toolkit=={version}"])
-        print(f"Environment for version {version} created")
+        with chdir(TEST_DIR_ROOT):
+            print(f"Creating environment for version {version}")
+            create_venv = subprocess.run(["python", "-m", "venv", environment_directory])
+            if create_venv.returncode != 0:
+                raise ValueError(f"Failed to create environment for version {version}")
+
+            if platform.system() == "Windows":
+                install_toolkit = subprocess.run(
+                    [f"{environment_directory}/Scripts/pip", "install", f"cognite-toolkit=={version}"]
+                )
+            else:
+                install_toolkit = subprocess.run(
+                    [f"{environment_directory}/bin/pip", "install", f"cognite-toolkit=={version}"]
+                )
+
+            if install_toolkit.returncode != 0:
+                raise ValueError(f"Failed to install toolkit version {version}")
+            print(f"Environment for version {version} created")
 
     modified_env_variables = os.environ.copy()
     repo_root = TEST_DIR_ROOT.parent
@@ -103,10 +114,21 @@ def create_project_init(version: str) -> None:
         old_version_script_dir = Path(f"{environment_directory}/Scripts/")
     else:
         old_version_script_dir = Path(f"{environment_directory}/bin/")
-    cmd = [str(old_version_script_dir / "cdf-tk"), "init", str(project_init), "--clean"]
-    _ = subprocess.run(cmd, capture_output=True, shell=True, env=modified_env_variables)
+    with chdir(TEST_DIR_ROOT):
+        cmd = [
+            str(old_version_script_dir / "cdf-tk"),
+            "init",
+            f"{PROJECT_INIT_DIR.name}/{project_init.name}",
+            "--clean",
+        ]
+        output = subprocess.run(cmd, capture_output=True, shell=True, env=modified_env_variables)
+
+        if output.returncode != 0:
+            print(output.stderr.decode())
+            raise ValueError(f"Failed to create project init for version {version}.")
+
     print(f"Project init for version {version} created.")
-    shutil.rmtree(environment_directory)
+    # shutil.rmtree(environment_directory)
 
 
 def run_modules_upgrade(
