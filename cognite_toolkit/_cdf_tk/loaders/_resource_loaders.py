@@ -2666,8 +2666,6 @@ class ContainerLoader(
                 if "list" not in type_:
                     type_["list"] = False
         items = ContainerApplyList.load(raw_yaml)
-        if not skip_validation:
-            ToolGlobals.verify_spaces(list({item.space for item in items}))
         for item in items:
             # Todo Bug in SDK, not setting defaults on load
             for prop_name in item.properties.keys():
@@ -2861,15 +2859,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     elif source.get("type") == "container" and _in_dict(("space", "externalId"), source):
                         yield ContainerLoader, ContainerId(source["space"], source["externalId"])
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ViewApply | ViewApplyList | None:
-        loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
-        if not skip_validation:
-            items = loaded if isinstance(loaded, ViewApplyList) else [loaded]
-            ToolGlobals.verify_spaces(list({item.space for item in items}))
-        return loaded
-
     def are_equal(self, local: ViewApply, cdf_resource: View) -> bool:
         local_dumped = local.dump()
         cdf_resource_dumped = cdf_resource.as_write().dump()
@@ -3049,15 +3038,6 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             if _in_dict(("space", "externalId"), view):
                 yield ViewLoader, ViewId(view["space"], view["externalId"], view.get("version"))
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> DataModelApply | DataModelApplyList | None:
-        loaded = super().load_resource(filepath, ToolGlobals, skip_validation)
-        if not skip_validation:
-            items = loaded if isinstance(loaded, DataModelApplyList) else [loaded]
-            ToolGlobals.verify_spaces(list({item.space for item in items}))
-        return loaded
-
     def are_equal(self, local: DataModelApply, cdf_resource: DataModel) -> bool:
         local_dumped = local.dump()
         cdf_resource_dumped = cdf_resource.as_write().dump()
@@ -3178,10 +3158,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyListWithCall:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        loaded = NodeApplyListWithCall._load(raw, cognite_client=self.client)
-        if not skip_validation:
-            ToolGlobals.verify_spaces(list({item.space for item in loaded}))
-        return loaded
+        return NodeApplyListWithCall._load(raw, cognite_client=self.client)
 
     def dump_resource(
         self, resource: NodeApply, source_file: Path, local_resource: NodeApply

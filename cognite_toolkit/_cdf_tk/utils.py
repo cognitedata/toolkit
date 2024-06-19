@@ -38,7 +38,6 @@ from cognite.client.credentials import CredentialProvider, OAuthClientCredential
 from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes.capabilities import (
     Capability,
-    DataModelsAcl,
     ExtractionPipelinesAcl,
     SecurityCategoriesAcl,
 )
@@ -719,37 +718,6 @@ class CDFToolConfig:
                 f"  [bold yellow]WARNING[/] Extraction pipeline {external_id} does not exist. It may have been deleted, or not been part of the module."
             )
         return -1
-
-    def verify_spaces(self, space: str | list[str]) -> list[str]:
-        """Verify that the configured space exists and is accessible
-
-        Args:
-            space (str): External id of the space to verify
-
-        Yields:
-            spaces (str)
-            Re-raises underlying SDK exception
-        """
-        if isinstance(space, str):
-            spaces = [space]
-        else:
-            spaces = space
-
-        if all([s in self._cache.existing_spaces for s in spaces]):
-            return spaces
-
-        self.verify_authorization(capabilities=DataModelsAcl([DataModelsAcl.Action.Read], DataModelsAcl.Scope.All()))
-        try:
-            existing = self.client.data_modeling.spaces.retrieve(spaces)
-        except CogniteAPIError as e:
-            raise CogniteAuthError("Don't have correct access rights. Need READ on dataModelsAcl.") from e
-
-        if missing := (set(spaces) - set(existing.as_ids())):
-            raise ValueError(
-                f"Space {missing} does not exist, you need to create it first. Do this by adding a config file to the data model folder."
-            )
-        self._cache.existing_spaces.update([space.space for space in existing])
-        return [space.space for space in existing]
 
     @overload
     def verify_security_categories(self, names: str, skip_validation: bool = False) -> int: ...
