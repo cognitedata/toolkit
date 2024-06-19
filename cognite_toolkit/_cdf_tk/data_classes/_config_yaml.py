@@ -135,14 +135,15 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         file_name = self._file_name(env_name)
         missing_message = (
             "No 'CDF_PROJECT' environment variable set. This is expected to match the project "
-            f"set in the {file_name!r} in the 'environment' section.\nThis is required for "
-            "building configurations for staging and prod environments to ensure you do "
+            f"set in environment section of {file_name!r}.\nThis is required for "
+            "building configurations for staging and prod environments to ensure that you do "
             "not accidentally deploy to the wrong project."
         )
         mismatch_message = (
-            f"Project name mismatch between {file_name!r}:environment.project and environ 'CDF_PROJECT', "
-            f"{project} ≠ {project_env}. This is required for building configurations for staging and prod "
-            "environments to ensure you do not accidentally deploy to the wrong project."
+            f"Project name mismatch between project set in the environment section of {file_name!r} and the "
+            f"environment variable 'CDF_PROJECT', {project} ≠ {project_env}.\nThis is required for "
+            "building configurations for staging and prod environments to ensure that you do not "
+            "accidentally deploy to the wrong project."
         )
         if build_type != "dev" and project_env is None:
             raise ToolkitEnvError(missing_message)
