@@ -39,30 +39,40 @@ from ._base import ConfigCore, _load_version_variable
 class Environment:
     name: str
     project: str
-    build_type: str
+    build_type: Literal["dev", "staging", "prod"]
     selected: list[str | tuple[str, ...]]
+
+    def __post_init__(self) -> None:
+        if self.build_type not in {"dev", "staging", "prod"}:
+            raise ToolkitEnvError(
+                f"Invalid type {self.build_type} in {self.name!s}. Must be one of 'dev', 'staging', 'prod'."
+            )
 
     @classmethod
     def load(cls, data: dict[str, Any], build_name: str) -> Environment:
         _deprecation_selected(data)
 
-        try:
-            return Environment(
-                name=build_name,
-                project=data["project"],
-                build_type=data["type"],
-                selected=[
-                    tuple([part for part in selected.split(MODULE_PATH_SEP) if part])
-                    if MODULE_PATH_SEP in selected
-                    else selected
-                    for selected in data["selected"] or []
-                ],
-            )
-        except KeyError:
+        if missing := {"name", "project", "type", "selected"} - set(data.keys()):
             raise ToolkitEnvError(
-                "Environment section is missing one or more required fields: 'name', 'project', 'type', or "
-                f"'selected' in {BuildConfigYAML._file_name(build_name)!s}"
+                f"Environment section is missing one or more required fields: {missing} in {BuildConfigYAML._file_name(build_name)!s}"
             )
+        build_type = data["type"]
+        if build_type not in {"dev", "staging", "prod"}:
+            raise ToolkitEnvError(
+                f"Invalid type {build_type} in {BuildConfigYAML._file_name(build_name)!s}. Must be one of 'dev', 'staging', 'prod'."
+            )
+
+        return Environment(
+            name=build_name,
+            project=data["project"],
+            build_type=build_type,
+            selected=[
+                tuple([part for part in selected.split(MODULE_PATH_SEP) if part])
+                if MODULE_PATH_SEP in selected
+                else selected
+                for selected in data["selected"] or []
+            ],
+        )
 
     def dump(self) -> dict[str, Any]:
         return {

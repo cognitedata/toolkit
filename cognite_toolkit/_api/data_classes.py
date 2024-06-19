@@ -20,7 +20,7 @@ NOT_SET = object()
 _DUMMY_ENVIRONMENT = Environment(
     name="not used",
     project="not used",
-    build_type="not used",
+    build_type="dev",
     selected=[],
 )
 
