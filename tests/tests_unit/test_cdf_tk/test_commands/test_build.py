@@ -8,7 +8,10 @@ import pytest
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, SystemYAML
-from cognite_toolkit._cdf_tk.exceptions import AmbiguousResourceFileError, ToolkitNotADirectoryError
+from cognite_toolkit._cdf_tk.exceptions import (
+    AmbiguousResourceFileError,
+    ToolkitMissingModuleError,
+)
 from cognite_toolkit._version import __version__
 from tests.tests_unit import data
 
@@ -34,7 +37,7 @@ class TestBuildCommand:
         assert "Ambiguous resource file" in str(e.value)
 
     def test_module_not_found_error(self, tmp_path: Path) -> None:
-        with pytest.raises(ToolkitNotADirectoryError):
+        with pytest.raises(ToolkitMissingModuleError):
             BuildCommand().build_config(
                 build_dir=tmp_path,
                 source_dir=data.PROJECT_WITH_BAD_MODULES,
