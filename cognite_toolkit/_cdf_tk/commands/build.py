@@ -159,7 +159,7 @@ class BuildCommand(ToolkitCommand):
             )
         system_config.validate_modules(available_modules, config.environment.selected)
 
-        selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
+        selected_modules = config.get_selected_modules(system_config.packages, available_modules, source_dir, verbose)
 
         module_directories = [
             (module_dir, source_paths)

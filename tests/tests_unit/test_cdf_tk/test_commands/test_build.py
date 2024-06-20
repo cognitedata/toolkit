@@ -37,7 +37,7 @@ class TestBuildCommand:
 
     def test_module_not_found_error(self, tmp_path: Path) -> None:
         with pytest.raises(ToolkitMissingModuleError):
-            BuildCommand().execute(
+            BuildCommand(print_warning=False).execute(
                 verbose=False,
                 build_dir=tmp_path,
                 source_path=data.PROJECT_WITH_BAD_MODULES,

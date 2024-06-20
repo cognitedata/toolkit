@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.constants import (
     MODULE_PATH_SEP,
     ROOT_MODULES,
     SEARCH_VARIABLES_SUFFIX,
+    URL,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
@@ -184,6 +185,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         self,
         modules_by_package: dict[str, list[str | tuple[str, ...]]],
         available_modules: set[str | tuple[str, ...]],
+        source_dir: Path,
         verbose: bool,
     ) -> list[str | tuple[str, ...]]:
         selected_packages = [
@@ -200,7 +202,11 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
         selected_modules = [module for module in self.environment.selected if module not in modules_by_package]
         if missing := set(selected_modules) - available_modules:
-            raise ToolkitMissingModuleError(f"The following selected modules are missing, please check path: {missing}")
+            hint = self._create_module_not_found_hint(missing, source_dir)
+            raise ToolkitMissingModuleError(
+                f"The following selected modules are missing, please check path: {missing}.\n{hint}"
+            )
+
         selected_modules.extend(
             itertools.chain.from_iterable(modules_by_package[package] for package in selected_packages)
         )
@@ -217,6 +223,38 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
                 else:
                     print(f"    {MODULE_PATH_SEP.join(module)!s}")
         return selected_modules
+
+    def _create_module_not_found_hint(self, missing: set[str | tuple[str, ...]], source_dir: Path) -> str:
+        indent = " " * 5
+        hint = (
+            f"[bold blue]HINT[/bold blue] A module is a directory with one or more resource directories in it.\n"
+            f"{indent}Available resource directories are {list(LOADER_BY_FOLDER_NAME)}\n"
+            f"{indent}[blue][link={URL.configs}]Click Here[/link][/blue] to learn more."
+        )
+        found_directory, subdirectories = self._find_directory(
+            next((m for m in missing if isinstance(m, str)), None), source_dir
+        )
+        if found_directory:
+            hint += (
+                f"\n{indent}For example, the directory {found_directory.as_posix()!r} is not a module, as none of its\n"
+                f"{indent}subdirectories are resource directories. The subdirectories found are: {subdirectories}\n"
+            )
+        return hint
+
+    @staticmethod
+    def _find_directory(module: str | None, source_dir: Path) -> tuple[Path | None, list[str]]:
+        if module is None:
+            return None, []
+        search = [source_dir]
+        while search:
+            current = search.pop()
+            for root in current.iterdir():
+                if not root.is_dir():
+                    continue
+                if root.name == module:
+                    return root, [d.name for d in root.iterdir() if d.is_dir()]
+                search.append(root)
+        return None, []
 
 
 @dataclass
