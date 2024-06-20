@@ -25,8 +25,10 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingMo
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
+    MediumSeverityWarning,
     MissingFileWarning,
     SourceFileModifiedWarning,
+    ToolkitWarning,
     WarningList,
 )
 from cognite_toolkit._cdf_tk.utils import YAMLComment, YAMLWithComments, calculate_str_or_file_hash, flatten_dict
@@ -39,30 +41,40 @@ from ._base import ConfigCore, _load_version_variable
 class Environment:
     name: str
     project: str
-    build_type: str
+    build_type: Literal["dev", "staging", "prod"]
     selected: list[str | tuple[str, ...]]
+
+    def __post_init__(self) -> None:
+        if self.build_type not in {"dev", "staging", "prod"}:
+            raise ToolkitEnvError(
+                f"Invalid type {self.build_type} in {self.name!s}. Must be one of 'dev', 'staging', 'prod'."
+            )
 
     @classmethod
     def load(cls, data: dict[str, Any], build_name: str) -> Environment:
         _deprecation_selected(data)
 
-        try:
-            return Environment(
-                name=build_name,
-                project=data["project"],
-                build_type=data["type"],
-                selected=[
-                    tuple([part for part in selected.split(MODULE_PATH_SEP) if part])
-                    if MODULE_PATH_SEP in selected
-                    else selected
-                    for selected in data["selected"] or []
-                ],
-            )
-        except KeyError:
+        if missing := {"name", "project", "type", "selected"} - set(data.keys()):
             raise ToolkitEnvError(
-                "Environment section is missing one or more required fields: 'name', 'project', 'type', or "
-                f"'selected' in {BuildConfigYAML._file_name(build_name)!s}"
+                f"Environment section is missing one or more required fields: {missing} in {BuildConfigYAML._file_name(build_name)!s}"
             )
+        build_type = data["type"]
+        if build_type not in {"dev", "staging", "prod"}:
+            raise ToolkitEnvError(
+                f"Invalid type {build_type} in {BuildConfigYAML._file_name(build_name)!s}. Must be one of 'dev', 'staging', 'prod'."
+            )
+
+        return Environment(
+            name=build_name,
+            project=data["project"],
+            build_type=build_type,
+            selected=[
+                tuple([part for part in selected.split(MODULE_PATH_SEP) if part])
+                if MODULE_PATH_SEP in selected
+                else selected
+                for selected in data["selected"] or []
+            ],
+        )
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -110,24 +122,37 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         os.environ["CDF_ENVIRON"] = self.environment.name
         os.environ["CDF_BUILD_TYPE"] = self.environment.build_type
 
-    def validate_environment(self) -> None:
+    def validate_environment(self) -> ToolkitWarning | None:
         if _RUNNING_IN_BROWSER:
             return None
-        env_name, env_project = self.environment.name, self.environment.project
+        project = self.environment.project
+        project_env = os.environ.get("CDF_PROJECT")
+        if project_env == project:
+            return None
+
+        build_type = self.environment.build_type
+        env_name = self.environment.name
         file_name = self._file_name(env_name)
-        if (project_env := os.environ.get("CDF_PROJECT", "<not set>")) != env_project:
-            if env_name in {"dev", "local", "demo"}:
-                print(
-                    f"  [bold yellow]WARNING:[/] Project name mismatch (CDF_PROJECT) between {file_name!s} "
-                    f"({env_project}) and what is defined in environment ({project_env}). "
-                    f"Environment is {env_name}, continuing (would have STOPPED for staging and prod)..."
-                )
-            else:
-                raise ToolkitEnvError(
-                    f"Project name mismatch (CDF_PROJECT) between {file_name!s} ({env_project}) and what is "
-                    f"defined in environment ({project_env=} != {env_project=})."
-                )
-        return None
+        missing_message = (
+            "No 'CDF_PROJECT' environment variable set. This is expected to match the project "
+            f"set in environment section of {file_name!r}.\nThis is required for "
+            "building configurations for staging and prod environments to ensure that you do "
+            "not accidentally deploy to the wrong project."
+        )
+        mismatch_message = (
+            f"Project name mismatch between project set in the environment section of {file_name!r} and the "
+            f"environment variable 'CDF_PROJECT', {project} ≠ {project_env}.\nThis is required for "
+            "building configurations for staging and prod environments to ensure that you do not "
+            "accidentally deploy to the wrong project."
+        )
+        if build_type != "dev" and project_env is None:
+            raise ToolkitEnvError(missing_message)
+        elif build_type != "dev":
+            raise ToolkitEnvError(mismatch_message)
+        elif build_type == "dev" and project_env is None:
+            return MediumSeverityWarning(missing_message)
+        else:
+            return MediumSeverityWarning(mismatch_message)
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> BuildConfigYAML:
