@@ -17,12 +17,18 @@ from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
 
 class ImportTransformationCLI(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, user_command: str | None = None, skip_tracking: bool = False):
+    def __init__(
+        self,
+        get_client: Callable[[], CogniteClient] | None = None,
+        print_warning: bool = True,
+        user_command: str | None = None,
+        skip_tracking: bool = False,
+    ):
         super().__init__(print_warning, user_command, skip_tracking)
         self._dataset_external_id_by_id: dict[int, str] = {}
         # We only initialize the client if we need to look up dataset ids.
         self._client: CogniteClient | None = None
-        self._get_client: Callable[[], CogniteClient] | None = None
+        self._get_client = get_client
 
     def execute(
         self,
@@ -30,10 +36,8 @@ class ImportTransformationCLI(ToolkitCommand):
         destination: Path,
         overwrite: bool,
         flatten: bool,
-        get_client: Callable[[], CogniteClient],
         verbose: bool = False,
     ) -> None:
-        self._get_client = get_client
         # Manifest files are documented at
         # https://cognite-transformations-cli.readthedocs-hosted.com/en/latest/quickstart.html#transformation-manifest
         if source.is_file() and source.suffix in {".yaml", ".yml"}:

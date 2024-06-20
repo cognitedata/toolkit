@@ -29,12 +29,14 @@ def transformation_cli(
     flatten: bool = typer.Option(False, help="Flatten the directory structure."),
 ) -> None:
     """Import transformation CLI manifests into Cognite-Toolkit modules."""
-    cmd = ImportTransformationCLI(print_warning=True)
+
     # We are lazy loading the client as we only need it if we need to look up dataset ids.
     # This is to ensure the command can be executed without a client if the user does not need to look up dataset ids.
-
+    # (which is likely 99% of the time)
     def get_client() -> CogniteClient:
         config = CDFToolConfig.from_context(ctx)
         return config.client
 
-    cmd.execute(source, destination, overwrite, flatten, get_client, verbose=ctx.obj.verbose)
+    cmd = ImportTransformationCLI(print_warning=True, get_client=get_client)
+
+    cmd.execute(source, destination, overwrite, flatten, verbose=ctx.obj.verbose)
