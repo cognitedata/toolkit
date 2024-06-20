@@ -36,7 +36,7 @@ def run() -> None:
     versions = get_versions_since(SUPPORT_MODULE_UPGRADE_FROM_VERSION)
     for version in versions:
         create_project_init(str(version))
-    return
+
     print(
         Panel(
             "All projects inits created successfully.",
