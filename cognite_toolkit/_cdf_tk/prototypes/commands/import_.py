@@ -63,7 +63,7 @@ class ImportTransformationCLI(ToolkitCommand):
             # keys from the transformation
             schedule = self._convert_schedule(data, data["externalId"], yaml_file)
             notifications = self._convert_notifications(data, data["externalId"], yaml_file)
-            transformation, query_path = self._convert_transformation(data, yaml_file)
+            transformation, source_query_path = self._convert_transformation(data, yaml_file)
 
             if flatten:
                 destination_folder = destination
@@ -76,8 +76,9 @@ class ImportTransformationCLI(ToolkitCommand):
                 self.warn(LowSeverityWarning(f"File already exists at {destination_transformation}. Skipping."))
                 continue
             destination_transformation.write_text(yaml.safe_dump(transformation))
-            if query_path is not None:
-                (destination_folder / f"{destination_transformation.stem}.sql").write_text(query_path.read_text())
+            if source_query_path is not None:
+                destination_query_path = destination_folder / f"{destination_transformation.stem}.sql"
+                destination_query_path.write_text(source_query_path.read_text())
 
             if schedule is not None:
                 destination_schedule = destination_folder / f"{yaml_file.stem}.Schedule.yaml"
@@ -121,11 +122,11 @@ class ImportTransformationCLI(ToolkitCommand):
         if "ignoreNullFields" not in transformation:
             # This is required by the API, but the transformation-cli sets it to true by default.
             transformation["ignoreNullFields"] = True
-        query_path: Path | None = None
+        source_query_path: Path | None = None
         if isinstance(transformation["query"], dict):
             query = transformation.pop("query")
             if "file" in query:
-                query_path = Path(query.pop("file"))
+                source_query_path = Path(query.pop("file"))
 
         if "dataSetId" in transformation:
             if "dataSetExternalId" in transformation:
@@ -162,7 +163,7 @@ class ImportTransformationCLI(ToolkitCommand):
                     if "tokenUrl" in write:
                         write["tokenUri"] = write.pop("tokenUrl")
                     transformation["destinationOidcCredentials"] = write
-        return transformation, query_path
+        return transformation, source_query_path
 
     def _convert_notifications(
         self, transformation: dict[str, Any], external_id: str, source_file: Path
