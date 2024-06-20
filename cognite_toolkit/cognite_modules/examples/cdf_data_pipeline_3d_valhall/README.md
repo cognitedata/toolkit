@@ -8,21 +8,21 @@ This module relies on these example data modules being loaded:
 
 The module creates a simple data pipeline for contextualization of a 3D model (Valhall) with
 the asset data based on the OID example module. In addition the module contains and example
-File extractor configuration that can be used to upload the 3D model rom your file system.
+File extractor configuration that can be used to upload the 3D model from your file system.
 
 
 
 Proccesing workflow for the contextualization are:
+![image](https://github.com/cognitedata/toolkit/assets/31886431/b29522f8-7f4b-4e23-b06a-f3ffffde103c)
 
-![image](https://github.com/cognitedata/toolkit/assets/31886431/9b262ef2-949a-4c56-ab7e-1616b906f4a7)
 
-## test data
+## Test data
 
 The data for the mapping are from the module `cdf_oid_example_data` is a small data set
 from [Open IndustrialData](https://learn.cognite.com/open-industrial-data), the Valhall platform
 
 The 3D model is from the Valhall asset, and can be provided on request.  
-For the test this was then uploaded to CDF using the UI and the 3D pipeline
+For the test, the model was uploaded to CDF using the UI and the 3D pipeline in CDF.
 
 ## Managed resources
 
@@ -55,14 +55,14 @@ This module manages the following resources:
 
     The contextualization function will then in `normal`operation read configuration and start process by:
 
-    1. Read RAW table with manual mappings and extract all rows not contextualized
-    2. Apply manual mappings from 3D nodes to Asset - this will overwrite any existing mapping
-    3. Read all time series not matched (or all if runAll is True)
-    4. Read all assets
-    5. Run ML contextualization to match 3D Nodes -> Assets
-    6. Update 3D Nodes with mapping
-    7. Write results matched (good) not matched (bad) to RAW
-    8. Output in good/bad table can then be used in workflow to update manual mappings
+    - Read RAW table with manual mappings and extract all rows not contextualized
+    - Apply manual mappings from 3D nodes to Asset - this will overwrite any existing mapping
+    - Read all time series not matched (or all if runAll is True)
+    - Read all assets
+    - Run ML contextualization to match 3D Nodes -> Assets
+    - Update 3D Nodes with mapping
+    - Write results matched (good) not matched (bad) to RAW
+    - Output in good/bad table can then be used in workflow to update manual mappings
 
 5. raw:
    - db/table: `3d_oid_opcua/contextualization_good`
@@ -78,9 +78,17 @@ This module manages the following resources:
        - manual tuning based on results from process - wrong mappings in good/bad table can be
          corrected by adding it to this table
 
-### Illustration of the time series data pipeline
+### Illustration of the time 3d data pipeline
 
 ![image](https://github.com/cognitedata/toolkit/assets/31886431/f1129181-bab0-42cb-8366-860e8fb30d7e)
+
+### Illustration of the contextualization workflow
+
+With usage of the output stored in the good /bad table to process false positive or just manually map content not able to be processed automatically, you can create a contextualization workflow.
+Included in the workflow there could also be a rule module using properties of the data or external input to map content, as illustrated in the illustration below:
+
+![image](https://github.com/cognitedata/toolkit/assets/31886431/0e990b47-0c06-4040-b680-7e2dddcdccee)
+
 
 
 ## Variables
