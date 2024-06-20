@@ -124,6 +124,10 @@ class ToolkitInvalidParameterNameError(ToolkitValidationError):
         return str(self)
 
 
+class ToolkitValueError(ValueError, ToolkitError):
+    pass
+
+
 class ToolkitRequiredValueError(ToolkitError, ValueError):
     pass
 
