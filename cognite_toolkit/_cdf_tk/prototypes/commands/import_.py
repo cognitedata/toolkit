@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
@@ -7,10 +8,11 @@ from typing import Any
 import yaml
 from cognite.client import CogniteClient
 from rich import print
+from rich.table import Table
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError, AuthenticationError
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
 
@@ -22,7 +24,15 @@ class ImportTransformationCLI(ToolkitCommand):
         self._client: CogniteClient | None = None
         self._get_client: Callable[[], CogniteClient] | None = None
 
-    def execute(self, source: Path, destination: Path, overwrite: bool, flatten: bool, get_client: Callable[[], CogniteClient], verbose: bool = False) -> None:
+    def execute(
+        self,
+        source: Path,
+        destination: Path,
+        overwrite: bool,
+        flatten: bool,
+        get_client: Callable[[], CogniteClient],
+        verbose: bool = False,
+    ) -> None:
         self._get_client = get_client
         # Manifest files are documented at
         # https://cognite-transformations-cli.readthedocs-hosted.com/en/latest/quickstart.html#transformation-manifest
@@ -51,33 +61,55 @@ class ImportTransformationCLI(ToolkitCommand):
             notifications = self._convert_notifications(data, data["externalId"], yaml_file)
             transformation, query_path = self._convert_transformation(data, yaml_file)
 
-            destination_folder = destination / yaml_file.relative_to(source).parent
-            destination_transformation = destination_folder / f"{yaml_file.stem}.Transformation.yaml"
+            if flatten:
+                destination_folder = destination
+            else:
+                destination_folder = destination / yaml_file.relative_to(source).parent
             destination_folder.mkdir(parents=True, exist_ok=True)
+
+            destination_transformation = destination_folder / f"{yaml_file.stem}.Transformation.yaml"
             if not overwrite and destination_transformation.exists():
                 self.warn(LowSeverityWarning(f"File already exists at {destination_transformation}. Skipping."))
                 continue
             destination_transformation.write_text(yaml.safe_dump(transformation))
+            if query_path is not None:
+                (destination_folder / f"{destination_transformation.stem}.sql").write_text(query_path.read_text())
+
             if schedule is not None:
                 destination_schedule = destination_folder / f"{yaml_file.stem}.Schedule.yaml"
                 destination_schedule.write_text(yaml.safe_dump(schedule))
             if notifications:
                 destination_notification = destination_folder / f"{yaml_file.stem}.Notification.yaml"
                 destination_notification.write_text(yaml.safe_dump(notifications))
-
+            if verbose:
+                print(f"Imported {yaml_file} to {destination_folder}.")
             count_by_resource_type["transformation"] += 1
             count_by_resource_type["schedule"] += 1 if schedule is not None else 0
             count_by_resource_type["notification"] += len(notifications)
+
+        print(f"Finished importing from {source} to {destination}.")
+        table = Table(title="Import transformation-cli Summary")
+        table.add_column("Resource Type", justify="right", style="cyan")
+        table.add_column("Count", justify="right", style="magenta")
+        for resource_type, count in count_by_resource_type.items():
+            table.add_row(resource_type, str(count))
+        print(table)
 
     def _load_file(self, yaml_file: Path) -> dict[str, Any] | None:
         content = read_yaml_file(yaml_file, expected_output="dict")
         required_keys = {"externalId", "name", "destination", "query"}
         if missing_keys := required_keys - content.keys():
-            self.warn(LowSeverityWarning(f"Missing required keys {missing_keys} in {yaml_file}. Likely not a Transformation manifest. Skipping."))
+            self.warn(
+                LowSeverityWarning(
+                    f"Missing required keys {missing_keys} in {yaml_file}. Likely not a Transformation manifest. Skipping."
+                )
+            )
             return None
         return content
 
-    def _convert_transformation(self, transformation: dict[str, Any], source_file: Path) -> tuple[dict[str, Any], Path | None]:
+    def _convert_transformation(
+        self, transformation: dict[str, Any], source_file: Path
+    ) -> tuple[dict[str, Any], Path | None]:
         if "shared" in transformation:
             transformation["isPublic"] = transformation.pop("shared")
         if "action" in transformation:
@@ -97,7 +129,9 @@ class ImportTransformationCLI(ToolkitCommand):
             else:
                 data_set_external_id = self._lookup_dataset(transformation.pop("dataSetId"))
                 if data_set_external_id is None:
-                    self.warn(LowSeverityWarning(f"Failed to find DataSet with id {transformation['dataSetId']} in CDF."))
+                    self.warn(
+                        LowSeverityWarning(f"Failed to find DataSet with id {transformation['dataSetId']} in CDF.")
+                    )
                 else:
                     transformation["dataSetExternalId"] = data_set_external_id
 
