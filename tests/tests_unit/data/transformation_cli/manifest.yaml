@@ -36,6 +36,16 @@ schedule:
 notifications:
   - example@cognite.com
 dataSetExternalId: ds_transformations_oid
+authentication:
+ clientId: ${CLIENT_ID}
+ clientSecret: ${CLIENT_SECRET}
+ tokenUrl: ${TOKEN_URL}
+ # Optional: If idP requires providing the scopes
+ cdfProjectName: ${CDF_PROJECT_NAME}
+ scopes:
+  - ${SCOPES}
+ # Optional: If idP requires providing the audience
+ audience: ${AUDIENCE}
 # Specify credentials separately like this:
 # authentication:
 #   read:
@@ -59,13 +69,3 @@ dataSetExternalId: ds_transformations_oid
 #     # Optional: If idP requires providing the audience
 #     audience: ${WRITE_CDF_AUDIENCE}
 # Or together like this:
-# authentication:
-#   clientId: ${CLIENT_ID}
-#   clientSecret: ${CLIENT_SECRET}
-#   tokenUrl: ${TOKEN_URL}
-#   # Optional: If idP requires providing the scopes
-#   cdfProjectName: ${CDF_PROJECT_NAME}
-#   scopes:
-#    - ${SCOPES}
-#   # Optional: If idP requires providing the audience
-#   audience: ${AUDIENCE}
