@@ -89,7 +89,7 @@ class ModulesCommand(ToolkitCommand):
     ) -> None:
         modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
         if mode == "overwrite":
-            if Path.is_dir(modules_root_dir):
+            if modules_root_dir.is_dir():
                 print(f"{INDENT}[yellow]Clearing directory[/]")
                 shutil.rmtree(modules_root_dir)
 
