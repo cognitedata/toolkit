@@ -7,8 +7,10 @@ from typing import Any
 import pytest
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
-from cognite_toolkit._cdf_tk.exceptions import AmbiguousResourceFileError
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, SystemYAML
+from cognite_toolkit._cdf_tk.exceptions import AmbiguousResourceFileError, ToolkitNotADirectoryError
+from cognite_toolkit._version import __version__
+from tests.tests_unit import data
 
 
 @pytest.fixture(scope="session")
@@ -30,6 +32,23 @@ class TestBuildCommand:
                 source_path=Path("my_module") / "transformations" / "notification.yaml",
             )
         assert "Ambiguous resource file" in str(e.value)
+
+    def test_module_not_found_error(self, tmp_path: Path) -> None:
+        with pytest.raises(ToolkitNotADirectoryError):
+            BuildCommand().build_config(
+                build_dir=tmp_path,
+                source_dir=data.PROJECT_WITH_BAD_MODULES,
+                config=BuildConfigYAML(
+                    environment=Environment(
+                        name="dev",
+                        project="project",
+                        build_type="dev",
+                        selected=["not_module"],
+                    ),
+                    filepath=Path("dummy"),
+                ),
+                system_config=SystemYAML(filepath=Path("dummy"), cdf_toolkit_version=__version__, packages={}),
+            )
 
 
 def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:
