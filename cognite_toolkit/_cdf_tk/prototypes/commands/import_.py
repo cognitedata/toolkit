@@ -49,7 +49,7 @@ class ImportTransformationCLI(ToolkitCommand):
             self.warn(LowSeverityWarning("No YAML files found in the source directory."))
             return None
 
-        count_by_resource_type = defaultdict(int)
+        count_by_resource_type: dict[str, int] = defaultdict(int)
         for yaml_file in yaml_files:
             data = self._load_file(yaml_file)
             if data is None:
@@ -160,7 +160,9 @@ class ImportTransformationCLI(ToolkitCommand):
                     transformation["destinationOidcCredentials"] = write
         return transformation, query_path
 
-    def _convert_notifications(self, transformation, external_id, source_file):
+    def _convert_notifications(
+        self, transformation: dict[str, Any], external_id: str, source_file: Path
+    ) -> list[dict[str, Any]]:
         notifications = []
         if "notifications" in transformation:
             notifications_raw = transformation.pop("notifications")
@@ -172,7 +174,9 @@ class ImportTransformationCLI(ToolkitCommand):
                 self.warn(LowSeverityWarning(f"Invalid notifications format in {source_file}."))
         return notifications
 
-    def _convert_schedule(self, transformation, external_id, source_file):
+    def _convert_schedule(
+        self, transformation: dict[str, Any], external_id: str, source_file: Path
+    ) -> dict[str, Any] | None:
         schedule: dict[str, Any] | None = None
         if "schedule" in transformation:
             schedule_raw = transformation.pop("schedule")
@@ -190,7 +194,7 @@ class ImportTransformationCLI(ToolkitCommand):
         if dataset_id in self._dataset_external_id_by_id:
             return self._dataset_external_id_by_id[dataset_id]
         dataset = self.client.data_sets.retrieve(id=dataset_id)
-        if dataset is None:
+        if dataset is None or dataset.external_id is None:
             return None
         self._dataset_external_id_by_id[dataset.id] = dataset.external_id
         return dataset.external_id
@@ -199,6 +203,10 @@ class ImportTransformationCLI(ToolkitCommand):
     def client(self) -> CogniteClient:
         if self._client is None:
             if self._get_client is None:
-                raise AuthenticationError("No Cognite Client available. Are you missing a .env file?")
+                raise AuthenticationError(
+                    "No Cognite Client available. Are you missing a .env file?"
+                    "\nThis is required to look up dataset ids in "
+                    "the transformation-cli manifest(s)."
+                )
             self._client = self._get_client()
         return self._client
