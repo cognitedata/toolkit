@@ -1,0 +1,6 @@
+environment:
+  name: No-Module
+  project: <customer-dev>
+  type: dev
+  selected_modules_and_packages:
+    - not_module

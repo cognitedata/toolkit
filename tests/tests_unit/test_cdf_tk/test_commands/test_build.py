@@ -7,12 +7,11 @@ from typing import Any
 import pytest
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, SystemYAML
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
     ToolkitMissingModuleError,
 )
-from cognite_toolkit._version import __version__
 from tests.tests_unit import data
 
 
@@ -38,19 +37,12 @@ class TestBuildCommand:
 
     def test_module_not_found_error(self, tmp_path: Path) -> None:
         with pytest.raises(ToolkitMissingModuleError):
-            BuildCommand().build_config(
+            BuildCommand().execute(
+                verbose=False,
                 build_dir=tmp_path,
-                source_dir=data.PROJECT_WITH_BAD_MODULES,
-                config=BuildConfigYAML(
-                    environment=Environment(
-                        name="dev",
-                        project="project",
-                        build_type="dev",
-                        selected=["not_module"],
-                    ),
-                    filepath=Path("dummy"),
-                ),
-                system_config=SystemYAML(filepath=Path("dummy"), cdf_toolkit_version=__version__, packages={}),
+                source_path=data.PROJECT_WITH_BAD_MODULES,
+                build_env_name="no_module",
+                no_clean=False,
             )
 
 
