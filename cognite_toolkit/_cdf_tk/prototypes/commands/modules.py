@@ -168,7 +168,7 @@ class ModulesCommand(ToolkitCommand):
                 raise ToolkitRequiredValueError("You must provide a directory name.")
 
         modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
-        if (modules_root_dir).is_dir():
+        if modules_root_dir.is_dir():
             mode = questionary.select(
                 f"Directory {modules_root_dir} already exists. What would you like to do?",
                 choices=[
