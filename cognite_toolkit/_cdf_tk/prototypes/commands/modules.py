@@ -87,12 +87,12 @@ class ModulesCommand(ToolkitCommand):
     def _create(
         self, init_dir: str, selected: dict[str, dict[str, Any]], environments: list[str], mode: str | None
     ) -> None:
-        if mode == "overwrite":
-            print(f"{INDENT}[yellow]Clearing directory[/]")
-            if Path.is_dir(Path(init_dir)):
-                shutil.rmtree(init_dir)
-
         modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
+        if mode == "overwrite":
+            if modules_root_dir.is_dir():
+                print(f"{INDENT}[yellow]Clearing directory[/]")
+                shutil.rmtree(modules_root_dir)
+
         modules_root_dir.mkdir(parents=True, exist_ok=True)
 
         for package, modules in selected.items():
@@ -167,9 +167,10 @@ class ModulesCommand(ToolkitCommand):
             if not init_dir or init_dir.strip() == "":
                 raise ToolkitRequiredValueError("You must provide a directory name.")
 
-        if (Path(init_dir) / ALT_CUSTOM_MODULES).is_dir():
+        modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
+        if modules_root_dir.is_dir():
             mode = questionary.select(
-                f"Directory {init_dir}/modules already exists. What would you like to do?",
+                f"Directory {modules_root_dir} already exists. What would you like to do?",
                 choices=[
                     questionary.Choice("Abort", "abort"),
                     questionary.Choice("Overwrite (clean existing)", "overwrite"),
@@ -204,7 +205,7 @@ class ModulesCommand(ToolkitCommand):
                 print("\n")
 
                 if len(available) > 0:
-                    if not questionary.confirm("Would you like to add more?", default=False).ask():
+                    if not questionary.confirm("Would you like to make changes to the selection?", default=False).ask():
                         break
 
             package_id = questionary.select(
@@ -215,24 +216,24 @@ class ModulesCommand(ToolkitCommand):
                 style=custom_style_fancy,
             ).ask()
 
-            selection = questionary.checkbox(
-                f"Which modules in {package_id} would you like to include?",
-                instruction="Use arrow up/down, press space to select item(s) and enter to save",
-                choices=[
-                    questionary.Choice(
-                        value.get("title", key), key, checked=True if key in selected.get(package_id, {}) else False
-                    )
-                    for key, value in available[package_id].get("modules", {}).items()
-                ],
-                qmark=INDENT,
-                pointer=POINTER,
-                style=custom_style_fancy,
-            ).ask()
-
-            if len(selection) > 0:
-                selected[package_id] = selection
+            if len(available[package_id].get("modules", {}).items()) > 1:
+                selection = questionary.checkbox(
+                    f"Which modules in {package_id} would you like to include?",
+                    instruction="Use arrow up/down, press space to select item(s) and enter to save",
+                    choices=[
+                        questionary.Choice(
+                            value.get("title", key), key, checked=True if key in selected.get(package_id, {}) else False
+                        )
+                        for key, value in available[package_id].get("modules", {}).items()
+                    ],
+                    qmark=INDENT,
+                    pointer=POINTER,
+                    style=custom_style_fancy,
+                ).ask()
             else:
-                selected[package_id] = available[package_id].get("modules", {}).keys()
+                selection = list(available[package_id].get("modules", {}).keys())
+
+            selected[package_id] = selection
 
         if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
             print("Exiting...")

@@ -15,6 +15,25 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.3] - 2024-06-20
+
+### Improved
+
+- When running `cdf-tk build` and missing `CDF_PROJECT` environment variable, the user will now get a more informative
+  error message.
+
+### Fixed
+
+- The variable `type` in the `environment` section of the `config.[env].yaml` now raises an error if it is not
+  set to `dev`, `staging`, or `prod`.
+
+### Added
+
+- The preview feature `IMPORT_CMD` added. This enables you to import a `transformation-cli` manifest into
+  resource configuration files compatible with the `cognite-toolkit`. Activate by running
+  `cdf-tk features set IMPORT_CMD --enable`, and deactivate by running `cdf-tk features set IMPORT_CMD --disable`.
+  Run `cdf-tk import transformation-cli --help` for more information about the import command.
+
 ## [0.2.2] - 2024-06-18
 
 ### Improved

@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 class Flags(Enum):
     MODULES_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the modules management subapp"}
     INTERNAL: ClassVar[dict[str, Any]] = {"visible": False, "description": "Does nothing"}
+    IMPORT_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the import sup application"}
 
 
 class FeatureFlag:
@@ -61,7 +62,7 @@ class FeatureFlag:
     @lru_cache
     def to_flag(flag: str) -> Flags | None:
         try:
-            return Flags[flag.upper()]
+            return Flags[flag.upper().replace("-", "_")]
         except KeyError:
             return None
 

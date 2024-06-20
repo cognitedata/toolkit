@@ -1,4 +1,4 @@
 title: "Empty: I want to create my own modules"
 modules: {
-      "empty_module": {"items": {}},
+      "my_module": {"items": {}},
 }

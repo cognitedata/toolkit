@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 
 from cognite.client.data_classes.aggregations import Count
+from cognite.client.data_classes.capabilities import DataModelInstancesAcl, DataModelsAcl
 from cognite.client.data_classes.data_modeling import (
     DirectRelation,
     DirectRelationReference,
@@ -29,11 +30,14 @@ class DescribeCommand(ToolkitCommand):
         else:
             print(f"Describing data model {model_name} in space {space_name} in project {ToolGlobals.project}...")
         print("Verifying access rights...")
-        client = ToolGlobals.verify_client(
-            capabilities={
-                "dataModelsAcl": ["READ", "WRITE"],
-                "dataModelInstancesAcl": ["READ", "WRITE"],
-            }
+        client = ToolGlobals.verify_authorization(
+            [
+                DataModelsAcl([DataModelsAcl.Action.Read, DataModelsAcl.Action.Write], DataModelsAcl.Scope.All()),
+                DataModelInstancesAcl(
+                    [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+                    DataModelInstancesAcl.Scope.All(),
+                ),
+            ]
         )
         table = Table(title=f"Space {space_name}")
         table.add_column("Info", justify="left")

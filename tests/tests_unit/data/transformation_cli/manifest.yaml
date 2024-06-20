@@ -1,0 +1,71 @@
+# Manifest file downloaded from fusion
+externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
+name: workorder:oid:workmate:infield:sync_workorders_to_apm_activities
+query: |2
+    select
+      cast(`externalId` as STRING) as externalId,
+      cast(`description` as STRING) as description,
+      cast(`key` as STRING) as id,
+      cast(`status` as STRING) as status,
+      /* cast(`startTime` as TIMESTAMP) as startTime,
+      cast(`endTime` as TIMESTAMP) as endTime,
+      NOTE!!! The below two datas just updates all workorders to be from now 
+      and into the future. This is done for the sake of the demo data.
+      */
+      cast(current_date() as TIMESTAMP) as startTime,
+      cast(date_add(current_date(), 7) as TIMESTAMP) as endTime,
+      cast(`title` as STRING) as title,
+      'WMT:VAL' as rootLocation,
+      'workmate' as source
+    from
+      `workorder_oid_workmate`.`workorders`;
+destination:
+  dataModel:
+    space: APM_SourceData
+    externalId: APM_SourceData
+    version: "1"
+    destinationType: APM_Activity
+  instanceSpace: sp_asset_oid_source
+  type: instances
+ignoreNullFields: true
+shared: true
+action: upsert
+schedule:
+  interval: 7 * * * *
+  isPaused: false
+notifications:
+  - example@cognite.com
+dataSetExternalId: ds_transformations_oid
+authentication:
+ clientId: ${CLIENT_ID}
+ clientSecret: ${CLIENT_SECRET}
+ tokenUrl: ${TOKEN_URL}
+ # Optional: If idP requires providing the scopes
+ cdfProjectName: ${CDF_PROJECT_NAME}
+ scopes:
+  - ${SCOPES}
+ # Optional: If idP requires providing the audience
+ audience: ${AUDIENCE}
+# Specify credentials separately like this:
+# authentication:
+#   read:
+#     clientId: ${READ_CLIENT_ID}
+#     clientSecret: ${READ_CLIENT_SECRET}
+#     tokenUrl: ${READ_TOKEN_URL}
+#     cdfProjectName: ${READ_CDF_PROJECT_NAME}
+#     # Optional: If idP requires providing the scopes
+#     scopes:
+#       - ${READ_SCOPES}
+#     # Optional: If idP requires providing the audience
+#     audience: ${READ_CDF_AUDIENCE}
+#   write:
+#     clientId: ${WRITE_CLIENT_ID}
+#     clientSecret: ${WRITE_CLIENT_SECRET}
+#     tokenUrl: ${WRITE_TOKEN_URL}
+#     cdfProjectName: ${WRITE_CDF_PROJECT_NAME}
+#     # Optional: If idP requires providing the scopes
+#     scopes:
+#       - ${WRITE_SCOPES}
+#     # Optional: If idP requires providing the audience
+#     audience: ${WRITE_CDF_AUDIENCE}
+# Or together like this:
