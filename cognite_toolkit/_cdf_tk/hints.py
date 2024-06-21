@@ -11,7 +11,7 @@ from .utils import find_directory_with_subdirectories
 
 class Hint:
     _indent = " " * 5
-    _lead_text = "[bold blue]HINT[/bold blue]"
+    _lead_text = "[bold blue]HINT[/bold blue] "
 
     @classmethod
     @abstractmethod
@@ -27,7 +27,7 @@ class Hint:
 
     @classmethod
     def _to_hint(cls, lines: list[str]) -> str:
-        return f"\n{cls._indent}".join(lines)
+        return cls._lead_text + f"\n{cls._indent}".join(lines)
 
     @classmethod
     def _link(cls, url: str, text: str = "Click Here") -> str:
@@ -37,14 +37,16 @@ class Hint:
 class ModuleDefinition(Hint):
     @classmethod
     def _short(cls) -> str:
-        return f"{cls._link(URL.configs)} to learn more."
+        return (
+            f"Available resource directories are {list(LOADER_BY_FOLDER_NAME)}. {cls._link(URL.configs)} to learn more."
+        )
 
     @classmethod
     def long(cls, missing_modules: set[str | tuple[str, ...]] | None = None, source_dir: Path | None = None) -> str:  # type: ignore[override]
         lines = [
             "A module is a directory with one or more resource directories in it.",
             f"Available resource directories are {list(LOADER_BY_FOLDER_NAME)}",
-            cls._short(),
+            f"{cls._link(URL.configs)} to learn more",
         ]
         if missing_modules and source_dir:
             found_directory, subdirectories = find_directory_with_subdirectories(
@@ -52,7 +54,7 @@ class ModuleDefinition(Hint):
             )
             if found_directory:
                 lines += [
-                    f"For example, the directory {found_directory.as_posix()!r} is not a module, as none of its"
-                    f"subdirectories are resource directories. The subdirectories found are: {subdirectories}"
+                    f"For example, the directory {found_directory.as_posix()!r} is not a module, as none of its",
+                    f"subdirectories are resource directories. The subdirectories found are: {subdirectories}",
                 ]
         return cls._to_hint(lines)
