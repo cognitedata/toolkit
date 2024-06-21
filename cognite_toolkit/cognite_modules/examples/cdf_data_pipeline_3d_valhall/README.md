@@ -81,8 +81,10 @@ This module manages the following resources:
 
 ### Illustration of the contextualization workflow
 
-With usage of the output stored in the good /bad table to process false positive or just manually map content not able to be processed automatically, you can create a contextualization workflow.
-Included in the workflow there could also be a rule module using properties of the data or external input to map content, as illustrated in the illustration below:
+With usage of the output stored in the good /bad table to process false positive or just manually map 
+content not able to be processed automatically, you can create a contextualization workflow.
+Included in the workflow there could also be a rule module using properties of the data or external 
+input to map content, as illustrated in the illustration below:
 
 ![image](https://github.com/cognitedata/toolkit/assets/31886431/0e990b47-0c06-4040-b680-7e2dddcdccee)
 
