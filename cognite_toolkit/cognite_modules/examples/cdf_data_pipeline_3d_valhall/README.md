@@ -10,11 +10,8 @@ The module creates a simple data pipeline for contextualization of a 3D model (V
 the asset data based on the OID example module. In addition the module contains and example
 File extractor configuration that can be used to upload the 3D model from your file system.
 
-
-
 Proccesing workflow for the contextualization are:
 ![image](https://github.com/cognitedata/toolkit/assets/31886431/b29522f8-7f4b-4e23-b06a-f3ffffde103c)
-
 
 ## Test data
 
@@ -88,8 +85,6 @@ With usage of the output stored in the good /bad table to process false positive
 Included in the workflow there could also be a rule module using properties of the data or external input to map content, as illustrated in the illustration below:
 
 ![image](https://github.com/cognitedata/toolkit/assets/31886431/0e990b47-0c06-4040-b680-7e2dddcdccee)
-
-
 
 ## Variables
 
