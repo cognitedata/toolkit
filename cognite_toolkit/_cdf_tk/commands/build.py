@@ -703,5 +703,5 @@ class _Helpers:
             replace = str(variable)
             if replace.isdigit():
                 replace = f'"{replace}"'
-            content = re.sub(rf"{{{{\s*{name}\s*}}}}", replace, content)
+            content = re.sub(rf'"?{{{{\s*{name}\s*}}}}"?', replace, content)
         return content

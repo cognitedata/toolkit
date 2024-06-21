@@ -122,7 +122,7 @@ def test_create_local_config(my_config: dict[str, Any]):
 
 class TestBuildState:
     def test_replace_string_number(self):
-        source_yaml = """source: {{ my_variable }}"""
+        source_yaml = '''source: "{{ my_variable }}"'''
         state = _BuildState.create(
             BuildConfigYAML(
                 Environment("dev", "my_project", "dev", ["none"]),
