@@ -40,18 +40,19 @@ class ModuleDefinition(Hint):
         return f"{cls._link(URL.configs)} to learn more."
 
     @classmethod
-    def long(cls, missing_modules: set[str | tuple[str, ...]], source_dir: Path) -> str:  # type: ignore[override]
+    def long(cls, missing_modules: set[str | tuple[str, ...]] | None = None, source_dir: Path | None = None) -> str:  # type: ignore[override]
         lines = [
             "A module is a directory with one or more resource directories in it.",
             f"Available resource directories are {list(LOADER_BY_FOLDER_NAME)}",
             cls._short(),
         ]
-        found_directory, subdirectories = find_directory_with_subdirectories(
-            next((m for m in missing_modules if isinstance(m, str)), None), source_dir
-        )
-        if found_directory:
-            lines += [
-                f"For example, the directory {found_directory.as_posix()!r} is not a module, as none of its"
-                f"subdirectories are resource directories. The subdirectories found are: {subdirectories}"
-            ]
+        if missing_modules and source_dir:
+            found_directory, subdirectories = find_directory_with_subdirectories(
+                next((m for m in missing_modules if isinstance(m, str)), None), source_dir
+            )
+            if found_directory:
+                lines += [
+                    f"For example, the directory {found_directory.as_posix()!r} is not a module, as none of its"
+                    f"subdirectories are resource directories. The subdirectories found are: {subdirectories}"
+                ]
         return cls._to_hint(lines)
