@@ -40,6 +40,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     DatapointsLoader,
@@ -345,7 +346,7 @@ class BuildCommand(ToolkitCommand):
         if not_resource_directory:
             self.warn(
                 LowSeverityWarning(
-                    f"Module {module_dir.name!r} has non-resource directories: {sorted(not_resource_directory)}."
+                    f"Module {module_dir.name!r} has non-resource directories: {sorted(not_resource_directory)}. {ModuleDefinition.short()}"
                 )
             )
         return files_by_resource_folder

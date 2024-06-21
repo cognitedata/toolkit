@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
     ToolkitMissingModuleError,
 )
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from tests.tests_unit import data
 
@@ -58,7 +59,10 @@ class TestBuildCommand:
 
         assert len(cmd.warning_list) >= 1
         assert (
-            LowSeverityWarning("Module 'ill_made_module' has non-resource directories: ['spaces'].") in cmd.warning_list
+            LowSeverityWarning(
+                f"Module 'ill_made_module' has non-resource directories: ['spaces']. {ModuleDefinition.short()}"
+            )
+            in cmd.warning_list
         )
 
 
