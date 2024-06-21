@@ -38,8 +38,9 @@ capabilities:
   - threedAcl: 
       actions:      
         - READ
-        - WRITE
+        - CREATE
         - UPDATE
+        - DELETE
       scope: 
         datasetScope: {
             ids: ['ds_3d_{{location_name}}']
