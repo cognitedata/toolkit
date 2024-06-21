@@ -37,15 +37,13 @@ class Hint:
 class ModuleDefinition(Hint):
     @classmethod
     def _short(cls) -> str:
-        return (
-            f"Available resource directories are {list(LOADER_BY_FOLDER_NAME)}. {cls._link(URL.configs)} to learn more."
-        )
+        return f"Available resource directories are {sorted(LOADER_BY_FOLDER_NAME)}. {cls._link(URL.configs)} to learn more."
 
     @classmethod
     def long(cls, missing_modules: set[str | tuple[str, ...]] | None = None, source_dir: Path | None = None) -> str:  # type: ignore[override]
         lines = [
             "A module is a directory with one or more resource directories in it.",
-            f"Available resource directories are {list(LOADER_BY_FOLDER_NAME)}",
+            f"Available resource directories are {sorted(LOADER_BY_FOLDER_NAME)}",
             f"{cls._link(URL.configs)} to learn more",
         ]
         if missing_modules and source_dir:
