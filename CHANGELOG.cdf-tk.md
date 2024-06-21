@@ -15,6 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- When running `cdf-tk build` and the selected modules is missing, the user will now get a hint about
+  how to fix the issue.
+- When running `cdf-tk build` and a module contains non-resource directories, the user will now get a warning
+  that the directory is not a resource directory.
+
 ## [0.2.3] - 2024-06-20
 
 ### Improved
