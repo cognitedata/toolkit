@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
@@ -117,3 +118,21 @@ def test_create_local_config(my_config: dict[str, Any]):
     local_config = _Helpers.create_local_config(configs, Path("parent/child/auth/"))
 
     assert dict(local_config.items()) == {"top_variable": "my_top_variable", "child_variable": "my_child_variable"}
+
+
+class TestBuildState:
+    def test_replace_string_number(self):
+        source_yaml = """source: {{ my_variable }}"""
+        state = _BuildState.create(
+            BuildConfigYAML(
+                Environment("dev", "my_project", "dev", ["none"]),
+                Path("dummy"),
+                {"modules": {"my_module": {"my_variable": "123"}}},
+            )
+        )
+        state.update_local_variables(Path("modules") / "my_module")
+
+        result = state.replace_variables(source_yaml)
+
+        loaded = yaml.safe_load(result)
+        assert loaded["source"] == "123"

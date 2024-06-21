@@ -700,5 +700,8 @@ class _Helpers:
     @staticmethod
     def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
         for name, variable in local_config.items():
-            content = re.sub(rf"{{{{\s*{name}\s*}}}}", str(variable), content)
+            replace = str(variable)
+            if replace.isdigit():
+                replace = f'"{replace}"'
+            content = re.sub(rf"{{{{\s*{name}\s*}}}}", replace, content)
         return content
