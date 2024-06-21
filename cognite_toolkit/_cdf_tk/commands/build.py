@@ -197,7 +197,7 @@ class BuildCommand(ToolkitCommand):
 
             state.update_local_variables(module_dir)
 
-            files_by_resource_folder = self._to_files_by_resource_folder(source_paths, verbose)
+            files_by_resource_folder = self._to_files_by_resource_folder(source_paths, module_dir)
 
             for resource_folder in files_by_resource_folder:
                 for source_path in files_by_resource_folder[resource_folder].resource_files:
@@ -316,8 +316,7 @@ class BuildCommand(ToolkitCommand):
         )
         return is_parent_in_selected_modules or is_in_selected_modules
 
-    @staticmethod
-    def _to_files_by_resource_folder(filepaths: list[Path], verbose: bool) -> dict[str, _ResourceFiles]:
+    def _to_files_by_resource_folder(self, filepaths: list[Path], module_dir: Path) -> dict[str, _ResourceFiles]:
         # Sort to support 1., 2. etc prefixes
         def sort_key(p: Path) -> int:
             if result := re.findall(r"^(\d+)", p.stem):
@@ -330,19 +329,25 @@ class BuildCommand(ToolkitCommand):
         filepaths = sorted(filepaths, key=sort_key)
 
         files_by_resource_folder: dict[str, _ResourceFiles] = defaultdict(_ResourceFiles)
+        not_resource_directory: set[str] = set()
         for filepath in filepaths:
             try:
                 resource_folder = resource_folder_from_path(filepath)
             except ValueError:
-                if verbose:
-                    print(
-                        f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
-                    )
+                relative_to_module = filepath.relative_to(module_dir)
+                if relative_to_module.parts[0] != filepath.name:
+                    not_resource_directory.add(relative_to_module.parts[0])
                 continue
             if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
                 files_by_resource_folder[resource_folder].resource_files.append(filepath)
             else:
                 files_by_resource_folder[resource_folder].other_files.append(filepath)
+        if not_resource_directory:
+            self.warn(
+                LowSeverityWarning(
+                    f"Module {module_dir.name!r} has non-resource directories: {sorted(not_resource_directory)}."
+                )
+            )
         return files_by_resource_folder
 
     @staticmethod
