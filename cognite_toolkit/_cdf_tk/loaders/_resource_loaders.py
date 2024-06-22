@@ -2376,82 +2376,55 @@ class FileMetadataLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FileMetadataWrite | FileMetadataWriteList:
-        try:
-            resource = load_yaml_inject_variables(
-                filepath, ToolGlobals.environment_variables(), required_return_type="dict"
-            )
+        loaded = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        is_file_template = (
+            isinstance(loaded, list) and len(loaded) == 1 and "$FILENAME" in loaded[0].get("externalId", "")
+        )
+        if isinstance(loaded, list) and is_file_template:
+            print(f"  [bold green]INFO:[/] File pattern detected in {filepath.name}, expanding to all files in folder.")
+            template = loaded[0]
+            template_prefix, template_suffix = "", ""
+            if "name" in template and "$FILENAME" in template["name"]:
+                template_prefix, template_suffix = template["name"].split("$FILENAME", maxsplit=1)
+            loaded_list: list[dict[str, Any]] = []
+            for file in filepath.parent.glob("*"):
+                if file.suffix in [".yaml", ".yml"]:
+                    continue
+                # Deep Copy
+                new_file = json.loads(json.dumps(template))
+                # We modify the filename in the build command, we clean the name here to get the original filename
+                filename_in_module = (
+                    re.sub("^[0-9]+\\.", "", file.name).removeprefix(template_prefix).removesuffix(template_suffix)
+                )
+                new_file["name"] = file.name
+                new_file["externalId"] = new_file["externalId"].replace("$FILENAME", filename_in_module)
+                loaded_list.append(new_file)
+
+        elif isinstance(loaded, dict):
+            loaded_list = [loaded]
+        else:
+            # Is List
+            loaded_list = loaded
+
+        for resource in loaded_list:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
                     ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in file metadata"
                 )
-            if "securityCategoryNames" in resource:
-                if security_categories_names := resource.pop("securityCategoryNames", []):
-                    security_categories = ToolGlobals.verify_security_categories(
-                        security_categories_names,
-                        skip_validation,
-                        action="replace securityCategoryNames with securityCategoriesIDs in file metadata",
-                    )
-                    resource["securityCategories"] = security_categories
-
-            files_metadata = FileMetadataWriteList([FileMetadataWrite.load(resource)])
-        except Exception:
-            files_metadata = FileMetadataWriteList.load(
-                load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="list")
-            )
-
-        # If we have a file with exact one file config, check to see if this is a pattern to expand
-        if len(files_metadata) == 1 and ("$FILENAME" in (files_metadata[0].external_id or "")):
-            # It is, so replace this file with all files in this folder using the same data
-            print(f"  [bold green]INFO:[/] File pattern detected in {filepath.name}, expanding to all files in folder.")
-            file_data = files_metadata.data[0]
-            ext_id_pattern = file_data.external_id
-            # Since $FILENAME is in file_data.name, it can have the following format: 'prefix_$FILENAME_suffix'.
-            filename_pattern = file_data.name
-            files_metadata = FileMetadataWriteList([], cognite_client=self.client)
-            for file in filepath.parent.glob("*"):
-                if file.suffix in [".yaml", ".yml"]:
-                    continue
-                # If filename_pattern contains $FILENAME, the build step renamed
-                # the file based on this pattern. We need to find the original name to be
-                # used in the creation of the external_id.
-                if "$FILENAME" in filename_pattern:
-                    subs = filename_pattern.split("$FILENAME")
-                    match = re.match(f"{subs[0]}(.*){subs[1]}", file.name)
-                    if match and len(match.groups()) == 1:
-                        old_file_name = match.groups()[0]
-                    else:
-                        raise ValueError(
-                            f"Could not find original filename in {file.name} using pattern {filename_pattern}"
-                        )
-                else:
-                    old_file_name = file.name
-                files_metadata.append(
-                    FileMetadataWrite(
-                        name=file.name,
-                        external_id=re.sub(r"\$FILENAME", old_file_name, ext_id_pattern),
-                        data_set_id=file_data.data_set_id,
-                        source=file_data.source,
-                        metadata=file_data.metadata,
-                        directory=file_data.directory,
-                        asset_ids=file_data.asset_ids,
-                        labels=file_data.labels,
-                        geo_location=file_data.geo_location,
-                        security_categories=file_data.security_categories,
-                    )
-                )
-        for meta in files_metadata:
-            if meta.name is None:
-                raise ToolkitRequiredValueError(f"File {meta.external_id} has no name.")
-            if not Path(filepath.parent / meta.name).exists():
-                raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
-            if isinstance(meta.data_set_id, str):
-                # Replace external_id with internal id
-                meta.data_set_id = ToolGlobals.verify_dataset(
-                    meta.data_set_id,
+            if security_categories_names := resource.pop("securityCategoryNames", []):
+                security_categories = ToolGlobals.verify_security_categories(
+                    security_categories_names,
                     skip_validation,
-                    action="replace dataSetExternalId with dataSetId in file metadata",
+                    action="replace securityCategoryNames with securityCategoriesIDs in file metadata",
                 )
+                resource["securityCategories"] = security_categories
+
+        files_metadata: FileMetadataWriteList = FileMetadataWriteList.load(loaded_list)
+        for meta in files_metadata:
+            if meta.name and not Path(filepath.parent / meta.name).exists():
+                # Todo in `0.2.0` replace this with ToolkitFileNotFoundError
+                raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
         return files_metadata
 
     def create(self, items: FileMetadataWriteList) -> FileMetadataList:
