@@ -121,13 +121,15 @@ def test_create_local_config(my_config: dict[str, Any]):
 
 
 class TestBuildState:
-    def test_replace_string_number(self):
+    def test_replace_preserve_data_type(self):
         source_yaml = """text: {{ my_text }}
 bool: {{ my_bool }}
 integer: {{ my_integer }}
 float: {{ my_float }}
 digit_string: {{ my_digit_string }}
-packed_string: "{{ my_packed_string }}"
+quoted_string: "{{ my_quoted_string }}"
+list: {{ my_list }}
+null_value: {{ my_null_value }}
 """
         variables = {
             "my_text": "some text",
@@ -135,7 +137,9 @@ packed_string: "{{ my_packed_string }}"
             "my_integer": 123,
             "my_float": 123.456,
             "my_digit_string": "123",
-            "my_packed_string": "456",
+            "my_quoted_string": "456",
+            "my_list": ["one", "two", "three"],
+            "my_null_value": None,
         }
         state = _BuildState.create(
             BuildConfigYAML(
