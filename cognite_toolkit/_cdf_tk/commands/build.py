@@ -645,7 +645,9 @@ class _BuildState:
                 replace = f'"{replace}"'
             elif replace is None:
                 replace = "null"
-            content = re.sub(rf'"?\'?{{{{\s*{name}\s*}}}}\'?"?', str(replace), content)
+
+            _core_patter = rf"{{{{\s*{name}\s*}}}}"
+            content = re.sub(rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"', str(replace), content)
         return content
 
     @classmethod

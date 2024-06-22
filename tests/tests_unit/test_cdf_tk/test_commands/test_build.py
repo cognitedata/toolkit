@@ -131,6 +131,7 @@ quoted_string: "{{ my_quoted_string }}"
 list: {{ my_list }}
 null_value: {{ my_null_value }}
 single_quoted_string: '{{ my_single_quoted_string }}'
+composite: 'some_prefix_{{ my_composite }}'
 """
         variables = {
             "my_text": "some text",
@@ -142,6 +143,7 @@ single_quoted_string: '{{ my_single_quoted_string }}'
             "my_list": ["one", "two", "three"],
             "my_null_value": None,
             "my_single_quoted_string": "789",
+            "my_composite": "the suffix",
         }
         state = _BuildState.create(
             BuildConfigYAML(
@@ -155,6 +157,15 @@ single_quoted_string: '{{ my_single_quoted_string }}'
         result = state.replace_variables(source_yaml)
 
         loaded = yaml.safe_load(result)
-        for key, value in variables.items():
-            name = key.removeprefix("my_")
-            assert loaded[name] == value
+        assert loaded == {
+            "text": "some text",
+            "bool": True,
+            "integer": 123,
+            "float": 123.456,
+            "digit_string": "123",
+            "quoted_string": "456",
+            "list": ["one", "two", "three"],
+            "null_value": None,
+            "single_quoted_string": "789",
+            "composite": "some_prefix_the suffix",
+        }
