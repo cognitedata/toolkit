@@ -122,12 +122,26 @@ def test_create_local_config(my_config: dict[str, Any]):
 
 class TestBuildState:
     def test_replace_string_number(self):
-        source_yaml = '''source: "{{ my_variable }}"'''
+        source_yaml = """text: {{ my_text }}
+bool: {{ my_bool }}
+integer: {{ my_integer }}
+float: {{ my_float }}
+digit_string: {{ my_digit_string }}
+packed_string: "{{ my_packed_string }}"
+"""
+        variables = {
+            "my_text": "some text",
+            "my_bool": True,
+            "my_integer": 123,
+            "my_float": 123.456,
+            "my_digit_string": "123",
+            "my_packed_string": "456",
+        }
         state = _BuildState.create(
             BuildConfigYAML(
                 Environment("dev", "my_project", "dev", ["none"]),
                 Path("dummy"),
-                {"modules": {"my_module": {"my_variable": "123"}}},
+                {"modules": {"my_module": variables}},
             )
         )
         state.update_local_variables(Path("modules") / "my_module")
@@ -135,4 +149,6 @@ class TestBuildState:
         result = state.replace_variables(source_yaml)
 
         loaded = yaml.safe_load(result)
-        assert loaded["source"] == "123"
+        for key, value in variables.items():
+            name = key.removeprefix("my_")
+            assert loaded[name] == value
