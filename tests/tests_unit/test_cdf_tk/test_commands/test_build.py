@@ -130,6 +130,7 @@ digit_string: {{ my_digit_string }}
 quoted_string: "{{ my_quoted_string }}"
 list: {{ my_list }}
 null_value: {{ my_null_value }}
+single_quoted_string: '{{ my_single_quoted_string }}'
 """
         variables = {
             "my_text": "some text",
@@ -140,6 +141,7 @@ null_value: {{ my_null_value }}
             "my_quoted_string": "456",
             "my_list": ["one", "two", "three"],
             "my_null_value": None,
+            "my_single_quoted_string": "789",
         }
         state = _BuildState.create(
             BuildConfigYAML(
