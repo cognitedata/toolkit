@@ -19,9 +19,9 @@ Changes are grouped as follows:
 
 ### Fixed
 
-- If you had a number variable a `config.[env].yaml` file, for example, `my_variable: "123"`, then the `cdf-tk build`
-  would build the resource file with the number instead of the string, `my_variable: 123`. This is now fixed,
-  the `cdf-tk build` will now build the resource file with only string variables.
+- The data type of variables `config.[env].yaml` file is now preserved. For example, `my_variable: "123"`,
+  then the `cdf-tk build`  would build the resource file with the number instead of the string, `my_variable: 123`.
+  This is now fixed.
 
 ## [0.2.3] - 2024-06-20
 
