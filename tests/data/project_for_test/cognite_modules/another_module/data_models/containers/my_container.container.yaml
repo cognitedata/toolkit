@@ -12,7 +12,7 @@ properties:
     description: null
     nullable: true
     autoIncrement: false
-index:
+indexes:
   name:
     properties:
       - name
