@@ -155,10 +155,19 @@ class RawFileLoader(DataLoader):
             file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
             data = pd.read_csv(io.StringIO(file_content), dtype=str)
             data.fillna("", inplace=True)
+            if data.columns and data.columns[0] == "key":
+                print(f"Setting index to 'key' for {datafile.name}")
+                data.set_index("key", inplace=True)
         elif datafile.suffix == ".parquet":
             data = pd.read_parquet(datafile, engine="pyarrow")
         else:
             raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
+
+        if data.empty:
+            return (
+                f" No rows to insert from '{datafile!s}' into database={metadata.db_name!r}, table={metadata.table_name!r}.",
+                0,
+            )
 
         if dry_run:
             return (
