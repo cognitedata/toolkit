@@ -2326,6 +2326,7 @@ class ExtractionPipelineConfigLoader(
 class FileMetadataLoader(
     ResourceContainerLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
 ):
+    template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
     resource_cls = FileMetadata
