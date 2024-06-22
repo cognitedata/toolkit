@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.commands import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, SystemYAML
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import iterate_modules
-from tests.tests_unit.data import PYTEST_PROJECT
+from tests.data import PYTEST_PROJECT
 from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR
 
 

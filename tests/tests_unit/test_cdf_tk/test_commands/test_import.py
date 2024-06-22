@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.prototypes.commands.import_ import ImportTransformationCLI
-from tests.tests_unit.data import TRANSFORMATION_CLI
+from tests.data import TRANSFORMATION_CLI
 
 
 class TestImportTransformationCLI:
