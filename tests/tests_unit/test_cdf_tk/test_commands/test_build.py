@@ -132,6 +132,8 @@ list: {{ my_list }}
 null_value: {{ my_null_value }}
 single_quoted_string: '{{ my_single_quoted_string }}'
 composite: 'some_prefix_{{ my_composite }}'
+prefix_text: {{ my_prefix_text }}
+suffix_text: {{ my_suffix_text }}
 """
         variables = {
             "my_text": "some text",
@@ -144,6 +146,8 @@ composite: 'some_prefix_{{ my_composite }}'
             "my_null_value": None,
             "my_single_quoted_string": "789",
             "my_composite": "the suffix",
+            "my_prefix_text": "prefix:",
+            "my_suffix_text": ":suffix",
         }
         state = _BuildState.create(
             BuildConfigYAML(
@@ -168,4 +172,6 @@ composite: 'some_prefix_{{ my_composite }}'
             "null_value": None,
             "single_quoted_string": "789",
             "composite": "some_prefix_the suffix",
+            "prefix_text": "prefix:",
+            "suffix_text": ":suffix",
         }

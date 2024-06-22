@@ -641,7 +641,7 @@ class _BuildState:
     def replace_variables(self, content: str) -> str:
         for name, variable in self.local_variables.items():
             replace = variable
-            if isinstance(replace, str) and replace.isdigit():
+            if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
                 replace = f'"{replace}"'
             elif replace is None:
                 replace = "null"
