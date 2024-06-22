@@ -645,7 +645,7 @@ class _BuildState:
                 replace = f'"{replace}"'
             elif replace is None:
                 replace = "null"
-            content = re.sub(rf'"?{{{{\s*{name}\s*}}}}"?', str(replace), content)
+            content = re.sub(rf'"?\'?{{{{\s*{name}\s*}}}}\'?"?', str(replace), content)
         return content
 
     @classmethod
