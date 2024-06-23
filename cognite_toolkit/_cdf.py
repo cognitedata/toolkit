@@ -912,6 +912,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
             ),
         ] = False,
     ) -> None:
+        """This command will dump the selected assets as yaml to the folder specified, defaults to /tmp."""
         cmd = DumpAssetsCommand(user_command=_get_user_command())
         cmd.execute(
             CDFToolConfig.from_context(ctx),

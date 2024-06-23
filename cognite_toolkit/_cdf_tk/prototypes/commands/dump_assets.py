@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
 from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
 
 
 class DumpAssetsCommand(ToolkitCommand):
@@ -40,15 +40,12 @@ class DumpAssetsCommand(ToolkitCommand):
         clean: bool,
         verbose: bool = False,
     ) -> None:
-        if not output_dir.is_dir():
-            raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
-        elif output_dir.exists() and clean:
+        if output_dir.exists() and clean:
             shutil.rmtree(output_dir)
         elif output_dir.exists():
             raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
-
-        (output_dir / AssetLoader.folder_name).mkdir(parents=True, exist_ok=True)
-        (output_dir / DataSetsLoader.folder_name).mkdir(parents=True, exist_ok=True)
+        elif output_dir.suffix:
+            raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
 
         hierarchies, data_sets = self._select_hierarchy_and_data_set(
             ToolGlobals.client, hierarchy, data_set, interactive
@@ -64,14 +61,17 @@ class DumpAssetsCommand(ToolkitCommand):
 
             self.data_set_by_id.update({item.id: item.as_write() for item in retrieved if item.id})
 
+        (output_dir / AssetLoader.folder_name).mkdir(parents=True, exist_ok=True)
+        (output_dir / DataSetsLoader.folder_name).mkdir(parents=True, exist_ok=True)
+
         count = 0
         for assets in ToolGlobals.client.assets(
             chunk_size=1000, asset_subtree_external_ids=hierarchies, data_set_external_ids=data_set
         ):
             for group_name, group in self._group_by_hierarchy(ToolGlobals.client, assets):
                 group_write = self._to_write(ToolGlobals.client, group)
-
-                file_path = output_dir / AssetLoader.folder_name / f"{group_name}.Asset.yaml"
+                clean_name = to_directory_compatible(group_name)
+                file_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset.yaml"
                 if file_path.exists():
                     with file_path.open("a") as f:
                         f.write("\n")
@@ -107,7 +107,7 @@ class DumpAssetsCommand(ToolkitCommand):
         data_sets: set[str] = set()
         while True:
             what = questionary.select(
-                "Select a hierarchy or data set to dump",
+                f"\nSelected hierarchies: {sorted(hierarchies)}\nSelected dataSets: {sorted(data_sets)}\nSelect a hierarchy or data set to dump",
                 choices=[
                     "Hierarchy",
                     "Data Set",
@@ -119,20 +119,24 @@ class DumpAssetsCommand(ToolkitCommand):
                 break
             elif what == "Hierarchy":
                 _available_hierarchies = self._get_available_hierarchies(client)
-                hierarchies.add(
-                    questionary.autocomplete(
-                        "Select a hierarchy",
-                        choices=sorted(item for item in _available_hierarchies if item not in hierarchies),
-                    ).ask()
-                )
+                selected_hierarchy = questionary.checkbox(
+                    "Select a hierarchy",
+                    choices=sorted(item for item in _available_hierarchies if item not in hierarchies),
+                ).ask()
+                if selected_hierarchy:
+                    hierarchies.update(selected_hierarchy)
+                else:
+                    print("No hierarchy selected.")
             elif what == "Data Set":
                 _available_data_sets = self._get_available_data_sets(client)
-                data_sets.add(
-                    questionary.autocomplete(
-                        "Select a data set",
-                        choices=sorted(item for item in _available_data_sets if item not in data_sets),
-                    ).ask()
-                )
+                selected_data_set = questionary.checkbox(
+                    "Select a data set",
+                    choices=sorted(item for item in _available_data_sets if item not in data_sets),
+                ).ask()
+                if selected_data_set:
+                    data_sets.update(selected_data_set)
+                else:
+                    print("No data set selected.")
         return list(hierarchies), list(data_sets)
 
     def _get_available_data_sets(self, client: CogniteClient) -> set[str]:
@@ -163,6 +167,7 @@ class DumpAssetsCommand(ToolkitCommand):
             if "dataSetId" in write:
                 data_set_id = write.pop("dataSetId")
                 write["dataSetExternalId"] = self._get_data_set_external_id(client, data_set_id)
+            write_assets.append(write)
         return write_assets
 
     def _get_asset_external_id(self, client: CogniteClient, root_id: int) -> str:
