@@ -42,6 +42,8 @@ class DumpAssetsCommand(ToolkitCommand):
         format_: Literal["yaml", "csv", "parquet"] = "yaml",
         verbose: bool = False,
     ) -> None:
+        if format_ not in {"yaml", "csv", "parquet"}:
+            raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet.")
         if output_dir.exists() and clean:
             shutil.rmtree(output_dir)
         elif output_dir.exists():
