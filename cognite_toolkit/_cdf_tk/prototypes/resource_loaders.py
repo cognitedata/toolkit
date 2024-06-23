@@ -3,8 +3,9 @@ from __future__ import annotations
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
-from typing import final
+from typing import Any, final
 
+import pandas as pd
 from cognite.client.data_classes import Asset, AssetList, AssetWrite, AssetWriteList, capabilities
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
@@ -19,6 +20,8 @@ from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variab
 @final
 class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetList]):
     folder_name = "assets"
+    filename_pattern = r"^.*\.Asset$"  # Matches all yaml files whose stem ends with '.Asset'.
+    filetypes = frozenset({"yaml", "yml", "csv", "parquet"})
     resource_cls = Asset
     resource_write_cls = AssetWrite
     list_cls = AssetList
@@ -103,10 +106,27 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             yield cls, item["parentExternalId"]
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> AssetWriteList:
-        resources = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        if not isinstance(resources, list):
-            resources = [resources]
+        resources: list[dict[str, Any]]
+        if filepath.suffix in {".yaml", ".yml"}:
+            raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+            resources = [raw] if isinstance(raw, list) else raw  # type: ignore[assignment, list-item]
+        elif filepath.suffix == ".csv":
+            resources = pd.read_csv(filepath).to_dict(orient="records")
+        elif filepath.suffix == ".parquet":
+            resources = pd.read_parquet(filepath).to_dict(orient="records")
+        else:
+            raise ValueError(f"Unsupported file type: {filepath.suffix}")
+
         for resource in resources:
+            # Unpack metadata keys from table formats (e.g. csv, parquet)
+            metadata: dict = resource.get("metadata", {})
+            for key, value in list(resource.items()):
+                if key.startswith("metadata."):
+                    metadata[key.removeprefix("metadata.")] = value
+                    del resource[key]
+            if metadata:
+                resource["metadata"] = metadata
+
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
