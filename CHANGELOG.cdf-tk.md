@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- [Feature Preview] Support for resource type `Asset` in the `assets` folder. Turn on the feature by running
+  `cdf-tk features set assets --enable`.
+
 ## [0.2.3] - 2024-06-20
 
 ### Improved
