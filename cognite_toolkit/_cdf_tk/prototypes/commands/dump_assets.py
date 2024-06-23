@@ -2,8 +2,9 @@ import shutil
 from collections.abc import Iterator
 from itertools import groupby
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
+import pandas as pd
 import questionary
 import yaml
 from cognite.client import CogniteClient
@@ -38,6 +39,7 @@ class DumpAssetsCommand(ToolkitCommand):
         interactive: bool,
         output_dir: Path,
         clean: bool,
+        format_: Literal["yaml", "csv", "parquet"] = "yaml",
         verbose: bool = False,
     ) -> None:
         if output_dir.exists() and clean:
@@ -69,15 +71,23 @@ class DumpAssetsCommand(ToolkitCommand):
             chunk_size=1000, asset_subtree_external_ids=hierarchies, data_set_external_ids=data_set
         ):
             for group_name, group in self._group_by_hierarchy(ToolGlobals.client, assets):
-                group_write = self._to_write(ToolGlobals.client, group)
+                group_write = self._to_write(ToolGlobals.client, group, expand_metadata=format_ != "yaml")
                 clean_name = to_directory_compatible(group_name)
-                file_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset.yaml"
-                if file_path.exists():
+                file_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset.{format_}"
+                if file_path.exists() and format_ == "yaml":
                     with file_path.open("a") as f:
                         f.write("\n")
                         f.write(yaml.safe_dump(group_write, sort_keys=False))
-                else:
+                elif file_path.exists() and format_ == "csv":
+                    pd.DataFrame(group_write).to_csv(file_path, mode="a", index=False)
+                elif file_path.exists() and format_ == "parquet":
+                    pd.DataFrame(group_write).to_parquet(file_path, mode="a", index=False)
+                elif format_ == "yaml":
                     file_path.write_text(yaml.safe_dump(group_write, sort_keys=False))
+                elif format_ == "parquet":
+                    pd.DataFrame(group_write).to_parquet(file_path, index=False)
+                elif format_ == "csv":
+                    pd.DataFrame(group_write).to_csv(file_path, index=False)
 
                 count += len(group_write)
                 if verbose:
@@ -159,7 +169,7 @@ class DumpAssetsCommand(ToolkitCommand):
         for root_id, asset in groupby(sorted(assets, key=lambda a: a.root_id), lambda a: a.root_id):
             yield self._get_asset_external_id(client, root_id), AssetList(list(asset))
 
-    def _to_write(self, client: CogniteClient, assets: AssetList) -> list[dict[str, Any]]:
+    def _to_write(self, client: CogniteClient, assets: AssetList, expand_metadata: bool) -> list[dict[str, Any]]:
         write_assets: list[dict[str, Any]] = []
         for asset in assets:
             write = asset.as_write().dump(camel_case=True)
@@ -167,6 +177,10 @@ class DumpAssetsCommand(ToolkitCommand):
             if "dataSetId" in write:
                 data_set_id = write.pop("dataSetId")
                 write["dataSetExternalId"] = self._get_data_set_external_id(client, data_set_id)
+            if expand_metadata and "metadata" in write:
+                metadata = write.pop("metadata")
+                for key, value in metadata.items():
+                    write[f"metadata.{key}"] = value
             write_assets.append(write)
         return write_assets
 

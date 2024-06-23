@@ -6,7 +6,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, NoReturn, Optional, Union
+from typing import Annotated, Literal, NoReturn, Optional, Union
 
 import typer
 from cognite.client.data_classes.data_modeling import DataModelId, NodeId
@@ -903,7 +903,15 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
                 allow_dash=True,
             ),
         ] = Path("tmp"),
-        clean: Annotated[
+        format_: Annotated[
+            Literal["yaml", "csv", "parquet"],
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to dump the assets in.",
+            ),
+        ] = "yaml",
+        clean_: Annotated[
             bool,
             typer.Option(
                 "--clean",
@@ -920,7 +928,8 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
             data_set,
             interactive,
             output_dir,
-            clean,
+            clean_,
+            format_,
             ctx.obj.verbose,
         )
 
