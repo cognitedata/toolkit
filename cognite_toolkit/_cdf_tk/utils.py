@@ -37,6 +37,7 @@ from cognite.client.config import global_config
 from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes.capabilities import (
+    AssetsAcl,
     Capability,
     DataSetsAcl,
     ExtractionPipelinesAcl,
@@ -387,6 +388,7 @@ class CDFToolConfig:
         data_set_id_by_external_id: dict[str, int] = field(default_factory=dict)
         extraction_pipeline_id_by_external_id: dict[str, int] = field(default_factory=dict)
         security_categories_by_name: dict[str, int] = field(default_factory=dict)
+        asset_id_by_external_id: dict[str, int] = field(default_factory=dict)
         token_inspect: TokenInspection | None = None
 
     def __init__(
@@ -771,6 +773,56 @@ class CDFToolConfig:
             raise ToolkitResourceMissingError(
                 f"Security category {e} does not exist. You need to create it first.", e.args[0]
             ) from e
+
+    @overload
+    def verify_asset(self, external_id: str, skip_validation: bool = False, action: str | None = None) -> int: ...
+
+    @overload
+    def verify_asset(
+        self, external_id: list[str], skip_validation: bool = False, action: str | None = None
+    ) -> list[int]: ...
+
+    def verify_asset(
+        self, external_id: str | list[str], skip_validation: bool = False, action: str | None = None
+    ) -> int | list[int]:
+        if skip_validation:
+            return [-1 for _ in range(len(external_id))] if isinstance(external_id, list) else -1
+
+        if isinstance(external_id, str) and external_id in self._cache.asset_id_by_external_id:
+            return self._cache.asset_id_by_external_id[external_id]
+        elif isinstance(external_id, str):
+            missing_external_ids = [external_id]
+        elif isinstance(external_id, list):
+            existing_by_external_id: dict[str, int] = {
+                ext_id: self._cache.asset_id_by_external_id[ext_id]
+                for ext_id in external_id
+                if ext_id in self._cache.asset_id_by_external_id
+            }
+            if len(existing_by_external_id) == len(existing_by_external_id):
+                return [existing_by_external_id[ext_id] for ext_id in external_id]
+            missing_external_ids = [ext_id for ext_id in external_id if ext_id not in existing_by_external_id]
+        else:
+            raise ValueError(f"Expected external_id to be str or list of str, but got {type(external_id)}")
+
+        self.verify_authorization(AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.All()), action)
+
+        missing_assets = self.client.assets.retrieve_multiple(
+            external_ids=missing_external_ids, ignore_unknown_ids=True
+        )
+
+        self._cache.asset_id_by_external_id.update(
+            {asset.external_id: asset.id for asset in missing_assets if asset.id and asset.external_id}
+        )
+
+        if missing := [ext_id for ext_id in missing_external_ids if ext_id not in self._cache.asset_id_by_external_id]:
+            raise ToolkitResourceMissingError(
+                "Asset(s) does not exist. You need to create it/them first.", str(missing)
+            )
+
+        if isinstance(external_id, str):
+            return self._cache.asset_id_by_external_id[external_id]
+        else:
+            return [self._cache.asset_id_by_external_id[ext_id] for ext_id in external_id]
 
 
 @overload
