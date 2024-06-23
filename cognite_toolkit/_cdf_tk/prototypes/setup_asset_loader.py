@@ -126,7 +126,7 @@ def _modify_file_metadata_loader() -> None:
             ParameterSpec(("assetExternalIds", ANY_INT), frozenset({"int"}), is_required=False, _is_nullable=False)
         )
         spec.discard(ParameterSpec(("assetIds",), frozenset({"list"}), is_required=False, _is_nullable=False))
-        spec.discard(ParameterSpec(("assetIds", ANY_INT), frozenset({"int"}), is_required=False, _is_nullable=False))
+        spec.discard(ParameterSpec(("assetIds", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False))
         return spec
 
     FileMetadataLoader.get_write_cls_parameter_spec = classmethod(get_write_cls_parameter_spec_file_metadata)  # type: ignore[method-assign, assignment, arg-type]
