@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
