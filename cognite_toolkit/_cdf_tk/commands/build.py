@@ -646,7 +646,16 @@ class _BuildState:
         return _Helpers.create_file_name(filepath, self.number_by_resource_type)
 
     def replace_variables(self, content: str) -> str:
-        return _Helpers.replace_variables(content, self.local_variables)
+        for name, variable in self.local_variables.items():
+            replace = variable
+            if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
+                replace = f'"{replace}"'
+            elif replace is None:
+                replace = "null"
+
+            _core_patter = rf"{{{{\s*{name}\s*}}}}"
+            content = re.sub(rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"', str(replace), content)
+        return content
 
     @classmethod
     def create(cls, config: BuildConfigYAML) -> _BuildState:
@@ -703,9 +712,3 @@ class _Helpers:
         number_by_resource_type[filepath.parent.name] += 1
         filename = f"{number_by_resource_type[filepath.parent.name]}.{filename}"
         return filename
-
-    @staticmethod
-    def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
-        for name, variable in local_config.items():
-            content = re.sub(rf"{{{{\s*{name}\s*}}}}", str(variable), content)
-        return content
