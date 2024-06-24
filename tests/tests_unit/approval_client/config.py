@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from cognite.client.data_classes import (
+    Asset,
+    AssetList,
+    AssetWrite,
+    AssetWriteList,
     Database,
     DatabaseList,
     DatabaseWrite,
@@ -482,6 +486,20 @@ API_RESOURCES = [
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
+        },
+    ),
+    APIResource(
+        api_name="assets",
+        resource_cls=Asset,
+        list_cls=AssetList,
+        _write_cls=AssetWrite,
+        _write_list_cls=AssetWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="return_values"),
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
+            ],
         },
     ),
 ]

@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- [Feature Preview] Support for resource type `Asset` in the `assets` folder. Turn on the feature by running
+  `cdf-tk features set assets --enable`.
+
 ### Improved
 
 - When running `cdf-tk build` and the selected modules is missing, the user will now get a hint about
