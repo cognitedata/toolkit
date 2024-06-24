@@ -30,8 +30,8 @@ class Hint:
         return cls._lead_text + f"\n{cls._indent}".join(lines)
 
     @classmethod
-    def _link(cls, url: str, text: str = "Click Here") -> str:
-        return f"[blue][link={url}]{text}[/link][/blue]"
+    def _link(cls, url: str, text: str | None = None) -> str:
+        return f"[blue][link={url}]{text or url}[/link][/blue]"
 
 
 class ModuleDefinition(Hint):
