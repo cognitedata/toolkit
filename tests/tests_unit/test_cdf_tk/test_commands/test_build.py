@@ -9,7 +9,13 @@ import yaml
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
-from cognite_toolkit._cdf_tk.exceptions import AmbiguousResourceFileError
+from cognite_toolkit._cdf_tk.exceptions import (
+    AmbiguousResourceFileError,
+    ToolkitMissingModuleError,
+)
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from tests import data
 
 
 @pytest.fixture(scope="session")
@@ -31,6 +37,34 @@ class TestBuildCommand:
                 source_path=Path("my_module") / "transformations" / "notification.yaml",
             )
         assert "Ambiguous resource file" in str(e.value)
+
+    def test_module_not_found_error(self, tmp_path: Path) -> None:
+        with pytest.raises(ToolkitMissingModuleError):
+            BuildCommand(print_warning=False).execute(
+                verbose=False,
+                build_dir=tmp_path,
+                source_path=data.PROJECT_WITH_BAD_MODULES,
+                build_env_name="no_module",
+                no_clean=False,
+            )
+
+    def test_module_with_non_resource_directories(self, tmp_path: Path) -> None:
+        cmd = BuildCommand(print_warning=False)
+        cmd.execute(
+            verbose=False,
+            build_dir=tmp_path,
+            source_path=data.PROJECT_WITH_BAD_MODULES,
+            build_env_name="ill_module",
+            no_clean=False,
+        )
+
+        assert len(cmd.warning_list) >= 1
+        assert (
+            LowSeverityWarning(
+                f"Module 'ill_made_module' has non-resource directories: ['spaces']. {ModuleDefinition.short()}"
+            )
+            in cmd.warning_list
+        )
 
 
 def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:

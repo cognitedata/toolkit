@@ -17,6 +17,13 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Improved
+
+- When running `cdf-tk build` and the selected modules is missing, the user will now get a hint about
+  how to fix the issue.
+- When running `cdf-tk build` and a module contains non-resource directories, the user will now get a warning
+  that the directory is not a resource directory.
+
 ### Fixed
 
 - The data type of variables `config.[env].yaml` file is now preserved. For example, if you had `my_variable: "123"`,
