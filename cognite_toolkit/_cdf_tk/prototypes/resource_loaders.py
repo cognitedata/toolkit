@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
@@ -110,10 +111,16 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         if filepath.suffix in {".yaml", ".yml"}:
             raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
             resources = [raw] if isinstance(raw, list) else raw  # type: ignore[assignment, list-item]
-        elif filepath.suffix == ".csv":
-            resources = pd.read_csv(filepath).to_dict(orient="records")
-        elif filepath.suffix == ".parquet":
-            resources = pd.read_parquet(filepath).to_dict(orient="records")
+        elif filepath.suffix == ".csv" or filepath.suffix == ".parquet":
+            if filepath.suffix == ".csv":
+                # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+                file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+                data = pd.read_csv(io.StringIO(file_content))
+            else:
+                data = pd.read_parquet(filepath)
+            data.replace(pd.NA, None, inplace=True)
+            data.replace("", None, inplace=True)
+            resources = data.to_dict(orient="records")
         else:
             raise ValueError(f"Unsupported file type: {filepath.suffix}")
 
@@ -122,7 +129,8 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             metadata: dict = resource.get("metadata", {})
             for key, value in list(resource.items()):
                 if key.startswith("metadata."):
-                    metadata[key.removeprefix("metadata.")] = str(value)
+                    if value not in {None, float("nan"), "", " "}:
+                        metadata[key.removeprefix("metadata.")] = str(value)
                     del resource[key]
             if metadata:
                 resource["metadata"] = metadata
