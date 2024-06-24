@@ -3,6 +3,8 @@ from asyncio import sleep
 import pytest
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
+    AssetWrite,
+    AssetWriteList,
     DataPointSubscriptionWrite,
     Function,
     FunctionSchedule,
@@ -19,6 +21,7 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, FunctionScheduleLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
+from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader
 from tests.tests_integration.constants import RUN_UNIQUE_ID
 
 
@@ -170,3 +173,24 @@ class TestLabelLoader:
             assert updated[0].name == "Updated name"
         finally:
             loader.delete([initial.external_id])
+
+
+class TestAssetLoader:
+    def test_create_delete_asset(self, cognite_client: CogniteClient) -> None:
+        asset = AssetWrite(
+            external_id=f"tmp_test_create_delete_asset_{RUN_UNIQUE_ID}",
+            name="My Asset",
+            description="My description",
+        )
+
+        loader = AssetLoader(cognite_client, None)
+
+        try:
+            created = loader.create(AssetWriteList([asset]))
+            assert len(created) == 1
+
+            delete_count = loader.delete([asset.external_id])
+            assert delete_count == 1
+        finally:
+            # Ensure that the asset is deleted even if the test fails.
+            cognite_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)

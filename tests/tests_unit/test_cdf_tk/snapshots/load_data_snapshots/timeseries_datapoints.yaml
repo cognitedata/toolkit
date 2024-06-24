@@ -4,6 +4,7 @@ Datapoints:
     empty_count: 0
     first_row:
       Value: 1
+    index_name: missing
     last_row:
       Value: 10
     nan_count: 0
