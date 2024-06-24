@@ -5,10 +5,17 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
-from cognite_toolkit._cdf_tk.exceptions import AmbiguousResourceFileError
+from cognite_toolkit._cdf_tk.exceptions import (
+    AmbiguousResourceFileError,
+    ToolkitMissingModuleError,
+)
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from tests import data
 
 
 @pytest.fixture(scope="session")
@@ -30,6 +37,34 @@ class TestBuildCommand:
                 source_path=Path("my_module") / "transformations" / "notification.yaml",
             )
         assert "Ambiguous resource file" in str(e.value)
+
+    def test_module_not_found_error(self, tmp_path: Path) -> None:
+        with pytest.raises(ToolkitMissingModuleError):
+            BuildCommand(print_warning=False).execute(
+                verbose=False,
+                build_dir=tmp_path,
+                source_path=data.PROJECT_WITH_BAD_MODULES,
+                build_env_name="no_module",
+                no_clean=False,
+            )
+
+    def test_module_with_non_resource_directories(self, tmp_path: Path) -> None:
+        cmd = BuildCommand(print_warning=False)
+        cmd.execute(
+            verbose=False,
+            build_dir=tmp_path,
+            source_path=data.PROJECT_WITH_BAD_MODULES,
+            build_env_name="ill_module",
+            no_clean=False,
+        )
+
+        assert len(cmd.warning_list) >= 1
+        assert (
+            LowSeverityWarning(
+                f"Module 'ill_made_module' has non-resource directories: ['spaces']. {ModuleDefinition.short()}"
+            )
+            in cmd.warning_list
+        )
 
 
 def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:
@@ -117,3 +152,60 @@ def test_create_local_config(my_config: dict[str, Any]):
     local_config = _Helpers.create_local_config(configs, Path("parent/child/auth/"))
 
     assert dict(local_config.items()) == {"top_variable": "my_top_variable", "child_variable": "my_child_variable"}
+
+
+class TestBuildState:
+    def test_replace_preserve_data_type(self):
+        source_yaml = """text: {{ my_text }}
+bool: {{ my_bool }}
+integer: {{ my_integer }}
+float: {{ my_float }}
+digit_string: {{ my_digit_string }}
+quoted_string: "{{ my_quoted_string }}"
+list: {{ my_list }}
+null_value: {{ my_null_value }}
+single_quoted_string: '{{ my_single_quoted_string }}'
+composite: 'some_prefix_{{ my_composite }}'
+prefix_text: {{ my_prefix_text }}
+suffix_text: {{ my_suffix_text }}
+"""
+        variables = {
+            "my_text": "some text",
+            "my_bool": True,
+            "my_integer": 123,
+            "my_float": 123.456,
+            "my_digit_string": "123",
+            "my_quoted_string": "456",
+            "my_list": ["one", "two", "three"],
+            "my_null_value": None,
+            "my_single_quoted_string": "789",
+            "my_composite": "the suffix",
+            "my_prefix_text": "prefix:",
+            "my_suffix_text": ":suffix",
+        }
+        state = _BuildState.create(
+            BuildConfigYAML(
+                Environment("dev", "my_project", "dev", ["none"]),
+                Path("dummy"),
+                {"modules": {"my_module": variables}},
+            )
+        )
+        state.update_local_variables(Path("modules") / "my_module")
+
+        result = state.replace_variables(source_yaml)
+
+        loaded = yaml.safe_load(result)
+        assert loaded == {
+            "text": "some text",
+            "bool": True,
+            "integer": 123,
+            "float": 123.456,
+            "digit_string": "123",
+            "quoted_string": "456",
+            "list": ["one", "two", "three"],
+            "null_value": None,
+            "single_quoted_string": "789",
+            "composite": "some_prefix_the suffix",
+            "prefix_text": "prefix:",
+            "suffix_text": ":suffix",
+        }

@@ -23,8 +23,8 @@ ExtractionPipeline:
     \ documents, if False only run on document not updated since last  annotation\n\
     \ runAll: False\n # Number of document from each asset to annotate -1 = All, else\
     \ number is used\n docLimit: -1\n # Data set to read documents / P&ID from + update\
-    \ with annotated timestamp when done\n docDataSetExtId: \"ds_files_oid\"\n # In\
-    \ document metadata, where is location of property for P&ID type documents\n docTypeMetaCol:\
+    \ with annotated timestamp when done\n docDataSetExtId: ds_files_oid\n # In document\
+    \ metadata, where is location of property for P&ID type documents\n docTypeMetaCol:\
     \ \"doc_type\"\n # Document type for P&ID type documents\n pAndIdDocType: \"PNID\"\
     \n # List of externalId for root assets to be used for annotation of documents.\
     \ Documents are also extracted based on the root asset ID\n assetRootExtIds: [WMT:VAL]\n\
@@ -274,15 +274,15 @@ Transformation:
   name: files:oid:fileshare:file_metadata
   query: "--\n-- Update file metdata using Transformation\n--\n-- Input data from\
     \ RAW DB table (using example data) and uploaded files\n--\n\nWith \n  root_id\
-    \ AS (\n     Select id from _cdf.asset where externalId = 'WMT:VAL'\n  )\nSELECT\n\
+    \ AS (\n     Select id from _cdf.asset where externalId = WMT:VAL\n  )\nSELECT\n\
     \  file.id                          as id,\n  file.name                      \
     \  as name,\n  file.externalId                  as externalId,\n  meta.source\
     \                      as source,\n  meta.`mime_type`                 as mimeType,\n\
-    \  array(root_id.id)                as assetIds,\n  dataset_id('ds_files_oid')\
-    \  as dataSetId,\n  map_concat(map(\"doc_type\", meta.doc_type),\n           \
-    \ file.metadata)         as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
-    \ meta,\n  _cdf.files                             file,\n  root_id\nWHERE \n \
-    \ file.name = meta.name\n"
+    \  array(root_id.id)                as assetIds,\n  dataset_id(ds_files_oid) \
+    \ as dataSetId,\n  map_concat(map(\"doc_type\", meta.doc_type),\n            file.metadata)\
+    \         as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata` meta,\n\
+    \  _cdf.files                             file,\n  root_id\nWHERE \n  file.name\
+    \ = meta.name\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project

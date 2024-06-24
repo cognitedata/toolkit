@@ -40,6 +40,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     DatapointsLoader,
@@ -161,7 +162,7 @@ class BuildCommand(ToolkitCommand):
             )
         system_config.validate_modules(available_modules, config.environment.selected)
 
-        selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
+        selected_modules = config.get_selected_modules(system_config.packages, available_modules, source_dir, verbose)
 
         module_directories = [
             (module_dir, source_paths)
@@ -199,7 +200,7 @@ class BuildCommand(ToolkitCommand):
 
             state.update_local_variables(module_dir)
 
-            files_by_resource_folder = self._to_files_by_resource_folder(source_paths, verbose)
+            files_by_resource_folder = self._to_files_by_resource_folder(source_paths, module_dir)
 
             for resource_folder in files_by_resource_folder:
                 for source_path in files_by_resource_folder[resource_folder].resource_files:
@@ -319,8 +320,7 @@ class BuildCommand(ToolkitCommand):
         )
         return is_parent_in_selected_modules or is_in_selected_modules
 
-    @staticmethod
-    def _to_files_by_resource_folder(filepaths: list[Path], verbose: bool) -> dict[str, _ResourceFiles]:
+    def _to_files_by_resource_folder(self, filepaths: list[Path], module_dir: Path) -> dict[str, _ResourceFiles]:
         # Sort to support 1., 2. etc prefixes
         def sort_key(p: Path) -> int:
             if result := re.findall(r"^(\d+)", p.stem):
@@ -333,19 +333,25 @@ class BuildCommand(ToolkitCommand):
         filepaths = sorted(filepaths, key=sort_key)
 
         files_by_resource_folder: dict[str, _ResourceFiles] = defaultdict(_ResourceFiles)
+        not_resource_directory: set[str] = set()
         for filepath in filepaths:
             try:
                 resource_folder = resource_folder_from_path(filepath)
             except ValueError:
-                if verbose:
-                    print(
-                        f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
-                    )
+                relative_to_module = filepath.relative_to(module_dir)
+                if relative_to_module.parts[0] != filepath.name:
+                    not_resource_directory.add(relative_to_module.parts[0])
                 continue
             if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
                 files_by_resource_folder[resource_folder].resource_files.append(filepath)
             else:
                 files_by_resource_folder[resource_folder].other_files.append(filepath)
+        if not_resource_directory:
+            self.warn(
+                LowSeverityWarning(
+                    f"Module {module_dir.name!r} has non-resource directories: {sorted(not_resource_directory)}. {ModuleDefinition.short()}"
+                )
+            )
         return files_by_resource_folder
 
     @staticmethod
@@ -646,7 +652,16 @@ class _BuildState:
         return _Helpers.create_file_name(filepath, self.number_by_resource_type)
 
     def replace_variables(self, content: str) -> str:
-        return _Helpers.replace_variables(content, self.local_variables)
+        for name, variable in self.local_variables.items():
+            replace = variable
+            if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
+                replace = f'"{replace}"'
+            elif replace is None:
+                replace = "null"
+
+            _core_patter = rf"{{{{\s*{name}\s*}}}}"
+            content = re.sub(rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"', str(replace), content)
+        return content
 
     @classmethod
     def create(cls, config: BuildConfigYAML) -> _BuildState:
@@ -703,9 +718,3 @@ class _Helpers:
         number_by_resource_type[filepath.parent.name] += 1
         filename = f"{number_by_resource_type[filepath.parent.name]}.{filename}"
         return filename
-
-    @staticmethod
-    def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
-        for name, variable in local_config.items():
-            content = re.sub(rf"{{{{\s*{name}\s*}}}}", str(variable), content)
-        return content

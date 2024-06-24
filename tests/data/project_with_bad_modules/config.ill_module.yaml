@@ -1,0 +1,6 @@
+environment:
+  name: Ill-Module
+  project: <customer-dev>
+  type: dev
+  selected_modules_and_packages:
+    - ill_made_module

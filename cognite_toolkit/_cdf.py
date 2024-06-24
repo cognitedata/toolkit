@@ -14,6 +14,13 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
+
+if FeatureFlag.is_enabled(Flags.ASSETS):
+    from cognite_toolkit._cdf_tk.prototypes import setup_asset_loader
+
+    setup_asset_loader.setup_asset_loader()
+
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
     BuildCommand,
@@ -26,7 +33,6 @@ from cognite_toolkit._cdf_tk.commands import (
     RunFunctionCommand,
     RunTransformationCommand,
 )
-from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.data_classes import (
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,

@@ -95,9 +95,9 @@ Transformation:
   isPublic: true
   name: pump_model-populate-lift_station_pumps_edges
   query: "select\n  concat(cast(`parent`.externalId as STRING), ':', cast(`externalId`\
-    \ as STRING)) as externalId,\n  `parent` as startNode,\n  node_reference('sp_pump_instance_space',\
-    \ cast(`externalId` as STRING)) as endNode\nfrom\n  cdf_data_models(\"sp_extended_source_data_models\"\
-    , \"ExtendedSourceData\", \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
+    \ as STRING)) as externalId,\n  `parent` as startNode,\n  node_reference(sp_pump_instance_space,\
+    \ cast(`externalId` as STRING)) as endNode\nfrom\n  cdf_data_models(sp_extended_source_data_models,\
+    \ ExtendedSourceData, \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
@@ -130,9 +130,8 @@ Transformation:
     \ '$.DesignPointHeadFT') as DOUBLE) as DesignPointHeadFT,\n  cast(get_json_object(`metadata`,\
     \ '$.LowHeadFT') as DOUBLE) as LowHeadFT,\n  cast(get_json_object(`metadata`,\
     \ '$.DesignPointFlowGPM') as DOUBLE) as DesignPointFlowGPM,\n  cast(get_json_object(`metadata`,\
-    \ '$.LowHeadFlowGPM') as DOUBLE) as LowHeadFlowGPM\nfrom\n  cdf_data_models(\"\
-    sp_extended_source_data_models\", \"ExtendedSourceData\", \"1\", \"Asset\")\n\
-    where\n  startswith(title, 'Pump')\n"
+    \ '$.LowHeadFlowGPM') as DOUBLE) as LowHeadFlowGPM\nfrom\n  cdf_data_models(sp_extended_source_data_models,\
+    \ ExtendedSourceData, \"1\", \"Asset\")\nwhere\n  startswith(title, 'Pump')\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
