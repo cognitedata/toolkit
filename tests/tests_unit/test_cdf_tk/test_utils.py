@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.utils import (
     module_from_path,
 )
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
-from tests.tests_unit.data import DATA_FOLDER, PYTEST_PROJECT
+from tests.data import DATA_FOLDER, PYTEST_PROJECT
 from tests.tests_unit.utils import PrintCapture
 
 

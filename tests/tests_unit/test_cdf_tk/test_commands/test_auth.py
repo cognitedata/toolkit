@@ -27,8 +27,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from tests.data import AUTH_DATA
 from tests.tests_unit.conftest import ApprovalCogniteClient
-from tests.tests_unit.data import AUTH_DATA
 
 
 @pytest.fixture
