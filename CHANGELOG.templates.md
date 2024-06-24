@@ -22,6 +22,10 @@ Changes are grouped as follows:
 - Module `cognite_modules/example/cdf_data_pipeline_3d_valhall` 3D contextualization
   example pipeline. Reading 3D nodes and matching to asset hierarchy
 
+## [0.2.4] - 2024-06-24
+
+No changes to templates.
+
 ## [0.2.3] - 2024-06-20
 
 No changes to templates.

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cognite_toolkit"
-version = "0.2.3"
+version = "0.2.4"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
@@ -23,6 +23,7 @@ sentry-sdk = "^2.1.0"
 cognite-logger = "^0.6"
 questionary = "^2.0.1"
 mixpanel = "^4.10.1"
+packaging = "^24.1"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"
@@ -39,6 +40,7 @@ toml = { version = "^0.10.2", python = ">=3.11" }
 pytest-freezegun = "^0.4.2"
 pytest-cov = "^5.0.0"
 setuptools = "^70.0.0"
+fastparquet = "^2024.5.0"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"
