@@ -24,6 +24,11 @@ Changes are grouped as follows:
 - When running `cdf-tk build` and a module contains non-resource directories, the user will now get a warning
   that the directory is not a resource directory.
 
+### Fixed
+
+- File configurations given as a list/array, lost the `dataSetExternalId` in the `cdf-tk deploy` command.
+  This is now fixed.
+
 ## [0.2.3] - 2024-06-20
 
 ### Improved
