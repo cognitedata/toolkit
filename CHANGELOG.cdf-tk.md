@@ -36,6 +36,7 @@ Changes are grouped as follows:
   This is now fixed.
 - File configurations given as a list/array, lost the `dataSetExternalId` in the `cdf-tk deploy` command.
   This is now fixed.
+- Added missing required dependency `packaging` to `cognite-toolkit`.
 
 ## [0.2.3] - 2024-06-20
 
