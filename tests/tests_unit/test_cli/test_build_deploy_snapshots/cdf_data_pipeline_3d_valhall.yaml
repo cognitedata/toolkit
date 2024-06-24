@@ -253,13 +253,15 @@ Row:
       3dNodeName: /23-VG-9101/A1
       assetExternalId: WMT:23-VG-9101
       contextualized: ''
+      key: WMT:23-VG-9101
     last_row:
       3dNodeName: /23-VG-9101/A1
       assetExternalId: WMT:23-VG-9101
       contextualized: ''
+      key: WMT:23-VG-9101
     nan_count: 0
     null_count: 0
-    shape: 1x3
+    shape: 1x4
   kwargs:
     db_name: 3d_oid_fileshare
     ensure_parent: false
