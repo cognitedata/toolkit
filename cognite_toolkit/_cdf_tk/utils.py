@@ -841,11 +841,7 @@ def read_yaml_file(
     filepath: path to the YAML file
     """
     try:
-        if yaml.__with_libyaml__:
-            # CSafeLoader is faster than yaml.safe_load
-            config_data = yaml.CSafeLoader(filepath.read_text()).get_data()
-        else:
-            config_data = yaml.safe_load(filepath.read_text())
+        config_data = read_yaml_content(filepath.read_text())
     except yaml.YAMLError as e:
         print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
         return {}
@@ -854,6 +850,19 @@ def read_yaml_file(
         ToolkitYAMLFormatError(f"{filepath} did not contain `list` as expected")
     elif expected_output == "dict" and isinstance(config_data, list):
         ToolkitYAMLFormatError(f"{filepath} did not contain `dict` as expected")
+    return config_data
+
+
+def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
+    """Read a YAML string and return a dictionary
+
+    content: string containing the YAML content
+    """
+    if yaml.__with_libyaml__:
+        # CSafeLoader is faster than yaml.safe_load
+        config_data = yaml.CSafeLoader(content).get_data()
+    else:
+        config_data = yaml.safe_load(content)
     return config_data
 
 

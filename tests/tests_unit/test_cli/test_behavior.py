@@ -275,7 +275,7 @@ def test_build_project_selecting_parent_path(
     build_tmp_path,
     typer_context,
 ) -> None:
-    expected_resources = {"auth", "data_models", "files", "transformations"}
+    expected_resources = {"auth", "data_models", "files", "transformations", "data_sets"}
     build(
         typer_context,
         source_dir=str(PYTEST_PROJECT),
