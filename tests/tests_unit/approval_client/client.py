@@ -364,6 +364,7 @@ class ApprovalCogniteClient:
                 "empty_count": int(dataframe[dataframe == ""].count().sum()),
                 "first_row": dataframe.iloc[0].to_dict(),
                 "last_row": dataframe.iloc[-1].to_dict(),
+                "index_name": dataframe.index.name if dataframe.index.name else "missing",
             }
 
         def insert_dataframe(*args, **kwargs) -> None:
