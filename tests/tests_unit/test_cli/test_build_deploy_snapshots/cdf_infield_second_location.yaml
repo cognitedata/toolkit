@@ -429,16 +429,16 @@ Transformation:
     \ as STRING) as externalId,\n  --- We skip the remaining properties,\n  --- but\
     \ need to have these columns set so we can do a UNION ALL operation with the statement\
     \ below.\n  null as parent,\n  null as source,\n  null as root,\n  null as description,\n\
-    \  null as title,\n  null as sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as\
-    \ asset\n\nUNION ALL\n\n--- Create All Assets with properties including direct\
-    \ relations\nselect\n  cast(asset.externalId as STRING) as externalId,\n  (case\n\
-    \    when isnull(asset.parentExternalId) then null\n    else node_reference('sp_asset_oid2_source',\
-    \ asset.parentExternalId)\n  end) as parent,\n  cast(\"Asset Hierarachy\" as STRING)\
-    \ as source,\n  node_reference('sp_asset_oid2_source', cast(rootAsset.externalId\
-    \ as STRING)) as root,\n  cast(asset.description as STRING) as description,\n\
-    \  cast(asset.name as STRING) as title,\n  cast(asset.externalId as STRING) as\
-    \ sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as asset\n  -- Get root asset\n\
-    \  inner join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId = rootAsset.id\n"
+    \  null as title,\n  null as sourceId\nfrom\n  cdf_assetSubtree(WMT:VAL) as asset\n\
+    \nUNION ALL\n\n--- Create All Assets with properties including direct relations\n\
+    select\n  cast(asset.externalId as STRING) as externalId,\n  (case\n    when isnull(asset.parentExternalId)\
+    \ then null\n    else node_reference('sp_asset_oid2_source', asset.parentExternalId)\n\
+    \  end) as parent,\n  cast(\"Asset Hierarachy\" as STRING) as source,\n  node_reference('sp_asset_oid2_source',\
+    \ cast(rootAsset.externalId as STRING)) as root,\n  cast(asset.description as\
+    \ STRING) as description,\n  cast(asset.name as STRING) as title,\n  cast(asset.externalId\
+    \ as STRING) as sourceId\nfrom\n  cdf_assetSubtree(WMT:VAL) as asset\n  -- Get\
+    \ root asset\n  inner join cdf_assetSubtree(WMT:VAL) as rootAsset on asset.rootId\
+    \ = rootAsset.id\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
@@ -474,7 +474,7 @@ Transformation:
     \ just updates all workorders to be from now \n    and into the future. This is\
     \ done for the sake of the demo data.\n    */\n    cast(current_date() as TIMESTAMP)\
     \ as startTime,\n    cast(date_add(current_date(), 7) as TIMESTAMP) as endTime,\n\
-    \    cast(`title` as STRING) as title,\n    'WMT:VAL' as rootLocation,\n    'workmate'\
+    \    cast(`title` as STRING) as title,\n    WMT:VAL as rootLocation,\n    'workmate'\
     \ as source\n  from\n    `workorder_oid_workmate`.`workorders`;\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com

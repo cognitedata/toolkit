@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
@@ -151,3 +152,60 @@ def test_create_local_config(my_config: dict[str, Any]):
     local_config = _Helpers.create_local_config(configs, Path("parent/child/auth/"))
 
     assert dict(local_config.items()) == {"top_variable": "my_top_variable", "child_variable": "my_child_variable"}
+
+
+class TestBuildState:
+    def test_replace_preserve_data_type(self):
+        source_yaml = """text: {{ my_text }}
+bool: {{ my_bool }}
+integer: {{ my_integer }}
+float: {{ my_float }}
+digit_string: {{ my_digit_string }}
+quoted_string: "{{ my_quoted_string }}"
+list: {{ my_list }}
+null_value: {{ my_null_value }}
+single_quoted_string: '{{ my_single_quoted_string }}'
+composite: 'some_prefix_{{ my_composite }}'
+prefix_text: {{ my_prefix_text }}
+suffix_text: {{ my_suffix_text }}
+"""
+        variables = {
+            "my_text": "some text",
+            "my_bool": True,
+            "my_integer": 123,
+            "my_float": 123.456,
+            "my_digit_string": "123",
+            "my_quoted_string": "456",
+            "my_list": ["one", "two", "three"],
+            "my_null_value": None,
+            "my_single_quoted_string": "789",
+            "my_composite": "the suffix",
+            "my_prefix_text": "prefix:",
+            "my_suffix_text": ":suffix",
+        }
+        state = _BuildState.create(
+            BuildConfigYAML(
+                Environment("dev", "my_project", "dev", ["none"]),
+                Path("dummy"),
+                {"modules": {"my_module": variables}},
+            )
+        )
+        state.update_local_variables(Path("modules") / "my_module")
+
+        result = state.replace_variables(source_yaml)
+
+        loaded = yaml.safe_load(result)
+        assert loaded == {
+            "text": "some text",
+            "bool": True,
+            "integer": 123,
+            "float": 123.456,
+            "digit_string": "123",
+            "quoted_string": "456",
+            "list": ["one", "two", "three"],
+            "null_value": None,
+            "single_quoted_string": "789",
+            "composite": "some_prefix_the suffix",
+            "prefix_text": "prefix:",
+            "suffix_text": ":suffix",
+        }
