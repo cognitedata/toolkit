@@ -14,6 +14,13 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
+
+if FeatureFlag.is_enabled(Flags.ASSETS):
+    from cognite_toolkit._cdf_tk.prototypes import setup_asset_loader
+
+    setup_asset_loader.setup_asset_loader()
+
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
     BuildCommand,
@@ -26,7 +33,6 @@ from cognite_toolkit._cdf_tk.commands import (
     RunFunctionCommand,
     RunTransformationCommand,
 )
-from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.data_classes import (
     ProjectDirectoryInit,
     ProjectDirectoryUpgrade,
@@ -862,6 +868,70 @@ def dump_datamodel_cmd(
         clean,
         ctx.obj.verbose,
     )
+
+
+if FeatureFlag.is_enabled(Flags.ASSETS):
+    from cognite_toolkit._cdf_tk.prototypes.commands import DumpAssetsCommand
+
+    @dump_app.command("asset")
+    def dump_asset_cmd(
+        ctx: typer.Context,
+        hierarchy: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--hierarchy",
+                "-h",
+                help="Hierarchy to dump.",
+            ),
+        ] = None,
+        data_set: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="Data set to dump.",
+            ),
+        ] = None,
+        interactive: Annotated[
+            bool,
+            typer.Option("--interactive", "-i", help="Will prompt you to select which assets hierarchies to dump."),
+        ] = False,
+        output_dir: Annotated[
+            Path,
+            typer.Argument(
+                help="Where to dump the asset YAML files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        format_: Annotated[
+            str,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to dump the assets in. Supported formats: yaml, csv, and parquet.",
+            ),
+        ] = "yaml",
+        clean_: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before pulling the assets.",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected assets as yaml to the folder specified, defaults to /tmp."""
+        cmd = DumpAssetsCommand(user_command=_get_user_command())
+        cmd.execute(
+            CDFToolConfig.from_context(ctx),
+            hierarchy,
+            data_set,
+            interactive,
+            output_dir,
+            clean_,
+            format_,  # type: ignore [arg-type]
+            ctx.obj.verbose,
+        )
 
 
 @feature_flag_app.callback(invoke_without_command=True)

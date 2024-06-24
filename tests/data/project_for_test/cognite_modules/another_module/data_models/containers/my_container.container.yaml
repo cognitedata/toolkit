@@ -1,0 +1,20 @@
+space: {{model_space}}
+externalId: MyContainer
+name: MyContainer
+usedFor: node
+properties:
+  name:
+    type:
+      list: false
+      type: text
+      collation: ucs_basic
+    name: name
+    description: null
+    nullable: true
+    autoIncrement: false
+indexes:
+  name:
+    properties:
+      - name
+    indexType: btree
+    cursorable: false

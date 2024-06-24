@@ -16,7 +16,7 @@ from typing import Any
 import pandas as pd
 import yaml
 from cognite.client._api.functions import validate_function_folder
-from cognite.client.data_classes import FileMetadataList, FunctionList
+from cognite.client.data_classes import FunctionList
 from rich import print
 from rich.panel import Panel
 
@@ -40,10 +40,12 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     DatapointsLoader,
     FileLoader,
+    FileMetadataLoader,
     FunctionLoader,
     GroupLoader,
     Loader,
@@ -70,6 +72,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_str_or_file_hash,
     iterate_modules,
     module_from_path,
+    read_yaml_content,
     resource_folder_from_path,
 )
 from cognite_toolkit._cdf_tk.validation import (
@@ -159,7 +162,7 @@ class BuildCommand(ToolkitCommand):
             )
         system_config.validate_modules(available_modules, config.environment.selected)
 
-        selected_modules = config.get_selected_modules(system_config.packages, available_modules, verbose)
+        selected_modules = config.get_selected_modules(system_config.packages, available_modules, source_dir, verbose)
 
         module_directories = [
             (module_dir, source_paths)
@@ -197,7 +200,7 @@ class BuildCommand(ToolkitCommand):
 
             state.update_local_variables(module_dir)
 
-            files_by_resource_folder = self._to_files_by_resource_folder(source_paths, verbose)
+            files_by_resource_folder = self._to_files_by_resource_folder(source_paths, module_dir)
 
             for resource_folder in files_by_resource_folder:
                 for source_path in files_by_resource_folder[resource_folder].resource_files:
@@ -211,6 +214,7 @@ class BuildCommand(ToolkitCommand):
                     )
                     # We only want to process the yaml files for functions as the function code is handled separately.
                     # Note that yaml files that are NOT in the root function folder are considered function code.
+                    content = ""
                     if not is_function_non_yaml:
                         content = source_path.read_text()
                         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
@@ -248,14 +252,14 @@ class BuildCommand(ToolkitCommand):
                         files_by_resource_folder[resource_folder].other_files = []
 
                     if resource_folder == FileLoader.folder_name:
-                        self.process_files_directory(
-                            files=files_by_resource_folder[resource_folder].other_files,
-                            yaml_dest_path=destination,
+                        self.copy_files_to_upload_to_build_directory(
+                            file_to_upload=files_by_resource_folder[resource_folder].other_files,
+                            config_content=content,
                             module_dir=module_dir,
                             build_dir=build_dir,
                             verbose=verbose,
                         )
-                        files_by_resource_folder[resource_folder].other_files = []
+                        files_by_resource_folder[resource_folder].other_files.clear()
 
                 for source_path in files_by_resource_folder[resource_folder].other_files:
                     destination = build_dir / DatapointsLoader.folder_name / source_path.name
@@ -316,8 +320,7 @@ class BuildCommand(ToolkitCommand):
         )
         return is_parent_in_selected_modules or is_in_selected_modules
 
-    @staticmethod
-    def _to_files_by_resource_folder(filepaths: list[Path], verbose: bool) -> dict[str, _ResourceFiles]:
+    def _to_files_by_resource_folder(self, filepaths: list[Path], module_dir: Path) -> dict[str, _ResourceFiles]:
         # Sort to support 1., 2. etc prefixes
         def sort_key(p: Path) -> int:
             if result := re.findall(r"^(\d+)", p.stem):
@@ -330,19 +333,25 @@ class BuildCommand(ToolkitCommand):
         filepaths = sorted(filepaths, key=sort_key)
 
         files_by_resource_folder: dict[str, _ResourceFiles] = defaultdict(_ResourceFiles)
+        not_resource_directory: set[str] = set()
         for filepath in filepaths:
             try:
                 resource_folder = resource_folder_from_path(filepath)
             except ValueError:
-                if verbose:
-                    print(
-                        f"      [bold green]INFO:[/] The file {filepath.name} is not in a resource directory, skipping it..."
-                    )
+                relative_to_module = filepath.relative_to(module_dir)
+                if relative_to_module.parts[0] != filepath.name:
+                    not_resource_directory.add(relative_to_module.parts[0])
                 continue
             if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
                 files_by_resource_folder[resource_folder].resource_files.append(filepath)
             else:
                 files_by_resource_folder[resource_folder].other_files.append(filepath)
+        if not_resource_directory:
+            self.warn(
+                LowSeverityWarning(
+                    f"Module {module_dir.name!r} has non-resource directories: {sorted(not_resource_directory)}. {ModuleDefinition.short()}"
+                )
+            )
         return files_by_resource_folder
 
     @staticmethod
@@ -430,39 +439,43 @@ class BuildCommand(ToolkitCommand):
                     f"Function directory not found for externalId {func.external_id} defined in {yaml_source_path}."
                 )
 
-    def process_files_directory(
+    def copy_files_to_upload_to_build_directory(
         self,
-        files: list[Path],
-        yaml_dest_path: Path,
+        file_to_upload: list[Path],
+        config_content: str,
         module_dir: Path,
         build_dir: Path,
         verbose: bool = False,
     ) -> None:
-        if len(files) == 0:
+        if len(file_to_upload) == 0 or not config_content:
             return
         try:
-            file_def = FileMetadataList.load(yaml_dest_path.read_text())
-        except KeyError as e:
-            raise ToolkitValidationError(f"Failed to load file definitions file {yaml_dest_path}, error in key: {e}")
+            raw_files = read_yaml_content(config_content)
         except yaml.YAMLError as e:
-            raise ToolkitYAMLFormatError(f"Failed to load file definitions file {yaml_dest_path} due to: {e}")
+            raise ToolkitYAMLFormatError(f"Failed to load file definitions file {module_dir} due to: {e}")
+
+        is_file_template = (
+            isinstance(raw_files, list)
+            and len(raw_files) == 1
+            and FileMetadataLoader.template_pattern in raw_files[0].get("externalId", "")
+        )
         # We only support one file template definition per module.
-        if len(file_def) == 1:
-            if file_def[0].name and "$FILENAME" in file_def[0].name and file_def[0].name != "$FILENAME":
+        template_name: str | None = None
+        if is_file_template and isinstance(raw_files, list):
+            template = raw_files[0]
+            if "name" in template and FileMetadataLoader.template_pattern in template["name"]:
+                template_name = template["name"]
                 if verbose:
                     print(
-                        f"      [bold green]INFO:[/] Found file template {file_def[0].name} in {module_dir}, renaming files..."
+                        f"      [bold green]INFO:[/] Detected file template name {template_name!r} in "
+                        f"{module_dir}/{FileMetadataLoader.folder_name}, renaming files..."
                     )
-                for filepath in files:
-                    if file_def[0].name:
-                        destination = (
-                            build_dir / filepath.parent.name / re.sub(r"\$FILENAME", filepath.name, file_def[0].name)
-                        )
-                        destination.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copyfile(filepath, destination)
-                return
-        for filepath in files:
-            destination = build_dir / filepath.parent.name / filepath.name
+
+        for filepath in file_to_upload:
+            destination_stem = filepath.stem
+            if template_name:
+                destination_stem = template_name.replace(FileMetadataLoader.template_pattern, filepath.stem)
+            destination = build_dir / FileLoader.folder_name / f"{destination_stem}{filepath.suffix}"
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(filepath, destination)
 
@@ -639,7 +652,16 @@ class _BuildState:
         return _Helpers.create_file_name(filepath, self.number_by_resource_type)
 
     def replace_variables(self, content: str) -> str:
-        return _Helpers.replace_variables(content, self.local_variables)
+        for name, variable in self.local_variables.items():
+            replace = variable
+            if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
+                replace = f'"{replace}"'
+            elif replace is None:
+                replace = "null"
+
+            _core_patter = rf"{{{{\s*{name}\s*}}}}"
+            content = re.sub(rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"', str(replace), content)
+        return content
 
     @classmethod
     def create(cls, config: BuildConfigYAML) -> _BuildState:
@@ -696,9 +718,3 @@ class _Helpers:
         number_by_resource_type[filepath.parent.name] += 1
         filename = f"{number_by_resource_type[filepath.parent.name]}.{filename}"
         return filename
-
-    @staticmethod
-    def replace_variables(content: str, local_config: Mapping[str, str]) -> str:
-        for name, variable in local_config.items():
-            content = re.sub(rf"{{{{\s*{name}\s*}}}}", str(variable), content)
-        return content

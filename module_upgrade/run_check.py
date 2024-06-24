@@ -128,7 +128,8 @@ def create_project_init(version: str) -> None:
             raise ValueError(f"Failed to create project init for version {version}.")
 
     print(f"Project init for version {version} created.")
-    shutil.rmtree(environment_directory)
+    with chdir(TEST_DIR_ROOT):
+        shutil.rmtree(environment_directory)
 
 
 def run_modules_upgrade(

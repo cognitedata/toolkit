@@ -1,0 +1,11 @@
+name: 'gp_toolkit_test_readonly_all_group'
+sourceId: '{{readonly_source_id}}'
+metadata:
+  origin: 'cdf-project-templates'
+capabilities:
+  - projectsAcl:
+      actions:
+        - LIST
+        - READ
+      scope:
+        all: {}

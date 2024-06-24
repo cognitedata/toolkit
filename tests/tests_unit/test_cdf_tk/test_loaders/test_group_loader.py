@@ -18,8 +18,8 @@ from cognite_toolkit._cdf_tk.loaders import (
 )
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from tests.data import LOAD_DATA
 from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.data import LOAD_DATA
 
 
 class TestGroupLoader:

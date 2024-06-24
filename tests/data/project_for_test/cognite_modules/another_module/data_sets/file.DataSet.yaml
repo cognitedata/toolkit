@@ -1,0 +1,3 @@
+- externalId: ds_files_{{default_location}}
+  name: files:{{default_location}}
+  description: This dataset contains files for the {{default_location}} location.
