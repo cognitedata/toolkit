@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- File configurations given as a list/array, lost the `dataSetExternalId` in the `cdf-tk deploy` command.
+  This is now fixed.
+
 ## [0.2.3] - 2024-06-20
 
 ### Improved

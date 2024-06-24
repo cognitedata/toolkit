@@ -14,8 +14,8 @@ from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, S
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from tests.data import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.data import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
 from tests.tests_unit.utils import mock_read_yaml_file
 
 
@@ -275,7 +275,7 @@ def test_build_project_selecting_parent_path(
     build_tmp_path,
     typer_context,
 ) -> None:
-    expected_resources = {"auth", "data_models", "files", "transformations"}
+    expected_resources = {"auth", "data_models", "files", "transformations", "data_sets"}
     build(
         typer_context,
         source_dir=str(PYTEST_PROJECT),
