@@ -45,8 +45,8 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
+from tests.data import LOAD_DATA, PYTEST_PROJECT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.data import LOAD_DATA, PYTEST_PROJECT
 from tests.tests_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
 from tests.tests_unit.utils import FakeCogniteResourceGenerator, mock_read_yaml_file
 

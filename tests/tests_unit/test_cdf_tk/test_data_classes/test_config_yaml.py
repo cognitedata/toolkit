@@ -7,14 +7,14 @@ import yaml
 
 from cognite_toolkit._cdf_tk.data_classes import ConfigEntry, Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.utils import YAMLComment, flatten_dict
-from tests.tests_unit.data import PYTEST_PROJECT
+from tests.data import PYTEST_PROJECT
 
 
 class TestConfigYAML:
     def test_producing_correct_keys(self, config_yaml: str, dummy_environment: Environment) -> None:
         expected_keys = set(flatten_dict(yaml.safe_load(config_yaml)))
         # Custom keys are not loaded from the module folder.
-        # This custom key is added o the dev.config.yaml for other tests.
+        # This custom key is added to the dev.config.yaml for other tests.
         expected_keys.remove(("variables", "custom_modules", "my_example_module", "transformation_is_paused"))
         # Skip all environment variables
         expected_keys = {k for k in expected_keys if not k[0] == "environment"}
@@ -32,11 +32,9 @@ class TestConfigYAML:
             ("variables", "cognite_modules", "a_module", "readonly_source_id"): YAMLComment(
                 above=["This is a comment in the middle of the file"], after=[]
             ),
-            ("variables", "cognite_modules", "another_module", "default_location"): YAMLComment(
-                above=["This is a comment at the beginning of the module."]
-            ),
             ("variables", "cognite_modules", "another_module", "source_asset"): YAMLComment(
-                after=["This is an extra comment added to the config only 'lore ipsum'"]
+                above=["This is a comment at the beginning of the module."],
+                after=["This is an extra comment added to the config only 'lore ipsum'"],
             ),
             ("variables", "cognite_modules", "another_module", "source_files"): YAMLComment(
                 after=["This is a comment after a variable"]
