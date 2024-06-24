@@ -22,6 +22,21 @@ Changes are grouped as follows:
 - [Feature Preview] Support for resource type `Asset` in the `assets` folder. Turn on the feature by running
   `cdf-tk features set assets --enable`.
 
+### Improved
+
+- When running `cdf-tk build` and the selected modules is missing, the user will now get a hint about
+  how to fix the issue.
+- When running `cdf-tk build` and a module contains non-resource directories, the user will now get a warning
+  that the directory is not a resource directory.
+
+### Fixed
+
+- The data type of variables `config.[env].yaml` file is now preserved. For example, if you had `my_variable: "123"`,
+  then the `cdf-tk build`  would build the resource file with the number instead of the string, `my_variable: 123`.
+  This is now fixed.
+- File configurations given as a list/array, lost the `dataSetExternalId` in the `cdf-tk deploy` command.
+  This is now fixed.
+
 ## [0.2.3] - 2024-06-20
 
 ### Improved

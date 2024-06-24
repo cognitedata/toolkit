@@ -13,8 +13,8 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from tests.data import DESCRIPTIONS_FOLDER
 from tests.tests_unit.conftest import ApprovalCogniteClient
-from tests.tests_unit.data import DESCRIPTIONS_FOLDER
 from tests.tests_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 
 SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "describe_data_snapshots"

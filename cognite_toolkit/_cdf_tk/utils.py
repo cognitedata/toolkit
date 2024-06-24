@@ -893,11 +893,7 @@ def read_yaml_file(
     filepath: path to the YAML file
     """
     try:
-        if yaml.__with_libyaml__:
-            # CSafeLoader is faster than yaml.safe_load
-            config_data = yaml.CSafeLoader(filepath.read_text()).get_data()
-        else:
-            config_data = yaml.safe_load(filepath.read_text())
+        config_data = read_yaml_content(filepath.read_text())
     except yaml.YAMLError as e:
         print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
         return {}
@@ -906,6 +902,19 @@ def read_yaml_file(
         ToolkitYAMLFormatError(f"{filepath} did not contain `list` as expected")
     elif expected_output == "dict" and isinstance(config_data, list):
         ToolkitYAMLFormatError(f"{filepath} did not contain `dict` as expected")
+    return config_data
+
+
+def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
+    """Read a YAML string and return a dictionary
+
+    content: string containing the YAML content
+    """
+    if yaml.__with_libyaml__:
+        # CSafeLoader is faster than yaml.safe_load
+        config_data = yaml.CSafeLoader(content).get_data()
+    else:
+        config_data = yaml.safe_load(content)
     return config_data
 
 
@@ -1236,6 +1245,25 @@ def resource_folder_from_path(path: Path) -> str:
         if part in LOADER_BY_FOLDER_NAME:
             return part
     raise ValueError("Path does not contain a resource folder")
+
+
+def find_directory_with_subdirectories(
+    directory_name: str | None, root_directory: Path
+) -> tuple[Path | None, list[str]]:
+    """Search for a directory with a specific name in the root_directory
+    and return the directory and all subdirectories."""
+    if directory_name is None:
+        return None, []
+    search = [root_directory]
+    while search:
+        current = search.pop()
+        for root in current.iterdir():
+            if not root.is_dir():
+                continue
+            if root.name == directory_name:
+                return root, [d.name for d in root.iterdir() if d.is_dir()]
+            search.append(root)
+    return None, []
 
 
 # Spaces are allowed, but we replace them as well
