@@ -59,7 +59,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return self.client.assets.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> AssetList:
-        return self.client.assets.retrieve_multiple(external_ids=ids)
+        return self.client.assets.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: AssetWriteList) -> AssetList:
         return self.client.assets.update(items)
