@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
-from tests.tests_unit import data
+from tests import data
 
 
 @pytest.fixture(scope="session")
