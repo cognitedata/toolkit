@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.constants import (
     SEARCH_VARIABLES_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
@@ -184,6 +185,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         self,
         modules_by_package: dict[str, list[str | tuple[str, ...]]],
         available_modules: set[str | tuple[str, ...]],
+        source_dir: Path,
         verbose: bool,
     ) -> list[str | tuple[str, ...]]:
         selected_packages = [
@@ -200,7 +202,11 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
         selected_modules = [module for module in self.environment.selected if module not in modules_by_package]
         if missing := set(selected_modules) - available_modules:
-            raise ToolkitMissingModuleError(f"The following selected modules are missing, please check path: {missing}")
+            hint = ModuleDefinition.long(missing, source_dir)
+            raise ToolkitMissingModuleError(
+                f"The following selected modules are missing, please check path: {missing}.\n{hint}"
+            )
+
         selected_modules.extend(
             itertools.chain.from_iterable(modules_by_package[package] for package in selected_packages)
         )
