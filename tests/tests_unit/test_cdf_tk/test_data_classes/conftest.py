@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from cognite_toolkit._cdf_tk.data_classes import Environment
-from tests.tests_unit.data import PYTEST_PROJECT
+from tests.data import PYTEST_PROJECT
 
 
 @pytest.fixture(scope="session")

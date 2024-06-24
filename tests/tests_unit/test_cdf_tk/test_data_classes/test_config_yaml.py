@@ -7,7 +7,7 @@ import yaml
 
 from cognite_toolkit._cdf_tk.data_classes import ConfigEntry, Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.utils import YAMLComment, flatten_dict
-from tests.tests_unit.data import PYTEST_PROJECT
+from tests.data import PYTEST_PROJECT
 
 
 class TestConfigYAML:
