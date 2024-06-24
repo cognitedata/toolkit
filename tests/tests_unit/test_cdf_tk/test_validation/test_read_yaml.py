@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     UnusedParameterWarning,
 )
 from cognite_toolkit._cdf_tk.validation import validate_data_set_is_set, validate_resource_yaml
-from tests.tests_unit.data import LOAD_DATA
+from tests.data import LOAD_DATA
 
 DUMMY_FILE = Path("dummy.yaml")
 
