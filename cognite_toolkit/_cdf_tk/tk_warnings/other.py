@@ -142,7 +142,7 @@ class MissingCapabilityWarning(GeneralWarning):
 
 @dataclass(frozen=True)
 class ToolkitDeprecationWarning(ToolkitWarning, DeprecationWarning):
-    message: ClassVar[str] = "The {feature} is deprecated and will be removed in a future version."
+    message: ClassVar[str] = "The '{feature}' is deprecated and will be removed in a future version."
 
     feature: str
     alternative: str | None = None
@@ -150,6 +150,6 @@ class ToolkitDeprecationWarning(ToolkitWarning, DeprecationWarning):
     def get_message(self) -> str:
         msg = self.message.format(feature=self.feature)
         if self.alternative:
-            msg += f"\nUse {self.alternative} instead."
+            msg += f"\nUse {self.alternative!r} instead."
 
         return SeverityFormat.get_rich_severity_format(SeverityLevel.LOW, msg)

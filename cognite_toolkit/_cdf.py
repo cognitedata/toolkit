@@ -282,7 +282,7 @@ def build(
     """Build configuration files from the module templates to a local build directory."""
     cmd = BuildCommand(user_command=_get_user_command())
     if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk build --verbose"))
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk build --verbose").get_message())
     cmd.execute(verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
 
 
@@ -356,7 +356,7 @@ def deploy(
     include = _process_include(include, interactive)
     ToolGlobals = CDFToolConfig.from_context(ctx)
     if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk deploy --verbose"))
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk deploy --verbose").get_message())
     cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, verbose or ctx.obj.verbose)
 
 
@@ -417,7 +417,7 @@ def clean(
     include = _process_include(include, interactive)
     ToolGlobals = CDFToolConfig.from_context(ctx)
     if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk clean --verbose"))
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk clean --verbose").get_message())
     cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, verbose or ctx.obj.verbose)
 
 
@@ -505,7 +505,7 @@ def auth_verify(
         # This is verified in check_auth
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project, skip_initialization=True)
     if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk auth verify --verbose"))
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk auth verify --verbose").get_message())
     cmd.execute(ToolGlobals, dry_run, interactive, group_file, update_group, create_group, verbose or ctx.obj.verbose)
 
 
@@ -735,7 +735,7 @@ def run_function_cmd(
     """This command will run the specified function using a one-time session."""
     cmd = RunFunctionCommand(user_command=_get_user_command())
     if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk run function --verbose"))
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk run function --verbose").get_message())
     cmd.execute(
         CDFToolConfig.from_context(ctx),
         external_id,
@@ -804,7 +804,7 @@ def pull_transformation_cmd(
 ) -> None:
     """This command will pull the specified transformation and update its YAML file in the module folder"""
     if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull transformation --verbose"))
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull transformation --verbose").get_message())
     PullCommand(user_command=_get_user_command()).execute(
         source_dir,
         external_id,
@@ -871,7 +871,7 @@ def pull_node_cmd(
 ) -> None:
     """This command will pull the specified node and update its YAML file in the module folder."""
     if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull node --verbose"))
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull node --verbose").get_message())
 
     PullCommand(user_command=_get_user_command()).execute(
         source_dir,
@@ -948,7 +948,7 @@ def dump_datamodel_cmd(
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
     cmd = DumpCommand(user_command=_get_user_command())
     if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump datamodel --verbose"))
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump datamodel --verbose").get_message())
     cmd.execute(
         CDFToolConfig.from_context(ctx),
         DataModelId(space, external_id, version),
@@ -1019,7 +1019,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
         """This command will dump the selected assets as yaml to the folder specified, defaults to /tmp."""
         cmd = DumpAssetsCommand(user_command=_get_user_command())
         if ctx.obj.verbose:
-            print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump asset --verbose"))
+            print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump asset --verbose").get_message())
         cmd.execute(
             CDFToolConfig.from_context(ctx),
             hierarchy,
