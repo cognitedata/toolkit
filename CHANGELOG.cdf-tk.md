@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- The `--verbose` flag is now moved to the end of the command. For example, instead of `cdf-tk --verbose build`,
+  you should now write `cdf-tk build --verbose`. The old syntax is still supported but will raise a deprecation warning.
+
 ## [0.2.5] - 2024-06-25
 
 ### Fixed
