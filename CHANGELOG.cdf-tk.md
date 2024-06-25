@@ -15,6 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- When running `cdf-tk build` with `Views` with custom filters, the Toolkit would likely give a `UnusedParameterWarning`.
+  This is now fixed by not validating the details of `View.filters`. The motivation is that `View.filters` is a complex
+  structure, and it is likely that you will get a false warning. The users that starts to use `View.filters` are
+  expected to know what they are doing.
+
 ## [0.2.5] - 2024-06-25
 
 ### Fixed
