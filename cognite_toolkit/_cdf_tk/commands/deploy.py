@@ -311,7 +311,8 @@ class DeployCommand(ToolkitCommand):
             cdf_resource_by_id = {loader.get_id(resource): resource for resource in cdf_resources}
 
         for item in resources:
-            cdf_resource = cdf_resource_by_id.get(loader.get_id(item))
+            identifier = loader.get_id(item)
+            cdf_resource = cdf_resource_by_id.get(identifier)
             local_dumped: dict[str, Any] = {}
             cdf_dumped: dict[str, Any] = {}
             are_equal = False
@@ -330,7 +331,13 @@ class DeployCommand(ToolkitCommand):
                 unchanged.append(item)
             elif cdf_resource:
                 if verbose:
-                    print(Panel("\n".join(to_diff(local_dumped, cdf_dumped))))
+                    print(
+                        Panel(
+                            "\n".join(to_diff(cdf_dumped, local_dumped)),
+                            title=f"{loader.display_name}: {identifier}",
+                            expand=False,
+                        )
+                    )
                 to_update.append(item)
             else:
                 to_create.append(item)
