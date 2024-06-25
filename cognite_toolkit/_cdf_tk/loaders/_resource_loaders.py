@@ -2901,9 +2901,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     is_overidden = prop_name in cdf_properties and cdf_properties[prop_name] != prop.dump()
                     if is_overidden:
                         continue
-                    cdf_dumped["properties"].pop(prop_name, None)
+                    cdf_properties.pop(prop_name, None)
 
-        if not cdf_dumped["properties"]:
+        if not cdf_properties:
             # All properties were removed, so we remove the properties key.
             cdf_dumped.pop("properties", None)
         if "properties" in local_dumped and not local_dumped["properties"]:
