@@ -1,0 +1,3 @@
+- externalId: ds_{{source}}_{{location}}_population
+  name: Extraction dataset
+  description: Data set for extraction data

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime
 import difflib
 import io
@@ -53,6 +54,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     Loader,
     NodeLoader,
     RawDatabaseLoader,
+    RawTableLoader,
     ResourceLoader,
     SpaceLoader,
     ViewLoader,
@@ -539,9 +541,7 @@ class BuildCommand(ToolkitCommand):
             )
 
         loader = self._get_loader(resource_folder, destination, source_path)
-        if loader is None:
-            return warning_list
-        if not issubclass(loader, ResourceLoader):
+        if loader is None or not issubclass(loader, ResourceLoader):
             return warning_list
 
         api_spec = self._get_api_spec(loader, destination)
@@ -564,6 +564,13 @@ class BuildCommand(ToolkitCommand):
                         warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
                 else:
                     state.ids_by_resource_type[loader][identifier] = source_path
+
+                if loader is RawDatabaseLoader:
+                    # We might also have Raw Tables that is in the same file.
+                    with contextlib.suppress(KeyError):
+                        table_id = RawTableLoader.get_id(item)
+                        if table_id not in state.ids_by_resource_type[RawTableLoader]:
+                            state.ids_by_resource_type[RawTableLoader][table_id] = source_path
 
                 warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
                 warning_list.extend(warnings)
