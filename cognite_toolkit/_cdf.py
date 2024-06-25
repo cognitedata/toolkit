@@ -15,6 +15,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 
 if FeatureFlag.is_enabled(Flags.ASSETS):
     from cognite_toolkit._cdf_tk.prototypes import setup_asset_loader
@@ -269,10 +270,20 @@ def build(
             "--no-clean", "-c", help="Whether not to delete the build directory before building the configurations"
         ),
     ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Turn on to get more verbose output when running the commands",
+        ),
+    ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
     cmd = BuildCommand(user_command=_get_user_command())
-    cmd.execute(ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
+    if ctx.obj.verbose:
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk build --verbose"))
+    cmd.execute(verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
 
 
 @_app.command("deploy")
