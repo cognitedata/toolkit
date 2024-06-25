@@ -19,6 +19,8 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- When running `cdf-tk build`, with `RAW` tables in the selected modules, the Toolkit would always warn that the
+  tables were missing, even though they were present. This is now fixed.
 - When running `cdf-tk init --upgrade <YOUR PROJECT>` form version `0.1.4` the user would get a
   `ERROR (ToolkitMigrationError): Failed to find migration from version 0.1.4.`. This is now fixed.
 - [Feature Preview] When running `cdf-tk import transformation-cli` on a manifest with a query file that

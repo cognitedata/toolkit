@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingDependencyWarning
 from tests import data
 
 
@@ -65,6 +65,20 @@ class TestBuildCommand:
             )
             in cmd.warning_list
         )
+
+    def test_warning_on_existing_raw_table(self, tmp_path: Path) -> None:
+        # This test is here to avoid a regression of the issue
+        cmd = BuildCommand(print_warning=False)
+        cmd.execute(
+            verbose=False,
+            build_dir=tmp_path,
+            source_path=data.CUSTOM_PROJECT,
+            build_env_name="dev",
+            no_clean=False,
+        )
+
+        missing_resource_warning = [warn for warn in cmd.warning_list if isinstance(warn, MissingDependencyWarning)]
+        assert not missing_resource_warning, "Missing dependency warning should not be raised"
 
 
 def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:
