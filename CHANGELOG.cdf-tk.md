@@ -21,6 +21,8 @@ Changes are grouped as follows:
 
 - When running `cdf-tk init --upgrade <YOUR PROJECT>` form version `0.1.4` the user would get a
   `ERROR (ToolkitMigrationError): Failed to find migration from version 0.1.4.`. This is now fixed.
+- When running `cdf-tk build`, the Toolkit would give you warning when referencing a system `Space`, `View`, `Container`
+  or `DataModel`. This is now fixed.
 
 ## [0.2.4] - 2024-06-24
 
