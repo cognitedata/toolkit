@@ -2,9 +2,8 @@ environment:
   name: dev
   project: some-project
   type: dev
-  selected_modules_and_packages:
-    - modules/a_module
-    - modules/another_module
+  selected:
+    - modules/
 
 variables:
   modules:
