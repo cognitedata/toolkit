@@ -65,6 +65,12 @@ class ImportTransformationCLI(ToolkitCommand):
             notifications = self._convert_notifications(data, data["externalId"], yaml_file)
             transformation, source_query_path = self._convert_transformation(data, yaml_file)
 
+            if source_query_path and not source_query_path.exists():
+                raise ToolkitValueError(
+                    f"Query file {source_query_path.as_posix()!r} does not exist. "
+                    f"This is referenced in {yaml_file.as_posix()!r}."
+                )
+
             if flatten:
                 destination_folder = destination
             else:
