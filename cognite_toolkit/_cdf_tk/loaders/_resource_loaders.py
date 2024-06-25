@@ -2893,9 +2893,14 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         if cdf_resource.properties:
             # All read version of views have all the properties of their parent views.
             # We need to remove these properties to compare with the local view.
+            # Unless the local view has overridden the properties.
             parents = retrieve_view_ancestors(self.client, cdf_resource.implements or [], self._interfaces_by_id)
             for parent in parents:
-                for prop_name in parent.properties.keys():
+                for prop_name, prop in parent.properties.items():
+                    if (prop_name not in cdf_dumped["properties"]) or (
+                        cdf_dumped["properties"][prop_name] != prop.dump()
+                    ):
+                        continue
                     cdf_dumped["properties"].pop(prop_name, None)
 
         if not cdf_dumped["properties"]:
