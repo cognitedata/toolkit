@@ -63,7 +63,8 @@ class ImportTransformationCLI(ToolkitCommand):
             # keys from the transformation
             schedule = self._convert_schedule(data, data["externalId"], yaml_file)
             notifications = self._convert_notifications(data, data["externalId"], yaml_file)
-            transformation, source_query_path = self._convert_transformation(data, yaml_file)
+            transformation, source_query_relative_path = self._convert_transformation(data, yaml_file)
+            source_query_path = yaml_file.parent / source_query_relative_path if source_query_relative_path else None
 
             if source_query_path and not source_query_path.exists():
                 raise ToolkitValueError(
