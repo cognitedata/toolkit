@@ -275,7 +275,7 @@ def build(
         typer.Option(
             "--verbose",
             "-v",
-            help="Turn on to get more verbose output when running the commands",
+            help="Turn on to get more verbose output when running the command",
         ),
     ] = False,
 ) -> None:
@@ -348,7 +348,7 @@ def deploy(
         typer.Option(
             "--verbose",
             "-v",
-            help="Turn on to get more verbose output when running the commands",
+            help="Turn on to get more verbose output when running the command",
         ),
     ] = False,
 ) -> None:
@@ -407,7 +407,7 @@ def clean(
         typer.Option(
             "--verbose",
             "-v",
-            help="Turn on to get more verbose output when running the commands",
+            help="Turn on to get more verbose output when running the command",
         ),
     ] = False,
 ) -> None:
@@ -481,7 +481,7 @@ def auth_verify(
         typer.Option(
             "--verbose",
             "-v",
-            help="Turn on to get more verbose output when running the commands",
+            help="Turn on to get more verbose output when running the command",
         ),
     ] = False,
 ) -> None:
@@ -728,7 +728,7 @@ def run_function_cmd(
         typer.Option(
             "--verbose",
             "-v",
-            help="Turn on to get more verbose output when running the commands",
+            help="Turn on to get more verbose output when running the command",
         ),
     ] = False,
 ) -> None:
@@ -798,7 +798,7 @@ def pull_transformation_cmd(
         typer.Option(
             "--verbose",
             "-v",
-            help="Turn on to get more verbose output when running the commands",
+            help="Turn on to get more verbose output when running the command",
         ),
     ] = False,
 ) -> None:
@@ -865,7 +865,7 @@ def pull_node_cmd(
         typer.Option(
             "--verbose",
             "-v",
-            help="Turn on to get more verbose output when running the commands",
+            help="Turn on to get more verbose output when running the command",
         ),
     ] = False,
 ) -> None:
@@ -941,7 +941,7 @@ def dump_datamodel_cmd(
         typer.Option(
             "--verbose",
             "-v",
-            help="Turn on to get more verbose output when running the commands",
+            help="Turn on to get more verbose output when running the command",
         ),
     ] = False,
 ) -> None:
@@ -1012,7 +1012,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
             typer.Option(
                 "--verbose",
                 "-v",
-                help="Turn on to get more verbose output when running the commands",
+                help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
     ) -> None:
