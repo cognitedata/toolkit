@@ -2895,11 +2895,11 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             # We need to remove these properties to compare with the local view.
             # Unless the local view has overridden the properties.
             parents = retrieve_view_ancestors(self.client, cdf_resource.implements or [], self._interfaces_by_id)
+            cdf_properties = cdf_dumped["properties"]
             for parent in parents:
                 for prop_name, prop in parent.properties.items():
-                    if (prop_name not in cdf_dumped["properties"]) or (
-                        cdf_dumped["properties"][prop_name] != prop.dump()
-                    ):
+                    is_overidden = prop_name in cdf_properties and cdf_properties[prop_name] != prop.dump()
+                    if is_overidden:
                         continue
                     cdf_dumped["properties"].pop(prop_name, None)
 
