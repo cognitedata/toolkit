@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     Loader,
     RawDatabaseLoader,
     ResourceLoader,
+    SpaceLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
@@ -281,6 +282,9 @@ class BuildCommand(ToolkitCommand):
         existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
         missing_dependencies = set(state.dependencies_by_required.keys()) - existing
         for resource_cls, id_ in missing_dependencies:
+            if resource_cls is SpaceLoader and isinstance(id_, str) and id_.startswith("cdf_"):
+                # Ignore system spaces are already in CDF.
+                continue
             required_by = {
                 (required, path.relative_to(project_config_dir))
                 for required, path in state.dependencies_by_required[(resource_cls, id_)]
