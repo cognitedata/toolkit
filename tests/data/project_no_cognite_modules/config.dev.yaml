@@ -13,4 +13,4 @@ variables:
       source: src
       location: here
     another_module:
-      space: my_space
+      space: sp_my_space
