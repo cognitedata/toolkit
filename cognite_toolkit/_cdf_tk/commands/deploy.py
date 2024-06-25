@@ -310,7 +310,7 @@ class DeployCommand(ToolkitCommand):
         for item in resources:
             cdf_resource = cdf_resource_by_id.get(loader.get_id(item))
             try:
-                are_equal = cdf_resource and loader.are_equal(item, cdf_resource)
+                are_equal = cdf_resource and loader._are_equal(item, cdf_resource)
             except CogniteAPIError as e:
                 self.warn(
                     MediumSeverityWarning(
