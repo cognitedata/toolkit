@@ -2973,14 +2973,15 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                         _is_nullable=False,
                     ),
                     ParameterSpec(
-                        # In the SDK this is called "property"
+                        # In the SDK, this is called "property"
                         ("properties", ANY_STR, "through", "identifier"),
                         frozenset({"str"}),
                         is_required=True,
                         _is_nullable=False,
                     ),
+                    # Filters are complex, so we do not attempt to give any more specific spec.
                     ParameterSpec(
-                        ("filter", "hasData", ANY_INT, "type"),
+                        ("filter", ANYTHING),
                         frozenset({"str"}),
                         is_required=True,
                         _is_nullable=False,
