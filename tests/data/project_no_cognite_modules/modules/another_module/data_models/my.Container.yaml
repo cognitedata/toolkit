@@ -1,0 +1,13 @@
+space: {{space}}
+externalId: Alert
+name: Alert
+usedFor: node
+properties:
+  title:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    nullable: false
+    autoIncrement: false
+    name: title
