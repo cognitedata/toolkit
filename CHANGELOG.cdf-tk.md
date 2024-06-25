@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Improved
+
+- The `--verbose` flag is now moved to the end of the command. For example, instead of `cdf-tk --verbose build`,
+  you should now write `cdf-tk build --verbose`. The old syntax is still supported but will raise a deprecation warning.
+
 ### Fixed
 
 - When running `cdf-tk build` with `Views` with custom filters, the Toolkit would likely give a `UnusedParameterWarning`.

@@ -62,6 +62,9 @@ class ToolkitWarning(ABC):
     def get_message(self) -> str:
         raise NotImplementedError()
 
+    def __str__(self) -> str:
+        return self.get_message()
+
 
 T_Warning = TypeVar("T_Warning", bound=ToolkitWarning)
 
