@@ -1,0 +1,8 @@
+externalId: ep_sap_extraction_pipeline
+name: SAP extraction
+description: SAP extraction
+dataSetExternalId: ds_{{source}}_{{location}}_population
+rawTables:
+- dbName: sap
+  tableName: equipment
+documentation: '## SAP extractor'

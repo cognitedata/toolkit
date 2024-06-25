@@ -15,6 +15,19 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.5] - 2024-06-25
+
+### Fixed
+
+- When running `cdf-tk build`, with `RAW` tables in the selected modules, the Toolkit would always warn that the
+  tables were missing, even though they were present. This is now fixed.
+- When running `cdf-tk init --upgrade <YOUR PROJECT>` form version `0.1.4` the user would get a
+  `ERROR (ToolkitMigrationError): Failed to find migration from version 0.1.4.`. This is now fixed.
+- When running `cdf-tk build`, the Toolkit would give you warning when referencing a system `Space`, `View`, `Container`
+  or `DataModel`. This is now fixed.
+- [Feature Preview] When running `cdf-tk import transformation-cli` on a manifest with a query file that
+  is separated from the manifest, the toolkit would raise a `FileNotFoundError`. This is now fixed.
+
 ## [0.2.4] - 2024-06-24
 
 ### Added

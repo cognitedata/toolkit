@@ -10,5 +10,7 @@ variables:
   modules:
     a_module:
       ds_timeseries: ds_timeseries
+      source: src
+      location: here
     another_module:
       space: my_space
