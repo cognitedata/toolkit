@@ -1,0 +1,26 @@
+space: {{space}}
+externalId: Alert
+name: Alert
+description: Alerts
+filter:
+  and:
+    - hasData:
+        - type: container
+          space: {{space}}
+          externalId: Alert
+    - equals:
+        property:
+          - node
+          - space
+        value: {{space}}
+implements: []
+version: 1
+properties:
+  title:
+    container:
+      space: {{space}}
+      externalId: Alert
+      type: container
+    containerPropertyIdentifier: title
+    name: Title
+    description: Summary description of the alert
