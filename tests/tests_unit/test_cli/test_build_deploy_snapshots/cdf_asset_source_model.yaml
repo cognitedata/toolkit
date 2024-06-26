@@ -7,6 +7,7 @@ Container:
     metadata:
       autoIncrement: false
       description: Custom, application specific metadata. String key -> String value.
+      immutable: false
       name: metadata
       nullable: true
       type:

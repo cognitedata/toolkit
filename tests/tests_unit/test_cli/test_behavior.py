@@ -169,6 +169,7 @@ def test_dump_datamodel(
                 type=dm.Float64(),
                 nullable=True,
                 auto_increment=False,
+                immutable=False,
             )
         },
         last_updated_time=0,
@@ -193,6 +194,7 @@ def test_dump_datamodel(
                 type=dm.Text(),
                 nullable=True,
                 auto_increment=False,
+                immutable=False,
             ),
             "prop2": dm.MappedProperty(
                 container=container.as_id(),
@@ -200,6 +202,7 @@ def test_dump_datamodel(
                 type=dm.Float64(),
                 nullable=True,
                 auto_increment=False,
+                immutable=False,
             ),
         },
         last_updated_time=0,

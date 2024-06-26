@@ -6,6 +6,7 @@ createdTime: 1704980779000
 properties:
   criticality:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: criticality
@@ -16,6 +17,7 @@ properties:
       type: text
   description:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: description
@@ -26,6 +28,7 @@ properties:
       type: text
   isCompleted:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: isCompleted
@@ -35,6 +38,7 @@ properties:
       type: boolean
   itemInfo:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: itemInfo
@@ -45,6 +49,7 @@ properties:
       type: text
   itemName:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: itemName
@@ -55,6 +60,7 @@ properties:
       type: text
   method:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: method
@@ -65,6 +71,7 @@ properties:
       type: text
   title:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: title
@@ -75,6 +82,7 @@ properties:
       type: text
   toBeDone:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: toBeDone
@@ -84,6 +92,7 @@ properties:
       type: boolean
   workOrder:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: workOrder
