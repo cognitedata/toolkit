@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - The `--verbose` flag is now moved to the end of the command. For example, instead of `cdf-tk --verbose build`,
   you should now write `cdf-tk build --verbose`. The old syntax is still supported but will raise a deprecation warning.
+- When running `cdf-tk deploy --verbose` you will now get a detailed output for each resource that has changed.
 - Allow values `test` and `qa` as `type` in the `config.[env].yaml` file.
 
 ### Fixed
@@ -29,6 +30,8 @@ Changes are grouped as follows:
   This is now fixed by not validating the details of `View.filters`. The motivation is that `View.filters` is a complex
   structure, and it is likely that you will get a false warning. The users that starts to use `View.filters` are
   expected to know what they are doing.
+- If you run `cdf-tk deploy` and you had a child view that overrides a property from a parent view, the Toolkit would
+  log it as changed even though it was not. This is now fixed.
 
 ## [0.2.5] - 2024-06-25
 
