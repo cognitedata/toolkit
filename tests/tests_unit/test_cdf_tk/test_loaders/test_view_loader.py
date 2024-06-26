@@ -71,6 +71,7 @@ class TestViewLoader:
             type=dm.Text(),
             nullable=True,
             auto_increment=False,
+            immutable=False,
         )
         interface = dm.View(
             space="sp_space",
