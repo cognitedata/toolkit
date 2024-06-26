@@ -21,7 +21,9 @@ Changes are grouped as follows:
 
 - The `--verbose` flag is now moved to the end of the command. For example, instead of `cdf-tk --verbose build`,
   you should now write `cdf-tk build --verbose`. The old syntax is still supported but will raise a deprecation warning.
-- When running `cdf-tk deploy --verbose` you will now get a detailed output for each resource that has changed.
+- When running `cdf-tk deploy --verbose` you will now get a detailed output for each resource that has changed
+  (or will change if you use --dry-run).
+- Allow values `test` and `qa` as `type` in the `config.[env].yaml` file.
 
 ### Fixed
 

@@ -47,6 +47,7 @@ class TestReadParameterFromTypeHints:
                         ParameterSpec(("properties", ANY_STR, "type"), frozenset({"dict"}), True, False),
                         ParameterSpec(("properties", ANY_STR, "nullable"), frozenset({"bool"}), False, False),
                         ParameterSpec(("properties", ANY_STR, "auto_increment"), frozenset({"bool"}), False, False),
+                        ParameterSpec(("properties", ANY_STR, "immutable"), frozenset({"bool"}), False, False),
                         ParameterSpec(("properties", ANY_STR, "name"), frozenset({"str"}), False, True),
                         ParameterSpec(
                             ("properties", ANY_STR, "default_value"), frozenset({"str", "int", "dict"}), False, True

@@ -20,6 +20,7 @@ properties:
       type: int32
     nullable: true
     autoIncrement: false
+    immutable: false
   categoryId:
     container:
       externalId: Asset
@@ -32,6 +33,7 @@ properties:
       type: int32
     nullable: true
     autoIncrement: false
+    immutable: false
   children:
     direction: outwards
     connectionType: multiEdgeConnection
@@ -56,6 +58,7 @@ properties:
       type: timestamp
     nullable: true
     autoIncrement: false
+    immutable: false
   description:
     container:
       externalId: Asset
@@ -69,6 +72,7 @@ properties:
       type: text
     nullable: true
     autoIncrement: false
+    immutable: false
   documents:
     container:
       externalId: Asset
@@ -81,6 +85,7 @@ properties:
       type: file
     nullable: true
     autoIncrement: false
+    immutable: false
   isActive:
     container:
       externalId: Asset
@@ -93,6 +98,7 @@ properties:
       type: boolean
     nullable: true
     autoIncrement: false
+    immutable: false
   isCriticalLine:
     container:
       externalId: Asset
@@ -105,6 +111,7 @@ properties:
       type: boolean
     nullable: true
     autoIncrement: false
+    immutable: false
   metrics:
     container:
       externalId: Asset
@@ -117,6 +124,7 @@ properties:
       type: timeseries
     nullable: true
     autoIncrement: false
+    immutable: false
   parent:
     container:
       externalId: Asset
@@ -129,6 +137,7 @@ properties:
       list: false
     nullable: true
     autoIncrement: false
+    immutable: false
   sourceDb:
     container:
       externalId: Asset
@@ -142,6 +151,7 @@ properties:
       type: text
     nullable: true
     autoIncrement: false
+    immutable: false
   tag:
     container:
       externalId: Asset
@@ -155,6 +165,7 @@ properties:
       type: text
     nullable: true
     autoIncrement: false
+    immutable: false
   updatedDate:
     container:
       externalId: Asset
@@ -167,3 +178,4 @@ properties:
       type: timestamp
     nullable: true
     autoIncrement: false
+    immutable: false

@@ -5,6 +5,7 @@ Container:
   properties:
     assetExternalId:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -12,6 +13,7 @@ Container:
         type: text
     assignedTo:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -19,6 +21,7 @@ Container:
         type: text
     cloneOf:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -26,6 +29,7 @@ Container:
         type: text
     description:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -33,12 +37,14 @@ Container:
         type: text
     endTime:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         list: false
         type: timestamp
     id:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -46,6 +52,7 @@ Container:
         type: text
     resource:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -53,6 +60,7 @@ Container:
         type: text
     rootLocation:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -60,6 +68,7 @@ Container:
         type: text
     source:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -67,12 +76,14 @@ Container:
         type: text
     startTime:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         list: false
         type: timestamp
     status:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -80,6 +91,7 @@ Container:
         type: text
     title:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -87,6 +99,7 @@ Container:
         type: text
     type:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -100,6 +113,7 @@ Container:
   properties:
     appDataSpaceId:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -107,6 +121,7 @@ Container:
         type: text
     appDataSpaceVersion:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -114,6 +129,7 @@ Container:
         type: text
     customerDataSpaceId:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -121,6 +137,7 @@ Container:
         type: text
     customerDataSpaceVersion:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -128,12 +145,14 @@ Container:
         type: text
     featureConfiguration:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         list: false
         type: json
     name:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -147,6 +166,7 @@ Container:
   properties:
     assetExternalId:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -154,12 +174,14 @@ Container:
         type: text
     createdDate:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         list: false
         type: timestamp
     description:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -167,6 +189,7 @@ Container:
         type: text
     priority:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -174,6 +197,7 @@ Container:
         type: text
     rootLocationExternalId:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -181,6 +205,7 @@ Container:
         type: text
     source:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -188,6 +213,7 @@ Container:
         type: text
     sourceId:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -195,6 +221,7 @@ Container:
         type: text
     status:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -202,6 +229,7 @@ Container:
         type: text
     title:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -209,6 +237,7 @@ Container:
         type: text
     type:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -222,6 +251,7 @@ Container:
   properties:
     assetExternalId:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -229,6 +259,7 @@ Container:
         type: text
     cloneOf:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -236,6 +267,7 @@ Container:
         type: text
     description:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -243,12 +275,14 @@ Container:
         type: text
     endTime:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         list: false
         type: timestamp
     id:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -256,12 +290,14 @@ Container:
         type: text
     order:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         list: false
         type: int32
     parentActivityId:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -269,6 +305,7 @@ Container:
         type: text
     source:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic
@@ -276,12 +313,14 @@ Container:
         type: text
     startTime:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         list: false
         type: timestamp
     title:
       autoIncrement: false
+      immutable: false
       nullable: true
       type:
         collation: ucs_basic

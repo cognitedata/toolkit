@@ -13,6 +13,7 @@ Container:
     DesignPointFlowGPM:
       autoIncrement: false
       description: The flow the pump was designed for given in gallons per minute.
+      immutable: false
       name: DesignPointFlowGPM
       nullable: true
       type:
@@ -21,6 +22,7 @@ Container:
     DesignPointHeadFT:
       autoIncrement: false
       description: The flow head pump was designed for given in feet.
+      immutable: false
       name: DesignPointHeadFT
       nullable: true
       type:
@@ -29,6 +31,7 @@ Container:
     LowHeadFT:
       autoIncrement: false
       description: The low head of the pump given in feet.
+      immutable: false
       name: LowHeadFT
       nullable: true
       type:
@@ -37,6 +40,7 @@ Container:
     LowHeadFlowGPM:
       autoIncrement: false
       description: The low head flow of the pump given in gallons per minute.
+      immutable: false
       name: DesignPointHeadFT
       nullable: true
       type:
