@@ -108,7 +108,6 @@ from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     ContainerApplyList,
     ContainerList,
-    ContainerProperty,
     DataModel,
     DataModelApply,
     DataModelApplyList,
@@ -2674,27 +2673,22 @@ class ContainerLoader(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ContainerApply | ContainerApplyList | None:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        if not isinstance(raw_yaml, list):
-            raw_yaml = [raw_yaml]
-        # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
-        # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
-        # is used as read and write in the SDK, and the read class has it required while the write class does not)
-        for raw_instance in raw_yaml:
+        dict_items = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        for raw_instance in dict_items:
             for prop in raw_instance.get("properties", {}).values():
                 type_ = prop.get("type", {})
                 if "list" not in type_:
+                    # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
+                    # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
+                    # is used as read and write in the SDK, and the read class has it required while the write class does not)
                     type_["list"] = False
-        items = ContainerApplyList.load(raw_yaml)
-        for item in items:
-            # Todo Bug in SDK, not setting defaults on load
-            for prop_name in item.properties.keys():
-                prop_dumped = item.properties[prop_name].dump()
-                if prop_dumped.get("nullable") is None:
-                    prop_dumped["nullable"] = False  # type: ignore[assignment]
-                if prop_dumped.get("autoIncrement") is None:
-                    prop_dumped["autoIncrement"] = False  # type: ignore[assignment]
-                item.properties[prop_name] = ContainerProperty.load(prop_dumped)
-        return items
+                # Todo Bug in SDK, not setting defaults on load
+                if "nullable" not in prop:
+                    prop["nullable"] = False
+                if "autoIncrement" not in prop:
+                    prop["autoIncrement"] = False
+
+        return ContainerApplyList.load(dict_items)
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)
