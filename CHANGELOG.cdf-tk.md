@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Transformation notifications for transformations with a `:` in the external id would raise an `ValueError`.
+  This is now fixed.
+
 ## [0.2.6] - 2024-06-26
 
 ### Improved
