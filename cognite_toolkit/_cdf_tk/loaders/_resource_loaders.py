@@ -1979,7 +1979,6 @@ class TransformationNotificationLoader(
         return []
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
-        # Todo bug in SDK not accepting TransformationNotificationWrite
         return self.client.transformations.notifications.create(items)  # type: ignore[return-value]
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:

@@ -1,0 +1,2 @@
+- transformationExternalId: tr_cdf:instances:upsert:tr:300a:exact_ais_v2_vessels
+  destination: example@cognite.com
