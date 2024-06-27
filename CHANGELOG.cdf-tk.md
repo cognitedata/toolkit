@@ -21,6 +21,8 @@ Changes are grouped as follows:
 
 - Transformation notifications for transformations with a `:` in the external id would raise an `ValueError`.
   This is now fixed.
+- When running `cdf-tk deploy`, you would get warnings about unrelated resources that were not part of the deployment.
+  This is now fixed.
 
 ## [0.2.6] - 2024-06-26
 

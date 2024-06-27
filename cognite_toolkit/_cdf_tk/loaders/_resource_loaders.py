@@ -1993,9 +1993,14 @@ class TransformationNotificationLoader(
                 raise ValueError(
                     f"Invalid externalId: {id_}. Must be in the format 'transformationExternalId{self._split_character}destination'"
                 )
-            result = self.client.transformations.notifications.list(
-                transformation_external_id=transformation_external_id, destination=destination, limit=-1
-            )
+            try:
+                result = self.client.transformations.notifications.list(
+                    transformation_external_id=transformation_external_id, destination=destination, limit=-1
+                )
+            except CogniteAPIError:
+                # The notification endpoint gives a 500 if the notification does not exist.
+                # So we do not trust the service at all.
+                continue
             retrieved.extend(result)
         return retrieved
 

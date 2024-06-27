@@ -102,6 +102,7 @@ class DeployCommand(ToolkitCommand):
             for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
             if folder_name in include and (build_dir / folder_name).is_dir()
             for loader_cls in loader_classes
+            if loader_cls.any_supported_files(build_dir / folder_name)
         }
         results = DeployResults([], "deploy", dry_run=dry_run)
 
