@@ -160,6 +160,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
@@ -2253,15 +2254,15 @@ class ExtractionPipelineConfigLoader(
             resources = [resources]
 
         for resource in resources:
-            try:
-                if config := resource.get("config", None):
-                    resource["config"] = yaml.dump(config, indent=4)
-            except Exception:
-                print(
-                    f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
-                )
-                resource["config"] = resource.get("config", None)
-
+            config_raw = resource.get("config")
+            if isinstance(config_raw, (dict, list)):
+                try:
+                    resource["config"] = yaml.safe_dump(config_raw, indent=4)
+                except yaml.YAMLError as e:
+                    print(
+                        f"[yellow]WARNING:[/] configuration for {resource.get('external_id', 'missing')} could not be parsed "
+                        f"as valid YAML, which is the recommended format. Error: {e}\n"
+                    )
         if len(resources) == 1:
             return ExtractionPipelineConfigWrite.load(resources[0])
         else:
@@ -2438,8 +2439,7 @@ class FileMetadataLoader(
         files_metadata: FileMetadataWriteList = FileMetadataWriteList.load(loaded_list)
         for meta in files_metadata:
             if meta.name and not Path(filepath.parent / meta.name).exists():
-                # Todo in `0.2.0` replace this with ToolkitFileNotFoundError
-                raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
+                raise ToolkitFileNotFoundError(f"Could not find file {meta.name} referenced " f"in filepath {filepath}")
         return files_metadata
 
     def create(self, items: FileMetadataWriteList) -> FileMetadataList:
