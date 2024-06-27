@@ -1051,7 +1051,7 @@ class FunctionScheduleLoader(
         for id_ in ids:
             function_external_id, cron = id_.rsplit(self._split_character, 1)
             crons_by_function[function_external_id].add(cron)
-        functions = FunctionLoader(self.client, self.resource_build_path).retrieve(list(crons_by_function))
+        functions = FunctionLoader(self.client, None).retrieve(list(crons_by_function))
         schedules = FunctionSchedulesList([])
         for func in functions:
             ret = self.client.functions.schedules.list(function_id=func.id, limit=-1)
