@@ -982,6 +982,7 @@ class FunctionScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
+    _split_character = ":"
 
     @property
     def display_name(self) -> str:
@@ -1004,11 +1005,11 @@ class FunctionScheduleLoader(
             if missing := tuple(k for k in {"functionExternalId", "cronExpression"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return f"{item['functionExternalId']}:{item['cronExpression']}"
+            return f"{item['functionExternalId']}{cls._split_character}{item['cronExpression']}"
 
         if item.function_external_id is None or item.cron_expression is None:
             raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
-        return f"{item.function_external_id}:{item.cron_expression}"
+        return f"{item.function_external_id}{cls._split_character}{item.cron_expression}"
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -1023,7 +1024,7 @@ class FunctionScheduleLoader(
             schedules = [schedules]
 
         for sched in schedules:
-            ext_id = f"{sched['functionExternalId']}:{sched['cronExpression']}"
+            ext_id = f"{sched['functionExternalId']}{self._split_character}{sched['cronExpression']}"
             if self.extra_configs.get(ext_id) is None:
                 self.extra_configs[ext_id] = {}
             self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
@@ -1046,13 +1047,23 @@ class FunctionScheduleLoader(
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
-        functions = FunctionLoader(self.client, None).retrieve(list(set([id.split(":")[0] for id in ids])))
+        crons_by_function: dict[str, set[str]] = defaultdict(set)
+        for id_ in ids:
+            function_external_id, cron = id_.rsplit(self._split_character, 1)
+            crons_by_function[function_external_id].add(cron)
+        functions = FunctionLoader(self.client, self.resource_build_path).retrieve(list(crons_by_function))
         schedules = FunctionSchedulesList([])
         for func in functions:
             ret = self.client.functions.schedules.list(function_id=func.id, limit=-1)
             for schedule in ret:
                 schedule.function_external_id = func.external_id
-            schedules.extend(ret)
+            schedules.extend(
+                [
+                    schedule
+                    for schedule in ret
+                    if schedule.cron_expression in crons_by_function[cast(str, func.external_id)]
+                ]
+            )
         return schedules
 
     def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
@@ -1740,12 +1751,6 @@ class TransformationLoader(
                     invalid_parameters,
                 )
 
-            source_oidc_credentials = (
-                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
-            )
-            destination_oidc_credentials = (
-                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
-            )
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
@@ -1755,8 +1760,13 @@ class TransformationLoader(
                 # Todo; Bug SDK missing default value
                 resource["conflictMode"] = "upsert"
 
+            source_oidc_credentials = (
+                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
+            )
+            destination_oidc_credentials = (
+                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
+            )
             transformation = TransformationWrite.load(resource)
-
             try:
                 transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
                     source_oidc_credentials
@@ -1779,7 +1789,8 @@ class TransformationLoader(
                 transformation.query = query_file.read_text()
             elif transformation.query is not None and query_file is not None:
                 raise ToolkitYAMLFormatError(
-                    f"query property is abiguously defined in both the yaml file and a separate file named {query_file}"
+                    f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
+                    f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
                 )
 
             transformations.append(transformation)
@@ -2139,14 +2150,14 @@ class ExtractionPipelineLoader(
             resources = [resources]
 
         for resource in resources:
-            if resource.get("dataSetExternalId") is not None:
+            if "dataSetExternalId" in resource:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
                     ds_external_id,
                     skip_validation,
                     action="replace datasetExternalId with dataSetId in extraction pipeline",
                 )
-            if resource.get("createdBy") is None:
+            if "createdBy" not in resource:
                 # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
                 resource["createdBy"] = "unknown"
 
