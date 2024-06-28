@@ -1968,6 +1968,7 @@ class TransformationNotificationLoader(
     kind = "Notification"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
+    _split_character = "@@@"
 
     @property
     def display_name(self) -> str:
@@ -1979,9 +1980,9 @@ class TransformationNotificationLoader(
             if missing := tuple(k for k in {"transformationExternalId", "destination"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return f"{item['transformationExternalId']}:{item['destination']}"
+            return f"{item['transformationExternalId']}{cls._split_character}{item['destination']}"
 
-        return f"{item.transformation_external_id}:{item.destination}"
+        return f"{item.transformation_external_id}{cls._split_character}{item.destination}"
 
     @classmethod
     def get_required_capability(cls, items: TransformationNotificationWriteList) -> Capability | list[Capability]:
@@ -1990,23 +1991,27 @@ class TransformationNotificationLoader(
         return []
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
-        # Todo bug in SDK not accepting TransformationNotificationWrite
         return self.client.transformations.notifications.create(items)  # type: ignore[return-value]
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:
         retrieved = TransformationNotificationList([])
         for id_ in ids:
             try:
-                transformation_external_id, destination = id_.split(":")
+                transformation_external_id, destination = id_.rsplit(self._split_character, maxsplit=1)
             except ValueError:
                 # This should never happen, and is a bug in the toolkit if it occurs. Creating a nice error message
                 # here so that if it does happen, it will be easier to debug.
                 raise ValueError(
-                    f"Invalid externalId: {id_}. Must be in the format 'transformationExternalId:destination'"
+                    f"Invalid externalId: {id_}. Must be in the format 'transformationExternalId{self._split_character}destination'"
                 )
-            result = self.client.transformations.notifications.list(
-                transformation_external_id=transformation_external_id, destination=destination, limit=-1
-            )
+            try:
+                result = self.client.transformations.notifications.list(
+                    transformation_external_id=transformation_external_id, destination=destination, limit=-1
+                )
+            except CogniteAPIError:
+                # The notification endpoint gives a 500 if the notification does not exist.
+                # The issue has been reported to the service team.
+                continue
             retrieved.extend(result)
         return retrieved
 
@@ -2032,8 +2037,8 @@ class TransformationNotificationLoader(
         updated_by_id: dict[str, TransformationNotification] = {}
         if create:
             # Bug in SDK
-            created = self.client.transformations.notifications.create(create)  # type: ignore[arg-type]
-            updated_by_id.update({self.get_id(item): item for item in created})  # type: ignore[union-attr]
+            created = self.client.transformations.notifications.create(create)
+            updated_by_id.update({self.get_id(item): item for item in created})
         if unchanged:
             updated_by_id.update({id_: exiting_by_id[id_] for id_ in unchanged})
         return TransformationNotificationList([updated_by_id[id_] for id_ in item_by_id.keys()])
