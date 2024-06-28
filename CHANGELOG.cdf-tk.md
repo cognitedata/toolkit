@@ -15,6 +15,21 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.7] - 2024-06-28
+
+### Fixed
+
+- Function schedule for functions with a `:` in the external id would raise an `ValueError`.
+  This is now fixed.
+- Transformation notifications for transformations with a `:` in the external id would raise an `ValueError`.
+  This is now fixed.
+- When running `cdf-tk deploy`, you would get warnings about unrelated resources that were not part of the deployment.
+  This is now fixed.
+- The `transformations/notifications` endpoint was giving `500` errors for requests to non-exising transformations.
+  This is now handled by the toolkit and will not raise an error.
+- When doing variable replacement in a `sql` such as `dataset_id('{{dataset_external_id}}')`, the toolkit would
+  remove the quotes. This is now fixed.
+
 ## [0.2.6] - 2024-06-26
 
 ### Improved

@@ -256,7 +256,7 @@ def test_build_custom_project(
     build_tmp_path: Path,
     typer_context: typer.Context,
 ) -> None:
-    expected_resources = {"timeseries", "data_models", "data_sets", "raw", "extraction_pipelines"}
+    expected_resources = {"timeseries", "data_models", "data_sets", "raw", "extraction_pipelines", "transformations"}
     build(
         typer_context,
         source_dir=str(CUSTOM_PROJECT),

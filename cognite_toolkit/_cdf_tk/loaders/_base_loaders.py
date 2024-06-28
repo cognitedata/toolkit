@@ -98,6 +98,10 @@ class Loader(ABC):
             return []
 
     @classmethod
+    def any_supported_files(cls, directory: Path) -> bool:
+        return any(cls.is_supported_file(file) for file in directory.glob("**/*"))
+
+    @classmethod
     def is_supported_file(cls, file: Path) -> bool:
         if cls.filetypes and file.suffix[1:] not in cls.filetypes:
             return False

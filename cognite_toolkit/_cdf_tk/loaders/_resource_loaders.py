@@ -108,7 +108,6 @@ from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     ContainerApplyList,
     ContainerList,
-    ContainerProperty,
     DataModel,
     DataModelApply,
     DataModelApplyList,
@@ -161,11 +160,13 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    HighSeverityWarning,
     NamespacingConventionWarning,
     PrefixConventionWarning,
     WarningList,
@@ -982,6 +983,7 @@ class FunctionScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
+    _split_character = ":"
 
     @property
     def display_name(self) -> str:
@@ -1004,11 +1006,11 @@ class FunctionScheduleLoader(
             if missing := tuple(k for k in {"functionExternalId", "cronExpression"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return f"{item['functionExternalId']}:{item['cronExpression']}"
+            return f"{item['functionExternalId']}{cls._split_character}{item['cronExpression']}"
 
         if item.function_external_id is None or item.cron_expression is None:
             raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
-        return f"{item.function_external_id}:{item.cron_expression}"
+        return f"{item.function_external_id}{cls._split_character}{item.cron_expression}"
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -1023,7 +1025,7 @@ class FunctionScheduleLoader(
             schedules = [schedules]
 
         for sched in schedules:
-            ext_id = f"{sched['functionExternalId']}:{sched['cronExpression']}"
+            ext_id = f"{sched['functionExternalId']}{self._split_character}{sched['cronExpression']}"
             if self.extra_configs.get(ext_id) is None:
                 self.extra_configs[ext_id] = {}
             self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
@@ -1046,13 +1048,23 @@ class FunctionScheduleLoader(
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
-        functions = FunctionLoader(self.client, None).retrieve(list(set([id.split(":")[0] for id in ids])))
+        crons_by_function: dict[str, set[str]] = defaultdict(set)
+        for id_ in ids:
+            function_external_id, cron = id_.rsplit(self._split_character, 1)
+            crons_by_function[function_external_id].add(cron)
+        functions = FunctionLoader(self.client, None).retrieve(list(crons_by_function))
         schedules = FunctionSchedulesList([])
         for func in functions:
             ret = self.client.functions.schedules.list(function_id=func.id, limit=-1)
             for schedule in ret:
                 schedule.function_external_id = func.external_id
-            schedules.extend(ret)
+            schedules.extend(
+                [
+                    schedule
+                    for schedule in ret
+                    if schedule.cron_expression in crons_by_function[cast(str, func.external_id)]
+                ]
+            )
         return schedules
 
     def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
@@ -1740,12 +1752,6 @@ class TransformationLoader(
                     invalid_parameters,
                 )
 
-            source_oidc_credentials = (
-                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
-            )
-            destination_oidc_credentials = (
-                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
-            )
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
@@ -1755,8 +1761,13 @@ class TransformationLoader(
                 # Todo; Bug SDK missing default value
                 resource["conflictMode"] = "upsert"
 
+            source_oidc_credentials = (
+                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
+            )
+            destination_oidc_credentials = (
+                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
+            )
             transformation = TransformationWrite.load(resource)
-
             try:
                 transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
                     source_oidc_credentials
@@ -1779,7 +1790,8 @@ class TransformationLoader(
                 transformation.query = query_file.read_text()
             elif transformation.query is not None and query_file is not None:
                 raise ToolkitYAMLFormatError(
-                    f"query property is abiguously defined in both the yaml file and a separate file named {query_file}"
+                    f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
+                    f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
                 )
 
             transformations.append(transformation)
@@ -1957,6 +1969,7 @@ class TransformationNotificationLoader(
     kind = "Notification"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
+    _split_character = "@@@"
 
     @property
     def display_name(self) -> str:
@@ -1968,9 +1981,9 @@ class TransformationNotificationLoader(
             if missing := tuple(k for k in {"transformationExternalId", "destination"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return f"{item['transformationExternalId']}:{item['destination']}"
+            return f"{item['transformationExternalId']}{cls._split_character}{item['destination']}"
 
-        return f"{item.transformation_external_id}:{item.destination}"
+        return f"{item.transformation_external_id}{cls._split_character}{item.destination}"
 
     @classmethod
     def get_required_capability(cls, items: TransformationNotificationWriteList) -> Capability | list[Capability]:
@@ -1979,23 +1992,27 @@ class TransformationNotificationLoader(
         return []
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
-        # Todo bug in SDK not accepting TransformationNotificationWrite
         return self.client.transformations.notifications.create(items)  # type: ignore[return-value]
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:
         retrieved = TransformationNotificationList([])
         for id_ in ids:
             try:
-                transformation_external_id, destination = id_.split(":")
+                transformation_external_id, destination = id_.rsplit(self._split_character, maxsplit=1)
             except ValueError:
                 # This should never happen, and is a bug in the toolkit if it occurs. Creating a nice error message
                 # here so that if it does happen, it will be easier to debug.
                 raise ValueError(
-                    f"Invalid externalId: {id_}. Must be in the format 'transformationExternalId:destination'"
+                    f"Invalid externalId: {id_}. Must be in the format 'transformationExternalId{self._split_character}destination'"
                 )
-            result = self.client.transformations.notifications.list(
-                transformation_external_id=transformation_external_id, destination=destination, limit=-1
-            )
+            try:
+                result = self.client.transformations.notifications.list(
+                    transformation_external_id=transformation_external_id, destination=destination, limit=-1
+                )
+            except CogniteAPIError:
+                # The notification endpoint gives a 500 if the notification does not exist.
+                # The issue has been reported to the service team.
+                continue
             retrieved.extend(result)
         return retrieved
 
@@ -2021,8 +2038,8 @@ class TransformationNotificationLoader(
         updated_by_id: dict[str, TransformationNotification] = {}
         if create:
             # Bug in SDK
-            created = self.client.transformations.notifications.create(create)  # type: ignore[arg-type]
-            updated_by_id.update({self.get_id(item): item for item in created})  # type: ignore[union-attr]
+            created = self.client.transformations.notifications.create(create)
+            updated_by_id.update({self.get_id(item): item for item in created})
         if unchanged:
             updated_by_id.update({id_: exiting_by_id[id_] for id_ in unchanged})
         return TransformationNotificationList([updated_by_id[id_] for id_ in item_by_id.keys()])
@@ -2139,14 +2156,14 @@ class ExtractionPipelineLoader(
             resources = [resources]
 
         for resource in resources:
-            if resource.get("dataSetExternalId") is not None:
+            if "dataSetExternalId" in resource:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
                     ds_external_id,
                     skip_validation,
                     action="replace datasetExternalId with dataSetId in extraction pipeline",
                 )
-            if resource.get("createdBy") is None:
+            if "createdBy" not in resource:
                 # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
                 resource["createdBy"] = "unknown"
 
@@ -2254,15 +2271,17 @@ class ExtractionPipelineConfigLoader(
             resources = [resources]
 
         for resource in resources:
-            try:
-                if config := resource.get("config", None):
-                    resource["config"] = yaml.dump(config, indent=4)
-            except Exception:
-                print(
-                    f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
-                )
-                resource["config"] = resource.get("config", None)
-
+            config_raw = resource.get("config")
+            if isinstance(config_raw, (dict, list)):
+                try:
+                    resource["config"] = yaml.safe_dump(config_raw, indent=4)
+                except yaml.YAMLError as e:
+                    print(
+                        HighSeverityWarning(
+                            f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
+                            f"as valid YAML, which is the recommended format. Error: {e}"
+                        ).get_message()
+                    )
         if len(resources) == 1:
             return ExtractionPipelineConfigWrite.load(resources[0])
         else:
@@ -2439,8 +2458,7 @@ class FileMetadataLoader(
         files_metadata: FileMetadataWriteList = FileMetadataWriteList.load(loaded_list)
         for meta in files_metadata:
             if meta.name and not Path(filepath.parent / meta.name).exists():
-                # Todo in `0.2.0` replace this with ToolkitFileNotFoundError
-                raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
+                raise ToolkitFileNotFoundError(f"Could not find file {meta.name} referenced " f"in filepath {filepath}")
         return files_metadata
 
     def create(self, items: FileMetadataWriteList) -> FileMetadataList:
@@ -2674,27 +2692,22 @@ class ContainerLoader(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ContainerApply | ContainerApplyList | None:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        if not isinstance(raw_yaml, list):
-            raw_yaml = [raw_yaml]
-        # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
-        # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
-        # is used as read and write in the SDK, and the read class has it required while the write class does not)
-        for raw_instance in raw_yaml:
+        dict_items = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        for raw_instance in dict_items:
             for prop in raw_instance.get("properties", {}).values():
                 type_ = prop.get("type", {})
                 if "list" not in type_:
+                    # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
+                    # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
+                    # is used as read and write in the SDK, and the read class has it required while the write class does not)
                     type_["list"] = False
-        items = ContainerApplyList.load(raw_yaml)
-        for item in items:
-            # Todo Bug in SDK, not setting defaults on load
-            for prop_name in item.properties.keys():
-                prop_dumped = item.properties[prop_name].dump()
-                if prop_dumped.get("nullable") is None:
-                    prop_dumped["nullable"] = False  # type: ignore[assignment]
-                if prop_dumped.get("autoIncrement") is None:
-                    prop_dumped["autoIncrement"] = False  # type: ignore[assignment]
-                item.properties[prop_name] = ContainerProperty.load(prop_dumped)
-        return items
+                # Todo Bug in SDK, not setting defaults on load
+                if "nullable" not in prop:
+                    prop["nullable"] = False
+                if "autoIncrement" not in prop:
+                    prop["autoIncrement"] = False
+
+        return ContainerApplyList.load(dict_items)
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)
