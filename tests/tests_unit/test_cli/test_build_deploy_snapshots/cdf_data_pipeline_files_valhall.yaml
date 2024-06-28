@@ -274,15 +274,15 @@ Transformation:
   name: files:oid:fileshare:file_metadata
   query: "--\n-- Update file metdata using Transformation\n--\n-- Input data from\
     \ RAW DB table (using example data) and uploaded files\n--\n\nWith \n  root_id\
-    \ AS (\n     Select id from _cdf.asset where externalId = WMT:VAL\n  )\nSELECT\n\
+    \ AS (\n     Select id from _cdf.asset where externalId = 'WMT:VAL'\n  )\nSELECT\n\
     \  file.id                          as id,\n  file.name                      \
     \  as name,\n  file.externalId                  as externalId,\n  meta.source\
     \                      as source,\n  meta.`mime_type`                 as mimeType,\n\
-    \  array(root_id.id)                as assetIds,\n  dataset_id(ds_files_oid) \
-    \ as dataSetId,\n  map_concat(map(\"doc_type\", meta.doc_type),\n            file.metadata)\
-    \         as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata` meta,\n\
-    \  _cdf.files                             file,\n  root_id\nWHERE \n  file.name\
-    \ = meta.name\n"
+    \  array(root_id.id)                as assetIds,\n  dataset_id('ds_files_oid')\
+    \  as dataSetId,\n  map_concat(map(\"doc_type\", meta.doc_type),\n           \
+    \ file.metadata)         as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
+    \ meta,\n  _cdf.files                             file,\n  root_id\nWHERE \n \
+    \ file.name = meta.name\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project

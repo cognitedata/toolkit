@@ -223,3 +223,21 @@ suffix_text: {{ my_suffix_text }}
             "prefix_text": "prefix:",
             "suffix_text": ":suffix",
         }
+
+    def test_replace_not_preserve_type(self):
+        source_yaml = """dataset_id('{{dataset_external_id}}')"""
+        variables = {
+            "dataset_external_id": "ds_external_id",
+        }
+        state = _BuildState.create(
+            BuildConfigYAML(
+                Environment("dev", "my_project", "dev", ["none"]),
+                Path("dummy"),
+                {"modules": {"my_module": variables}},
+            )
+        )
+        state.update_local_variables(Path("modules") / "my_module")
+
+        result = state.replace_variables(source_yaml, file_suffix=".sql")
+
+        assert result == "dataset_id('ds_external_id')"

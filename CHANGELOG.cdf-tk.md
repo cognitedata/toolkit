@@ -27,6 +27,8 @@ Changes are grouped as follows:
   This is now fixed.
 - The `transformations/notifications` endpoint was giving `500` errors for requests to non-exising transformations.
   This is now handled by the toolkit and will not raise an error.
+- When doing variable replacement in a `sql` such as `dataset_id('{{dataset_external_id}}')`, the toolkit would
+  remove the quotes. This is now fixed.
 
 ## [0.2.6] - 2024-06-26
 
