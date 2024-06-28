@@ -407,8 +407,8 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: asset:oid:workmate:apm_simple:load_asset2children
-  query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference(apm_simple,\
-    \ `sourceExternalId`) as startNode,\n  node_reference(apm_simple, `targetExternalId`)\
+  query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference('apm_simple',\
+    \ `sourceExternalId`) as startNode,\n  node_reference('apm_simple', `targetExternalId`)\
     \ as endNode\nfrom\n  `asset_oid_workmate`.`asset2children`;\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
@@ -441,7 +441,7 @@ Transformation:
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`categoryId`\
     \ as INT) as categoryId,\n  cast(`isCriticalLine` as BOOLEAN) as isCriticalLine,\n\
     \  cast(`sourceDb` as STRING) as sourceDb,\n  cast(`updatedDate` as TIMESTAMP)\
-    \ as updatedDate,\n  cast(`createdDate` as TIMESTAMP) as createdDate,\n  node_reference(apm_simple,\
+    \ as updatedDate,\n  cast(`createdDate` as TIMESTAMP) as createdDate,\n  node_reference('apm_simple',\
     \ `parentExternalId`) as parent,\n  cast(`description` as STRING) as description,\n\
     \  cast(`tag` as STRING) as tag,\n  cast(`areaId` as INT) as areaId,\n  cast(`isActive`\
     \ as BOOLEAN) as isActive\nfrom\n  `asset_oid_workmate`.`assets`;\n"
@@ -504,7 +504,7 @@ Transformation:
   isPublic: true
   name: workorder:oid:workmate:apm_simple:load_workitems
   query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`description`\
-    \ as STRING) as description,\n  node_reference(apm_simple, `workOrder`) as workOrder,\n\
+    \ as STRING) as description,\n  node_reference('apm_simple', `workOrder`) as workOrder,\n\
     \  cast(`toBeDone` as BOOLEAN) as toBeDone,\n  cast(`itemInfo` as STRING) as itemInfo,\n\
     \  cast(`itemName` as STRING) as itemName,\n  cast(`title` as STRING) as title,\n\
     \  cast(`criticality` as STRING) as criticality,\n  cast(`method` as STRING) as\
@@ -544,8 +544,8 @@ Transformation:
     \ `externalId`:STRING>\"}, {\"from\":\"targetExternalId\",\"to\":\"endNode\",\"\
     asType\":\"STRUCT<`space`:STRING, `externalId`:STRING>\"}], \"sourceLevel1\":\"\
     tutorial_apm\",\"sourceLevel2\":\"workitem2assets\"} */ select\n  cast(`externalId`\
-    \ as STRING) as externalId,\n  node_reference(apm_simple, `sourceExternalId`)\
-    \ as startNode,\n  node_reference(apm_simple, `targetExternalId`) as endNode\n\
+    \ as STRING) as externalId,\n  node_reference('apm_simple', `sourceExternalId`)\
+    \ as startNode,\n  node_reference('apm_simple', `targetExternalId`) as endNode\n\
     from\n  `workorder_oid_workmate`.`workitem2assets`;\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
@@ -582,8 +582,8 @@ Transformation:
     \ `externalId`:STRING>\"}, {\"from\":\"targetExternalId\",\"to\":\"endNode\",\"\
     asType\":\"STRUCT<`space`:STRING, `externalId`:STRING>\"}], \"sourceLevel1\":\"\
     tutorial_apm\",\"sourceLevel2\":\"workorder2items\"} */ select\n  cast(`externalId`\
-    \ as STRING) as externalId,\n  node_reference(apm_simple, `sourceExternalId`)\
-    \ as startNode,\n  node_reference(apm_simple, `targetExternalId`) as endNode\n\
+    \ as STRING) as externalId,\n  node_reference('apm_simple', `sourceExternalId`)\
+    \ as startNode,\n  node_reference('apm_simple', `targetExternalId`) as endNode\n\
     from\n  `workorder_oid_workmate`.`workorder2items`;\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
@@ -655,8 +655,8 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: workorder:oid:workmate:apm_simple:load_workorders2assets
-  query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference(apm_simple,\
-    \ `sourceExternalId`) as startNode,\n  node_reference(apm_simple, `targetExternalId`)\
+  query: "select\n  cast(`externalId` as STRING) as externalId,\n  node_reference('apm_simple',\
+    \ `sourceExternalId`) as startNode,\n  node_reference('apm_simple', `targetExternalId`)\
     \ as endNode\nfrom\n  `workorder_oid_workmate`.`workorder2assets`;\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
