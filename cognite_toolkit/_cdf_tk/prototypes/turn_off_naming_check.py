@@ -9,7 +9,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import WarningList, YAMLFileWarning
 
 def do() -> None:
     def no_op(cls: type, identifier: Hashable, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
-        """This should be overwritten in subclasses to check the semantics of the identifier."""
         return WarningList[YAMLFileWarning]()
 
     for loader in RESOURCE_LOADER_LIST:
