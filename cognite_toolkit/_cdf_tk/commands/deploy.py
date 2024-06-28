@@ -4,6 +4,7 @@ import re
 import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
+from typing import Any
 
 from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
@@ -46,6 +47,7 @@ from cognite_toolkit._cdf_tk.tk_warnings.other import (
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     read_yaml_file,
+    to_diff,
 )
 
 from ._utils import _print_ids_or_length, _remove_duplicates
@@ -100,6 +102,7 @@ class DeployCommand(ToolkitCommand):
             for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
             if folder_name in include and (build_dir / folder_name).is_dir()
             for loader_cls in loader_classes
+            if loader_cls.any_supported_files(build_dir / folder_name)
         }
         results = DeployResults([], "deploy", dry_run=dry_run)
 
@@ -230,7 +233,7 @@ class DeployCommand(ToolkitCommand):
             self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
-        to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(loaded_resources, loader)
+        to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(loaded_resources, loader, verbose)
 
         if dry_run:
             if (
@@ -286,6 +289,7 @@ class DeployCommand(ToolkitCommand):
         self,
         resources: T_CogniteResourceList,
         loader: ResourceLoader,
+        verbose: bool = False,
     ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList]:
         """Returns a triple of lists of resources that should be created, updated, and are unchanged."""
         resource_ids = loader.get_ids(resources)
@@ -308,20 +312,33 @@ class DeployCommand(ToolkitCommand):
             cdf_resource_by_id = {loader.get_id(resource): resource for resource in cdf_resources}
 
         for item in resources:
-            cdf_resource = cdf_resource_by_id.get(loader.get_id(item))
-            try:
-                are_equal = cdf_resource and loader.are_equal(item, cdf_resource)
-            except CogniteAPIError as e:
-                self.warn(
-                    MediumSeverityWarning(
-                        f"Failed to compare {loader.display_name} {loader.get_id(item)} for equality. Proceeding assuming not data in CDF. Error {e}."
+            identifier = loader.get_id(item)
+            cdf_resource = cdf_resource_by_id.get(identifier)
+            local_dumped: dict[str, Any] = {}
+            cdf_dumped: dict[str, Any] = {}
+            are_equal = False
+            if cdf_resource:
+                try:
+                    are_equal, local_dumped, cdf_dumped = loader.are_equal(item, cdf_resource, return_dumped=True)
+                except CogniteAPIError as e:
+                    self.warn(
+                        MediumSeverityWarning(
+                            f"Failed to compare {loader.display_name} {loader.get_id(item)} for equality. Proceeding assuming not data in CDF. Error {e}."
+                        )
                     )
-                )
-                print(Panel(traceback.format_exc()))
-                are_equal = False
+                    print(Panel(traceback.format_exc()))
+
             if are_equal:
                 unchanged.append(item)
             elif cdf_resource:
+                if verbose:
+                    print(
+                        Panel(
+                            "\n".join(to_diff(cdf_dumped, local_dumped)),
+                            title=f"{loader.display_name}: {identifier}",
+                            expand=False,
+                        )
+                    )
                 to_update.append(item)
             else:
                 to_create.append(item)

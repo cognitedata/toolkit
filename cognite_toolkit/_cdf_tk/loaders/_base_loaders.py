@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar, overload
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
@@ -96,6 +96,10 @@ class Loader(ABC):
             return sorted(file_paths)
         else:
             return []
+
+    @classmethod
+    def any_supported_files(cls, directory: Path) -> bool:
+        return any(cls.is_supported_file(file) for file in directory.glob("**/*"))
 
     @classmethod
     def is_supported_file(cls, file: Path) -> bool:
@@ -234,13 +238,42 @@ class ResourceLoader(
         """
         return resource.dump(), {}
 
-    def are_equal(self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource) -> bool:
+    @overload
+    def are_equal(
+        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: Literal[False] = False
+    ) -> bool: ...
+
+    @overload
+    def are_equal(
+        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: Literal[True]
+    ) -> tuple[bool, dict[str, Any], dict[str, Any]]: ...
+
+    def are_equal(
+        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        return self._are_equal(local, cdf_resource, return_dumped)
+
+    # Private to avoid having to overload in all subclasses
+    def _are_equal(
+        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         """This can be overwritten in subclasses that require special comparison logic.
 
         For example, TransformationWrite has OIDC credentials that will not be returned
         by the retrieve method, and thus needs special handling.
         """
-        return local == cdf_resource.as_write()
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
+    @staticmethod
+    def _return_are_equal(
+        local_dumped: dict[str, Any], cdf_dumped: dict[str, Any], return_dumped: bool
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        if return_dumped:
+            return local_dumped == cdf_dumped, local_dumped, cdf_dumped
+        else:
+            return local_dumped == cdf_dumped
 
     # Helper method
     @classmethod

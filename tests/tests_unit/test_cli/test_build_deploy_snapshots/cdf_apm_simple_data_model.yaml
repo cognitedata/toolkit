@@ -6,6 +6,7 @@ Container:
   properties:
     areaId:
       autoIncrement: false
+      immutable: false
       name: areaId
       nullable: true
       type:
@@ -13,6 +14,7 @@ Container:
         type: int32
     categoryId:
       autoIncrement: false
+      immutable: false
       name: categoryId
       nullable: true
       type:
@@ -20,6 +22,7 @@ Container:
         type: int32
     createdDate:
       autoIncrement: false
+      immutable: false
       name: createdDate
       nullable: true
       type:
@@ -27,6 +30,7 @@ Container:
         type: timestamp
     description:
       autoIncrement: false
+      immutable: false
       name: description
       nullable: true
       type:
@@ -35,6 +39,7 @@ Container:
         type: text
     documents:
       autoIncrement: false
+      immutable: false
       name: documents
       nullable: true
       type:
@@ -42,6 +47,7 @@ Container:
         type: file
     isActive:
       autoIncrement: false
+      immutable: false
       name: isActive
       nullable: true
       type:
@@ -49,6 +55,7 @@ Container:
         type: boolean
     isCriticalLine:
       autoIncrement: false
+      immutable: false
       name: isCriticalLine
       nullable: true
       type:
@@ -56,6 +63,7 @@ Container:
         type: boolean
     metrics:
       autoIncrement: false
+      immutable: false
       name: metrics
       nullable: true
       type:
@@ -63,6 +71,7 @@ Container:
         type: timeseries
     parent:
       autoIncrement: false
+      immutable: false
       name: parent
       nullable: true
       type:
@@ -70,6 +79,7 @@ Container:
         type: direct
     sourceDb:
       autoIncrement: false
+      immutable: false
       name: sourceDb
       nullable: true
       type:
@@ -78,6 +88,7 @@ Container:
         type: text
     tag:
       autoIncrement: false
+      immutable: false
       name: tag
       nullable: true
       type:
@@ -86,6 +97,7 @@ Container:
         type: text
     updatedDate:
       autoIncrement: false
+      immutable: false
       name: updatedDate
       nullable: true
       type:
@@ -100,6 +112,7 @@ Container:
   properties:
     criticality:
       autoIncrement: false
+      immutable: false
       name: criticality
       nullable: true
       type:
@@ -108,6 +121,7 @@ Container:
         type: text
     description:
       autoIncrement: false
+      immutable: false
       name: description
       nullable: true
       type:
@@ -116,6 +130,7 @@ Container:
         type: text
     isCompleted:
       autoIncrement: false
+      immutable: false
       name: isCompleted
       nullable: true
       type:
@@ -123,6 +138,7 @@ Container:
         type: boolean
     itemInfo:
       autoIncrement: false
+      immutable: false
       name: itemInfo
       nullable: true
       type:
@@ -131,6 +147,7 @@ Container:
         type: text
     itemName:
       autoIncrement: false
+      immutable: false
       name: itemName
       nullable: true
       type:
@@ -139,6 +156,7 @@ Container:
         type: text
     method:
       autoIncrement: false
+      immutable: false
       name: method
       nullable: true
       type:
@@ -147,6 +165,7 @@ Container:
         type: text
     title:
       autoIncrement: false
+      immutable: false
       name: title
       nullable: true
       type:
@@ -155,6 +174,7 @@ Container:
         type: text
     toBeDone:
       autoIncrement: false
+      immutable: false
       name: toBeDone
       nullable: true
       type:
@@ -162,6 +182,7 @@ Container:
         type: boolean
     workOrder:
       autoIncrement: false
+      immutable: false
       name: workOrder
       nullable: true
       type:
@@ -176,6 +197,7 @@ Container:
   properties:
     actualHours:
       autoIncrement: false
+      immutable: false
       name: actualHours
       nullable: true
       type:
@@ -183,6 +205,7 @@ Container:
         type: int32
     createdDate:
       autoIncrement: false
+      immutable: false
       name: createdDate
       nullable: true
       type:
@@ -190,6 +213,7 @@ Container:
         type: timestamp
     description:
       autoIncrement: false
+      immutable: false
       name: description
       nullable: true
       type:
@@ -198,6 +222,7 @@ Container:
         type: text
     dueDate:
       autoIncrement: false
+      immutable: false
       name: dueDate
       nullable: true
       type:
@@ -205,6 +230,7 @@ Container:
         type: timestamp
     durationHours:
       autoIncrement: false
+      immutable: false
       name: durationHours
       nullable: true
       type:
@@ -212,6 +238,7 @@ Container:
         type: int32
     endTime:
       autoIncrement: false
+      immutable: false
       name: endTime
       nullable: true
       type:
@@ -219,6 +246,7 @@ Container:
         type: timestamp
     isActive:
       autoIncrement: false
+      immutable: false
       name: isActive
       nullable: true
       type:
@@ -226,6 +254,7 @@ Container:
         type: boolean
     isCancelled:
       autoIncrement: false
+      immutable: false
       name: isCancelled
       nullable: true
       type:
@@ -233,6 +262,7 @@ Container:
         type: boolean
     isCompleted:
       autoIncrement: false
+      immutable: false
       name: isCompleted
       nullable: true
       type:
@@ -240,6 +270,7 @@ Container:
         type: boolean
     isSafetyCritical:
       autoIncrement: false
+      immutable: false
       name: isSafetyCritical
       nullable: true
       type:
@@ -247,6 +278,7 @@ Container:
         type: boolean
     percentageProgress:
       autoIncrement: false
+      immutable: false
       name: percentageProgress
       nullable: true
       type:
@@ -254,6 +286,7 @@ Container:
         type: int32
     plannedStart:
       autoIncrement: false
+      immutable: false
       name: plannedStart
       nullable: true
       type:
@@ -261,6 +294,7 @@ Container:
         type: timestamp
     priorityDescription:
       autoIncrement: false
+      immutable: false
       name: priorityDescription
       nullable: true
       type:
@@ -269,6 +303,7 @@ Container:
         type: text
     programNumber:
       autoIncrement: false
+      immutable: false
       name: programNumber
       nullable: true
       type:
@@ -277,6 +312,7 @@ Container:
         type: text
     startTime:
       autoIncrement: false
+      immutable: false
       name: startTime
       nullable: true
       type:
@@ -284,6 +320,7 @@ Container:
         type: timestamp
     status:
       autoIncrement: false
+      immutable: false
       name: status
       nullable: true
       type:
@@ -292,6 +329,7 @@ Container:
         type: text
     title:
       autoIncrement: false
+      immutable: false
       name: title
       nullable: true
       type:
@@ -300,6 +338,7 @@ Container:
         type: text
     workOrderNumber:
       autoIncrement: false
+      immutable: false
       name: workOrderNumber
       nullable: true
       type:
@@ -308,6 +347,7 @@ Container:
         type: text
     workPackageNumber:
       autoIncrement: false
+      immutable: false
       name: workPackageNumber
       nullable: true
       type:

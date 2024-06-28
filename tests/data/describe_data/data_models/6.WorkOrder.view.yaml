@@ -20,6 +20,7 @@ properties:
       type: int32
     nullable: true
     autoIncrement: false
+    immutable: false
   createdDate:
     container:
       externalId: WorkOrder
@@ -32,6 +33,7 @@ properties:
       type: timestamp
     nullable: true
     autoIncrement: false
+    immutable: false
   description:
     container:
       externalId: WorkOrder
@@ -45,6 +47,7 @@ properties:
       type: text
     nullable: true
     autoIncrement: false
+    immutable: false
   dueDate:
     container:
       externalId: WorkOrder
@@ -57,6 +60,7 @@ properties:
       type: timestamp
     nullable: true
     autoIncrement: false
+    immutable: false
   durationHours:
     container:
       externalId: WorkOrder
@@ -69,6 +73,7 @@ properties:
       type: int32
     nullable: true
     autoIncrement: false
+    immutable: false
   endTime:
     container:
       externalId: WorkOrder
@@ -81,6 +86,7 @@ properties:
       type: timestamp
     nullable: true
     autoIncrement: false
+    immutable: false
   isActive:
     container:
       externalId: WorkOrder
@@ -93,6 +99,7 @@ properties:
       type: boolean
     nullable: true
     autoIncrement: false
+    immutable: false
   isCancelled:
     container:
       externalId: WorkOrder
@@ -105,6 +112,7 @@ properties:
       type: boolean
     nullable: true
     autoIncrement: false
+    immutable: false
   isCompleted:
     container:
       externalId: WorkOrder
@@ -117,6 +125,7 @@ properties:
       type: boolean
     nullable: true
     autoIncrement: false
+    immutable: false
   isSafetyCritical:
     container:
       externalId: WorkOrder
@@ -129,6 +138,7 @@ properties:
       type: boolean
     nullable: true
     autoIncrement: false
+    immutable: false
   linkedAssets:
     direction: outwards
     connectionType: multiEdgeConnection
@@ -153,6 +163,7 @@ properties:
       type: int32
     nullable: true
     autoIncrement: false
+    immutable: false
   plannedStart:
     container:
       externalId: WorkOrder
@@ -165,6 +176,7 @@ properties:
       type: timestamp
     nullable: true
     autoIncrement: false
+    immutable: false
   priorityDescription:
     container:
       externalId: WorkOrder
@@ -178,6 +190,7 @@ properties:
       list: false
       type: text
     autoIncrement: false
+    immutable: false
   programNumber:
     container:
       externalId: WorkOrder
@@ -191,6 +204,7 @@ properties:
       list: false
       type: text
     autoIncrement: false
+    immutable: false
   startTime:
     container:
       externalId: WorkOrder
@@ -203,6 +217,7 @@ properties:
       type: timestamp
     nullable: true
     autoIncrement: false
+    immutable: false
   status:
     container:
       externalId: WorkOrder
@@ -216,6 +231,7 @@ properties:
       list: false
       type: text
     autoIncrement: false
+    immutable: false
   title:
     container:
       externalId: WorkOrder
@@ -229,6 +245,7 @@ properties:
       list: false
       type: text
     autoIncrement: false
+    immutable: false
   workItems:
     connectionType: multiEdgeConnection
     direction: outwards
@@ -253,6 +270,7 @@ properties:
       type: int32
     nullable: true
     autoIncrement: false
+    immutable: false
   workPackageNumber:
     container:
       externalId: WorkOrder
@@ -265,3 +283,4 @@ properties:
       type: int32
     nullable: true
     autoIncrement: false
+    immutable: false

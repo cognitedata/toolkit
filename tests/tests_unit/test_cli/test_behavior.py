@@ -169,6 +169,7 @@ def test_dump_datamodel(
                 type=dm.Float64(),
                 nullable=True,
                 auto_increment=False,
+                immutable=False,
             )
         },
         last_updated_time=0,
@@ -193,6 +194,7 @@ def test_dump_datamodel(
                 type=dm.Text(),
                 nullable=True,
                 auto_increment=False,
+                immutable=False,
             ),
             "prop2": dm.MappedProperty(
                 container=container.as_id(),
@@ -200,6 +202,7 @@ def test_dump_datamodel(
                 type=dm.Float64(),
                 nullable=True,
                 auto_increment=False,
+                immutable=False,
             ),
         },
         last_updated_time=0,
@@ -253,7 +256,7 @@ def test_build_custom_project(
     build_tmp_path: Path,
     typer_context: typer.Context,
 ) -> None:
-    expected_resources = {"timeseries", "data_models", "data_sets"}
+    expected_resources = {"timeseries", "data_models", "data_sets", "raw", "extraction_pipelines", "transformations"}
     build(
         typer_context,
         source_dir=str(CUSTOM_PROJECT),

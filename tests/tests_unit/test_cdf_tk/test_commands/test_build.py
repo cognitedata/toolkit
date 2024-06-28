@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 import yaml
+from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
@@ -65,6 +66,19 @@ class TestBuildCommand:
             )
             in cmd.warning_list
         )
+
+    def test_custom_project_no_warnings(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        cmd = BuildCommand(print_warning=False)
+        monkeypatch.setenv("CDF_PROJECT", "some-project")
+        cmd.execute(
+            verbose=False,
+            build_dir=tmp_path,
+            source_path=data.CUSTOM_PROJECT,
+            build_env_name="dev",
+            no_clean=False,
+        )
+
+        assert not cmd.warning_list, f"No warnings should be raised. Got warnings: {cmd.warning_list}"
 
 
 def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:

@@ -15,6 +15,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 
 if FeatureFlag.is_enabled(Flags.ASSETS):
     from cognite_toolkit._cdf_tk.prototypes import setup_asset_loader
@@ -269,10 +270,20 @@ def build(
             "--no-clean", "-c", help="Whether not to delete the build directory before building the configurations"
         ),
     ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Turn on to get more verbose output when running the command",
+        ),
+    ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
     cmd = BuildCommand(user_command=_get_user_command())
-    cmd.execute(ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
+    if ctx.obj.verbose:
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk build --verbose").get_message())
+    cmd.execute(verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
 
 
 @_app.command("deploy")
@@ -332,11 +343,21 @@ def deploy(
             help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
         ),
     ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Turn on to get more verbose output when running the command",
+        ),
+    ] = False,
 ) -> None:
     cmd = DeployCommand(print_warning=True, user_command=_get_user_command())
     include = _process_include(include, interactive)
     ToolGlobals = CDFToolConfig.from_context(ctx)
-    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, ctx.obj.verbose)
+    if ctx.obj.verbose:
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk deploy --verbose").get_message())
+    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, verbose or ctx.obj.verbose)
 
 
 @_app.command("clean")
@@ -381,13 +402,23 @@ def clean(
             help=f"Specify which resource types to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
         ),
     ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Turn on to get more verbose output when running the command",
+        ),
+    ] = False,
 ) -> None:
     """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
     # Override cluster and project from the options/env variables
     cmd = CleanCommand(print_warning=True, user_command=_get_user_command())
     include = _process_include(include, interactive)
     ToolGlobals = CDFToolConfig.from_context(ctx)
-    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, ctx.obj.verbose)
+    if ctx.obj.verbose:
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk clean --verbose").get_message())
+    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, verbose or ctx.obj.verbose)
 
 
 @auth_app.callback(invoke_without_command=True)
@@ -445,6 +476,14 @@ def auth_verify(
             "Set to the source id of the new group.",
         ),
     ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Turn on to get more verbose output when running the command",
+        ),
+    ] = False,
 ) -> None:
     """When you have the necessary information about your identity provider configuration,
     you can use this command to configure the tool and verify that the token has the correct access rights to the project.
@@ -465,7 +504,9 @@ def auth_verify(
         # Remove the Error message from failing to load the config
         # This is verified in check_auth
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project, skip_initialization=True)
-    cmd.execute(ToolGlobals, dry_run, interactive, group_file, update_group, create_group, ctx.obj.verbose)
+    if ctx.obj.verbose:
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk auth verify --verbose").get_message())
+    cmd.execute(ToolGlobals, dry_run, interactive, group_file, update_group, create_group, verbose or ctx.obj.verbose)
 
 
 def main_init(
@@ -682,9 +723,19 @@ def run_function_cmd(
             help="Build environment to build for",
         ),
     ] = "dev",
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Turn on to get more verbose output when running the command",
+        ),
+    ] = False,
 ) -> None:
     """This command will run the specified function using a one-time session."""
     cmd = RunFunctionCommand(user_command=_get_user_command())
+    if ctx.obj.verbose:
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk run function --verbose").get_message())
     cmd.execute(
         CDFToolConfig.from_context(ctx),
         external_id,
@@ -696,7 +747,7 @@ def run_function_cmd(
         source_dir,
         schedule,
         build_env_name,
-        ctx.obj.verbose,
+        verbose or ctx.obj.verbose,
     )
 
 
@@ -742,10 +793,26 @@ def pull_transformation_cmd(
             help="Whether to do a dry-run, do dry-run if present.",
         ),
     ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Turn on to get more verbose output when running the command",
+        ),
+    ] = False,
 ) -> None:
     """This command will pull the specified transformation and update its YAML file in the module folder"""
+    if ctx.obj.verbose:
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull transformation --verbose").get_message())
     PullCommand(user_command=_get_user_command()).execute(
-        source_dir, external_id, env, dry_run, ctx.obj.verbose, CDFToolConfig.from_context(ctx), TransformationLoader
+        source_dir,
+        external_id,
+        env,
+        dry_run,
+        verbose or ctx.obj.verbose,
+        CDFToolConfig.from_context(ctx),
+        TransformationLoader,
     )
 
 
@@ -793,14 +860,25 @@ def pull_node_cmd(
             help="Whether to do a dry-run, do dry-run if present.",
         ),
     ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Turn on to get more verbose output when running the command",
+        ),
+    ] = False,
 ) -> None:
     """This command will pull the specified node and update its YAML file in the module folder."""
+    if ctx.obj.verbose:
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull node --verbose").get_message())
+
     PullCommand(user_command=_get_user_command()).execute(
         source_dir,
         NodeId(space, external_id),
         env,
         dry_run,
-        ctx.obj.verbose,
+        verbose or ctx.obj.verbose,
         CDFToolConfig.from_context(ctx),
         NodeLoader,
     )
@@ -858,15 +936,25 @@ def dump_datamodel_cmd(
             allow_dash=True,
         ),
     ] = "tmp",
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Turn on to get more verbose output when running the command",
+        ),
+    ] = False,
 ) -> None:
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
     cmd = DumpCommand(user_command=_get_user_command())
+    if ctx.obj.verbose:
+        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump datamodel --verbose").get_message())
     cmd.execute(
         CDFToolConfig.from_context(ctx),
         DataModelId(space, external_id, version),
         Path(output_dir),
         clean,
-        ctx.obj.verbose,
+        verbose or ctx.obj.verbose,
     )
 
 
@@ -919,9 +1007,19 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
                 help="Delete the output directory before pulling the assets.",
             ),
         ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """This command will dump the selected assets as yaml to the folder specified, defaults to /tmp."""
         cmd = DumpAssetsCommand(user_command=_get_user_command())
+        if ctx.obj.verbose:
+            print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump asset --verbose").get_message())
         cmd.execute(
             CDFToolConfig.from_context(ctx),
             hierarchy,
@@ -930,7 +1028,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
             output_dir,
             clean_,
             format_,  # type: ignore [arg-type]
-            ctx.obj.verbose,
+            verbose or ctx.obj.verbose,
         )
 
 

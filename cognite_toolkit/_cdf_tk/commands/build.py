@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime
 import difflib
 import io
@@ -43,14 +44,20 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
+    ContainerLoader,
+    DataModelLoader,
     DatapointsLoader,
     FileLoader,
     FileMetadataLoader,
     FunctionLoader,
     GroupLoader,
     Loader,
+    NodeLoader,
     RawDatabaseLoader,
+    RawTableLoader,
     ResourceLoader,
+    SpaceLoader,
+    ViewLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
@@ -281,11 +288,26 @@ class BuildCommand(ToolkitCommand):
         existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
         missing_dependencies = set(state.dependencies_by_required.keys()) - existing
         for resource_cls, id_ in missing_dependencies:
+            if self._is_system_resource(resource_cls, id_):
+                continue
             required_by = {
                 (required, path.relative_to(project_config_dir))
                 for required, path in state.dependencies_by_required[(resource_cls, id_)]
             }
             self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
+
+    @staticmethod
+    def _is_system_resource(resource_cls: type[ResourceLoader], id_: Hashable) -> bool:
+        """System resources are deployed to all CDF project and should not be checked for dependencies."""
+        if resource_cls is SpaceLoader and isinstance(id_, str) and id_.startswith("cdf_"):
+            return True
+        elif (
+            resource_cls in {ContainerLoader, ViewLoader, DataModelLoader, NodeLoader}
+            and hasattr(id_, "space")
+            and id_.space.startswith("cdf_")
+        ):
+            return True
+        return False
 
     @staticmethod
     def _get_selected_variables(
@@ -519,9 +541,7 @@ class BuildCommand(ToolkitCommand):
             )
 
         loader = self._get_loader(resource_folder, destination, source_path)
-        if loader is None:
-            return warning_list
-        if not issubclass(loader, ResourceLoader):
+        if loader is None or not issubclass(loader, ResourceLoader):
             return warning_list
 
         api_spec = self._get_api_spec(loader, destination)
@@ -544,6 +564,13 @@ class BuildCommand(ToolkitCommand):
                         warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
                 else:
                     state.ids_by_resource_type[loader][identifier] = source_path
+
+                if loader is RawDatabaseLoader:
+                    # We might also have Raw Tables that is in the same file.
+                    with contextlib.suppress(KeyError):
+                        table_id = RawTableLoader.get_id(item)
+                        if table_id not in state.ids_by_resource_type[RawTableLoader]:
+                            state.ids_by_resource_type[RawTableLoader][table_id] = source_path
 
                 warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
                 warning_list.extend(warnings)

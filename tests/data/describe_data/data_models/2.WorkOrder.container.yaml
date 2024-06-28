@@ -6,6 +6,7 @@ createdTime: 1704980779000
 properties:
   actualHours:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: actualHours
@@ -15,6 +16,7 @@ properties:
       type: int32
   createdDate:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: createdDate
@@ -24,6 +26,7 @@ properties:
       type: timestamp
   description:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: description
@@ -34,6 +37,7 @@ properties:
       type: text
   dueDate:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: dueDate
@@ -43,6 +47,7 @@ properties:
       type: timestamp
   durationHours:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: durationHours
@@ -52,6 +57,7 @@ properties:
       type: int32
   endTime:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: endTime
@@ -61,6 +67,7 @@ properties:
       type: timestamp
   isActive:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: isActive
@@ -70,6 +77,7 @@ properties:
       type: boolean
   isCancelled:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: isCancelled
@@ -79,6 +87,7 @@ properties:
       type: boolean
   isCompleted:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: isCompleted
@@ -88,6 +97,7 @@ properties:
       type: boolean
   isSafetyCritical:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: isSafetyCritical
@@ -97,6 +107,7 @@ properties:
       type: boolean
   percentageProgress:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: percentageProgress
@@ -106,6 +117,7 @@ properties:
       type: int32
   plannedStart:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: plannedStart
@@ -115,6 +127,7 @@ properties:
       type: timestamp
   priorityDescription:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: priorityDescription
@@ -125,6 +138,7 @@ properties:
       type: text
   programNumber:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: programNumber
@@ -135,6 +149,7 @@ properties:
       type: text
   startTime:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: startTime
@@ -144,6 +159,7 @@ properties:
       type: timestamp
   status:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: status
@@ -154,6 +170,7 @@ properties:
       type: text
   title:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: title
@@ -164,6 +181,7 @@ properties:
       type: text
   workOrderNumber:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: workOrderNumber
@@ -174,6 +192,7 @@ properties:
       type: text
   workPackageNumber:
     autoIncrement: false
+    immutable: false
     defaultValue: null
     description: null
     name: workPackageNumber

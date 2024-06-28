@@ -8,10 +8,11 @@ from collections import UserDict, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 import yaml
 from rich import print
+from typing_extensions import TypeAlias
 
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
@@ -37,18 +38,22 @@ from cognite_toolkit._version import __version__
 
 from ._base import ConfigCore, _load_version_variable
 
+EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
+
+_AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
+
 
 @dataclass
 class Environment:
     name: str
     project: str
-    build_type: Literal["dev", "staging", "prod"]
+    build_type: EnvType
     selected: list[str | tuple[str, ...]]
 
     def __post_init__(self) -> None:
-        if self.build_type not in {"dev", "staging", "prod"}:
+        if self.build_type not in _AVAILABLE_ENV_TYPES:
             raise ToolkitEnvError(
-                f"Invalid type {self.build_type} in {self.name!s}. Must be one of 'dev', 'staging', 'prod'."
+                f"Invalid type {self.build_type} in {self.name!s}. " f"Must be one of {_AVAILABLE_ENV_TYPES}"
             )
 
     @classmethod
@@ -60,9 +65,10 @@ class Environment:
                 f"Environment section is missing one or more required fields: {missing} in {BuildConfigYAML._file_name(build_name)!s}"
             )
         build_type = data["type"]
-        if build_type not in {"dev", "staging", "prod"}:
+        if build_type not in _AVAILABLE_ENV_TYPES:
             raise ToolkitEnvError(
-                f"Invalid type {build_type} in {BuildConfigYAML._file_name(build_name)!s}. Must be one of 'dev', 'staging', 'prod'."
+                f"Invalid type {build_type} in {BuildConfigYAML._file_name(build_name)!s}. "
+                f"Must be one of {_AVAILABLE_ENV_TYPES}"
             )
 
         return Environment(

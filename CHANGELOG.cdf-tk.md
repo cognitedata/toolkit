@@ -15,6 +15,49 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Transformation notifications for transformations with a `:` in the external id would raise an `ValueError`.
+  This is now fixed.
+- When running `cdf-tk deploy`, you would get warnings about unrelated resources that were not part of the deployment.
+  This is now fixed.
+- The `transformations/notifications` endpoint was giving `500` errors for requests to non-exising transformations.
+  This is now handled by the toolkit and will not raise an error.
+
+## [0.2.6] - 2024-06-26
+
+### Improved
+
+- The `--verbose` flag is now moved to the end of the command. For example, instead of `cdf-tk --verbose build`,
+  you should now write `cdf-tk build --verbose`. The old syntax is still supported but will raise a deprecation warning.
+- When running `cdf-tk deploy --verbose` you will now get a detailed output for each resource that has changed
+  (or will change if you use --dry-run).
+- Allow values `test` and `qa` as `type` in the `config.[env].yaml` file.
+
+### Fixed
+
+- When running `cdf-tk build` with `Views` with custom filters, the Toolkit would likely give a `UnusedParameterWarning`.
+  This is now fixed by not validating the details of `View.filters`. The motivation is that `View.filters` is a complex
+  structure, and it is likely that you will get a false warning. The users that starts to use `View.filters` are
+  expected to know what they are doing.
+- If you run `cdf-tk deploy` and you had a child view that overrides a property from a parent view, the Toolkit would
+  log it as changed even though it was not. This is now fixed.
+
+## [0.2.5] - 2024-06-25
+
+### Fixed
+
+- When running `cdf-tk build`, with `RAW` tables in the selected modules, the Toolkit would always warn that the
+  tables were missing, even though they were present. This is now fixed.
+- When running `cdf-tk init --upgrade <YOUR PROJECT>` form version `0.1.4` the user would get a
+  `ERROR (ToolkitMigrationError): Failed to find migration from version 0.1.4.`. This is now fixed.
+- When running `cdf-tk build`, the Toolkit would give you warning when referencing a system `Space`, `View`, `Container`
+  or `DataModel`. This is now fixed.
+- [Feature Preview] When running `cdf-tk import transformation-cli` on a manifest with a query file that
+  is separated from the manifest, the toolkit would raise a `FileNotFoundError`. This is now fixed.
+
 ## [0.2.4] - 2024-06-24
 
 ### Added

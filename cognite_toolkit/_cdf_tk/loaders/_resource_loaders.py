@@ -818,12 +818,17 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         else:
             return FunctionWriteList.load(functions)
 
-    def are_equal(self, local: FunctionWrite, cdf_resource: Function) -> bool:
+    def _are_equal(
+        self, local: FunctionWrite, cdf_resource: Function, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         if self.resource_build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
         # If the function failed, we want to always trigger a redeploy.
         if cdf_resource.status == "Failed":
-            return False
+            if return_dumped:
+                return False, local.dump(), {}
+            else:
+                return False
         function_rootdir = Path(self.resource_build_path / f"{local.external_id}")
         if local.metadata is None:
             local.metadata = {}
@@ -846,7 +851,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         for attribute in attrs:
             if getattr(local, attribute) is None:
                 setattr(local, attribute, getattr(cdf_resource, attribute))
-        return local.dump() == cdf_resource.as_write().dump()
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
         status = self.client.functions.status()
@@ -1022,10 +1029,13 @@ class FunctionScheduleLoader(
             self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
         return FunctionScheduleWriteList.load(schedules)
 
-    def are_equal(self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule) -> bool:
-        remote_dump = cdf_resource.as_write().dump()
-        del remote_dump["functionId"]
-        return remote_dump == local.dump()
+    def _are_equal(
+        self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        cdf_dumped = cdf_resource.as_write().dump()
+        del cdf_dumped["functionId"]
+        local_dumped = local.dump()
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def _resolve_functions_ext_id(self, items: FunctionScheduleWriteList) -> FunctionScheduleWriteList:
         functions = FunctionLoader(self.client, None).retrieve(list(set([item.function_external_id for item in items])))
@@ -1596,7 +1606,9 @@ class DatapointSubscriptionLoader(
     def iterate(self) -> Iterable[DatapointSubscription]:
         return iter(self.client.time_series.subscriptions)
 
-    def are_equal(self, local: DataPointSubscriptionWrite, cdf_resource: DatapointSubscription) -> bool:
+    def _are_equal(
+        self, local: DataPointSubscriptionWrite, cdf_resource: DatapointSubscription, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
         # Two subscription objects are equal if they have the same timeSeriesIds
@@ -1605,7 +1617,7 @@ class DatapointSubscriptionLoader(
         if "timeSeriesIds" in cdf_dumped:
             local_dumped["timeSeriesIds"] = set(cdf_dumped["timeSeriesIds"])
 
-        return local_dumped == cdf_dumped
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
 
 @final
@@ -1684,12 +1696,15 @@ class TransformationLoader(
             warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "tr_"))
         return warning_list
 
-    def are_equal(self, local: TransformationWrite, cdf_resource: Transformation) -> bool:
+    def _are_equal(
+        self, local: TransformationWrite, cdf_resource: Transformation, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         local_dumped.pop("destinationOidcCredentials", None)
         local_dumped.pop("sourceOidcCredentials", None)
+        cdf_dumped = cdf_resource.as_write().dump()
 
-        return local_dumped == cdf_resource.as_write().dump()
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def _get_query_file(self, filepath: Path, transformation_external_id: str | None) -> Path | None:
         file_name = re.sub(r"\d+\.", "", filepath.stem)
@@ -1942,6 +1957,7 @@ class TransformationNotificationLoader(
     kind = "Notification"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
+    _split_character = "@@@"
 
     @property
     def display_name(self) -> str:
@@ -1953,9 +1969,9 @@ class TransformationNotificationLoader(
             if missing := tuple(k for k in {"transformationExternalId", "destination"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return f"{item['transformationExternalId']}:{item['destination']}"
+            return f"{item['transformationExternalId']}{cls._split_character}{item['destination']}"
 
-        return f"{item.transformation_external_id}:{item.destination}"
+        return f"{item.transformation_external_id}{cls._split_character}{item.destination}"
 
     @classmethod
     def get_required_capability(cls, items: TransformationNotificationWriteList) -> Capability | list[Capability]:
@@ -1964,23 +1980,27 @@ class TransformationNotificationLoader(
         return []
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
-        # Todo bug in SDK not accepting TransformationNotificationWrite
         return self.client.transformations.notifications.create(items)  # type: ignore[return-value]
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:
         retrieved = TransformationNotificationList([])
         for id_ in ids:
             try:
-                transformation_external_id, destination = id_.split(":")
+                transformation_external_id, destination = id_.rsplit(self._split_character, maxsplit=1)
             except ValueError:
                 # This should never happen, and is a bug in the toolkit if it occurs. Creating a nice error message
                 # here so that if it does happen, it will be easier to debug.
                 raise ValueError(
-                    f"Invalid externalId: {id_}. Must be in the format 'transformationExternalId:destination'"
+                    f"Invalid externalId: {id_}. Must be in the format 'transformationExternalId{self._split_character}destination'"
                 )
-            result = self.client.transformations.notifications.list(
-                transformation_external_id=transformation_external_id, destination=destination, limit=-1
-            )
+            try:
+                result = self.client.transformations.notifications.list(
+                    transformation_external_id=transformation_external_id, destination=destination, limit=-1
+                )
+            except CogniteAPIError:
+                # The notification endpoint gives a 500 if the notification does not exist.
+                # The issue has been reported to the service team.
+                continue
             retrieved.extend(result)
         return retrieved
 
@@ -1995,7 +2015,7 @@ class TransformationNotificationLoader(
         delete: list[int] = []
         for id_, item in item_by_id.items():
             existing_item = exiting_by_id.get(id_)
-            if existing_item and self.are_equal(item, existing_item):
+            if existing_item and self._are_equal(item, existing_item):
                 unchanged.append(self.get_id(existing_item))
             else:
                 create.append(item)
@@ -2006,8 +2026,8 @@ class TransformationNotificationLoader(
         updated_by_id: dict[str, TransformationNotification] = {}
         if create:
             # Bug in SDK
-            created = self.client.transformations.notifications.create(create)  # type: ignore[arg-type]
-            updated_by_id.update({self.get_id(item): item for item in created})  # type: ignore[union-attr]
+            created = self.client.transformations.notifications.create(create)
+            updated_by_id.update({self.get_id(item): item for item in created})
         if unchanged:
             updated_by_id.update({id_: exiting_by_id[id_] for id_ in unchanged})
         return TransformationNotificationList([updated_by_id[id_] for id_ in item_by_id.keys()])
@@ -2262,7 +2282,7 @@ class ExtractionPipelineConfigLoader(
                 latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
             except CogniteAPIError:
                 latest = None
-            if latest and self.are_equal(item, latest):
+            if latest and self._are_equal(item, latest):
                 updated.append(latest)
                 continue
             else:
@@ -2743,7 +2763,9 @@ class ContainerLoader(
     def _chunker(seq: Sequence, size: int) -> Iterable[Sequence]:
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
-    def are_equal(self, local: ContainerApply, remote: Container) -> bool:
+    def _are_equal(
+        self, local: ContainerApply, remote: Container, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump(camel_case=True)
         # 'usedFor' and 'cursorable' have default values set on the server side,
         # but not when loading the container using the SDK. Thus, we set the default
@@ -2754,7 +2776,9 @@ class ContainerLoader(
             if "cursorable" not in index:
                 index["cursorable"] = False
 
-        return local_dumped == remote.as_write().dump(camel_case=True)
+        cdf_dumped = remote.as_write().dump(camel_case=True)
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -2863,28 +2887,35 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     elif source.get("type") == "container" and _in_dict(("space", "externalId"), source):
                         yield ContainerLoader, ContainerId(source["space"], source["externalId"])
 
-    def are_equal(self, local: ViewApply, cdf_resource: View) -> bool:
+    def _are_equal(
+        self, local: ViewApply, cdf_resource: View, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
-        cdf_resource_dumped = cdf_resource.as_write().dump()
+        cdf_dumped = cdf_resource.as_write().dump()
         if not cdf_resource.implements:
-            return local_dumped == cdf_resource_dumped
+            return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
         if cdf_resource.properties:
             # All read version of views have all the properties of their parent views.
             # We need to remove these properties to compare with the local view.
+            # Unless the local view has overridden the properties.
             parents = retrieve_view_ancestors(self.client, cdf_resource.implements or [], self._interfaces_by_id)
+            cdf_properties = cdf_dumped["properties"]
             for parent in parents:
-                for prop_name in parent.properties.keys():
-                    cdf_resource_dumped["properties"].pop(prop_name, None)
+                for prop_name, parent_prop in (parent.as_write().properties or {}).items():
+                    is_overidden = prop_name in cdf_properties and cdf_properties[prop_name] != parent_prop.dump()
+                    if is_overidden:
+                        continue
+                    cdf_properties.pop(prop_name, None)
 
-        if not cdf_resource_dumped["properties"]:
+        if not cdf_dumped["properties"]:
             # All properties were removed, so we remove the properties key.
-            cdf_resource_dumped.pop("properties", None)
+            cdf_dumped.pop("properties", None)
         if "properties" in local_dumped and not local_dumped["properties"]:
             # In case the local properties are set to an empty dict.
             local_dumped.pop("properties", None)
 
-        return local_dumped == cdf_resource_dumped
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def create(self, items: Sequence[ViewApply]) -> ViewList:
         return self.client.data_modeling.views.apply(items)
@@ -2973,14 +3004,15 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                         _is_nullable=False,
                     ),
                     ParameterSpec(
-                        # In the SDK this is called "property"
+                        # In the SDK, this is called "property"
                         ("properties", ANY_STR, "through", "identifier"),
                         frozenset({"str"}),
                         is_required=True,
                         _is_nullable=False,
                     ),
+                    # Filters are complex, so we do not attempt to give any more specific spec.
                     ParameterSpec(
-                        ("filter", "hasData", ANY_INT, "type"),
+                        ("filter", ANYTHING),
                         frozenset({"str"}),
                         is_required=True,
                         _is_nullable=False,
@@ -3042,20 +3074,22 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             if _in_dict(("space", "externalId"), view):
                 yield ViewLoader, ViewId(view["space"], view["externalId"], view.get("version"))
 
-    def are_equal(self, local: DataModelApply, cdf_resource: DataModel) -> bool:
+    def _are_equal(
+        self, local: DataModelApply, cdf_resource: DataModel, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
-        cdf_resource_dumped = cdf_resource.as_write().dump()
+        cdf_dumped = cdf_resource.as_write().dump()
 
         # Data models that have the same views, but in different order, are considered equal.
         # We also account for whether views are given as IDs or View objects.
         local_dumped["views"] = sorted(
             (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in local.views or []
         )
-        cdf_resource_dumped["views"] = sorted(
+        cdf_dumped["views"] = sorted(
             (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in cdf_resource.views or []
         )
 
-        return local_dumped == cdf_resource_dumped
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def create(self, items: DataModelApplyList) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
@@ -3132,12 +3166,15 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
     def create_empty_of(cls, items: NodeApplyListWithCall) -> NodeApplyListWithCall:
         return NodeApplyListWithCall([], items.api_call)
 
-    def are_equal(self, local: NodeApply, cdf_resource: Node) -> bool:
+    def _are_equal(
+        self, local: NodeApply, cdf_resource: Node, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         """Comparison for nodes to include properties in the comparison
 
         Note this is an expensive operation as we to an extra retrieve to fetch the properties.
         Thus, the cdf-tk should not be used to upload nodes that are data only nodes used for configuration.
         """
+        local_dumped = local.dump()
         # Note reading from a container is not supported.
         sources = [
             source_prop_pair.source
@@ -3148,17 +3185,17 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
                 nodes=cdf_resource.as_id(), sources=sources
             ).nodes[0]
-        except CogniteAPIError:
+        except Exception:
             # View does not exist, so node does not exist.
-            return False
-        cdf_resource_dumped = cdf_resource_with_properties.as_write().dump()
-        local_dumped = local.dump()
+            return self._return_are_equal(local_dumped, {}, return_dumped)
+        cdf_dumped = cdf_resource_with_properties.as_write().dump()
+
         if "existingVersion" not in local_dumped:
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
-            local_dumped["existingVersion"] = cdf_resource_dumped.get("existingVersion", None)
+            local_dumped["existingVersion"] = cdf_dumped.get("existingVersion", None)
 
-        return local_dumped == cdf_resource_dumped
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyListWithCall:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
