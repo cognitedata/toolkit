@@ -121,7 +121,12 @@ def create_project_init(version: str) -> None:
             f"{PROJECT_INIT_DIR.name}/{project_init.name}",
             "--clean",
         ]
-        output = subprocess.run(cmd, capture_output=True, shell=True, env=modified_env_variables)
+        output = subprocess.run(
+            cmd,
+            capture_output=True,
+            shell=True if platform.system() == "Windows" else False,
+            env=modified_env_variables,
+        )
 
         if output.returncode != 0:
             print(output.stderr.decode())
