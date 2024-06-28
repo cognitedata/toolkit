@@ -166,6 +166,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    HighSeverityWarning,
     NamespacingConventionWarning,
     PrefixConventionWarning,
     WarningList,
@@ -2276,8 +2277,10 @@ class ExtractionPipelineConfigLoader(
                     resource["config"] = yaml.safe_dump(config_raw, indent=4)
                 except yaml.YAMLError as e:
                     print(
-                        f"[yellow]WARNING:[/] configuration for {resource.get('external_id', 'missing')} could not be parsed "
-                        f"as valid YAML, which is the recommended format. Error: {e}\n"
+                        HighSeverityWarning(
+                            f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
+                            f"as valid YAML, which is the recommended format. Error: {e}"
+                        ).get_message()
                     )
         if len(resources) == 1:
             return ExtractionPipelineConfigWrite.load(resources[0])
