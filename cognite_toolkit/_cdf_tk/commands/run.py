@@ -20,7 +20,7 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, SystemYAML
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, module_from_path
 
@@ -52,11 +52,10 @@ class RunFunctionCommand(ToolkitCommand):
         if source_dir is None:
             source_dir = "./"
         source_path = Path(source_dir)
-        system_yaml = Path(source_path / "cognite_modules/_system.yaml")
-        if not source_path.is_dir() or not system_yaml.is_file():
-            raise ToolkitValidationError(
-                f"{source_path} is not a valid project directory. Expecting to find in {system_yaml}."
-            )
+        if not source_path.exists():
+            raise ToolkitFileNotFoundError(f"Could not find source directory {source_path}")
+        _ = SystemYAML.load_from_directory(source_path, build_env_name)
+
         self.run_local_function(
             ToolGlobals=ToolGlobals,
             source_path=source_path,
