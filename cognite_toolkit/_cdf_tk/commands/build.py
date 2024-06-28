@@ -225,7 +225,7 @@ class BuildCommand(ToolkitCommand):
                     if not is_function_non_yaml:
                         content = source_path.read_text()
                         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
-                        content = state.replace_variables(content)
+                        content = state.replace_variables(content, source_path.suffix)
                         destination.write_text(content)
                         state.source_by_build_path[destination] = source_path
                         file_warnings = self.validate(content, source_path, destination, state, verbose)
@@ -678,16 +678,20 @@ class _BuildState:
     def create_file_name(self, filepath: Path) -> str:
         return _Helpers.create_file_name(filepath, self.number_by_resource_type)
 
-    def replace_variables(self, content: str) -> str:
+    def replace_variables(self, content: str, file_suffix: str = ".yaml") -> str:
         for name, variable in self.local_variables.items():
             replace = variable
-            if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
-                replace = f'"{replace}"'
-            elif replace is None:
-                replace = "null"
-
             _core_patter = rf"{{{{\s*{name}\s*}}}}"
-            content = re.sub(rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"', str(replace), content)
+            if file_suffix in {".yaml", ".yml", ".json"}:
+                # Preserve data types
+                if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
+                    replace = f'"{replace}"'
+                elif replace is None:
+                    replace = "null"
+                content = re.sub(rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"', str(replace), content)
+            else:
+                content = re.sub(_core_patter, str(replace), content)
+
         return content
 
     @classmethod
