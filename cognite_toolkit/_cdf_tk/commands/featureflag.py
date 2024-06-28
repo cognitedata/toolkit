@@ -19,7 +19,7 @@ class Flags(Enum):
     INTERNAL: ClassVar[dict[str, Any]] = {"visible": False, "description": "Does nothing"}
     IMPORT_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the import sub application"}
     ASSETS: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the support for loading assets"}
-    NAMING: ClassVar[dict[str, Any]] = {"visible": True, "description": "Disables the naming convention checks"}
+    NO_NAMING: ClassVar[dict[str, Any]] = {"visible": True, "description": "Disables the naming convention checks"}
 
 
 class FeatureFlag:

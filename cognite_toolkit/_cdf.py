@@ -22,6 +22,11 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
 
     setup_asset_loader.setup_asset_loader()
 
+if FeatureFlag.is_enabled(Flags.NO_NAMING):
+    from cognite_toolkit._cdf_tk.prototypes import turn_off_naming_check
+
+    turn_off_naming_check.do()
+
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
     BuildCommand,
