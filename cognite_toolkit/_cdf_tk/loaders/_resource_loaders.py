@@ -1999,7 +1999,7 @@ class TransformationNotificationLoader(
                 )
             except CogniteAPIError:
                 # The notification endpoint gives a 500 if the notification does not exist.
-                # So we do not trust the service at all.
+                # The issue has been reported to the service team.
                 continue
             retrieved.extend(result)
         return retrieved
