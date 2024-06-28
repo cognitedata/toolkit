@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- When running `cdf-tk run function --local`, the toolkit would raise an `ToolkitValidationError`. This is now fixed.
+
 ## [0.2.7] - 2024-06-28
 
 ### Fixed
