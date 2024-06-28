@@ -15,6 +15,17 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Transformation notifications for transformations with a `:` in the external id would raise an `ValueError`.
+  This is now fixed.
+- When running `cdf-tk deploy`, you would get warnings about unrelated resources that were not part of the deployment.
+  This is now fixed.
+- The `transformations/notifications` endpoint was giving `500` errors for requests to non-exising transformations.
+  This is now handled by the toolkit and will not raise an error.
+
 ## [0.2.6] - 2024-06-26
 
 ### Improved
