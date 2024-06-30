@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
-    CONFIGURATION_FILE_SUFFIXES,
     EXCL_INDEX_SUFFIX,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
@@ -265,11 +264,9 @@ class BuildCommand(ToolkitCommand):
             )
             state.printed_function_warning = True
 
-        has_config_files = any(
-            file.suffix.lower() in CONFIGURATION_FILE_SUFFIXES for file in directory_files.resource_files
-        )
+        has_config_files = any(FunctionLoader.is_supported_file(file) for file in directory_files.resource_files)
         config_files_misplaced = [
-            file for file in directory_files.resource_files if file.suffix.lower() in CONFIGURATION_FILE_SUFFIXES
+            file for file in directory_files.other_files if FunctionLoader.is_supported_file(file)
         ]
 
         if not has_config_files and config_files_misplaced:
@@ -480,11 +477,7 @@ class BuildCommand(ToolkitCommand):
         self, resource_files_build_folder: list[Path], function_directory_by_name: dict[str, Path], state: _BuildState
     ) -> dict[str, str | None]:
         function_path_by_external_id: dict[str, str | None] = {}
-        configuration_files = [
-            file
-            for file in resource_files_build_folder
-            if file.suffix.lower() in CONFIGURATION_FILE_SUFFIXES and FunctionLoader.is_supported_file(file)
-        ]
+        configuration_files = [file for file in resource_files_build_folder if FunctionLoader.is_supported_file(file)]
         for config_file in configuration_files:
             source_file = state.source_by_build_path[config_file]
 
@@ -548,7 +541,7 @@ class BuildCommand(ToolkitCommand):
     def _get_file_template_name(resource_files_build_folder: list[Path], module_dir: Path, verbose: bool) -> str | None:
         # We only support one file template definition per module.
         configuration_files = [
-            file for file in resource_files_build_folder if file.suffix.lower() in CONFIGURATION_FILE_SUFFIXES
+            file for file in resource_files_build_folder if FileMetadataLoader.is_supported_file(file)
         ]
         if len(configuration_files) != 1:
             # Multiple configuration files, then there is no template

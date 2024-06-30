@@ -35,9 +35,6 @@ SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 TEMPLATE_VARS_FILE_SUFFIXES = frozenset(
     [".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"]
 )
-# Configuration files contains the specification for a CDF Resource
-CONFIGURATION_FILE_SUFFIXES = frozenset({".yaml", ".yml"})
-
 ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
 
