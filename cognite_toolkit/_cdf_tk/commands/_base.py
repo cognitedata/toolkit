@@ -43,6 +43,9 @@ class ToolkitCommand:
     def _track_command(self, result: str | Exception) -> None:
         if self.skip_tracking or _COGNITE_TOOLKIT_MIXPANEL_TOKEN is None:
             return
+        if "pytest" not in sys.modules:
+            # Skip tracking if running in pytest
+            return
         mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
         cache = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
         if cache.exists():
