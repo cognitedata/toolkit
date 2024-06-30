@@ -17,6 +17,12 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- [Feature Preview] Option for enabling tracking of commands. This is to help the experience of using the toolkit
+  and to help the development team to understand how the toolkit is used. The tracking is anonymous and no personal
+  information is stored. The tracking can be enabled by running `cdf-tk features set tracking --enable`.
+
 ### Fixed
 
 - When running `cdf-tk run function --local`, the toolkit would raise an `ToolkitValidationError`. This is now fixed.
