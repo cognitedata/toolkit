@@ -424,7 +424,7 @@ def clean(
     ToolGlobals = CDFToolConfig.from_context(ctx)
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk clean --verbose").get_message())
-    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, verbose or ctx.obj.verbose)
+    cmd.run(lambda: cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, verbose or ctx.obj.verbose))
 
 
 @auth_app.callback(invoke_without_command=True)
@@ -512,7 +512,11 @@ def auth_verify(
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project, skip_initialization=True)
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk auth verify --verbose").get_message())
-    cmd.execute(ToolGlobals, dry_run, interactive, group_file, update_group, create_group, verbose or ctx.obj.verbose)
+    cmd.run(
+        lambda: cmd.execute(
+            ToolGlobals, dry_run, interactive, group_file, update_group, create_group, verbose or ctx.obj.verbose
+        )
+    )
 
 
 def main_init(
@@ -627,7 +631,7 @@ def describe_datamodel_cmd(
     """This command will describe the characteristics of a data model given the space
     name and datamodel name."""
     cmd = DescribeCommand()
-    cmd.execute(CDFToolConfig.from_context(ctx), space, data_model)
+    cmd.run(lambda: cmd.execute(CDFToolConfig.from_context(ctx), space, data_model))
 
 
 @run_app.callback(invoke_without_command=True)
@@ -652,7 +656,7 @@ def run_transformation_cmd(
 ) -> None:
     """This command will run the specified transformation using a one-time session."""
     cmd = RunTransformationCommand()
-    cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id)
+    cmd.run(lambda: cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id))
 
 
 @run_app.command("function")
@@ -742,18 +746,20 @@ def run_function_cmd(
     cmd = RunFunctionCommand()
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk run function --verbose").get_message())
-    cmd.execute(
-        CDFToolConfig.from_context(ctx),
-        external_id,
-        payload,
-        follow,
-        local,
-        rebuild_env,
-        no_cleanup,
-        source_dir,
-        schedule,
-        build_env_name,
-        verbose or ctx.obj.verbose,
+    cmd.run(
+        lambda: cmd.execute(
+            CDFToolConfig.from_context(ctx),
+            external_id,
+            payload,
+            follow,
+            local,
+            rebuild_env,
+            no_cleanup,
+            source_dir,
+            schedule,
+            build_env_name,
+            verbose or ctx.obj.verbose,
+        )
     )
 
 
@@ -811,14 +817,17 @@ def pull_transformation_cmd(
     """This command will pull the specified transformation and update its YAML file in the module folder"""
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull transformation --verbose").get_message())
-    PullCommand().execute(
-        source_dir,
-        external_id,
-        env,
-        dry_run,
-        verbose or ctx.obj.verbose,
-        CDFToolConfig.from_context(ctx),
-        TransformationLoader,
+    cmd = PullCommand()
+    cmd.run(
+        lambda: cmd.execute(
+            source_dir,
+            external_id,
+            env,
+            dry_run,
+            verbose or ctx.obj.verbose,
+            CDFToolConfig.from_context(ctx),
+            TransformationLoader,
+        )
     )
 
 
@@ -879,14 +888,17 @@ def pull_node_cmd(
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull node --verbose").get_message())
 
-    PullCommand().execute(
-        source_dir,
-        NodeId(space, external_id),
-        env,
-        dry_run,
-        verbose or ctx.obj.verbose,
-        CDFToolConfig.from_context(ctx),
-        NodeLoader,
+    cmd = PullCommand()
+    cmd.run(
+        lambda: cmd.execute(
+            source_dir,
+            NodeId(space, external_id),
+            env,
+            dry_run,
+            verbose or ctx.obj.verbose,
+            CDFToolConfig.from_context(ctx),
+            NodeLoader,
+        )
     )
 
 
@@ -955,12 +967,14 @@ def dump_datamodel_cmd(
     cmd = DumpCommand()
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump datamodel --verbose").get_message())
-    cmd.execute(
-        CDFToolConfig.from_context(ctx),
-        DataModelId(space, external_id, version),
-        Path(output_dir),
-        clean,
-        verbose or ctx.obj.verbose,
+    cmd.run(
+        lambda: cmd.execute(
+            CDFToolConfig.from_context(ctx),
+            DataModelId(space, external_id, version),
+            Path(output_dir),
+            clean,
+            verbose or ctx.obj.verbose,
+        )
     )
 
 
@@ -1026,15 +1040,17 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
         cmd = DumpAssetsCommand()
         if ctx.obj.verbose:
             print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump asset --verbose").get_message())
-        cmd.execute(
-            CDFToolConfig.from_context(ctx),
-            hierarchy,
-            data_set,
-            interactive,
-            output_dir,
-            clean_,
-            format_,  # type: ignore [arg-type]
-            verbose or ctx.obj.verbose,
+        cmd.run(
+            lambda: cmd.execute(
+                CDFToolConfig.from_context(ctx),
+                hierarchy,
+                data_set,
+                interactive,
+                output_dir,
+                clean_,
+                format_,  # type: ignore [arg-type]
+                verbose or ctx.obj.verbose,
+            )
         )
 
 
@@ -1059,7 +1075,7 @@ def feature_flag_list() -> None:
     """List all available feature flags."""
 
     cmd = FeatureFlagCommand()
-    cmd.list()
+    cmd.run(lambda: cmd.list())
 
 
 @feature_flag_app.command("set")
@@ -1093,7 +1109,7 @@ def feature_flag_set(
         raise ToolkitValidationError("Cannot enable and disable a flag at the same time.")
     if not enable and not disable:
         raise ToolkitValidationError("Must specify either --enable or --disable.")
-    cmd.set(flag, enable)
+    cmd.run(lambda: cmd.set(flag, enable))
 
 
 @feature_flag_app.command("reset")
@@ -1101,7 +1117,7 @@ def feature_flag_reset() -> None:
     """Reset all feature flags to their default values."""
 
     cmd = FeatureFlagCommand()
-    cmd.reset()
+    cmd.run(lambda: cmd.reset())
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:

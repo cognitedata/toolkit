@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import getpass
 import platform
 import sys
+import tempfile
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -43,7 +44,23 @@ class ToolkitCommand:
         if self.skip_tracking or _COGNITE_TOOLKIT_MIXPANEL_TOKEN is None:
             return
         mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
-        distinct_id = getpass.getuser().replace(" ", "_")
+        cache = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
+        if cache.exists():
+            distinct_id = cache.read_text()
+        else:
+            distinct_id = f"{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
+            cache.write_text(distinct_id)
+            mp.people_set(
+                distinct_id,
+                {
+                    "$os": platform.system(),
+                    "$os_version": platform.version(),
+                    "$os_release": platform.release(),
+                    "$python_version": platform.python_version(),
+                    "$distinct_id": distinct_id,
+                },
+            )
+
         optional_args: dict[str, str] = {}
         positional_args: list[str] = []
         last_key: str | None = None
