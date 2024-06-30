@@ -280,10 +280,12 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
-    cmd = BuildCommand(user_command=_get_user_command())
+    cmd = BuildCommand()
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk build --verbose").get_message())
-    cmd.execute(verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
+    cmd.run(
+        lambda: cmd.execute(verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
+    )
 
 
 @_app.command("deploy")
@@ -352,12 +354,16 @@ def deploy(
         ),
     ] = False,
 ) -> None:
-    cmd = DeployCommand(print_warning=True, user_command=_get_user_command())
+    cmd = DeployCommand(print_warning=True)
     include = _process_include(include, interactive)
     ToolGlobals = CDFToolConfig.from_context(ctx)
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk deploy --verbose").get_message())
-    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, verbose or ctx.obj.verbose)
+    cmd.run(
+        lambda: cmd.execute(
+            ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, verbose or ctx.obj.verbose
+        )
+    )
 
 
 @_app.command("clean")
@@ -413,7 +419,7 @@ def clean(
 ) -> None:
     """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
     # Override cluster and project from the options/env variables
-    cmd = CleanCommand(print_warning=True, user_command=_get_user_command())
+    cmd = CleanCommand(print_warning=True)
     include = _process_include(include, interactive)
     ToolGlobals = CDFToolConfig.from_context(ctx)
     if ctx.obj.verbose:
@@ -499,7 +505,7 @@ def auth_verify(
 
     The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
-    cmd = AuthCommand(user_command=_get_user_command())
+    cmd = AuthCommand()
     with contextlib.redirect_stdout(None):
         # Remove the Error message from failing to load the config
         # This is verified in check_auth
@@ -620,7 +626,7 @@ def describe_datamodel_cmd(
 ) -> None:
     """This command will describe the characteristics of a data model given the space
     name and datamodel name."""
-    cmd = DescribeCommand(user_command=_get_user_command())
+    cmd = DescribeCommand()
     cmd.execute(CDFToolConfig.from_context(ctx), space, data_model)
 
 
@@ -645,7 +651,7 @@ def run_transformation_cmd(
     ],
 ) -> None:
     """This command will run the specified transformation using a one-time session."""
-    cmd = RunTransformationCommand(user_command=_get_user_command())
+    cmd = RunTransformationCommand()
     cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id)
 
 
@@ -733,7 +739,7 @@ def run_function_cmd(
     ] = False,
 ) -> None:
     """This command will run the specified function using a one-time session."""
-    cmd = RunFunctionCommand(user_command=_get_user_command())
+    cmd = RunFunctionCommand()
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk run function --verbose").get_message())
     cmd.execute(
@@ -805,7 +811,7 @@ def pull_transformation_cmd(
     """This command will pull the specified transformation and update its YAML file in the module folder"""
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull transformation --verbose").get_message())
-    PullCommand(user_command=_get_user_command()).execute(
+    PullCommand().execute(
         source_dir,
         external_id,
         env,
@@ -873,7 +879,7 @@ def pull_node_cmd(
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull node --verbose").get_message())
 
-    PullCommand(user_command=_get_user_command()).execute(
+    PullCommand().execute(
         source_dir,
         NodeId(space, external_id),
         env,
@@ -946,7 +952,7 @@ def dump_datamodel_cmd(
     ] = False,
 ) -> None:
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-    cmd = DumpCommand(user_command=_get_user_command())
+    cmd = DumpCommand()
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump datamodel --verbose").get_message())
     cmd.execute(
@@ -1017,7 +1023,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
         ] = False,
     ) -> None:
         """This command will dump the selected assets as yaml to the folder specified, defaults to /tmp."""
-        cmd = DumpAssetsCommand(user_command=_get_user_command())
+        cmd = DumpAssetsCommand()
         if ctx.obj.verbose:
             print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump asset --verbose").get_message())
         cmd.execute(
@@ -1052,7 +1058,7 @@ def feature_flag_main(ctx: typer.Context) -> None:
 def feature_flag_list() -> None:
     """List all available feature flags."""
 
-    cmd = FeatureFlagCommand(user_command=_get_user_command())
+    cmd = FeatureFlagCommand()
     cmd.list()
 
 
@@ -1082,7 +1088,7 @@ def feature_flag_set(
 ) -> None:
     """Enable or disable a feature flag."""
 
-    cmd = FeatureFlagCommand(user_command=_get_user_command())
+    cmd = FeatureFlagCommand()
     if enable and disable:
         raise ToolkitValidationError("Cannot enable and disable a flag at the same time.")
     if not enable and not disable:
@@ -1094,7 +1100,7 @@ def feature_flag_set(
 def feature_flag_reset() -> None:
     """Reset all feature flags to their default values."""
 
-    cmd = FeatureFlagCommand(user_command=_get_user_command())
+    cmd = FeatureFlagCommand()
     cmd.reset()
 
 
@@ -1126,10 +1132,6 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
             return [mapping[int(answer)]]
         except ValueError:
             raise ToolkitInvalidSettingsError(f"Invalid selection: {answer}")
-
-
-def _get_user_command() -> str:
-    return f"cdf-tk {' '.join(sys.argv[1:])}"
 
 
 if __name__ == "__main__":
