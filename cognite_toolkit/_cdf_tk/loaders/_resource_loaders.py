@@ -1509,10 +1509,11 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         if (
             all(s == -1 for s in local_dumped.get("securityCategories", []))
             and "securityCategories" in cdf_dumped
-            and len(cdf_dumped["securityCategories"]) == len(local_dumped["securityCategories"])
+            and len(cdf_dumped["securityCategories"]) == len(local_dumped.get("securityCategories", []))
         ):
             local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
-
+        if local_dumped.get("assetId") == -1 and "assetId" in cdf_dumped:
+            local_dumped["assetId"] = cdf_dumped["assetId"]
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def create(self, items: TimeSeriesWriteList) -> TimeSeriesList:
@@ -2560,9 +2561,15 @@ class FileMetadataLoader(
         if (
             all(s == -1 for s in local_dumped.get("securityCategories", []))
             and "securityCategories" in cdf_dumped
-            and len(cdf_dumped["securityCategories"]) == len(local_dumped["securityCategories"])
+            and len(cdf_dumped["securityCategories"]) == len(local_dumped.get("securityCategories", []))
         ):
             local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
+        if (
+            all(a == -1 for a in local_dumped.get("assetIds", []))
+            and "assetIds" in cdf_dumped
+            and len(cdf_dumped["assetIds"]) == len(local_dumped.get("assetIds", []))
+        ):
+            local_dumped["assetIds"] = cdf_dumped["assetIds"]
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
