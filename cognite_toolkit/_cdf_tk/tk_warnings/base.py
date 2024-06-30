@@ -23,23 +23,13 @@ class SeverityLevel(Enum):
     @property
     def prefix(self) -> str:
         if self == SeverityLevel.ERROR:
-            return f"[bold red]ERROR [{self.name}]:[/] "
+            return f"[bold red]ERROR [{self.name}]:[/]"
         else:
-            return f"[bold {self.value}]WARNING [{self.name}]:[/] "
+            return f"[bold {self.value}]WARNING [{self.name}]:[/]"
 
     @property
     def prefix_length(self) -> int:
-        return len(self.prefix)
-
-
-class SeverityFormat:
-    @staticmethod
-    def get_rich_severity_format(severity: SeverityLevel, *messages: str) -> str:
-        return severity.prefix + " ".join(messages)
-
-    @staticmethod
-    def get_rich_detail_format(message: str) -> str:
-        return f"{'    ' * 2}{message}"
+        return len(self.prefix.split("]", 1)[1].rsplit("[", 1)[0])
 
 
 @total_ordering
