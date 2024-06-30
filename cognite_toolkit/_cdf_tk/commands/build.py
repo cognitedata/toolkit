@@ -481,7 +481,9 @@ class BuildCommand(ToolkitCommand):
     ) -> dict[str, str | None]:
         function_path_by_external_id: dict[str, str | None] = {}
         configuration_files = [
-            file for file in resource_files_build_folder if file.suffix.lower() in CONFIGURATION_FILE_SUFFIXES
+            file
+            for file in resource_files_build_folder
+            if file.suffix.lower() in CONFIGURATION_FILE_SUFFIXES and FunctionLoader.is_supported_file(file)
         ]
         for config_file in configuration_files:
             source_file = state.source_by_build_path[config_file]
