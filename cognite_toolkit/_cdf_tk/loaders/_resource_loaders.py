@@ -363,6 +363,49 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             return group_write_list[0]
         return group_write_list
 
+    def _are_equal(
+        self, local: GroupWrite, cdf_resource: Group, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+
+        scope_names = ["datasetScope", "idScope", "extractionPipelineScope"]
+
+        ids_by_acl_by_actions_by_scope: dict[str, dict[frozenset[str], dict[str, list[str]]]] = {}
+        for capability in cdf_dumped.get("capabilities", []):
+            for acl, values in capability.items():
+                ids_by_actions_by_scope = ids_by_acl_by_actions_by_scope.setdefault(acl, {})
+                actions = values.get("actions", [])
+                ids_by_scope = ids_by_actions_by_scope.setdefault(frozenset(actions), {})
+                scope = values.get("scope", {})
+                for scope_name in scope_names:
+                    if ids := scope.get(scope_name, {}).get("ids", []):
+                        if scope_name in ids_by_scope:
+                            # Duplicated
+                            ids_by_scope[scope_name].extend(ids)
+                        else:
+                            ids_by_scope[scope_name] = ids
+
+        for capability in local_dumped.get("capabilities", []):
+            for acl, values in capability.items():
+                if acl not in ids_by_acl_by_actions_by_scope:
+                    continue
+                ids_by_actions_by_scope = ids_by_acl_by_actions_by_scope[acl]
+                actions = frozenset(values.get("actions", []))
+                if actions not in ids_by_actions_by_scope:
+                    continue
+                ids_by_scope = ids_by_actions_by_scope[actions]
+                scope = values.get("scope", {})
+                for scope_name in scope_names:
+                    if ids := scope.get(scope_name, {}).get("ids", []):
+                        is_dry_run = all(id_ == -1 for id_ in ids)
+                        cdf_ids = ids_by_scope.get(scope_name, [])
+                        are_equal_length = len(ids) == len(cdf_ids)
+                        if is_dry_run and are_equal_length:
+                            values["scope"][scope_name]["ids"] = list(cdf_ids)
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
     def _upsert(self, items: Sequence[GroupWrite]) -> GroupList:
         if len(items) == 0:
             return GroupList([])
