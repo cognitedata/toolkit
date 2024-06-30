@@ -141,3 +141,20 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
                     ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in assets"
                 )
         return AssetWriteList.load(resources)
+
+    def _are_equal(
+        self, local: AssetWrite, cdf_resource: Asset, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Dry run
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+        if (
+            all(s == -1 for s in local_dumped.get("securityCategories", []))
+            and "securityCategories" in cdf_dumped
+            and len(cdf_dumped["securityCategories"]) == len(local_dumped["securityCategories"])
+        ):
+            local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)

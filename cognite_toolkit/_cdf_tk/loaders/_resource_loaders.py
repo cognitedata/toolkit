@@ -747,6 +747,16 @@ class LabelLoader(
         loaded = LabelDefinitionWriteList.load(items)
         return loaded[0] if isinstance(raw_yaml, dict) else loaded
 
+    def _are_equal(
+        self, local: LabelDefinitionWrite, cdf_resource: LabelDefinition, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            # Dry run
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
 
 @final
 class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
@@ -854,6 +864,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 setattr(local, attribute, getattr(cdf_resource, attribute))
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            # Dry run
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
@@ -1451,7 +1464,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
             local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
         if (
-            all(c == -1 for c in local_dumped.get("securityCategories", []))
+            all(s == -1 for s in local_dumped.get("securityCategories", []))
             and "securityCategories" in cdf_dumped
             and len(cdf_dumped["securityCategories"]) == len(local_dumped["securityCategories"])
         ):
@@ -2194,6 +2207,16 @@ class ExtractionPipelineLoader(
         else:
             return ExtractionPipelineWriteList.load(resources)
 
+    def _are_equal(
+        self, local: ExtractionPipelineWrite, cdf_resource: ExtractionPipeline, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            # Dry run
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
     def create(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
         items = list(items)
         try:
@@ -2482,6 +2505,23 @@ class FileMetadataLoader(
             if meta.name and not Path(filepath.parent / meta.name).exists():
                 raise ToolkitFileNotFoundError(f"Could not find file {meta.name} referenced " f"in filepath {filepath}")
         return files_metadata
+
+    def _are_equal(
+        self, local: FileMetadataWrite, cdf_resource: FileMetadata, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Dry run mode
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+        if (
+            all(s == -1 for s in local_dumped.get("securityCategories", []))
+            and "securityCategories" in cdf_dumped
+            and len(cdf_dumped["securityCategories"]) == len(local_dumped["securityCategories"])
+        ):
+            local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def create(self, items: FileMetadataWriteList) -> FileMetadataList:
         created = FileMetadataList([])
