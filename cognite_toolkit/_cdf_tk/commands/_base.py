@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import platform
 import sys
 import tempfile
@@ -47,7 +48,7 @@ class ToolkitCommand:
 
         if self.skip_tracking or _COGNITE_TOOLKIT_MIXPANEL_TOKEN is None:
             return
-        if "pytest" not in sys.modules:
+        if "PYTEST_CURRENT_TEST" in os.environ:
             # Skip tracking if running in pytest
             return
         if not FeatureFlag.is_enabled(Flags.TRACKING):
@@ -89,7 +90,8 @@ class ToolkitCommand:
                     last_key = None
                 else:
                     positional_args.append(arg)
-
+            if last_key:
+                optional_args[last_key] = ""
         cmd = type(self).__name__.removesuffix("Command")
         thread = threading.Thread(
             target=lambda: mp.track(
