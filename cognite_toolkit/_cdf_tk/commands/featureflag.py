@@ -19,6 +19,7 @@ class Flags(Enum):
     INTERNAL: ClassVar[dict[str, Any]] = {"visible": False, "description": "Does nothing"}
     IMPORT_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the import sup application"}
     ASSETS: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the support for loading assets"}
+    TRACKING: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables tracking of commands"}
 
 
 class FeatureFlag:

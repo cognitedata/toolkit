@@ -3,6 +3,7 @@ from __future__ import annotations
 import platform
 import sys
 import tempfile
+import threading
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -41,10 +42,15 @@ class ToolkitCommand:
         self.skip_tracking = skip_tracking
 
     def _track_command(self, result: str | Exception) -> None:
+        # Local import to avoid circular imports
+        from .featureflag import FeatureFlag, Flags
+
         if self.skip_tracking or _COGNITE_TOOLKIT_MIXPANEL_TOKEN is None:
             return
         if "pytest" not in sys.modules:
             # Skip tracking if running in pytest
+            return
+        if not FeatureFlag.is_enabled(Flags.TRACKING):
             return
         mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
         cache = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
@@ -85,23 +91,27 @@ class ToolkitCommand:
                     positional_args.append(arg)
 
         cmd = type(self).__name__.removesuffix("Command")
-        mp.track(
-            distinct_id,
-            f"command{cmd.capitalize()}",
-            {
-                "userInput": self.user_command,
-                "toolkitVersion": __version__,
-                "warningCount": len(self.warning_list),
-                "result": type(result).__name__ if isinstance(result, Exception) else result,
-                "error": str(result) if isinstance(result, Exception) else "",
-                "os": platform.system(),
-                "osVersion": platform.version(),
-                "osRelease": platform.release(),
-                "pythonVersion": platform.python_version(),
-                "positionalArgs": positional_args,
-                **optional_args,
-            },
+        thread = threading.Thread(
+            target=lambda: mp.track(
+                distinct_id,
+                f"command{cmd.capitalize()}",
+                {
+                    "userInput": self.user_command,
+                    "toolkitVersion": __version__,
+                    "warningCount": len(self.warning_list),
+                    "result": type(result).__name__ if isinstance(result, Exception) else result,
+                    "error": str(result) if isinstance(result, Exception) else "",
+                    "os": platform.system(),
+                    "osVersion": platform.version(),
+                    "osRelease": platform.release(),
+                    "pythonVersion": platform.python_version(),
+                    "positionalArgs": positional_args,
+                    **optional_args,
+                },
+            ),
+            daemon=False,
         )
+        thread.start()
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         try:
