@@ -21,6 +21,11 @@ Changes are grouped as follows:
 
 - When running `cdf-tk run function --local`, the toolkit would raise an `ToolkitValidationError`. This is now fixed.
 
+### Changed
+
+- Function configurations for multiple functions can now be in multiple files in the function directory. Before
+  all had to be listed in the same YAML file.
+
 ## [0.2.7] - 2024-06-28
 
 ### Fixed
