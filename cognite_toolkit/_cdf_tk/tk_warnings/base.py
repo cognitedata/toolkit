@@ -20,14 +20,22 @@ class SeverityLevel(Enum):
     MEDIUM = "yellow"
     LOW = "green"
 
+    @property
+    def prefix(self) -> str:
+        if self == SeverityLevel.ERROR:
+            return f"[bold red]ERROR [{self.name}]:[/] "
+        else:
+            return f"[bold {self.value}]WARNING [{self.name}]:[/] "
+
+    @property
+    def prefix_length(self) -> int:
+        return len(self.prefix)
+
 
 class SeverityFormat:
     @staticmethod
     def get_rich_severity_format(severity: SeverityLevel, *messages: str) -> str:
-        if severity == SeverityLevel.ERROR:
-            return f"[bold red]ERROR [{severity.name}]:[/] {' '.join(messages)}"
-        else:
-            return f"[bold {severity.value}]WARNING [{severity.name}]:[/] {' '.join(messages)}"
+        return severity.prefix + " ".join(messages)
 
     @staticmethod
     def get_rich_detail_format(message: str) -> str:
@@ -37,6 +45,8 @@ class SeverityFormat:
 @total_ordering
 @dataclass(frozen=True)
 class ToolkitWarning(ABC):
+    severity: ClassVar[SeverityLevel]
+
     def group_key(self) -> tuple[Any, ...]:
         """This is used to group warnings together when printing them out."""
         return (type(self).__name__,)
