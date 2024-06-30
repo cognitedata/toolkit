@@ -9,7 +9,7 @@ import shutil
 import sys
 import traceback
 from collections import ChainMap, defaultdict
-from collections.abc import Hashable, Iterator, Mapping, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -268,7 +268,6 @@ class BuildCommand(ToolkitCommand):
         config_files_misplaced = [
             file for file in directory_files.other_files if FunctionLoader.is_supported_file(file)
         ]
-
         if not has_config_files and config_files_misplaced:
             for yaml_source_path in config_files_misplaced:
                 required_location = module_dir / FunctionLoader.folder_name / yaml_source_path.name
@@ -709,15 +708,6 @@ class BuildCommand(ToolkitCommand):
             )
 
         return loaders[0]
-
-    @staticmethod
-    def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
-        for function_dir in module_dir.glob(f"**/{FunctionLoader.folder_name}"):
-            if not function_dir.is_dir():
-                continue
-            function_directories = [path for path in function_dir.iterdir() if path.is_dir()]
-            if function_directories:
-                yield function_directories
 
 
 @dataclass
