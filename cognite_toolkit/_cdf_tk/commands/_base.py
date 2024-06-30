@@ -10,6 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import requests
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from mixpanel import Consumer, Mixpanel
 from rich import print
@@ -107,6 +108,7 @@ class ToolkitCommand:
                     "osVersion": platform.version(),
                     "osRelease": platform.release(),
                     "pythonVersion": platform.python_version(),
+                    "isGitHubActions": bool(self._is_on_github_actions()),
                     "positionalArgs": positional_args,
                     **optional_args,
                 },
@@ -114,6 +116,25 @@ class ToolkitCommand:
             daemon=False,
         )
         thread.start()
+
+    @staticmethod
+    def _is_on_github_actions() -> bool:
+        if (
+            "CI" not in os.environ
+            or not os.environ["CI"]
+            or "GITHUB_RUN_ID" not in os.environ
+            or "GITHUB_REPOSITORY" not in os.environ
+            or "GITHUB_TOKEN" not in os.environ
+        ):
+            return False
+
+        headers = {"Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}"}
+        url = (
+            f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+        )
+        response = requests.get(url, headers=headers)
+
+        return response.status_code == 200 and "workflow_runs" in response.json()
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         try:
