@@ -1,6 +1,5 @@
 - name: 'test2'
   externalId: 'fn_test2'
-  fileId: <will_be_generated>
   owner: 'Anonymous'
   description: 'Returns the input data, secrets, and function info.'
   metadata:

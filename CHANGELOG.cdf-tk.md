@@ -19,13 +19,20 @@ Changes are grouped as follows:
 
 ### Added
 
-- [Feature Preview] Option for enabling tracking of commands. This is to help the experience of using the toolkit
-  and to help the development team to understand how the toolkit is used. The tracking is anonymous and no personal
-  information is stored. The tracking can be enabled by running `cdf-tk features set tracking --enable`.
+- [Feature Preview] Option to turn off semantic naming checks for resources. Turn on the feature by running
+  `cdf-tk features set no-naming --enable`.
 
 ### Fixed
 
 - When running `cdf-tk run function --local`, the toolkit would raise an `ToolkitValidationError`. This is now fixed.
+- When running `cdf-tk deploy --dry-run`, if any resource was referencing a `DataSet`, `SecurityCategory`,
+  or `ExtractionPipeline`, it would incorrectly be classified as changed. This is now fixed. This applied to
+  `ExtractionPipeline`, `FileMetadata`, `Function`, `Group`, `Label`, `TimeSeries`, and `Transformation` resources.
+
+### Changed
+
+- Function configurations for multiple functions can now be in multiple files in the function directory. Before
+  all configurations had to be listed in the same YAML file.
 
 ## [0.2.7] - 2024-06-28
 
