@@ -38,9 +38,8 @@ class ToolkitCommand:
 
     def _track_command(self, result: str | Exception) -> None:
         # Local import to avoid circular imports
-        from .featureflag import FeatureFlag, Flags
 
-        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ or not FeatureFlag.is_enabled(Flags.TRACKING):
+        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
             return
         self.tracker.track_command(self.warning_list, result)
 
