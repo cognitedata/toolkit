@@ -5,6 +5,7 @@ import os
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, NoReturn, Optional, Union
 
@@ -21,7 +22,6 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
     from cognite_toolkit._cdf_tk.prototypes import setup_asset_loader
 
     setup_asset_loader.setup_asset_loader()
-
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
     BuildCommand,
@@ -49,6 +49,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     NodeLoader,
     TransformationLoader,
 )
+from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     sentry_exception_filter,
@@ -90,6 +91,7 @@ run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
+user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
@@ -97,6 +99,7 @@ _app.add_typer(run_app, name="run")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
 _app.add_typer(feature_flag_app, name="features")
+_app.add_typer(user_app, name="user")
 
 
 def app() -> NoReturn:
@@ -1118,6 +1121,21 @@ def feature_flag_reset() -> None:
 
     cmd = FeatureFlagCommand()
     cmd.run(lambda: cmd.reset())
+
+
+@user_app.callback(invoke_without_command=True)
+def user_main(ctx: typer.Context) -> None:
+    """Commands to give information about the toolkit."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk user --help[/] to see available commands.")
+    return None
+
+
+@user_app.command("info")
+def user_info() -> None:
+    """Print information about user"""
+    tracker = Tracker("".join(sys.argv[1:]))
+    print(f"ID={tracker.get_distinct_id()!r}\nnow={datetime.now(timezone.utc).isoformat(timespec='seconds')!r}")
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:

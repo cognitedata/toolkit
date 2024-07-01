@@ -44,8 +44,6 @@ class Tracker:
                     "result": type(result).__name__ if isinstance(result, Exception) else result,
                     "error": str(result) if isinstance(result, Exception) else "",
                     "os": platform.system(),
-                    "osVersion": platform.version(),
-                    "osRelease": platform.release(),
                     "pythonVersion": platform.python_version(),
                     "CICD": self._cicd,
                     **positional_args,
@@ -68,8 +66,6 @@ class Tracker:
             distinct_id,
             {
                 "$os": platform.system(),
-                "$os_version": platform.version(),
-                "$os_release": platform.release(),
                 "$python_version": platform.python_version(),
                 "$distinct_id": distinct_id,
             },
