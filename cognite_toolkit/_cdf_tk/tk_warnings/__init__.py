@@ -1,6 +1,5 @@
 from .base import (
     GeneralWarning,
-    SeverityFormat,
     SeverityLevel,
     ToolkitWarning,
     WarningList,
@@ -38,7 +37,6 @@ from .other import (
 )
 
 __all__ = [
-    "SeverityFormat",
     "SeverityLevel",
     "ToolkitWarning",
     "GeneralWarning",

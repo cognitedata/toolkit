@@ -5,6 +5,7 @@ import os
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, NoReturn, Optional, Union
 
@@ -21,6 +22,11 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
     from cognite_toolkit._cdf_tk.prototypes import setup_asset_loader
 
     setup_asset_loader.setup_asset_loader()
+
+if FeatureFlag.is_enabled(Flags.NO_NAMING):
+    from cognite_toolkit._cdf_tk.prototypes import turn_off_naming_check
+
+    turn_off_naming_check.do()
 
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
@@ -49,6 +55,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     NodeLoader,
     TransformationLoader,
 )
+from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     sentry_exception_filter,
@@ -90,6 +97,7 @@ run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
+user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
@@ -97,6 +105,7 @@ _app.add_typer(run_app, name="run")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
 _app.add_typer(feature_flag_app, name="features")
+_app.add_typer(user_app, name="user")
 
 
 def app() -> NoReturn:
@@ -167,20 +176,6 @@ def common(
             help="Path to .env file to load. Defaults to .env in current or parent directory.",
         ),
     ] = None,
-    cluster: Annotated[
-        Optional[str],
-        typer.Option(
-            envvar="CDF_CLUSTER",
-            help="The Cognite Data Fusion cluster to use. Can also be set with the CDF_CLUSTER environment variable.",
-        ),
-    ] = None,
-    project: Annotated[
-        Optional[str],
-        typer.Option(
-            envvar="CDF_PROJECT",
-            help="The Cognite Data Fusion project to use. Can also be set with the CDF_PROJECT environment variable.",
-        ),
-    ] = None,
     version: Annotated[
         bool,
         typer.Option(
@@ -206,8 +201,6 @@ def common(
         return
     if override_env:
         print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
-        if cluster is not None or project is not None:
-            print("            --cluster or --project is set and will override .env file values.")
 
     if env_path is not None:
         if not (dotenv_file := Path(env_path)).is_file():
@@ -232,8 +225,8 @@ def common(
     ctx.obj = Common(
         verbose=verbose,
         override_env=override_env,
-        cluster=cluster,
-        project=project,
+        cluster=None,
+        project=None,
         mockToolGlobals=None,
     )
 
@@ -280,10 +273,12 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
-    cmd = BuildCommand(user_command=_get_user_command())
+    cmd = BuildCommand()
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk build --verbose").get_message())
-    cmd.execute(verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
+    cmd.run(
+        lambda: cmd.execute(verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
+    )
 
 
 @_app.command("deploy")
@@ -352,12 +347,16 @@ def deploy(
         ),
     ] = False,
 ) -> None:
-    cmd = DeployCommand(print_warning=True, user_command=_get_user_command())
+    cmd = DeployCommand(print_warning=True)
     include = _process_include(include, interactive)
     ToolGlobals = CDFToolConfig.from_context(ctx)
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk deploy --verbose").get_message())
-    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, verbose or ctx.obj.verbose)
+    cmd.run(
+        lambda: cmd.execute(
+            ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, verbose or ctx.obj.verbose
+        )
+    )
 
 
 @_app.command("clean")
@@ -413,12 +412,12 @@ def clean(
 ) -> None:
     """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
     # Override cluster and project from the options/env variables
-    cmd = CleanCommand(print_warning=True, user_command=_get_user_command())
+    cmd = CleanCommand(print_warning=True)
     include = _process_include(include, interactive)
     ToolGlobals = CDFToolConfig.from_context(ctx)
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk clean --verbose").get_message())
-    cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, verbose or ctx.obj.verbose)
+    cmd.run(lambda: cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, verbose or ctx.obj.verbose))
 
 
 @auth_app.callback(invoke_without_command=True)
@@ -499,14 +498,18 @@ def auth_verify(
 
     The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
     """
-    cmd = AuthCommand(user_command=_get_user_command())
+    cmd = AuthCommand()
     with contextlib.redirect_stdout(None):
         # Remove the Error message from failing to load the config
         # This is verified in check_auth
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project, skip_initialization=True)
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk auth verify --verbose").get_message())
-    cmd.execute(ToolGlobals, dry_run, interactive, group_file, update_group, create_group, verbose or ctx.obj.verbose)
+    cmd.run(
+        lambda: cmd.execute(
+            ToolGlobals, dry_run, interactive, group_file, update_group, create_group, verbose or ctx.obj.verbose
+        )
+    )
 
 
 def main_init(
@@ -620,8 +623,8 @@ def describe_datamodel_cmd(
 ) -> None:
     """This command will describe the characteristics of a data model given the space
     name and datamodel name."""
-    cmd = DescribeCommand(user_command=_get_user_command())
-    cmd.execute(CDFToolConfig.from_context(ctx), space, data_model)
+    cmd = DescribeCommand()
+    cmd.run(lambda: cmd.execute(CDFToolConfig.from_context(ctx), space, data_model))
 
 
 @run_app.callback(invoke_without_command=True)
@@ -645,8 +648,8 @@ def run_transformation_cmd(
     ],
 ) -> None:
     """This command will run the specified transformation using a one-time session."""
-    cmd = RunTransformationCommand(user_command=_get_user_command())
-    cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id)
+    cmd = RunTransformationCommand()
+    cmd.run(lambda: cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id))
 
 
 @run_app.command("function")
@@ -733,21 +736,23 @@ def run_function_cmd(
     ] = False,
 ) -> None:
     """This command will run the specified function using a one-time session."""
-    cmd = RunFunctionCommand(user_command=_get_user_command())
+    cmd = RunFunctionCommand()
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk run function --verbose").get_message())
-    cmd.execute(
-        CDFToolConfig.from_context(ctx),
-        external_id,
-        payload,
-        follow,
-        local,
-        rebuild_env,
-        no_cleanup,
-        source_dir,
-        schedule,
-        build_env_name,
-        verbose or ctx.obj.verbose,
+    cmd.run(
+        lambda: cmd.execute(
+            CDFToolConfig.from_context(ctx),
+            external_id,
+            payload,
+            follow,
+            local,
+            rebuild_env,
+            no_cleanup,
+            source_dir,
+            schedule,
+            build_env_name,
+            verbose or ctx.obj.verbose,
+        )
     )
 
 
@@ -805,14 +810,17 @@ def pull_transformation_cmd(
     """This command will pull the specified transformation and update its YAML file in the module folder"""
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull transformation --verbose").get_message())
-    PullCommand(user_command=_get_user_command()).execute(
-        source_dir,
-        external_id,
-        env,
-        dry_run,
-        verbose or ctx.obj.verbose,
-        CDFToolConfig.from_context(ctx),
-        TransformationLoader,
+    cmd = PullCommand()
+    cmd.run(
+        lambda: cmd.execute(
+            source_dir,
+            external_id,
+            env,
+            dry_run,
+            verbose or ctx.obj.verbose,
+            CDFToolConfig.from_context(ctx),
+            TransformationLoader,
+        )
     )
 
 
@@ -873,14 +881,17 @@ def pull_node_cmd(
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull node --verbose").get_message())
 
-    PullCommand(user_command=_get_user_command()).execute(
-        source_dir,
-        NodeId(space, external_id),
-        env,
-        dry_run,
-        verbose or ctx.obj.verbose,
-        CDFToolConfig.from_context(ctx),
-        NodeLoader,
+    cmd = PullCommand()
+    cmd.run(
+        lambda: cmd.execute(
+            source_dir,
+            NodeId(space, external_id),
+            env,
+            dry_run,
+            verbose or ctx.obj.verbose,
+            CDFToolConfig.from_context(ctx),
+            NodeLoader,
+        )
     )
 
 
@@ -946,15 +957,17 @@ def dump_datamodel_cmd(
     ] = False,
 ) -> None:
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-    cmd = DumpCommand(user_command=_get_user_command())
+    cmd = DumpCommand()
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump datamodel --verbose").get_message())
-    cmd.execute(
-        CDFToolConfig.from_context(ctx),
-        DataModelId(space, external_id, version),
-        Path(output_dir),
-        clean,
-        verbose or ctx.obj.verbose,
+    cmd.run(
+        lambda: cmd.execute(
+            CDFToolConfig.from_context(ctx),
+            DataModelId(space, external_id, version),
+            Path(output_dir),
+            clean,
+            verbose or ctx.obj.verbose,
+        )
     )
 
 
@@ -1017,18 +1030,20 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
         ] = False,
     ) -> None:
         """This command will dump the selected assets as yaml to the folder specified, defaults to /tmp."""
-        cmd = DumpAssetsCommand(user_command=_get_user_command())
+        cmd = DumpAssetsCommand()
         if ctx.obj.verbose:
             print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump asset --verbose").get_message())
-        cmd.execute(
-            CDFToolConfig.from_context(ctx),
-            hierarchy,
-            data_set,
-            interactive,
-            output_dir,
-            clean_,
-            format_,  # type: ignore [arg-type]
-            verbose or ctx.obj.verbose,
+        cmd.run(
+            lambda: cmd.execute(
+                CDFToolConfig.from_context(ctx),
+                hierarchy,
+                data_set,
+                interactive,
+                output_dir,
+                clean_,
+                format_,  # type: ignore [arg-type]
+                verbose or ctx.obj.verbose,
+            )
         )
 
 
@@ -1052,8 +1067,8 @@ def feature_flag_main(ctx: typer.Context) -> None:
 def feature_flag_list() -> None:
     """List all available feature flags."""
 
-    cmd = FeatureFlagCommand(user_command=_get_user_command())
-    cmd.list()
+    cmd = FeatureFlagCommand()
+    cmd.run(lambda: cmd.list())
 
 
 @feature_flag_app.command("set")
@@ -1082,20 +1097,35 @@ def feature_flag_set(
 ) -> None:
     """Enable or disable a feature flag."""
 
-    cmd = FeatureFlagCommand(user_command=_get_user_command())
+    cmd = FeatureFlagCommand()
     if enable and disable:
         raise ToolkitValidationError("Cannot enable and disable a flag at the same time.")
     if not enable and not disable:
         raise ToolkitValidationError("Must specify either --enable or --disable.")
-    cmd.set(flag, enable)
+    cmd.run(lambda: cmd.set(flag, enable))
 
 
 @feature_flag_app.command("reset")
 def feature_flag_reset() -> None:
     """Reset all feature flags to their default values."""
 
-    cmd = FeatureFlagCommand(user_command=_get_user_command())
-    cmd.reset()
+    cmd = FeatureFlagCommand()
+    cmd.run(lambda: cmd.reset())
+
+
+@user_app.callback(invoke_without_command=True)
+def user_main(ctx: typer.Context) -> None:
+    """Commands to give information about the toolkit."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk user --help[/] to see available commands.")
+    return None
+
+
+@user_app.command("info")
+def user_info() -> None:
+    """Print information about user"""
+    tracker = Tracker("".join(sys.argv[1:]))
+    print(f"ID={tracker.get_distinct_id()!r}\nnow={datetime.now(timezone.utc).isoformat(timespec='seconds')!r}")
 
 
 def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
@@ -1126,10 +1156,6 @@ def _select_data_types(include: Sequence[str]) -> list[str]:
             return [mapping[int(answer)]]
         except ValueError:
             raise ToolkitInvalidSettingsError(f"Invalid selection: {answer}")
-
-
-def _get_user_command() -> str:
-    return f"cdf-tk {' '.join(sys.argv[1:])}"
 
 
 if __name__ == "__main__":

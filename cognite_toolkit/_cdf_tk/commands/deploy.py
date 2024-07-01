@@ -54,8 +54,8 @@ from ._utils import _print_ids_or_length, _remove_duplicates
 
 
 class DeployCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, user_command: str | None = None):
-        super().__init__(print_warning, user_command)
+    def __init__(self, print_warning: bool = True):
+        super().__init__(print_warning)
         self._clean_command = CleanCommand(print_warning, skip_tracking=True)
 
     def execute(
