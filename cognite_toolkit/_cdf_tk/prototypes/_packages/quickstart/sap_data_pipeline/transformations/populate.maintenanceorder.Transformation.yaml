@@ -1,0 +1,14 @@
+externalId: tr_idm_MaintenanceOrder_upsert
+name: idm_MaintenanceOrder_upsert
+destination:
+  type: instances
+  dataModel:
+    space: {{ idm_model_space }}
+    externalId: IDM
+    version: v1
+    destinationType: MaintenanceOrder
+  instanceSpace: 'sp_{{ source }}_{{ location }}_data'
+conflictMode: upsert
+isPublic: true
+ignoreNullFields: true
+dataSetExternalId: ds_{{ source }}_{{ location }}_population
