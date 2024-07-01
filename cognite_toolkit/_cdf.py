@@ -176,20 +176,6 @@ def common(
             help="Path to .env file to load. Defaults to .env in current or parent directory.",
         ),
     ] = None,
-    cluster: Annotated[
-        Optional[str],
-        typer.Option(
-            envvar="CDF_CLUSTER",
-            help="The Cognite Data Fusion cluster to use. Can also be set with the CDF_CLUSTER environment variable.",
-        ),
-    ] = None,
-    project: Annotated[
-        Optional[str],
-        typer.Option(
-            envvar="CDF_PROJECT",
-            help="The Cognite Data Fusion project to use. Can also be set with the CDF_PROJECT environment variable.",
-        ),
-    ] = None,
     version: Annotated[
         bool,
         typer.Option(
@@ -215,8 +201,6 @@ def common(
         return
     if override_env:
         print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
-        if cluster is not None or project is not None:
-            print("            --cluster or --project is set and will override .env file values.")
 
     if env_path is not None:
         if not (dotenv_file := Path(env_path)).is_file():
@@ -241,8 +225,8 @@ def common(
     ctx.obj = Common(
         verbose=verbose,
         override_env=override_env,
-        cluster=cluster,
-        project=project,
+        cluster=None,
+        project=None,
         mockToolGlobals=None,
     )
 
