@@ -25,7 +25,6 @@ questionary = "^2.0.1"
 mixpanel = "^4.10.1"
 packaging = "^24.1"
 typing-extensions = "^4.0"
-requests = "^2.32.3"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"
@@ -36,7 +35,6 @@ pytest-regressions = "^2.4.2"
 pytest-xdist = "^3.6.1"
 pytest-rerunfailures = "^14.0"
 types-PyYAML = "^6"
-types-requests = "^2.32.0"
 twine = "^5.0.0"
 tomli = { version = "^2.0.1", python = "<3.11" }
 toml = { version = "^0.10.2", python = ">=3.11" }
