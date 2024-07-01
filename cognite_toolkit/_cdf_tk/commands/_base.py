@@ -41,7 +41,10 @@ class ToolkitCommand:
     def warn(self, warning: ToolkitWarning) -> None:
         self.warning_list.append(warning)
         if self.print_warning:
-            print(warning.get_message())
+            prefix = warning.severity.prefix
+            end = "\n" + " " * ((warning.severity.prefix_length + 1) // 2)
+            message = warning.get_message().replace("\n", end)
+            print(prefix, message)
 
     def _load_files(
         self,
