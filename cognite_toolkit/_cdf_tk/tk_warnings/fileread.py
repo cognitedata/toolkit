@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
-from .base import SeverityFormat, SeverityLevel, ToolkitWarning
+from .base import SeverityLevel, ToolkitWarning
 
 
 @dataclass(frozen=True)
@@ -78,7 +78,7 @@ class UnknownResourceTypeWarning(YAMLFileWarning):
         msg = f"{type(self).__name__}: In file {self.filepath.as_posix()!r}."
         if self.suggestion:
             msg += f" Did you mean to call the file {self.suggestion!r}?"
-        return SeverityFormat.get_rich_severity_format(self.severity, msg)
+        return msg
 
 
 @dataclass(frozen=True)
@@ -108,7 +108,7 @@ class ResourceMissingIdentifierWarning(YAMLFileWarning):
 
     def get_message(self) -> str:
         message = f"The {self.resource} {self.filepath} is missing the {self.ext_id_type} field(s)."
-        return SeverityFormat.get_rich_severity_format(self.severity, message)
+        return message
 
 
 @dataclass(frozen=True)
@@ -129,10 +129,7 @@ class NamingConventionWarning(YAMLFileWarning):
             f"The {self.ext_id_type} identifier [bold]{self.external_id!r}[/bold] of the resource {self.resource} "
             f"does not follow the recommended naming convention {self.recommendation}"
         )
-        return SeverityFormat.get_rich_severity_format(
-            self.severity,
-            message,
-        )
+        return message
 
 
 @dataclass(frozen=True)
@@ -210,7 +207,7 @@ class SourceFileModifiedWarning(FileReadWarning):
             f"{type(self).__name__}: The source file {self.filepath} has been modified since the last build. "
             "Please rebuild the project."
         )
-        return SeverityFormat.get_rich_severity_format(self.severity, message)
+        return message
 
 
 @dataclass(frozen=True)
@@ -220,4 +217,4 @@ class MissingFileWarning(FileReadWarning):
 
     def get_message(self) -> str:
         message = f"{type(self).__name__}: The file {self.filepath} is missing. Cannot verify {self.attempted_check}."
-        return SeverityFormat.get_rich_severity_format(self.severity, message)
+        return message

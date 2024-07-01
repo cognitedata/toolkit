@@ -20,6 +20,9 @@ Changes are grouped as follows:
 ### Fixed
 
 - When running `cdf-tk run function --local`, the toolkit would raise an `ToolkitValidationError`. This is now fixed.
+- When running `cdf-tk deploy --dry-run`, if any resource was referencing a `DataSet`, `SecurityCategory`,
+  or `ExtractionPipeline`, it would incorrectly be classified as changed. This is now fixed. This applied to
+  `ExtractionPipeline`, `FileMetadata`, `Function`, `Group`, `Label`, `TimeSeries`, and `Transformation` resources.
 
 ### Changed
 
