@@ -27,7 +27,7 @@ Changes are grouped as follows:
 ### Changed
 
 - Function configurations for multiple functions can now be in multiple files in the function directory. Before
-  all had to be listed in the same YAML file.
+  all configurations had to be listed in the same YAML file.
 
 ## [0.2.7] - 2024-06-28
 
