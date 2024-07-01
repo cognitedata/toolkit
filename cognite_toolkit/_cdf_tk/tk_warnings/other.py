@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, Union
 
-from cognite_toolkit._cdf_tk.tk_warnings.base import GeneralWarning, SeverityFormat, SeverityLevel, ToolkitWarning
+from cognite_toolkit._cdf_tk.tk_warnings.base import GeneralWarning, SeverityLevel, ToolkitWarning
 
 
 @dataclass(frozen=True)
@@ -15,8 +15,7 @@ class UnexpectedFileLocationWarning(ToolkitWarning):
     alternative: str
 
     def get_message(self) -> str:
-        message = f"{self.filepath!r} does not exist. Using {self.alternative!r} instead."
-        return SeverityFormat.get_rich_severity_format(self.severity, message)
+        return f"{self.filepath!r} does not exist. Using {self.alternative!r} instead."
 
 
 @dataclass(frozen=True)
@@ -27,7 +26,7 @@ class ToolkitBugWarning(ToolkitWarning):
     traceback: str
 
     def get_message(self) -> str:
-        return SeverityFormat.get_rich_severity_format(self.severity, self.header, self.message, self.traceback)
+        return " ".join((self.header, self.message, self.traceback))
 
 
 @dataclass(frozen=True)
@@ -45,9 +44,7 @@ class IncorrectResourceWarning(ToolkitWarning):
                 extra_details.append(self.details)
             else:
                 extra_details.extend(self.details)
-        return SeverityFormat.get_rich_severity_format(
-            self.severity, self.location, self.message, self.resource, *extra_details
-        )
+        return " ".join((self.location, self.message, self.resource, *extra_details))
 
 
 @dataclass(frozen=True)
@@ -56,7 +53,7 @@ class LowSeverityWarning(GeneralWarning):
     message_raw: str
 
     def get_message(self) -> str:
-        return SeverityFormat.get_rich_severity_format(self.severity, self.message_raw)
+        return self.message_raw
 
 
 @dataclass(frozen=True)
@@ -65,7 +62,7 @@ class MediumSeverityWarning(GeneralWarning):
     message_raw: str
 
     def get_message(self) -> str:
-        return SeverityFormat.get_rich_severity_format(self.severity, self.message_raw)
+        return self.message_raw
 
 
 @dataclass(frozen=True)
@@ -74,7 +71,7 @@ class HighSeverityWarning(GeneralWarning):
     message_raw: str
 
     def get_message(self) -> str:
-        return SeverityFormat.get_rich_severity_format(self.severity, self.message_raw)
+        return self.message_raw
 
 
 @dataclass(frozen=True)
@@ -84,15 +81,16 @@ class ToolkitDependenciesIncludedWarning(GeneralWarning):
     dependencies: Union[None, str, list[str]]
 
     def get_message(self) -> str:
-        output = [SeverityFormat.get_rich_severity_format(self.severity, self.message)]
+        output = [self.message]
 
         if self.dependencies:
+            prefix = {"    " * 2}
             output[0] += ":"
             if isinstance(self.dependencies, str):
-                output.append(SeverityFormat.get_rich_detail_format(self.dependencies))
+                output.append(f"{prefix}{self.dependencies}")
             else:
                 for dependency in self.dependencies:
-                    output.append(SeverityFormat.get_rich_detail_format(dependency))
+                    output.append(f"{prefix}{dependency}")
         return "\n".join(output)
 
 
@@ -111,7 +109,7 @@ class ToolkitNotSupportedWarning(GeneralWarning):
                 extra_details.append(self.details)
             else:
                 extra_details.extend(self.details)
-        return SeverityFormat.get_rich_severity_format(self.severity, self.message, self.feature, *extra_details)
+        return " ".join((self.message, self.feature, *extra_details))
 
 
 @dataclass(frozen=True)
@@ -126,7 +124,7 @@ class MissingDependencyWarning(GeneralWarning):
         msg = f"{self.dependency_type} {self.identifier!r} is missing and is required by:"
         for identifier, path in self.required_by:
             msg += f"\n- {identifier!r} in {path}"
-        return SeverityFormat.get_rich_severity_format(self.severity, msg)
+        return msg
 
 
 @dataclass(frozen=True)
@@ -137,7 +135,7 @@ class MissingCapabilityWarning(GeneralWarning):
 
     def get_message(self) -> str:
         msg = f"The principal lacks the required access capability {self.capability} in the CDF project"
-        return SeverityFormat.get_rich_severity_format(self.severity, msg)
+        return msg
 
 
 @dataclass(frozen=True)
@@ -152,4 +150,4 @@ class ToolkitDeprecationWarning(ToolkitWarning, DeprecationWarning):
         if self.alternative:
             msg += f"\nUse {self.alternative!r} instead."
 
-        return SeverityFormat.get_rich_severity_format(SeverityLevel.LOW, msg)
+        return msg
