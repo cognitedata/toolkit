@@ -273,9 +273,11 @@ class BuildCommand(ToolkitCommand):
                 required_location = module_dir / FunctionLoader.folder_name / yaml_source_path.name
                 self.warn(
                     LowSeverityWarning(
-                        f"The file {yaml_source_path.as_posix()!r} is considered part of the Function's code and "
-                        f"will not be processed as a CDF resource. "
-                        f"If this is a function configuration please move it to {required_location.as_posix()!r}."
+                        f"The required Function resource configuration file " 
+                        f"was not found in {required_location.as_posix()!r}. "
+                        f"The file {yaml_source_path.as_posix()!r} is currently "
+                        f"considered part of the Function's artifacts and "
+                        f"will not be processed by the Toolkit."
                     )
                 )
 
