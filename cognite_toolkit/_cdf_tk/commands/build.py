@@ -88,6 +88,8 @@ from cognite_toolkit._cdf_tk.validation import (
 )
 from cognite_toolkit._version import __version__
 
+from .featureflag import FeatureFlag, Flags
+
 
 class BuildCommand(ToolkitCommand):
     def execute(self, verbose: bool, source_path: Path, build_dir: Path, build_env_name: str, no_clean: bool) -> None:
@@ -135,18 +137,24 @@ class BuildCommand(ToolkitCommand):
             shutil.rmtree(build_dir)
             build_dir.mkdir()
             if not _RUNNING_IN_BROWSER:
-                print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
+                print(f"[bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
         elif is_populated and not _RUNNING_IN_BROWSER:
             self.warn(
                 LowSeverityWarning("Build directory is not empty. Run without --no-clean to remove existing files.")
             )
         elif build_dir.exists() and not _RUNNING_IN_BROWSER:
-            print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
+            print("[bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
         else:
             build_dir.mkdir(exist_ok=True)
 
         if issue := config.validate_environment():
             self.warn(issue)
+
+        if FeatureFlag.is_enabled(Flags.NO_NAMING):
+            print(
+                "[bold green]INFO:[/] Naming convention warnings have been disabled. "
+                "To enable them, run 'cdf-tk features set no-naming --disable'."
+            )
 
         module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
         available_modules: set[str | tuple[str, ...]] = set()

@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- [Feature Preview] Option to turn off semantic naming checks for resources. Turn on the feature by running
+  `cdf-tk features set no-naming --enable`.
+
 ### Fixed
 
 - When running `cdf-tk run function --local`, the toolkit would raise an `ToolkitValidationError`. This is now fixed.
