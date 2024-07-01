@@ -43,7 +43,7 @@ class Tracker:
                     **warning_details,
                     "result": type(result).__name__ if isinstance(result, Exception) else result,
                     "error": str(result) if isinstance(result, Exception) else "",
-                    "os": platform.system(),
+                    "$os": platform.system(),
                     "pythonVersion": platform.python_version(),
                     "CICD": self._cicd,
                     **positional_args,
