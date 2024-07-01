@@ -24,6 +24,11 @@ Changes are grouped as follows:
   or `ExtractionPipeline`, it would incorrectly be classified as changed. This is now fixed. This applied to
   `ExtractionPipeline`, `FileMetadata`, `Function`, `Group`, `Label`, `TimeSeries`, and `Transformation` resources.
 
+### Changed
+
+- Function configurations for multiple functions can now be in multiple files in the function directory. Before
+  all configurations had to be listed in the same YAML file.
+
 ## [0.2.7] - 2024-06-28
 
 ### Fixed

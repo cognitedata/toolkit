@@ -31,9 +31,10 @@ EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 EXCL_INDEX_SUFFIX = frozenset([".sql", ".csv", ".parquet"])
 # Files to search for variables.
 SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
-# Which suffixes to process for template variable replacement
-PROC_TMPL_VARS_SUFFIX = frozenset([".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"])
-
+# Which files to process for template variable replacement
+TEMPLATE_VARS_FILE_SUFFIXES = frozenset(
+    [".yaml", ".yml", ".sql", ".csv", ".parquet", ".json", ".txt", ".md", ".html", ".py"]
+)
 ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
 
