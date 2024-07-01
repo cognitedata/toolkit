@@ -1,18 +1,12 @@
 from __future__ import annotations
 
 import os
-import platform
 import sys
-import tempfile
-import threading
-import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import requests
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
-from mixpanel import Consumer, Mixpanel
 from rich import print
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitYAMLFormatError
@@ -25,12 +19,10 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     WarningList,
 )
+from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
 )
-from cognite_toolkit._version import __version__
-
-_COGNITE_TOOLKIT_MIXPANEL_TOKEN: str | None = "9afc120ac61d408c81009ea7dd280a38"
 
 
 class ToolkitCommand:
@@ -41,100 +33,16 @@ class ToolkitCommand:
         else:
             self.user_command = "cdf-tk"
         self.warning_list = WarningList[ToolkitWarning]()
+        self.tracker = Tracker(self.user_command)
         self.skip_tracking = skip_tracking
 
     def _track_command(self, result: str | Exception) -> None:
         # Local import to avoid circular imports
         from .featureflag import FeatureFlag, Flags
 
-        if self.skip_tracking or _COGNITE_TOOLKIT_MIXPANEL_TOKEN is None:
+        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ or not FeatureFlag.is_enabled(Flags.TRACKING):
             return
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            # Skip tracking if running in pytest
-            return
-        if not FeatureFlag.is_enabled(Flags.TRACKING):
-            return
-        mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
-        cache = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
-        if cache.exists():
-            distinct_id = cache.read_text()
-        else:
-            distinct_id = f"{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
-            cache.write_text(distinct_id)
-            mp.people_set(
-                distinct_id,
-                {
-                    "$os": platform.system(),
-                    "$os_version": platform.version(),
-                    "$os_release": platform.release(),
-                    "$python_version": platform.python_version(),
-                    "$distinct_id": distinct_id,
-                },
-            )
-
-        optional_args: dict[str, str] = {}
-        positional_args: list[str] = []
-        last_key: str | None = None
-        if sys.argv and len(sys.argv) > 1:
-            for arg in sys.argv[1:]:
-                if arg.startswith("--") and "=" in arg:
-                    if last_key:
-                        optional_args[last_key] = ""
-                    key, value = arg.split("=", maxsplit=1)
-                    optional_args[key.removeprefix("--")] = value
-                elif arg.startswith("--"):
-                    if last_key:
-                        optional_args[last_key] = ""
-                    last_key = arg.removeprefix("--")
-                elif last_key:
-                    optional_args[last_key] = arg
-                    last_key = None
-                else:
-                    positional_args.append(arg)
-            if last_key:
-                optional_args[last_key] = ""
-        cmd = type(self).__name__.removesuffix("Command")
-        thread = threading.Thread(
-            target=lambda: mp.track(
-                distinct_id,
-                f"command{cmd.capitalize()}",
-                {
-                    "userInput": self.user_command,
-                    "toolkitVersion": __version__,
-                    "warningCount": len(self.warning_list),
-                    "result": type(result).__name__ if isinstance(result, Exception) else result,
-                    "error": str(result) if isinstance(result, Exception) else "",
-                    "os": platform.system(),
-                    "osVersion": platform.version(),
-                    "osRelease": platform.release(),
-                    "pythonVersion": platform.python_version(),
-                    "isGitHubActions": bool(self._is_on_github_actions()),
-                    "positionalArgs": positional_args,
-                    **optional_args,
-                },
-            ),
-            daemon=False,
-        )
-        thread.start()
-
-    @staticmethod
-    def _is_on_github_actions() -> bool:
-        if (
-            "CI" not in os.environ
-            or not os.environ["CI"]
-            or "GITHUB_RUN_ID" not in os.environ
-            or "GITHUB_REPOSITORY" not in os.environ
-            or "GITHUB_TOKEN" not in os.environ
-        ):
-            return False
-
-        headers = {"Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}"}
-        url = (
-            f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-        )
-        response = requests.get(url, headers=headers)
-
-        return response.status_code == 200 and "workflow_runs" in response.json()
+        self.tracker.track_command(self.warning_list, result)
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         try:
