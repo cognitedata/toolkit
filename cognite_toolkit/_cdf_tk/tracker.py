@@ -28,7 +28,7 @@ class Tracker:
         warning_count = Counter([type(w).__name__ for w in warning_list])
 
         warning_details: dict[str, str | int] = {}
-        for no, (warning, count) in enumerate(warning_count.most_common(3)):
+        for no, (warning, count) in enumerate(warning_count.most_common(3), 1):
             warning_details[f"warningMostCommon{no}Count"] = count
             warning_details[f"warningMostCommon{no}Name"] = warning
 
