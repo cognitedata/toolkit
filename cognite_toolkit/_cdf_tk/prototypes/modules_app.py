@@ -5,7 +5,6 @@ from typing import Annotated, Optional
 import typer
 from rich import print
 
-from cognite_toolkit._cdf import _get_user_command
 from cognite_toolkit._cdf_tk.prototypes.commands.modules import ModulesCommand
 from cognite_toolkit._version import __version__
 
@@ -40,7 +39,7 @@ class Modules(typer.Typer):
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
-        cmd = ModulesCommand(user_command=_get_user_command())
+        cmd = ModulesCommand()
         cmd.init(
             init_dir=project_dir,
             arg_package=arg_package,
@@ -55,7 +54,7 @@ class Modules(typer.Typer):
             ),
         ] = None,
     ) -> None:
-        cmd = ModulesCommand(user_command=_get_user_command())
+        cmd = ModulesCommand()
         cmd.upgrade(project_dir=project_dir)
 
 

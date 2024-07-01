@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import getpass
+import os
+import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
-from mixpanel import Mixpanel
 from rich import print
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitYAMLFormatError
@@ -17,26 +19,39 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     WarningList,
 )
+from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
 )
 
-_COGNITE_TOOLKIT_MIXPANEL_TOKEN: str | None = None
-
 
 class ToolkitCommand:
-    def __init__(self, print_warning: bool = True, user_command: str | None = None, skip_tracking: bool = False):
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False):
         self.print_warning = print_warning
-        self.user_command = user_command
+        if len(sys.argv) > 1:
+            self.user_command = f"cdf-tk {' '.join(sys.argv[1:])}"
+        else:
+            self.user_command = "cdf-tk"
         self.warning_list = WarningList[ToolkitWarning]()
-        if not skip_tracking and _COGNITE_TOOLKIT_MIXPANEL_TOKEN is not None:
-            self._track_command(user_command)
+        self.tracker = Tracker(self.user_command)
+        self.skip_tracking = skip_tracking
 
-    def _track_command(self, user_command: str | None) -> None:
-        mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN)
-        distinct_id = getpass.getuser().replace(" ", "_")
-        cmd = type(self).__name__.removesuffix("Command")
-        mp.track(distinct_id, f"command_{cmd}", {"user_input": user_command or ""})
+    def _track_command(self, result: str | Exception) -> None:
+        # Local import to avoid circular imports
+
+        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
+            return
+        self.tracker.track_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
+
+    def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        try:
+            result = execute(*args, **kwargs)
+        except Exception as e:
+            self._track_command(e)
+            raise e
+        else:
+            self._track_command("success")
+        return result
 
     def warn(self, warning: ToolkitWarning) -> None:
         self.warning_list.append(warning)

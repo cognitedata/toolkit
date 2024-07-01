@@ -26,8 +26,8 @@ from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
 
 
 class DumpAssetsCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, user_command: str | None = None, skip_tracking: bool = False):
-        super().__init__(print_warning, user_command, skip_tracking)
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False):
+        super().__init__(print_warning, skip_tracking)
         self.asset_external_id_by_id: dict[int, str] = {}
         self.data_set_by_id: dict[int, DataSetWrite] = {}
         self._available_data_sets: set[str] | None = None
