@@ -41,7 +41,7 @@ class ToolkitCommand:
 
         if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
             return
-        self.tracker.track_command(self.warning_list, result)
+        self.tracker.track_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         try:

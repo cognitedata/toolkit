@@ -22,10 +22,9 @@ class Tracker:
         self.user_command = user_command
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
 
-    def track_command(self, warning_list: WarningList[ToolkitWarning], result: str | Exception) -> None:
+    def track_command(self, warning_list: WarningList[ToolkitWarning], result: str | Exception, cmd: str) -> None:
         distinct_id = self.get_distinct_id()
         positional_args, optional_args = self._parse_sys_args()
-        cmd = type(self).__name__.removesuffix("Command")
         warning_count = Counter([type(w).__name__ for w in warning_list])
 
         warning_details: dict[str, str | int] = {}
