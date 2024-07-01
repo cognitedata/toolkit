@@ -273,7 +273,7 @@ class BuildCommand(ToolkitCommand):
                 required_location = module_dir / FunctionLoader.folder_name / yaml_source_path.name
                 self.warn(
                     LowSeverityWarning(
-                        f"The required Function resource configuration file " 
+                        f"The required Function resource configuration file "
                         f"was not found in {required_location.as_posix()!r}. "
                         f"The file {yaml_source_path.as_posix()!r} is currently "
                         f"considered part of the Function's artifacts and "
