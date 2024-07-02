@@ -20,11 +20,16 @@ bump_app = typer.Typer(
 
 @bump_app.command()
 def bump(
-    major: bool = False, minor: bool = False, patch: bool = False, alpha: bool = False, beta: bool = False
+    major: bool = False,
+    minor: bool = False,
+    patch: bool = False,
+    alpha: bool = False,
+    beta: bool = False,
+    verbose: bool = False,
 ) -> None:
-    pyproject_toml = REPO_ROOT / "pyproject.toml"
-    version_py = REPO_ROOT / "cognite_toolkit" / "_version.py"
-    system_yaml_files = [
+    version_files = [
+        REPO_ROOT / "pyproject.toml",
+        REPO_ROOT / "cognite_toolkit" / "_version.py",
         REPO_ROOT / "cognite_toolkit" / "_system.yaml",
         *(REPO_ROOT / "tests" / "data").rglob("_system.yaml"),
     ]
@@ -56,10 +61,12 @@ def bump(
     else:
         raise typer.BadParameter("You must specify one of major, minor, patch, alpha, or beta.")
 
-    for file in [pyproject_toml, version_py, *system_yaml_files]:
+    for file in version_files:
         file.write_text(file.read_text().replace(str(version), str(new_version), 1))
+        if verbose:
+            typer.echo(f"Bumped version from {version} to {new_version} in {file}.")
 
-    typer.echo(f"Bumped version from {version} to {new_version}.")
+    typer.echo(f"Bumped version from {version} to {new_version} in {version_files}.")
 
 
 if __name__ == "__main__":
