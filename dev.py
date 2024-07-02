@@ -69,5 +69,7 @@ def bump(
     typer.echo(f"Bumped version from {version} to {new_version} in {len(version_files)} files.")
 
 
+CDF_TK_PLUGIN = {"bump": bump_app}
+
 if __name__ == "__main__":
     bump_app()

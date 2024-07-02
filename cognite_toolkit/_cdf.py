@@ -128,6 +128,19 @@ def app() -> NoReturn:
 
             _app.add_typer(import_app, name="import")
 
+        # Secret plugin, this will be removed without warning
+        dev_py = Path.cwd() / "dev.py"
+        if dev_py.exists():
+            from importlib.util import module_from_spec, spec_from_file_location
+
+            spec = spec_from_file_location("dev", dev_py)
+            if spec and spec.loader:
+                dev_module = module_from_spec(spec)
+                spec.loader.exec_module(dev_module)
+                if "CDF_TK_PLUGIN" in dev_module.__dict__:
+                    for name, type_app in dev_module.__dict__["CDF_TK_PLUGIN"].items():
+                        _app.add_typer(type_app, name=name)
+
         _app()
     except ToolkitError as err:
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
