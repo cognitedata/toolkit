@@ -69,7 +69,32 @@ def bump(
     typer.echo(f"Bumped version from {version} to {new_version} in {len(version_files)} files.")
 
 
-CDF_TK_PLUGIN = {"bump": bump_app}
+# This is just for demo purposes, to test the secret plugin in the Toolkit CLI
+import_app = typer.Typer(
+    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+)
+
+
+@import_app.callback(invoke_without_command=True)
+def import_main(ctx: typer.Context) -> None:
+    """PREVIEW FEATURE Import resources into Cognite-Toolkit."""
+    if ctx.invoked_subcommand is None:
+        print("Use [bold yellow]cdf-tk import --help[/] for more information.")
+    return None
+
+
+@import_app.command("cdf")
+def cdf(
+    ctx: typer.Context,
+) -> None:
+    """Import resources into Cognite Data Fusion."""
+    print("CDF Import")
+
+
+CDF_TK_PLUGIN = {
+    "bump": bump_app,
+    "import": import_app,
+}
 
 if __name__ == "__main__":
     bump_app()
