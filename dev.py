@@ -75,14 +75,6 @@ import_app = typer.Typer(
 )
 
 
-@import_app.callback(invoke_without_command=True)
-def import_main(ctx: typer.Context) -> None:
-    """PREVIEW FEATURE Import resources into Cognite-Toolkit."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk import --help[/] for more information.")
-    return None
-
-
 @import_app.command("cdf")
 def cdf(
     ctx: typer.Context,
