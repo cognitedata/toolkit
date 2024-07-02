@@ -88,7 +88,7 @@ def cdf(
     ctx: typer.Context,
 ) -> None:
     """Import resources into Cognite Data Fusion."""
-    print("CDF Import")
+    print("Ran CDF Import Command")
 
 
 CDF_TK_PLUGIN = {
