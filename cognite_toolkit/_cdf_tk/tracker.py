@@ -7,6 +7,7 @@ import tempfile
 import threading
 import uuid
 from collections import Counter
+from functools import cached_property
 from pathlib import Path
 
 from mixpanel import Consumer, Mixpanel
@@ -21,6 +22,7 @@ class Tracker:
     def __init__(self, user_command: str) -> None:
         self.user_command = user_command
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
+        self._opt_status_file = Path(tempfile.gettempdir()) / "tk-opt-status.bin"
 
     def track_command(self, warning_list: WarningList[ToolkitWarning], result: str | Exception, cmd: str) -> None:
         distinct_id = self.get_distinct_id()
@@ -114,3 +116,23 @@ class Tracker:
             return "azure"
 
         return "local"
+
+    def enable(self) -> None:
+        self._opt_status_file.write_text("opted-in")
+
+    def disable(self) -> None:
+        self._opt_status_file.write_text("opted-out")
+
+    @cached_property
+    def _opt_status(self) -> str:
+        if self._opt_status_file.exists():
+            return self._opt_status_file.read_text()
+        return ""
+
+    @property
+    def opted_out(self) -> bool:
+        return self._opt_status == "opted-out"
+
+    @property
+    def opted_in(self) -> bool:
+        return self._opt_status == "opted-in"
