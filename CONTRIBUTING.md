@@ -100,11 +100,12 @@ To release a new version of the `cdf-tk` tool and the templates, you need to do 
       comments and that the changes can be easily understood. Also verify that any breaking changes
       are clearly marked as such (`**BREAKING**`).
    2. Do the same update to `CHANGELOG.templates.md` file.
-   3. Update the following files with the new version number:
+   3. Update the files with the new version number:
       - `cognite_toolkit/_version.py`
       - `pyproject.toml`
       - `_system.yaml` (multiple)
 
+      You can use the `python bump --minor --alpha` command to bump the version in all files.
    4. Run `poetry lock` to update the `poetry.lock` file.
    5. Run `pytest tests` locally to ensure that tests pass.
    6. Run `python module_upgrade/run_check.py` to ensure that the `cdf-tk modules upgrade` command works as expected.
