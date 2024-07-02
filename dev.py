@@ -66,7 +66,7 @@ def bump(
         if verbose:
             typer.echo(f"Bumped version from {version} to {new_version} in {file}.")
 
-    typer.echo(f"Bumped version from {version} to {new_version} in {version_files}.")
+    typer.echo(f"Bumped version from {version} to {new_version} in {len(version_files)} files.")
 
 
 if __name__ == "__main__":
