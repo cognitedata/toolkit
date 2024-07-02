@@ -160,7 +160,12 @@ def app() -> NoReturn:
                                     continue
                                 group.typer_instance.command(new_command.name)(new_command.callback)  # type: ignore [type-var]
                         else:
-                            _app.add_typer(type_app, name=name)
+                            if type_app.registered_groups:
+                                _app.add_typer(type_app, name=name)
+                            else:
+                                for app_cmd in type_app.registered_commands:
+                                    if app_cmd.name not in command_by_name:
+                                        _app.command(app_cmd.name)(app_cmd.callback)  # type: ignore [type-var]
 
         _app()
     except ToolkitError as err:

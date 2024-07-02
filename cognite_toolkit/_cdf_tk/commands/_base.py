@@ -52,7 +52,7 @@ class ToolkitCommand:
                 "and crash reports for the purposes of providing services of functions that are relevant "
                 "to use of the CLI tool and product improvements. "
                 "To remove this message run 'cdf-tk collect opt-in', "
-                "or to stop collect usage information run 'cdf-tk collect opt-out'."
+                "or to stop collecting usage information run 'cdf-tk collect opt-out'."
             )
 
         try:
