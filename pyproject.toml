@@ -23,7 +23,8 @@ sentry-sdk = "^2.1.0"
 cognite-logger = "^0.6"
 questionary = "^2.0.1"
 mixpanel = "^4.10.1"
-packaging = "^24.1"
+# 22.0 was when explicit support for 3.11 was added.
+packaging = ">=22.0,<25.0"
 typing-extensions = "^4.0"
 
 [tool.poetry.group.dev.dependencies]
