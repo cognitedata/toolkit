@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
     BuildCommand,
     CleanCommand,
+    CollectCommand,
     DeployCommand,
     DescribeCommand,
     DumpCommand,
@@ -99,13 +100,13 @@ dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 
+
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
 _app.add_typer(run_app, name="run")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
 _app.add_typer(feature_flag_app, name="features")
-_app.add_typer(user_app, name="user")
 
 
 def app() -> NoReturn:
@@ -418,6 +419,16 @@ def clean(
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk clean --verbose").get_message())
     cmd.run(lambda: cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, verbose or ctx.obj.verbose))
+
+
+@_app.command("collect", hidden=True)
+def collect(
+    ctx: typer.Context,
+    action: str = typer.Argument(help="Whether to acknowledge or stop collecting usage information."),
+) -> None:
+    """Collect usage information for the toolkit."""
+    cmd = CollectCommand()
+    cmd.run(lambda: cmd.execute(action))  # type: ignore [arg-type]
 
 
 @auth_app.callback(invoke_without_command=True)

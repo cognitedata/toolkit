@@ -34,16 +34,23 @@ class ToolkitCommand:
             self.user_command = "cdf-tk"
         self.warning_list = WarningList[ToolkitWarning]()
         self.tracker = Tracker(self.user_command)
-        self.skip_tracking = skip_tracking
+        self.skip_tracking = self.tracker.opted_out or skip_tracking
 
     def _track_command(self, result: str | Exception) -> None:
-        # Local import to avoid circular imports
-
         if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
             return
         self.tracker.track_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        if not self.tracker.opted_in and not self.tracker.opted_out:
+            print(
+                "You acknowledge and agree that the CLI tool may collect usage information, user environment, "
+                "and crash reports for the purposes of providing services of functions that are relevant "
+                "to use of the CLI tool and product improvements."
+                "To remove this message run 'cdf-tk collect opt-in', "
+                "or to stop collect usage information run 'cdf-tk collect opt-out'."
+            )
+
         try:
             result = execute(*args, **kwargs)
         except Exception as e:
