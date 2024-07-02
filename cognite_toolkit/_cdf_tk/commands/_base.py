@@ -42,7 +42,11 @@ class ToolkitCommand:
         self.tracker.track_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-        if not self.tracker.opted_in and not self.tracker.opted_out:
+        if (
+            not self.tracker.opted_in
+            and not self.tracker.opted_out
+            and not self.user_command.startswith("cdf-tk collect")
+        ):
             print(
                 "You acknowledge and agree that the CLI tool may collect usage information, user environment, "
                 "and crash reports for the purposes of providing services of functions that are relevant "
