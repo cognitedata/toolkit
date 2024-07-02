@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.9] - 2024-07-02
+
+### Changed
+
+- Tracking usage of Toolkit commands.
+
 ## [0.2.8] - 2024-07-01
 
 ### Added
