@@ -423,8 +423,9 @@ def clean(
 
 @_app.command("collect", hidden=True)
 def collect(
-    ctx: typer.Context,
-    action: str = typer.Argument(help="Whether to acknowledge or stop collecting usage information."),
+    action: str = typer.Argument(
+        help="Whether to explicitly opt-in or opt-out of usage data collection. [opt-in, opt-out]"
+    ),
 ) -> None:
     """Collect usage information for the toolkit."""
     cmd = CollectCommand()
