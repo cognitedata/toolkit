@@ -767,12 +767,9 @@ class _BuildState:
         filename = source_path.name
         # Get rid of the local index
         filename = INDEX_PATTERN.sub("", filename)
-        # Todo the index is causing issues here as explained.
-        # has_index = filename != source_path.name
 
         relative_parent = module_dir.name / source_path.relative_to(module_dir).parent
-        if relative_parent not in self.index_by_relative_path:  # or has_index:
-            # If there is an index we automatically bump.
+        if relative_parent not in self.index_by_relative_path:
             self.index_by_resource_type_counter[resource_directory] += 1
             self.index_by_relative_path[relative_parent] = self.index_by_resource_type_counter[resource_directory]
 
