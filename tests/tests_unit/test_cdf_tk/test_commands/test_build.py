@@ -87,6 +87,8 @@ class TestBuildCommand:
             if f.is_file() and TransformationLoader.is_supported_file(f)
         ]
         assert len(transformation_files) == 2
+        sql_files = [f for f in (tmp_path / "transformations").iterdir() if f.is_file() and f.suffix == ".sql"]
+        assert len(sql_files) == 2
 
 
 def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:
