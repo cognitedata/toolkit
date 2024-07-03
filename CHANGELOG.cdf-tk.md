@@ -15,6 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- When running `cdf-tk build`, if you use subdirectories in a resource directories, and have two resources with the
+  same file name, the Toolkit would overwrite the first resource with the second resource. This is now fixed. For
+  example, if you have `my_module/transformation/subdirectory1/my_transformation.Transformation.yaml` and
+  `my_module/transformation/subdirectory2/my_transformation.Transformation.yaml`, the Toolkit would only build the
+  second resource.
+
 ## [0.2.9] - 2024-07-02
 
 ### Changed

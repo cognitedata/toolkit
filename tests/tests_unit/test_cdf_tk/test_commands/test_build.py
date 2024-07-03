@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
+from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from tests import data
 
@@ -79,6 +80,13 @@ class TestBuildCommand:
         )
 
         assert not cmd.warning_list, f"No warnings should be raised. Got warnings: {cmd.warning_list}"
+        # There are two transformations in the project, expect two transformation files
+        transformation_files = [
+            f
+            for f in (tmp_path / "transformations").iterdir()
+            if f.is_file() and TransformationLoader.is_supported_file(f)
+        ]
+        assert len(transformation_files) == 2
 
 
 def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:

@@ -294,7 +294,7 @@ class BuildCommand(ToolkitCommand):
     ) -> Path:
         if verbose:
             print(f"    [bold green]INFO:[/] Processing {source_path.name}")
-        destination = build_dir / resource_directory / state.create_file_name(source_path)
+        destination = build_dir / resource_directory / state.create_file_name(source_path, resource_directory)
         destination.parent.mkdir(parents=True, exist_ok=True)
 
         content = source_path.read_text()
@@ -749,8 +749,15 @@ class _BuildState:
     def update_local_variables(self, module_dir: Path) -> None:
         self._local_variables = _Helpers.create_local_config(self.variables_by_module_path, module_dir)
 
-    def create_file_name(self, filepath: Path) -> str:
-        return _Helpers.create_file_name(filepath, self.number_by_resource_type)
+    def create_file_name(self, filepath: Path, resource_directory: str) -> str:
+        filename = filepath.name
+        if filepath.suffix in EXCL_INDEX_SUFFIX:
+            return filename
+        # Get rid of the local index
+        filename = re.sub("^[0-9]+\\.", "", filename)
+        self.number_by_resource_type[resource_directory] += 1
+        filename = f"{self.number_by_resource_type[resource_directory]}.{filename}"
+        return filename
 
     def replace_variables(self, content: str, file_suffix: str = ".yaml") -> str:
         for name, variable in self.local_variables.items():
@@ -819,14 +826,3 @@ class _Helpers:
                 cls._split_config(value, configs, prefix=f"{prefix}{key}")
             else:
                 configs.setdefault(prefix.removesuffix("."), {})[key] = value
-
-    @staticmethod
-    def create_file_name(filepath: Path, number_by_resource_type: dict[str, int]) -> str:
-        filename = filepath.name
-        if filepath.suffix in EXCL_INDEX_SUFFIX:
-            return filename
-        # Get rid of the local index
-        filename = re.sub("^[0-9]+\\.", "", filename)
-        number_by_resource_type[filepath.parent.name] += 1
-        filename = f"{number_by_resource_type[filepath.parent.name]}.{filename}"
-        return filename
