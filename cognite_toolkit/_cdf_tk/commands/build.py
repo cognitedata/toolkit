@@ -775,7 +775,9 @@ class _BuildState:
 
         index = self.index_by_relative_path[relative_parent]
         filename = f"{index}.{filename}"
-        return build_dir / resource_directory / filename
+        destination_path = build_dir / resource_directory / filename
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        return destination_path
 
     def replace_variables(self, content: str, file_suffix: str = ".yaml") -> str:
         for name, variable in self.local_variables.items():
