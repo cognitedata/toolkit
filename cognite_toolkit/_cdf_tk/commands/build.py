@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
+    INDEX_PATTERN,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
 )
@@ -765,10 +766,13 @@ class _BuildState:
         """
         filename = source_path.name
         # Get rid of the local index
-        filename = re.sub("^[0-9]+\\.", "", filename)
+        filename = INDEX_PATTERN.sub("", filename)
+        # Todo the index is causing issues here as explained.
+        # has_index = filename != source_path.name
 
         relative_parent = module_dir.name / source_path.relative_to(module_dir).parent
-        if relative_parent not in self.index_by_relative_path:
+        if relative_parent not in self.index_by_relative_path:  # or has_index:
+            # If there is an index we automatically bump.
             self.index_by_resource_type_counter[resource_directory] += 1
             self.index_by_relative_path[relative_parent] = self.index_by_resource_type_counter[resource_directory]
 
