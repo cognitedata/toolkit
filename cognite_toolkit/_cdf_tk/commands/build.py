@@ -735,7 +735,7 @@ class _BuildState:
     variables_by_module_path: dict[str, dict[str, str]] = field(default_factory=dict)
     source_by_build_path: dict[Path, Path] = field(default_factory=dict)
     hash_by_source_path: dict[Path, str] = field(default_factory=dict)
-    intex_by_resource_type_counter: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    index_by_resource_type_counter: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     index_by_relative_path: dict[Path, int] = field(default_factory=dict)
     printed_function_warning: bool = False
     ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
@@ -767,10 +767,10 @@ class _BuildState:
         # Get rid of the local index
         filename = re.sub("^[0-9]+\\.", "", filename)
 
-        relative_parent = source_path.parent.relative_to(module_dir).parent
+        relative_parent = module_dir.name / source_path.relative_to(module_dir).parent
         if relative_parent not in self.index_by_relative_path:
-            self.intex_by_resource_type_counter[resource_directory] += 1
-            self.index_by_relative_path[relative_parent] = self.intex_by_resource_type_counter[resource_directory]
+            self.index_by_resource_type_counter[resource_directory] += 1
+            self.index_by_relative_path[relative_parent] = self.index_by_resource_type_counter[resource_directory]
 
         index = self.index_by_relative_path[relative_parent]
         filename = f"{index}.{filename}"
