@@ -27,8 +27,6 @@ MODULE_PATH_SEP = "/"
 
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
-# Which suffixes to exclude when we create indexed files (i.e., they are bundled with their main config file)
-EXCL_INDEX_SUFFIX = frozenset([".sql", ".csv", ".parquet"])
 # Files to search for variables.
 SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 # Which files to process for template variable replacement
