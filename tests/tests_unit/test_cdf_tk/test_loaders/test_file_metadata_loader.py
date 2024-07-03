@@ -42,18 +42,18 @@ def file_metadata_config_cases() -> Iterable[ParameterSet]:
 
     yield pytest.param(
         """externalId: sharepointABC
-name: A file
+name: A file.txt
 dataSetExternalId: ds_files
 source: sharepointABC
 """,
-        [],
+        ["1.A file.txt"],
         data_set_mapping,
         FileMetadataWriteList(
             [
                 FileMetadataWrite(
                     external_id="sharepointABC",
                     source="sharepointABC",
-                    name="A file",
+                    name="A file.txt",
                     data_set_id=42,
                 )
             ]
@@ -62,28 +62,28 @@ source: sharepointABC
     )
     yield pytest.param(
         """- externalId: sharepointABC
-  name: A file
+  name: A file.txt
   dataSetExternalId: ds_files
   source: sharepointABC
 - externalId: sharepointABC2
-  name: Another file
+  name: Another file.txt
   dataSetExternalId: ds_files
   source: sharepointABC
 """,
-        [],
+        ["1.A file.txt", "1.Another file.txt"],
         data_set_mapping,
         FileMetadataWriteList(
             [
                 FileMetadataWrite(
                     external_id="sharepointABC",
                     source="sharepointABC",
-                    name="A file",
+                    name="A file.txt",
                     data_set_id=42,
                 ),
                 FileMetadataWrite(
                     external_id="sharepointABC2",
                     source="sharepointABC",
-                    name="Another file",
+                    name="Another file.txt",
                     data_set_id=42,
                 ),
             ]
@@ -109,7 +109,6 @@ class TestLoadResources:
         filepath.parent.glob.return_value = [Path(f) for f in files]
         cdf_tool = CDFToolConfig(skip_initialization=True)
         cdf_tool._cache.data_set_id_by_external_id = data_set_mapping
-        monkeypatch.setattr("cognite_toolkit._cdf_tk.loaders._resource_loaders.Path", self.always_existing_path)
 
         resources = loader.load_resource(filepath, cdf_tool, skip_validation=False)
 
