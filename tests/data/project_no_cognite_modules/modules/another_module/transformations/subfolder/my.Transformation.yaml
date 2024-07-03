@@ -1,0 +1,8 @@
+externalId: tr_cdf:instances:upsert:tr:300b:exact_ais_v2_vessels
+name: cdf:instances:upsert:tr:300b:exact_ais_v2_vessels
+destination:
+  type: "asset_hierarchy"
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+dataSetExternalId: {{ds_something}}
