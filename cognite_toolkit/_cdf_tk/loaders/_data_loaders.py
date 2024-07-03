@@ -11,6 +11,7 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList, capabilities
 from cognite.client.data_classes.capabilities import Capability, FilesAcl, RawAcl, TimeSeriesAcl
 
+from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from ._base_loaders import DataLoader
@@ -104,11 +105,11 @@ class FileLoader(DataLoader):
                 elif isinstance(loaded, FileMetadataWriteList):
                     self.meta_data_list.extend(loaded)
             self.has_loaded_metadata = True
-
-        meta_data = next((meta for meta in self.meta_data_list if meta.name == datafile.name), None)
+        source_file_name = INDEX_PATTERN.sub("", datafile.name)
+        meta_data = next((meta for meta in self.meta_data_list if meta.name == source_file_name), None)
         if meta_data is None:
             raise ValueError(
-                f"Missing metadata for file {datafile.name}. Please provide a yaml file with metadata "
+                f"Missing metadata for file {source_file_name}. Please provide a yaml file with metadata "
                 "with an entry with the same name."
             )
         external_id = meta_data.external_id
@@ -137,7 +138,7 @@ class RawFileLoader(DataLoader):
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
 
     def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
-        pattern = re.compile(rf"^(\d+\.)?{datafile.stem}\.(yml|yaml)$")
+        pattern = re.compile(rf"{datafile.stem}\.(yml|yaml)$")
         metadata_file = next((filepath for filepath in datafile.parent.glob("*") if pattern.match(filepath.name)), None)
         if metadata_file is not None:
             raw = yaml.safe_load(metadata_file.read_text())
