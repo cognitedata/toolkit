@@ -46,7 +46,7 @@ name: A file
 dataSetExternalId: ds_files
 source: sharepointABC
 """,
-        [],
+        ["A file"],
         data_set_mapping,
         FileMetadataWriteList(
             [
@@ -70,7 +70,7 @@ source: sharepointABC
   dataSetExternalId: ds_files
   source: sharepointABC
 """,
-        [],
+        ["A file", "Another file"],
         data_set_mapping,
         FileMetadataWriteList(
             [
