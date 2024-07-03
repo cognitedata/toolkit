@@ -5,4 +5,4 @@ destination:
 ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
-dataSetExternalId: ds_transformations_{{location}}
+dataSetExternalId: {{ds_something}}
