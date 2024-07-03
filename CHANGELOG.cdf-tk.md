@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- When running `cdf-tk build` with modules with the same filename for `.sql` files in `transformations` resources,
+  the Toolkit would overwrite the first resource with the second resource. This is now fixed.
+
 ## [0.2.10] - 2024-07-03
 
 ### Fixed
