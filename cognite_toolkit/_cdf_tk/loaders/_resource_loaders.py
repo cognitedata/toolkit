@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import itertools
 import json
-import re
 from abc import ABC
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence, Sized
@@ -108,7 +107,6 @@ from cognite.client.data_classes.data_modeling import (
     ContainerApply,
     ContainerApplyList,
     ContainerList,
-    ContainerProperty,
     DataModel,
     DataModelApply,
     DataModelApplyList,
@@ -160,12 +158,15 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    HighSeverityWarning,
     NamespacingConventionWarning,
     PrefixConventionWarning,
     WarningList,
@@ -361,6 +362,49 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         if len(group_write_list) == 1:
             return group_write_list[0]
         return group_write_list
+
+    def _are_equal(
+        self, local: GroupWrite, cdf_resource: Group, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+
+        scope_names = ["datasetScope", "idScope", "extractionPipelineScope"]
+
+        ids_by_acl_by_actions_by_scope: dict[str, dict[frozenset[str], dict[str, list[str]]]] = {}
+        for capability in cdf_dumped.get("capabilities", []):
+            for acl, values in capability.items():
+                ids_by_actions_by_scope = ids_by_acl_by_actions_by_scope.setdefault(acl, {})
+                actions = values.get("actions", [])
+                ids_by_scope = ids_by_actions_by_scope.setdefault(frozenset(actions), {})
+                scope = values.get("scope", {})
+                for scope_name in scope_names:
+                    if ids := scope.get(scope_name, {}).get("ids", []):
+                        if scope_name in ids_by_scope:
+                            # Duplicated
+                            ids_by_scope[scope_name].extend(ids)
+                        else:
+                            ids_by_scope[scope_name] = ids
+
+        for capability in local_dumped.get("capabilities", []):
+            for acl, values in capability.items():
+                if acl not in ids_by_acl_by_actions_by_scope:
+                    continue
+                ids_by_actions_by_scope = ids_by_acl_by_actions_by_scope[acl]
+                actions = frozenset(values.get("actions", []))
+                if actions not in ids_by_actions_by_scope:
+                    continue
+                ids_by_scope = ids_by_actions_by_scope[actions]
+                scope = values.get("scope", {})
+                for scope_name in scope_names:
+                    if ids := scope.get(scope_name, {}).get("ids", []):
+                        is_dry_run = all(id_ == -1 for id_ in ids)
+                        cdf_ids = ids_by_scope.get(scope_name, [])
+                        are_equal_length = len(ids) == len(cdf_ids)
+                        if is_dry_run and are_equal_length:
+                            values["scope"][scope_name]["ids"] = list(cdf_ids)
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def _upsert(self, items: Sequence[GroupWrite]) -> GroupList:
         if len(items) == 0:
@@ -746,6 +790,16 @@ class LabelLoader(
         loaded = LabelDefinitionWriteList.load(items)
         return loaded[0] if isinstance(raw_yaml, dict) else loaded
 
+    def _are_equal(
+        self, local: LabelDefinitionWrite, cdf_resource: LabelDefinition, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            # Dry run
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
 
 @final
 class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteList, FunctionList]):
@@ -853,6 +907,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 setattr(local, attribute, getattr(cdf_resource, attribute))
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            # Dry run
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
@@ -982,6 +1039,7 @@ class FunctionScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
+    _split_character = ":"
 
     @property
     def display_name(self) -> str:
@@ -1004,11 +1062,11 @@ class FunctionScheduleLoader(
             if missing := tuple(k for k in {"functionExternalId", "cronExpression"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return f"{item['functionExternalId']}:{item['cronExpression']}"
+            return f"{item['functionExternalId']}{cls._split_character}{item['cronExpression']}"
 
         if item.function_external_id is None or item.cron_expression is None:
             raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
-        return f"{item.function_external_id}:{item.cron_expression}"
+        return f"{item.function_external_id}{cls._split_character}{item.cron_expression}"
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -1023,7 +1081,7 @@ class FunctionScheduleLoader(
             schedules = [schedules]
 
         for sched in schedules:
-            ext_id = f"{sched['functionExternalId']}:{sched['cronExpression']}"
+            ext_id = f"{sched['functionExternalId']}{self._split_character}{sched['cronExpression']}"
             if self.extra_configs.get(ext_id) is None:
                 self.extra_configs[ext_id] = {}
             self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
@@ -1046,13 +1104,23 @@ class FunctionScheduleLoader(
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
-        functions = FunctionLoader(self.client, None).retrieve(list(set([id.split(":")[0] for id in ids])))
+        crons_by_function: dict[str, set[str]] = defaultdict(set)
+        for id_ in ids:
+            function_external_id, cron = id_.rsplit(self._split_character, 1)
+            crons_by_function[function_external_id].add(cron)
+        functions = FunctionLoader(self.client, None).retrieve(list(crons_by_function))
         schedules = FunctionSchedulesList([])
         for func in functions:
             ret = self.client.functions.schedules.list(function_id=func.id, limit=-1)
             for schedule in ret:
                 schedule.function_external_id = func.external_id
-            schedules.extend(ret)
+            schedules.extend(
+                [
+                    schedule
+                    for schedule in ret
+                    if schedule.cron_expression in crons_by_function[cast(str, func.external_id)]
+                ]
+            )
         return schedules
 
     def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
@@ -1428,6 +1496,26 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
                 resource["securityCategories"] = []
         return TimeSeriesWriteList.load(resources)
 
+    def _are_equal(
+        self, local: TimeSeriesWrite, cdf_resource: TimeSeries, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+
+        # If dataSetId or SecurityCategories are not set in the local, but are set in the CDF, it is a dry run
+        # and we assume they are the same.
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+        if (
+            all(s == -1 for s in local_dumped.get("securityCategories", []))
+            and "securityCategories" in cdf_dumped
+            and len(cdf_dumped["securityCategories"]) == len(local_dumped.get("securityCategories", []))
+        ):
+            local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
+        if local_dumped.get("assetId") == -1 and "assetId" in cdf_dumped:
+            local_dumped["assetId"] = cdf_dumped["assetId"]
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
     def create(self, items: TimeSeriesWriteList) -> TimeSeriesList:
         return self.client.time_series.create(items)
 
@@ -1703,12 +1791,15 @@ class TransformationLoader(
         local_dumped.pop("destinationOidcCredentials", None)
         local_dumped.pop("sourceOidcCredentials", None)
         cdf_dumped = cdf_resource.as_write().dump()
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            # Dry run
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def _get_query_file(self, filepath: Path, transformation_external_id: str | None) -> Path | None:
-        file_name = re.sub(r"\d+\.", "", filepath.stem)
-        query_file = filepath.parent / f"{file_name}.sql"
+    @staticmethod
+    def _get_query_file(filepath: Path, transformation_external_id: str | None) -> Path | None:
+        query_file = filepath.parent / f"{filepath.stem}.sql"
         if not query_file.exists() and transformation_external_id:
             query_file = filepath.parent / f"{transformation_external_id}.sql"
             if not query_file.exists():
@@ -1740,12 +1831,6 @@ class TransformationLoader(
                     invalid_parameters,
                 )
 
-            source_oidc_credentials = (
-                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
-            )
-            destination_oidc_credentials = (
-                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
-            )
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
@@ -1755,8 +1840,13 @@ class TransformationLoader(
                 # Todo; Bug SDK missing default value
                 resource["conflictMode"] = "upsert"
 
+            source_oidc_credentials = (
+                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
+            )
+            destination_oidc_credentials = (
+                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
+            )
             transformation = TransformationWrite.load(resource)
-
             try:
                 transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
                     source_oidc_credentials
@@ -1779,7 +1869,8 @@ class TransformationLoader(
                 transformation.query = query_file.read_text()
             elif transformation.query is not None and query_file is not None:
                 raise ToolkitYAMLFormatError(
-                    f"query property is abiguously defined in both the yaml file and a separate file named {query_file}"
+                    f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
+                    f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
                 )
 
             transformations.append(transformation)
@@ -2144,14 +2235,14 @@ class ExtractionPipelineLoader(
             resources = [resources]
 
         for resource in resources:
-            if resource.get("dataSetExternalId") is not None:
+            if "dataSetExternalId" in resource:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
                     ds_external_id,
                     skip_validation,
                     action="replace datasetExternalId with dataSetId in extraction pipeline",
                 )
-            if resource.get("createdBy") is None:
+            if "createdBy" not in resource:
                 # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
                 resource["createdBy"] = "unknown"
 
@@ -2159,6 +2250,16 @@ class ExtractionPipelineLoader(
             return ExtractionPipelineWrite.load(resources[0])
         else:
             return ExtractionPipelineWriteList.load(resources)
+
+    def _are_equal(
+        self, local: ExtractionPipelineWrite, cdf_resource: ExtractionPipeline, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            # Dry run
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def create(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
         items = list(items)
@@ -2259,15 +2360,17 @@ class ExtractionPipelineConfigLoader(
             resources = [resources]
 
         for resource in resources:
-            try:
-                if config := resource.get("config", None):
-                    resource["config"] = yaml.dump(config, indent=4)
-            except Exception:
-                print(
-                    f"[yellow]WARNING:[/] configuration for {resource.get('external_id')} could not be parsed as valid YAML, which is the recommended format.\n"
-                )
-                resource["config"] = resource.get("config", None)
-
+            config_raw = resource.get("config")
+            if isinstance(config_raw, (dict, list)):
+                try:
+                    resource["config"] = yaml.safe_dump(config_raw, indent=4)
+                except yaml.YAMLError as e:
+                    print(
+                        HighSeverityWarning(
+                            f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
+                            f"as valid YAML, which is the recommended format. Error: {e}"
+                        ).get_message()
+                    )
         if len(resources) == 1:
             return ExtractionPipelineConfigWrite.load(resources[0])
         else:
@@ -2398,6 +2501,13 @@ class FileMetadataLoader(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FileMetadataWrite | FileMetadataWriteList:
         loaded = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+
+        file_to_upload_by_source_name: dict[str, Path] = {
+            INDEX_PATTERN.sub("", file.name): file
+            for file in filepath.parent.glob("*")
+            if file.suffix not in {".yaml", ".yml"}
+        }
+
         is_file_template = (
             isinstance(loaded, list) and len(loaded) == 1 and "$FILENAME" in loaded[0].get("externalId", "")
         )
@@ -2408,16 +2518,13 @@ class FileMetadataLoader(
             if "name" in template and "$FILENAME" in template["name"]:
                 template_prefix, template_suffix = template["name"].split("$FILENAME", maxsplit=1)
             loaded_list: list[dict[str, Any]] = []
-            for file in filepath.parent.glob("*"):
-                if file.suffix in [".yaml", ".yml"]:
-                    continue
+            for source_name, file in file_to_upload_by_source_name.items():
                 # Deep Copy
                 new_file = json.loads(json.dumps(template))
+
                 # We modify the filename in the build command, we clean the name here to get the original filename
-                filename_in_module = (
-                    re.sub("^[0-9]+\\.", "", file.name).removeprefix(template_prefix).removesuffix(template_suffix)
-                )
-                new_file["name"] = file.name
+                filename_in_module = source_name.removeprefix(template_prefix).removesuffix(template_suffix)
+                new_file["name"] = source_name
                 new_file["externalId"] = new_file["externalId"].replace("$FILENAME", filename_in_module)
                 loaded_list.append(new_file)
 
@@ -2443,10 +2550,32 @@ class FileMetadataLoader(
 
         files_metadata: FileMetadataWriteList = FileMetadataWriteList.load(loaded_list)
         for meta in files_metadata:
-            if meta.name and not Path(filepath.parent / meta.name).exists():
-                # Todo in `0.2.0` replace this with ToolkitFileNotFoundError
-                raise FileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath.name}")
+            if meta.name and meta.name not in file_to_upload_by_source_name:
+                raise ToolkitFileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath}")
         return files_metadata
+
+    def _are_equal(
+        self, local: FileMetadataWrite, cdf_resource: FileMetadata, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Dry run mode
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+        if (
+            all(s == -1 for s in local_dumped.get("securityCategories", []))
+            and "securityCategories" in cdf_dumped
+            and len(cdf_dumped["securityCategories"]) == len(local_dumped.get("securityCategories", []))
+        ):
+            local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
+        if (
+            all(a == -1 for a in local_dumped.get("assetIds", []))
+            and "assetIds" in cdf_dumped
+            and len(cdf_dumped["assetIds"]) == len(local_dumped.get("assetIds", []))
+        ):
+            local_dumped["assetIds"] = cdf_dumped["assetIds"]
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def create(self, items: FileMetadataWriteList) -> FileMetadataList:
         created = FileMetadataList([])
@@ -2679,27 +2808,22 @@ class ContainerLoader(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ContainerApply | ContainerApplyList | None:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        if not isinstance(raw_yaml, list):
-            raw_yaml = [raw_yaml]
-        # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
-        # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
-        # is used as read and write in the SDK, and the read class has it required while the write class does not)
-        for raw_instance in raw_yaml:
+        dict_items = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        for raw_instance in dict_items:
             for prop in raw_instance.get("properties", {}).values():
                 type_ = prop.get("type", {})
                 if "list" not in type_:
+                    # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
+                    # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
+                    # is used as read and write in the SDK, and the read class has it required while the write class does not)
                     type_["list"] = False
-        items = ContainerApplyList.load(raw_yaml)
-        for item in items:
-            # Todo Bug in SDK, not setting defaults on load
-            for prop_name in item.properties.keys():
-                prop_dumped = item.properties[prop_name].dump()
-                if prop_dumped.get("nullable") is None:
-                    prop_dumped["nullable"] = False  # type: ignore[assignment]
-                if prop_dumped.get("autoIncrement") is None:
-                    prop_dumped["autoIncrement"] = False  # type: ignore[assignment]
-                item.properties[prop_name] = ContainerProperty.load(prop_dumped)
-        return items
+                # Todo Bug in SDK, not setting defaults on load
+                if "nullable" not in prop:
+                    prop["nullable"] = False
+                if "autoIncrement" not in prop:
+                    prop["autoIncrement"] = False
+
+        return ContainerApplyList.load(dict_items)
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)

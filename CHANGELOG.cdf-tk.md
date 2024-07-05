@@ -15,16 +15,55 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.2.10] - 2024-07-03
 
 ### Fixed
 
+- When running `cdf-tk build`, if you use subdirectories in a resource directories, and have two resources with the
+  same file name, the Toolkit would overwrite the first resource with the second resource. This is now fixed. For
+  example, if you have `my_module/transformation/subdirectory1/my_transformation.Transformation.yaml` and
+  `my_module/transformation/subdirectory2/my_transformation.Transformation.yaml`, the Toolkit would only build the
+  second resource.
+
+## [0.2.9] - 2024-07-02
+
+### Changed
+
+- Tracking usage of Toolkit commands.
+
+## [0.2.8] - 2024-07-01
+
+### Added
+
+- [Feature Preview] Option to turn off semantic naming checks for resources. Turn on the feature by running
+  `cdf-tk features set no-naming --enable`.
+
+### Fixed
+
+- When running `cdf-tk run function --local`, the toolkit would raise an `ToolkitValidationError`. This is now fixed.
+- When running `cdf-tk deploy --dry-run`, if any resource was referencing a `DataSet`, `SecurityCategory`,
+  or `ExtractionPipeline`, it would incorrectly be classified as changed. This is now fixed. This applied to
+  `ExtractionPipeline`, `FileMetadata`, `Function`, `Group`, `Label`, `TimeSeries`, and `Transformation` resources.
+
+### Changed
+
+- Function configurations for multiple functions can now be in multiple files in the function directory. Before
+  all configurations had to be listed in the same YAML file.
+
+## [0.2.7] - 2024-06-28
+
+### Fixed
+
+- Function schedule for functions with a `:` in the external id would raise an `ValueError`.
+  This is now fixed.
 - Transformation notifications for transformations with a `:` in the external id would raise an `ValueError`.
   This is now fixed.
 - When running `cdf-tk deploy`, you would get warnings about unrelated resources that were not part of the deployment.
   This is now fixed.
 - The `transformations/notifications` endpoint was giving `500` errors for requests to non-exising transformations.
   This is now handled by the toolkit and will not raise an error.
+- When doing variable replacement in a `sql` such as `dataset_id('{{dataset_external_id}}')`, the toolkit would
+  remove the quotes. This is now fixed.
 
 ## [0.2.6] - 2024-06-26
 

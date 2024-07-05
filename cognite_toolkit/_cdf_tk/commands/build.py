@@ -9,7 +9,7 @@ import shutil
 import sys
 import traceback
 from collections import ChainMap, defaultdict
-from collections.abc import Hashable, Iterator, Mapping, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -17,7 +17,6 @@ from typing import Any
 import pandas as pd
 import yaml
 from cognite.client._api.functions import validate_function_folder
-from cognite.client.data_classes import FunctionList
 from rich import print
 from rich.panel import Panel
 
@@ -25,9 +24,9 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
-    EXCL_INDEX_SUFFIX,
-    PROC_TMPL_VARS_SUFFIX,
+    INDEX_PATTERN,
     ROOT_MODULES,
+    TEMPLATE_VARS_FILE_SUFFIXES,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
@@ -89,6 +88,8 @@ from cognite_toolkit._cdf_tk.validation import (
 )
 from cognite_toolkit._version import __version__
 
+from .featureflag import FeatureFlag, Flags
+
 
 class BuildCommand(ToolkitCommand):
     def execute(self, verbose: bool, source_path: Path, build_dir: Path, build_env_name: str, no_clean: bool) -> None:
@@ -136,18 +137,24 @@ class BuildCommand(ToolkitCommand):
             shutil.rmtree(build_dir)
             build_dir.mkdir()
             if not _RUNNING_IN_BROWSER:
-                print(f"  [bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
+                print(f"[bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
         elif is_populated and not _RUNNING_IN_BROWSER:
             self.warn(
                 LowSeverityWarning("Build directory is not empty. Run without --no-clean to remove existing files.")
             )
         elif build_dir.exists() and not _RUNNING_IN_BROWSER:
-            print("  [bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
+            print("[bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
         else:
             build_dir.mkdir(exist_ok=True)
 
         if issue := config.validate_environment():
             self.warn(issue)
+
+        if FeatureFlag.is_enabled(Flags.NO_NAMING):
+            print(
+                "[bold green]INFO:[/] Naming convention warnings have been disabled. "
+                "To enable them, run 'cdf-tk features set no-naming --disable'."
+            )
 
         module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
         available_modules: set[str | tuple[str, ...]] = set()
@@ -207,82 +214,107 @@ class BuildCommand(ToolkitCommand):
 
             state.update_local_variables(module_dir)
 
-            files_by_resource_folder = self._to_files_by_resource_folder(source_paths, module_dir)
+            files_by_resource_directory = self._to_files_by_resource_directory(source_paths, module_dir)
 
-            for resource_folder in files_by_resource_folder:
-                for source_path in files_by_resource_folder[resource_folder].resource_files:
-                    if verbose:
-                        print(f"    [bold green]INFO:[/] Processing {source_path.name}")
-                    destination = build_dir / resource_folder / state.create_file_name(source_path)
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-
-                    is_function_non_yaml = resource_folder == FunctionLoader.folder_name and (
-                        source_path.suffix.lower() != ".yaml" or source_path.parent.name != FunctionLoader.folder_name
+            for resource_directory_name, directory_files in files_by_resource_directory.items():
+                build_folder: list[Path] = []
+                for source_path in directory_files.resource_files:
+                    destination = state.create_destination_path(
+                        source_path, resource_directory_name, module_dir, build_dir
                     )
-                    # We only want to process the yaml files for functions as the function code is handled separately.
-                    # Note that yaml files that are NOT in the root function folder are considered function code.
-                    content = ""
-                    if not is_function_non_yaml:
-                        content = source_path.read_text()
-                        state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
-                        content = state.replace_variables(content)
-                        destination.write_text(content)
-                        state.source_by_build_path[destination] = source_path
-                        file_warnings = self.validate(content, source_path, destination, state, verbose)
-                        if file_warnings:
-                            self.warning_list.extend(file_warnings)
-                            # Here we do not use the self.warn method as we want to print the warnings as a group.
-                            if self.print_warning:
-                                print(str(file_warnings))
 
-                    is_function_yaml = (
-                        resource_folder == FunctionLoader.folder_name
-                        and source_path.suffix.lower() == ".yaml"
-                        and re.match(FunctionLoader.filename_pattern, source_path.stem)
+                    self._replace_variables_validate_to_build_directory(source_path, destination, state, verbose)
+                    build_folder.append(destination)
+
+                if resource_directory_name == FunctionLoader.folder_name:
+                    self._validate_function_directory(state, directory_files, module_dir)
+                    self.validate_and_copy_function_directory_to_build(
+                        resource_files_build_folder=build_folder,
+                        state=state,
+                        module_dir=module_dir,
+                        build_dir=build_dir,
                     )
-                    if is_function_yaml:
-                        if not state.printed_function_warning and sys.version_info >= (3, 12):
-                            self.warn(
-                                HighSeverityWarning(
-                                    "The functions API does not support Python 3.12. "
-                                    "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
+                elif resource_directory_name == FileLoader.folder_name:
+                    self.copy_files_to_upload_to_build_directory(
+                        file_to_upload=directory_files.other_files,
+                        resource_files_build_folder=build_folder,
+                        state=state,
+                        module_dir=module_dir,
+                        build_dir=build_dir,
+                        verbose=verbose,
+                    )
+                else:
+                    for source_path in directory_files.other_files:
+                        destination = state.create_destination_path(
+                            source_path, resource_directory_name, module_dir, build_dir
+                        )
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        if (
+                            resource_directory_name == DatapointsLoader.folder_name
+                            and source_path.suffix.lower() == ".csv"
+                        ):
+                            self._copy_and_timeshift_csv_files(source_path, destination)
+                        else:
+                            if verbose:
+                                print(
+                                    f"    [bold green]INFO:[/] Found unrecognized file {source_path}. Copying in untouched..."
                                 )
-                            )
-                            state.printed_function_warning = True
-                        self.process_function_directory(
-                            yaml_source_path=source_path,
-                            yaml_dest_path=destination,
-                            module_dir=module_dir,
-                            build_dir=build_dir,
-                            verbose=verbose,
-                        )
-                        files_by_resource_folder[resource_folder].other_files = []
-
-                    if resource_folder == FileLoader.folder_name:
-                        self.copy_files_to_upload_to_build_directory(
-                            file_to_upload=files_by_resource_folder[resource_folder].other_files,
-                            config_content=content,
-                            module_dir=module_dir,
-                            build_dir=build_dir,
-                            verbose=verbose,
-                        )
-                        files_by_resource_folder[resource_folder].other_files.clear()
-
-                for source_path in files_by_resource_folder[resource_folder].other_files:
-                    destination = build_dir / DatapointsLoader.folder_name / source_path.name
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    if resource_folder == DatapointsLoader.folder_name and source_path.suffix.lower() == ".csv":
-                        self._copy_and_timeshift_csv_files(source_path, destination)
-                    else:
-                        if verbose:
-                            print(
-                                f"    [bold green]INFO:[/] Found unrecognized file {source_path}. Copying in untouched..."
-                            )
-                        # Copy the file as is, not variable replacement
-                        shutil.copyfile(source_path, destination)
+                            # Copy the file as is, not variable replacement
+                            shutil.copyfile(source_path, destination)
 
         self._check_missing_dependencies(state, project_config_dir)
         return state
+
+    def _validate_function_directory(
+        self, state: _BuildState, directory_files: ResourceDirectory, module_dir: Path
+    ) -> None:
+        if not state.printed_function_warning and sys.version_info >= (3, 12):
+            self.warn(
+                HighSeverityWarning(
+                    "The functions API does not support Python 3.12. "
+                    "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
+                )
+            )
+            state.printed_function_warning = True
+
+        has_config_files = any(FunctionLoader.is_supported_file(file) for file in directory_files.resource_files)
+        config_files_misplaced = [
+            file for file in directory_files.other_files if FunctionLoader.is_supported_file(file)
+        ]
+        if not has_config_files and config_files_misplaced:
+            for yaml_source_path in config_files_misplaced:
+                required_location = module_dir / FunctionLoader.folder_name / yaml_source_path.name
+                self.warn(
+                    LowSeverityWarning(
+                        f"The required Function resource configuration file "
+                        f"was not found in {required_location.as_posix()!r}. "
+                        f"The file {yaml_source_path.as_posix()!r} is currently "
+                        f"considered part of the Function's artifacts and "
+                        f"will not be processed by the Toolkit."
+                    )
+                )
+
+    def _replace_variables_validate_to_build_directory(
+        self, source_path: Path, destination_path: Path, state: _BuildState, verbose: bool
+    ) -> None:
+        if verbose:
+            print(f"    [bold green]INFO:[/] Processing {source_path.name}")
+
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+
+        content = source_path.read_text()
+        state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
+
+        content = state.replace_variables(content, source_path.suffix)
+        destination_path.write_text(content)
+        state.source_by_build_path[destination_path] = source_path
+
+        file_warnings = self.validate(content, source_path, destination_path, state, verbose)
+        if file_warnings:
+            self.warning_list.extend(file_warnings)
+            # Here we do not use the self.warn method as we want to print the warnings as a group.
+            if self.print_warning:
+                print(str(file_warnings))
 
     def _check_missing_dependencies(self, state: _BuildState, project_config_dir: Path) -> None:
         existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
@@ -342,7 +374,7 @@ class BuildCommand(ToolkitCommand):
         )
         return is_parent_in_selected_modules or is_in_selected_modules
 
-    def _to_files_by_resource_folder(self, filepaths: list[Path], module_dir: Path) -> dict[str, _ResourceFiles]:
+    def _to_files_by_resource_directory(self, filepaths: list[Path], module_dir: Path) -> dict[str, ResourceDirectory]:
         # Sort to support 1., 2. etc prefixes
         def sort_key(p: Path) -> int:
             if result := re.findall(r"^(\d+)", p.stem):
@@ -354,27 +386,42 @@ class BuildCommand(ToolkitCommand):
         # The custom key 'sort_key' is to get the sort on integer and not the string.
         filepaths = sorted(filepaths, key=sort_key)
 
-        files_by_resource_folder: dict[str, _ResourceFiles] = defaultdict(_ResourceFiles)
+        files_by_resource_directory: dict[str, ResourceDirectory] = defaultdict(ResourceDirectory)
         not_resource_directory: set[str] = set()
         for filepath in filepaths:
             try:
-                resource_folder = resource_folder_from_path(filepath)
+                resource_directory = resource_folder_from_path(filepath)
             except ValueError:
                 relative_to_module = filepath.relative_to(module_dir)
-                if relative_to_module.parts[0] != filepath.name:
+                is_file_in_resource_folder = relative_to_module.parts[0] == filepath.name
+                if not is_file_in_resource_folder:
                     not_resource_directory.add(relative_to_module.parts[0])
                 continue
-            if filepath.suffix.lower() in PROC_TMPL_VARS_SUFFIX:
-                files_by_resource_folder[resource_folder].resource_files.append(filepath)
+
+            if filepath.suffix.lower() in TEMPLATE_VARS_FILE_SUFFIXES and not self._is_exception_file(
+                filepath, resource_directory
+            ):
+                files_by_resource_directory[resource_directory].resource_files.append(filepath)
             else:
-                files_by_resource_folder[resource_folder].other_files.append(filepath)
+                files_by_resource_directory[resource_directory].other_files.append(filepath)
+
         if not_resource_directory:
             self.warn(
                 LowSeverityWarning(
                     f"Module {module_dir.name!r} has non-resource directories: {sorted(not_resource_directory)}. {ModuleDefinition.short()}"
                 )
             )
-        return files_by_resource_folder
+        return files_by_resource_directory
+
+    @staticmethod
+    def _is_exception_file(filepath: Path, resource_directory: str) -> bool:
+        # In the 'functions' resource directories, all `.yaml` files must be in the root of the directory
+        # This is to allow for function code to include arbitrary yaml files.
+        return (
+            resource_directory == FunctionLoader.folder_name
+            and filepath.suffix.lower() in {".yaml", ".yml"}
+            and filepath.parent.name != FunctionLoader.folder_name
+        )
 
     @staticmethod
     def _copy_and_timeshift_csv_files(csv_file: Path, destination: Path) -> None:
@@ -395,82 +442,126 @@ class BuildCommand(ToolkitCommand):
             data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
         destination.write_text(data.to_csv())
 
-    def process_function_directory(
+    def validate_and_copy_function_directory_to_build(
         self,
-        yaml_source_path: Path,
-        yaml_dest_path: Path,
+        resource_files_build_folder: list[Path],
+        state: _BuildState,
         module_dir: Path,
         build_dir: Path,
-        verbose: bool = False,
     ) -> None:
-        if yaml_source_path.parent.name != FunctionLoader.folder_name:
-            self.warn(
-                LowSeverityWarning(
-                    f"The file {yaml_source_path} is considered part of the Function's code and will not be processed as a CDF resource. If this is a "
-                    f"function config please move it to {FunctionLoader.folder_name} folder."
+        function_directory_by_name = {
+            dir_.name: dir_ for dir_ in (module_dir / FunctionLoader.folder_name).iterdir() if dir_.is_dir()
+        }
+        external_id_by_function_path = self._read_function_path_by_external_id(
+            resource_files_build_folder, function_directory_by_name, state
+        )
+
+        for external_id, function_path in external_id_by_function_path.items():
+            # Function directory already validated to exist in read function
+            function_dir = function_directory_by_name[external_id]
+            destination = build_dir / FunctionLoader.folder_name / external_id
+            if destination.exists():
+                raise ToolkitFileExistsError(
+                    f"Function {external_id!r} is duplicated. If this is unexpected, ensure you have a clean build directory."
                 )
-            )
-            return None
-        try:
-            functions: FunctionList = FunctionList.load(yaml.safe_load(yaml_dest_path.read_text()))
-        except (KeyError, yaml.YAMLError) as e:
-            raise ToolkitYAMLFormatError(f"Failed to load function file {yaml_source_path} due to: {e}")
+            shutil.copytree(function_dir, destination)
+            if function_path:
+                try:
+                    # Run validations on the function using the SDK's validation function
+                    validate_function_folder(
+                        root_path=destination.as_posix(),
+                        function_path=function_path,
+                        skip_folder_validation=False,
+                    )
+                except Exception as e:
+                    raise ToolkitValidationError(
+                        f"Failed to package function {external_id} at {function_dir.as_posix()!r}, python module is not loadable "
+                        f"due to: {type(e)}({e}). Note that you need to have any requirements your function uses "
+                        "installed in your current, local python environment."
+                    ) from e
 
-        for func in functions:
-            found = False
-            for function_subdirs in self.iterate_functions(module_dir):
-                for function_dir in function_subdirs:
-                    if (fn_xid := func.external_id) == function_dir.name:
-                        found = True
-                        if verbose:
-                            print(f"      [bold green]INFO:[/] Found function {fn_xid}")
-                        destination = build_dir / "functions" / fn_xid
-                        if destination.exists():
-                            raise ToolkitFileExistsError(
-                                f"Function {fn_xid} is duplicated. If this is unexpected, you may want to use '--clean'."
-                            )
-                        shutil.copytree(function_dir, destination)
+            # Clean up cache files
+            for subdir in destination.iterdir():
+                if subdir.is_dir():
+                    shutil.rmtree(subdir / "__pycache__", ignore_errors=True)
+            shutil.rmtree(destination / "__pycache__", ignore_errors=True)
 
-                        # Run validations on the function using the SDK's validation function
-                        try:
-                            if func.function_path:
-                                validate_function_folder(
-                                    root_path=destination.as_posix(),
-                                    function_path=func.function_path,
-                                    skip_folder_validation=False,
-                                )
-                            else:
-                                self.warn(
-                                    MediumSeverityWarning(
-                                        f"Function {fn_xid} in {yaml_source_path} has no function_path defined."
-                                    )
-                                )
-                        except Exception as e:
-                            raise ToolkitValidationError(
-                                f"Failed to package function {fn_xid} at {function_dir}, python module is not loadable "
-                                f"due to: {type(e)}({e}). Note that you need to have any requirements your function uses "
-                                "installed in your current, local python environment."
-                            ) from e
-                        # Clean up cache files
-                        for subdir in destination.iterdir():
-                            if subdir.is_dir():
-                                shutil.rmtree(subdir / "__pycache__", ignore_errors=True)
-                        shutil.rmtree(destination / "__pycache__", ignore_errors=True)
-            if not found:
-                raise ToolkitNotADirectoryError(
-                    f"Function directory not found for externalId {func.external_id} defined in {yaml_source_path}."
-                )
+    def _read_function_path_by_external_id(
+        self, resource_files_build_folder: list[Path], function_directory_by_name: dict[str, Path], state: _BuildState
+    ) -> dict[str, str | None]:
+        function_path_by_external_id: dict[str, str | None] = {}
+        configuration_files = [file for file in resource_files_build_folder if FunctionLoader.is_supported_file(file)]
+        for config_file in configuration_files:
+            source_file = state.source_by_build_path[config_file]
 
+            try:
+                raw_content = read_yaml_content(config_file.read_text())
+            except yaml.YAMLError as e:
+                raise ToolkitYAMLFormatError(f"Failed to load function files {source_file.as_posix()!r} due to: {e}")
+            raw_functions = raw_content if isinstance(raw_content, list) else [raw_content]
+            for raw_function in raw_functions:
+                external_id = raw_function.get("externalId")
+                function_path = raw_function.get("functionPath")
+                if not external_id:
+                    self.warn(
+                        HighSeverityWarning(
+                            f"Function in {source_file.as_posix()!r} has no externalId defined. "
+                            f"This is used to match the function to the function directory."
+                        )
+                    )
+                    continue
+                elif external_id not in function_directory_by_name:
+                    raise ToolkitNotADirectoryError(
+                        f"Function directory not found for externalId {external_id} defined in {source_file.as_posix()!r}."
+                    )
+                if not function_path:
+                    self.warn(
+                        MediumSeverityWarning(
+                            f"Function {external_id} in {source_file.as_posix()!r} has no function_path defined."
+                        )
+                    )
+                function_path_by_external_id[external_id] = function_path
+
+        return function_path_by_external_id
+
+    @staticmethod
     def copy_files_to_upload_to_build_directory(
-        self,
         file_to_upload: list[Path],
-        config_content: str,
+        resource_files_build_folder: list[Path],
+        state: _BuildState,
         module_dir: Path,
         build_dir: Path,
         verbose: bool = False,
     ) -> None:
-        if len(file_to_upload) == 0 or not config_content:
+        """This function copies the file to upload to the build directory.
+
+        It also checks the resource configuration files for a file template definition and renames the
+        file to upload if a template is found.
+        """
+        if len(file_to_upload) == 0:
             return
+
+        template_name = BuildCommand._get_file_template_name(resource_files_build_folder, module_dir, verbose)
+
+        for filepath in file_to_upload:
+            destination_stem = filepath.stem
+            if template_name:
+                destination_stem = template_name.replace(FileMetadataLoader.template_pattern, filepath.stem)
+            new_source = filepath.parent / f"{destination_stem}{filepath.suffix}"
+            destination = state.create_destination_path(new_source, FileLoader.folder_name, module_dir, build_dir)
+            shutil.copyfile(filepath, destination)
+
+    @staticmethod
+    def _get_file_template_name(resource_files_build_folder: list[Path], module_dir: Path, verbose: bool) -> str | None:
+        # We only support one file template definition per module.
+        configuration_files = [
+            file for file in resource_files_build_folder if FileMetadataLoader.is_supported_file(file)
+        ]
+        if len(configuration_files) != 1:
+            # Multiple configuration files, then there is no template
+            return None
+
+        config_content = configuration_files[0].read_text()
         try:
             raw_files = read_yaml_content(config_content)
         except yaml.YAMLError as e:
@@ -481,25 +572,21 @@ class BuildCommand(ToolkitCommand):
             and len(raw_files) == 1
             and FileMetadataLoader.template_pattern in raw_files[0].get("externalId", "")
         )
-        # We only support one file template definition per module.
-        template_name: str | None = None
-        if is_file_template and isinstance(raw_files, list):
-            template = raw_files[0]
-            if "name" in template and FileMetadataLoader.template_pattern in template["name"]:
-                template_name = template["name"]
-                if verbose:
-                    print(
-                        f"      [bold green]INFO:[/] Detected file template name {template_name!r} in "
-                        f"{module_dir}/{FileMetadataLoader.folder_name}, renaming files..."
-                    )
+        if not is_file_template:
+            return None
 
-        for filepath in file_to_upload:
-            destination_stem = filepath.stem
-            if template_name:
-                destination_stem = template_name.replace(FileMetadataLoader.template_pattern, filepath.stem)
-            destination = build_dir / FileLoader.folder_name / f"{destination_stem}{filepath.suffix}"
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(filepath, destination)
+        # MyPy is not able to infer the type of raw_files here, so we need to use ignore
+        template = raw_files[0]  # type: ignore[index]
+        has_template_name = "name" in template and FileMetadataLoader.template_pattern in template["name"]
+        if not has_template_name:
+            return None
+        template_name = template["name"]
+        if verbose:
+            print(
+                f"      [bold green]INFO:[/] Detected file template name {template_name!r} in "
+                f"{module_dir}/{FileMetadataLoader.folder_name}, renaming files..."
+            )
+        return template_name
 
     def validate(
         self,
@@ -637,15 +724,6 @@ class BuildCommand(ToolkitCommand):
 
         return loaders[0]
 
-    @staticmethod
-    def iterate_functions(module_dir: Path) -> Iterator[list[Path]]:
-        for function_dir in module_dir.glob(f"**/{FunctionLoader.folder_name}"):
-            if not function_dir.is_dir():
-                continue
-            function_directories = [path for path in function_dir.iterdir() if path.is_dir()]
-            if function_directories:
-                yield function_directories
-
 
 @dataclass
 class _BuildState:
@@ -658,7 +736,8 @@ class _BuildState:
     variables_by_module_path: dict[str, dict[str, str]] = field(default_factory=dict)
     source_by_build_path: dict[Path, Path] = field(default_factory=dict)
     hash_by_source_path: dict[Path, str] = field(default_factory=dict)
-    number_by_resource_type: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    index_by_resource_type_counter: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    index_by_relative_path: dict[Path, int] = field(default_factory=dict)
     printed_function_warning: bool = False
     ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
         default_factory=lambda: defaultdict(dict)
@@ -666,6 +745,7 @@ class _BuildState:
     dependencies_by_required: dict[tuple[type[ResourceLoader], Hashable], list[tuple[Hashable, Path]]] = field(
         default_factory=lambda: defaultdict(list)
     )
+
     _local_variables: Mapping[str, str] = field(default_factory=dict)
 
     @property
@@ -675,19 +755,44 @@ class _BuildState:
     def update_local_variables(self, module_dir: Path) -> None:
         self._local_variables = _Helpers.create_local_config(self.variables_by_module_path, module_dir)
 
-    def create_file_name(self, filepath: Path) -> str:
-        return _Helpers.create_file_name(filepath, self.number_by_resource_type)
+    def create_destination_path(
+        self, source_path: Path, resource_directory: str, module_dir: Path, build_dir: Path
+    ) -> Path:
+        """Creates the filepath in the build directory for the given source path.
 
-    def replace_variables(self, content: str) -> str:
+        Note that this is a complex operation as the modules in the source are nested while the build directory is flat.
+        This means that we lose information and risk having duplicate filenames. To avoid this, we prefix the filename
+        with a number to ensure uniqueness.
+        """
+        filename = source_path.name
+        # Get rid of the local index
+        filename = INDEX_PATTERN.sub("", filename)
+
+        relative_parent = module_dir.name / source_path.relative_to(module_dir).parent
+        if relative_parent not in self.index_by_relative_path:
+            self.index_by_resource_type_counter[resource_directory] += 1
+            self.index_by_relative_path[relative_parent] = self.index_by_resource_type_counter[resource_directory]
+
+        index = self.index_by_relative_path[relative_parent]
+        filename = f"{index}.{filename}"
+        destination_path = build_dir / resource_directory / filename
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        return destination_path
+
+    def replace_variables(self, content: str, file_suffix: str = ".yaml") -> str:
         for name, variable in self.local_variables.items():
             replace = variable
-            if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
-                replace = f'"{replace}"'
-            elif replace is None:
-                replace = "null"
-
             _core_patter = rf"{{{{\s*{name}\s*}}}}"
-            content = re.sub(rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"', str(replace), content)
+            if file_suffix in {".yaml", ".yml", ".json"}:
+                # Preserve data types
+                if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
+                    replace = f'"{replace}"'
+                elif replace is None:
+                    replace = "null"
+                content = re.sub(rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"', str(replace), content)
+            else:
+                content = re.sub(_core_patter, str(replace), content)
+
         return content
 
     @classmethod
@@ -701,7 +806,14 @@ class _BuildState:
 
 
 @dataclass
-class _ResourceFiles:
+class ResourceDirectory:
+    """The files in a Resource Directory.
+
+    Args:
+        resource_files: The files that are considered resources, which will be preformed variable replacement on
+        other_files: Files that are not considered resources, and will be copied as is.
+    """
+
     resource_files: list[Path] = field(default_factory=list)
     other_files: list[Path] = field(default_factory=list)
 
@@ -734,14 +846,3 @@ class _Helpers:
                 cls._split_config(value, configs, prefix=f"{prefix}{key}")
             else:
                 configs.setdefault(prefix.removesuffix("."), {})[key] = value
-
-    @staticmethod
-    def create_file_name(filepath: Path, number_by_resource_type: dict[str, int]) -> str:
-        filename = filepath.name
-        if filepath.suffix in EXCL_INDEX_SUFFIX:
-            return filename
-        # Get rid of the local index
-        filename = re.sub("^[0-9]+\\.", "", filename)
-        number_by_resource_type[filepath.parent.name] += 1
-        filename = f"{number_by_resource_type[filepath.parent.name]}.{filename}"
-        return filename

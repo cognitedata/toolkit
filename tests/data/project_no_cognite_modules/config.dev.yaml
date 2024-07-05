@@ -13,3 +13,6 @@ variables:
       location: here
     another_module:
       space: sp_my_space
+      source: src2
+      ds_something: ds_something
+

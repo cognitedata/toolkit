@@ -21,10 +21,9 @@ class ImportTransformationCLI(ToolkitCommand):
         self,
         get_client: Callable[[], CogniteClient] | None = None,
         print_warning: bool = True,
-        user_command: str | None = None,
         skip_tracking: bool = False,
     ):
-        super().__init__(print_warning, user_command, skip_tracking)
+        super().__init__(print_warning, skip_tracking)
         self._dataset_external_id_by_id: dict[int, str] = {}
         # We only initialize the client if we need to look up dataset ids.
         self._client: CogniteClient | None = None

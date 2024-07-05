@@ -100,30 +100,37 @@ To release a new version of the `cdf-tk` tool and the templates, you need to do 
       comments and that the changes can be easily understood. Also verify that any breaking changes
       are clearly marked as such (`**BREAKING**`).
    2. Do the same update to `CHANGELOG.templates.md` file.
-   3. Update the following files with the new version number:
+   3. Update the files with the new version number:
       - `cognite_toolkit/_version.py`
       - `pyproject.toml`
-      - `cognite_toolkit/cognite_modules/_system.yaml`
-      - `tests/tests_unit/tests_cdf_tk/run_data/cognite_modules/_system.yaml`.
-      - `tests/tests_unit/test_cdf_tk/project_for_test/cognite_modules/_system.yaml`
+      - `_system.yaml` (multiple)
+
+      You can use the `python bump --minor --alpha` command to bump the version in all files.
    4. Run `poetry lock` to update the `poetry.lock` file.
    5. Run `pytest tests` locally to ensure that tests pass.
    6. Run `python module_upgrade/run_check.py` to ensure that the `cdf-tk modules upgrade` command works as expected.
       against previous versions. See [Module Upgrade](module_upgrade/README.md) for more information.
-2. Get approval to squash merge the branch into `main`:
+
+      if a check fails due to missing package:
+      - source .venv/.../bin/activate
+      - pip install dependency
+      - deactivate
+      - run script again
+
+1. Get approval to squash merge the branch into `main`:
    1. Verify that all Github actions pass.
-3. Create a release branch: `release-x.y.z` from `main`:
+1. Create a release branch: `release-x.y.z` from `main`:
    1. Create a new tag on the branch with the version number, e.g. `v0.1.0b3`.
    2. Open a PR with the existing `release` branch as base comparing to your new `release-x.y.z` branch.
    3. Get approval and merge (do not squash).
    4. Verify that the Github action `release` passes and pushes to PyPi.
-4. Create a new release on github.com with the tag and release notes:
+1. Create a new release on github.com with the tag and release notes:
    1. Find the tag you created and create the new release.
    2. Copy the release notes from the `CHANGELOG.cdf-tk.md` file, add a `# cdf-tk` header.
    3. Copy then further below the release notes from the `CHANGELOG.templates.md` file, add
       a `# Templates` header.
    4. Remember to mark as pre-release if this is not a final release.
-5. Evaluate necessary announcements:
+1. Evaluate necessary announcements:
    1. On the Cognite Hub group, create a new post.
    2. As part of product releases, evaluate what to include.
    3. Cognite internal announcements.

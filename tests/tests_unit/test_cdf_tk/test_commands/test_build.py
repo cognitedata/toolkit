@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
+from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from tests import data
 
@@ -79,6 +80,15 @@ class TestBuildCommand:
         )
 
         assert not cmd.warning_list, f"No warnings should be raised. Got warnings: {cmd.warning_list}"
+        # There are two transformations in the project, expect two transformation files
+        transformation_files = [
+            f
+            for f in (tmp_path / "transformations").iterdir()
+            if f.is_file() and TransformationLoader.is_supported_file(f)
+        ]
+        assert len(transformation_files) == 2
+        sql_files = [f for f in (tmp_path / "transformations").iterdir() if f.is_file() and f.suffix == ".sql"]
+        assert len(sql_files) == 2
 
 
 def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:
@@ -223,3 +233,21 @@ suffix_text: {{ my_suffix_text }}
             "prefix_text": "prefix:",
             "suffix_text": ":suffix",
         }
+
+    def test_replace_not_preserve_type(self):
+        source_yaml = """dataset_id('{{dataset_external_id}}')"""
+        variables = {
+            "dataset_external_id": "ds_external_id",
+        }
+        state = _BuildState.create(
+            BuildConfigYAML(
+                Environment("dev", "my_project", "dev", ["none"]),
+                Path("dummy"),
+                {"modules": {"my_module": variables}},
+            )
+        )
+        state.update_local_variables(Path("modules") / "my_module")
+
+        result = state.replace_variables(source_yaml, file_suffix=".sql")
+
+        assert result == "dataset_id('ds_external_id')"
