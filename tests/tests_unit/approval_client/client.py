@@ -54,6 +54,8 @@ from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case
 from requests import Response
 
+from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
+
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
 
@@ -394,11 +396,16 @@ class ApprovalCogniteClient:
             name = ""
             for k, v in kwargs.items():
                 if isinstance(v, Path) or (isinstance(v, str) and Path(v).exists()):
+                    # The index pattern is used to ensure unique names. This index
+                    # is removed as we do not care whether the order of the files are uploaded
+                    filepath = Path(v)
+                    filepath = filepath.with_name(INDEX_PATTERN.sub("", filepath.name))
+
                     try:
-                        kwargs[k] = "/".join(Path(v).relative_to(TEST_FOLDER).parts)
+                        kwargs[k] = "/".join(filepath.relative_to(TEST_FOLDER).parts)
                     except ValueError:
-                        kwargs[k] = "/".join(Path(v).parts)
-                    name = Path(v).name
+                        kwargs[k] = "/".join(filepath.parts)
+                    name = filepath.name
 
             created_resources[resource_cls.__name__].append(
                 {
