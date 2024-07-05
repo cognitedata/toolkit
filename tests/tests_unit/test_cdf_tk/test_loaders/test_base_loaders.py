@@ -79,7 +79,6 @@ def test_loader_class(
 
 
 class TestDeployResources:
-    @pytest.mark.skip("This functionality has been removed")
     def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
         build_env_name = "dev"
         system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
