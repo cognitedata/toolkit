@@ -376,7 +376,7 @@ class BuildCommand(ToolkitCommand):
 
     def _to_files_by_resource_directory(self, filepaths: list[Path], module_dir: Path) -> dict[str, ResourceDirectory]:
         # Sort to support 1., 2. etc prefixes
-        def sort_key(p: Path) -> tuple[int, int]:
+        def sort_key(p: Path) -> tuple[int, int, str]:
             first = {
                 ".yaml": 0,
                 ".yml": 0,
@@ -385,9 +385,9 @@ class BuildCommand(ToolkitCommand):
             # This is when we add indexes to files. We want to ensure that, for example, a .sql file
             # with the same name as a .yaml file gets the same index as the .yaml file.
             if result := INDEX_PATTERN.search(p.stem):
-                return first, int(result.group()[:-1])
+                return first, int(result.group()[:-1]), p.name
             else:
-                return first, len(filepaths) + 1
+                return first, len(filepaths) + 1, p.name
 
         # The builder of a module can control the order that resources are deployed by prefixing a number
         # The custom key 'sort_key' is to get the sort on integer and not the string.
