@@ -1801,9 +1801,17 @@ class TransformationLoader(
     def _get_query_file(filepath: Path, transformation_external_id: str | None) -> Path | None:
         query_file = filepath.parent / f"{filepath.stem}.sql"
         if not query_file.exists() and transformation_external_id:
-            query_file = filepath.parent / f"{transformation_external_id}.sql"
-            if not query_file.exists():
+            found_query_file = next(
+                (
+                    f
+                    for f in filepath.parent.iterdir()
+                    if f.is_file() and f.name.endswith(f"{transformation_external_id}.sql")
+                ),
+                None,
+            )
+            if found_query_file is None:
                 return None
+            query_file = found_query_file
         return query_file
 
     def load_resource(

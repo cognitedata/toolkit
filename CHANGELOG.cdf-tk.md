@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- When running `cdf-tk build`, if you had two files non-YAML files named the same in different modules, or subdirectories
+  in the same module, the Toolkit would overwrite the first file with the second file. This is now fixed.
+
 ## [0.2.10] - 2024-07-03
 
 ### Fixed

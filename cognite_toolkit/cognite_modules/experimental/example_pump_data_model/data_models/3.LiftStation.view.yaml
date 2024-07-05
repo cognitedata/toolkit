@@ -13,6 +13,7 @@ implements:
     version: v1
 properties:
   pumps:
+    connectionType: multi_edge_connection
     type:
       space: '{{model_space}}'
       externalId: LiftStation.pumps
