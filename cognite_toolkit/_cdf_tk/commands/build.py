@@ -8,7 +8,7 @@ import re
 import shutil
 import sys
 import traceback
-from collections import ChainMap, defaultdict
+from collections import ChainMap, Counter, defaultdict
 from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -376,11 +376,15 @@ class BuildCommand(ToolkitCommand):
 
     def _to_files_by_resource_directory(self, filepaths: list[Path], module_dir: Path) -> dict[str, ResourceDirectory]:
         # Sort to support 1., 2. etc prefixes
-        def sort_key(p: Path) -> int:
-            if result := re.findall(r"^(\d+)", p.stem):
-                return int(result[0])
+        def sort_key(p: Path) -> tuple[int, int]:
+            first = {
+                ".yaml": 0,
+                ".yml": 0,
+            }.get(p.suffix.lower(), 1)
+            if result := INDEX_PATTERN.search(p.stem):
+                return first, int(result.group()[:-1])
             else:
-                return len(filepaths)
+                return first, len(filepaths) + 1
 
         # The builder of a module can control the order that resources are deployed by prefixing a number
         # The custom key 'sort_key' is to get the sort on integer and not the string.
@@ -736,8 +740,8 @@ class _BuildState:
     variables_by_module_path: dict[str, dict[str, str]] = field(default_factory=dict)
     source_by_build_path: dict[Path, Path] = field(default_factory=dict)
     hash_by_source_path: dict[Path, str] = field(default_factory=dict)
-    index_by_resource_type_counter: dict[str, int] = field(default_factory=lambda: defaultdict(int))
-    index_by_relative_path: dict[Path, int] = field(default_factory=dict)
+    index_by_resource_type_counter: Counter[str] = field(default_factory=Counter)
+    index_by_filepath_stem: dict[Path, int] = field(default_factory=dict)
     printed_function_warning: bool = False
     ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
         default_factory=lambda: defaultdict(dict)
@@ -768,12 +772,16 @@ class _BuildState:
         # Get rid of the local index
         filename = INDEX_PATTERN.sub("", filename)
 
-        relative_parent = module_dir.name / source_path.relative_to(module_dir).parent
-        if relative_parent not in self.index_by_relative_path:
+        relative_stem = module_dir.name / source_path.relative_to(module_dir).parent / source_path.stem
+        if relative_stem in self.index_by_filepath_stem:
+            # Ensure extra files (.sql, .pdf) with the same stem gets the same index as the
+            # main YAML file
+            index = self.index_by_filepath_stem[relative_stem]
+        else:
             self.index_by_resource_type_counter[resource_directory] += 1
-            self.index_by_relative_path[relative_parent] = self.index_by_resource_type_counter[resource_directory]
+            index = self.index_by_resource_type_counter[resource_directory]
+            self.index_by_filepath_stem[relative_stem] = index
 
-        index = self.index_by_relative_path[relative_parent]
         filename = f"{index}.{filename}"
         destination_path = build_dir / resource_directory / filename
         destination_path.parent.mkdir(parents=True, exist_ok=True)
