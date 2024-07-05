@@ -38,7 +38,6 @@ ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
 
 SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.1.0"
-YAML_FILE = {".yaml", ".yml"}
 # This is used in the build directory to keep track of order and flatten the
 # module directory structure with accounting for duplicated names.
 INDEX_PATTERN = re.compile("^[0-9]+\\.")
