@@ -69,9 +69,9 @@ This module manages the following resources:
      - Content: result from contextualization with mappings NOT added to CDF between 3d and assets.
        Table can be used for quality control and input to manual tuning
    - db/table: `3d_oid_opcua/contextualization_manual_input`
-     - Content: manual input to contextualization process. Table can be used as:
-       - a migration table read existing mappings from old project and insert to this table
-         to re-map in new project
+     - Content: manual input to the contextualization process. Table can be used as:
+       - a migration table reads existing mappings from the old project and insert to this table
+         to re-map in the new project
        - manual tuning based on results from process - wrong mappings in good/bad table can be
          corrected by adding it to this table
 
