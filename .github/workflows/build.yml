@@ -68,6 +68,8 @@ jobs:
       - name: Install core dependencies
         run: |
           poetry install
+      - name: CleanContainers
+        run: poetry run python scripts/clean_containers.py
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
