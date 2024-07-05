@@ -28,7 +28,7 @@ This module manages the following resources:
 1. auth:
    - Name: `gp_3d_oid_extractor`
      - Content: Authorization group used by the extractor writing data to CDF files and RAW,
-       extraction pipeline and update of extraction pipeline run
+       extraction pipeline and update of the extraction pipeline run
    - Name: `gp_3d_oid_processing`
      - Content: Authorization group used for contextualization of 3d function, read/write
        to raw, files and pipeline runs
