@@ -381,6 +381,9 @@ class BuildCommand(ToolkitCommand):
                 ".yaml": 0,
                 ".yml": 0,
             }.get(p.suffix.lower(), 1)
+            # We ensure that the YAML files are sorted before other files.
+            # This is when we add indexes to files. We want to ensure that, for example, a .sql file
+            # with the same name as a .yaml file gets the same index as the .yaml file.
             if result := INDEX_PATTERN.search(p.stem):
                 return first, int(result.group()[:-1])
             else:
