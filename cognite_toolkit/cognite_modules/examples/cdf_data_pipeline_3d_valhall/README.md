@@ -7,7 +7,7 @@ This module relies on these example data modules being loaded:
 - The Valhall 3D model uploaded and processed by CDF 3D pipeline
 
 The module creates a simple data pipeline for contextualization of a 3D model (Valhall) with
-the asset data based on the OID example module. In addition the module contains and example
+the asset data based on the OID example module. In addition, the module contains and example
 File extractor configuration that can be used to upload the 3D model from your file system.
 
 Proccesing workflow for the contextualization are:
