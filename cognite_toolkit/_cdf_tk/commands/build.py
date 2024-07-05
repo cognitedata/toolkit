@@ -775,9 +775,11 @@ class _BuildState:
         relative_stem = module_dir.name / source_path.relative_to(module_dir).parent / source_path.stem
         if relative_stem in self.index_by_filepath_stem:
             # Ensure extra files (.sql, .pdf) with the same stem gets the same index as the
-            # main YAML file
+            # main YAML file. The Transformation Loader expects this.
             index = self.index_by_filepath_stem[relative_stem]
         else:
+            # Increment to ensure we do not get duplicate filenames when we flatten the file
+            # structure from the module to the build directory.
             self.index_by_resource_type_counter[resource_directory] += 1
             index = self.index_by_resource_type_counter[resource_directory]
             self.index_by_filepath_stem[relative_stem] = index
