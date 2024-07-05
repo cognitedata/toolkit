@@ -46,6 +46,7 @@ fastparquet = "^2024.5.0"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"
+cdf = "cognite_toolkit._cdf:app"
 
 [tool.coverage.report]
 show_missing = true
