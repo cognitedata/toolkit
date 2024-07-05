@@ -92,16 +92,16 @@ input to map content, as illustrated in the illustration below:
 
 The following variables are required and defined in this module:
 
-| Variable | Description |
-|----------|-------------|
-| location_name | The location for your data, name used in all resource type related to data pipeline. We use oid (Open Industrial Data) |
-| source_name | The name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..|
-| 3d_dataset | The name of data set used for time series in this example, must correspond to name used in example data|
-| 3d_model_name | The name of 3d name used in example data|
-| external_root_id_asset | The external ID for the Asset name used in example data|
-| 3d_location_extractor_group_source_id | Object/ Source ID for security group in IdP. Used to run integration/extractor|
-| 3d_location_processing_group_source_id | Object/ Source ID for security group in IdP. Used to run CDF processing/contextualization|
-| 3d_location_read_group_source_id | Object/ Source ID for security group in IdP. Used to read file data|
+| Variable                               | Description                                                                                                              |
+|----------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| location_name                          | The location for your data, name used in all resource type related to data pipeline. We use oid (Open Industrial Data)   |
+| source_name                            | The name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',.. |
+| 3d_dataset                             | The name of data set used for time series in this example, must correspond to name used in example data                  |
+| 3d_model_name                          | The name of 3d name used in example data                                                                                 |
+| external_root_id_asset                 | The external ID for the Asset name used in example data                                                                  |
+| 3d_location_extractor_group_source_id  | Object/ Source ID for security group in IdP. Used to run integration/extractor                                           |
+| 3d_location_processing_group_source_id | Object/ Source ID for security group in IdP. Used to run CDF processing/contextualization                                |
+| 3d_location_read_group_source_id       | Object/ Source ID for security group in IdP. Used to read file data                                                      |
 
 ## Usage
 
