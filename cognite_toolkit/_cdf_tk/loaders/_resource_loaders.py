@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import itertools
 import json
-import re
 from abc import ABC
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence, Sized
@@ -159,6 +158,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
@@ -1797,13 +1797,21 @@ class TransformationLoader(
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def _get_query_file(self, filepath: Path, transformation_external_id: str | None) -> Path | None:
-        file_name = re.sub(r"\d+\.", "", filepath.stem)
-        query_file = filepath.parent / f"{file_name}.sql"
+    @staticmethod
+    def _get_query_file(filepath: Path, transformation_external_id: str | None) -> Path | None:
+        query_file = filepath.parent / f"{filepath.stem}.sql"
         if not query_file.exists() and transformation_external_id:
-            query_file = filepath.parent / f"{transformation_external_id}.sql"
-            if not query_file.exists():
+            found_query_file = next(
+                (
+                    f
+                    for f in filepath.parent.iterdir()
+                    if f.is_file() and f.name.endswith(f"{transformation_external_id}.sql")
+                ),
+                None,
+            )
+            if found_query_file is None:
                 return None
+            query_file = found_query_file
         return query_file
 
     def load_resource(
@@ -2501,6 +2509,13 @@ class FileMetadataLoader(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FileMetadataWrite | FileMetadataWriteList:
         loaded = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+
+        file_to_upload_by_source_name: dict[str, Path] = {
+            INDEX_PATTERN.sub("", file.name): file
+            for file in filepath.parent.glob("*")
+            if file.suffix not in {".yaml", ".yml"}
+        }
+
         is_file_template = (
             isinstance(loaded, list) and len(loaded) == 1 and "$FILENAME" in loaded[0].get("externalId", "")
         )
@@ -2511,16 +2526,13 @@ class FileMetadataLoader(
             if "name" in template and "$FILENAME" in template["name"]:
                 template_prefix, template_suffix = template["name"].split("$FILENAME", maxsplit=1)
             loaded_list: list[dict[str, Any]] = []
-            for file in filepath.parent.glob("*"):
-                if file.suffix in [".yaml", ".yml"]:
-                    continue
+            for source_name, file in file_to_upload_by_source_name.items():
                 # Deep Copy
                 new_file = json.loads(json.dumps(template))
+
                 # We modify the filename in the build command, we clean the name here to get the original filename
-                filename_in_module = (
-                    re.sub("^[0-9]+\\.", "", file.name).removeprefix(template_prefix).removesuffix(template_suffix)
-                )
-                new_file["name"] = file.name
+                filename_in_module = source_name.removeprefix(template_prefix).removesuffix(template_suffix)
+                new_file["name"] = source_name
                 new_file["externalId"] = new_file["externalId"].replace("$FILENAME", filename_in_module)
                 loaded_list.append(new_file)
 
@@ -2546,8 +2558,8 @@ class FileMetadataLoader(
 
         files_metadata: FileMetadataWriteList = FileMetadataWriteList.load(loaded_list)
         for meta in files_metadata:
-            if meta.name and not Path(filepath.parent / meta.name).exists():
-                raise ToolkitFileNotFoundError(f"Could not find file {meta.name} referenced " f"in filepath {filepath}")
+            if meta.name and meta.name not in file_to_upload_by_source_name:
+                raise ToolkitFileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath}")
         return files_metadata
 
     def _are_equal(

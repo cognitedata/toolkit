@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 try:
@@ -27,8 +28,6 @@ MODULE_PATH_SEP = "/"
 
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
-# Which suffixes to exclude when we create indexed files (i.e., they are bundled with their main config file)
-EXCL_INDEX_SUFFIX = frozenset([".sql", ".csv", ".parquet"])
 # Files to search for variables.
 SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 # Which files to process for template variable replacement
@@ -39,6 +38,9 @@ ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
 
 SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.1.0"
+# This is used in the build directory to keep track of order and flatten the
+# module directory structure with accounting for duplicated names.
+INDEX_PATTERN = re.compile("^[0-9]+\\.")
 
 
 class URL:

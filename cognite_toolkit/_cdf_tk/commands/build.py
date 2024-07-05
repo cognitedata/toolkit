@@ -8,7 +8,7 @@ import re
 import shutil
 import sys
 import traceback
-from collections import ChainMap, defaultdict
+from collections import ChainMap, Counter, defaultdict
 from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
-    EXCL_INDEX_SUFFIX,
+    INDEX_PATTERN,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
 )
@@ -219,9 +219,11 @@ class BuildCommand(ToolkitCommand):
             for resource_directory_name, directory_files in files_by_resource_directory.items():
                 build_folder: list[Path] = []
                 for source_path in directory_files.resource_files:
-                    destination = self._replace_variables_validate_to_build_directory(
-                        source_path, resource_directory_name, state, build_dir, verbose
+                    destination = state.create_destination_path(
+                        source_path, resource_directory_name, module_dir, build_dir
                     )
+
+                    self._replace_variables_validate_to_build_directory(source_path, destination, state, verbose)
                     build_folder.append(destination)
 
                 if resource_directory_name == FunctionLoader.folder_name:
@@ -236,13 +238,16 @@ class BuildCommand(ToolkitCommand):
                     self.copy_files_to_upload_to_build_directory(
                         file_to_upload=directory_files.other_files,
                         resource_files_build_folder=build_folder,
+                        state=state,
                         module_dir=module_dir,
                         build_dir=build_dir,
                         verbose=verbose,
                     )
                 else:
                     for source_path in directory_files.other_files:
-                        destination = build_dir / resource_directory_name / source_path.name
+                        destination = state.create_destination_path(
+                            source_path, resource_directory_name, module_dir, build_dir
+                        )
                         destination.parent.mkdir(parents=True, exist_ok=True)
                         if (
                             resource_directory_name == DatapointsLoader.folder_name
@@ -290,27 +295,26 @@ class BuildCommand(ToolkitCommand):
                 )
 
     def _replace_variables_validate_to_build_directory(
-        self, source_path: Path, resource_directory: str, state: _BuildState, build_dir: Path, verbose: bool
-    ) -> Path:
+        self, source_path: Path, destination_path: Path, state: _BuildState, verbose: bool
+    ) -> None:
         if verbose:
             print(f"    [bold green]INFO:[/] Processing {source_path.name}")
-        destination = build_dir / resource_directory / state.create_file_name(source_path, resource_directory)
-        destination.parent.mkdir(parents=True, exist_ok=True)
+
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
 
         content = source_path.read_text()
         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
 
         content = state.replace_variables(content, source_path.suffix)
-        destination.write_text(content)
-        state.source_by_build_path[destination] = source_path
+        destination_path.write_text(content)
+        state.source_by_build_path[destination_path] = source_path
 
-        file_warnings = self.validate(content, source_path, destination, state, verbose)
+        file_warnings = self.validate(content, source_path, destination_path, state, verbose)
         if file_warnings:
             self.warning_list.extend(file_warnings)
             # Here we do not use the self.warn method as we want to print the warnings as a group.
             if self.print_warning:
                 print(str(file_warnings))
-        return destination
 
     def _check_missing_dependencies(self, state: _BuildState, project_config_dir: Path) -> None:
         existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
@@ -372,11 +376,18 @@ class BuildCommand(ToolkitCommand):
 
     def _to_files_by_resource_directory(self, filepaths: list[Path], module_dir: Path) -> dict[str, ResourceDirectory]:
         # Sort to support 1., 2. etc prefixes
-        def sort_key(p: Path) -> int:
-            if result := re.findall(r"^(\d+)", p.stem):
-                return int(result[0])
+        def sort_key(p: Path) -> tuple[int, int, str]:
+            first = {
+                ".yaml": 0,
+                ".yml": 0,
+            }.get(p.suffix.lower(), 1)
+            # We ensure that the YAML files are sorted before other files.
+            # This is when we add indexes to files. We want to ensure that, for example, a .sql file
+            # with the same name as a .yaml file gets the same index as the .yaml file.
+            if result := INDEX_PATTERN.search(p.stem):
+                return first, int(result.group()[:-1]), p.name
             else:
-                return len(filepaths)
+                return first, len(filepaths) + 1, p.name
 
         # The builder of a module can control the order that resources are deployed by prefixing a number
         # The custom key 'sort_key' is to get the sort on integer and not the string.
@@ -524,6 +535,7 @@ class BuildCommand(ToolkitCommand):
     def copy_files_to_upload_to_build_directory(
         file_to_upload: list[Path],
         resource_files_build_folder: list[Path],
+        state: _BuildState,
         module_dir: Path,
         build_dir: Path,
         verbose: bool = False,
@@ -542,8 +554,8 @@ class BuildCommand(ToolkitCommand):
             destination_stem = filepath.stem
             if template_name:
                 destination_stem = template_name.replace(FileMetadataLoader.template_pattern, filepath.stem)
-            destination = build_dir / FileLoader.folder_name / f"{destination_stem}{filepath.suffix}"
-            destination.parent.mkdir(parents=True, exist_ok=True)
+            new_source = filepath.parent / f"{destination_stem}{filepath.suffix}"
+            destination = state.create_destination_path(new_source, FileLoader.folder_name, module_dir, build_dir)
             shutil.copyfile(filepath, destination)
 
     @staticmethod
@@ -731,7 +743,8 @@ class _BuildState:
     variables_by_module_path: dict[str, dict[str, str]] = field(default_factory=dict)
     source_by_build_path: dict[Path, Path] = field(default_factory=dict)
     hash_by_source_path: dict[Path, str] = field(default_factory=dict)
-    number_by_resource_type: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    index_by_resource_type_counter: Counter[str] = field(default_factory=Counter)
+    index_by_filepath_stem: dict[Path, int] = field(default_factory=dict)
     printed_function_warning: bool = False
     ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
         default_factory=lambda: defaultdict(dict)
@@ -749,15 +762,35 @@ class _BuildState:
     def update_local_variables(self, module_dir: Path) -> None:
         self._local_variables = _Helpers.create_local_config(self.variables_by_module_path, module_dir)
 
-    def create_file_name(self, filepath: Path, resource_directory: str) -> str:
-        filename = filepath.name
-        if filepath.suffix in EXCL_INDEX_SUFFIX:
-            return filename
+    def create_destination_path(
+        self, source_path: Path, resource_directory: str, module_dir: Path, build_dir: Path
+    ) -> Path:
+        """Creates the filepath in the build directory for the given source path.
+
+        Note that this is a complex operation as the modules in the source are nested while the build directory is flat.
+        This means that we lose information and risk having duplicate filenames. To avoid this, we prefix the filename
+        with a number to ensure uniqueness.
+        """
+        filename = source_path.name
         # Get rid of the local index
-        filename = re.sub("^[0-9]+\\.", "", filename)
-        self.number_by_resource_type[resource_directory] += 1
-        filename = f"{self.number_by_resource_type[resource_directory]}.{filename}"
-        return filename
+        filename = INDEX_PATTERN.sub("", filename)
+
+        relative_stem = module_dir.name / source_path.relative_to(module_dir).parent / source_path.stem
+        if relative_stem in self.index_by_filepath_stem:
+            # Ensure extra files (.sql, .pdf) with the same stem gets the same index as the
+            # main YAML file. The Transformation Loader expects this.
+            index = self.index_by_filepath_stem[relative_stem]
+        else:
+            # Increment to ensure we do not get duplicate filenames when we flatten the file
+            # structure from the module to the build directory.
+            self.index_by_resource_type_counter[resource_directory] += 1
+            index = self.index_by_resource_type_counter[resource_directory]
+            self.index_by_filepath_stem[relative_stem] = index
+
+        filename = f"{index}.{filename}"
+        destination_path = build_dir / resource_directory / filename
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        return destination_path
 
     def replace_variables(self, content: str, file_suffix: str = ".yaml") -> str:
         for name, variable in self.local_variables.items():
