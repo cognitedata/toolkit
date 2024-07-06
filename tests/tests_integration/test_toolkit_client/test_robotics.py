@@ -6,6 +6,18 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
+    DataProcessing,
+    DataProcessingList,
+    DataProcessingWrite,
+    Frame,
+    FrameList,
+    FrameWrite,
+    Location,
+    LocationList,
+    LocationWrite,
+    Map,
+    MapList,
+    MapWrite,
     Robot,
     RobotCapability,
     RobotCapabilityList,
@@ -227,4 +239,191 @@ class TestRobotsAPI:
         update = existing_robot.as_write()
         update.description = next(desc for desc in DESCRIPTIONS if desc != existing_robot.description)
         updated = toolkit_client.robotics.robots.update(update)
+        assert updated.description == update.description
+
+
+class TestDataProcessingAPI:
+    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
+        capability = DataProcessingWrite(
+            name="test_create_retrieve_delete",
+            external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
+            method="ptz",
+            input_schema=INPUT_SCHEMA,
+            description="Pan, tilt, zoom camera for visual image capture",
+        )
+        try:
+            with contextlib.suppress(CogniteDuplicatedError):
+                created = toolkit_client.robotics.capabilities.create(capability)
+                assert isinstance(created, DataProcessing)
+                assert created.as_write().dump() == capability.dump()
+
+            retrieved = toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+
+            assert isinstance(retrieved, DataProcessing)
+            assert retrieved.as_write().dump() == capability.dump()
+        finally:
+            toolkit_client.robotics.capabilities.delete(capability.external_id)
+
+        with pytest.raises(CogniteAPIError):
+            toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+
+    @pytest.mark.usefixtures("existing_capability")
+    def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
+        capabilities = toolkit_client.robotics.capabilities.list()
+        assert isinstance(capabilities, DataProcessingList)
+        assert len(capabilities) > 0
+
+    @pytest.mark.usefixtures("existing_capability")
+    def test_iterate_capabilities(self, toolkit_client: ToolkitClient) -> None:
+        for capability in toolkit_client.robotics.capabilities:
+            assert isinstance(capability, DataProcessing)
+            break
+        else:
+            pytest.fail("No capabilities found")
+
+    def test_update_capability(self, toolkit_client: ToolkitClient, existing_capability: DataProcessing) -> None:
+        update = existing_capability
+        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_capability.description)
+        updated = toolkit_client.robotics.capabilities.update(update)
+        assert updated.description == update.description
+
+
+class TestMapAPI:
+    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
+        capability = MapWrite(
+            name="test_create_retrieve_delete",
+            external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
+            method="ptz",
+            input_schema=INPUT_SCHEMA,
+            data_handling_schema=DATA_HANDLING_SCHEMA,
+            description="Pan, tilt, zoom camera for visual image capture",
+        )
+        try:
+            with contextlib.suppress(CogniteDuplicatedError):
+                created = toolkit_client.robotics.capabilities.create(capability)
+                assert isinstance(created, Map)
+                assert created.as_write().dump() == capability.dump()
+
+            retrieved = toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+
+            assert isinstance(retrieved, Map)
+            assert retrieved.as_write().dump() == capability.dump()
+        finally:
+            toolkit_client.robotics.capabilities.delete(capability.external_id)
+
+        with pytest.raises(CogniteAPIError):
+            toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+
+    @pytest.mark.usefixtures("existing_capability")
+    def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
+        capabilities = toolkit_client.robotics.capabilities.list()
+        assert isinstance(capabilities, MapList)
+        assert len(capabilities) > 0
+
+    @pytest.mark.usefixtures("existing_capability")
+    def test_iterate_capabilities(self, toolkit_client: ToolkitClient) -> None:
+        for capability in toolkit_client.robotics.capabilities:
+            assert isinstance(capability, Map)
+            break
+        else:
+            pytest.fail("No capabilities found")
+
+    def test_update_capability(self, toolkit_client: ToolkitClient, existing_capability: Map) -> None:
+        update = existing_capability
+        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_capability.description)
+        updated = toolkit_client.robotics.capabilities.update(update)
+        assert updated.description == update.description
+
+
+class TestLocationAPI:
+    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
+        capability = LocationWrite(
+            name="test_create_retrieve_delete",
+            external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
+            method="ptz",
+            input_schema=INPUT_SCHEMA,
+            data_handling_schema=DATA_HANDLING_SCHEMA,
+            description="Pan, tilt, zoom camera for visual image capture",
+        )
+        try:
+            with contextlib.suppress(CogniteDuplicatedError):
+                created = toolkit_client.robotics.capabilities.create(capability)
+                assert isinstance(created, Location)
+                assert created.as_write().dump() == capability.dump()
+
+            retrieved = toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+
+            assert isinstance(retrieved, Location)
+            assert retrieved.as_write().dump() == capability.dump()
+        finally:
+            toolkit_client.robotics.capabilities.delete(capability.external_id)
+
+        with pytest.raises(CogniteAPIError):
+            toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+
+    @pytest.mark.usefixtures("existing_capability")
+    def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
+        capabilities = toolkit_client.robotics.capabilities.list()
+        assert isinstance(capabilities, LocationList)
+        assert len(capabilities) > 0
+
+    @pytest.mark.usefixtures("existing_capability")
+    def test_iterate_capabilities(self, toolkit_client: ToolkitClient) -> None:
+        for capability in toolkit_client.robotics.capabilities:
+            assert isinstance(capability, Location)
+            break
+        else:
+            pytest.fail("No capabilities found")
+
+    def test_update_capability(self, toolkit_client: ToolkitClient, existing_capability: Location) -> None:
+        update = existing_capability
+        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_capability.description)
+        updated = toolkit_client.robotics.capabilities.update(update)
+        assert updated.description == update.description
+
+
+class TestFrameAPI:
+    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
+        capability = FrameWrite(
+            name="test_create_retrieve_delete",
+            external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
+            method="ptz",
+            input_schema=INPUT_SCHEMA,
+            data_handling_schema=DATA_HANDLING_SCHEMA,
+            description="Pan, tilt, zoom camera for visual image capture",
+        )
+        try:
+            with contextlib.suppress(CogniteDuplicatedError):
+                created = toolkit_client.robotics.capabilities.create(capability)
+                assert isinstance(created, Frame)
+                assert created.as_write().dump() == capability.dump()
+
+            retrieved = toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+
+            assert isinstance(retrieved, Frame)
+            assert retrieved.as_write().dump() == capability.dump()
+        finally:
+            toolkit_client.robotics.capabilities.delete(capability.external_id)
+
+        with pytest.raises(CogniteAPIError):
+            toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+
+    @pytest.mark.usefixtures("existing_capability")
+    def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
+        capabilities = toolkit_client.robotics.capabilities.list()
+        assert isinstance(capabilities, FrameList)
+        assert len(capabilities) > 0
+
+    @pytest.mark.usefixtures("existing_capability")
+    def test_iterate_capabilities(self, toolkit_client: ToolkitClient) -> None:
+        for capability in toolkit_client.robotics.capabilities:
+            assert isinstance(capability, Frame)
+            break
+        else:
+            pytest.fail("No capabilities found")
+
+    def test_update_capability(self, toolkit_client: ToolkitClient, existing_capability: Frame) -> None:
+        update = existing_capability
+        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_capability.description)
+        updated = toolkit_client.robotics.capabilities.update(update)
         assert updated.description == update.description
