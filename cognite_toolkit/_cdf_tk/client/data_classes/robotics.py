@@ -315,7 +315,7 @@ class _RobotUpdate(CogniteUpdate):
         ]
 
 
-class DataProcessingCore(WriteableCogniteResource["DataProcessingWrite"], ABC):
+class DataPostProcessingCore(WriteableCogniteResource["DataPostProcessingWrite"], ABC):
     """Robot capabilities define what actions that robots can execute, including data capture (PTZ, PTZ-IR, 360)
     and behaviors (e.g., docking)
 
@@ -340,7 +340,7 @@ class DataProcessingCore(WriteableCogniteResource["DataProcessingWrite"], ABC):
         self.description = description
 
 
-class DataProcessingWrite(DataProcessingCore):
+class DataPostProcessingWrite(DataPostProcessingCore):
     """DataPostprocessing define types of data processing on data captured by the robot.
     DataPostprocessing enables you to automatically process data captured by the robot.
 
@@ -366,7 +366,7 @@ class DataProcessingWrite(DataProcessingCore):
         super().__init__(name, external_id, method, description)
         self.input_schema = input_schema
 
-    def as_write(self) -> DataProcessingWrite:
+    def as_write(self) -> DataPostProcessingWrite:
         return self
 
     @classmethod
@@ -380,7 +380,7 @@ class DataProcessingWrite(DataProcessingCore):
         )
 
 
-class DataProcessing(DataProcessingCore):
+class DataPostProcessing(DataPostProcessingCore):
     """DataPostprocessing define types of data processing on data captured by the robot.
     DataPostprocessing enables you to automatically process data captured by the robot.
 
@@ -406,8 +406,8 @@ class DataProcessing(DataProcessingCore):
         super().__init__(name, external_id, method, description)
         self.input_schema = input_schema
 
-    def as_write(self) -> DataProcessingWrite:
-        return DataProcessingWrite(
+    def as_write(self) -> DataPostProcessingWrite:
+        return DataPostProcessingWrite(
             name=self.name,
             external_id=self.external_id,
             method=self.method,
@@ -426,15 +426,15 @@ class DataProcessing(DataProcessingCore):
         )
 
 
-class DataProcessingWriteList(CogniteResourceList):
-    _RESOURCE = DataProcessingWrite
+class DataPostProcessingWriteList(CogniteResourceList):
+    _RESOURCE = DataPostProcessingWrite
 
 
-class DataProcessingList(WriteableCogniteResourceList[DataProcessingWrite, DataProcessing]):
-    _RESOURCE = DataProcessing
+class DataPostProcessingList(WriteableCogniteResourceList[DataPostProcessingWrite, DataPostProcessing]):
+    _RESOURCE = DataPostProcessing
 
-    def as_write(self) -> DataProcessingWriteList:
-        return DataProcessingWriteList([capability.as_write() for capability in self])
+    def as_write(self) -> DataPostProcessingWriteList:
+        return DataPostProcessingWriteList([capability.as_write() for capability in self])
 
 
 class _DataProcessingUpdate(CogniteUpdate):

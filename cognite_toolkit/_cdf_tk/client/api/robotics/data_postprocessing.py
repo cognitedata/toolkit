@@ -8,25 +8,27 @@ from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
-    DataProcessing,
-    DataProcessingList,
-    DataProcessingWrite,
+    DataPostProcessing,
+    DataPostProcessingList,
+    DataPostProcessingWrite,
     _DataProcessingUpdate,
 )
 
 from .utlis import tmp_disable_gzip
 
 
-class DataProcessingAPI(APIClient):
-    _RESOURCE_PATH = "/robotics/data_processing"
+class DataPostProcessingAPI(APIClient):
+    _RESOURCE_PATH = "/robotics/data_postprocessing"
 
     @overload
-    def __call__(self) -> Iterator[DataProcessing]: ...
+    def __call__(self) -> Iterator[DataPostProcessing]: ...
 
     @overload
-    def __call__(self, chunk_size: int) -> Iterator[DataProcessingList]: ...
+    def __call__(self, chunk_size: int) -> Iterator[DataPostProcessingList]: ...
 
-    def __call__(self, chunk_size: int | None = None) -> Iterator[DataProcessing] | Iterator[DataProcessingList]:
+    def __call__(
+        self, chunk_size: int | None = None
+    ) -> Iterator[DataPostProcessing] | Iterator[DataPostProcessingList]:
         """Iterate over robot data_processing.
 
         Args:
@@ -37,21 +39,21 @@ class DataProcessingAPI(APIClient):
 
         """
         return self._list_generator(
-            method="GET", resource_cls=DataProcessing, list_cls=DataProcessingList, chunk_size=chunk_size
+            method="GET", resource_cls=DataPostProcessing, list_cls=DataPostProcessingList, chunk_size=chunk_size
         )
 
-    def __iter__(self) -> Iterator[DataProcessing]:
+    def __iter__(self) -> Iterator[DataPostProcessing]:
         return self.__call__()
 
     @overload
-    def create(self, dataProcessing: DataProcessingWrite) -> DataProcessing: ...
+    def create(self, dataProcessing: DataPostProcessingWrite) -> DataPostProcessing: ...
 
     @overload
-    def create(self, dataProcessing: Sequence[DataProcessingWrite]) -> DataProcessingList: ...
+    def create(self, dataProcessing: Sequence[DataPostProcessingWrite]) -> DataPostProcessingList: ...
 
     def create(
-        self, dataProcessing: DataProcessingWrite | Sequence[DataProcessingWrite]
-    ) -> DataProcessing | DataProcessingList:
+        self, dataProcessing: DataPostProcessingWrite | Sequence[DataPostProcessingWrite]
+    ) -> DataPostProcessing | DataPostProcessingList:
         """Create a new robot dataProcessing.
 
         Args:
@@ -63,19 +65,19 @@ class DataProcessingAPI(APIClient):
         """
         with tmp_disable_gzip():
             return self._create_multiple(
-                list_cls=DataProcessingList,
-                resource_cls=DataProcessing,
+                list_cls=DataPostProcessingList,
+                resource_cls=DataPostProcessing,
                 items=dataProcessing,
-                input_resource_cls=DataProcessingWrite,
+                input_resource_cls=DataPostProcessingWrite,
             )
 
     @overload
-    def retrieve(self, external_id: str) -> DataProcessing | None: ...
+    def retrieve(self, external_id: str) -> DataPostProcessing | None: ...
 
     @overload
-    def retrieve(self, external_id: SequenceNotStr[str]) -> DataProcessingList: ...
+    def retrieve(self, external_id: SequenceNotStr[str]) -> DataPostProcessingList: ...
 
-    def retrieve(self, external_id: str | SequenceNotStr[str]) -> DataProcessing | None | DataProcessingList:
+    def retrieve(self, external_id: str | SequenceNotStr[str]) -> DataPostProcessing | None | DataPostProcessingList:
         """Retrieve a robot dataProcessing.
 
         Args:
@@ -89,19 +91,19 @@ class DataProcessingAPI(APIClient):
         with tmp_disable_gzip():
             return self._retrieve_multiple(
                 identifiers=identifiers,
-                resource_cls=DataProcessing,
-                list_cls=DataProcessingList,
+                resource_cls=DataPostProcessing,
+                list_cls=DataPostProcessingList,
             )
 
     @overload
-    def update(self, dataProcessing: DataProcessingWrite) -> DataProcessing: ...
+    def update(self, dataProcessing: DataPostProcessingWrite) -> DataPostProcessing: ...
 
     @overload
-    def update(self, dataProcessing: Sequence[DataProcessingWrite]) -> DataProcessingList: ...
+    def update(self, dataProcessing: Sequence[DataPostProcessingWrite]) -> DataPostProcessingList: ...
 
     def update(
-        self, dataProcessing: DataProcessingWrite | Sequence[DataProcessingWrite]
-    ) -> DataProcessing | DataProcessingList:
+        self, dataProcessing: DataPostProcessingWrite | Sequence[DataPostProcessingWrite]
+    ) -> DataPostProcessing | DataPostProcessingList:
         """Update a robot dataProcessing.
 
         Args:
@@ -114,8 +116,8 @@ class DataProcessingAPI(APIClient):
         with tmp_disable_gzip():
             return self._update_multiple(
                 items=dataProcessing,
-                resource_cls=DataProcessing,
-                list_cls=DataProcessingList,
+                resource_cls=DataPostProcessing,
+                list_cls=DataPostProcessingList,
                 update_cls=_DataProcessingUpdate,
             )
 
@@ -133,7 +135,7 @@ class DataProcessingAPI(APIClient):
         with tmp_disable_gzip():
             self._delete_multiple(identifiers=identifiers, wrap_ids=True)
 
-    def list(self) -> DataProcessingList:
+    def list(self) -> DataPostProcessingList:
         """List robot data_processing.
 
         Returns:
@@ -141,4 +143,4 @@ class DataProcessingAPI(APIClient):
 
         """
         with tmp_disable_gzip():
-            return self._list(method="GET", resource_cls=DataProcessing, list_cls=DataProcessingList)
+            return self._list(method="GET", resource_cls=DataPostProcessing, list_cls=DataPostProcessingList)

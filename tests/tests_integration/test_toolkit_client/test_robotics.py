@@ -6,9 +6,9 @@ from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
-    DataProcessing,
-    DataProcessingList,
-    DataProcessingWrite,
+    DataPostProcessing,
+    DataPostProcessingList,
+    DataPostProcessingWrite,
     Frame,
     FrameList,
     FrameWrite,
@@ -27,55 +27,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
 )
 from tests.tests_integration.constants import RUN_UNIQUE_ID
 
-DATA_HANDLING_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "id": "robotics/schemas/0.1.0/data_handling/ptz",
-    "type": "object",
-    "properties": {
-        "uploadInstructions": {
-            "type": "object",
-            "properties": {
-                "image": {
-                    "type": "object",
-                    "properties": {
-                        "method": {"const": "uploadFile"},
-                        "parameters": {
-                            "type": "object",
-                            "properties": {"filenamePrefix": {"type": "string"}},
-                            "required": ["filenamePrefix"],
-                        },
-                    },
-                    "required": ["method", "parameters"],
-                    "additionalProperties": False,
-                }
-            },
-            "additionalProperties": False,
-        }
-    },
-    "required": ["uploadInstructions"],
-}
-
-INPUT_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "id": "robotics/schemas/0.1.0/capabilities/ptz",
-    "title": "PTZ camera capability input",
-    "type": "object",
-    "properties": {
-        "method": {"type": "string"},
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "tilt": {"type": "number", "minimum": -90, "maximum": 90},
-                "pan": {"type": "number", "minimum": -180, "maximum": 180},
-                "zoom": {"type": "number", "minimum": 0, "maximum": 100},
-            },
-            "required": ["tilt", "pan", "zoom"],
-        },
-    },
-    "required": ["method", "parameters"],
-    "additionalProperties": False,
-}
-
 DESCRIPTIONS = ["Original Description", "Updated Description"]
 
 
@@ -85,8 +36,8 @@ def existing_capability(toolkit_client: ToolkitClient) -> RobotCapability:
         name="ptz",
         external_id=f"ptz_{RUN_UNIQUE_ID}",
         method="ptz",
-        input_schema=INPUT_SCHEMA,
-        data_handling_schema=DATA_HANDLING_SCHEMA,
+        input_schema=INPUT_SCHEMA_CAPABILITY,
+        data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
         description=DESCRIPTIONS[0],
     )
     try:
@@ -95,6 +46,21 @@ def existing_capability(toolkit_client: ToolkitClient) -> RobotCapability:
     except CogniteAPIError:
         created = toolkit_client.robotics.capabilities.create(capability)
         return created
+
+
+@pytest.fixture(scope="session")
+def existing_data_processing(toolkit_client: ToolkitClient) -> RobotCapability:
+    data_processing = RobotCapabilityWrite(
+        name="Read dial gauge",
+        external_id=f"read_dial_gauge_{RUN_UNIQUE_ID}",
+        method="read_dial_gauge",
+        input_schema=INPUT_SCHEMA_CAPABILITY,
+        description=DESCRIPTIONS[0],
+    )
+    try:
+        return toolkit_client.robotics.data_postprocessing.retrieve(data_processing.external_id)
+    except CogniteAPIError:
+        return toolkit_client.robotics.data_postprocessing.create(data_processing)
 
 
 @pytest.fixture(scope="session")
@@ -149,8 +115,8 @@ class TestRobotCapabilityAPI:
             name="test_create_retrieve_delete",
             external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
             method="ptz",
-            input_schema=INPUT_SCHEMA,
-            data_handling_schema=DATA_HANDLING_SCHEMA,
+            input_schema=INPUT_SCHEMA_CAPABILITY,
+            data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
             description="Pan, tilt, zoom camera for visual image capture",
         )
         try:
@@ -244,47 +210,49 @@ class TestRobotsAPI:
 
 class TestDataProcessingAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        capability = DataProcessingWrite(
+        data_processing = DataPostProcessingWrite(
             name="test_create_retrieve_delete",
             external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
-            method="ptz",
-            input_schema=INPUT_SCHEMA,
-            description="Pan, tilt, zoom camera for visual image capture",
+            method="read_dial_gauge",
+            input_schema=INPUT_SCHEMA_DATA_PROCESSING,
+            description="Read dial gauge from an image using Cognite Vision gauge reader",
         )
         try:
             with contextlib.suppress(CogniteDuplicatedError):
-                created = toolkit_client.robotics.capabilities.create(capability)
-                assert isinstance(created, DataProcessing)
-                assert created.as_write().dump() == capability.dump()
+                created = toolkit_client.robotics.data_postprocessing.create(data_processing)
+                assert isinstance(created, DataPostProcessing)
+                assert created.as_write().dump() == data_processing.dump()
 
-            retrieved = toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+            retrieved = toolkit_client.robotics.data_postprocessing.retrieve(data_processing.external_id)
 
-            assert isinstance(retrieved, DataProcessing)
-            assert retrieved.as_write().dump() == capability.dump()
+            assert isinstance(retrieved, DataPostProcessing)
+            assert retrieved.as_write().dump() == data_processing.dump()
         finally:
-            toolkit_client.robotics.capabilities.delete(capability.external_id)
+            toolkit_client.robotics.data_postprocessing.delete(data_processing.external_id)
 
         with pytest.raises(CogniteAPIError):
-            toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+            toolkit_client.robotics.data_postprocessing.retrieve(data_processing.external_id)
 
-    @pytest.mark.usefixtures("existing_capability")
+    @pytest.mark.usefixtures("existing_data_processing")
     def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
-        capabilities = toolkit_client.robotics.capabilities.list()
-        assert isinstance(capabilities, DataProcessingList)
+        capabilities = toolkit_client.robotics.data_postprocessing.list()
+        assert isinstance(capabilities, DataPostProcessingList)
         assert len(capabilities) > 0
 
-    @pytest.mark.usefixtures("existing_capability")
+    @pytest.mark.usefixtures("existing_data_processing")
     def test_iterate_capabilities(self, toolkit_client: ToolkitClient) -> None:
-        for capability in toolkit_client.robotics.capabilities:
-            assert isinstance(capability, DataProcessing)
+        for capability in toolkit_client.robotics.data_postprocessing:
+            assert isinstance(capability, DataPostProcessing)
             break
         else:
-            pytest.fail("No capabilities found")
+            pytest.fail("No data processing found")
 
-    def test_update_capability(self, toolkit_client: ToolkitClient, existing_capability: DataProcessing) -> None:
-        update = existing_capability
-        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_capability.description)
-        updated = toolkit_client.robotics.capabilities.update(update)
+    def test_update_capability(
+        self, toolkit_client: ToolkitClient, existing_data_processing: DataPostProcessing
+    ) -> None:
+        update = existing_data_processing
+        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_data_processing.description)
+        updated = toolkit_client.robotics.data_postprocessing.update(update)
         assert updated.description == update.description
 
 
@@ -294,8 +262,8 @@ class TestMapAPI:
             name="test_create_retrieve_delete",
             external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
             method="ptz",
-            input_schema=INPUT_SCHEMA,
-            data_handling_schema=DATA_HANDLING_SCHEMA,
+            input_schema=INPUT_SCHEMA_CAPABILITY,
+            data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
             description="Pan, tilt, zoom camera for visual image capture",
         )
         try:
@@ -341,8 +309,8 @@ class TestLocationAPI:
             name="test_create_retrieve_delete",
             external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
             method="ptz",
-            input_schema=INPUT_SCHEMA,
-            data_handling_schema=DATA_HANDLING_SCHEMA,
+            input_schema=INPUT_SCHEMA_CAPABILITY,
+            data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
             description="Pan, tilt, zoom camera for visual image capture",
         )
         try:
@@ -388,8 +356,8 @@ class TestFrameAPI:
             name="test_create_retrieve_delete",
             external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
             method="ptz",
-            input_schema=INPUT_SCHEMA,
-            data_handling_schema=DATA_HANDLING_SCHEMA,
+            input_schema=INPUT_SCHEMA_CAPABILITY,
+            data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
             description="Pan, tilt, zoom camera for visual image capture",
         )
         try:
@@ -427,3 +395,80 @@ class TestFrameAPI:
         update.description = next(desc for desc in DESCRIPTIONS if desc != existing_capability.description)
         updated = toolkit_client.robotics.capabilities.update(update)
         assert updated.description == update.description
+
+
+DATA_HANDLING_SCHEMA_CAPABILITY = {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "id": "robotics/schemas/0.1.0/data_handling/ptz",
+    "type": "object",
+    "properties": {
+        "uploadInstructions": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "method": {"const": "uploadFile"},
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"filenamePrefix": {"type": "string"}},
+                            "required": ["filenamePrefix"],
+                        },
+                    },
+                    "required": ["method", "parameters"],
+                    "additionalProperties": False,
+                }
+            },
+            "additionalProperties": False,
+        }
+    },
+    "required": ["uploadInstructions"],
+}
+
+INPUT_SCHEMA_CAPABILITY = {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "id": "robotics/schemas/0.1.0/capabilities/ptz",
+    "title": "PTZ camera capability input",
+    "type": "object",
+    "properties": {
+        "method": {"type": "string"},
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tilt": {"type": "number", "minimum": -90, "maximum": 90},
+                "pan": {"type": "number", "minimum": -180, "maximum": 180},
+                "zoom": {"type": "number", "minimum": 0, "maximum": 100},
+            },
+            "required": ["tilt", "pan", "zoom"],
+        },
+    },
+    "required": ["method", "parameters"],
+    "additionalProperties": False,
+}
+
+INPUT_SCHEMA_DATA_PROCESSING = {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "id": "robotics/schemas/0.1.0/data_postprocessing/read_dial_gauge",
+    "title": "Read dial gauge postprocessing input",
+    "type": "object",
+    "properties": {
+        "image": {
+            "type": "object",
+            "properties": {
+                "method": {"type": "string"},
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "unit": {"type": "string"},
+                        "deadAngle": {"type": "number"},
+                        "minLevel": {"type": "number"},
+                        "maxLevel": {"type": "number"},
+                    },
+                },
+            },
+            "required": ["method", "parameters"],
+            "additionalProperties": False,
+        }
+    },
+    "additionalProperties": False,
+}
