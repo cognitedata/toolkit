@@ -40,6 +40,7 @@ ResourceTypes: TypeAlias = Literal[
     "extraction_pipelines",
     "functions",
     "raw",
+    "robotics",
     "workflows",
 ]
 
