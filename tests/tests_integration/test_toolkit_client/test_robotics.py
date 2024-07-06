@@ -64,6 +64,20 @@ def existing_data_processing(toolkit_client: ToolkitClient) -> RobotCapability:
 
 
 @pytest.fixture(scope="session")
+def existing_map(toolkit_client: ToolkitClient) -> Map:
+    map_ = MapWrite(
+        name="Robot navigation map",
+        external_id=f"robotMap_{RUN_UNIQUE_ID}",
+        map_type="POINTCLOUD",
+        description=DESCRIPTIONS[0],
+    )
+    try:
+        return toolkit_client.robotics.maps.retrieve(map_.external_id)
+    except CogniteAPIError:
+        return toolkit_client.robotics.maps.create(map_)
+
+
+@pytest.fixture(scope="session")
 def existing_robots_data_set(toolkit_client: ToolkitClient) -> DataSet:
     data_set = DataSetWrite(
         external_id="ds_robotics_api_tests",
@@ -234,15 +248,15 @@ class TestDataProcessingAPI:
             toolkit_client.robotics.data_postprocessing.retrieve(data_processing.external_id)
 
     @pytest.mark.usefixtures("existing_data_processing")
-    def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
-        capabilities = toolkit_client.robotics.data_postprocessing.list()
-        assert isinstance(capabilities, DataPostProcessingList)
-        assert len(capabilities) > 0
+    def test_list_data_postprocessing(self, toolkit_client: ToolkitClient) -> None:
+        data_postprocessing = toolkit_client.robotics.data_postprocessing.list()
+        assert isinstance(data_postprocessing, DataPostProcessingList)
+        assert len(data_postprocessing) > 0
 
     @pytest.mark.usefixtures("existing_data_processing")
-    def test_iterate_capabilities(self, toolkit_client: ToolkitClient) -> None:
-        for capability in toolkit_client.robotics.data_postprocessing:
-            assert isinstance(capability, DataPostProcessing)
+    def test_iterate_data_postprocessing(self, toolkit_client: ToolkitClient) -> None:
+        for data_postprocessing in toolkit_client.robotics.data_postprocessing:
+            assert isinstance(data_postprocessing, DataPostProcessing)
             break
         else:
             pytest.fail("No data processing found")
@@ -256,51 +270,49 @@ class TestDataProcessingAPI:
         assert updated.description == update.description
 
 
-@pytest.mark.skip("Not implemented")
 class TestMapAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        capability = MapWrite(
+        map_ = MapWrite(
             name="test_create_retrieve_delete",
             external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
-            method="ptz",
-            input_schema=INPUT_SCHEMA_CAPABILITY,
-            data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
-            description="Pan, tilt, zoom camera for visual image capture",
+            map_type="TWODMAP",
+            description="2D map of the robotics lab",
+            scale=1.0,
         )
         try:
             with contextlib.suppress(CogniteDuplicatedError):
-                created = toolkit_client.robotics.capabilities.create(capability)
+                created = toolkit_client.robotics.maps.create(map_)
                 assert isinstance(created, Map)
-                assert created.as_write().dump() == capability.dump()
+                assert created.as_write().dump() == map_.dump()
 
-            retrieved = toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+            retrieved = toolkit_client.robotics.maps.retrieve(map_.external_id)
 
             assert isinstance(retrieved, Map)
-            assert retrieved.as_write().dump() == capability.dump()
+            assert retrieved.as_write().dump() == map_.dump()
         finally:
-            toolkit_client.robotics.capabilities.delete(capability.external_id)
+            toolkit_client.robotics.maps.delete(map_.external_id)
 
         with pytest.raises(CogniteAPIError):
-            toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+            toolkit_client.robotics.maps.retrieve(map_.external_id)
 
-    @pytest.mark.usefixtures("existing_capability")
-    def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
-        capabilities = toolkit_client.robotics.capabilities.list()
-        assert isinstance(capabilities, MapList)
-        assert len(capabilities) > 0
+    @pytest.mark.usefixtures("existing_map")
+    def test_list_maps(self, toolkit_client: ToolkitClient) -> None:
+        maps = toolkit_client.robotics.maps.list()
+        assert isinstance(maps, MapList)
+        assert len(maps) > 0
 
-    @pytest.mark.usefixtures("existing_capability")
-    def test_iterate_capabilities(self, toolkit_client: ToolkitClient) -> None:
-        for capability in toolkit_client.robotics.capabilities:
-            assert isinstance(capability, Map)
+    @pytest.mark.usefixtures("existing_map")
+    def test_iterate_maps(self, toolkit_client: ToolkitClient) -> None:
+        for map_ in toolkit_client.robotics.maps:
+            assert isinstance(map_, Map)
             break
         else:
-            pytest.fail("No capabilities found")
+            pytest.fail("No maps found")
 
-    def test_update_capability(self, toolkit_client: ToolkitClient, existing_capability: Map) -> None:
-        update = existing_capability
-        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_capability.description)
-        updated = toolkit_client.robotics.capabilities.update(update)
+    def test_update_map(self, toolkit_client: ToolkitClient, existing_map: Map) -> None:
+        update = existing_map
+        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_map.description)
+        updated = toolkit_client.robotics.maps.update(update)
         assert updated.description == update.description
 
 
@@ -310,10 +322,6 @@ class TestLocationAPI:
         capability = LocationWrite(
             name="test_create_retrieve_delete",
             external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
-            method="ptz",
-            input_schema=INPUT_SCHEMA_CAPABILITY,
-            data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
-            description="Pan, tilt, zoom camera for visual image capture",
         )
         try:
             with contextlib.suppress(CogniteDuplicatedError):
