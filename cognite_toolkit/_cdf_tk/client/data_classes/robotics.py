@@ -14,6 +14,8 @@ from cognite.client.data_classes._base import (
 )
 from typing_extensions import Self, TypeAlias
 
+MapType: TypeAlias = Literal["WAYPOINTMAP", "THREEDMODEL", "TWODMAP", "POINTCLOUD"]
+
 
 class RobotCapabilityCore(WriteableCogniteResource["RobotCapabilityWrite"], ABC):
     """Robot capabilities define what actions that robots can execute, including data capture (PTZ, PTZ-IR, 360)
@@ -765,4 +767,186 @@ class _FrameUpdate(CogniteUpdate):
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("transform", is_nullable=False),
+        ]
+
+
+class MapCore(WriteableCogniteResource["MapWrite"], ABC):
+    """The map resource allows defining both context maps and robot maps of a specific location. A context map is a
+    visual representation of a location, for example, a 3D model, a 2D floor plan, or a point cloud model.
+    A robot map is a representation of where a robot is able to navigate. Maps need to be aligned with respect
+    to each other using coordinate frames.
+
+    Args:
+        name: Map name.
+        external_id: Map external id. Must be unique for the resource type.
+        map_type: Map type
+        description: Description of Map. Textual description of the Map.
+        frame_external_id: External id of the map's reference frame.
+        data: Map-specific data.
+        location_external_id: External id of the location.
+        scale: Uniform scaling factor, for example, for map unit conversion (centimeter to meter).
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        map_type: MapType,
+        description: str | None = None,
+        frame_external_id: str | None = None,
+        data: dict | None = None,
+        location_external_id: str | None = None,
+        scale: float | None = None,
+    ) -> None:
+        self.name = name
+        self.external_id = external_id
+        self.map_type = map_type
+        self.description = description
+        self.frame_external_id = frame_external_id
+        self.data = data
+        self.location_external_id = location_external_id
+        self.scale = scale
+
+
+class MapWrite(MapCore):
+    """The map resource allows defining both context maps and robot maps of a specific location. A context map is a
+    visual representation of a location, for example, a 3D model, a 2D floor plan, or a point cloud model.
+    A robot map is a representation of where a robot is able to navigate. Maps need to be aligned with respect
+    to each other using coordinate frames.
+
+    Args:
+        name: Map name.
+        external_id: Map external id. Must be unique for the resource type.
+        map_type: Map type
+        description: Description of Map. Textual description of the Map.
+        frame_external_id: External id of the map's reference frame.
+        data: Map-specific data.
+        location_external_id: External id of the location.
+        scale: Uniform scaling factor, for example, for map unit conversion (centimeter to meter).
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        map_type: MapType,
+        description: str | None = None,
+        frame_external_id: str | None = None,
+        data: dict | None = None,
+        location_external_id: str | None = None,
+        scale: float | None = None,
+    ) -> None:
+        super().__init__(name, external_id, map_type, description, frame_external_id, data, location_external_id, scale)
+
+    def as_write(self) -> MapWrite:
+        return self
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            name=resource["name"],
+            external_id=resource["externalId"],
+            map_type=resource["mapType"],
+            description=resource.get("description"),
+            frame_external_id=resource.get("frameExternalId"),
+            data=resource.get("data"),
+            location_external_id=resource.get("locationExternalId"),
+            scale=resource.get("scale"),
+        )
+
+
+class Map(MapCore):
+    """The map resource allows defining both context maps and robot maps of a specific location. A context map is a
+    visual representation of a location, for example, a 3D model, a 2D floor plan, or a point cloud model.
+    A robot map is a representation of where a robot is able to navigate. Maps need to be aligned with respect
+    to each other using coordinate frames.
+
+    Args:
+        name: Map name.
+        external_id: Map external id. Must be unique for the resource type.
+        map_type: Map type
+        created_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time (UTC), minus leap seconds.
+        updated_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time (UTC), minus leap seconds.
+        description: Description of Map. Textual description of the Map.
+        frame_external_id: External id of the map's reference frame.
+        data: Map-specific data.
+        location_external_id: External id of the location.
+        scale: Uniform scaling factor, for example, for map unit conversion (centimeter to meter).
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        map_type: MapType,
+        created_time: int,
+        updated_time: int,
+        description: str | None = None,
+        frame_external_id: str | None = None,
+        data: dict | None = None,
+        location_external_id: str | None = None,
+        scale: float | None = None,
+    ) -> None:
+        super().__init__(name, external_id, map_type, description, frame_external_id, data, location_external_id, scale)
+        self.created_time = created_time
+        self.updated_time = updated_time
+
+    def as_write(self) -> MapWrite:
+        return MapWrite(
+            name=self.name,
+            external_id=self.external_id,
+            map_type=self.map_type,
+            description=self.description,
+            frame_external_id=self.frame_external_id,
+            data=self.data,
+            location_external_id=self.location_external_id,
+            scale=self.scale,
+        )
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            name=resource["name"],
+            external_id=resource["externalId"],
+            map_type=resource["mapType"],
+            created_time=resource["createdTime"],
+            updated_time=resource["updatedTime"],
+            description=resource.get("description"),
+            frame_external_id=resource.get("frameExternalId"),
+            data=resource.get("data"),
+            location_external_id=resource.get("locationExternalId"),
+            scale=resource.get("scale"),
+        )
+
+
+class MapWriteList(CogniteResourceList):
+    _RESOURCE = MapWrite
+
+
+class MapList(WriteableCogniteResourceList[MapWrite, Map]):
+    _RESOURCE = Map
+
+    def as_write(self) -> MapWriteList:
+        return MapWriteList([capability.as_write() for capability in self])
+
+
+class _MapUpdate(CogniteUpdate):
+    """This is not fully implemented as the Toolkit only needs it for the
+    _get_update_properties in the .update method of the Map class.
+
+    All updates are done through the MapWrite class instead.
+    """
+
+    @classmethod
+    def _get_update_properties(cls) -> list[PropertySpec]:
+        return [
+            PropertySpec("name", is_nullable=False),
+            PropertySpec("description", is_nullable=False),
+            PropertySpec("frame_external_id", is_nullable=False),
+            PropertySpec("data", is_nullable=False),
+            PropertySpec("location_external_id", is_nullable=False),
+            PropertySpec("scale", is_nullable=False),
         ]
