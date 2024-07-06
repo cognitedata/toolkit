@@ -1,6 +1,7 @@
 import contextlib
 
 import pytest
+from cognite.client.data_classes import DataSet, DataSetWrite
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -82,6 +83,19 @@ def existing_capability(toolkit_client: ToolkitClient) -> RobotCapability:
         return created
 
 
+@pytest.fixture(scope="session")
+def existing_robots_data_set(toolkit_client: ToolkitClient) -> DataSet:
+    data_set = DataSetWrite(
+        external_id="ds_robotics_api_tests",
+        name="Robotics API Tests",
+        description="Data set for testing the Robotics API",
+    )
+    try:
+        return toolkit_client.data_sets.retrieve(data_set.external_id)
+    except CogniteAPIError:
+        return toolkit_client.data_sets.create(data_set)
+
+
 class TestRobotCapabilityAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         capability = RobotCapabilityWrite(
@@ -129,12 +143,14 @@ class TestRobotCapabilityAPI:
 
 class TestRobotsAPI:
     @pytest.mark.skip("Skip until Robotics API is available")
-    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
+    def test_create_retrieve_delete(
+        self, toolkit_client: ToolkitClient, existing_robots_data_set: DataSet, existing_capability: RobotCapability
+    ) -> None:
         robot = RobotWrite(
             name="test_robot",
-            capabilities=["test_capability"],
+            capabilities=[existing_capability.external_id],
             robot_type="SPOT",
-            data_set_id=1,
+            data_set_id=existing_robots_data_set.id,
             description="test_description",
             metadata={"test_key": "test_value"},
         )

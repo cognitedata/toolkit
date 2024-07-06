@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client._api_client import APIClient
 
