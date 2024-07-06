@@ -105,10 +105,13 @@ def root_frame(toolkit_client: ToolkitClient) -> Map:
         return toolkit_client.robotics.frames.create(root)
 
 
+FRAME_NAMES = ["Root coordinate frame of a location", "Updated name"]
+
+
 @pytest.fixture(scope="session")
 def existing_frame(toolkit_client: ToolkitClient, root_frame: Frame) -> Map:
     location = FrameWrite(
-        name="Root coordinate frame of a location",
+        name=FRAME_NAMES[0],
         external_id=f"rootCoordinateFrame_{RUN_UNIQUE_ID}",
         transform=Transform(
             parent_frame_external_id=root_frame.external_id,
@@ -445,12 +448,11 @@ class TestFrameAPI:
         else:
             pytest.fail("No frames found")
 
-    @pytest.mark.skip("not ready")
     def test_update_frame(self, toolkit_client: ToolkitClient, existing_frame: Frame) -> None:
         update = existing_frame
-        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_frame.description)
+        update.name = next(name for name in FRAME_NAMES if name != existing_frame.name)
         updated = toolkit_client.robotics.frames.update(update)
-        assert updated.description == update.description
+        assert updated.name == update.name
 
 
 DATA_HANDLING_SCHEMA_CAPABILITY = {
