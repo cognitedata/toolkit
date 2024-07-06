@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+from abc import ABC
 from typing import Any, Literal
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
     CogniteResourceList,
+    CogniteUpdate,
+    PropertySpec,
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
 from typing_extensions import Self, TypeAlias
 
 
-class RobotCapabilityCore(WriteableCogniteResource["RobotCapabilityWrite"]):
+class RobotCapabilityCore(WriteableCogniteResource["RobotCapabilityWrite"], ABC):
     """Robot capabilities define what actions that robots can execute, including data capture (PTZ, PTZ-IR, 360)
     and behaviors (e.g., docking)
 
@@ -140,6 +143,26 @@ class RobotCapabilityList(WriteableCogniteResourceList[RobotCapabilityWrite, Rob
 
     def as_write(self) -> RobotCapabilityWriteList:
         return RobotCapabilityWriteList([capability.as_write() for capability in self])
+
+
+class _RobotCapabilityUpdate(CogniteUpdate):
+    """This is not fully implemented as the Toolkit only needs it for the
+    _get_update_properties in the .update method of the RobotCapability class.
+
+    All updates are done through the RobotCapabilityWrite class instead.
+    """
+
+    @classmethod
+    def _get_update_properties(cls) -> list[PropertySpec]:
+        return [
+            # External ID is nullable, but is used in the upsert logic and thus cannot be nulled out.
+            PropertySpec("external_id", is_nullable=False),
+            PropertySpec("name"),
+            PropertySpec("description", is_nullable=False),
+            PropertySpec("method", is_nullable=False),
+            PropertySpec("input_schema", is_nullable=False),
+            PropertySpec("data_handling_schema", is_nullable=False),
+        ]
 
 
 RobotType: TypeAlias = Literal["SPOT", "ANYMAL", "DJI_DRONE", "TAUROB", "UWNKNOWN"]

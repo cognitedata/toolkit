@@ -61,12 +61,32 @@ INPUT_SCHEMA = {
     "additionalProperties": False,
 }
 
+CAPABILITY_DESCRIPTIONS = ["Original Description", "Updated Description"]
+
+
+@pytest.fixture(scope="session")
+def existing_capability(toolkit_client: ToolkitClient) -> RobotCapability:
+    capability = RobotCapabilityWrite(
+        name="ptz",
+        external_id="ptz",
+        method="ptz",
+        input_schema=INPUT_SCHEMA,
+        data_handling_schema=DATA_HANDLING_SCHEMA,
+        description=CAPABILITY_DESCRIPTIONS[0],
+    )
+    try:
+        retrieved = toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+        return retrieved
+    except CogniteAPIError:
+        created = toolkit_client.robotics.capabilities.create(capability)
+        return created
+
 
 class TestRobotCapabilityAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         capability = RobotCapabilityWrite(
-            name="ptz",
-            external_id="ptz",
+            name="test_create_retrieve_delete",
+            external_id="test_create_retrieve_delete",
             method="ptz",
             input_schema=INPUT_SCHEMA,
             data_handling_schema=DATA_HANDLING_SCHEMA,
@@ -88,10 +108,23 @@ class TestRobotCapabilityAPI:
         with pytest.raises(CogniteAPIError):
             toolkit_client.robotics.capabilities.retrieve(capability.external_id)
 
+    @pytest.mark.usefixtures("existing_capability")
     def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
         capabilities = toolkit_client.robotics.capabilities.list()
         assert isinstance(capabilities, RobotCapabilityList)
         assert len(capabilities) > 0
+
+    @pytest.mark.usefixtures("existing_capability")
+    def test_iterate_capabilities(self, toolkit_client: ToolkitClient) -> None:
+        for capability in toolkit_client.robotics.capabilities:
+            assert isinstance(capability, RobotCapability)
+            break
+
+    def test_update_capability(self, toolkit_client: ToolkitClient, existing_capability: RobotCapability) -> None:
+        update = existing_capability
+        update.description = next(desc for desc in CAPABILITY_DESCRIPTIONS if desc != existing_capability.description)
+        updated = toolkit_client.robotics.capabilities.update(update)
+        assert updated.description == update.description
 
 
 class TestRobotsAPI:
