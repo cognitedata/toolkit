@@ -261,3 +261,22 @@ class RobotList(WriteableCogniteResourceList[RobotWrite, Robot]):
 
     def as_write(self) -> RobotWriteList:
         return RobotWriteList([robot.as_write() for robot in self])
+
+
+class _RobotUpdate(CogniteUpdate):
+    """This is not fully implemented as the Toolkit only needs it for the
+    _get_update_properties in the .update method of the Robot class.
+
+    All updates are done through the RobotWrite
+    """
+
+    @classmethod
+    def _get_update_properties(cls) -> list[PropertySpec]:
+        return [
+            PropertySpec("data_set_id", is_nullable=False),
+            PropertySpec("name", is_nullable=False),
+            PropertySpec("description", is_nullable=False),
+            PropertySpec("metadata", is_container=True, is_nullable=False),
+            PropertySpec("robot_type", is_nullable=False),
+            PropertySpec("location_external_id", is_nullable=False),
+        ]
