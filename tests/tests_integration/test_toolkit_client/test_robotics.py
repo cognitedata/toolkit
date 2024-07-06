@@ -18,12 +18,15 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     Map,
     MapList,
     MapWrite,
+    Point3D,
+    Quaternion,
     Robot,
     RobotCapability,
     RobotCapabilityList,
     RobotCapabilityWrite,
     RobotList,
     RobotWrite,
+    Transform,
 )
 from tests.tests_integration.constants import RUN_UNIQUE_ID
 
@@ -88,6 +91,21 @@ def existing_location(toolkit_client: ToolkitClient) -> Map:
         return toolkit_client.robotics.locations.retrieve(location.external_id)
     except CogniteAPIError:
         return toolkit_client.robotics.locations.create(location)
+
+
+@pytest.fixture(scope="session")
+def existing_frame(toolkit_client: ToolkitClient) -> Map:
+    location = FrameWrite(
+        name="Root coordinate frame of a location",
+        external_id=f"rootCoordinateFrame_{RUN_UNIQUE_ID}",
+        transform=Transform(
+            parent_frame_external_id=None, translation=Point3D(0, 0, 0), orientation=Quaternion(0, 0, 0, 1)
+        ),
+    )
+    try:
+        return toolkit_client.robotics.frames.retrieve(location.external_id)
+    except CogniteAPIError:
+        return toolkit_client.robotics.frames.create(location)
 
 
 @pytest.fixture(scope="session")
@@ -372,51 +390,52 @@ class TestLocationAPI:
         assert updated.description == update.description
 
 
-@pytest.mark.skip("Not implemented")
 class TestFrameAPI:
-    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        capability = FrameWrite(
+    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, existing_frame: Frame) -> None:
+        frame = FrameWrite(
             name="test_create_retrieve_delete",
             external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
-            method="ptz",
-            input_schema=INPUT_SCHEMA_CAPABILITY,
-            data_handling_schema=DATA_HANDLING_SCHEMA_CAPABILITY,
-            description="Pan, tilt, zoom camera for visual image capture",
+            transform=Transform(
+                parent_frame_external_id=existing_frame.external_id,
+                translation=Point3D(0, 0, 0),
+                orientation=Quaternion(0, 0, 0, 1),
+            ),
         )
         try:
             with contextlib.suppress(CogniteDuplicatedError):
-                created = toolkit_client.robotics.capabilities.create(capability)
+                created = toolkit_client.robotics.frames.create(frame)
                 assert isinstance(created, Frame)
-                assert created.as_write().dump() == capability.dump()
+                assert created.as_write().dump() == frame.dump()
 
-            retrieved = toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+            retrieved = toolkit_client.robotics.frames.retrieve(frame.external_id)
 
             assert isinstance(retrieved, Frame)
-            assert retrieved.as_write().dump() == capability.dump()
+            assert retrieved.as_write().dump() == frame.dump()
         finally:
-            toolkit_client.robotics.capabilities.delete(capability.external_id)
+            toolkit_client.robotics.frames.delete(frame.external_id)
 
         with pytest.raises(CogniteAPIError):
-            toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+            toolkit_client.robotics.frames.retrieve(frame.external_id)
 
-    @pytest.mark.usefixtures("existing_capability")
-    def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
-        capabilities = toolkit_client.robotics.capabilities.list()
-        assert isinstance(capabilities, FrameList)
-        assert len(capabilities) > 0
+    @pytest.mark.usefixtures("existing_frame")
+    def test_list_frames(self, toolkit_client: ToolkitClient) -> None:
+        frames = toolkit_client.robotics.frames.list()
+        assert isinstance(frames, FrameList)
+        assert len(frames) > 0
 
-    @pytest.mark.usefixtures("existing_capability")
-    def test_iterate_capabilities(self, toolkit_client: ToolkitClient) -> None:
-        for capability in toolkit_client.robotics.capabilities:
-            assert isinstance(capability, Frame)
+    @pytest.mark.usefixtures("existing_frame")
+    def test_iterate_frames(self, toolkit_client: ToolkitClient) -> None:
+        for frame in toolkit_client.robotics.frames:
+            assert isinstance(frame, Frame)
             break
         else:
-            pytest.fail("No capabilities found")
+            pytest.fail("No frames found")
 
-    def test_update_capability(self, toolkit_client: ToolkitClient, existing_capability: Frame) -> None:
-        update = existing_capability
-        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_capability.description)
-        updated = toolkit_client.robotics.capabilities.update(update)
+    @pytest.mark.skip("not ready")
+    def test_update_frame(self, toolkit_client: ToolkitClient, existing_frame: Frame) -> None:
+        update = existing_frame
+        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_frame.description)
+        updated = toolkit_client.robotics.frames.update(update)
         assert updated.description == update.description
 
 

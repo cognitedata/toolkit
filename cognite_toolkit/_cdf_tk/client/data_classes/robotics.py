@@ -634,8 +634,8 @@ class Transform(CogniteObject):
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             parent_frame_external_id=resource["parentFrameExternalId"],
-            translation=Point3D._load(resource["translation"], cognite_client),
-            orientation=Quaternion._load(resource["orientation"], cognite_client),
+            translation=Point3D._load(resource["translation"]),
+            orientation=Quaternion._load(resource["orientation"]),
         )
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
@@ -667,6 +667,15 @@ class FrameCore(WriteableCogniteResource["FrameWrite"], ABC):
         self.name = name
         self.external_id = external_id
         self.transform = transform
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output: dict[str, Any] = {
+            "name": self.name,
+            "externalId" if camel_case else "external_id": self.external_id,
+        }
+        if self.transform:
+            output["transform"] = self.transform.dump(camel_case)
+        return output
 
 
 class FrameWrite(FrameCore):
@@ -710,7 +719,6 @@ class Frame(FrameCore):
         external_id: Frame external id. Must be unique for the resource type.
         created_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time (UTC), minus leap seconds.
         updated_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time (UTC), minus leap seconds.
-        description: Description of Frame. Textual description of the Frame.
 
     """
 
@@ -742,6 +750,12 @@ class Frame(FrameCore):
             updated_time=resource["updatedTime"],
             transform=Transform._load(resource["transform"]) if "transform" in resource else None,
         )
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case)
+        output["createdTime" if camel_case else "created_time"] = self.created_time
+        output["updatedTime" if camel_case else "updated_time"] = self.updated_time
+        return output
 
 
 class FrameWriteList(CogniteResourceList):
