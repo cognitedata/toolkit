@@ -177,6 +177,7 @@ class TestRobotCapabilityAPI:
         assert updated.description == update.description
 
 
+@pytest.mark.skip("Robot API seems to fail if you have two robots. This causes every other test run to fail.")
 class TestRobotsAPI:
     def test_create_retrieve_delete(
         self, toolkit_client: ToolkitClient, existing_robots_data_set: DataSet, existing_capability: RobotCapability
