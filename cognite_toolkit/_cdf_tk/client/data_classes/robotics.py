@@ -449,3 +449,125 @@ class _DataProcessingUpdate(CogniteUpdate):
             PropertySpec("method", is_nullable=False),
             PropertySpec("input_schema", is_nullable=False),
         ]
+
+
+class LocationCore(WriteableCogniteResource["LocationWrite"], ABC):
+    """Robot capabilities define what actions that robots can execute, including data capture (PTZ, PTZ-IR, 360)
+    and behaviors (e.g., docking)
+
+    Args:
+        name: Location name.
+        external_id: Location external id. Must be unique for the resource type.
+        description: Description of Location. Textual description of the Location.
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        description: str | None = None,
+    ) -> None:
+        self.name = name
+        self.external_id = external_id
+        self.description = description
+
+
+class LocationWrite(LocationCore):
+    """The Locations resource is used to specify the physical location of a robot. Robot missions are defined
+    for a specific location. In addition, the location is used to group Missions and Map resources.
+
+    Args:
+        name: Location name.
+        external_id: Location external id. Must be unique for the resource type.
+        description: Description of Location. Textual description of the Location.
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        description: str | None = None,
+    ) -> None:
+        super().__init__(name, external_id, description)
+
+    def as_write(self) -> LocationWrite:
+        return self
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            name=resource["name"],
+            external_id=resource["externalId"],
+            description=resource.get("description"),
+        )
+
+
+class Location(LocationCore):
+    """DataPostprocessing define types of data processing on data captured by the robot.
+    DataPostprocessing enables you to automatically process data captured by the robot.
+
+    Args:
+        name: Location name.
+        external_id: Location external id. Must be unique for the resource type.
+        created_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time (UTC), minus leap seconds.
+        updated_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time (UTC), minus leap seconds.
+        description: Description of Location. Textual description of the Location.
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        created_time: int,
+        updated_time: int,
+        description: str | None = None,
+    ) -> None:
+        super().__init__(name, external_id, description)
+        self.created_time = created_time
+        self.updated_time = updated_time
+
+    def as_write(self) -> LocationWrite:
+        return LocationWrite(
+            name=self.name,
+            external_id=self.external_id,
+            description=self.description,
+        )
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            name=resource["name"],
+            external_id=resource["externalId"],
+            created_time=resource["createdTime"],
+            updated_time=resource["updatedTime"],
+            description=resource.get("description"),
+        )
+
+
+class LocationWriteList(CogniteResourceList):
+    _RESOURCE = LocationWrite
+
+
+class LocationList(WriteableCogniteResourceList[LocationWrite, Location]):
+    _RESOURCE = Location
+
+    def as_write(self) -> LocationWriteList:
+        return LocationWriteList([capability.as_write() for capability in self])
+
+
+class _LocationUpdate(CogniteUpdate):
+    """This is not fully implemented as the Toolkit only needs it for the
+    _get_update_properties in the .update method of the Location class.
+
+    All updates are done through the LocationWrite class instead.
+    """
+
+    @classmethod
+    def _get_update_properties(cls) -> list[PropertySpec]:
+        return [
+            PropertySpec("name", is_nullable=False),
+            PropertySpec("description", is_nullable=False),
+        ]
