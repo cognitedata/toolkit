@@ -51,6 +51,7 @@ from cognite.client.testing import CogniteClientMock
 from rich import print
 from rich.prompt import Confirm, Prompt
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
@@ -421,6 +422,7 @@ class CDFToolConfig:
         self._audience: str | None = None
         self._credentials_provider: CredentialProvider | None = None
         self._client: CogniteClient | None = None
+        self._toolkit_client: ToolkitClient | None = None
 
         global_config.disable_pypi_version_check = True
         global_config.silence_feature_preview_warnings = True
@@ -566,6 +568,13 @@ class CDFToolConfig:
         if self._client is None:
             raise ValueError("Client is not initialized.")
         return self._client
+
+    @property
+    def toolkit_client(self) -> ToolkitClient:
+        if self._toolkit_client is None:
+            client = self.client
+            self._toolkit_client = ToolkitClient(client._config)
+        return self._toolkit_client
 
     @property
     def project(self) -> str:
