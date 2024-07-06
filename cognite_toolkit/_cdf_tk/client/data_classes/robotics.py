@@ -706,7 +706,7 @@ class FrameWrite(FrameCore):
         return cls(
             name=resource["name"],
             external_id=resource["externalId"],
-            transform=Transform._load(resource["transform"], cognite_client) if "transform" in resource else None,
+            transform=Transform._load(resource["transform"], cognite_client) if resource.get("transform") else None,
         )
 
 
@@ -748,7 +748,7 @@ class Frame(FrameCore):
             external_id=resource["externalId"],
             created_time=resource["createdTime"],
             updated_time=resource["updatedTime"],
-            transform=Transform._load(resource["transform"]) if "transform" in resource else None,
+            transform=Transform._load(resource["transform"]) if resource.get("transform") else None,
         )
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:

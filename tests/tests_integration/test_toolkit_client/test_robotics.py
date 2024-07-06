@@ -94,12 +94,26 @@ def existing_location(toolkit_client: ToolkitClient) -> Map:
 
 
 @pytest.fixture(scope="session")
-def existing_frame(toolkit_client: ToolkitClient) -> Map:
+def root_frame(toolkit_client: ToolkitClient) -> Map:
+    root = FrameWrite(
+        name="Root coordinate frame",
+        external_id="rootCoordinateFrame",
+    )
+    try:
+        return toolkit_client.robotics.frames.retrieve(root.external_id)
+    except CogniteAPIError:
+        return toolkit_client.robotics.frames.create(root)
+
+
+@pytest.fixture(scope="session")
+def existing_frame(toolkit_client: ToolkitClient, root_frame: Frame) -> Map:
     location = FrameWrite(
         name="Root coordinate frame of a location",
         external_id=f"rootCoordinateFrame_{RUN_UNIQUE_ID}",
         transform=Transform(
-            parent_frame_external_id=None, translation=Point3D(0, 0, 0), orientation=Quaternion(0, 0, 0, 1)
+            parent_frame_external_id=root_frame.external_id,
+            translation=Point3D(0, 0, 0),
+            orientation=Quaternion(0, 0, 0, 1),
         ),
     )
     try:
@@ -391,12 +405,12 @@ class TestLocationAPI:
 
 
 class TestFrameAPI:
-    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, existing_frame: Frame) -> None:
+    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, root_frame: Frame) -> None:
         frame = FrameWrite(
             name="test_create_retrieve_delete",
             external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
             transform=Transform(
-                parent_frame_external_id=existing_frame.external_id,
+                parent_frame_external_id=root_frame.external_id,
                 translation=Point3D(0, 0, 0),
                 orientation=Quaternion(0, 0, 0, 1),
             ),
