@@ -83,6 +83,7 @@ class ApprovalCogniteClient:
     def __init__(self, mock_client: CogniteClientMock):
         self._return_verify_resources = False
         self.mock_client = mock_client
+        self.mock_client._config = "config"
         # This is used to simulate the existing resources in CDF
         self._existing_resources: dict[str, list[CogniteResource]] = defaultdict(list)
         # This is used to log all delete operations
