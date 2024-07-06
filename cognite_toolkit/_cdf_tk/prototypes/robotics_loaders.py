@@ -42,6 +42,10 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
     kind = "Map"
     _doc_url = "Maps/operation/createMaps"
 
+    @property
+    def display_name(self) -> str:
+        return "robotics.map"
+
     @classmethod
     def get_id(cls, item: Map | MapWrite | dict) -> str:
         if isinstance(item, dict):
@@ -69,7 +73,10 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         return self.client.robotics.maps.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> MapList:
-        return self.client.robotics.maps.retrieve(ids)
+        try:
+            return self.client.robotics.maps.retrieve(ids)
+        except CogniteAPIError:
+            return MapList([])
 
     def update(self, items: MapWriteList) -> MapList:
         return self.client.robotics.maps.update(items)
@@ -94,6 +101,10 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
     list_write_cls = FrameWriteList
     kind = "Frame"
     _doc_url = "Frames/operation/createFrames"
+
+    @property
+    def display_name(self) -> str:
+        return "robotics.frame"
 
     @classmethod
     def get_id(cls, item: Frame | FrameWrite | dict) -> str:
@@ -147,6 +158,10 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
     list_write_cls = LocationWriteList
     kind = "Location"
     _doc_url = "Locations/operation/createLocations"
+
+    @property
+    def display_name(self) -> str:
+        return "robotics.location"
 
     @classmethod
     def get_id(cls, item: Location | LocationWrite | dict) -> str:
@@ -205,6 +220,10 @@ class RoboticsDataPostProcessingLoader(
     kind = "DataPostProcessing"
     _doc_url = "DataPostProcessing/operation/createDataPostProcessing"
 
+    @property
+    def display_name(self) -> str:
+        return "robotics.data_postprocessing"
+
     @classmethod
     def get_id(cls, item: DataPostProcessing | DataPostProcessingWrite | dict) -> str:
         if isinstance(item, dict):
@@ -232,7 +251,10 @@ class RoboticsDataPostProcessingLoader(
         return self.client.robotics.data_postprocessing.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DataPostProcessingList:
-        return self.client.robotics.data_postprocessing.retrieve(ids)
+        try:
+            return self.client.robotics.data_postprocessing.retrieve(ids)
+        except CogniteAPIError:
+            return DataPostProcessingList([])
 
     def update(self, items: DataPostProcessingWriteList) -> DataPostProcessingList:
         return self.client.robotics.data_postprocessing.update(items)
@@ -259,6 +281,10 @@ class RobotCapabilityLoader(
     list_write_cls = RobotCapabilityWriteList
     kind = "RobotCapability"
     _doc_url = "RobotCapabilities/operation/createRobotCapabilities"
+
+    @property
+    def display_name(self) -> str:
+        return "robotics.robot_capability"
 
     @classmethod
     def get_id(cls, item: RobotCapability | RobotCapabilityWrite | dict) -> str:
