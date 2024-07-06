@@ -9,6 +9,116 @@ from cognite.client.data_classes._base import (
 )
 from typing_extensions import TypeAlias
 
+
+class RobotCapabilityCore(WriteableCogniteResource["RobotCapabilityWrite"]):
+    """Robot capabilities define what actions that robots can execute, including data capture (PTZ, PTZ-IR, 360)
+    and behaviors (e.g., docking)
+
+    Args:
+        name: RobotCapability name.
+        external_id: RobotCapability external id. Must be unique for the resource type.
+        method: RobotCapability method. The method is used to call the right functionality on the robot.
+        description: Description of RobotCapability. Textual description of the RobotCapability.
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        method: str,
+        description: str | None = None,
+    ) -> None:
+        self.name = name
+        self.external_id = external_id
+        self.method = method
+        self.description = description
+
+
+class RobotCapabilityWrite(RobotCapabilityCore):
+    """Robot capabilities define what actions that robots can execute, including data capture (PTZ, PTZ-IR, 360)
+    and behaviors (e.g., docking)
+
+    Args:
+        name: RobotCapability name.
+        external_id: RobotCapability external id. Must be unique for the resource type.
+        method: RobotCapability method. The method is used to call the right functionality on the robot.
+        input_schema: Schema that defines what inputs are needed for the action. The input are values that
+        configure the action, e.g pan, tilt and zoom values.
+        data_handling_schema: Schema that defines how the data from a RobotCapability should be handled,
+            including upload instructions.
+        description: Description of RobotCapability. Textual description of the RobotCapability.
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        method: str,
+        input_schema: dict | None = None,
+        data_handling_schema: dict | None = None,
+        description: str | None = None,
+    ) -> None:
+        super().__init__(name, external_id, method, description)
+        self.input_schema = input_schema
+        self.data_handling_schema = data_handling_schema
+
+    def as_write(self) -> RobotCapabilityWrite:
+        return self
+
+
+class RobotCapability(RobotCapabilityCore):
+    """Robot capabilities define what actions that robots can execute, including data capture (PTZ, PTZ-IR, 360)
+    and behaviors (e.g., docking)
+
+    Args:
+        name: RobotCapability name.
+        external_id: RobotCapability external id. Must be unique for the resource type.
+        method: RobotCapability method. The method is used to call the right functionality on the robot.
+        input_schema: Schema that defines what inputs are needed for the action. The input are values that
+        configure the action, e.g pan, tilt and zoom values.
+        data_handling_schema: Schema that defines how the data from a RobotCapability should be handled,
+            including upload instructions.
+        description: Description of RobotCapability. Textual description of the RobotCapability.
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        method: str,
+        input_schema: dict,
+        data_handling_schema: dict,
+        description: str | None = None,
+    ) -> None:
+        super().__init__(name, external_id, method, description)
+        self.input_schema = input_schema
+        self.data_handling_schema = data_handling_schema
+
+    def as_write(self) -> RobotCapabilityWrite:
+        return RobotCapabilityWrite(
+            name=self.name,
+            external_id=self.external_id,
+            method=self.method,
+            input_schema=self.input_schema,
+            data_handling_schema=self.data_handling_schema,
+            description=self.description,
+        )
+
+
+class RobotCapabilityWriteList(CogniteResourceList):
+    _RESOURCE = RobotCapabilityWrite
+
+
+class RobotCapabilityList(WriteableCogniteResourceList[RobotCapabilityWrite, RobotCapability]):
+    _RESOURCE = RobotCapability
+
+    def as_write(self) -> RobotCapabilityWriteList:
+        return RobotCapabilityWriteList([capability.as_write() for capability in self])
+
+
 RobotType: TypeAlias = Literal["SPOT", "ANYMAL", "DJI_DRONE", "TAUROB", "UWNKNOWN"]
 
 
