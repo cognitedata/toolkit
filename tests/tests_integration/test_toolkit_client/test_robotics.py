@@ -124,7 +124,7 @@ def existing_robot(
         description=DESCRIPTIONS[0],
     )
     try:
-        found = toolkit_client.robotics.robots.retrieve(robot.data_set_id)
+        found = toolkit_client.robotics.robots.list()
         return found.get_robot_by_name(robot.name)
     except (CogniteAPIError, ValueError):
         return toolkit_client.robotics.robots.create(robot)
@@ -188,6 +188,7 @@ class TestRobotsAPI:
             data_set_id=existing_robots_data_set.id,
             description="test_description",
         )
+        retrieved: Robot | None = None
         try:
             with contextlib.suppress(CogniteDuplicatedError):
                 created = toolkit_client.robotics.robots.create(robot)
@@ -200,7 +201,8 @@ class TestRobotsAPI:
             assert isinstance(retrieved, Robot)
             assert retrieved.as_write().dump() == robot.dump()
         finally:
-            toolkit_client.robotics.robots.delete(robot.data_set_id)
+            if retrieved:
+                toolkit_client.robotics.robots.delete(retrieved.data_set_id)
 
         with pytest.raises(CogniteAPIError):
             toolkit_client.robotics.robots.retrieve(robot.data_set_id)
