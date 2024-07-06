@@ -13,8 +13,12 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWrite,
 )
 
+from .utlis import tmp_disable_gzip
+
 
 class CapabilitiesAPI(APIClient):
+    _RESOURCE_PATH = "/robotics/capabilities"
+
     @overload
     def create(self, capability: RobotCapabilityWrite) -> RobotCapability: ...
 
@@ -33,12 +37,13 @@ class CapabilitiesAPI(APIClient):
             RobotCapability object.
 
         """
-        return self._create_multiple(
-            list_cls=RobotCapabilityList,
-            resource_cls=RobotCapability,
-            items=capability,
-            input_resource_cls=RobotCapabilityWrite,
-        )
+        with tmp_disable_gzip():
+            return self._create_multiple(
+                list_cls=RobotCapabilityList,
+                resource_cls=RobotCapability,
+                items=capability,
+                input_resource_cls=RobotCapabilityWrite,
+            )
 
     @overload
     def retrieve(self, external_id: str) -> RobotCapability | None: ...
@@ -57,11 +62,12 @@ class CapabilitiesAPI(APIClient):
 
         """
         identifiers = IdentifierSequence.load(external_ids=external_id)
-        return self._retrieve_multiple(
-            identifiers=identifiers,
-            resource_cls=RobotCapability,
-            list_cls=RobotCapabilityList,
-        )
+        with tmp_disable_gzip():
+            return self._retrieve_multiple(
+                identifiers=identifiers,
+                resource_cls=RobotCapability,
+                list_cls=RobotCapabilityList,
+            )
 
     def delete(self, external_id: str | SequenceNotStr[str]) -> None:
         """Delete a robot capability.
@@ -74,4 +80,15 @@ class CapabilitiesAPI(APIClient):
 
         """
         identifiers = IdentifierSequence.load(external_ids=external_id)
-        self._delete_multiple(identifiers=identifiers, wrap_ids=False)
+        with tmp_disable_gzip():
+            self._delete_multiple(identifiers=identifiers, wrap_ids=False)
+
+    def list(self) -> RobotCapabilityList:
+        """List robot capabilities.
+
+        Returns:
+            RobotCapabilityList
+
+        """
+        with tmp_disable_gzip():
+            return self._list(method="GET", resource_cls=RobotCapability, list_cls=RobotCapabilityList)

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
+from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
     CogniteResourceList,
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from typing_extensions import TypeAlias
+from typing_extensions import Self, TypeAlias
 
 
 class RobotCapabilityCore(WriteableCogniteResource["RobotCapabilityWrite"]):
@@ -67,6 +68,17 @@ class RobotCapabilityWrite(RobotCapabilityCore):
     def as_write(self) -> RobotCapabilityWrite:
         return self
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            name=resource["name"],
+            external_id=resource["externalId"],
+            method=resource["method"],
+            input_schema=resource.get("inputSchema"),
+            data_handling_schema=resource.get("dataHandlingSchema"),
+            description=resource.get("description"),
+        )
+
 
 class RobotCapability(RobotCapabilityCore):
     """Robot capabilities define what actions that robots can execute, including data capture (PTZ, PTZ-IR, 360)
@@ -105,6 +117,17 @@ class RobotCapability(RobotCapabilityCore):
             input_schema=self.input_schema,
             data_handling_schema=self.data_handling_schema,
             description=self.description,
+        )
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            name=resource["name"],
+            external_id=resource["externalId"],
+            method=resource["method"],
+            input_schema=resource["inputSchema"],
+            data_handling_schema=resource["dataHandlingSchema"],
+            description=resource.get("description"),
         )
 
 
