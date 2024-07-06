@@ -310,3 +310,142 @@ class _RobotUpdate(CogniteUpdate):
             PropertySpec("robot_type", is_nullable=False),
             PropertySpec("location_external_id", is_nullable=False),
         ]
+
+
+class DataProcessingCore(WriteableCogniteResource["DataProcessingWrite"], ABC):
+    """Robot capabilities define what actions that robots can execute, including data capture (PTZ, PTZ-IR, 360)
+    and behaviors (e.g., docking)
+
+    Args:
+        name: DataProcessing name.
+        external_id: DataProcessing external id. Must be unique for the resource type.
+        method: DataProcessing method. The method is used to call the right functionality on the robot.
+        description: Description of DataProcessing. Textual description of the DataProcessing.
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        method: str,
+        description: str | None = None,
+    ) -> None:
+        self.name = name
+        self.external_id = external_id
+        self.method = method
+        self.description = description
+
+
+class DataProcessingWrite(DataProcessingCore):
+    """DataPostprocessing define types of data processing on data captured by the robot.
+    DataPostprocessing enables you to automatically process data captured by the robot.
+
+    Args:
+        name: DataProcessing name.
+        external_id: DataProcessing external id. Must be unique for the resource type.
+        method: DataProcessing method. The method is used to call the right functionality on the robot.
+        input_schema: Schema that defines what inputs are needed for the data postprocessing. The input are values
+            that configure the data postprocessing, e.g max and min values for a gauge.
+        configure the action, e.g pan, tilt and zoom values.
+        description: Description of DataProcessing. Textual description of the DataProcessing.
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        method: str,
+        input_schema: dict | None = None,
+        description: str | None = None,
+    ) -> None:
+        super().__init__(name, external_id, method, description)
+        self.input_schema = input_schema
+
+    def as_write(self) -> DataProcessingWrite:
+        return self
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            name=resource["name"],
+            external_id=resource["externalId"],
+            method=resource["method"],
+            input_schema=resource.get("inputSchema"),
+            description=resource.get("description"),
+        )
+
+
+class DataProcessing(DataProcessingCore):
+    """DataPostprocessing define types of data processing on data captured by the robot.
+    DataPostprocessing enables you to automatically process data captured by the robot.
+
+    Args:
+        name: DataProcessing name.
+        external_id: DataProcessing external id. Must be unique for the resource type.
+        method: DataProcessing method. The method is used to call the right functionality on the robot.
+        input_schema: Schema that defines what inputs are needed for the data postprocessing. The input are values
+            that configure the data postprocessing, e.g max and min values for a gauge.
+        configure the action, e.g pan, tilt and zoom values.
+        description: Description of DataProcessing. Textual description of the DataProcessing.
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        external_id: str,
+        method: str,
+        input_schema: dict,
+        description: str | None = None,
+    ) -> None:
+        super().__init__(name, external_id, method, description)
+        self.input_schema = input_schema
+
+    def as_write(self) -> DataProcessingWrite:
+        return DataProcessingWrite(
+            name=self.name,
+            external_id=self.external_id,
+            method=self.method,
+            input_schema=self.input_schema,
+            description=self.description,
+        )
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            name=resource["name"],
+            external_id=resource["externalId"],
+            method=resource["method"],
+            input_schema=resource["inputSchema"],
+            description=resource.get("description"),
+        )
+
+
+class DataProcessingWriteList(CogniteResourceList):
+    _RESOURCE = DataProcessingWrite
+
+
+class DataProcessingList(WriteableCogniteResourceList[DataProcessingWrite, DataProcessing]):
+    _RESOURCE = DataProcessing
+
+    def as_write(self) -> DataProcessingWriteList:
+        return DataProcessingWriteList([capability.as_write() for capability in self])
+
+
+class _DataProcessingUpdate(CogniteUpdate):
+    """This is not fully implemented as the Toolkit only needs it for the
+    _get_update_properties in the .update method of the DataProcessing class.
+
+    All updates are done through the DataProcessingWrite class instead.
+    """
+
+    @classmethod
+    def _get_update_properties(cls) -> list[PropertySpec]:
+        return [
+            PropertySpec("name", is_nullable=False),
+            PropertySpec("description", is_nullable=False),
+            PropertySpec("method", is_nullable=False),
+            PropertySpec("input_schema", is_nullable=False),
+        ]
