@@ -8,6 +8,10 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
+    DataPostProcessing,
+    DataPostProcessingList,
+    DataPostProcessingWrite,
+    DataPostProcessingWriteList,
     Frame,
     FrameList,
     FrameWrite,
@@ -20,6 +24,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     MapList,
     MapWrite,
     MapWriteList,
+    RobotCapability,
+    RobotCapabilityList,
+    RobotCapabilityWrite,
+    RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 
@@ -181,3 +189,115 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
 
     def iterate(self) -> Iterable[Location]:
         return iter(self.client.robotics.locations)
+
+
+class RoboticsDataPostProcessingLoader(
+    ResourceLoader[
+        str, DataPostProcessingWrite, DataPostProcessing, DataPostProcessingWriteList, DataPostProcessingList
+    ]
+):
+    folder_name = "robotics"
+    filename_pattern = r"^.*\.DataPostProcessing$"  # Matches all yaml files whose stem ends with '.DataPostProcessing'.
+    resource_cls = DataPostProcessing
+    resource_write_cls = DataPostProcessingWrite
+    list_cls = DataPostProcessingList
+    list_write_cls = DataPostProcessingWriteList
+    kind = "DataPostProcessing"
+    _doc_url = "DataPostProcessing/operation/createDataPostProcessing"
+
+    @classmethod
+    def get_id(cls, item: DataPostProcessing | DataPostProcessingWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        if not item.external_id:
+            raise KeyError("DataPostProcessing must have external_id")
+        return item.external_id
+
+    @classmethod
+    def get_required_capability(cls, items: DataPostProcessingWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        return capabilities.RoboticsAcl(
+            [
+                capabilities.RoboticsAcl.Action.Read,
+                capabilities.RoboticsAcl.Action.Create,
+                capabilities.RoboticsAcl.Action.Delete,
+                capabilities.RoboticsAcl.Action.Update,
+                capabilities.RoboticsAcl.Action.Delete,
+            ],
+            capabilities.RoboticsAcl.Scope.All(),
+        )
+
+    def create(self, items: DataPostProcessingWriteList) -> DataPostProcessingList:
+        return self.client.robotics.data_postprocessing.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> DataPostProcessingList:
+        return self.client.robotics.data_postprocessing.retrieve(ids)
+
+    def update(self, items: DataPostProcessingWriteList) -> DataPostProcessingList:
+        return self.client.robotics.data_postprocessing.update(items)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.robotics.data_postprocessing.delete(ids)
+        except CogniteAPIError as e:
+            return len(e.successful)
+        return len(ids)
+
+    def iterate(self) -> Iterable[DataPostProcessing]:
+        return iter(self.client.robotics.data_postprocessing)
+
+
+class RobotCapabilityLoader(
+    ResourceLoader[str, RobotCapabilityWrite, RobotCapability, RobotCapabilityWriteList, RobotCapabilityList]
+):
+    folder_name = "robotics"
+    filename_pattern = r"^.*\.RobotCapability$"  # Matches all yaml files whose stem ends with '.RobotCapability'.
+    resource_cls = RobotCapability
+    resource_write_cls = RobotCapabilityWrite
+    list_cls = RobotCapabilityList
+    list_write_cls = RobotCapabilityWriteList
+    kind = "RobotCapability"
+    _doc_url = "RobotCapabilities/operation/createRobotCapabilities"
+
+    @classmethod
+    def get_id(cls, item: RobotCapability | RobotCapabilityWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        if not item.external_id:
+            raise KeyError("RobotCapability must have external_id")
+        return item.external_id
+
+    @classmethod
+    def get_required_capability(cls, items: RobotCapabilityWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        return capabilities.RoboticsAcl(
+            [
+                capabilities.RoboticsAcl.Action.Read,
+                capabilities.RoboticsAcl.Action.Create,
+                capabilities.RoboticsAcl.Action.Delete,
+                capabilities.RoboticsAcl.Action.Update,
+                capabilities.RoboticsAcl.Action.Delete,
+            ],
+            capabilities.RoboticsAcl.Scope.All(),
+        )
+
+    def create(self, items: RobotCapabilityWriteList) -> RobotCapabilityList:
+        return self.client.robotics.capabilities.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> RobotCapabilityList:
+        return self.client.robotics.capabilities.retrieve(ids)
+
+    def update(self, items: RobotCapabilityWriteList) -> RobotCapabilityList:
+        return self.client.robotics.capabilities.update(items)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.robotics.capabilities.delete(ids)
+        except CogniteAPIError as e:
+            return len(e.successful)
+        return len(ids)
+
+    def iterate(self) -> Iterable[RobotCapability]:
+        return iter(self.client.robotics.capabilities)
