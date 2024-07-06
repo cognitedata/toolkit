@@ -36,11 +36,14 @@ ResourceTypes: TypeAlias = Literal[
     "robotics",
     "workflows",
 ]
+_HAS_SETUP = False
 
 
 def setup_robotics_loaders() -> None:
     """Set up the asset loader to be used by the Cognite Toolkit."""
-
+    global _HAS_SETUP
+    if _HAS_SETUP:
+        return
     LOADER_BY_FOLDER_NAME["robotics"] = [
         RobotCapabilityLoader,
         RoboticFrameLoader,
@@ -54,3 +57,4 @@ def setup_robotics_loaders() -> None:
             RESOURCE_LOADER_LIST.append(loader)
 
     setattr(loaders, "ResourceTypes", ResourceTypes)
+    _HAS_SETUP = True
