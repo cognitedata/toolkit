@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotList,
     RobotWrite,
 )
+from tests.tests_integration.constants import RUN_UNIQUE_ID
 
 DATA_HANDLING_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -70,7 +71,7 @@ DESCRIPTIONS = ["Original Description", "Updated Description"]
 def existing_capability(toolkit_client: ToolkitClient) -> RobotCapability:
     capability = RobotCapabilityWrite(
         name="ptz",
-        external_id="ptz",
+        external_id=f"ptz_{RUN_UNIQUE_ID}",
         method="ptz",
         input_schema=INPUT_SCHEMA,
         data_handling_schema=DATA_HANDLING_SCHEMA,
@@ -134,7 +135,7 @@ class TestRobotCapabilityAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         capability = RobotCapabilityWrite(
             name="test_create_retrieve_delete",
-            external_id="test_create_retrieve_delete",
+            external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
             method="ptz",
             input_schema=INPUT_SCHEMA,
             data_handling_schema=DATA_HANDLING_SCHEMA,
