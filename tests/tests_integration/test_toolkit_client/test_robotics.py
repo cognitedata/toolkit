@@ -78,6 +78,19 @@ def existing_map(toolkit_client: ToolkitClient) -> Map:
 
 
 @pytest.fixture(scope="session")
+def existing_location(toolkit_client: ToolkitClient) -> Map:
+    location = LocationWrite(
+        name="Water treatment plant",
+        external_id=f"waterTreatmentPlant1_{RUN_UNIQUE_ID}",
+        description=DESCRIPTIONS[0],
+    )
+    try:
+        return toolkit_client.robotics.locations.retrieve(location.external_id)
+    except CogniteAPIError:
+        return toolkit_client.robotics.locations.create(location)
+
+
+@pytest.fixture(scope="session")
 def existing_robots_data_set(toolkit_client: ToolkitClient) -> DataSet:
     data_set = DataSetWrite(
         external_id="ds_robotics_api_tests",
@@ -316,47 +329,46 @@ class TestMapAPI:
         assert updated.description == update.description
 
 
-@pytest.mark.skip("Not implemented")
 class TestLocationAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        capability = LocationWrite(
+        location = LocationWrite(
             name="test_create_retrieve_delete",
             external_id=f"test_create_retrieve_delete_{RUN_UNIQUE_ID}",
         )
         try:
             with contextlib.suppress(CogniteDuplicatedError):
-                created = toolkit_client.robotics.capabilities.create(capability)
+                created = toolkit_client.robotics.locations.create(location)
                 assert isinstance(created, Location)
-                assert created.as_write().dump() == capability.dump()
+                assert created.as_write().dump() == location.dump()
 
-            retrieved = toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+            retrieved = toolkit_client.robotics.locations.retrieve(location.external_id)
 
             assert isinstance(retrieved, Location)
-            assert retrieved.as_write().dump() == capability.dump()
+            assert retrieved.as_write().dump() == location.dump()
         finally:
-            toolkit_client.robotics.capabilities.delete(capability.external_id)
+            toolkit_client.robotics.locations.delete(location.external_id)
 
         with pytest.raises(CogniteAPIError):
-            toolkit_client.robotics.capabilities.retrieve(capability.external_id)
+            toolkit_client.robotics.locations.retrieve(location.external_id)
 
-    @pytest.mark.usefixtures("existing_capability")
-    def test_list_capabilities(self, toolkit_client: ToolkitClient) -> None:
-        capabilities = toolkit_client.robotics.capabilities.list()
-        assert isinstance(capabilities, LocationList)
-        assert len(capabilities) > 0
+    @pytest.mark.usefixtures("existing_location")
+    def test_list_locations(self, toolkit_client: ToolkitClient) -> None:
+        locations = toolkit_client.robotics.locations.list()
+        assert isinstance(locations, LocationList)
+        assert len(locations) > 0
 
-    @pytest.mark.usefixtures("existing_capability")
-    def test_iterate_capabilities(self, toolkit_client: ToolkitClient) -> None:
-        for capability in toolkit_client.robotics.capabilities:
-            assert isinstance(capability, Location)
+    @pytest.mark.usefixtures("existing_location")
+    def test_iterate_locations(self, toolkit_client: ToolkitClient) -> None:
+        for location in toolkit_client.robotics.locations:
+            assert isinstance(location, Location)
             break
         else:
-            pytest.fail("No capabilities found")
+            pytest.fail("No locations found")
 
-    def test_update_capability(self, toolkit_client: ToolkitClient, existing_capability: Location) -> None:
-        update = existing_capability
-        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_capability.description)
-        updated = toolkit_client.robotics.capabilities.update(update)
+    def test_update_location(self, toolkit_client: ToolkitClient, existing_location: Location) -> None:
+        update = existing_location
+        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_location.description)
+        updated = toolkit_client.robotics.locations.update(update)
         assert updated.description == update.description
 
 
