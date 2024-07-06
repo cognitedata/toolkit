@@ -168,7 +168,7 @@ class _RobotCapabilityUpdate(CogniteUpdate):
 RobotType: TypeAlias = Literal["SPOT", "ANYMAL", "DJI_DRONE", "TAUROB", "UWNKNOWN"]
 
 
-class RobotCore(WriteableCogniteResource["RobotWrite"]):
+class RobotCore(WriteableCogniteResource["RobotWrite"], ABC):
     """
     Robot contains information for a single robot, including capabilities, type, video streaming setup, etc.
     These fields are updated every time a robot registers with Robotics Services and do not require manual changes.
@@ -214,7 +214,18 @@ class RobotCore(WriteableCogniteResource["RobotWrite"]):
         )
 
 
-class RobotWrite(RobotCore): ...
+class RobotWrite(RobotCore):
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            name=resource["name"],
+            capabilities=resource["capabilities"],
+            robot_type=resource["robotType"],
+            data_set_id=resource["dataSetId"],
+            description=resource.get("description"),
+            metadata=resource.get("metadata"),
+            location_external_id=resource.get("locationExternalId"),
+        )
 
 
 class Robot(RobotCore):
@@ -251,6 +262,20 @@ class Robot(RobotCore):
         self.created_time = created_time
         self.updated_time = updated_time
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            name=resource["name"],
+            capabilities=resource["capabilities"],
+            robot_type=resource["robotType"],
+            data_set_id=resource["dataSetId"],
+            created_time=resource["createdTime"],
+            updated_time=resource["updatedTime"],
+            description=resource.get("description"),
+            metadata=resource.get("metadata"),
+            location_external_id=resource.get("locationExternalId"),
+        )
+
 
 class RobotWriteList(CogniteResourceList):
     _RESOURCE = RobotWrite
@@ -261,6 +286,12 @@ class RobotList(WriteableCogniteResourceList[RobotWrite, Robot]):
 
     def as_write(self) -> RobotWriteList:
         return RobotWriteList([robot.as_write() for robot in self])
+
+    def get_robot_by_name(self, name: str) -> Robot:
+        try:
+            return next(robot for robot in self if robot.name == name)
+        except StopIteration:
+            raise ValueError(f"No robot with name {name} found in list")
 
 
 class _RobotUpdate(CogniteUpdate):
@@ -273,7 +304,6 @@ class _RobotUpdate(CogniteUpdate):
     @classmethod
     def _get_update_properties(cls) -> list[PropertySpec]:
         return [
-            PropertySpec("data_set_id", is_nullable=False),
             PropertySpec("name", is_nullable=False),
             PropertySpec("description", is_nullable=False),
             PropertySpec("metadata", is_container=True, is_nullable=False),

@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapability,
     RobotCapabilityList,
     RobotCapabilityWrite,
+    RobotList,
     RobotWrite,
 )
 
@@ -62,7 +63,7 @@ INPUT_SCHEMA = {
     "additionalProperties": False,
 }
 
-CAPABILITY_DESCRIPTIONS = ["Original Description", "Updated Description"]
+DESCRIPTIONS = ["Original Description", "Updated Description"]
 
 
 @pytest.fixture(scope="session")
@@ -73,7 +74,7 @@ def existing_capability(toolkit_client: ToolkitClient) -> RobotCapability:
         method="ptz",
         input_schema=INPUT_SCHEMA,
         data_handling_schema=DATA_HANDLING_SCHEMA,
-        description=CAPABILITY_DESCRIPTIONS[0],
+        description=DESCRIPTIONS[0],
     )
     try:
         retrieved = toolkit_client.robotics.capabilities.retrieve(capability.external_id)
@@ -90,10 +91,43 @@ def existing_robots_data_set(toolkit_client: ToolkitClient) -> DataSet:
         name="Robotics API Tests",
         description="Data set for testing the Robotics API",
     )
-    try:
-        return toolkit_client.data_sets.retrieve(data_set.external_id)
-    except CogniteAPIError:
+    retrieved = toolkit_client.data_sets.retrieve(external_id=data_set.external_id)
+    if retrieved:
+        return retrieved
+    else:
         return toolkit_client.data_sets.create(data_set)
+
+
+@pytest.fixture(scope="session")
+def persistent_robots_data_set(toolkit_client: ToolkitClient) -> DataSet:
+    data_set = DataSetWrite(
+        external_id="ds_robotics_api_tests_persistent",
+        name="Robotics API Tests Persistent",
+        description="Data set for testing the Robotics API with persistent data",
+    )
+    retrieved = toolkit_client.data_sets.retrieve(external_id=data_set.external_id)
+    if retrieved:
+        return retrieved
+    else:
+        return toolkit_client.data_sets.create(data_set)
+
+
+@pytest.fixture(scope="session")
+def existing_robot(
+    toolkit_client: ToolkitClient, persistent_robots_data_set: DataSet, existing_capability: RobotCapability
+) -> Robot:
+    robot = RobotWrite(
+        name="wall-e",
+        capabilities=[existing_capability.external_id],
+        robot_type="DJI_DRONE",
+        data_set_id=persistent_robots_data_set.id,
+        description=DESCRIPTIONS[0],
+    )
+    try:
+        found = toolkit_client.robotics.robots.retrieve(robot.data_set_id)
+        return found.get_robot_by_name(robot.name)
+    except (CogniteAPIError, ValueError):
+        return toolkit_client.robotics.robots.create(robot)
 
 
 class TestRobotCapabilityAPI:
@@ -133,38 +167,60 @@ class TestRobotCapabilityAPI:
         for capability in toolkit_client.robotics.capabilities:
             assert isinstance(capability, RobotCapability)
             break
+        else:
+            pytest.fail("No capabilities found")
 
     def test_update_capability(self, toolkit_client: ToolkitClient, existing_capability: RobotCapability) -> None:
         update = existing_capability
-        update.description = next(desc for desc in CAPABILITY_DESCRIPTIONS if desc != existing_capability.description)
+        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_capability.description)
         updated = toolkit_client.robotics.capabilities.update(update)
         assert updated.description == update.description
 
 
 class TestRobotsAPI:
-    @pytest.mark.skip("Skip until Robotics API is available")
     def test_create_retrieve_delete(
         self, toolkit_client: ToolkitClient, existing_robots_data_set: DataSet, existing_capability: RobotCapability
     ) -> None:
         robot = RobotWrite(
             name="test_robot",
-            capabilities=[existing_capability.external_id],
+            capabilities=[],
             robot_type="SPOT",
             data_set_id=existing_robots_data_set.id,
             description="test_description",
-            metadata={"test_key": "test_value"},
         )
         try:
-            created = toolkit_client.robotics.robots.create(robot)
-            assert isinstance(created, Robot)
-            assert created.as_write() == robot
+            with contextlib.suppress(CogniteDuplicatedError):
+                created = toolkit_client.robotics.robots.create(robot)
+                assert isinstance(created, Robot)
+                assert created.as_write().dump() == robot.dump()
 
-            retrieved = toolkit_client.robotics.robots.retrieve(created.name)
-
+            all_retrieved = toolkit_client.robotics.robots.retrieve(robot.data_set_id)
+            assert isinstance(all_retrieved, RobotList)
+            retrieved = all_retrieved.get_robot_by_name(robot.name)
             assert isinstance(retrieved, Robot)
-            assert retrieved.dump() == created.dump()
+            assert retrieved.as_write().dump() == robot.dump()
         finally:
-            toolkit_client.robotics.robots.delete(robot.name)
+            toolkit_client.robotics.robots.delete(robot.data_set_id)
 
-        retrieved = toolkit_client.robotics.robots.retrieve(robot.name)
-        assert retrieved is None
+        with pytest.raises(CogniteAPIError):
+            toolkit_client.robotics.robots.retrieve(robot.data_set_id)
+
+    @pytest.mark.usefixtures("existing_robot")
+    def test_list_robots(self, toolkit_client: ToolkitClient) -> None:
+        robots = toolkit_client.robotics.robots.list()
+        assert isinstance(robots, RobotList)
+        assert len(robots) > 0
+
+    @pytest.mark.usefixtures("existing_robot")
+    def test_iterate_robots(self, toolkit_client: ToolkitClient) -> None:
+        for robot in toolkit_client.robotics.robots:
+            assert isinstance(robot, Robot)
+            break
+        else:
+            pytest.fail("No robots found")
+
+    def test_update_robot(self, toolkit_client: ToolkitClient, existing_robot: Robot) -> None:
+        update = existing_robot.as_write()
+        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_robot.description)
+        updated = toolkit_client.robotics.robots.update(update)
+        assert updated.description == update.description
