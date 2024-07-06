@@ -256,6 +256,7 @@ class TestDataProcessingAPI:
         assert updated.description == update.description
 
 
+@pytest.mark.skip("Not implemented")
 class TestMapAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         capability = MapWrite(
@@ -303,6 +304,7 @@ class TestMapAPI:
         assert updated.description == update.description
 
 
+@pytest.mark.skip("Not implemented")
 class TestLocationAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         capability = LocationWrite(
@@ -350,6 +352,7 @@ class TestLocationAPI:
         assert updated.description == update.description
 
 
+@pytest.mark.skip("Not implemented")
 class TestFrameAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         capability = FrameWrite(
