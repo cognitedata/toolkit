@@ -55,6 +55,7 @@ class TestExtractionPipelineDependencies:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
+        cdf_tool.toolkit_client = cognite_client_approval.mock_client
 
         cognite_client_approval.append(
             ExtractionPipelineConfig,
