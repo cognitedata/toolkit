@@ -7,10 +7,10 @@ from typing import final
 
 import pandas as pd
 import yaml
-from cognite.client import CogniteClient
 from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList, capabilities
 from cognite.client.data_classes.capabilities import Capability, FilesAcl, RawAcl, TimeSeriesAcl
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
@@ -82,7 +82,7 @@ class FileLoader(DataLoader):
     def display_name(self) -> str:
         return "file contents"
 
-    def __init__(self, client: CogniteClient, build_dir: Path) -> None:
+    def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
         super().__init__(client, build_dir)
         self.meta_data_list = FileMetadataWriteList([])
         self.has_loaded_metadata = False
