@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.12] - 2024-07-08
+
+### Added
+
+- [Feature Preview] Robotic support.
+
 ## [0.2.11] - 2024-07-05
 
 ### Fixed
