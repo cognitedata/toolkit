@@ -26,7 +26,6 @@ from typing import Any, Literal, cast, final
 from zipfile import ZipFile
 
 import yaml
-from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     ClientCredentials,
     DatapointsList,
@@ -158,6 +157,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
@@ -211,7 +211,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
     def __init__(
         self,
-        client: CogniteClient,
+        client: ToolkitClient,
         build_dir: Path | None,
         target_scopes: Literal[
             "all_scoped_only",
@@ -231,7 +231,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         ToolGlobals: CDFToolConfig,
         build_dir: Path | None,
     ) -> GroupLoader:
-        return cls(ToolGlobals.client, build_dir)
+        return cls(ToolGlobals.toolkit_client, build_dir)
 
     @classmethod
     def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
@@ -498,7 +498,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
 @final
 class GroupAllScopedLoader(GroupLoader):
-    def __init__(self, client: CogniteClient, build_dir: Path | None):
+    def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir, "all_scoped_only")
 
 
@@ -1192,7 +1192,7 @@ class RawDatabaseLoader(
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Raw/operation/createDBs"
 
-    def __init__(self, client: CogniteClient, build_dir: Path):
+    def __init__(self, client: ToolkitClient, build_dir: Path):
         super().__init__(client, build_dir)
         self._loaded_db_names: set[str] = set()
 
@@ -1304,7 +1304,7 @@ class RawTableLoader(
     dependencies = frozenset({RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Raw/operation/createTables"
 
-    def __init__(self, client: CogniteClient, build_dir: Path):
+    def __init__(self, client: ToolkitClient, build_dir: Path):
         super().__init__(client, build_dir)
         self._printed_warning = False
 
@@ -2977,7 +2977,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
     _doc_url = "Views/operation/ApplyViews"
 
-    def __init__(self, client: CogniteClient, build_dir: Path) -> None:
+    def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
         super().__init__(client, build_dir)
         # Caching to avoid multiple lookups on the same interfaces.
         self._interfaces_by_id: dict[ViewId, View] = {}
@@ -3613,7 +3613,7 @@ class GroupResourceScopedLoader(GroupLoader):
         }
     )
 
-    def __init__(self, client: CogniteClient, build_dir: Path | None):
+    def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir, "resource_scoped_only")
 
 
