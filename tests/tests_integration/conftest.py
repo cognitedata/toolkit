@@ -5,6 +5,7 @@ from cognite.client import ClientConfig, CogniteClient, global_config
 from cognite.client.credentials import OAuthClientCredentials
 from dotenv import load_dotenv
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from tests.constants import REPO_ROOT
 
 
@@ -28,3 +29,8 @@ def cognite_client() -> CogniteClient:
             credentials=credentials,
         )
     )
+
+
+@pytest.fixture(scope="session")
+def toolkit_client(cognite_client: CogniteClient) -> ToolkitClient:
+    return ToolkitClient(cognite_client._config)
