@@ -40,19 +40,25 @@ ResourceTypes: TypeAlias = Literal[
     "extraction_pipelines",
     "functions",
     "raw",
+    "robotics",
     "workflows",
 ]
+
+_HAS_SETUP = False
 
 
 def setup_asset_loader() -> None:
     """Set up the asset loader to be used by the Cognite Toolkit."""
-
+    global _HAS_SETUP
+    if _HAS_SETUP:
+        return
     LOADER_BY_FOLDER_NAME["assets"] = [AssetLoader]
     LOADER_LIST.append(AssetLoader)
     RESOURCE_LOADER_LIST.append(AssetLoader)
     setattr(loaders, "ResourceTypes", ResourceTypes)
     _modify_timeseries_loader()
     _modify_file_metadata_loader()
+    _HAS_SETUP = True
 
 
 def _modify_timeseries_loader() -> None:

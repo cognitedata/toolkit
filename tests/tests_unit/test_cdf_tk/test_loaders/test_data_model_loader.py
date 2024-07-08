@@ -13,6 +13,7 @@ class TestDataModelLoader:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
+        cdf_tool.toolkit_client = cognite_client_approval.mock_client
         cdf_data_model = dm.DataModel(
             space="sp_space",
             external_id="my_model",

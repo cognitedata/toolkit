@@ -68,6 +68,7 @@ def test_loader_class(
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
     cdf_tool.client = cognite_client_approval.mock_client
+    cdf_tool.toolkit_client = cognite_client_approval.mock_client
     cdf_tool.data_set_id = 999
 
     cmd = DeployCommand(print_warning=False)
@@ -92,6 +93,7 @@ class TestDeployResources:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
+        cdf_tool.toolkit_client = cognite_client_approval.mock_client
 
         cmd = DeployCommand(print_warning=False)
         cmd.deploy_resources(ViewLoader.create_loader(cdf_tool, BUILD_DIR), cdf_tool, dry_run=False)
