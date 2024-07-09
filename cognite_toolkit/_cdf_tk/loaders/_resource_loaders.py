@@ -177,6 +177,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     load_yaml_inject_variables,
     retrieve_view_ancestors,
+    safe_read,
 )
 
 from ._base_loaders import ResourceContainerLoader, ResourceLoader
@@ -1876,7 +1877,7 @@ class TransformationLoader(
                         f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {transformation.external_id}.sql",
                         filepath,
                     )
-                transformation.query = query_file.read_text()
+                transformation.query = safe_read(query_file)
             elif transformation.query is not None and query_file is not None:
                 raise ToolkitYAMLFormatError(
                     f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
@@ -3353,7 +3354,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
         node_dumped.pop("existingVersion", None)
 
         # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
-        dumped = yaml.safe_load("\n".join(source_file.read_text().splitlines()[:3]))
+        dumped = yaml.safe_load("\n".join(safe_read(source_file).splitlines()[:3]))
 
         dumped["nodes"] = [node_dumped]
 

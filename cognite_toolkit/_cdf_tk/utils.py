@@ -1292,3 +1292,12 @@ def to_diff(a: dict[str, Any], b: dict[str, Any]) -> Iterator[str]:
     b_str = yaml.safe_dump(b, sort_keys=True)
 
     return difflib.unified_diff(a_str.splitlines(), b_str.splitlines())
+
+
+def safe_read(file: Path) -> str:
+    """Falls back on explicit using utf-8 if the default .read_text()"""
+    try:
+        return file.read_text()
+    except UnicodeDecodeError:
+        # On Windows, we may have issues as the encoding is not always utf-8
+        return file.read_text(encoding="utf-8")
