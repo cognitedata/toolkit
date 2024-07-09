@@ -33,7 +33,13 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     WarningList,
 )
-from cognite_toolkit._cdf_tk.utils import YAMLComment, YAMLWithComments, calculate_str_or_file_hash, flatten_dict
+from cognite_toolkit._cdf_tk.utils import (
+    YAMLComment,
+    YAMLWithComments,
+    calculate_str_or_file_hash,
+    flatten_dict,
+    safe_read,
+)
 from cognite_toolkit._version import __version__
 
 from ._base import ConfigCore, _load_version_variable
@@ -426,7 +432,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
 
         for default_config in defaults_files:
             parts = default_config.parent.relative_to(cognite_root_module).parts
-            raw_file = default_config.read_text()
+            raw_file = safe_read(default_config)
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
             file_data = yaml.safe_load(raw_file)
             for key, value in file_data.items():
@@ -505,7 +511,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 continue
             if filepath.name.startswith("default"):
                 continue
-            content = filepath.read_text()
+            content = safe_read(filepath)
             key_parent = filepath.parent.relative_to(project_dir).parts
             if key_parent and key_parent[-1] in LOADER_BY_FOLDER_NAME:
                 key_parent = key_parent[:-1]
@@ -629,7 +635,7 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
     def load_existing_environments(cls, existing_config_yamls: Sequence[Path]) -> ConfigYAMLs:
         instance = cls()
         for config_yaml in existing_config_yamls:
-            config = InitConfigYAML.load_existing(config_yaml.read_text(), config_yaml.name.split(".")[0])
+            config = InitConfigYAML.load_existing(safe_read(config_yaml), config_yaml.name.split(".")[0])
             instance[config.environment.name] = config
         return instance
 

@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, tmp_build_directory
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, safe_read, tmp_build_directory
 
 from ._base import ToolkitCommand
 
@@ -455,7 +455,7 @@ class PullCommand(ToolkitCommand):
             cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)
 
             # Using the ResourceYAML class to load and dump the file to preserve comments and detect changes
-            resource = ResourceYAMLDifference.load(build_file.read_text(), source_file.read_text())
+            resource = ResourceYAMLDifference.load(safe_read(build_file), safe_read(source_file))
             resource.update_cdf_resource(cdf_dumped)
 
             resource.display(title=f"Resource differences for {loader.display_name} {id_}")
@@ -468,7 +468,7 @@ class PullCommand(ToolkitCommand):
                 )
 
             if verbose:
-                old_content = source_file.read_text()
+                old_content = safe_read(source_file)
                 print(
                     Panel(
                         "\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())),
@@ -494,7 +494,7 @@ class PullCommand(ToolkitCommand):
                     print(f"[bold red]ERROR:[/] {build_extra_file} does not exist.")
                     continue
 
-                file_diffs = TextFileDifference.load(build_extra_file.read_text(), filepath.read_text())
+                file_diffs = TextFileDifference.load(safe_read(build_extra_file), safe_read(filepath))
                 file_diffs.update_cdf_content(content)
 
                 has_changed = any(line.is_added or line.is_changed for line in file_diffs)
@@ -510,7 +510,7 @@ class PullCommand(ToolkitCommand):
                         )
 
                 if verbose:
-                    old_content = filepath.read_text()
+                    old_content = safe_read(filepath)
                     print(
                         Panel(
                             "\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())),

@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitModuleVersionError,
     ToolkitNotADirectoryError,
 )
-from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, read_yaml_file
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, read_yaml_file, safe_read
 from cognite_toolkit._version import __version__ as current_version
 
 from ._config_yaml import ConfigYAMLs
@@ -87,7 +87,7 @@ class ProjectDirectory:
                 print(f"{copy_prefix} file {filename} to {self.target_dir_display}")
             if not dry_run:
                 if filename == "README.md":
-                    content = (self._source / filename).read_text().replace("<MY_PROJECT>", self._source.name)
+                    content = safe_read(self._source / filename).replace("<MY_PROJECT>", self._source.name)
                     (self.project_dir / filename).write_text(content)
                 else:
                     shutil.copyfile(self._source / filename, self.project_dir / filename)

@@ -80,6 +80,7 @@ from cognite_toolkit._cdf_tk.utils import (
     module_from_path,
     read_yaml_content,
     resource_folder_from_path,
+    safe_read,
 )
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
@@ -302,7 +303,7 @@ class BuildCommand(ToolkitCommand):
 
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
-        content = source_path.read_text()
+        content = safe_read(source_path)
         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
 
         content = state.replace_variables(content, source_path.suffix)
@@ -502,7 +503,7 @@ class BuildCommand(ToolkitCommand):
             source_file = state.source_by_build_path[config_file]
 
             try:
-                raw_content = read_yaml_content(config_file.read_text())
+                raw_content = read_yaml_content(safe_read(config_file))
             except yaml.YAMLError as e:
                 raise ToolkitYAMLFormatError(f"Failed to load function files {source_file.as_posix()!r} due to: {e}")
             raw_functions = raw_content if isinstance(raw_content, list) else [raw_content]
@@ -568,7 +569,7 @@ class BuildCommand(ToolkitCommand):
             # Multiple configuration files, then there is no template
             return None
 
-        config_content = configuration_files[0].read_text()
+        config_content = safe_read(configuration_files[0])
         try:
             raw_files = read_yaml_content(config_content)
         except yaml.YAMLError as e:
