@@ -128,6 +128,11 @@ class ImportTransformationCLI(ToolkitCommand):
         if "ignoreNullFields" not in transformation:
             # This is required by the API, but the transformation-cli sets it to true by default.
             transformation["ignoreNullFields"] = True
+        if isinstance(transformation["destination"], str):
+            # The API expects the destination to be a dict with a type key, while the transformation-cli
+            # also allows a string.
+            transformation["destination"] = {"type": transformation["destination"]}
+
         source_query_path: Path | None = None
         if isinstance(transformation["query"], dict):
             query = transformation.pop("query")
