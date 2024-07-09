@@ -1751,6 +1751,8 @@ class TransformationLoader(
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
         if destination := item.get("destination", {}):
+            if not isinstance(destination, dict):
+                return
             if destination.get("type") == "raw" and _in_dict(("database", "table"), destination):
                 yield RawDatabaseLoader, RawDatabaseTable(destination["database"])
                 yield RawTableLoader, RawDatabaseTable(destination["database"], destination["table"])
