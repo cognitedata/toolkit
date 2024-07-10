@@ -1,0 +1,38 @@
+---
+externalId: cdf_copy_assets_upsert_so_route_sync
+name: cdf_copy_assets_upsert_so_route_sync
+shared: true
+
+schedule:
+    # Every 15 minutes, every hour, every day (server time)
+  interval: 0/15 * * * *
+    # is_paused: ${PAUSED_IN_ENV}
+
+query:
+  file: transformation.sql
+action: upsert
+destination: assets
+
+ignoreNullFields: true
+
+notifications:
+  - ${SLACK_NOTIFICATION_CHANNEL}
+
+dataSetExternalId: uc_002
+
+authentication:
+  # from read:DEV to write:TEST
+  read:
+    cdfProjectName: ${COGNITE_DEV_PROJECT}
+    clientId: ${COGNITE_DEV_ALLPROJECTS_CLIENT_ID}
+    clientSecret: ${COGNITE_DEV_ALLPROJECTS_CLIENT_SECRET}
+    tokenUrl: ${TOKEN_URL}
+    scopes:
+      - ${SCOPES}
+  write:
+    cdfProjectName: ${COGNITE_TEST_PROJECT}
+    clientId: ${COGNITE_TEST_ALLPROJECTS_CLIENT_ID}
+    clientSecret: ${COGNITE_TEST_ALLPROJECTS_CLIENT_SECRET}
+    tokenUrl: ${TOKEN_URL}
+    scopes:
+      - ${SCOPES}

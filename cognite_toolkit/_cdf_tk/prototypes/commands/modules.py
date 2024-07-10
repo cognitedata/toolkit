@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.prototypes.commands._changes import (
     UpdateModuleVersion,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import read_yaml_file
+from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
 custom_style_fancy = questionary.Style(
@@ -64,7 +64,7 @@ class Packages(dict, MutableMapping[str, dict[str, Any]]):
             manifest = Path(_packages.__file__).parent / module / "manifest.yaml"
             if not manifest.exists():
                 continue
-            content = manifest.read_text()
+            content = safe_read(manifest)
             if yaml.__with_libyaml__:
                 packages[manifest.parent.name] = yaml.CSafeLoader(content).get_data()
             else:

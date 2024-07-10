@@ -12,6 +12,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.utils import safe_read
 
 
 class Flags(Enum):
@@ -33,7 +34,7 @@ class FeatureFlag:
 
     @staticmethod
     def load_user_settings() -> dict[str, bool]:
-        return yaml.safe_load(FeatureFlag._get_file().read_text())
+        return yaml.safe_load(safe_read(FeatureFlag._get_file()))
 
     @staticmethod
     def save_user_settings(flag: Flags, enabled: bool) -> None:

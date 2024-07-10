@@ -12,7 +12,7 @@ from cognite.client.data_classes.capabilities import Capability, FilesAcl, RawAc
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, safe_read
 
 from ._base_loaders import DataLoader
 from ._resource_loaders import FileMetadataLoader, RawDatabaseLoader, RawTableLoader, TimeSeriesLoader
@@ -141,7 +141,7 @@ class RawFileLoader(DataLoader):
         pattern = re.compile(rf"{datafile.stem}\.(yml|yaml)$")
         metadata_file = next((filepath for filepath in datafile.parent.glob("*") if pattern.match(filepath.name)), None)
         if metadata_file is not None:
-            raw = yaml.safe_load(metadata_file.read_text())
+            raw = yaml.safe_load(safe_read(metadata_file))
             if isinstance(raw, dict):
                 metadata = RawDatabaseTable.load(raw)
             elif isinstance(raw, list):
