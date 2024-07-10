@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
 from contextlib import suppress
 
 from cognite.client.data_classes import capabilities
+from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -74,17 +75,7 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         return self.client.robotics.maps.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> MapList:
-        try:
-            return self.client.robotics.maps.retrieve(ids)
-        except CogniteAPIError:
-            items = MapList([])
-            if len(ids) > 1:
-                # The API does not give any information about which IDs were not found.
-                # so we need to retrieve them one by one to find out which ones were not found.
-                for id_ in ids:
-                    with suppress(CogniteAPIError):
-                        items.append(self.client.robotics.maps.retrieve(id_))
-            return items
+        return _fallback_to_one_by_one(self.client.robotics.maps.retrieve, ids, MapList)
 
     def update(self, items: MapWriteList) -> MapList:
         return self.client.robotics.maps.update(items)
@@ -141,17 +132,7 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return self.client.robotics.frames.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FrameList:
-        try:
-            return self.client.robotics.frames.retrieve(ids)
-        except CogniteAPIError:
-            items = FrameList([])
-            if len(ids) > 1:
-                # The API does not give any information about which IDs were not found.
-                # so we need to retrieve them one by one to find out which ones were not found.
-                for id_ in ids:
-                    with suppress(CogniteAPIError):
-                        items.append(self.client.robotics.frames.retrieve(id_))
-            return items
+        return _fallback_to_one_by_one(self.client.files.retrieve, ids, FrameList)
 
     def update(self, items: FrameWriteList) -> FrameList:
         return self.client.robotics.frames.update(items)
@@ -208,17 +189,7 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
         return self.client.robotics.locations.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> LocationList:
-        try:
-            return self.client.robotics.locations.retrieve(ids)
-        except CogniteAPIError:
-            items = LocationList([])
-            if len(ids) > 1:
-                # The API does not give any information about which IDs were not found.
-                # so we need to retrieve them one by one to find out which ones were not found.
-                for id_ in ids:
-                    with suppress(CogniteAPIError):
-                        items.append(self.client.robotics.locations.retrieve(id_))
-            return items
+        return _fallback_to_one_by_one(self.client.robotics.locations.retrieve, ids, LocationList)
 
     def update(self, items: LocationWriteList) -> LocationList:
         return self.client.robotics.locations.update(items)
@@ -279,17 +250,7 @@ class RoboticsDataPostProcessingLoader(
         return self.client.robotics.data_postprocessing.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DataPostProcessingList:
-        try:
-            return self.client.robotics.data_postprocessing.retrieve(ids)
-        except CogniteAPIError:
-            items = DataPostProcessingList([])
-            if len(ids) > 1:
-                # The API does not give any information about which IDs were not found.
-                # so we need to retrieve them one by one to find out which ones were not found.
-                for id_ in ids:
-                    with suppress(CogniteAPIError):
-                        items.append(self.client.robotics.data_postprocessing.retrieve(id_))
-            return items
+        return _fallback_to_one_by_one(self.client.robotics.data_postprocessing.retrieve, ids, DataPostProcessingList)
 
     def update(self, items: DataPostProcessingWriteList) -> DataPostProcessingList:
         return self.client.robotics.data_postprocessing.update(items)
@@ -348,17 +309,7 @@ class RobotCapabilityLoader(
         return self.client.robotics.capabilities.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> RobotCapabilityList:
-        try:
-            return self.client.robotics.capabilities.retrieve(ids)
-        except CogniteAPIError:
-            items = RobotCapabilityList([])
-            if len(ids) > 1:
-                # The API does not give any information about which IDs were not found.
-                # so we need to retrieve them one by one to find out which ones were not found.
-                for id_ in ids:
-                    with suppress(CogniteAPIError):
-                        items.append(self.client.robotics.capabilities.retrieve(id_))
-            return items
+        return _fallback_to_one_by_one(self.client.robotics.capabilities.retrieve, ids, RobotCapabilityList)
 
     def update(self, items: RobotCapabilityWriteList) -> RobotCapabilityList:
         return self.client.robotics.capabilities.update(items)
@@ -372,3 +323,19 @@ class RobotCapabilityLoader(
 
     def iterate(self) -> Iterable[RobotCapability]:
         return iter(self.client.robotics.capabilities)
+
+
+def _fallback_to_one_by_one(
+    api_call: Callable, items: Sequence | SequenceNotStr, return_cls: type[T_CogniteResourceList]
+) -> T_CogniteResourceList:
+    try:
+        return api_call(items)
+    except CogniteAPIError:
+        return_items = return_cls([])
+        if len(items) > 1:
+            # The API does not give any information about which items were not found/failed.
+            # so we need to apply them one by one to find out which ones failed.
+            for item in items:
+                with suppress(CogniteAPIError):
+                    return_items.append(api_call(item))
+        return return_items
