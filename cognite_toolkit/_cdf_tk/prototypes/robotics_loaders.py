@@ -77,7 +77,14 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         try:
             return self.client.robotics.maps.retrieve(ids)
         except CogniteAPIError:
-            return MapList([])
+            items = MapList([])
+            if len(ids) > 1:
+                # The API does not give any information about which IDs were not found.
+                # so we need to retrieve them one by one to find out which ones were not found.
+                for id_ in ids:
+                    with suppress(CogniteAPIError):
+                        items.append(self.client.robotics.maps.retrieve(id_))
+            return items
 
     def update(self, items: MapWriteList) -> MapList:
         return self.client.robotics.maps.update(items)
@@ -134,7 +141,17 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return self.client.robotics.frames.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FrameList:
-        return self.client.robotics.frames.retrieve(ids)
+        try:
+            return self.client.robotics.frames.retrieve(ids)
+        except CogniteAPIError:
+            items = FrameList([])
+            if len(ids) > 1:
+                # The API does not give any information about which IDs were not found.
+                # so we need to retrieve them one by one to find out which ones were not found.
+                for id_ in ids:
+                    with suppress(CogniteAPIError):
+                        items.append(self.client.robotics.frames.retrieve(id_))
+            return items
 
     def update(self, items: FrameWriteList) -> FrameList:
         return self.client.robotics.frames.update(items)
@@ -191,7 +208,17 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
         return self.client.robotics.locations.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> LocationList:
-        return self.client.robotics.locations.retrieve(ids)
+        try:
+            return self.client.robotics.locations.retrieve(ids)
+        except CogniteAPIError:
+            items = LocationList([])
+            if len(ids) > 1:
+                # The API does not give any information about which IDs were not found.
+                # so we need to retrieve them one by one to find out which ones were not found.
+                for id_ in ids:
+                    with suppress(CogniteAPIError):
+                        items.append(self.client.robotics.locations.retrieve(id_))
+            return items
 
     def update(self, items: LocationWriteList) -> LocationList:
         return self.client.robotics.locations.update(items)
@@ -255,7 +282,14 @@ class RoboticsDataPostProcessingLoader(
         try:
             return self.client.robotics.data_postprocessing.retrieve(ids)
         except CogniteAPIError:
-            return DataPostProcessingList([])
+            items = DataPostProcessingList([])
+            if len(ids) > 1:
+                # The API does not give any information about which IDs were not found.
+                # so we need to retrieve them one by one to find out which ones were not found.
+                for id_ in ids:
+                    with suppress(CogniteAPIError):
+                        items.append(self.client.robotics.data_postprocessing.retrieve(id_))
+            return items
 
     def update(self, items: DataPostProcessingWriteList) -> DataPostProcessingList:
         return self.client.robotics.data_postprocessing.update(items)
