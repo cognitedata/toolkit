@@ -22,6 +22,8 @@ Changes are grouped as follows:
 - [Feature Preview] In the feature preview, `cdf-tk import transformation-cli`, the Toolkit would fail to convert
   manifest with `destination: <string>` correctly. This is now fixed.
 - On Windows, when reading files from disk, the Toolkit could raise an `UnicodeDecodeError`. This is now fixed.
+- [Feature Preview] In the feature preview, `robotics`, if you tried to update a set of resources in which some
+  were existing and others not, the Toolkit would create the new resources. This is now fixed.
 
 ## [0.2.12] - 2024-07-08
 

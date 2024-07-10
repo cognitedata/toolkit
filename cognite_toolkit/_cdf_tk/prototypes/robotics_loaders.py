@@ -132,7 +132,7 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return self.client.robotics.frames.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FrameList:
-        return _fallback_to_one_by_one(self.client.files.retrieve, ids, FrameList)
+        return _fallback_to_one_by_one(self.client.robotics.frames.retrieve, ids, FrameList)
 
     def update(self, items: FrameWriteList) -> FrameList:
         return self.client.robotics.frames.update(items)
