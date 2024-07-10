@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from contextlib import suppress
 
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
@@ -313,7 +314,17 @@ class RobotCapabilityLoader(
         return self.client.robotics.capabilities.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> RobotCapabilityList:
-        return self.client.robotics.capabilities.retrieve(ids)
+        try:
+            return self.client.robotics.capabilities.retrieve(ids)
+        except CogniteAPIError:
+            items = RobotCapabilityList([])
+            if len(ids) > 1:
+                # The API does not give any information about which IDs were not found.
+                # so we need to retrieve them one by one to find out which ones were not found.
+                for id_ in ids:
+                    with suppress(CogniteAPIError):
+                        items.append(self.client.robotics.capabilities.retrieve(id_))
+            return items
 
     def update(self, items: RobotCapabilityWriteList) -> RobotCapabilityList:
         return self.client.robotics.capabilities.update(items)
