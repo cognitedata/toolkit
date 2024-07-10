@@ -17,11 +17,15 @@ from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionWriteList,
 )
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
+from cognite.client.exceptions import CogniteAPIError
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.robotics import RobotCapability, RobotCapabilityWrite
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, FunctionScheduleLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
 from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader
+from cognite_toolkit._cdf_tk.prototypes.robotics_loaders import RobotCapabilityLoader
 from tests.tests_integration.constants import RUN_UNIQUE_ID
 
 
@@ -194,3 +198,31 @@ class TestAssetLoader:
         finally:
             # Ensure that the asset is deleted even if the test fails.
             cognite_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
+
+
+@pytest.fixture
+def existing_robot_capability(toolkit_client: ToolkitClient) -> RobotCapability:
+    write = RobotCapabilityWrite(
+        name="integration_test_robot_capability",
+        description="Test robot capability",
+        external_id="integration_test_robot_capability",
+        method="ptz",
+        input_schema={},
+        data_handling_schema={},
+    )
+
+    try:
+        return toolkit_client.robotics.capabilities.retrieve(write.external_id)
+    except CogniteAPIError:
+        return toolkit_client.robotics.capabilities.create(write)
+
+
+class TestRobotCapability:
+    def test_retrieve_existing_and_not_existing(
+        self, toolkit_client: ToolkitClient, existing_robot_capability: RobotCapability
+    ) -> None:
+        loader = RobotCapabilityLoader(toolkit_client, None)
+
+        capabilities = loader.retrieve([existing_robot_capability.external_id, "non_existing_robot"])
+
+        assert len(capabilities) == 1
