@@ -3025,6 +3025,12 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
+        if isinstance(implements := item.get("implements", []), list):
+            for parent in implements:
+                if not isinstance(parent, dict):
+                    continue
+                if parent.get("type") == "view" and _in_dict(["space", "externalId", "version"], parent):
+                    yield ViewLoader, ViewId(parent["space"], parent["externalId"], parent["version"])
         for prop in item.get("properties", {}).values():
             if (container := prop.get("container", {})) and container.get("type") == "container":
                 if _in_dict(("space", "externalId"), container):
