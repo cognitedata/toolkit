@@ -2814,6 +2814,20 @@ class ContainerLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
+        # Note that we are very careful in the code below to not raise an exception if the
+        # item is not properly formed. If that is the case, an appropriate warning will be given elsewhere.
+        for prop in item.get("properties", {}).values():
+            if not isinstance(prop, dict):
+                continue
+            prop_type = prop.get("type", {})
+            if isinstance(prop_type, dict) and prop_type.get("type") == "direct":
+                if isinstance(prop_type.get("container"), dict):
+                    container = prop_type["container"]
+                    if "space" in container and "externalId" in container and container.get("type") == "container":
+                        yield (
+                            ContainerLoader,
+                            ContainerId(space=container["space"], external_id=container["externalId"]),
+                        )
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool

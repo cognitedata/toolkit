@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- If a container with a direct relation property with a required constraint on another container, the `cdf-tk build`
+  would not give a warning if the required container was missing. This is now fixed.
+
 ## [0.2.13] - 2024-07-10
 
 ### Fixed
