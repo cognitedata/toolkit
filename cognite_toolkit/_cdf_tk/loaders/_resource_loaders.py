@@ -2814,6 +2814,8 @@ class ContainerLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
+        # Note that we are very careful in the code below to not raise an exception if the
+        # item is not properly formed. If that is the case, an appropriate warning will be given elsewhere.
         for prop in item.get("properties", {}).values():
             if not isinstance(prop, dict):
                 continue
