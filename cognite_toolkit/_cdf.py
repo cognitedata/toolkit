@@ -1075,6 +1075,14 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
                 help="Delete the output directory before pulling the assets.",
             ),
         ] = False,
+        limit: Annotated[
+            Optional[int],
+            typer.Option(
+                "--limit",
+                "-l",
+                help="Limit the number of assets to dump.",
+            ),
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -1096,6 +1104,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
                 interactive,
                 output_dir,
                 clean_,
+                limit,
                 format_,  # type: ignore [arg-type]
                 verbose or ctx.obj.verbose,
             )
