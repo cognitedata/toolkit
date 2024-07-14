@@ -6,8 +6,10 @@ from typing import Any, Literal
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
     CogniteObject,
+    CogniteResource,
     CogniteResourceList,
     CogniteUpdate,
+    ExternalIDTransformerMixin,
     PropertySpec,
     WriteableCogniteResource,
     WriteableCogniteResourceList,
@@ -137,11 +139,13 @@ class RobotCapability(RobotCapabilityCore):
         )
 
 
-class RobotCapabilityWriteList(CogniteResourceList):
+class RobotCapabilityWriteList(CogniteResourceList, ExternalIDTransformerMixin):
     _RESOURCE = RobotCapabilityWrite
 
 
-class RobotCapabilityList(WriteableCogniteResourceList[RobotCapabilityWrite, RobotCapability]):
+class RobotCapabilityList(
+    WriteableCogniteResourceList[RobotCapabilityWrite, RobotCapability], ExternalIDTransformerMixin
+):
     _RESOURCE = RobotCapability
 
     def as_write(self) -> RobotCapabilityWriteList:
@@ -156,7 +160,7 @@ class _RobotCapabilityUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             # External ID is nullable, but is used in the upsert logic and thus cannot be nulled out.
             PropertySpec("external_id", is_nullable=False),
@@ -305,7 +309,7 @@ class _RobotUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("description", is_nullable=False),
@@ -426,11 +430,13 @@ class DataPostProcessing(DataPostProcessingCore):
         )
 
 
-class DataPostProcessingWriteList(CogniteResourceList):
+class DataPostProcessingWriteList(CogniteResourceList, ExternalIDTransformerMixin):
     _RESOURCE = DataPostProcessingWrite
 
 
-class DataPostProcessingList(WriteableCogniteResourceList[DataPostProcessingWrite, DataPostProcessing]):
+class DataPostProcessingList(
+    WriteableCogniteResourceList[DataPostProcessingWrite, DataPostProcessing], ExternalIDTransformerMixin
+):
     _RESOURCE = DataPostProcessing
 
     def as_write(self) -> DataPostProcessingWriteList:
@@ -445,7 +451,7 @@ class _DataProcessingUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("description", is_nullable=False),
@@ -550,11 +556,11 @@ class Location(LocationCore):
         )
 
 
-class LocationWriteList(CogniteResourceList):
+class LocationWriteList(CogniteResourceList, ExternalIDTransformerMixin):
     _RESOURCE = LocationWrite
 
 
-class LocationList(WriteableCogniteResourceList[LocationWrite, Location]):
+class LocationList(WriteableCogniteResourceList[LocationWrite, Location], ExternalIDTransformerMixin):
     _RESOURCE = Location
 
     def as_write(self) -> LocationWriteList:
@@ -569,7 +575,7 @@ class _LocationUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("description", is_nullable=False),
@@ -758,11 +764,11 @@ class Frame(FrameCore):
         return output
 
 
-class FrameWriteList(CogniteResourceList):
+class FrameWriteList(CogniteResourceList, ExternalIDTransformerMixin):
     _RESOURCE = FrameWrite
 
 
-class FrameList(WriteableCogniteResourceList[FrameWrite, Frame]):
+class FrameList(WriteableCogniteResourceList[FrameWrite, Frame], ExternalIDTransformerMixin):
     _RESOURCE = Frame
 
     def as_write(self) -> FrameWriteList:
@@ -777,7 +783,7 @@ class _FrameUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("transform", is_nullable=False),
@@ -936,11 +942,11 @@ class Map(MapCore):
         )
 
 
-class MapWriteList(CogniteResourceList):
+class MapWriteList(CogniteResourceList, ExternalIDTransformerMixin):
     _RESOURCE = MapWrite
 
 
-class MapList(WriteableCogniteResourceList[MapWrite, Map]):
+class MapList(WriteableCogniteResourceList[MapWrite, Map], ExternalIDTransformerMixin):
     _RESOURCE = Map
 
     def as_write(self) -> MapWriteList:
@@ -955,7 +961,7 @@ class _MapUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("description", is_nullable=False),
