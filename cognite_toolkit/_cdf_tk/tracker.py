@@ -70,14 +70,16 @@ class Tracker:
 
         distinct_id = f"{cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
         cache.write_text(distinct_id)
-        self.mp.people_set(
-            distinct_id,
-            {
-                "$os": platform.system(),
-                "$python_version": platform.python_version(),
-                "$distinct_id": distinct_id,
-            },
-        )
+        with suppress(ConnectionError):
+            self.mp.people_set(
+                distinct_id,
+                {
+                    "$os": platform.system(),
+                    "$python_version": platform.python_version(),
+                    "$distinct_id": distinct_id,
+                    "CICD": self._cicd,
+                },
+            )
         return distinct_id
 
     @staticmethod
