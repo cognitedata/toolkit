@@ -325,7 +325,22 @@ class RobotCapabilityLoader(
         return _fallback_to_one_by_one(self.client.robotics.capabilities.retrieve, ids, RobotCapabilityList)
 
     def update(self, items: RobotCapabilityWriteList) -> RobotCapabilityList:
-        return self.client.robotics.capabilities.update(items)
+        # There is a bug in the /update endpoint that requires the input_schema to be a string
+        # and not an object. This is a workaround until the bug is fixed.
+        # We do the serialization to avoid modifying the original object.
+        to_update = []
+        for item in items:
+            if isinstance(item.input_schema, dict) or isinstance(item.data_handling_schema, dict):
+                update = RobotCapabilityWrite.load(item.dump())
+                if isinstance(item.data_handling_schema, dict):
+                    update.data_handling_schema = json.dumps(item.data_handling_schema)  # type: ignore[assignment]
+                if isinstance(item.input_schema, dict):
+                    update.input_schema = json.dumps(item.input_schema)  # type: ignore[assignment]
+                to_update.append(update)
+            else:
+                to_update.append(item)
+
+        return self.client.robotics.capabilities.update(to_update)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
