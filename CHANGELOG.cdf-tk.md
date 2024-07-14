@@ -21,6 +21,8 @@ Changes are grouped as follows:
 
 - If a container with a direct relation property with a required constraint on another container, the `cdf-tk build`
   would not give a warning if the required container was missing. This is now fixed.
+- [Feature Preview] In the feature preview, `robotics`, the properties `inputSchema` or `dataHandlingSchema`
+  in `RobotCapability` and `DataPostProcessing` were not updated correctly. This is now fixed.
 
 ## [0.2.13] - 2024-07-10
 
