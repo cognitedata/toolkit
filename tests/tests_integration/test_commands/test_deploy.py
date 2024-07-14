@@ -5,6 +5,15 @@ from tests import data
 
 
 def test_deploy_core_model(cdf_tool_config: CDFToolConfig) -> None:
+    """The motivation for this test is to ensure that we can deploy the core model
+    that has a lot of circular dependencies in the views. This was an issue up until
+    12. June 2024. The deployment failed as the server was not able to handle
+    reverse direct dependencies. This test is to ensure that the deployment works
+    as expected.
+
+    It is an expensive test ~10 seconds to run. In the future, we might want to
+    remove it as we trust the server to handle the deployment.
+    """
     deploy_command = DeployCommand(print_warning=False, skip_tracking=True)
 
     deploy_command.execute(
