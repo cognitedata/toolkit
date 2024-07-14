@@ -6,6 +6,7 @@ from typing import Any, Literal
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
     CogniteObject,
+    CogniteResource,
     CogniteResourceList,
     CogniteUpdate,
     PropertySpec,
@@ -156,7 +157,7 @@ class _RobotCapabilityUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             # External ID is nullable, but is used in the upsert logic and thus cannot be nulled out.
             PropertySpec("external_id", is_nullable=False),
@@ -305,7 +306,7 @@ class _RobotUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("description", is_nullable=False),
@@ -445,7 +446,7 @@ class _DataProcessingUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("description", is_nullable=False),
@@ -569,7 +570,7 @@ class _LocationUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("description", is_nullable=False),
@@ -777,7 +778,7 @@ class _FrameUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("transform", is_nullable=False),
@@ -955,7 +956,7 @@ class _MapUpdate(CogniteUpdate):
     """
 
     @classmethod
-    def _get_update_properties(cls) -> list[PropertySpec]:
+    def _get_update_properties(cls, item: CogniteResource | None = None) -> list[PropertySpec]:
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("description", is_nullable=False),

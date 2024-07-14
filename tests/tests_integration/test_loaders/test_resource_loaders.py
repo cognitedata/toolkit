@@ -20,12 +20,17 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.robotics import RobotCapability, RobotCapabilityWrite
+from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
+    DataPostProcessingWrite,
+    DataPostProcessingWriteList,
+    RobotCapability,
+    RobotCapabilityWrite,
+)
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, FunctionScheduleLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
 from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader
-from cognite_toolkit._cdf_tk.prototypes.robotics_loaders import RobotCapabilityLoader
+from cognite_toolkit._cdf_tk.prototypes.robotics_loaders import RobotCapabilityLoader, RoboticsDataPostProcessingLoader
 from tests.tests_integration.constants import RUN_UNIQUE_ID
 
 
@@ -226,3 +231,91 @@ class TestRobotCapability:
         capabilities = loader.retrieve([existing_robot_capability.external_id, "non_existing_robot"])
 
         assert len(capabilities) == 1
+
+
+class TestRobotDataPostProcessing:
+    def test_create_update_retrieve(self, toolkit_client: ToolkitClient) -> None:
+        loader = RoboticsDataPostProcessingLoader(toolkit_client, None)
+
+        original = DataPostProcessingWrite.load("""name: Read dial gauge
+externalId: read_dial_gauge
+method: read_dial_gauge
+description: Original Description
+inputSchema:
+  $schema: http://json-schema.org/draft-07/schema#
+  id: robotics/schemas/0.1.0/capabilities/ptz
+  title: PTZ camera capability input
+  type: object
+  properties:
+    method:
+      type: string
+    parameters:
+      type: object
+      properties:
+        tilt:
+          type: number
+          minimum: -90
+          maximum: 90
+        pan:
+          type: number
+          minimum: -180
+          maximum: 180
+        zoom:
+          type: number
+          minimum: 0
+          maximum: 100
+      required:
+      - tilt
+      - pan
+      - zoom
+  required:
+  - method
+  - parameters
+  additionalProperties: false
+""")
+
+        update = DataPostProcessingWrite.load("""method: read_dial_gauge
+name: Read dial gauge
+externalId: read_dial_gauge
+description: Read dial gauge from an image using Cognite Vision gauge reader
+inputSchema:
+  $schema: http://json-schema.org/draft-07/schema#
+  id: robotics/schemas/0.1.0/data_postprocessing/read_dial_gauge
+  title: Read dial gauge input
+  type: object
+  properties:
+    image:
+      type: object
+      properties:
+        method:
+          type: string
+        parameters:
+          type: object
+          properties:
+            unit:
+              type: string
+            deadAngle:
+              type: number
+            minLevel:
+              type: number
+            maxLevel:
+              type: number
+      required:
+        - method
+        - parameters
+      additionalProperties: false
+  additionalProperties: false""")
+
+        try:
+            created = loader.create(DataPostProcessingWriteList([original]))
+            assert len(created) == 1
+
+            updated = loader.update(DataPostProcessingWriteList([update]))
+            assert len(updated) == 1
+            assert updated[0].input_schema == update.input_schema
+
+            retrieved = loader.retrieve([original.external_id])
+            assert len(retrieved) == 1
+            assert retrieved[0].input_schema == update.input_schema
+        finally:
+            loader.delete([original.external_id])
