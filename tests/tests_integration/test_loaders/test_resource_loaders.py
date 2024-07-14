@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     DataPostProcessingWriteList,
     RobotCapability,
     RobotCapabilityWrite,
+    RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, FunctionScheduleLoader, LabelLoader
@@ -232,9 +233,53 @@ class TestRobotCapability:
 
         assert len(capabilities) == 1
 
+    def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
+        loader = RobotCapabilityLoader(toolkit_client, None)
+
+        original = RobotCapabilityWrite.load("""name: Read dial gauge
+externalId: read_dial_gauge
+method: read_dial_gauge
+description: Original Description
+inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.1.0/capabilities/ptz
+    title: PTZ camera capability input
+dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.1.0/data_handling/read_dial_gauge
+    title: Read dial gauge data handling
+""")
+
+        update = RobotCapabilityWrite.load("""name: Read dial gauge
+externalId: read_dial_gauge
+method: read_dial_gauge
+description: Original Description
+inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.2.0/capabilities/ptz
+    title: Updated PTZ camera capability input
+dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.2.0/data_handling/read_dial_gauge
+    title: Updated read dial gauge data handling
+""")
+        try:
+            created = loader.create(RobotCapabilityWriteList([original]))
+            assert len(created) == 1
+
+            updated = loader.update(RobotCapabilityWriteList([update]))
+            assert len(updated) == 1
+            assert updated[0].input_schema == update.input_schema
+
+            retrieved = loader.retrieve([original.external_id])
+            assert len(retrieved) == 1
+            assert retrieved[0].input_schema == update.input_schema
+        finally:
+            loader.delete([original.external_id])
+
 
 class TestRobotDataPostProcessing:
-    def test_create_update_retrieve(self, toolkit_client: ToolkitClient) -> None:
+    def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         loader = RoboticsDataPostProcessingLoader(toolkit_client, None)
 
         original = DataPostProcessingWrite.load("""name: Read dial gauge
