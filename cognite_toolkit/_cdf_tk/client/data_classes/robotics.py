@@ -9,6 +9,7 @@ from cognite.client.data_classes._base import (
     CogniteResource,
     CogniteResourceList,
     CogniteUpdate,
+    ExternalIDTransformerMixin,
     PropertySpec,
     WriteableCogniteResource,
     WriteableCogniteResourceList,
@@ -138,11 +139,13 @@ class RobotCapability(RobotCapabilityCore):
         )
 
 
-class RobotCapabilityWriteList(CogniteResourceList):
+class RobotCapabilityWriteList(CogniteResourceList, ExternalIDTransformerMixin):
     _RESOURCE = RobotCapabilityWrite
 
 
-class RobotCapabilityList(WriteableCogniteResourceList[RobotCapabilityWrite, RobotCapability]):
+class RobotCapabilityList(
+    WriteableCogniteResourceList[RobotCapabilityWrite, RobotCapability], ExternalIDTransformerMixin
+):
     _RESOURCE = RobotCapability
 
     def as_write(self) -> RobotCapabilityWriteList:
@@ -427,11 +430,13 @@ class DataPostProcessing(DataPostProcessingCore):
         )
 
 
-class DataPostProcessingWriteList(CogniteResourceList):
+class DataPostProcessingWriteList(CogniteResourceList, ExternalIDTransformerMixin):
     _RESOURCE = DataPostProcessingWrite
 
 
-class DataPostProcessingList(WriteableCogniteResourceList[DataPostProcessingWrite, DataPostProcessing]):
+class DataPostProcessingList(
+    WriteableCogniteResourceList[DataPostProcessingWrite, DataPostProcessing], ExternalIDTransformerMixin
+):
     _RESOURCE = DataPostProcessing
 
     def as_write(self) -> DataPostProcessingWriteList:
@@ -551,11 +556,11 @@ class Location(LocationCore):
         )
 
 
-class LocationWriteList(CogniteResourceList):
+class LocationWriteList(CogniteResourceList, ExternalIDTransformerMixin):
     _RESOURCE = LocationWrite
 
 
-class LocationList(WriteableCogniteResourceList[LocationWrite, Location]):
+class LocationList(WriteableCogniteResourceList[LocationWrite, Location], ExternalIDTransformerMixin):
     _RESOURCE = Location
 
     def as_write(self) -> LocationWriteList:
@@ -759,11 +764,11 @@ class Frame(FrameCore):
         return output
 
 
-class FrameWriteList(CogniteResourceList):
+class FrameWriteList(CogniteResourceList, ExternalIDTransformerMixin):
     _RESOURCE = FrameWrite
 
 
-class FrameList(WriteableCogniteResourceList[FrameWrite, Frame]):
+class FrameList(WriteableCogniteResourceList[FrameWrite, Frame], ExternalIDTransformerMixin):
     _RESOURCE = Frame
 
     def as_write(self) -> FrameWriteList:
@@ -937,11 +942,11 @@ class Map(MapCore):
         )
 
 
-class MapWriteList(CogniteResourceList):
+class MapWriteList(CogniteResourceList, ExternalIDTransformerMixin):
     _RESOURCE = MapWrite
 
 
-class MapList(WriteableCogniteResourceList[MapWrite, Map]):
+class MapList(WriteableCogniteResourceList[MapWrite, Map], ExternalIDTransformerMixin):
     _RESOURCE = Map
 
     def as_write(self) -> MapWriteList:
