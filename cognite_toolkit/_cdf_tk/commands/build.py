@@ -641,7 +641,13 @@ class BuildCommand(ToolkitCommand):
 
         api_spec = self._get_api_spec(loader, destination)
         is_dict_item = isinstance(parsed, dict)
-        items = [parsed] if is_dict_item else parsed
+        if loader is NodeLoader and is_dict_item and "node" in parsed:
+            items = [parsed["node"]]
+        elif loader is NodeLoader and is_dict_item and "nodes" in parsed:
+            items = parsed["nodes"]
+            is_dict_item = False
+        else:
+            items = [parsed] if is_dict_item else parsed
 
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no

@@ -2,13 +2,13 @@ autoCreateDirectRelations: true
 skipOnVersionConflict: false
 replace: true
 nodes:
-  - space: some_space
+  - space: {{space}}
     externalId: default-inrobot-config-toolkit
     sources:
       - source:
-          space: APM_Config
-          externalId: APM_Config
-          version: "1" # this is the version of the table/view
+          space: {{space}}
+          externalId: Alert
+          version: 1
           type: view
         properties:
           featureConfiguration:
