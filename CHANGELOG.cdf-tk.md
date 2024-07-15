@@ -15,7 +15,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.2.14] - 2024-07-15
 
 ### Fixed
 
@@ -27,6 +27,8 @@ Changes are grouped as follows:
   the `Node` had a `space`/`externalId`. This is now fixed.
 - In the `cdf-tk deploy/clean` command, the `-i` short flag was used for `--interactive` and `--include` at the same time.
   This is now fixed, and the `-i` flag is only used for `--interactive`.
+- Require `cognite-sdk>=7.54.1`, this version fixed a bug in the `cognite-sdk` that caused the `cdf-tk` to raise
+  an `CogniteAPIError` when deploying or cleaning more than 10 `functions`.
 
 ## [0.2.13] - 2024-07-10
 
