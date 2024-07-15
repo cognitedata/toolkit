@@ -25,6 +25,8 @@ Changes are grouped as follows:
   in `RobotCapability` and `DataPostProcessing` were not updated correctly. This is now fixed.
 - When running `cdf-tk build`, with a `Node` resource. You would get a `MissingRequiredIdentifierWarning` even though
   the `Node` had a `space`/`externalId`. This is now fixed.
+- In the `cdf-tk deploy/clean` command, the `-i` short flag was used for `--interactive` and `--include` at the same time.
+  This is now fixed, and the `-i` flag is only used for `--interactive`.
 
 ## [0.2.13] - 2024-07-10
 
