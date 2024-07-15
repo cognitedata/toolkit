@@ -14,14 +14,6 @@ repos:
       - id: ruff-format
     rev: v0.5.1
 
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
-    hooks:
-      - id: debug-statements
-      - id: check-docstring-first
-      # Tests with rich print tables++ will fail if we remove trailing whitespaces
-      #- id: trailing-whitespace
-
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.41.0
     hooks:
