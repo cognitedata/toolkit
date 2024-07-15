@@ -378,7 +378,6 @@ def deploy(
         Optional[list[str]],
         typer.Option(
             "--include",
-            "-i",
             help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
         ),
     ] = None,
@@ -441,7 +440,6 @@ def clean(
         Optional[list[str]],
         typer.Option(
             "--include",
-            "-i",
             help=f"Specify which resource types to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
         ),
     ] = None,
