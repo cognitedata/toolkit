@@ -1,9 +1,16 @@
+import sys
+
+import pytest
+
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests import data
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
+)
 def test_deploy_core_model(cdf_tool_config: CDFToolConfig) -> None:
     """The motivation for this test is to ensure that we can deploy the core model
     that has a lot of circular dependencies in the views. This was an issue up until
