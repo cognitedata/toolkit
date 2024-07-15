@@ -188,7 +188,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             validate_function_folder(str(function_rootdir), item.function_path, skip_folder_validation=False)
             file_id = self.client.functions._zip_and_upload_folder(
                 name=item.name,
-                folder=function_rootdir,
+                folder=str(function_rootdir),
                 external_id=item.external_id or item.name,
                 data_set_id=self.extra_configs[item.external_id or item.name].get("dataSetId", None),
             )
