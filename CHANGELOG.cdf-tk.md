@@ -23,6 +23,8 @@ Changes are grouped as follows:
   would not give a warning if the required container was missing. This is now fixed.
 - [Feature Preview] In the feature preview, `robotics`, the properties `inputSchema` or `dataHandlingSchema`
   in `RobotCapability` and `DataPostProcessing` were not updated correctly. This is now fixed.
+- When running `cdf-tk build`, with a `Node` resource. You would get a `MissingRequiredIdentifierWarning` even though
+  the `Node` had a `space`/`externalId`. This is now fixed.
 
 ## [0.2.13] - 2024-07-10
 
