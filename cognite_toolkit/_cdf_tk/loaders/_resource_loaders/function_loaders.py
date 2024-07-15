@@ -16,11 +16,10 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sized
 from functools import lru_cache
-from numbers import Number
 from pathlib import Path
 from typing import Any, cast, final
-from zipfile import ZipFile
 
+from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes import (
     ClientCredentials,
     Function,
@@ -46,6 +45,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_directory_hash,
@@ -154,102 +154,59 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
+    def _is_activated(self, action: str) -> bool:
         status = self.client.functions.status()
-        if status.status != "activated":
-            if status.status == "requested":
-                print(
-                    "  [bold yellow]WARNING:[/] Function service activation is in progress, cannot retrieve functions."
-                )
-                return FunctionList([])
-            else:
-                print(
-                    "  [bold yellow]WARNING:[/] Function service has not been activated, activating now, this may take up to 2 hours..."
-                )
-                self.client.functions.activate()
-                return FunctionList([])
-        ret = self.client.functions.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
-        if ret is None:
-            return FunctionList([])
-        if isinstance(ret, Function):
-            return FunctionList([ret])
+        if status.status == "activated":
+            return True
+        if status.status == "requested":
+            print(
+                HighSeverityWarning(
+                    f"Function service activation is in progress, cannot {action} functions."
+                ).get_message()
+            )
+            return False
         else:
-            return ret
+            print(
+                HighSeverityWarning(
+                    "Function service has not been activated, activating now, this may take up to 2 hours..."
+                ).get_message()
+            )
+            self.client.functions.activate()
+        return False
+
+    def create(self, items: FunctionWriteList) -> FunctionList:
+        created = FunctionList([], cognite_client=self.client)
+        if not self._is_activated("create"):
+            return created
+        if self.resource_build_path is None:
+            raise ValueError("build_path must be set to compare functions as function code must be compared.")
+        for item in items:
+            function_rootdir = Path(self.resource_build_path / (item.external_id or ""))
+            item.metadata = item.metadata or {}
+            item.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
+
+            validate_function_folder(str(function_rootdir), item.function_path, skip_folder_validation=False)
+            file_id = self.client.functions._zip_and_upload_folder(
+                name=item.name,
+                folder=function_rootdir,
+                external_id=item.external_id or item.name,
+                data_set_id=self.extra_configs[item.external_id or item.name].get("dataSetId", None),
+            )
+            item.file_id = file_id
+            created.append(self.client.functions.create(item))
+        return created
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
+        if not self._is_activated("retrieve"):
+            return FunctionList([])
+        return self.client.functions.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: FunctionWriteList) -> FunctionList:
         self.delete(items.as_external_ids())
         return self.create(items)
 
-    def _zip_and_upload_folder(
-        self,
-        root_dir: Path,
-        external_id: str,
-        data_set_id: int | None = None,
-    ) -> int:
-        zip_path = Path(root_dir.parent / f"{external_id}.zip")
-        root_length = len(root_dir.parts)
-        with ZipFile(zip_path, "w") as zipfile:
-            for file in root_dir.rglob("*"):
-                if file.is_file():
-                    zipfile.write(file, "/".join(file.parts[root_length - 1 : -1]) + f"/{file.name}")
-        file_info = self.client.files.upload_bytes(
-            zip_path.read_bytes(),
-            name=f"{external_id}.zip",
-            external_id=external_id,
-            overwrite=True,
-            data_set_id=data_set_id,
-        )
-        zip_path.unlink()
-        return cast(int, file_info.id)
-
-    def create(self, items: FunctionWriteList) -> FunctionList:
-        items = list(items)
-        created = FunctionList([], cognite_client=self.client)
-        status = self.client.functions.status()
-        if status.status != "activated":
-            if status.status == "requested":
-                print("  [bold yellow]WARNING:[/] Function service activation is in progress, skipping functions.")
-                return FunctionList([])
-            else:
-                print(
-                    "  [bold yellow]WARNING:[/] Function service is not activated, activating and skipping functions..."
-                )
-                self.client.functions.activate()
-                return FunctionList([])
-        if self.resource_build_path is None:
-            raise ValueError("build_path must be set to compare functions as function code must be compared.")
-        for item in items:
-            function_rootdir = Path(self.resource_build_path / (item.external_id or ""))
-            if item.metadata is None:
-                item.metadata = {}
-            item.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
-            file_id = self._zip_and_upload_folder(
-                root_dir=function_rootdir,
-                external_id=item.external_id or item.name,
-                data_set_id=self.extra_configs[item.external_id or item.name].get("dataSetId", None),
-            )
-            created.append(
-                self.client.functions.create(
-                    name=item.name,
-                    external_id=item.external_id or item.name,
-                    file_id=file_id,
-                    function_path=item.function_path or "./handler.py",
-                    description=item.description,
-                    owner=item.owner,
-                    secrets=item.secrets,
-                    env_vars=item.env_vars,
-                    cpu=cast(Number, item.cpu),
-                    memory=cast(Number, item.memory),
-                    runtime=item.runtime,
-                    metadata=item.metadata,
-                    index_url=item.index_url,
-                    extra_index_urls=item.extra_index_urls,
-                )
-            )
-        return created
-
     def delete(self, ids: SequenceNotStr[str]) -> int:
-        self.client.functions.delete(external_id=cast(SequenceNotStr[str], ids))
+        self.client.functions.delete(external_id=ids)
         return len(ids)
 
     def iterate(self) -> Iterable[Function]:
