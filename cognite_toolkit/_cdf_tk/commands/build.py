@@ -425,11 +425,8 @@ class BuildCommand(ToolkitCommand):
     def _is_exception_file(filepath: Path, resource_directory: str) -> bool:
         # In the 'functions' resource directories, all `.yaml` files must be in the root of the directory
         # This is to allow for function code to include arbitrary yaml files.
-        return (
-            resource_directory == FunctionLoader.folder_name
-            and filepath.suffix.lower() in {".yaml", ".yml"}
-            and filepath.parent.name != FunctionLoader.folder_name
-        )
+        # In addition, all files in not int the 'functions' directory are considered other files.
+        return resource_directory == FunctionLoader.folder_name and filepath.parent.name != FunctionLoader.folder_name
 
     @staticmethod
     def _copy_and_timeshift_csv_files(csv_file: Path, destination: Path) -> None:
