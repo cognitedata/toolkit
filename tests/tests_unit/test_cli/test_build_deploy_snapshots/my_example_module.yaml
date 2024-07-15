@@ -21,17 +21,13 @@ DatapointSubscription:
       value: ts_value
   name: My Subscription
   partitionCount: 1
-FileMetadata:
-- data_set_id: 42
-  external_id: fn_first_function
-  name: fn_first_function.zip
-  overwrite: true
 Function:
 - description: Returns the input data, secrets, and function info.
   envVars:
     CDF_ENV: dev
     ENV_TYPE: dev
   externalId: fn_first_function
+  fileId: -1
   functionPath: ./src/handler.py
   metadata:
     cdf-toolkit-function-hash: a63720560f48030aaf994e92b02b1de1932514aa79b3115ced9d65fba8440aff
