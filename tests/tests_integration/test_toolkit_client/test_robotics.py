@@ -312,7 +312,7 @@ class TestDataProcessingAPI:
     def test_update_capability(
         self, toolkit_client: ToolkitClient, existing_data_processing: DataPostProcessing
     ) -> None:
-        update = existing_data_processing
+        update = existing_data_processing.as_write()
         update.description = next(desc for desc in DESCRIPTIONS if desc != existing_data_processing.description)
         updated = toolkit_client.robotics.data_postprocessing.update(update)
         assert updated.description == update.description
@@ -358,7 +358,7 @@ class TestMapAPI:
             pytest.fail("No maps found")
 
     def test_update_map(self, toolkit_client: ToolkitClient, existing_map: Map) -> None:
-        update = existing_map
+        update = existing_map.as_write()
         update.description = next(desc for desc in DESCRIPTIONS if desc != existing_map.description)
         updated = toolkit_client.robotics.maps.update(update)
         assert updated.description == update.description
@@ -401,7 +401,7 @@ class TestLocationAPI:
             pytest.fail("No locations found")
 
     def test_update_location(self, toolkit_client: ToolkitClient, existing_location: Location) -> None:
-        update = existing_location
+        update = existing_location.as_write()
         update.description = next(desc for desc in DESCRIPTIONS if desc != existing_location.description)
         updated = toolkit_client.robotics.locations.update(update)
         assert updated.description == update.description
@@ -449,7 +449,7 @@ class TestFrameAPI:
             pytest.fail("No frames found")
 
     def test_update_frame(self, toolkit_client: ToolkitClient, existing_frame: Frame) -> None:
-        update = existing_frame
+        update = existing_frame.as_write()
         update.name = next(name for name in FRAME_NAMES if name != existing_frame.name)
         updated = toolkit_client.robotics.frames.update(update)
         assert updated.name == update.name

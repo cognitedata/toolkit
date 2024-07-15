@@ -1,0 +1,462 @@
+# Copyright 2023 Cognite AS
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+from __future__ import annotations
+
+from abc import ABC
+from collections.abc import Callable, Hashable, Iterable, Sequence
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Literal, cast, final
+
+from cognite.client.data_classes import (
+    capabilities,
+)
+from cognite.client.data_classes.capabilities import (
+    Capability,
+    GroupsAcl,
+    SecurityCategoriesAcl,
+)
+from cognite.client.data_classes.iam import (
+    Group,
+    GroupList,
+    GroupWrite,
+    GroupWriteList,
+    SecurityCategory,
+    SecurityCategoryList,
+    SecurityCategoryWrite,
+    SecurityCategoryWriteList,
+)
+from cognite.client.utils.useful_types import SequenceNotStr
+from rich import print
+
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    NamespacingConventionWarning,
+    PrefixConventionWarning,
+    WarningList,
+    YAMLFileWarning,
+)
+from cognite_toolkit._cdf_tk.utils import (
+    CDFToolConfig,
+    load_yaml_inject_variables,
+)
+
+
+class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList], ABC):
+    folder_name = "auth"
+    filename_pattern = r"^(?!.*SecurityCategory$).*"
+    kind = "Group"
+    resource_cls = Group
+    resource_write_cls = GroupWrite
+    list_cls = GroupList
+    list_write_cls = GroupWriteList
+    resource_scopes = frozenset(
+        {
+            capabilities.IDScope,
+            capabilities.SpaceIDScope,
+            capabilities.DataSetScope,
+            capabilities.TableScope,
+            capabilities.AssetRootIDScope,
+            capabilities.ExtractionPipelineScope,
+            capabilities.IDScopeLowerCase,
+        }
+    )
+    resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})  # type: ignore[attr-defined]
+    _doc_url = "Groups/operation/createGroups"
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        target_scopes: Literal[
+            "all_scoped_only",
+            "resource_scoped_only",
+        ] = "all_scoped_only",
+    ):
+        super().__init__(client, build_dir)
+        self.target_scopes = target_scopes
+
+    @property
+    def display_name(self) -> str:
+        return f"iam.groups({self.target_scopes.removesuffix('_only')})"
+
+    @classmethod
+    def create_loader(
+        cls,
+        ToolGlobals: CDFToolConfig,
+        build_dir: Path | None,
+    ) -> GroupLoader:
+        return cls(ToolGlobals.toolkit_client, build_dir)
+
+    @classmethod
+    def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        return GroupsAcl(
+            [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
+            GroupsAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_id(cls, item: GroupWrite | Group | dict) -> str:
+        if isinstance(item, dict):
+            return item["name"]
+        return item.name
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        from .data_organization_loaders import DataSetsLoader
+        from .datamodel_loaders import SpaceLoader
+        from .extraction_pipeline_loaders import ExtractionPipelineLoader
+        from .raw_loaders import RawDatabaseLoader, RawTableLoader
+        from .timeseries_loaders import TimeSeriesLoader
+
+        for capability in item.get("capabilities", []):
+            for acl, content in capability.items():
+                if scope := content.get("scope", {}):
+                    if space_ids := scope.get(capabilities.SpaceIDScope._scope_name, []):
+                        if isinstance(space_ids, dict) and "spaceIds" in space_ids:
+                            for space_id in space_ids["spaceIds"]:
+                                yield SpaceLoader, space_id
+                    if data_set_ids := scope.get(capabilities.DataSetScope._scope_name, []):
+                        if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
+                            for data_set_id in data_set_ids["ids"]:
+                                yield DataSetsLoader, data_set_id
+                    if table_ids := scope.get(capabilities.TableScope._scope_name, []):
+                        for db_name, tables in table_ids.get("dbsToTables", {}).items():
+                            yield RawDatabaseLoader, RawDatabaseTable(db_name)
+                            for table in tables:
+                                yield RawTableLoader, RawDatabaseTable(db_name, table)
+                    if extraction_pipeline_ids := scope.get(capabilities.ExtractionPipelineScope._scope_name, []):
+                        if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
+                            for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
+                                yield ExtractionPipelineLoader, extraction_pipeline_id
+                    if (ids := scope.get(capabilities.IDScope._scope_name, [])) or (
+                        ids := scope.get(capabilities.IDScopeLowerCase._scope_name, [])
+                    ):
+                        loader: type[ResourceLoader] | None = None
+                        if acl == capabilities.DataSetsAcl._capability_name:
+                            loader = DataSetsLoader
+                        elif acl == capabilities.ExtractionPipelinesAcl._capability_name:
+                            loader = ExtractionPipelineLoader
+                        elif acl == capabilities.TimeSeriesAcl._capability_name:
+                            loader = TimeSeriesLoader
+                        if loader is not None and isinstance(ids, dict) and "ids" in ids:
+                            for id_ in ids["ids"]:
+                                yield loader, id_
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            if identifier == "applications-configuration":
+                if verbose:
+                    print(
+                        "      [bold green]INFO:[/] the group applications-configuration does not follow the "
+                        "recommended '_' based namespacing because Infield expects this specific name."
+                    )
+            else:
+                warning_list.append(NamespacingConventionWarning(filepath, cls.folder_name, "name", identifier, "_"))
+        elif not identifier.startswith("gp"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "name", identifier, "gp_"))
+        return warning_list
+
+    @staticmethod
+    def _substitute_scope_ids(group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
+        for capability in group.get("capabilities", []):
+            for acl, values in capability.items():
+                scope = values.get("scope", {})
+
+                verify_method: Callable[[str, bool, str], int]
+                for scope_name, verify_method, action in [
+                    ("datasetScope", ToolGlobals.verify_dataset, "replace datasetExternalId with dataSetId in group"),
+                    (
+                        "idScope",
+                        (
+                            ToolGlobals.verify_extraction_pipeline
+                            if acl == "extractionPipelinesAcl"
+                            else ToolGlobals.verify_dataset
+                        ),
+                        "replace extractionPipelineExternalId with extractionPipelineId in group",
+                    ),
+                    (
+                        "extractionPipelineScope",
+                        ToolGlobals.verify_extraction_pipeline,
+                        "replace extractionPipelineExternalId with extractionPipelineId in group",
+                    ),
+                ]:
+                    if ids := scope.get(scope_name, {}).get("ids", []):
+                        values["scope"][scope_name]["ids"] = [
+                            verify_method(ext_id, skip_validation, action) if isinstance(ext_id, str) else ext_id
+                            for ext_id in ids
+                        ]
+        return group
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> GroupWrite | GroupWriteList | None:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+
+        group_write_list = GroupWriteList([])
+
+        if isinstance(raw, dict):
+            raw = [raw]
+
+        for group in raw:
+            is_resource_scoped = any(
+                any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
+                for capability in group.get("capabilities", [])
+                for acl in capability
+            )
+
+            if self.target_scopes == "all_scoped_only" and is_resource_scoped:
+                continue
+
+            if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
+                continue
+
+            group_write_list.append(GroupWrite.load(self._substitute_scope_ids(group, ToolGlobals, skip_validation)))
+
+        if len(group_write_list) == 0:
+            return None
+        if len(group_write_list) == 1:
+            return group_write_list[0]
+        return group_write_list
+
+    def _are_equal(
+        self, local: GroupWrite, cdf_resource: Group, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+
+        scope_names = ["datasetScope", "idScope", "extractionPipelineScope"]
+
+        ids_by_acl_by_actions_by_scope: dict[str, dict[frozenset[str], dict[str, list[str]]]] = {}
+        for capability in cdf_dumped.get("capabilities", []):
+            for acl, values in capability.items():
+                ids_by_actions_by_scope = ids_by_acl_by_actions_by_scope.setdefault(acl, {})
+                actions = values.get("actions", [])
+                ids_by_scope = ids_by_actions_by_scope.setdefault(frozenset(actions), {})
+                scope = values.get("scope", {})
+                for scope_name in scope_names:
+                    if ids := scope.get(scope_name, {}).get("ids", []):
+                        if scope_name in ids_by_scope:
+                            # Duplicated
+                            ids_by_scope[scope_name].extend(ids)
+                        else:
+                            ids_by_scope[scope_name] = ids
+
+        for capability in local_dumped.get("capabilities", []):
+            for acl, values in capability.items():
+                if acl not in ids_by_acl_by_actions_by_scope:
+                    continue
+                ids_by_actions_by_scope = ids_by_acl_by_actions_by_scope[acl]
+                actions = frozenset(values.get("actions", []))
+                if actions not in ids_by_actions_by_scope:
+                    continue
+                ids_by_scope = ids_by_actions_by_scope[actions]
+                scope = values.get("scope", {})
+                for scope_name in scope_names:
+                    if ids := scope.get(scope_name, {}).get("ids", []):
+                        is_dry_run = all(id_ == -1 for id_ in ids)
+                        cdf_ids = ids_by_scope.get(scope_name, [])
+                        are_equal_length = len(ids) == len(cdf_ids)
+                        if is_dry_run and are_equal_length:
+                            values["scope"][scope_name]["ids"] = list(cdf_ids)
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
+    def _upsert(self, items: Sequence[GroupWrite]) -> GroupList:
+        if len(items) == 0:
+            return GroupList([])
+        # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
+        old_groups = self.client.iam.groups.list(all=True)
+        old_group_by_names = {g.name: g for g in old_groups.as_write()}
+        changed = []
+        for item in items:
+            if (old := old_group_by_names.get(item.name)) and old == item:
+                # Ship unchanged groups
+                continue
+            changed.append(item)
+        if len(changed) == 0:
+            return GroupList([])
+        created = self.client.iam.groups.create(changed)
+        created_names = {g.name for g in created}
+        to_delete = [g.id for g in old_groups if g.name in created_names and g.id]
+        self.client.iam.groups.delete(to_delete)
+        return created
+
+    def update(self, items: Sequence[GroupWrite]) -> GroupList:
+        return self._upsert(items)
+
+    def create(self, items: Sequence[GroupWrite]) -> GroupList:
+        return self._upsert(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
+        remote = self.client.iam.groups.list(all=True)
+        found = [g for g in remote if g.name in ids]
+        return GroupList(found)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        id_list = list(ids)
+        # Let's prevent that we delete groups we belong to
+        try:
+            groups = self.client.iam.groups.list()
+        except Exception as e:
+            print(
+                f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
+            )
+            return 0
+        my_source_ids = set()
+        for g in groups:
+            if g.source_id not in my_source_ids:
+                my_source_ids.add(g.source_id)
+        groups = self.retrieve(ids)
+        for g in groups:
+            if g.source_id in my_source_ids:
+                print(
+                    f"  [bold yellow]WARNING:[/] Not deleting group {g.name} with sourceId {g.source_id} as it is used by the current service principal."
+                )
+                print("     If you want to delete this group, you must do it manually.")
+                if g.name not in id_list:
+                    print(f"    [bold red]ERROR[/] You seem to have duplicate groups of name {g.name}.")
+                else:
+                    id_list.remove(g.name)
+        found = [g.id for g in groups if g.name in id_list and g.id]
+        self.client.iam.groups.delete(found)
+        return len(found)
+
+    def iterate(self) -> Iterable[Group]:
+        return self.client.iam.groups.list(all=True)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # The Capability class in the SDK class Group implementation is deviating from the API.
+        # So we need to modify the spec to match the API.
+        for item in spec:
+            if item.path[0] == "capabilities" and len(item.path) > 2:
+                # Add extra ANY_STR layer
+                # The spec class is immutable, so we use this trick to modify it.
+                object.__setattr__(item, "path", item.path[:2] + (ANY_STR,) + item.path[2:])
+        spec.add(
+            ParameterSpec(
+                ("capabilities", ANY_INT, ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("capabilities", ANY_INT, ANY_STR, "scope", ANYTHING),
+                frozenset({"dict"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        return spec
+
+
+@final
+class GroupAllScopedLoader(GroupLoader):
+    def __init__(self, client: ToolkitClient, build_dir: Path | None):
+        super().__init__(client, build_dir, "all_scoped_only")
+
+
+@final
+class SecurityCategoryLoader(
+    ResourceLoader[str, SecurityCategoryWrite, SecurityCategory, SecurityCategoryWriteList, SecurityCategoryList]
+):
+    filename_pattern = r"^.*SecurityCategory$"  # Matches all yaml files who's stem ends with *SecurityCategory.
+    resource_cls = SecurityCategory
+    resource_write_cls = SecurityCategoryWrite
+    list_cls = SecurityCategoryList
+    list_write_cls = SecurityCategoryWriteList
+    kind = "SecurityCategory"
+    folder_name = "auth"
+    dependencies = frozenset({GroupAllScopedLoader})
+    _doc_url = "Security-categories/operation/createSecurityCategories"
+
+    @property
+    def display_name(self) -> str:
+        return "security.categories"
+
+    @classmethod
+    def get_id(cls, item: SecurityCategoryWrite | SecurityCategory | dict) -> str:
+        if isinstance(item, dict):
+            return item["name"]
+        return cast(str, item.name)
+
+    @classmethod
+    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
+        warning_list = WarningList[YAMLFileWarning]()
+        parts = identifier.split("_")
+        if len(parts) < 2:
+            warning_list.append(
+                NamespacingConventionWarning(
+                    filepath,
+                    cls.folder_name,
+                    "name",
+                    identifier,
+                    "_",
+                )
+            )
+        elif not identifier.startswith("sc_"):
+            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "name", identifier, "sc_"))
+        return warning_list
+
+    @classmethod
+    def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        return SecurityCategoriesAcl(
+            actions=[
+                SecurityCategoriesAcl.Action.Create,
+                SecurityCategoriesAcl.Action.Update,
+                SecurityCategoriesAcl.Action.MemberOf,
+                SecurityCategoriesAcl.Action.List,
+                SecurityCategoriesAcl.Action.Delete,
+            ],
+            scope=SecurityCategoriesAcl.Scope.All(),
+        )
+
+    def create(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+        return self.client.iam.security_categories.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> SecurityCategoryList:
+        names = set(ids)
+        categories = self.client.iam.security_categories.list(limit=-1)
+        return SecurityCategoryList([c for c in categories if c.name in names])
+
+    def update(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
+        items_by_name = {item.name: item for item in items}
+        retrieved = self.retrieve(list(items_by_name.keys()))
+        retrieved_by_name = {item.name: item for item in retrieved}
+        new_items_by_name = {item.name: item for item in items if item.name not in retrieved_by_name}
+        if new_items_by_name:
+            created = self.client.iam.security_categories.create(list(new_items_by_name.values()))
+            retrieved_by_name.update({item.name: item for item in created})
+        return SecurityCategoryList([retrieved_by_name[name] for name in items_by_name])
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        retrieved = self.retrieve(ids)
+        if retrieved:
+            self.client.iam.security_categories.delete([item.id for item in retrieved if item.id])
+        return len(retrieved)
+
+    def iterate(self) -> Iterable[SecurityCategory]:
+        return self.client.iam.security_categories.list(limit=-1)

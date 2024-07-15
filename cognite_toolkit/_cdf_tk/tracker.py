@@ -7,6 +7,7 @@ import tempfile
 import threading
 import uuid
 from collections import Counter
+from contextlib import suppress
 from functools import cached_property
 from pathlib import Path
 
@@ -34,24 +35,29 @@ class Tracker:
             warning_details[f"warningMostCommon{no}Count"] = count
             warning_details[f"warningMostCommon{no}Name"] = warning
 
+        def track() -> None:
+            # If we are unable to connect to Mixpanel, we don't want to crash the program
+            with suppress(ConnectionError):
+                self.mp.track(
+                    distinct_id,
+                    f"command{cmd.capitalize()}",
+                    {
+                        "userInput": self.user_command,
+                        "toolkitVersion": __version__,
+                        "warningTotalCount": len(warning_list),
+                        **warning_details,
+                        "result": type(result).__name__ if isinstance(result, Exception) else result,
+                        "error": str(result) if isinstance(result, Exception) else "",
+                        "$os": platform.system(),
+                        "pythonVersion": platform.python_version(),
+                        "CICD": self._cicd,
+                        **positional_args,
+                        **optional_args,
+                    },
+                )
+
         thread = threading.Thread(
-            target=lambda: self.mp.track(
-                distinct_id,
-                f"command{cmd.capitalize()}",
-                {
-                    "userInput": self.user_command,
-                    "toolkitVersion": __version__,
-                    "warningTotalCount": len(warning_list),
-                    **warning_details,
-                    "result": type(result).__name__ if isinstance(result, Exception) else result,
-                    "error": str(result) if isinstance(result, Exception) else "",
-                    "$os": platform.system(),
-                    "pythonVersion": platform.python_version(),
-                    "CICD": self._cicd,
-                    **positional_args,
-                    **optional_args,
-                },
-            ),
+            target=track,
             daemon=False,
         )
         thread.start()
@@ -64,14 +70,16 @@ class Tracker:
 
         distinct_id = f"{cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
         cache.write_text(distinct_id)
-        self.mp.people_set(
-            distinct_id,
-            {
-                "$os": platform.system(),
-                "$python_version": platform.python_version(),
-                "$distinct_id": distinct_id,
-            },
-        )
+        with suppress(ConnectionError):
+            self.mp.people_set(
+                distinct_id,
+                {
+                    "$os": platform.system(),
+                    "$python_version": platform.python_version(),
+                    "$distinct_id": distinct_id,
+                    "CICD": self._cicd,
+                },
+            )
         return distinct_id
 
     @staticmethod

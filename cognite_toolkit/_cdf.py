@@ -378,7 +378,6 @@ def deploy(
         Optional[list[str]],
         typer.Option(
             "--include",
-            "-i",
             help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
         ),
     ] = None,
@@ -441,7 +440,6 @@ def clean(
         Optional[list[str]],
         typer.Option(
             "--include",
-            "-i",
             help=f"Specify which resource types to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
         ),
     ] = None,
@@ -1075,6 +1073,14 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
                 help="Delete the output directory before pulling the assets.",
             ),
         ] = False,
+        limit: Annotated[
+            Optional[int],
+            typer.Option(
+                "--limit",
+                "-l",
+                help="Limit the number of assets to dump.",
+            ),
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -1096,6 +1102,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
                 interactive,
                 output_dir,
                 clean_,
+                limit,
                 format_,  # type: ignore [arg-type]
                 verbose or ctx.obj.verbose,
             )

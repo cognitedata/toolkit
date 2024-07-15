@@ -100,7 +100,7 @@ jobs:
           IS_GITHUB_ACTIONS: "true"
         run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/ -n8
       - name: Push coverage report to PR
-        uses: orgoro/coverage@v3.1
+        uses: orgoro/coverage@v3.2
         with:
             coverageFile: coverage.xml
             thresholdAll: 0.6

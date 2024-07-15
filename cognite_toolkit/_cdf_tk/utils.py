@@ -25,7 +25,7 @@ import tempfile
 import typing
 from abc import abstractmethod
 from collections import UserDict, defaultdict
-from collections.abc import ItemsView, Iterator, KeysView, Sequence, ValuesView
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, Sequence, ValuesView
 from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -1301,3 +1301,7 @@ def safe_read(file: Path) -> str:
     except UnicodeDecodeError:
         # On Windows, we may have issues as the encoding is not always utf-8
         return file.read_text(encoding="utf-8")
+
+
+def in_dict(keys: Iterable[str], dictionary: dict) -> bool:
+    return all(key in dictionary for key in keys)

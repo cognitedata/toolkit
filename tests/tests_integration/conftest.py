@@ -6,12 +6,18 @@ from cognite.client.credentials import OAuthClientCredentials
 from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.commands import CollectCommand
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
 
 
 @pytest.fixture(scope="session")
 def cognite_client() -> CogniteClient:
     load_dotenv(REPO_ROOT / ".env", override=True)
+    # Ensure that we do not collect data during tests
+    cmd = CollectCommand()
+    cmd.execute(action="opt-out")
+
     cdf_cluster = os.environ["CDF_CLUSTER"]
     credentials = OAuthClientCredentials(
         token_url=os.environ["IDP_TOKEN_URL"],
@@ -34,3 +40,8 @@ def cognite_client() -> CogniteClient:
 @pytest.fixture(scope="session")
 def toolkit_client(cognite_client: CogniteClient) -> ToolkitClient:
     return ToolkitClient(cognite_client._config)
+
+
+@pytest.fixture(scope="session")
+def cdf_tool_config(cognite_client: CogniteClient) -> CDFToolConfig:
+    return CDFToolConfig()

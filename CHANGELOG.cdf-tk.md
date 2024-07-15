@@ -15,6 +15,21 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.14] - 2024-07-15
+
+### Fixed
+
+- If a container with a direct relation property with a required constraint on another container, the `cdf-tk build`
+  would not give a warning if the required container was missing. This is now fixed.
+- [Feature Preview] In the feature preview, `robotics`, the properties `inputSchema` or `dataHandlingSchema`
+  in `RobotCapability` and `DataPostProcessing` were not updated correctly. This is now fixed.
+- When running `cdf-tk build`, with a `Node` resource. You would get a `MissingRequiredIdentifierWarning` even though
+  the `Node` had a `space`/`externalId`. This is now fixed.
+- In the `cdf-tk deploy/clean` command, the `-i` short flag was used for `--interactive` and `--include` at the same time.
+  This is now fixed, and the `-i` flag is only used for `--interactive`.
+- Require `cognite-sdk>=7.54.1`, this version fixed a bug in the `cognite-sdk` that caused the `cdf-tk` to raise
+  an `CogniteAPIError` when deploying or cleaning more than 10 `functions`.
+
 ## [0.2.13] - 2024-07-10
 
 ### Fixed

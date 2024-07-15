@@ -425,11 +425,8 @@ class BuildCommand(ToolkitCommand):
     def _is_exception_file(filepath: Path, resource_directory: str) -> bool:
         # In the 'functions' resource directories, all `.yaml` files must be in the root of the directory
         # This is to allow for function code to include arbitrary yaml files.
-        return (
-            resource_directory == FunctionLoader.folder_name
-            and filepath.suffix.lower() in {".yaml", ".yml"}
-            and filepath.parent.name != FunctionLoader.folder_name
-        )
+        # In addition, all files in not int the 'functions' directory are considered other files.
+        return resource_directory == FunctionLoader.folder_name and filepath.parent.name != FunctionLoader.folder_name
 
     @staticmethod
     def _copy_and_timeshift_csv_files(csv_file: Path, destination: Path) -> None:
@@ -641,7 +638,13 @@ class BuildCommand(ToolkitCommand):
 
         api_spec = self._get_api_spec(loader, destination)
         is_dict_item = isinstance(parsed, dict)
-        items = [parsed] if is_dict_item else parsed
+        if loader is NodeLoader and is_dict_item and "node" in parsed:
+            items = [parsed["node"]]
+        elif loader is NodeLoader and is_dict_item and "nodes" in parsed:
+            items = parsed["nodes"]
+            is_dict_item = False
+        else:
+            items = [parsed] if is_dict_item else parsed
 
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no
