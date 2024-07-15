@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sized
 from functools import lru_cache
 from numbers import Number
 from pathlib import Path
@@ -100,7 +100,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     ) -> FunctionWrite | FunctionWriteList | None:
         if filepath.parent.name != self.folder_name:
             # Functions configs needs to be in the root function folder.
-            # Thi is to allow arbitrary YAML files inside the function code folder.
+            # This is to allow arbitrary YAML files inside the function code folder.
             return None
 
         functions = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
@@ -143,23 +143,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             local.metadata = {}
         local.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
 
-        # Is changed as part of deploy to the API
+        # Is changed as part of deployment to the API
         local.file_id = cdf_resource.file_id
         cdf_resource.secrets = local.secrets
-        # Set empty values for local
-        attrs = [
-            attr for attr in dir(cdf_resource) if not callable(getattr(cdf_resource, attr)) and not attr.startswith("_")
-        ]
-        # Remove server-side attributes
-        attrs.remove("created_time")
-        attrs.remove("error")
-        attrs.remove("id")
-        attrs.remove("runtime_version")
-        attrs.remove("status")
-        # Set empty values for local that have default values server-side
-        for attribute in attrs:
-            if getattr(local, attribute) is None:
-                setattr(local, attribute, getattr(cdf_resource, attribute))
+
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
         if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
@@ -181,9 +168,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 )
                 self.client.functions.activate()
                 return FunctionList([])
-        ret = self.client.functions.retrieve_multiple(
-            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
-        )
+        ret = self.client.functions.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
         if ret is None:
             return FunctionList([])
         if isinstance(ret, Function):
@@ -192,7 +177,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             return ret
 
     def update(self, items: FunctionWriteList) -> FunctionList:
-        self.delete([item.external_id for item in items])
+        self.delete(items.as_external_ids())
         return self.create(items)
 
     def _zip_and_upload_folder(
@@ -217,7 +202,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         zip_path.unlink()
         return cast(int, file_info.id)
 
-    def create(self, items: Sequence[FunctionWrite]) -> FunctionList:
+    def create(self, items: FunctionWriteList) -> FunctionList:
         items = list(items)
         created = FunctionList([], cognite_client=self.client)
         status = self.client.functions.status()
