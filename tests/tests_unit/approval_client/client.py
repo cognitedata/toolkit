@@ -563,6 +563,12 @@ class ApprovalCogniteClient:
             else:
                 return None
 
+        def files_retrieve(id: int | None = None, external_id: str | None = None) -> FileMetadata:
+            if id is not None:
+                return FileMetadata(id=id, uploaded=True)
+            else:
+                return return_value(external_id=external_id)
+
         def data_model_retrieve(ids, *args, **kwargs):
             id_list = list(ids) if isinstance(ids, Sequence) else [ids]
             to_return = read_list_cls([], cognite_client=client)
@@ -578,6 +584,7 @@ class ApprovalCogniteClient:
                 return_value,
                 data_model_retrieve,
                 return_instances,
+                files_retrieve,
             ]
         }
         if mock_method not in available_retrieve_methods:

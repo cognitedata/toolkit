@@ -392,7 +392,7 @@ API_RESOURCES = [
             "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="return_values"),
-                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve", mock_class_method="files_retrieve"),
                 Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
         },
