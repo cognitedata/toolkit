@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import time
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sized
 from functools import lru_cache
@@ -192,6 +193,16 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 external_id=item.external_id or item.name,
                 data_set_id=self.extra_configs[item.external_id or item.name].get("dataSetId", None),
             )
+            # Wait until the files is available
+            sleep_time = 1.0  # seconds
+            for i in range(5):
+                file = self.client.files.retrieve(id=file_id)
+                if file and file.uploaded:
+                    break
+                time.sleep(sleep_time)
+                sleep_time *= 2
+            else:
+                raise RuntimeError("Could not retrieve file from files API")
             item.file_id = file_id
             created.append(self.client.functions.create(item))
         return created
