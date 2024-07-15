@@ -328,13 +328,13 @@ python-json-logger = ">=2.0.7,<3.0.0"
 
 [[package]]
 name = "cognite-sdk"
-version = "7.54.0"
+version = "7.54.1"
 description = "Cognite Python SDK"
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "cognite_sdk-7.54.0-py3-none-any.whl", hash = "sha256:2d519c5cd9128aaf52d480dc3d080fd072ac734fda431ba9354fc647f75b5b57"},
-    {file = "cognite_sdk-7.54.0.tar.gz", hash = "sha256:15b56cf8cf4ee767db5cdab83d4c395ea022559cca2c57504ee0a74888f016d8"},
+    {file = "cognite_sdk-7.54.1-py3-none-any.whl", hash = "sha256:4366236e974e93ba6d36a9a99ef05340eebfa03c37be33197ba21d5a56404769"},
+    {file = "cognite_sdk-7.54.1.tar.gz", hash = "sha256:f489a153f5f58e350fd98bfe3b8c258fcd995ef8e8006697315f1d9d67d81ec6"},
 ]
 
 [package.dependencies]
@@ -2250,4 +2250,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "cef5721a33704a2553cec24def4ead27b55ecd75b9649e332df0416bd23fb1b0"
+content-hash = "25d7ab100840b185f69c4e45d6b3ed2b58e87cb647dd7eaae5305e04ff74a2d0"

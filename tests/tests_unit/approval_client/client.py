@@ -18,11 +18,9 @@ from cognite.client.data_classes import (
     ExtractionPipelineConfig,
     ExtractionPipelineConfigWrite,
     FileMetadata,
-    Function,
     FunctionCall,
     FunctionSchedule,
     FunctionScheduleWrite,
-    FunctionWrite,
     Group,
     GroupList,
     Workflow,
@@ -102,6 +100,7 @@ class ApprovalCogniteClient:
         self.mock_client.iam.compare_capabilities.side_effect = IAMAPI.compare_capabilities
         # Set functions to be activated
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
+        self.mock_client.functions._zip_and_upload_folder.return_value = -1
         # Activate authorization_header()
         self.mock_client.config.credentials.authorization_header.return_value = ("Bearer", "123")
         # Set project
@@ -461,13 +460,6 @@ class ApprovalCogniteClient:
             )
             return FileMetadata.load({to_camel_case(k): v for k, v in kwargs.items()})
 
-        def create_function_api(**kwargs) -> Function:
-            # Function API does not follow the same pattern as the other APIs
-            # So needs special handling
-            created = FunctionWrite.load({to_camel_case(k): v for k, v in kwargs.items()})
-            created_resources[resource_cls.__name__].append(created)
-            return Function.load(created.dump(camel_case=True))
-
         def create_function_schedule_api(**kwargs) -> FunctionSchedule:
             created = FunctionScheduleWrite.load({to_camel_case(k): v for k, v in kwargs.items()})
             created_resources[resource_cls.__name__].append(created)
@@ -483,7 +475,6 @@ class ApprovalCogniteClient:
                 create_instances,
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
-                create_function_api,
                 create_function_schedule_api,
             ]
         }
@@ -572,6 +563,12 @@ class ApprovalCogniteClient:
             else:
                 return None
 
+        def files_retrieve(id: int | None = None, external_id: str | None = None) -> FileMetadata:
+            if id is not None:
+                return FileMetadata(id=id, uploaded=True)
+            else:
+                return return_value(external_id=external_id)
+
         def data_model_retrieve(ids, *args, **kwargs):
             id_list = list(ids) if isinstance(ids, Sequence) else [ids]
             to_return = read_list_cls([], cognite_client=client)
@@ -587,6 +584,7 @@ class ApprovalCogniteClient:
                 return_value,
                 data_model_retrieve,
                 return_instances,
+                files_retrieve,
             ]
         }
         if mock_method not in available_retrieve_methods:
