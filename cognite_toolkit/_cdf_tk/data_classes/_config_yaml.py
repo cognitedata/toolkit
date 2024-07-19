@@ -285,7 +285,7 @@ class BuildEnvironment(Environment):
         warning_list = WarningList[FileReadWarning]()
         for file, hash_ in self.hash_by_source_file.items():
             if not file.exists():
-                warning_list.append(MissingFileWarning(file, attempted_check="source file has changed."))
+                warning_list.append(MissingFileWarning(file, attempted_check="source file has changed"))
             elif hash_ != calculate_str_or_file_hash(file):
                 warning_list.append(SourceFileModifiedWarning(file))
         return warning_list
