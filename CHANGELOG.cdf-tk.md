@@ -28,6 +28,10 @@ Changes are grouped as follows:
   before deploying the function. This is now removed. The reason is that the toolkit is often run in a
   different Python environment than the function code. This made this check unnecessarily restrictive
   as it would fail even though the function code was correct due to missing dependencies.
+- [Feature Preview] Instead of using `functionExternalID`+`cron` expression to identify a function schedule,
+  the Toolkit now uses `functionExternalID`+`name`. This is to avoid the Toolkit to create multiple schedules
+  for the same function if the cron expression is changed and allow to have multiple schedules with the same
+  cron expression for the same function. To enable this feature, run `cdf-tk features set fun-schedule --enable`.
 
 ## [0.2.14] - 2024-07-15
 
