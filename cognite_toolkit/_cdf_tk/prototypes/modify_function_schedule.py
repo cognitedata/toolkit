@@ -27,14 +27,9 @@ class FunctionScheduleID:
 
 
 def modify_function_schedule_loader() -> None:
-    # The split character is designed to be unique and not present in
-    # the name of the function schedule.
-    split_character = r"""πℇr!"#$%&🎃'()*+,-./:;<=>?🎃@[\]^_`{|}~ℇπ"""
-
     def get_id(
         cls: type[FunctionScheduleLoader], item: FunctionScheduleWrite | FunctionSchedule | dict
     ) -> FunctionScheduleID:
-        nonlocal split_character
         if isinstance(item, dict):
             if missing := tuple(k for k in {"functionExternalId", "name"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -50,7 +45,6 @@ def modify_function_schedule_loader() -> None:
     def load_resource(
         self: FunctionScheduleLoader, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionScheduleWrite | FunctionScheduleWriteList | None:
-        nonlocal split_character
         schedules = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(schedules, dict):
             schedules = [schedules]
