@@ -26,6 +26,10 @@ class Flags(Enum):
         "visible": True,
         "description": "The resource function schedule use name instead of cron to uniquely identify the schedule",
     }
+    MODEL_3D: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for loading 3D Model resources",
+    }
 
 
 class FeatureFlag:
