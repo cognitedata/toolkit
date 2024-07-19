@@ -21,8 +21,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceUpdateError,
     ToolkitDeployResourceError,
-    ToolkitNotADirectoryError,
     ToolkitFileNotFoundError,
+    ToolkitNotADirectoryError,
     UploadFileError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
@@ -95,9 +95,7 @@ class DeployCommand(ToolkitCommand):
             )
 
         print(
-            Panel(
-                f"[bold]Deploying config files from {build_dir} to environment {build_env_name}...[/]", expand=False
-            )
+            Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env_name}...[/]", expand=False)
         )
 
         if not _RUNNING_IN_BROWSER:
