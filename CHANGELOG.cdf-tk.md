@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Running `cdf-tk deploy` after a failed build would raise an incorrect `ToolkitNotADirectoryError`,
+  instead of a `ToolkitFileNotFoundError` for the `_build_enviroment.yaml` file. This is now fixed.
+
 ## [0.2.14] - 2024-07-15
 
 ### Fixed
