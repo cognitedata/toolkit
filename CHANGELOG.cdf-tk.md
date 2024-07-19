@@ -22,6 +22,13 @@ Changes are grouped as follows:
 - Running `cdf-tk deploy` after a failed build would raise an incorrect `ToolkitNotADirectoryError`,
   instead of a `ToolkitFileNotFoundError` for the `_build_enviroment.yaml` file. This is now fixed.
 
+### Changed
+
+- When running `cdf-tk deploy` for a function the Toolkit checked that it could import the function code
+  before deploying the function. This is now removed. The reason is that the toolkit is often run in a
+  different Python environment than the function code. This made this check unnecessarily restrictive
+  as it would fail even though the function code was correct due to missing dependencies.
+
 ## [0.2.14] - 2024-07-15
 
 ### Fixed
