@@ -21,6 +21,8 @@ Changes are grouped as follows:
 
 - Running `cdf-tk deploy` after a failed build would raise an incorrect `ToolkitNotADirectoryError`,
   instead of a `ToolkitFileNotFoundError` for the `_build_enviroment.yaml` file. This is now fixed.
+- When running `cdf-tk deploy` with `Functions` that have not explicitly set `cpu`, `memory`, or `runtime`,
+  would always be classified as changed. This is now fixed.
 
 ### Changed
 
