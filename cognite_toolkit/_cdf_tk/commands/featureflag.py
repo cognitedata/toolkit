@@ -22,6 +22,10 @@ class Flags(Enum):
     ASSETS: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the support for loading assets"}
     NO_NAMING: ClassVar[dict[str, Any]] = {"visible": True, "description": "Disables the naming convention checks"}
     ROBOTICS: ClassVar[dict[str, Any]] = {"visible": False, "description": "Enables the robotics sub application"}
+    FUN_SCHEDULE: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "The resource function schedule use name instead of cron to uniquely identify the schedule",
+    }
 
 
 class FeatureFlag:
