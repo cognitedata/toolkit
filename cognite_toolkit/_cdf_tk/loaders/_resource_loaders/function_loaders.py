@@ -146,6 +146,12 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         # Is changed as part of deployment to the API
         local.file_id = cdf_resource.file_id
         cdf_resource.secrets = local.secrets
+        if cdf_resource.cpu and local.cpu is None:
+            local.cpu = cdf_resource.cpu
+        if cdf_resource.memory and local.memory is None:
+            local.memory = cdf_resource.memory
+        if cdf_resource.runtime and local.runtime is None:
+            local.runtime = cdf_resource.runtime
 
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
