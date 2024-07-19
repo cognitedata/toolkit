@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -19,22 +20,30 @@ from cognite_toolkit._cdf_tk.loaders import (
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 
+@dataclass(frozen=True)
+class FunctionScheduleID:
+    function_external_id: str
+    name: str
+
+
 def modify_function_schedule_loader() -> None:
     # The split character is designed to be unique and not present in
     # the name of the function schedule.
     split_character = r"""πℇr!"#$%&🎃'()*+,-./:;<=>?🎃@[\]^_`{|}~ℇπ"""
 
-    def get_id(cls: type[FunctionScheduleLoader], item: FunctionScheduleWrite | FunctionSchedule | dict) -> str:
+    def get_id(
+        cls: type[FunctionScheduleLoader], item: FunctionScheduleWrite | FunctionSchedule | dict
+    ) -> FunctionScheduleID:
         nonlocal split_character
         if isinstance(item, dict):
             if missing := tuple(k for k in {"functionExternalId", "name"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return f"{item['functionExternalId']}{split_character}{item['name']}"
+            return FunctionScheduleID(item["functionExternalId"], item["name"])
 
         if item.function_external_id is None or item.name is None:
             raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and Name set.")
-        return f"{item.function_external_id}{split_character}{item.name}"
+        return FunctionScheduleID(item.function_external_id, item.name)
 
     FunctionScheduleLoader.get_id = classmethod(get_id)  # type: ignore[method-assign, assignment, arg-type]
 
@@ -46,21 +55,19 @@ def modify_function_schedule_loader() -> None:
         if isinstance(schedules, dict):
             schedules = [schedules]
 
-        for sched in schedules:
-            ext_id = f"{sched['functionExternalId']}{split_character}{sched['name']}"
-            if self.extra_configs.get(ext_id) is None:
-                self.extra_configs[ext_id] = {}
-            self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
+        for schedule in schedules:
+            identifier = self.get_id(schedule)
+            if self.extra_configs.get(identifier) is None:
+                self.extra_configs[identifier] = {}
+            self.extra_configs[identifier]["authentication"] = schedule.pop("authentication", {})
         return FunctionScheduleWriteList.load(schedules)
 
     FunctionScheduleLoader.load_resource = load_resource  # type: ignore[method-assign]
 
-    def retrieve(self: FunctionScheduleLoader, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
-        nonlocal split_character
+    def retrieve(self: FunctionScheduleLoader, ids: SequenceNotStr[FunctionScheduleID]) -> FunctionSchedulesList:
         names_by_function: dict[str, set[str]] = defaultdict(set)
         for id_ in ids:
-            function_external_id, name = id_.rsplit(split_character, 1)
-            names_by_function[function_external_id].add(name)
+            names_by_function[id_.function_external_id].add(id_.name)
         functions = FunctionLoader(self.client, None).retrieve(list(names_by_function))
         schedules = FunctionSchedulesList([])
         for func in functions:
@@ -72,14 +79,13 @@ def modify_function_schedule_loader() -> None:
             )
         return schedules
 
-    FunctionScheduleLoader.retrieve = retrieve  # type: ignore[method-assign]
+    FunctionScheduleLoader.retrieve = retrieve  # type: ignore[method-assign, assignment]
 
     def create(self: FunctionScheduleLoader, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
-        nonlocal split_character
         items = self._resolve_functions_ext_id(items)
         created = []
         for item in items:
-            key = f"{item.function_external_id}{split_character}{item.name}"
+            key = self.get_id(item)
             auth_config = self.extra_configs.get(key, {}).get("authentication", {})
             if "clientId" in auth_config and "clientSecret" in auth_config:
                 client_credentials = ClientCredentials(auth_config["clientId"], auth_config["clientSecret"])
