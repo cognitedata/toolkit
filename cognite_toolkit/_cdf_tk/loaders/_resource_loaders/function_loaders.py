@@ -20,7 +20,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast, final
 
-from cognite.client._api.functions import validate_function_folder
 from cognite.client.data_classes import (
     ClientCredentials,
     Function,
@@ -186,7 +185,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             item.metadata = item.metadata or {}
             item.metadata["cdf-toolkit-function-hash"] = calculate_directory_hash(function_rootdir)
 
-            validate_function_folder(str(function_rootdir), item.function_path, skip_folder_validation=False)
             file_id = self.client.functions._zip_and_upload_folder(
                 name=item.name,
                 folder=str(function_rootdir),
