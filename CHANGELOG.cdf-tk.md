@@ -15,6 +15,64 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Running `cdf-tk deploy` after a failed build would raise an incorrect `ToolkitNotADirectoryError`,
+  instead of a `ToolkitFileNotFoundError` for the `_build_enviroment.yaml` file. This is now fixed.
+- When running `cdf-tk deploy` with `Functions` that have not explicitly set `cpu`, `memory`, or `runtime`,
+  would always be classified as changed. This is now fixed.
+
+### Changed
+
+- When running `cdf-tk deploy` for a function the Toolkit checked that it could import the function code
+  before deploying the function. This is now removed. The reason is that the toolkit is often run in a
+  different Python environment than the function code. This made this check unnecessarily restrictive
+  as it would fail even though the function code was correct due to missing dependencies.
+- [Feature Preview] Instead of using `functionExternalID`+`cron` expression to identify a function schedule,
+  the Toolkit now uses `functionExternalID`+`name`. This is to avoid the Toolkit to create multiple schedules
+  for the same function if the cron expression is changed and allow to have multiple schedules with the same
+  cron expression for the same function. To enable this feature, run `cdf-tk features set fun-schedule --enable`.
+
+## [0.2.14] - 2024-07-15
+
+### Fixed
+
+- If a container with a direct relation property with a required constraint on another container, the `cdf-tk build`
+  would not give a warning if the required container was missing. This is now fixed.
+- [Feature Preview] In the feature preview, `robotics`, the properties `inputSchema` or `dataHandlingSchema`
+  in `RobotCapability` and `DataPostProcessing` were not updated correctly. This is now fixed.
+- When running `cdf-tk build`, with a `Node` resource. You would get a `MissingRequiredIdentifierWarning` even though
+  the `Node` had a `space`/`externalId`. This is now fixed.
+- In the `cdf-tk deploy/clean` command, the `-i` short flag was used for `--interactive` and `--include` at the same time.
+  This is now fixed, and the `-i` flag is only used for `--interactive`.
+- Require `cognite-sdk>=7.54.1`, this version fixed a bug in the `cognite-sdk` that caused the `cdf-tk` to raise
+  an `CogniteAPIError` when deploying or cleaning more than 10 `functions`.
+
+## [0.2.13] - 2024-07-10
+
+### Fixed
+
+- [Feature Preview] In the feature preview, `cdf-tk import transformation-cli`, the Toolkit would fail to convert
+  manifest with `destination: <string>` correctly. This is now fixed.
+- On Windows, when reading files from disk, the Toolkit could raise an `UnicodeDecodeError`. This is now fixed.
+- [Feature Preview] In the feature preview, `robotics`, if you tried to update a set of resources in which some
+  were existing and others not, the Toolkit would create the new resources. This is now fixed.
+
+## [0.2.12] - 2024-07-08
+
+### Added
+
+- [Feature Preview] Robotic support.
+
+## [0.2.11] - 2024-07-05
+
+### Fixed
+
+- When running `cdf-tk build`, if you had two files non-YAML files named the same in different modules, or subdirectories
+  in the same module, the Toolkit would overwrite the first file with the second file. This is now fixed.
+
 ## [0.2.10] - 2024-07-03
 
 ### Fixed

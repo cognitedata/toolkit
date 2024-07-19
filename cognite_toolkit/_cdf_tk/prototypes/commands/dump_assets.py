@@ -41,6 +41,7 @@ class DumpAssetsCommand(ToolkitCommand):
         interactive: bool,
         output_dir: Path,
         clean: bool,
+        limit: int | None = None,
         format_: Literal["yaml", "csv", "parquet"] = "yaml",
         verbose: bool = False,
     ) -> None:
@@ -72,7 +73,10 @@ class DumpAssetsCommand(ToolkitCommand):
 
         count = 0
         for assets in ToolGlobals.client.assets(
-            chunk_size=1000, asset_subtree_external_ids=hierarchies, data_set_external_ids=data_set
+            chunk_size=1000,
+            asset_subtree_external_ids=hierarchies or None,
+            data_set_external_ids=data_set or None,
+            limit=limit,
         ):
             for group_name, group in self._group_by_hierarchy(ToolGlobals.client, assets):
                 group_write = self._to_write(ToolGlobals.client, group, expand_metadata=format_ != "yaml")

@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, SystemYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
+from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
 from tests.tests_unit.approval_client import ApprovalCogniteClient
@@ -256,7 +257,16 @@ def test_build_custom_project(
     build_tmp_path: Path,
     typer_context: typer.Context,
 ) -> None:
-    expected_resources = {"timeseries", "data_models", "data_sets", "raw", "extraction_pipelines", "transformations"}
+    setup_robotics_loaders.setup_robotics_loaders()
+    expected_resources = {
+        "timeseries",
+        "data_models",
+        "data_sets",
+        "raw",
+        "extraction_pipelines",
+        "transformations",
+        "robotics",
+    }
     build(
         typer_context,
         source_dir=str(CUSTOM_PROJECT),

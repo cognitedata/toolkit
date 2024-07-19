@@ -32,6 +32,7 @@ def bump(
         REPO_ROOT / "cognite_toolkit" / "_version.py",
         REPO_ROOT / "cognite_toolkit" / "_system.yaml",
         *(REPO_ROOT / "tests" / "data").rglob("_system.yaml"),
+        *(REPO_ROOT / "tests" / "data").rglob("_build_environment.yaml"),
     ]
     version = parse(__version__)
 

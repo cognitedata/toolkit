@@ -25,7 +25,7 @@ import tempfile
 import typing
 from abc import abstractmethod
 from collections import UserDict, defaultdict
-from collections.abc import ItemsView, Iterator, KeysView, Sequence, ValuesView
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, Sequence, ValuesView
 from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -51,6 +51,7 @@ from cognite.client.testing import CogniteClientMock
 from rich import print
 from rich.prompt import Confirm, Prompt
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
@@ -421,6 +422,7 @@ class CDFToolConfig:
         self._audience: str | None = None
         self._credentials_provider: CredentialProvider | None = None
         self._client: CogniteClient | None = None
+        self._toolkit_client: ToolkitClient | None = None
 
         global_config.disable_pypi_version_check = True
         global_config.silence_feature_preview_warnings = True
@@ -566,6 +568,13 @@ class CDFToolConfig:
         if self._client is None:
             raise ValueError("Client is not initialized.")
         return self._client
+
+    @property
+    def toolkit_client(self) -> ToolkitClient:
+        if self._toolkit_client is None:
+            client = self.client
+            self._toolkit_client = ToolkitClient(client._config)
+        return self._toolkit_client
 
     @property
     def project(self) -> str:
@@ -1283,3 +1292,16 @@ def to_diff(a: dict[str, Any], b: dict[str, Any]) -> Iterator[str]:
     b_str = yaml.safe_dump(b, sort_keys=True)
 
     return difflib.unified_diff(a_str.splitlines(), b_str.splitlines())
+
+
+def safe_read(file: Path) -> str:
+    """Falls back on explicit using utf-8 if the default .read_text()"""
+    try:
+        return file.read_text()
+    except UnicodeDecodeError:
+        # On Windows, we may have issues as the encoding is not always utf-8
+        return file.read_text(encoding="utf-8")
+
+
+def in_dict(keys: Iterable[str], dictionary: dict) -> bool:
+    return all(key in dictionary for key in keys)

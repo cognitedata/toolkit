@@ -1,0 +1,2 @@
+- destination: ${SLACK_NOTIFICATION_CHANNEL}
+  transformationExternalId: cdf_copy_assets_upsert_so_route_sync

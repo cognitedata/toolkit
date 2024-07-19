@@ -12,15 +12,7 @@ repos:
           - --fixable=E,W,F,I,T,RUF,TID,UP
           - --target-version=py39
       - id: ruff-format
-    rev: v0.5.0
-
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
-    hooks:
-      - id: debug-statements
-      - id: check-docstring-first
-      # Tests with rich print tables++ will fail if we remove trailing whitespaces
-      #- id: trailing-whitespace
+    rev: v0.5.2
 
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.41.0
@@ -31,7 +23,7 @@ repos:
   - hooks:
     - id: mypy
       name: mypy
-      entry: mypy cognite_toolkit/ --config-file pyproject.toml
+      entry: dmypy run -- cognite_toolkit/ --config-file pyproject.toml
       files: ^.*.(py|pyi)$
       language: system
       pass_filenames: false

@@ -13,7 +13,7 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
-from cognite_toolkit._cdf_tk.utils import read_yaml_file
+from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
 
 
 class ImportTransformationCLI(ToolkitCommand):
@@ -84,7 +84,7 @@ class ImportTransformationCLI(ToolkitCommand):
             destination_transformation.write_text(yaml.safe_dump(transformation))
             if source_query_path is not None:
                 destination_query_path = destination_folder / f"{destination_transformation.stem}.sql"
-                destination_query_path.write_text(source_query_path.read_text())
+                destination_query_path.write_text(safe_read(source_query_path))
 
             if schedule is not None:
                 destination_schedule = destination_folder / f"{yaml_file.stem}.Schedule.yaml"
@@ -128,6 +128,11 @@ class ImportTransformationCLI(ToolkitCommand):
         if "ignoreNullFields" not in transformation:
             # This is required by the API, but the transformation-cli sets it to true by default.
             transformation["ignoreNullFields"] = True
+        if isinstance(transformation["destination"], str):
+            # The API expects the destination to be a dict with a type key, while the transformation-cli
+            # also allows a string.
+            transformation["destination"] = {"type": transformation["destination"]}
+
         source_query_path: Path | None = None
         if isinstance(transformation["query"], dict):
             query = transformation.pop("query")

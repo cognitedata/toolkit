@@ -26,6 +26,10 @@ ALT_CUSTOM_MODULES = "modules"
 ROOT_MODULES = [COGNITE_MODULES, CUSTOM_MODULES, ALT_CUSTOM_MODULES]
 MODULE_PATH_SEP = "/"
 
+MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
+MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
+HAS_DATA_FILTER_LIMIT = 10
+
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # Files to search for variables.
@@ -38,7 +42,6 @@ ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
 
 SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.1.0"
-
 # This is used in the build directory to keep track of order and flatten the
 # module directory structure with accounting for duplicated names.
 INDEX_PATTERN = re.compile("^[0-9]+\\.")

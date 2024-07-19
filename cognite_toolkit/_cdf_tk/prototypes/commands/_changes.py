@@ -10,7 +10,7 @@ from packaging.version import parse as parse_version
 
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
 from cognite_toolkit._cdf_tk.data_classes import SystemYAML
-from cognite_toolkit._cdf_tk.utils import read_yaml_file
+from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
 
@@ -102,7 +102,7 @@ After:
     def do(self) -> set[Path]:
         changed: set[Path] = set()
         for config_yaml in self._project_path.glob("config.*.yaml"):
-            data_raw = config_yaml.read_text()
+            data_raw = safe_read(config_yaml)
             # We do not parse the YAML file to avoid removing comments
             updated_file: list[str] = []
             for line in data_raw.splitlines():
@@ -140,7 +140,7 @@ class CommonFunctionCodeNotSupported(ManualChange):
             return set()
         needs_change = {common_function_code}
         for py_file in self._project_path.rglob("*.py"):
-            content = py_file.read_text().splitlines()
+            content = safe_read(py_file).splitlines()
             use_common_function_code = any(
                 (line.startswith("from common") or line.startswith("import common")) for line in content
             )
@@ -198,7 +198,7 @@ dataSetExternalId: my_external_id
         changed: set[Path] = set()
         for resource_yaml in self._project_path.glob("*.yaml"):
             if resource_yaml.parent == "functions":
-                content = resource_yaml.read_text()
+                content = safe_read(resource_yaml)
                 if "externalDataSetId" in content:
                     changed.add(resource_yaml)
                     content = content.replace("externalDataSetId", "dataSetExternalId")
@@ -231,7 +231,7 @@ environment:
     def do(self) -> set[Path]:
         changed = set()
         for config_yaml in self._project_path.glob("config.*.yaml"):
-            data = config_yaml.read_text()
+            data = safe_read(config_yaml)
             if "selected_modules_and_packages" in data:
                 changed.add(config_yaml)
                 data = data.replace("selected_modules_and_packages", "selected")
@@ -305,7 +305,7 @@ class UpdateModuleVersion(AutomaticChange):
         system_yaml = self._project_path / SystemYAML.file_name
         if not system_yaml.exists():
             return set()
-        raw = system_yaml.read_text()
+        raw = safe_read(system_yaml)
         new_system_yaml = []
         changes: set[Path] = set()
         # We do not parse the YAML file to avoid removing comments

@@ -1,8 +1,28 @@
-- version: 0.2.10
+- version: 0.2.14
   cognite_modules: {}
   resources: {}
   tool: {}
   cognite_modules_hash: ""
+- version: 0.2.13
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: "fb4f0f92bc7d2de66c217920cc40ff1a1dca1507128ef7b381bd8d9a34c98a24"
+- version: 0.2.12
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: "5297c662429800945eb246e9dc631507e7fb6bf199eef162008701316580e911"
+- version: 0.2.11
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: "e35f9e828e30e5530e7d0df43027aa8f621f2d976d04059513bbec2b28654b6c"
+- version: 0.2.10
+  cognite_modules: {}
+  resources: {}
+  tool: {}
+  cognite_modules_hash: "a9440375346d12c63daa0ee0ae7d76b6251503395328f7f04b31e566c64d655a"
 - version: 0.2.9
   cognite_modules: {}
   resources: {}

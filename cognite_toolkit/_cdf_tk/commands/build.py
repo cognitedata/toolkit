@@ -8,7 +8,7 @@ import re
 import shutil
 import sys
 import traceback
-from collections import ChainMap, defaultdict
+from collections import ChainMap, Counter, defaultdict
 from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -80,6 +80,7 @@ from cognite_toolkit._cdf_tk.utils import (
     module_from_path,
     read_yaml_content,
     resource_folder_from_path,
+    safe_read,
 )
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
@@ -302,7 +303,7 @@ class BuildCommand(ToolkitCommand):
 
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
-        content = source_path.read_text()
+        content = safe_read(source_path)
         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
 
         content = state.replace_variables(content, source_path.suffix)
@@ -376,11 +377,18 @@ class BuildCommand(ToolkitCommand):
 
     def _to_files_by_resource_directory(self, filepaths: list[Path], module_dir: Path) -> dict[str, ResourceDirectory]:
         # Sort to support 1., 2. etc prefixes
-        def sort_key(p: Path) -> int:
-            if result := re.findall(r"^(\d+)", p.stem):
-                return int(result[0])
+        def sort_key(p: Path) -> tuple[int, int, str]:
+            first = {
+                ".yaml": 0,
+                ".yml": 0,
+            }.get(p.suffix.lower(), 1)
+            # We ensure that the YAML files are sorted before other files.
+            # This is when we add indexes to files. We want to ensure that, for example, a .sql file
+            # with the same name as a .yaml file gets the same index as the .yaml file.
+            if result := INDEX_PATTERN.search(p.stem):
+                return first, int(result.group()[:-1]), p.name
             else:
-                return len(filepaths)
+                return first, len(filepaths) + 1, p.name
 
         # The builder of a module can control the order that resources are deployed by prefixing a number
         # The custom key 'sort_key' is to get the sort on integer and not the string.
@@ -417,11 +425,8 @@ class BuildCommand(ToolkitCommand):
     def _is_exception_file(filepath: Path, resource_directory: str) -> bool:
         # In the 'functions' resource directories, all `.yaml` files must be in the root of the directory
         # This is to allow for function code to include arbitrary yaml files.
-        return (
-            resource_directory == FunctionLoader.folder_name
-            and filepath.suffix.lower() in {".yaml", ".yml"}
-            and filepath.parent.name != FunctionLoader.folder_name
-        )
+        # In addition, all files in not int the 'functions' directory are considered other files.
+        return resource_directory == FunctionLoader.folder_name and filepath.parent.name != FunctionLoader.folder_name
 
     @staticmethod
     def _copy_and_timeshift_csv_files(csv_file: Path, destination: Path) -> None:
@@ -495,7 +500,7 @@ class BuildCommand(ToolkitCommand):
             source_file = state.source_by_build_path[config_file]
 
             try:
-                raw_content = read_yaml_content(config_file.read_text())
+                raw_content = read_yaml_content(safe_read(config_file))
             except yaml.YAMLError as e:
                 raise ToolkitYAMLFormatError(f"Failed to load function files {source_file.as_posix()!r} due to: {e}")
             raw_functions = raw_content if isinstance(raw_content, list) else [raw_content]
@@ -561,7 +566,7 @@ class BuildCommand(ToolkitCommand):
             # Multiple configuration files, then there is no template
             return None
 
-        config_content = configuration_files[0].read_text()
+        config_content = safe_read(configuration_files[0])
         try:
             raw_files = read_yaml_content(config_content)
         except yaml.YAMLError as e:
@@ -633,7 +638,13 @@ class BuildCommand(ToolkitCommand):
 
         api_spec = self._get_api_spec(loader, destination)
         is_dict_item = isinstance(parsed, dict)
-        items = [parsed] if is_dict_item else parsed
+        if loader is NodeLoader and is_dict_item and "node" in parsed:
+            items = [parsed["node"]]
+        elif loader is NodeLoader and is_dict_item and "nodes" in parsed:
+            items = parsed["nodes"]
+            is_dict_item = False
+        else:
+            items = [parsed] if is_dict_item else parsed
 
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no
@@ -736,8 +747,8 @@ class _BuildState:
     variables_by_module_path: dict[str, dict[str, str]] = field(default_factory=dict)
     source_by_build_path: dict[Path, Path] = field(default_factory=dict)
     hash_by_source_path: dict[Path, str] = field(default_factory=dict)
-    index_by_resource_type_counter: dict[str, int] = field(default_factory=lambda: defaultdict(int))
-    index_by_relative_path: dict[Path, int] = field(default_factory=dict)
+    index_by_resource_type_counter: Counter[str] = field(default_factory=Counter)
+    index_by_filepath_stem: dict[Path, int] = field(default_factory=dict)
     printed_function_warning: bool = False
     ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
         default_factory=lambda: defaultdict(dict)
@@ -768,12 +779,18 @@ class _BuildState:
         # Get rid of the local index
         filename = INDEX_PATTERN.sub("", filename)
 
-        relative_parent = module_dir.name / source_path.relative_to(module_dir).parent
-        if relative_parent not in self.index_by_relative_path:
+        relative_stem = module_dir.name / source_path.relative_to(module_dir).parent / source_path.stem
+        if relative_stem in self.index_by_filepath_stem:
+            # Ensure extra files (.sql, .pdf) with the same stem gets the same index as the
+            # main YAML file. The Transformation Loader expects this.
+            index = self.index_by_filepath_stem[relative_stem]
+        else:
+            # Increment to ensure we do not get duplicate filenames when we flatten the file
+            # structure from the module to the build directory.
             self.index_by_resource_type_counter[resource_directory] += 1
-            self.index_by_relative_path[relative_parent] = self.index_by_resource_type_counter[resource_directory]
+            index = self.index_by_resource_type_counter[resource_directory]
+            self.index_by_filepath_stem[relative_stem] = index
 
-        index = self.index_by_relative_path[relative_parent]
         filename = f"{index}.{filename}"
         destination_path = build_dir / resource_directory / filename
         destination_path.parent.mkdir(parents=True, exist_ok=True)

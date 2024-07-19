@@ -23,6 +23,16 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
 
     setup_asset_loader.setup_asset_loader()
 
+if FeatureFlag.is_enabled(Flags.FUN_SCHEDULE):
+    from cognite_toolkit._cdf_tk.prototypes import modify_function_schedule
+
+    modify_function_schedule.modify_function_schedule_loader()
+
+if FeatureFlag.is_enabled(Flags.ROBOTICS):
+    from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
+
+    setup_robotics_loaders.setup_robotics_loaders()
+
 if FeatureFlag.is_enabled(Flags.NO_NAMING):
     from cognite_toolkit._cdf_tk.prototypes import turn_off_naming_check
 
@@ -373,7 +383,6 @@ def deploy(
         Optional[list[str]],
         typer.Option(
             "--include",
-            "-i",
             help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
         ),
     ] = None,
@@ -436,7 +445,6 @@ def clean(
         Optional[list[str]],
         typer.Option(
             "--include",
-            "-i",
             help=f"Specify which resource types to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
         ),
     ] = None,
@@ -1070,6 +1078,14 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
                 help="Delete the output directory before pulling the assets.",
             ),
         ] = False,
+        limit: Annotated[
+            Optional[int],
+            typer.Option(
+                "--limit",
+                "-l",
+                help="Limit the number of assets to dump.",
+            ),
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -1091,6 +1107,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
                 interactive,
                 output_dir,
                 clean_,
+                limit,
                 format_,  # type: ignore [arg-type]
                 verbose or ctx.obj.verbose,
             )

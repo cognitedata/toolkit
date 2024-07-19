@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceTypes,
     ViewLoader,
 )
+from cognite_toolkit._cdf_tk.prototypes.setup_robotics_loaders import ResourceTypes as PrototypeResourceTypes
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     module_from_path,
@@ -68,6 +69,7 @@ def test_loader_class(
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
     cdf_tool.client = cognite_client_approval.mock_client
+    cdf_tool.toolkit_client = cognite_client_approval.mock_client
     cdf_tool.data_set_id = 999
 
     cmd = DeployCommand(print_warning=False)
@@ -79,7 +81,6 @@ def test_loader_class(
 
 
 class TestDeployResources:
-    @pytest.mark.skip("This functionality has been removed")
     def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
         build_env_name = "dev"
         system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
@@ -93,6 +94,7 @@ class TestDeployResources:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
         cdf_tool.client = cognite_client_approval.mock_client
+        cdf_tool.toolkit_client = cognite_client_approval.mock_client
 
         cmd = DeployCommand(print_warning=False)
         cmd.deploy_resources(ViewLoader.create_loader(cdf_tool, BUILD_DIR), cdf_tool, dry_run=False)
@@ -191,6 +193,11 @@ class TestFormatConsistency:
 def test_resource_types_is_up_to_date() -> None:
     expected = set(LOADER_BY_FOLDER_NAME.keys())
     actual = set(ResourceTypes.__args__)
+    new_prototype_resource_types = set(PrototypeResourceTypes.__args__) - actual
+    # The prototype may or may not be turned on, so we include them always.
+    # This is an issue as we run the tests in parallel and the prototype may not be loaded.
+    expected.update(new_prototype_resource_types)
+    actual.update(new_prototype_resource_types)
 
     missing = expected - actual
     extra = actual - expected

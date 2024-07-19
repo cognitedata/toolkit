@@ -49,7 +49,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
     MissingCapabilityWarning,
 )
-from cognite_toolkit._cdf_tk.utils import AuthVariables, CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import AuthVariables, CDFToolConfig, safe_read
 
 from ._base import ToolkitCommand
 
@@ -117,7 +117,7 @@ class AuthCommand(ToolkitCommand):
 
         if not admin_group_file.exists():
             raise ToolkitFileNotFoundError(f"Group config file does not exist: {admin_group_file.as_posix()}")
-        admin_write_group = GroupWrite.load(admin_group_file.read_text())
+        admin_write_group = GroupWrite.load(safe_read(admin_group_file))
 
         print(
             Panel(

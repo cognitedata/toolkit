@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceUpdateError,
     ToolkitDeployResourceError,
+    ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
     UploadFileError,
 )
@@ -54,8 +55,8 @@ from ._utils import _print_ids_or_length, _remove_duplicates
 
 
 class DeployCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True):
-        super().__init__(print_warning)
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking)
         self._clean_command = CleanCommand(print_warning, skip_tracking=True)
 
     def execute(
@@ -71,28 +72,31 @@ class DeployCommand(ToolkitCommand):
     ) -> None:
         # Override cluster and project from the options/env variables
         build_dir: Path = Path(build_dir_raw)
-        if not build_dir.exists():
+        if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf-tk build` first?"
             )
-        build_ = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "deploy")
+        build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
+        if not build_environment_file_path.is_file():
+            raise ToolkitFileNotFoundError(
+                f"Could not find build environment file '{BUILD_ENVIRONMENT_FILE}' in '{build_dir}'. "
+                "Did you forget to run `cdf-tk build` first?"
+            )
+
+        build_ = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")
         build_.set_environment_variables()
+
         errors = build_.check_source_files_changed()
         for error in errors:
             self.warn(error)
         if errors:
             raise ToolkitDeployResourceError(
-                "One or more source files have been modified since the last build. " "Please rebuild the project."
+                "One or more source files have been modified since the last build. Please rebuild the project."
             )
 
         print(
-            Panel(
-                f"[bold]Deploying config files from {build_dir_raw} to environment {build_env_name}...[/]", expand=False
-            )
+            Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env_name}...[/]", expand=False)
         )
-
-        if not build_dir.is_dir():
-            raise ToolkitNotADirectoryError(f"'{build_dir_raw}'. Did you forget to run `cdf-tk build` first?")
 
         if not _RUNNING_IN_BROWSER:
             print(ToolGlobals.as_string())

@@ -12,6 +12,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.utils import safe_read
 
 
 class Flags(Enum):
@@ -20,6 +21,11 @@ class Flags(Enum):
     IMPORT_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the import sub application"}
     ASSETS: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the support for loading assets"}
     NO_NAMING: ClassVar[dict[str, Any]] = {"visible": True, "description": "Disables the naming convention checks"}
+    ROBOTICS: ClassVar[dict[str, Any]] = {"visible": False, "description": "Enables the robotics sub application"}
+    FUN_SCHEDULE: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "The resource function schedule use name instead of cron to uniquely identify the schedule",
+    }
 
 
 class FeatureFlag:
@@ -32,7 +38,7 @@ class FeatureFlag:
 
     @staticmethod
     def load_user_settings() -> dict[str, bool]:
-        return yaml.safe_load(FeatureFlag._get_file().read_text())
+        return yaml.safe_load(safe_read(FeatureFlag._get_file()))
 
     @staticmethod
     def save_user_settings(flag: Flags, enabled: bool) -> None:

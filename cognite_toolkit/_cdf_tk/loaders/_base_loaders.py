@@ -7,7 +7,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar, overload
 
-from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
@@ -18,6 +17,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.tk_warnings import WarningList, YAMLFileWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
@@ -51,18 +51,18 @@ class Loader(ABC):
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
 
-    def __init__(self, client: CogniteClient, build_dir: Path | None):
-        self.client = client
+    def __init__(self, client: ToolkitClient, build_dir: Path | None):
+        self.client: ToolkitClient = client
         self.resource_build_path: Path | None = None
         if build_dir is not None and build_dir.name == self.folder_name:
             raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
         elif build_dir is not None:
             self.resource_build_path = build_dir / self.folder_name
-        self.extra_configs: dict[str, Any] = {}
+        self.extra_configs: dict[Hashable, Any] = {}
 
     @classmethod
     def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig, build_dir: Path | None) -> T_Loader:
-        return cls(ToolGlobals.client, build_dir)
+        return cls(ToolGlobals.toolkit_client, build_dir)
 
     @property
     def display_name(self) -> str:
