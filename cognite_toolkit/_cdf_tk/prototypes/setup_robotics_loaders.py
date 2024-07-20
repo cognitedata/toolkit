@@ -1,12 +1,10 @@
-import sys
-from typing import Literal
-
 import cognite_toolkit._cdf_tk.loaders as loaders
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     LOADER_LIST,
     RESOURCE_LOADER_LIST,
 )
+from cognite_toolkit._cdf_tk.prototypes import create_resource_types
 from cognite_toolkit._cdf_tk.prototypes.robotics_loaders import (
     RobotCapabilityLoader,
     RoboticFrameLoader,
@@ -15,27 +13,6 @@ from cognite_toolkit._cdf_tk.prototypes.robotics_loaders import (
     RoboticsDataPostProcessingLoader,
 )
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
-ResourceTypes: TypeAlias = Literal[
-    "assets",
-    "auth",
-    "data_models",
-    "data_sets",
-    "labels",
-    "transformations",
-    "files",
-    "timeseries",
-    "timeseries_datapoints",
-    "extraction_pipelines",
-    "functions",
-    "raw",
-    "robotics",
-    "workflows",
-]
 _HAS_SETUP = False
 
 
@@ -56,5 +33,6 @@ def setup_robotics_loaders() -> None:
         if issubclass(loader, loaders.ResourceLoader):
             RESOURCE_LOADER_LIST.append(loader)
 
-    setattr(loaders, "ResourceTypes", ResourceTypes)
     _HAS_SETUP = True
+    resource_types_literal = create_resource_types.create_resource_types()
+    setattr(loaders, "ResourceTypes", resource_types_literal)
