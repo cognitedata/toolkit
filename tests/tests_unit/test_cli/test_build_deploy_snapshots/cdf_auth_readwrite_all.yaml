@@ -124,6 +124,14 @@ Group:
       - WRITE
       scope:
         all: {}
+  - threedAcl:
+      actions:
+      - READ
+      - CREATE
+      - UPDATE
+      - DELETE
+      scope:
+        all: {}
   metadata:
     origin: cdf-project-templates
   name: gp_admin_read_write
@@ -264,6 +272,11 @@ Group:
       scope:
         all: {}
   - labelsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - threedAcl:
       actions:
       - READ
       scope:

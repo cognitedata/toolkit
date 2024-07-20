@@ -1,4 +1,5 @@
 from asyncio import sleep
+from contextlib import suppress
 
 import pytest
 from cognite.client import CogniteClient
@@ -10,6 +11,9 @@ from cognite.client.data_classes import (
     FunctionSchedule,
     FunctionScheduleWriteList,
     LabelDefinitionWrite,
+    ThreeDModelList,
+    ThreeDModelWrite,
+    ThreeDModelWriteList,
     filters,
 )
 from cognite.client.data_classes.datapoints_subscriptions import (
@@ -30,7 +34,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, FunctionScheduleLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
-from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader
+from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader, ThreeDModelLoader
 from cognite_toolkit._cdf_tk.prototypes.robotics_loaders import RobotCapabilityLoader, RoboticsDataPostProcessingLoader
 from tests.tests_integration.constants import RUN_UNIQUE_ID
 
@@ -204,6 +208,34 @@ class TestAssetLoader:
         finally:
             # Ensure that the asset is deleted even if the test fails.
             cognite_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
+
+
+class Test3DModelLoader:
+    def test_create_delete_model(self, toolkit_client: ToolkitClient) -> None:
+        model = ThreeDModelWrite(
+            name=f"tmp_test_create_delete_model_{RUN_UNIQUE_ID}",
+            metadata={
+                "description": "My description",
+            },
+        )
+
+        loader = ThreeDModelLoader(toolkit_client, None)
+
+        missing = toolkit_client.iam.verify_capabilities(loader.get_required_capability(None))
+        assert not missing, f"Missing capabilities: {missing}"
+
+        created: ThreeDModelList | None = None
+        try:
+            created = loader.create(ThreeDModelWriteList([model]))
+            assert len(created) == 1
+
+            delete_count = loader.delete([model.name])
+            assert delete_count == 1
+        finally:
+            # Ensure that the model is deleted even if the test fails.
+            if created:
+                with suppress(CogniteAPIError):
+                    toolkit_client.three_d.models.delete(created.as_ids())
 
 
 @pytest.fixture
