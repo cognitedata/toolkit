@@ -214,7 +214,7 @@ class ThreeDModelLoader(ResourceLoader[str, ThreeDModelWrite, ThreeDModel, Three
     def create(self, items: ThreeDModelWriteList) -> ThreeDModelList:
         created = ThreeDModelList([])
         for item in items:
-            new_item = self.client.three_d.models.create(**item.dump(camel_case=True))
+            new_item = self.client.three_d.models.create(**item.dump(camel_case=False))
             created.append(new_item)
         return created
 

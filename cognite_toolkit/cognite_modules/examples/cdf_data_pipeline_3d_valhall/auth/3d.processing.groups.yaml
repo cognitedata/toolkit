@@ -45,7 +45,7 @@ capabilities:
         datasetScope: {
             ids: ['ds_3d_{{location_name}}']
         }
-  - extractionConfigsAcl: 
+  - extractionConfigsAcl:
       actions:      
         - READ
         - WRITE
