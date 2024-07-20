@@ -191,10 +191,10 @@ class ThreeDModelLoader(ResourceLoader[str, ThreeDModelWrite, ThreeDModel, Three
         return item.name
 
     @classmethod
-    def get_required_capability(cls, items: ThreeDModelWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: ThreeDModelWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
+        data_set_ids = {item.data_set_id for item in items or [] if item.data_set_id}
         scope = (
             capabilities.ThreeDAcl.Scope.DataSet(list(data_set_ids))
             if data_set_ids
@@ -202,29 +202,40 @@ class ThreeDModelLoader(ResourceLoader[str, ThreeDModelWrite, ThreeDModel, Three
         )
 
         return capabilities.ThreeDAcl(
-            [capabilities.ThreeDAcl.Action.Read, capabilities.ThreeDAcl.Action.Write],
+            [
+                capabilities.ThreeDAcl.Action.Read,
+                capabilities.ThreeDAcl.Action.Create,
+                capabilities.ThreeDAcl.Action.Update,
+                capabilities.ThreeDAcl.Action.Delete,
+            ],
             scope,  # type: ignore[arg-type]
         )
 
     def create(self, items: ThreeDModelWriteList) -> ThreeDModelList:
-        return self.client.three_d.models.create(items)
+        created = ThreeDModelList([])
+        for item in items:
+            new_item = self.client.three_d.models.create(**item.dump(camel_case=True))
+            created.append(new_item)
+        return created
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ThreeDModelList:
-        return self.client.three_d.models.list
+        output = ThreeDModelList([])
+        to_find = set(ids)
+        for model in self.client.three_d.models:
+            if model.name in to_find:
+                output.append(model)
+                to_find.remove(model.name)
+                if not to_find:
+                    break
+        return output
 
-    def update(self, items: AssetWriteList) -> AssetList:
-        return self.client.assets.update(items)
+    def update(self, items: ThreeDModelWriteList) -> ThreeDModelList:
+        return self.client.three_d.models.update(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
-        try:
-            self.client.assets.delete(external_id=ids)
-        except (CogniteAPIError, CogniteNotFoundError) as e:
-            non_existing = set(e.failed or [])
-            if existing := [id_ for id_ in ids if id_ not in non_existing]:
-                self.client.assets.delete(external_id=existing)
-            return len(existing)
-        else:
-            return len(ids)
+        models = self.retrieve(ids)
+        self.client.three_d.models.delete(models.as_ids())
+        return len(models)
 
     def iterate(self) -> Iterable[ThreeDModel]:
         return iter(self.client.three_d.models)
@@ -252,23 +263,12 @@ class ThreeDModelLoader(ResourceLoader[str, ThreeDModelWrite, ThreeDModel, Three
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> ThreeDModelWriteList:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        resources = [raw] if isinstance(raw, list) else raw  # type: ignore[assignment, list-item]
+        resources = raw if isinstance(raw, list) else [raw]
 
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in assets"
+                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in 3D Model"
                 )
-        return AssetWriteList.load(resources)
-
-    def _are_equal(
-        self, local: AssetWrite, cdf_resource: Asset, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Dry run
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+        return ThreeDModelWriteList.load(resources)
