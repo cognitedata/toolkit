@@ -23,6 +23,7 @@ from cognite.client.data_classes import (
     FunctionScheduleWrite,
     Group,
     GroupList,
+    ThreeDModel,
     Workflow,
     WorkflowVersion,
     capabilities,
@@ -465,6 +466,13 @@ class ApprovalCogniteClient:
             created_resources[resource_cls.__name__].append(created)
             return FunctionSchedule.load(created.dump(camel_case=True))
 
+        def create_3dmodel(
+            name: str, data_set_id: int | None = None, metadata: dict[str, str] | None = None
+        ) -> ThreeDModel:
+            created = ThreeDModel(name=name, data_set_id=data_set_id, metadata=metadata, created_time=1)
+            created_resources[resource_cls.__name__].append(created)
+            return created
+
         available_create_methods = {
             fn.__name__: fn
             for fn in [
@@ -476,6 +484,7 @@ class ApprovalCogniteClient:
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
                 create_function_schedule_api,
+                create_3dmodel,
             ]
         }
         if mock_method not in available_create_methods:
@@ -551,6 +560,10 @@ class ApprovalCogniteClient:
 
             return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
 
+        def iterate_values(*argd, **kwargs):
+            list_ = return_values(*argd, **kwargs)
+            return (value for value in list_)
+
         def return_instances(*args, **kwargs) -> InstancesResult:
             read_list = return_values(*args, **kwargs)
             return InstancesResult(nodes=read_list, edges=EdgeList([]))
@@ -585,6 +598,7 @@ class ApprovalCogniteClient:
                 data_model_retrieve,
                 return_instances,
                 files_retrieve,
+                iterate_values,
             ]
         }
         if mock_method not in available_retrieve_methods:
