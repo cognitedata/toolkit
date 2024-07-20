@@ -142,3 +142,8 @@ capabilities:
         - READ
       scope:
         all: {}
+  - threedAcl:
+      actions:
+        - READ
+      scope:
+        all: {}

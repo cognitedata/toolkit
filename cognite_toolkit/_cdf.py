@@ -23,6 +23,11 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
 
     setup_asset_loader.setup_asset_loader()
 
+if FeatureFlag.is_enabled(Flags.MODEL_3D):
+    from cognite_toolkit._cdf_tk.prototypes import setup_3D_loader
+
+    setup_3D_loader.setup_model_3d_loader()
+
 if FeatureFlag.is_enabled(Flags.FUN_SCHEDULE):
     from cognite_toolkit._cdf_tk.prototypes import modify_function_schedule
 

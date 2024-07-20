@@ -7,7 +7,17 @@ from pathlib import Path
 from typing import Any, final
 
 import pandas as pd
-from cognite.client.data_classes import Asset, AssetList, AssetWrite, AssetWriteList, capabilities
+from cognite.client.data_classes import (
+    Asset,
+    AssetList,
+    AssetWrite,
+    AssetWriteList,
+    ThreeDModel,
+    ThreeDModelList,
+    ThreeDModelWrite,
+    ThreeDModelWriteList,
+    capabilities,
+)
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -158,3 +168,107 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
+
+@final
+class ThreeDModelLoader(ResourceLoader[str, ThreeDModelWrite, ThreeDModel, ThreeDModelWriteList, ThreeDModelList]):
+    folder_name = "3dmodels"
+    filename_pattern = r"^.*\.3DModel$"  # Matches all yaml files whose stem ends with '.3DModel'.
+    resource_cls = ThreeDModel
+    resource_write_cls = ThreeDModelWrite
+    list_cls = ThreeDModelList
+    list_write_cls = ThreeDModelWriteList
+    kind = "3DModel"
+    dependencies = frozenset({DataSetsLoader})
+    _doc_url = "3D-Models/operation/create3DModels"
+
+    @classmethod
+    def get_id(cls, item: ThreeDModel | ThreeDModelWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["name"]
+        if not item.name:
+            raise KeyError("3DModel must have name")
+        return item.name
+
+    @classmethod
+    def get_required_capability(cls, items: ThreeDModelWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
+            return []
+        data_set_ids = {item.data_set_id for item in items or [] if item.data_set_id}
+        scope = (
+            capabilities.ThreeDAcl.Scope.DataSet(list(data_set_ids))
+            if data_set_ids
+            else capabilities.ThreeDAcl.Scope.All()
+        )
+
+        return capabilities.ThreeDAcl(
+            [
+                capabilities.ThreeDAcl.Action.Read,
+                capabilities.ThreeDAcl.Action.Create,
+                capabilities.ThreeDAcl.Action.Update,
+                capabilities.ThreeDAcl.Action.Delete,
+            ],
+            scope,  # type: ignore[arg-type]
+        )
+
+    def create(self, items: ThreeDModelWriteList) -> ThreeDModelList:
+        created = ThreeDModelList([])
+        for item in items:
+            new_item = self.client.three_d.models.create(**item.dump(camel_case=True))
+            created.append(new_item)
+        return created
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> ThreeDModelList:
+        output = ThreeDModelList([])
+        to_find = set(ids)
+        for model in self.client.three_d.models:
+            if model.name in to_find:
+                output.append(model)
+                to_find.remove(model.name)
+                if not to_find:
+                    break
+        return output
+
+    def update(self, items: ThreeDModelWriteList) -> ThreeDModelList:
+        return self.client.three_d.models.update(items)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        models = self.retrieve(ids)
+        self.client.three_d.models.delete(models.as_ids())
+        return len(models)
+
+    def iterate(self) -> Iterable[ThreeDModel]:
+        return iter(self.client.three_d.models)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+
+        # Should not be used, used for dataSetExternalId instead
+        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> ThreeDModelWriteList:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        resources = raw if isinstance(raw, list) else [raw]
+
+        for resource in resources:
+            if resource.get("dataSetExternalId") is not None:
+                ds_external_id = resource.pop("dataSetExternalId")
+                resource["dataSetId"] = ToolGlobals.verify_dataset(
+                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in 3D Model"
+                )
+        return ThreeDModelWriteList.load(resources)

@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- [Feature Preview] Support for uploading `3DModel` resource to CDF. Note this is metadata about a 3D model
+  Turn on the feature by running `cdf-tk features set model-3d --enable`.
+
 ### Fixed
 
 - Running `cdf-tk deploy` after a failed build would raise an incorrect `ToolkitNotADirectoryError`,

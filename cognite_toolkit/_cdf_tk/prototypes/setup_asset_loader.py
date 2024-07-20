@@ -1,10 +1,9 @@
 import json
 import re
-import sys
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from cognite.client.data_classes import FileMetadataWriteList, TimeSeriesWriteList
 
@@ -19,30 +18,9 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
     TimeSeriesLoader,
 )
+from cognite_toolkit._cdf_tk.prototypes import create_resource_types
 from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
-ResourceTypes: TypeAlias = Literal[
-    "assets",
-    "auth",
-    "data_models",
-    "data_sets",
-    "labels",
-    "transformations",
-    "files",
-    "timeseries",
-    "timeseries_datapoints",
-    "extraction_pipelines",
-    "functions",
-    "raw",
-    "robotics",
-    "workflows",
-]
 
 _HAS_SETUP = False
 
@@ -55,10 +33,11 @@ def setup_asset_loader() -> None:
     LOADER_BY_FOLDER_NAME["assets"] = [AssetLoader]
     LOADER_LIST.append(AssetLoader)
     RESOURCE_LOADER_LIST.append(AssetLoader)
-    setattr(loaders, "ResourceTypes", ResourceTypes)
     _modify_timeseries_loader()
     _modify_file_metadata_loader()
     _HAS_SETUP = True
+    resource_types_literal = create_resource_types.create_resource_types()
+    setattr(loaders, "ResourceTypes", resource_types_literal)
 
 
 def _modify_timeseries_loader() -> None:
