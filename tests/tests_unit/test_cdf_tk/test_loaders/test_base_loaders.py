@@ -37,7 +37,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceTypes,
     ViewLoader,
 )
-from cognite_toolkit._cdf_tk.prototypes.setup_robotics_loaders import ResourceTypes as PrototypeResourceTypes
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     module_from_path,
@@ -193,7 +192,7 @@ class TestFormatConsistency:
 def test_resource_types_is_up_to_date() -> None:
     expected = set(LOADER_BY_FOLDER_NAME.keys())
     actual = set(ResourceTypes.__args__)
-    new_prototype_resource_types = set(PrototypeResourceTypes.__args__) - actual
+    new_prototype_resource_types = {"assets", "robotics", "3dmodels"}
     # The prototype may or may not be turned on, so we include them always.
     # This is an issue as we run the tests in parallel and the prototype may not be loaded.
     expected.update(new_prototype_resource_types)
