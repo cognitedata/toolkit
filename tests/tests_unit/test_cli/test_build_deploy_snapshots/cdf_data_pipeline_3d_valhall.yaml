@@ -94,7 +94,7 @@ Function:
 FunctionSchedule:
 - cronExpression: 15 * * * *
   data:
-    ExtractionPipelineExtId: ep_ctx_3d_oid_fileshare_asset
+    ExtractionPipelineExtId: ep_ctx_3d_oid_fileshare_annotation
   description: Run every 30 minute
   name: daily-every-60-min
 Group:
@@ -116,11 +116,11 @@ Group:
         datasetScope:
           ids:
           - 42
-  - extractionPipelinesAcl:
+  - extractionConfigsAcl:
       actions:
       - READ
       scope:
-        idScope:
+        extractionPipelineScope:
           ids:
           - 1
   - extractionRunsAcl:
@@ -178,14 +178,14 @@ Group:
         datasetScope:
           ids:
           - 42
-  - extractionPipelinesAcl:
+  - extractionConfigsAcl:
       actions:
       - READ
       - WRITE
       scope:
-        idScope:
+        datasetScope:
           ids:
-          - 1
+          - 42
   - extractionRunsAcl:
       actions:
       - READ
