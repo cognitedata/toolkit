@@ -1,0 +1,30 @@
+externalId: 'ep_src_3d_{{location_name}}_{{source_name}}'
+config:
+  logger:
+    # Logging to console/terminal. Remove or comment out to disable terminal
+    # logging
+    console:
+      level: INFO
+
+    # Logging to file. Include to enable file logging
+    file:
+      level: INFO
+      path: "c:/tmp/file.log"
+
+  cognite:
+    # Data set to attach uploaded files to. Either use CDF IDs (integers) or
+    # user-given external ids (strings)
+    data-set:
+      external-id: ds-3d:valhall
+
+  # Information about files to extract
+  files:
+    extensions:
+      - .zip
+
+    # Information about file provider
+    file-provider:
+      type: local
+
+      # For local files: Absolute or relative path to directory to watch
+      path: c:/tmp/files

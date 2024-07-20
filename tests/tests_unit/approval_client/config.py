@@ -57,6 +57,10 @@ from cognite.client.data_classes import (
     TableList,
     TableWrite,
     TableWriteList,
+    ThreeDModel,
+    ThreeDModelList,
+    ThreeDModelWrite,
+    ThreeDModelWriteList,
     TimeSeries,
     TimeSeriesList,
     TimeSeriesWrite,
@@ -499,6 +503,19 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="return_values"),
                 Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="three_d.models",
+        resource_cls=ThreeDModel,
+        list_cls=ThreeDModelList,
+        _write_cls=ThreeDModelWrite,
+        _write_list_cls=ThreeDModelWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create_3dmodel")],
+            "retrieve": [
+                Method(api_class_method="__iter__", mock_class_method="iterate_values"),
             ],
         },
     ),

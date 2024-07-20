@@ -23,7 +23,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import DataSetsLoader, LabelLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
@@ -171,7 +171,9 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
 
 @final
-class ThreeDModelLoader(ResourceLoader[str, ThreeDModelWrite, ThreeDModel, ThreeDModelWriteList, ThreeDModelList]):
+class ThreeDModelLoader(
+    ResourceContainerLoader[str, ThreeDModelWrite, ThreeDModel, ThreeDModelWriteList, ThreeDModelList]
+):
     folder_name = "3dmodels"
     filename_pattern = r"^.*\.3DModel$"  # Matches all yaml files whose stem ends with '.3DModel'.
     resource_cls = ThreeDModel
@@ -181,6 +183,7 @@ class ThreeDModelLoader(ResourceLoader[str, ThreeDModelWrite, ThreeDModel, Three
     kind = "3DModel"
     dependencies = frozenset({DataSetsLoader})
     _doc_url = "3D-Models/operation/create3DModels"
+    item_name = "revisions"
 
     @classmethod
     def get_id(cls, item: ThreeDModel | ThreeDModelWrite | dict) -> str:
@@ -214,7 +217,7 @@ class ThreeDModelLoader(ResourceLoader[str, ThreeDModelWrite, ThreeDModel, Three
     def create(self, items: ThreeDModelWriteList) -> ThreeDModelList:
         created = ThreeDModelList([])
         for item in items:
-            new_item = self.client.three_d.models.create(**item.dump(camel_case=True))
+            new_item = self.client.three_d.models.create(**item.dump(camel_case=False))
             created.append(new_item)
         return created
 
@@ -239,6 +242,23 @@ class ThreeDModelLoader(ResourceLoader[str, ThreeDModelWrite, ThreeDModel, Three
 
     def iterate(self) -> Iterable[ThreeDModel]:
         return iter(self.client.three_d.models)
+
+    def drop_data(self, ids: SequenceNotStr[str]) -> int:
+        models = self.retrieve(ids)
+        count = 0
+        for model in models:
+            revisions = self.client.three_d.revisions.list(model_id=model.id)
+            self.client.three_d.revisions.delete(model_id=model.id, id=revisions.as_ids())
+            count += len(revisions)
+        return count
+
+    def count(self, ids: SequenceNotStr[str]) -> int:
+        models = self.retrieve(ids)
+        count = 0
+        for model in models:
+            revisions = self.client.three_d.revisions.list(model_id=model.id)
+            count += len(revisions)
+        return count
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -272,3 +292,15 @@ class ThreeDModelLoader(ResourceLoader[str, ThreeDModelWrite, ThreeDModel, Three
                     ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in 3D Model"
                 )
         return ThreeDModelWriteList.load(resources)
+
+    def _are_equal(
+        self, local: ThreeDModelWrite, cdf_resource: ThreeDModel, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Dry run
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+        if not cdf_dumped.get("metadata") and not local_dumped.get("metadata"):
+            cdf_dumped["metadata"] = local_dumped["metadata"] = {}
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)

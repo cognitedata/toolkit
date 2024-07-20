@@ -110,6 +110,14 @@
       "justMyCode": false
     },
     {
+        "name": "Python: TS - 3D annotation function test",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_3d_valhall/functions/fn_context_3d_oid_fileshare_asset/handler.py",
+        "console": "integratedTerminal",
+        "justMyCode": false
+    },
+    {
       "name": "Python: init",
       "type": "debugpy",
       "request": "launch",
