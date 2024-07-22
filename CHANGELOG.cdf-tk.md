@@ -31,6 +31,8 @@ Changes are grouped as follows:
 - [Feature Preview] When dumping assets to `csv`, headers are no longer repeated for each 1000 asset.
 - [Feature Preview] When dumping assets to `parquet`, you can now dump more than 1000 assets without
   getting the error `TypeError: write() got an unexpected keyword argument 'mode'`.
+- [Feature Preview] When dumping assets to `parquet/csv`, the Toolkit now keeps all asset in memory until it finds
+  all unique metadata keys. This is to ensure that header is correct in the resulting `parquet/csv` file.
 - In the `config.[env].yaml`, the `name` parameter in the `environment` section is no longer required.
   This was supposed to be remove in `0.2.0a4`.
 - If you run `cdf-tk build --env dev`, and then `cdf-tk deploy -env prod` the Toolkit will
