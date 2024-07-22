@@ -346,13 +346,14 @@ def deploy(
         ),
     ] = "./build",
     build_env_name: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--env",
             "-e",
-            help="CDF project environment to build for. Defined in environments.yaml.",
+            help="CDF project environment to use for deployment. This is optional and "
+            "if passed it is used to verify against the build environment",
         ),
-    ] = "dev",
+    ] = None,
     interactive: Annotated[
         bool,
         typer.Option(
@@ -423,13 +424,14 @@ def clean(
         ),
     ] = "./build",
     build_env_name: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--env",
             "-e",
-            help="CDF project environment to use for cleaning.",
+            help="CDF project environment to use for cleaning. This is optional and "
+            "if passed it is used to verify against the build environment",
         ),
-    ] = "dev",
+    ] = None,
     interactive: Annotated[
         bool,
         typer.Option(
