@@ -238,7 +238,7 @@ class ThreeDModelLoader(
         id_by_name = {model.name: model.id for model in found}
         # 3D Model does not have an external identifier, only internal.
         # Thus, we cannot use the ThreeDModelWrite object to update the model,
-        # instead
+        # instead we convert it to a ThreeDModelUpdate object.
         updates = []
         for item in items:
             if id_ := id_by_name.get(item.name):
