@@ -87,7 +87,7 @@ class DumpAssetsCommand(ToolkitCommand):
                         f.write("\n")
                         f.write(yaml.safe_dump(group_write, sort_keys=False))
                 elif file_path.exists() and format_ == "csv":
-                    pd.DataFrame(group_write).to_csv(file_path, mode="a", index=False)
+                    pd.DataFrame(group_write).to_csv(file_path, mode="a", index=False, header=False)
                 elif file_path.exists() and format_ == "parquet":
                     pd.DataFrame(group_write).to_parquet(file_path, mode="a", index=False)
                 elif format_ == "yaml":
