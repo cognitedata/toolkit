@@ -60,7 +60,6 @@ from cognite.client.data_classes.data_modeling.ids import (
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
-from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -79,7 +78,6 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     retrieve_view_ancestors,
     safe_read,
-    to_diff,
 )
 
 from .auth_loaders import GroupAllScopedLoader
@@ -704,20 +702,18 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         for item in items:
             item_id = item.as_id()
             if item_id in update_by_id:
-                are_equal, local_dumped, cdf_dumped = self.are_equal(item, update_by_id[item_id], return_dumped=True)
+                are_equal = self.are_equal(item, update_by_id[item_id], return_dumped=False)
                 if are_equal:
                     continue
+                views_updated = {v.as_id() if isinstance(v, View) else v for v in update_by_id[item_id].views or []}
+                views_local = set(v.as_id() if isinstance(v, ViewApply) else v for v in item.views or [])
+                missing = views_local - views_updated
+                extra = views_updated - views_local
 
-                print(
-                    Panel(
-                        "\n".join(to_diff(cdf_dumped, local_dumped)),
-                        title=f"Failed to update {item_id!r}. Difference:",
-                        expand=False,
-                    )
-                )
                 raise CogniteAPIError(
                     f"The API did not update the data model, {item_id} correctly. You might have "
-                    "to increase the version number of the data model.",
+                    f"to increase the version number of the data model for it to update.\nMissing views in CDF: {missing}\n"
+                    f"Extra views in the CDF: {extra}",
                     code=500,
                 )
             else:
