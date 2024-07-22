@@ -17,7 +17,6 @@ from typing import Any
 import pandas as pd
 import yaml
 from cognite.client._api.functions import validate_function_folder
-from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.panel import Panel
 
@@ -356,7 +355,7 @@ class BuildCommand(ToolkitCommand):
         """Check is the resource exists in the CDF project. If there are any issues assume it does not exist."""
         if id_ in self.existing_resources_by_loader[loader_cls]:
             return True
-        try:
+        with contextlib.suppress(Exception):
             if loader_cls not in self.instantiated_loaders:
                 self.instantiated_loaders[loader_cls] = loader_cls(client, None)
             loader = self.instantiated_loaders[loader_cls]
@@ -364,8 +363,6 @@ class BuildCommand(ToolkitCommand):
             if retrieved:
                 self.existing_resources_by_loader[loader_cls].add(id_)
                 return True
-        except (KeyError, CogniteAPIError, TypeError, ValueError):
-            return False
         return False
 
     @staticmethod
