@@ -695,7 +695,34 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return self.client.data_modeling.data_models.retrieve(cast(Sequence, ids))
 
     def update(self, items: DataModelApplyList) -> DataModelList:
-        return self.create(items)
+        update = self.create(items)
+        # There is a bug in the API not raising an exception if view is removed from a data model.
+        # So we check here that the update was fixed.
+        update_by_id = {item.as_id(): item for item in update}
+        for item in items:
+            item_id = item.as_id()
+            if item_id in update_by_id:
+                are_equal = self.are_equal(item, update_by_id[item_id], return_dumped=False)
+                if are_equal:
+                    continue
+                views_updated = {v.as_id() if isinstance(v, View) else v for v in update_by_id[item_id].views or []}
+                views_local = set(v.as_id() if isinstance(v, ViewApply) else v for v in item.views or [])
+                missing = views_local - views_updated
+                extra = views_updated - views_local
+
+                raise CogniteAPIError(
+                    f"The API did not update the data model, {item_id} correctly. You might have "
+                    f"to increase the version number of the data model for it to update.\nMissing views in CDF: {missing}\n"
+                    f"Extra views in the CDF: {extra}",
+                    code=500,
+                )
+            else:
+                raise CogniteAPIError(
+                    f"The data model {item_id} was not updated. Please check the data model manually.",
+                    code=500,
+                )
+
+        return update
 
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
         return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))

@@ -210,7 +210,7 @@ class CleanCommand(ToolkitCommand):
         self,
         ToolGlobals: CDFToolConfig,
         build_dir_raw: str,
-        build_env_name: str,
+        build_env_name: str | None,
         dry_run: bool,
         include: list[str],
         verbose: bool,

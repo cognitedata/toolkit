@@ -1,0 +1,61 @@
+externalId: 'ep_ctx_3d_{{location_name}}_{{source_name}}_annotation'
+name: 'ctx:3d:{{location_name}}:{{source_name}}:annotation'
+dataSetExternalId: 'ds_3d_{{location_name}}'
+description: 'Contextualization of 3D model and assets for  {{location_name}}:{{source_name}}'
+rawTables:
+  - dbName: '3d_{{location_name}}_{{source_name}}'
+    tableName: 'contextualization_good'
+  - dbName: '3d_{{location_name}}_{{source_name}}'
+    tableName: 'contextualization_bad'
+  - dbName: '3d_{{location_name}}_{{source_name}}'
+    tableName: 'contextualization_manual_input'
+    
+source: '{{source_name}}'
+documentation: >
+  # 3D model and assets Contextualization
+ 
+  The 3d model and assets Contextualization runs as a process in CDF Functions. Process triggers on new 3d model that not is connected to an asset.
+  The process stages are as follows:
+
+
+  ```
+    Read configuration and start process by
+    1. Read RAW table with manual mappings and extract all rows not contextualized
+    2. Apply manual mappings from 3D nodes to Asset - this will overwrite any existing mapping
+    3. Read all time series not matched (or all if runAll is True)
+    4. Read all assets
+    5. Run ML contextualization to match 3D Nodes -> Assets
+    6. Update 3D Nodes with mapping
+    7. Write results matched (good) not matched (bad) to RAW
+    8. Output in good/bad table can then be used in workflow to update manual mappings
+  ```
+
+  Default configuration is provided as part of the deployment, but can be overwritten by configuration provided in configuration section below:
+ 
+  ```
+   # if True, run without writing any annotations to CDF
+   debug: False
+   # if True run contextualization on all 3d model, if False only run on 3d model that not is linked to an asset
+   runAll: False
+   # RAW DB used to store input and results for contextualization
+   rawdb: '3d_{{location_name}}_{{source_name}}'
+   # RAW table used to store all manual input for mapping that should be used in contextualization
+   # This table could be populated from earlier mappings that are approved or used for manual override
+   rawTableManual: 'contextualization_manual_input'
+   # RAW table used to store all mapping that was automatically approved as good
+   rawTableGood: 'contextualization_good'
+   # RAW table used to store all mapping that NOT was automatically approved
+   rawTableBad: 'contextualization_bad'
+   # ExternalId for root assets to be used for contextualization
+   assetRootExtIds {{external_root_id_asset}}
+   # externalId for 3d data set
+   3dDataSetExtId: 'ds_3d_{{location_name}}'
+   # Name of 3d model
+   3dModelName: {{3d_model_name}}
+   # Number between 0 and 1, indication of strict the matching should be 1 = only exact matches
+   matchThreshold: 0.75
+   # if True keep old mapping, if False overwrite old mapping
+   keepOldMapping: False
+
+  ```
+

@@ -1,0 +1,16 @@
+# The dire with the function code should have the same name
+# and externalId as the function itself as defined below.
+- name: 'context:3d:{{location_name}}:{{source_name}}:asset'
+  externalId: 'fn_context_3d_{{location_name}}_{{source_name}}_asset'
+  owner: 'Anonymous'
+  description: 'Contextualization of 3d model and asset data for {{location_name}}:{{source_name}}'
+  metadata:
+    version: '{{version}}'
+  envVars:
+    # The below two environment variables are set by the Toolkit
+    ENV_TYPE: '${CDF_BUILD_TYPE}'
+    CDF_ENV: '${CDF_ENVIRON}'
+  runtime: 'py311'
+  functionPath: './handler.py'
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: 'ds_3d_{{location_name}}'

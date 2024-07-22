@@ -65,6 +65,8 @@ class Environment:
     @classmethod
     def load(cls, data: dict[str, Any], build_name: str) -> Environment:
         _deprecation_selected(data)
+        if "name" not in data:
+            data["name"] = build_name
 
         if missing := {"name", "project", "type", "selected"} - set(data.keys()):
             raise ToolkitEnvError(
@@ -244,15 +246,20 @@ class BuildEnvironment(Environment):
 
     @classmethod
     def load(
-        cls, data: dict[str, Any], build_name: str, action: Literal["build", "deploy", "clean"] = "build"
+        cls, data: dict[str, Any], build_name: str | None, action: Literal["build", "deploy", "clean"] = "build"
     ) -> BuildEnvironment:
-        if build_name is None:
-            raise ValueError("build_name must be specified")
+        if "name" in data and build_name is not None and data["name"] != build_name:
+            raise ToolkitEnvError(
+                f"Expected to {action} for {build_name!r} environment, but the last "
+                f"build was created for the {data['name']!r} environment."
+            )
+        build_name = build_name or data.get("name")
+
         version = _load_version_variable(data, BUILD_ENVIRONMENT_FILE)
         _deprecation_selected(data)
         try:
             return BuildEnvironment(
-                name=build_name,
+                name=data["name"],
                 project=data["project"],
                 build_type=data["type"],
                 selected=data["selected"],
@@ -261,8 +268,8 @@ class BuildEnvironment(Environment):
             )
         except KeyError:
             raise ToolkitEnvError(
-                f"  [bold red]ERROR:[/] Environment {build_name} is missing required fields 'project', 'type', "
-                f"or 'selected_modules_and_packages' in {BUILD_ENVIRONMENT_FILE!s}"
+                f"  [bold red]ERROR:[/] Environment {build_name} is missing required fields 'name', 'project', 'type', "
+                f"or 'selected' in {BUILD_ENVIRONMENT_FILE!s}"
             )
 
     def dump(self) -> dict[str, Any]:
@@ -285,7 +292,7 @@ class BuildEnvironment(Environment):
         warning_list = WarningList[FileReadWarning]()
         for file, hash_ in self.hash_by_source_file.items():
             if not file.exists():
-                warning_list.append(MissingFileWarning(file, attempted_check="source file has changed."))
+                warning_list.append(MissingFileWarning(file, attempted_check="source file has changed"))
             elif hash_ != calculate_str_or_file_hash(file):
                 warning_list.append(SourceFileModifiedWarning(file))
         return warning_list

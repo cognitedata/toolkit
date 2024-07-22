@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.15] - 2024-07-22
+
+### Added
+
+- Module `cognite_modules/example/cdf_data_pipeline_3d_valhall` 3D contextualization
+  example pipeline. Reading 3D nodes and matching to asset hierarchy
+
 ## [0.2.14] - 2024-07-15
 
 No changes to templates.

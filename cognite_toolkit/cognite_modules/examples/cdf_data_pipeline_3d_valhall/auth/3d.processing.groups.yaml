@@ -1,0 +1,76 @@
+# This role is used for the processing of asset data, creating an asset hierarchy 
+name: 'gp_3d_{{location_name}}_processing'
+sourceId: '{{3d_location_processing_group_source_id}}'
+metadata:
+  origin: 'cdf-project-templates'
+capabilities:
+  - rawAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        tableScope: {
+          dbsToTables: {'3d_{{location_name}}_{{source_name}}':{} }
+        }
+  - sessionsAcl:
+      actions:
+        - LIST
+        - CREATE
+        - DELETE
+      scope:
+        all: {}
+  - assetsAcl: 
+      actions:      
+        - READ
+        - WRITE
+      scope: 
+        datasetScope: {
+            ids: ['ds_asset_{{location_name}}']
+        }
+  - filesAcl: 
+      actions:      
+        - READ
+        - WRITE
+      scope: 
+        datasetScope: {
+            ids: ['ds_3d_{{location_name}}']
+        }
+  - threedAcl: 
+      actions:      
+        - READ
+        - CREATE
+        - UPDATE
+        - DELETE
+      scope: 
+        datasetScope: {
+            ids: ['ds_3d_{{location_name}}']
+        }
+  - extractionConfigsAcl:
+      actions:      
+        - READ
+        - WRITE
+      scope: 
+        datasetScope: {
+            ids: ['ds_3d_{{location_name}}']
+        }
+  - extractionRunsAcl: 
+      actions:      
+        - READ
+        - WRITE
+      scope: 
+        datasetScope: {
+            ids: ['ds_3d_{{location_name}}']
+        }
+  - entitymatchingAcl: 
+      actions: 
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - functionsAcl: 
+      actions: 
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  

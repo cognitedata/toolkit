@@ -15,6 +15,45 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.15] - 2024-07-22
+
+### Added
+
+- [Feature Preview] Support for uploading `3DModel` resource to CDF. Note this is the metadata about a 3D model
+  Turn on the feature by running `cdf-tk features set model-3d --enable`.
+
+### Fixed
+
+- Running `cdf-tk deploy` after a failed build would raise an incorrect `ToolkitNotADirectoryError`,
+  instead of a `ToolkitFileNotFoundError` for the `_build_enviroment.yaml` file. This is now fixed.
+- When running `cdf-tk deploy` with `Functions` that have not explicitly set `cpu`, `memory`, or `runtime`,
+  would always be classified as changed. This is now fixed.
+- [Feature Preview] When dumping assets to `csv`, headers are no longer repeated for each 1000 asset.
+- [Feature Preview] When dumping assets to `parquet`, you can now dump more than 1000 assets without
+  getting the error `TypeError: write() got an unexpected keyword argument 'mode'`.
+- [Feature Preview] When dumping assets to `parquet/csv`, the Toolkit now keeps all asset in memory until it finds
+  all unique metadata keys. This is to ensure that header is correct in the resulting `parquet/csv` file.
+- In the `config.[env].yaml`, the `name` parameter in the `environment` section is no longer required.
+  This was supposed to be remove in `0.2.0a4`.
+- If you run `cdf-tk build --env dev`, and then `cdf-tk deploy -env prod` the Toolkit will
+  now raise a `ToolkitEnvError`.
+- If you run `cdf-tk build`, the Toolkit will no longer complain about resources that exist in
+  CDF but not in the build directory (given that the Toolkit has access to CDF).
+- If you deploy a data model that already exists in CDF, the API will silently fail to update the data model if
+  there are any changes to the views in the data model. The Toolkit will now verify that the update of data models
+  was successful and raise an error if it was not.
+
+### Changed
+
+- When running `cdf-tk deploy` for a function the Toolkit checked that it could import the function code
+  before deploying the function. This is now removed. The reason is that the toolkit is often run in a
+  different Python environment than the function code. This made this check unnecessarily restrictive
+  as it would fail even though the function code was correct due to missing dependencies.
+- [Feature Preview] Instead of using `functionExternalID`+`cron` expression to identify a function schedule,
+  the Toolkit now uses `functionExternalID`+`name`. This is to avoid the Toolkit to create multiple schedules
+  for the same function if the cron expression is changed and allow to have multiple schedules with the same
+  cron expression for the same function. To enable this feature, run `cdf-tk features set fun-schedule --enable`.
+
 ## [0.2.14] - 2024-07-15
 
 ### Fixed

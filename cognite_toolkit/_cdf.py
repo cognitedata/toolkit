@@ -23,6 +23,16 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
 
     setup_asset_loader.setup_asset_loader()
 
+if FeatureFlag.is_enabled(Flags.MODEL_3D):
+    from cognite_toolkit._cdf_tk.prototypes import setup_3D_loader
+
+    setup_3D_loader.setup_model_3d_loader()
+
+if FeatureFlag.is_enabled(Flags.FUN_SCHEDULE):
+    from cognite_toolkit._cdf_tk.prototypes import modify_function_schedule
+
+    modify_function_schedule.modify_function_schedule_loader()
+
 if FeatureFlag.is_enabled(Flags.ROBOTICS):
     from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 
@@ -317,11 +327,19 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
+    ToolGlobals: Union[CDFToolConfig, None] = None
+    with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+        # Remove the Error message from failing to load the config
+        # This is verified in check_auth
+        ToolGlobals = CDFToolConfig()
+
     cmd = BuildCommand()
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk build --verbose").get_message())
     cmd.run(
-        lambda: cmd.execute(verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
+        lambda: cmd.execute(
+            verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean, ToolGlobals
+        )
     )
 
 
@@ -336,13 +354,14 @@ def deploy(
         ),
     ] = "./build",
     build_env_name: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--env",
             "-e",
-            help="CDF project environment to build for. Defined in environments.yaml.",
+            help="CDF project environment to use for deployment. This is optional and "
+            "if passed it is used to verify against the build environment",
         ),
-    ] = "dev",
+    ] = None,
     interactive: Annotated[
         bool,
         typer.Option(
@@ -413,13 +432,14 @@ def clean(
         ),
     ] = "./build",
     build_env_name: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--env",
             "-e",
-            help="CDF project environment to use for cleaning.",
+            help="CDF project environment to use for cleaning. This is optional and "
+            "if passed it is used to verify against the build environment",
         ),
-    ] = "dev",
+    ] = None,
     interactive: Annotated[
         bool,
         typer.Option(

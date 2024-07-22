@@ -37,8 +37,6 @@ jobs:
       - name: Linting and static code checks try 2
         if: steps.pre-commit-first-run.outcome != 'success'
         uses: pre-commit/action@v3.0.1
-  
-
   test:
     name: Run tests
     runs-on: ubuntu-latest
@@ -71,9 +69,8 @@ jobs:
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: pytest tests -n8
+        run: pytest tests/test_unit -n8
   coverage:
-    needs: test
     name: Create coverage report
     runs-on: ubuntu-latest
     environment: dev

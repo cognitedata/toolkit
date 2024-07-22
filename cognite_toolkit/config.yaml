@@ -110,6 +110,23 @@ cognite_modules:
       timeseries_location_extractor_group_source_id: <change_me>
       timeseries_location_processing_group_source_id: <change_me>
       timeseries_location_read_group_source_id: <change_me>
+
+    cdf_data_pipeline_3d_valhall:
+
+        # location based on OID example data
+        location_name: oid
+
+        # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
+        source_name: fileshare
+        3d_model_name: Valhall
+        3d_dataset: ds_3d_oid
+        external_root_id_asset: WMT:VAL
+
+        # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+        3d_location_extractor_group_source_id: <change_me>
+        3d_location_processing_group_source_id: <change_me>
+        3d_location_read_group_source_id: <change_me>
+
       
     # Only valid for this module, loads template variables from environment
     # 
