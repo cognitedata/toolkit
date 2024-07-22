@@ -32,6 +32,7 @@ Changes are grouped as follows:
 - [Feature Preview] When dumping assets to `parquet`, you can now dump more than 1000 assets without
   getting the error `TypeError: write() got an unexpected keyword argument 'mode'`.
 - In the `config.[env].yaml`, the `name` parameter in the `environment` section is no longer required.
+  This was supposed to be remove in `0.2.0a4`.
 
 ### Changed
 
