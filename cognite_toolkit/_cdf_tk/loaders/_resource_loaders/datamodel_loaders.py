@@ -60,6 +60,7 @@ from cognite.client.data_classes.data_modeling.ids import (
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -78,6 +79,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     retrieve_view_ancestors,
     safe_read,
+    to_diff,
 )
 
 from .auth_loaders import GroupAllScopedLoader
@@ -695,7 +697,36 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return self.client.data_modeling.data_models.retrieve(cast(Sequence, ids))
 
     def update(self, items: DataModelApplyList) -> DataModelList:
-        return self.create(items)
+        update = self.create(items)
+        # There is a bug in the API not raising an exception if view is removed from a data model.
+        # So we check here that the update was fixed.
+        update_by_id = {item.as_id(): item for item in update}
+        for item in items:
+            item_id = item.as_id()
+            if item_id in update_by_id:
+                are_equal, local_dumped, cdf_dumped = self.are_equal(item, update_by_id[item_id], return_dumped=True)
+                if are_equal:
+                    continue
+
+                print(
+                    Panel(
+                        "\n".join(to_diff(cdf_dumped, local_dumped)),
+                        title=f"{self.display_name}: {item}",
+                        expand=False,
+                    )
+                )
+                raise CogniteAPIError(
+                    f"The API did not update the data model, {item_id} correctly. You might have "
+                    "to increase the version number of the data model.",
+                    code=500,
+                )
+            else:
+                raise CogniteAPIError(
+                    f"The data model {item_id} was not updated. Please check the data model manually.",
+                    code=500,
+                )
+
+        return update
 
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
         return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))
