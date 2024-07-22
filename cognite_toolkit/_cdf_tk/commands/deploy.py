@@ -63,7 +63,7 @@ class DeployCommand(ToolkitCommand):
         self,
         ToolGlobals: CDFToolConfig,
         build_dir_raw: str,
-        build_env_name: str,
+        build_env_name: str | None,
         dry_run: bool,
         drop: bool,
         drop_data: bool,
@@ -84,6 +84,7 @@ class DeployCommand(ToolkitCommand):
             )
 
         build_ = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")
+
         build_.set_environment_variables()
 
         errors = build_.check_source_files_changed()
@@ -94,9 +95,7 @@ class DeployCommand(ToolkitCommand):
                 "One or more source files have been modified since the last build. Please rebuild the project."
             )
 
-        print(
-            Panel(f"[bold]Deploying config files from {build_dir} to environment {build_env_name}...[/]", expand=False)
-        )
+        print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_.name}...[/]", expand=False))
 
         if not _RUNNING_IN_BROWSER:
             print(ToolGlobals.as_string())
