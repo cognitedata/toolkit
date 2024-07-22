@@ -65,6 +65,8 @@ class Environment:
     @classmethod
     def load(cls, data: dict[str, Any], build_name: str) -> Environment:
         _deprecation_selected(data)
+        if "name" not in data:
+            data["name"] = build_name
 
         if missing := {"name", "project", "type", "selected"} - set(data.keys()):
             raise ToolkitEnvError(
