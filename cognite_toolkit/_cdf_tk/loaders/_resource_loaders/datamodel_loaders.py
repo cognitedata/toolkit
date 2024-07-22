@@ -711,7 +711,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
                 print(
                     Panel(
                         "\n".join(to_diff(cdf_dumped, local_dumped)),
-                        title=f"{self.display_name}: {item}",
+                        title=f"Failed to update {item_id!r}. Difference:",
                         expand=False,
                     )
                 )

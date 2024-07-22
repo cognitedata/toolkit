@@ -437,6 +437,11 @@ class TestDataModelLoader:
             update = dm.DataModelApply.load(my_model.dump())
             update.views = [view_list[0]]
 
+            with pytest.raises(CogniteAPIError):
+                loader.update(dm.DataModelApplyList([update]))
+            # You need to update the version to update the model
+            update.version = "2"
+
             updated = loader.update(dm.DataModelApplyList([update]))
             assert len(updated) == 1
             assert updated[0].views == [view_list[0]]
