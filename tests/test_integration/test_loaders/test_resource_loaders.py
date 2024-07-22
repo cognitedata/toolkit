@@ -2,6 +2,7 @@ from asyncio import sleep
 
 import pytest
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     AssetWrite,
     AssetWriteList,
@@ -28,7 +29,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.commands import DeployCommand
-from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, FunctionScheduleLoader, LabelLoader
+from cognite_toolkit._cdf_tk.loaders import DataModelLoader, DataSetsLoader, FunctionScheduleLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
 from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader
 from cognite_toolkit._cdf_tk.prototypes.robotics_loaders import RobotCapabilityLoader, RoboticsDataPostProcessingLoader
@@ -364,3 +365,85 @@ inputSchema:
             assert retrieved[0].input_schema == update.input_schema
         finally:
             loader.delete([original.external_id])
+
+
+@pytest.fixture(scope="module")
+def schema_space(toolkit_client: ToolkitClient) -> dm.Space:
+    return toolkit_client.data_modeling.spaces.apply(
+        dm.SpaceApply(
+            space=f"sp_test_resource_loaders_{RUN_UNIQUE_ID}",
+        )
+    )
+
+
+@pytest.fixture(scope="module")
+def a_container(toolkit_client: ToolkitClient, schema_space: dm.Space) -> dm.Container:
+    return toolkit_client.data_modeling.containers.apply(
+        dm.ContainerApply(
+            name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
+            space=schema_space.space,
+            external_id=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
+            properties={"name": dm.ContainerProperty(type=dm.Text())},
+        )
+    )
+
+
+@pytest.fixture(scope="module")
+def two_views(toolkit_client: ToolkitClient, schema_space: dm.Space, a_container: dm.Container) -> dm.ViewList:
+    return toolkit_client.data_modeling.views.apply(
+        [
+            dm.ViewApply(
+                space=schema_space.space,
+                external_id="first_view",
+                version="1",
+                properties={
+                    "name": dm.MappedPropertyApply(container=a_container.as_id(), container_property_identifier="name")
+                },
+            ),
+            dm.ViewApply(
+                space=schema_space.space,
+                external_id="second_view",
+                version="1",
+                properties={
+                    "alsoName": dm.MappedPropertyApply(
+                        container=a_container.as_id(), container_property_identifier="name", name="name2"
+                    )
+                },
+            ),
+        ]
+    )
+
+
+class TestDataModelLoader:
+    def test_create_update_delete(
+        self, toolkit_client: ToolkitClient, schema_space: dm.Space, two_views: dm.ViewList
+    ) -> None:
+        loader = DataModelLoader(toolkit_client, None)
+        view_list = two_views.as_ids()
+        assert len(view_list) == 2, "Expected 2 views in the test data model"
+        my_model = dm.DataModelApply(
+            name="My model",
+            description="Original description",
+            views=view_list,
+            space=schema_space.space,
+            external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
+            version="1",
+        )
+
+        try:
+            created = loader.create(dm.DataModelApplyList([my_model]))
+            assert len(created) == 1
+
+            update = dm.DataModelApply.load(my_model.dump())
+            update.views = [view_list[0]]
+
+            with pytest.raises(CogniteAPIError):
+                loader.update(dm.DataModelApplyList([update]))
+            # You need to update the version to update the model
+            update.version = "2"
+
+            updated = loader.update(dm.DataModelApplyList([update]))
+            assert len(updated) == 1
+            assert updated[0].views == [view_list[0]]
+        finally:
+            loader.delete([my_model.as_id()])

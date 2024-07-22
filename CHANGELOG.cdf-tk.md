@@ -19,7 +19,7 @@ Changes are grouped as follows:
 
 ### Added
 
-- [Feature Preview] Support for uploading `3DModel` resource to CDF. Note this is metadata about a 3D model
+- [Feature Preview] Support for uploading `3DModel` resource to CDF. Note this is the metadata about a 3D model
   Turn on the feature by running `cdf-tk features set model-3d --enable`.
 
 ### Fixed
@@ -37,6 +37,9 @@ Changes are grouped as follows:
   now raise a `ToolkitEnvError`.
 - If you run `cdf-tk build`, the Toolkit will no longer complain about resources that exist in
   CDF but not in the build directory (given that the Toolkit has access to CDF).
+- If you deploy a data model that already exists in CDF, the API will silently fail to update the data model if
+  there are any changes to the views in the data model. The Toolkit will now verify that the update of data models
+  was successful and raise an error if it was not.
 
 ### Changed
 
