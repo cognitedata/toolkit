@@ -82,7 +82,7 @@ class DumpAssetsCommand(ToolkitCommand):
         if format_ == "csv" or format_ == "parquet":
             metadata_cols_count = self._get_metadata_column_count(ToolGlobals.client, data_sets, hierarchies)
         else:
-            # For yaml format, we don't need to know the metadata columns in advance
+            # For the YAML format, we don't need to know the metadata columns in advance
             metadata_cols_count = 0
 
         count = 0
@@ -273,10 +273,10 @@ class DumpAssetsCommand(ToolkitCommand):
                     write[f"metadata.{key}"] = value
                 missing = metadata_columns - set(metadata.keys())
                 for col in missing:
-                    write[col] = None
+                    write[f"metadata.{col}"] = None
             elif expand_metadata:
                 for col in metadata_columns:
-                    write[col] = None
+                    write[f"metadata.{col}"] = None
             write_assets.append(write)
         return write_assets
 
