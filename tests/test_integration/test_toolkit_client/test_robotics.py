@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotWrite,
     Transform,
 )
-from tests.tests_integration.constants import RUN_UNIQUE_ID
+from tests.test_integration.constants import RUN_UNIQUE_ID
 
 DESCRIPTIONS = ["Original Description", "Updated Description"]
 

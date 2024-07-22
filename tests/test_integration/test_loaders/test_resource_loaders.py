@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, FunctionScheduleLoad
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
 from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader, ThreeDModelLoader
 from cognite_toolkit._cdf_tk.prototypes.robotics_loaders import RobotCapabilityLoader, RoboticsDataPostProcessingLoader
-from tests.tests_integration.constants import RUN_UNIQUE_ID
+from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
 class TestDataSetsLoader:
