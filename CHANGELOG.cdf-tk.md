@@ -28,6 +28,9 @@ Changes are grouped as follows:
   instead of a `ToolkitFileNotFoundError` for the `_build_enviroment.yaml` file. This is now fixed.
 - When running `cdf-tk deploy` with `Functions` that have not explicitly set `cpu`, `memory`, or `runtime`,
   would always be classified as changed. This is now fixed.
+- [Feature Preview] When dumping assets to `csv`, headers are no longer repeated for each 1000 asset.
+- [Feature Preview] When dumping assets to `parquet`, you can now dump more than 1000 assets without
+  getting the error `TypeError: write() got an unexpected keyword argument 'mode'`.
 
 ### Changed
 
