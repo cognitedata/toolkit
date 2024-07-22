@@ -327,11 +327,19 @@ def build(
     ] = False,
 ) -> None:
     """Build configuration files from the module templates to a local build directory."""
+    ToolGlobals: Union[CDFToolConfig, None] = None
+    with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+        # Remove the Error message from failing to load the config
+        # This is verified in check_auth
+        ToolGlobals = CDFToolConfig()
+
     cmd = BuildCommand()
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk build --verbose").get_message())
     cmd.run(
-        lambda: cmd.execute(verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean)
+        lambda: cmd.execute(
+            verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean, ToolGlobals
+        )
     )
 
 
