@@ -1,12 +1,22 @@
+from contextlib import suppress
 from time import sleep
 
 import pandas as pd
 import pytest
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import TimeSeriesWrite, TimeSeriesWriteList
+from cognite.client.data_classes import (
+    ThreeDModelList,
+    ThreeDModelWrite,
+    ThreeDModelWriteList,
+    TimeSeriesWrite,
+    TimeSeriesWriteList,
+)
+from cognite.client.exceptions import CogniteAPIError
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.loaders import ContainerLoader, TimeSeriesLoader
+from cognite_toolkit._cdf_tk.prototypes.resource_loaders import ThreeDModelLoader
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -170,3 +180,39 @@ class TestContainerLoader:
             assert updated[0].description == write_container.description
         finally:
             cognite_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
+
+
+class Test3DModelLoader:
+    def test_create_delete_model(self, toolkit_client: ToolkitClient) -> None:
+        model = ThreeDModelWrite(
+            name=f"tmp_test_create_delete_model_{RUN_UNIQUE_ID}",
+            metadata={
+                "description": "My description",
+            },
+        )
+
+        loader = ThreeDModelLoader(toolkit_client, None)
+
+        missing = toolkit_client.iam.verify_capabilities(loader.get_required_capability(None))
+        assert not missing, f"Missing capabilities: {missing}"
+
+        created: ThreeDModelList | None = None
+        try:
+            created = loader.create(ThreeDModelWriteList([model]))
+            assert len(created) == 1
+
+            # Serialize and deserialize the model to get a copy
+            update = ThreeDModelWrite.load(model.dump())
+            update.metadata["new_key"] = "new_value"
+
+            updated = loader.update(ThreeDModelWriteList([update]))
+            assert len(updated) == 1
+            assert updated[0].metadata["new_key"] == "new_value"
+
+            delete_count = loader.delete([model.name])
+            assert delete_count == 1
+        finally:
+            # Ensure that the model is deleted even if the test fails.
+            if created:
+                with suppress(CogniteAPIError):
+                    toolkit_client.three_d.models.delete(created.as_ids())

@@ -90,11 +90,7 @@ def modify_function_schedule_loader() -> None:
 
             created.append(
                 self.client.functions.schedules.create(
-                    name=item.name or "",
-                    description=item.description or "",
-                    cron_expression=item.cron_expression,
-                    function_id=item.function_id,
-                    data=item.data,
+                    item,
                     client_credentials=client_credentials,
                 )
             )

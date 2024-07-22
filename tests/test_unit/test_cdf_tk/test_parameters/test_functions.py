@@ -50,7 +50,10 @@ class TestReadParameterFromTypeHints:
                         ParameterSpec(("properties", ANY_STR, "immutable"), frozenset({"bool"}), False, False),
                         ParameterSpec(("properties", ANY_STR, "name"), frozenset({"str"}), False, True),
                         ParameterSpec(
-                            ("properties", ANY_STR, "default_value"), frozenset({"str", "int", "dict"}), False, True
+                            ("properties", ANY_STR, "default_value"),
+                            frozenset({"float", "bool", "str", "int", "dict"}),
+                            False,
+                            True,
                         ),
                         ParameterSpec(
                             ("properties", ANY_STR, "default_value", ANYTHING), frozenset({"unknown"}), False, True
@@ -71,6 +74,27 @@ class TestReadParameterFromTypeHints:
                         ),
                         ParameterSpec(
                             ("properties", ANY_STR, "type", "unit", "source_unit"), frozenset({"str"}), False, True
+                        ),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "type", "unknown_value"), frozenset({"str"}), False, True
+                        ),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "type", "values"),
+                            frozenset({"dict"}),
+                            True,
+                            False,
+                        ),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "type", "values", ANY_STR), frozenset({"dict"}), False, False
+                        ),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "type", "values", ANY_STR, "description"),
+                            frozenset({"str"}),
+                            False,
+                            True,
+                        ),
+                        ParameterSpec(
+                            ("properties", ANY_STR, "type", "values", ANY_STR, "name"), frozenset({"str"}), True, False
                         ),
                         ParameterSpec(("description",), frozenset({"str"}), False, True),
                         ParameterSpec(("name",), frozenset({"str"}), False, True),
@@ -97,13 +121,15 @@ class TestReadParameterFromTypeHints:
                             ("constraints", ANY_STR, "require", "external_id"), frozenset({"str"}), True, False
                         ),
                         ParameterSpec(("constraints", ANY_STR, "properties"), frozenset({"list"}), True, False),
-                        ParameterSpec(("constraints", ANY_STR, "properties", ANY_INT), frozenset({"str"}), True, False),
+                        ParameterSpec(
+                            ("constraints", ANY_STR, "properties", ANY_INT), frozenset({"str"}), False, False
+                        ),
                         ParameterSpec(("indexes",), frozenset({"dict"}), False, True),
                         ParameterSpec(
                             path=("indexes", ANY_STR), types=frozenset({"dict"}), is_required=False, _is_nullable=False
                         ),
                         ParameterSpec(("indexes", ANY_STR, "properties"), frozenset({"list"}), True, False),
-                        ParameterSpec(("indexes", ANY_STR, "properties", ANY_INT), frozenset({"str"}), True, False),
+                        ParameterSpec(("indexes", ANY_STR, "properties", ANY_INT), frozenset({"str"}), False, False),
                         ParameterSpec(("indexes", ANY_STR, "cursorable"), frozenset({"bool"}), False, False),
                     }
                 ),

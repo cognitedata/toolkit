@@ -14,6 +14,7 @@ from cognite.client.data_classes import (
     AssetWriteList,
     ThreeDModel,
     ThreeDModelList,
+    ThreeDModelUpdate,
     ThreeDModelWrite,
     ThreeDModelWriteList,
     capabilities,
@@ -233,7 +234,23 @@ class ThreeDModelLoader(
         return output
 
     def update(self, items: ThreeDModelWriteList) -> ThreeDModelList:
-        return self.client.three_d.models.update(items)
+        found = self.retrieve([item.name for item in items])
+        id_by_name = {model.name: model.id for model in found}
+        # 3D Model does not have an external identifier, only internal.
+        # Thus, we cannot use the ThreeDModelWrite object to update the model,
+        # instead we convert it to a ThreeDModelUpdate object.
+        updates = []
+        for item in items:
+            if id_ := id_by_name.get(item.name):
+                update = ThreeDModelUpdate(id=id_)
+                if item.metadata:
+                    update.metadata.set(item.metadata)
+                if item.data_set_id:
+                    update.data_set_id.set(item.data_set_id)
+                # We cannot change the name of a 3D model as we use it as the identifier
+                # Note this is expected
+                updates.append(update)
+        return self.client.three_d.models.update(updates)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         models = self.retrieve(ids)
