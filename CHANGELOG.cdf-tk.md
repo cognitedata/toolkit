@@ -35,6 +35,8 @@ Changes are grouped as follows:
   This was supposed to be remove in `0.2.0a4`.
 - If you run `cdf-tk build --env dev`, and then `cdf-tk deploy -env prod` the Toolkit will
   now raise a `ToolkitEnvError`.
+- If you run `cdf-tk build`, the Toolkit will no longer complain about resources that exist in
+  CDF but not in the build directory (given that the Toolkit has access to CDF).
 
 ### Changed
 

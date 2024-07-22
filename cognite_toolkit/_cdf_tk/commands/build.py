@@ -21,6 +21,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
@@ -75,6 +76,7 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
     UnknownResourceTypeWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
+    CDFToolConfig,
     calculate_str_or_file_hash,
     iterate_modules,
     module_from_path,
@@ -93,7 +95,20 @@ from .featureflag import FeatureFlag, Flags
 
 
 class BuildCommand(ToolkitCommand):
-    def execute(self, verbose: bool, source_path: Path, build_dir: Path, build_env_name: str, no_clean: bool) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.existing_resources_by_loader: dict[type[ResourceLoader], set[Hashable]] = defaultdict(set)
+        self.instantiated_loaders: dict[type[ResourceLoader], ResourceLoader] = {}
+
+    def execute(
+        self,
+        verbose: bool,
+        source_path: Path,
+        build_dir: Path,
+        build_env_name: str,
+        no_clean: bool,
+        ToolGlobals: CDFToolConfig | None = None,
+    ) -> None:
         if not source_path.is_dir():
             raise ToolkitNotADirectoryError(str(source_path))
 
@@ -122,6 +137,7 @@ class BuildCommand(ToolkitCommand):
             system_config=system_config,
             clean=not no_clean,
             verbose=verbose,
+            ToolGlobals=ToolGlobals,
         )
 
     def build_config(
@@ -132,6 +148,7 @@ class BuildCommand(ToolkitCommand):
         system_config: SystemYAML,
         clean: bool = False,
         verbose: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> dict[Path, Path]:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
@@ -192,7 +209,7 @@ class BuildCommand(ToolkitCommand):
             for warning in warnings:
                 print(f"    {warning.get_message()}")
 
-        state = self.process_config_files(source_dir, module_directories, build_dir, config, verbose)
+        state = self.process_config_files(source_dir, module_directories, build_dir, config, verbose, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
@@ -207,6 +224,7 @@ class BuildCommand(ToolkitCommand):
         build_dir: Path,
         config: BuildConfigYAML,
         verbose: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> _BuildState:
         state = _BuildState.create(config)
         for module_dir, source_paths in module_directories:
@@ -263,7 +281,7 @@ class BuildCommand(ToolkitCommand):
                             # Copy the file as is, not variable replacement
                             shutil.copyfile(source_path, destination)
 
-        self._check_missing_dependencies(state, project_config_dir)
+        self._check_missing_dependencies(state, project_config_dir, ToolGlobals)
         return state
 
     def _validate_function_directory(
@@ -317,17 +335,35 @@ class BuildCommand(ToolkitCommand):
             if self.print_warning:
                 print(str(file_warnings))
 
-    def _check_missing_dependencies(self, state: _BuildState, project_config_dir: Path) -> None:
+    def _check_missing_dependencies(
+        self, state: _BuildState, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None
+    ) -> None:
         existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
         missing_dependencies = set(state.dependencies_by_required.keys()) - existing
         for resource_cls, id_ in missing_dependencies:
             if self._is_system_resource(resource_cls, id_):
+                continue
+            if ToolGlobals and self._resource_exists_in_cdf(ToolGlobals.toolkit_client, resource_cls, id_):
                 continue
             required_by = {
                 (required, path.relative_to(project_config_dir))
                 for required, path in state.dependencies_by_required[(resource_cls, id_)]
             }
             self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
+
+    def _resource_exists_in_cdf(self, client: ToolkitClient, loader_cls: type[ResourceLoader], id_: Hashable) -> bool:
+        """Check is the resource exists in the CDF project. If there are any issues assume it does not exist."""
+        if id_ in self.existing_resources_by_loader[loader_cls]:
+            return True
+        with contextlib.suppress(Exception):
+            if loader_cls not in self.instantiated_loaders:
+                self.instantiated_loaders[loader_cls] = loader_cls(client, None)
+            loader = self.instantiated_loaders[loader_cls]
+            retrieved = loader.retrieve([id_])
+            if retrieved:
+                self.existing_resources_by_loader[loader_cls].add(id_)
+                return True
+        return False
 
     @staticmethod
     def _is_system_resource(resource_cls: type[ResourceLoader], id_: Hashable) -> bool:
