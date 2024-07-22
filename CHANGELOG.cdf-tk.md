@@ -31,6 +31,7 @@ Changes are grouped as follows:
 - [Feature Preview] When dumping assets to `csv`, headers are no longer repeated for each 1000 asset.
 - [Feature Preview] When dumping assets to `parquet`, you can now dump more than 1000 assets without
   getting the error `TypeError: write() got an unexpected keyword argument 'mode'`.
+- In the `config.[env].yaml`, the `name` parameter in the `environment` section is no longer required.
 
 ### Changed
 
