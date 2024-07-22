@@ -21,8 +21,8 @@ from cognite_toolkit._cdf_tk.loaders import (
 )
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.utils import mock_read_yaml_file
+from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.utils import mock_read_yaml_file
 
 
 class TestTransformationLoader:

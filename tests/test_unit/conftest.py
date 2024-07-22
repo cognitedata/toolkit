@@ -15,8 +15,8 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf import Common, main_init
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
-from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.utils import PrintCapture
+from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.utils import PrintCapture
 
 THIS_FOLDER = Path(__file__).resolve().parent
 TMP_FOLDER = THIS_FOLDER / "tmp"

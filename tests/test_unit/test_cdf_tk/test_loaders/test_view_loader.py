@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceLoader, SpaceLoader, ViewLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.tests_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalCogniteClient
 
 
 class TestViewLoader:

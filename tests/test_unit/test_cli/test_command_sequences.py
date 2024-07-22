@@ -18,8 +18,8 @@ from cognite_toolkit._cdf import build, clean, deploy, main_init
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
 from tests.constants import REPO_ROOT
-from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.utils import mock_read_yaml_file
+from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.utils import mock_read_yaml_file
 
 THIS_DIR = Path(__file__).resolve().parent
 SNAPSHOTS_DIR = THIS_DIR / "test_build_deploy_snapshots"

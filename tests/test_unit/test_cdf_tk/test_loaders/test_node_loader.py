@@ -8,7 +8,7 @@ from cognite.client.data_classes.data_modeling import NodeApply
 from cognite_toolkit._cdf_tk.loaders import NodeLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import NodeAPICall, NodeApplyListWithCall
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.tests_unit.utils import mock_read_yaml_file
+from tests.test_unit.utils import mock_read_yaml_file
 
 
 class TestNodeLoader:

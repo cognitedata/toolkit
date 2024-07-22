@@ -5,7 +5,7 @@ from cognite.client.data_classes import data_modeling as dm
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import DataModelLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.tests_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalCogniteClient
 
 
 class TestDataModelLoader:

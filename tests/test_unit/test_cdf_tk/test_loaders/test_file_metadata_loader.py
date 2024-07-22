@@ -9,7 +9,7 @@ from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
 
 from cognite_toolkit._cdf_tk.loaders import FileMetadataLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.tests_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalCogniteClient
 
 
 def file_metadata_config_cases() -> Iterable[ParameterSet]:

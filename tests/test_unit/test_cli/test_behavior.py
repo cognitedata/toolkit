@@ -16,8 +16,8 @@ from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
-from tests.tests_unit.approval_client import ApprovalCogniteClient
-from tests.tests_unit.utils import mock_read_yaml_file
+from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.utils import mock_read_yaml_file
 
 
 def test_inject_custom_environmental_variables(

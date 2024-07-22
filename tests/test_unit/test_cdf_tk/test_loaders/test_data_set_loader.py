@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import LOAD_DATA
-from tests.tests_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalCogniteClient
 
 
 class TestDataSetsLoader:

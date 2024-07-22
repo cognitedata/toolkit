@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
 from tests.data import DATA_FOLDER, PYTEST_PROJECT
-from tests.tests_unit.utils import PrintCapture
+from tests.test_unit.utils import PrintCapture
 
 
 def mocked_init(self):
