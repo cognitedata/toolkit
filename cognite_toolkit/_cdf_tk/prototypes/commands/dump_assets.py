@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import shutil
 from collections.abc import Iterator
 from itertools import groupby
@@ -71,6 +72,8 @@ class DumpAssetsCommand(ToolkitCommand):
         (output_dir / AssetLoader.folder_name).mkdir(parents=True, exist_ok=True)
         (output_dir / DataSetsLoader.folder_name).mkdir(parents=True, exist_ok=True)
 
+        parquet_engine = self._get_parquet_engine()
+
         count = 0
         for assets in ToolGlobals.client.assets(
             chunk_size=1000,
@@ -88,14 +91,28 @@ class DumpAssetsCommand(ToolkitCommand):
                         f.write(yaml.safe_dump(group_write, sort_keys=False))
                 elif file_path.exists() and format_ == "csv":
                     pd.DataFrame(group_write).to_csv(file_path, mode="a", index=False, header=False)
-                elif file_path.exists() and format_ == "parquet":
-                    pd.DataFrame(group_write).to_parquet(file_path, mode="a", index=False)
+                elif file_path.exists() and format_ == "parquet" and parquet_engine == "fastparquet":
+                    pd.DataFrame(group_write).to_parquet(file_path, index=False, append=True, engine="fastparquet")
+                elif format_ == "parquet" and parquet_engine == "pyarrow":
+                    import pyarrow as pa
+                    import pyarrow.parquet as pq
+
+                    df = pd.DataFrame(group_write)
+                    table = pa.Table.from_pandas(df)
+                    file_dir = file_path.parent / f"{clean_name}.Asset"
+                    file_dir.mkdir(parents=True, exist_ok=True)
+                    pq.write_to_dataset(table, root_path=file_path, partition_cols=["externalId"])
                 elif format_ == "yaml":
                     file_path.write_text(yaml.safe_dump(group_write, sort_keys=False))
-                elif format_ == "parquet":
+                elif format_ == "parquet" and parquet_engine == "fastparquet":
                     pd.DataFrame(group_write).to_parquet(file_path, index=False)
                 elif format_ == "csv":
                     pd.DataFrame(group_write).to_csv(file_path, index=False)
+                else:
+                    raise ToolkitValueError(
+                        f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. "
+                        f"Fastparquet and pyarrow are supported for parquet format got {parquet_engine}."
+                    )
 
                 count += len(group_write)
                 if verbose:
@@ -114,6 +131,21 @@ class DumpAssetsCommand(ToolkitCommand):
                 file_path.write_text(to_dump)
 
             print(f"Dumped {len(self.data_set_by_id)} data sets to {file_path}")
+
+    @staticmethod
+    def _get_parquet_engine() -> str:
+        try:
+            importlib.util.find_spec("fastparquet")
+
+            return "fastparquet"
+        except ImportError:
+            pass
+        try:
+            importlib.util.find_spec("pyarrow")
+
+            return "pyarrow"
+        except ImportError:
+            return "none"
 
     def _select_hierarchy_and_data_set(
         self, client: CogniteClient, hierarchy: list[str] | None, data_set: list[str] | None, interactive: bool
