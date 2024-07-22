@@ -11,7 +11,7 @@ import pandas as pd
 import questionary
 import yaml
 from cognite.client import CogniteClient
-from cognite.client.data_classes import AssetList, DataSetWrite, DataSetWriteList
+from cognite.client.data_classes import AssetFilter, AssetList, DataSetWrite, DataSetWriteList
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -74,15 +74,31 @@ class DumpAssetsCommand(ToolkitCommand):
 
         parquet_engine = self._get_parquet_engine()
 
+        # To set the header correctly in the csv file/parquet table, we need to know the medata columns at the
+        # beginning. Ideally, we could have used the .aggregate_unique_properties() method to look this up directly.
+        # Unfortunately, this method lowercases the metadata keys, which is not what we want. Therefore, we need to
+        # check how many metadata columns there are and continue fetching assets until we have all the metadata
+        # columns, before we start writing the assets to the file.
+        if format_ == "csv" or format_ == "parquet":
+            metadata_cols_count = self._get_metadata_column_count(ToolGlobals.client, data_sets, hierarchies)
+        else:
+            # For the YAML format, we don't need to know the metadata columns in advance
+            metadata_cols_count = 0
+
         count = 0
-        for assets in ToolGlobals.client.assets(
-            chunk_size=1000,
-            asset_subtree_external_ids=hierarchies or None,
-            data_set_external_ids=data_set or None,
-            limit=limit,
+        for assets, metadata_columns in self._find_metadata_columns(
+            ToolGlobals.client.assets(
+                chunk_size=1000,
+                asset_subtree_external_ids=hierarchies or None,
+                data_set_external_ids=data_set or None,
+                limit=limit,
+            ),
+            metadata_cols_count,
         ):
             for group_name, group in self._group_by_hierarchy(ToolGlobals.client, assets):
-                group_write = self._to_write(ToolGlobals.client, group, expand_metadata=format_ != "yaml")
+                group_write = self._to_write(
+                    ToolGlobals.client, group, expand_metadata=format_ != "yaml", metadata_columns=metadata_columns
+                )
                 clean_name = to_directory_compatible(group_name)
                 file_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset.{format_}"
                 if file_path.exists() and format_ == "yaml":
@@ -133,6 +149,26 @@ class DumpAssetsCommand(ToolkitCommand):
             print(f"Dumped {len(self.data_set_by_id)} data sets to {file_path}")
 
     @staticmethod
+    def _find_metadata_columns(
+        asset_iterator: Iterator[AssetList], metadata_column_count: int
+    ) -> Iterator[tuple[AssetList, set[str]]]:
+        """Iterates over assets until all metadata columns are found."""
+        metadata_columns: set[str] = set()
+        stored_assets = AssetList([])
+        for assets in asset_iterator:
+            if len(metadata_columns) >= metadata_column_count:
+                yield assets, metadata_columns
+                continue
+            metadata_columns |= {key for asset in assets for key in (asset.metadata or {}).keys()}
+            if len(metadata_columns) >= metadata_column_count:
+                if stored_assets:
+                    yield stored_assets, metadata_columns
+                    stored_assets = AssetList([])
+                yield assets, metadata_columns
+                continue
+            stored_assets.extend(assets)
+
+    @staticmethod
     def _get_parquet_engine() -> str:
         try:
             importlib.util.find_spec("fastparquet")
@@ -146,6 +182,18 @@ class DumpAssetsCommand(ToolkitCommand):
             return "pyarrow"
         except ImportError:
             return "none"
+
+    @staticmethod
+    def _get_metadata_column_count(
+        client: CogniteClient, data_sets: list[str] | None, hierarchies: list[str] | None
+    ) -> int:
+        return client.assets.aggregate_cardinality_properties(
+            "metadata",
+            filter=AssetFilter(
+                data_set_ids=[{"externalId": id_} for id_ in data_sets or []] or None,
+                asset_subtree_ids=[{"externalId": id_} for id_ in hierarchies or []] or None,
+            ),
+        )
 
     def _select_hierarchy_and_data_set(
         self, client: CogniteClient, hierarchy: list[str] | None, data_set: list[str] | None, interactive: bool
@@ -209,7 +257,9 @@ class DumpAssetsCommand(ToolkitCommand):
         for root_id, asset in groupby(sorted(assets, key=lambda a: a.root_id), lambda a: a.root_id):
             yield self._get_asset_external_id(client, root_id), AssetList(list(asset))
 
-    def _to_write(self, client: CogniteClient, assets: AssetList, expand_metadata: bool) -> list[dict[str, Any]]:
+    def _to_write(
+        self, client: CogniteClient, assets: AssetList, expand_metadata: bool, metadata_columns: set[str]
+    ) -> list[dict[str, Any]]:
         write_assets: list[dict[str, Any]] = []
         for asset in assets:
             write = asset.as_write().dump(camel_case=True)
@@ -221,6 +271,12 @@ class DumpAssetsCommand(ToolkitCommand):
                 metadata = write.pop("metadata")
                 for key, value in metadata.items():
                     write[f"metadata.{key}"] = value
+                missing = metadata_columns - set(metadata.keys())
+                for col in missing:
+                    write[f"metadata.{col}"] = None
+            elif expand_metadata:
+                for col in metadata_columns:
+                    write[f"metadata.{col}"] = None
             write_assets.append(write)
         return write_assets
 
