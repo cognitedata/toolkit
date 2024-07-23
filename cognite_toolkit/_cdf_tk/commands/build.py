@@ -38,7 +38,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
     ToolkitFileExistsError,
     ToolkitNotADirectoryError,
-    ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
@@ -78,6 +77,7 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_str_or_file_hash,
+    get_cicd_environment,
     iterate_modules,
     module_from_path,
     read_yaml_content,
@@ -515,11 +515,15 @@ class BuildCommand(ToolkitCommand):
                         skip_folder_validation=False,
                     )
                 except Exception as e:
-                    raise ToolkitValidationError(
-                        f"Failed to package function {external_id} at {function_dir.as_posix()!r}, python module is not loadable "
-                        f"due to: {type(e)}({e}). Note that you need to have any requirements your function uses "
-                        "installed in your current, local python environment."
-                    ) from e
+                    if get_cicd_environment() == "local":
+                        # This warning is only relevant when running locally
+                        self.warn(
+                            MediumSeverityWarning(
+                                f"Failed to package function {external_id} at {function_dir.as_posix()!r}, python module is not loadable "
+                                f"due to: {type(e)}({e}). Note that you need to have any requirements your function uses "
+                                "installed in your current, local python environment."
+                            )
+                        )
 
             # Clean up cache files
             for subdir in destination.iterdir():

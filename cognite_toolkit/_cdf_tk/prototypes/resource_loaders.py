@@ -140,7 +140,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             metadata: dict = resource.get("metadata", {})
             for key, value in list(resource.items()):
                 if key.startswith("metadata."):
-                    if value not in {None, float("nan"), "", " "}:
+                    if value not in {None, float("nan"), "", " ", "nan", "null", "none"}:
                         metadata[key.removeprefix("metadata.")] = str(value)
                     del resource[key]
             if metadata:
