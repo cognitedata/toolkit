@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import platform
 import sys
 import tempfile
@@ -14,6 +13,7 @@ from pathlib import Path
 from mixpanel import Consumer, Mixpanel
 
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
+from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._version import __version__
 
 _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
@@ -110,20 +110,7 @@ class Tracker:
 
     @property
     def _cicd(self) -> str:
-        if "CI" in os.environ and os.getenv("GITHUB_ACTIONS"):
-            return "github"
-        if os.getenv("GITLAB_CI"):
-            return "gitlab"
-        if "CI" in os.environ and "BITBUCKET_BUILD_NUMBER" in os.environ:
-            return "bitbucket"
-        if os.getenv("CIRCLECI"):
-            return "circleci"
-        if os.getenv("TRAVIS"):
-            return "travis"
-        if "TF_BUILD" in os.environ:
-            return "azure"
-
-        return "local"
+        return get_cicd_environment()
 
     def enable(self) -> None:
         self._opt_status_file.write_text("opted-in")
