@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Changed
+
+- In the `cdf-tk build` command, if the `Function` code cannot be imported, the Toolkit will now give a
+  warning instead of an `ToolkitValidationError`. This is to allow you to deploy code developed in a
+  different environment than the environment used to run Toolkit.
+
 ## [0.2.15] - 2024-07-22
 
 ### Added
