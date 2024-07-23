@@ -232,6 +232,10 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
             group_write_list.append(GroupWrite.load(self._substitute_scope_ids(group, ToolGlobals, skip_validation)))
 
+        if len(group_write_list) == 0:
+            return None
+        if len(group_write_list) == 1:
+            return group_write_list[0]
         return group_write_list
 
     def _are_equal(
