@@ -11,8 +11,9 @@ import pandas as pd
 import questionary
 import yaml
 from cognite.client import CogniteClient
-from cognite.client.data_classes import AssetList, DataSetWrite, DataSetWriteList
+from cognite.client.data_classes import AssetFilter, AssetList, DataSetWrite, DataSetWriteList
 from cognite.client.exceptions import CogniteAPIError
+from rich.progress import track
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -75,12 +76,27 @@ class DumpAssetsCommand(ToolkitCommand):
         (output_dir / AssetLoader.folder_name).mkdir(parents=True, exist_ok=True)
         (output_dir / DataSetsLoader.folder_name).mkdir(parents=True, exist_ok=True)
 
-        asset_iterator: Iterator[AssetList] = ToolGlobals.client.assets(
-            chunk_size=1000,
-            asset_subtree_external_ids=hierarchies or None,
-            data_set_external_ids=data_set or None,
-            limit=limit,
+        total_assets = ToolGlobals.client.assets.aggregate_count(
+            filter=AssetFilter(
+                data_set_ids=[{"externalId": item} for item in data_sets or []] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies or []] or None,
+            )
         )
+
+        asset_iterator = cast(
+            Iterator[AssetList],
+            track(
+                ToolGlobals.client.assets(
+                    chunk_size=1000,
+                    asset_subtree_external_ids=hierarchies or None,
+                    data_set_external_ids=data_set or None,
+                    limit=limit,
+                ),
+                total=total_assets // 1000,
+                description="Retrieving assets",
+            ),
+        )
+
         asset_hierarchies = self._group_by_hierarchy(asset_iterator, ToolGlobals.client)
         writeable = self._to_write(asset_hierarchies, ToolGlobals.client, expand_metadata=True)
 
