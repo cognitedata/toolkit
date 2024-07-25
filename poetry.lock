@@ -328,13 +328,13 @@ python-json-logger = ">=2.0.7,<3.0.0"
 
 [[package]]
 name = "cognite-sdk"
-version = "7.54.8"
+version = "7.54.9"
 description = "Cognite Python SDK"
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "cognite_sdk-7.54.8-py3-none-any.whl", hash = "sha256:935d0e844236abe51fad82622115d585f26dd7fd2f1c67b34c11abba0c5455a0"},
-    {file = "cognite_sdk-7.54.8.tar.gz", hash = "sha256:69f41a56b27ba7830e84a09f6d7b732ec2c5f0b6c061caded894f43aef839b5d"},
+    {file = "cognite_sdk-7.54.9-py3-none-any.whl", hash = "sha256:657dbce89fa71b1cbda32a380a7e51c262542f974504fd3720a035b20194a0f9"},
+    {file = "cognite_sdk-7.54.9.tar.gz", hash = "sha256:a5bb0bd2ddd1103ada1b390cbf35619b2e5fea051c4ffc49fde650633c4a719c"},
 ]
 
 [package.dependencies]
