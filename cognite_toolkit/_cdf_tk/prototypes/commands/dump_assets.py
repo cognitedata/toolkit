@@ -82,6 +82,8 @@ class DumpAssetsCommand(ToolkitCommand):
                 asset_subtree_ids=[{"externalId": item} for item in hierarchies or []] or None,
             )
         )
+        if limit:
+            total_assets = min(total_assets, limit)
 
         asset_iterator = cast(
             Iterator[AssetList],
