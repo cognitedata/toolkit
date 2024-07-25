@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import importlib
 import shutil
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Iterator
 from itertools import groupby
 from pathlib import Path
@@ -12,7 +11,7 @@ import pandas as pd
 import questionary
 import yaml
 from cognite.client import CogniteClient
-from cognite.client.data_classes import AssetFilter, AssetList, DataSetWrite, DataSetWriteList
+from cognite.client.data_classes import AssetList, DataSetWrite, DataSetWriteList
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -77,47 +76,43 @@ class DumpAssetsCommand(ToolkitCommand):
         (output_dir / DataSetsLoader.folder_name).mkdir(parents=True, exist_ok=True)
 
         asset_iterator: Iterator[AssetList] = ToolGlobals.client.assets(
-                chunk_size=1000,
-                asset_subtree_external_ids=hierarchies or None,
-                data_set_external_ids=data_set or None,
-                limit=limit,
-            )
-        asset_hierarchies = (self._group_by_hierarchy(ToolGlobals.client, assets) for assets in asset_iterator)
-        writeable = ((hierarchy, self._to_write(ToolGlobals.client, assets, format_ != "yaml")) for hierarchy, assets in asset_hierarchies)
+            chunk_size=1000,
+            asset_subtree_external_ids=hierarchies or None,
+            data_set_external_ids=data_set or None,
+            limit=limit,
+        )
+        asset_hierarchies = self._group_by_hierarchy(asset_iterator, ToolGlobals.client)
+        writeable = self._to_write(asset_hierarchies, ToolGlobals.client, expand_metadata=True)
+
         count = 0
         if format_ == "yaml":
-            for hierarchy, assets in writeable:
-
-                clean_name = to_directory_compatible(hierarchy)
+            for hierarchy_str, assets in writeable:
+                clean_name = to_directory_compatible(hierarchy_str)
                 file_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset.{format_}"
                 if file_path.exists():
                     with file_path.open("a") as f:
                         f.write("\n")
                         f.write(yaml.safe_dump(assets, sort_keys=False))
                 else:
-                        file_path.write_text(yaml.safe_dump(assets, sort_keys=False))
+                    file_path.write_text(yaml.safe_dump(assets, sort_keys=False))
                 count += len(assets)
         elif format_ in {"csv", "parquet"}:
-            file_count_by_hierarchy = Counter()
-            dfs = ((hierarchy, self._buffer(assets) for hierarchy, assets in writeable))
-            for hierarchy, df in dfs:
-                clean_name = to_directory_compatible(hierarchy)
-                folder_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset"
+            file_count_by_hierarchy: dict[str, int] = Counter()
+            for hierarchy_str, df in self._buffer(writeable):
+                folder_path = output_dir / AssetLoader.folder_name / to_directory_compatible(hierarchy_str)
                 folder_path.mkdir(parents=True, exist_ok=True)
-                file_count = file_count_by_hierarchy[hierarchy]
-                file_path = folder_path / f"{file_count}.Asset.{format_}"
+                file_count = file_count_by_hierarchy[hierarchy_str]
+                file_path = folder_path / f"part-{file_count:04}.Asset.{format_}"
                 if format_ == "csv":
                     df.to_csv(file_path, index=False)
                 elif format_ == "parquet":
                     df.to_parquet(file_path, index=False)
-                file_count_by_hierarchy[hierarchy] += 1
+                file_count_by_hierarchy[hierarchy_str] += 1
                 if verbose:
-                    print(f"Dumped {len(df)} assets in {hierarchy} hierarchy to {file_path}")
+                    print(f"Dumped {len(df)} assets in {hierarchy_str} hierarchy to {file_path}")
                 count += len(df)
         else:
-            raise ToolkitValueError(
-                f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. "
-            )
+            raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. ")
 
         print(f"Dumped {count} assets to {output_dir}")
 
@@ -133,25 +128,16 @@ class DumpAssetsCommand(ToolkitCommand):
 
             print(f"Dumped {len(self.data_set_by_id)} data sets to {file_path}")
 
-    @staticmethod
-    def _find_metadata_columns(
-        asset_iterator: Iterator[AssetList], metadata_column_count: int
-    ) -> Iterator[tuple[AssetList, set[str]]]:
-        """Iterates over assets until all metadata columns are found."""
-        metadata_columns: set[str] = set()
-        stored_assets = AssetList([])
-        for assets in asset_iterator:
-            if len(metadata_columns) >= metadata_column_count:
-                yield assets, metadata_columns
-                continue
-            metadata_columns |= {key for asset in assets for key in (asset.metadata or {}).keys()}
-            if len(metadata_columns) >= metadata_column_count:
-                if stored_assets:
-                    yield stored_assets, metadata_columns
-                    stored_assets = AssetList([])
-                yield assets, metadata_columns
-                continue
-            stored_assets.extend(assets)
+    def _buffer(self, asset_iterator: Iterator[tuple[str, list[dict[str, Any]]]]) -> Iterator[tuple[str, pd.DataFrame]]:
+        """Iterates over assets util the buffer reaches the filesize."""
+        stored_assets: dict[str, pd.DataFrame] = defaultdict(pd.DataFrame)
+        for hierarchy, assets in asset_iterator:
+            stored_assets[hierarchy] = pd.concat([stored_assets[hierarchy], pd.DataFrame(assets)], ignore_index=True)
+            if stored_assets[hierarchy].memory_usage().sum() > self.filesize:
+                yield hierarchy, stored_assets.pop(hierarchy)
+        for hierarchy, df in stored_assets.items():
+            if not df.empty:
+                yield hierarchy, df
 
     def _select_hierarchy_and_data_set(
         self, client: CogniteClient, hierarchy: list[str] | None, data_set: list[str] | None, interactive: bool
@@ -211,24 +197,33 @@ class DumpAssetsCommand(ToolkitCommand):
                     self._available_hierarchies.add(item.external_id)
         return self._available_hierarchies
 
-    def _group_by_hierarchy(self, client: CogniteClient, assets: AssetList) -> Iterator[tuple[str, AssetList]]:
-        for root_id, asset in groupby(sorted(assets, key=lambda a: a.root_id), lambda a: a.root_id):
-            yield self._get_asset_external_id(client, root_id), AssetList(list(asset))
+    def _group_by_hierarchy(
+        self, assets: Iterator[AssetList], client: CogniteClient
+    ) -> Iterator[tuple[str, AssetList]]:
+        for asset_list in assets:
+            for root_id, hierarchy_asset in groupby(sorted(asset_list, key=lambda a: a.root_id), lambda a: a.root_id):
+                yield self._get_asset_external_id(client, root_id), AssetList(list(hierarchy_asset))
 
-    def _to_write(self, client: CogniteClient, assets: AssetList, expand_metadata: bool) -> list[dict[str, Any]]:
-        write_assets: list[dict[str, Any]] = []
-        for asset in assets:
-            write = asset.as_write().dump(camel_case=True)
-            write.pop("parentId", None)
-            if "dataSetId" in write:
-                data_set_id = write.pop("dataSetId")
-                write["dataSetExternalId"] = self._get_data_set_external_id(client, data_set_id)
-            if expand_metadata and "metadata" in write:
-                metadata = write.pop("metadata")
-                for key, value in metadata.items():
-                    write[f"metadata.{key}"] = value
-            write_assets.append(write)
-        return write_assets
+    def _to_write(
+        self, assets: Iterator[tuple[str, AssetList]], client: CogniteClient, expand_metadata: bool
+    ) -> Iterator[tuple[str, list[dict[str, Any]]]]:
+        for hierarchy, asset_list in assets:
+            write_assets: list[dict[str, Any]] = []
+            for asset in asset_list:
+                write = asset.as_write().dump(camel_case=True)
+                write.pop("parentId", None)
+                if "dataSetId" in write:
+                    data_set_id = write.pop("dataSetId")
+                    write["dataSetExternalId"] = self._get_data_set_external_id(client, data_set_id)
+                if expand_metadata and "metadata" in write:
+                    metadata = write.pop("metadata")
+                    for key, value in metadata.items():
+                        write[f"metadata.{key}"] = value
+                if "rootId" in write:
+                    write.pop("rootId")
+                    write["rootExternalId"] = hierarchy
+                write_assets.append(write)
+            yield hierarchy, write_assets
 
     def _get_asset_external_id(self, client: CogniteClient, root_id: int) -> str:
         if root_id in self.asset_external_id_by_id:
