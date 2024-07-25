@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import shutil
+from collections import Counter
 from collections.abc import Iterator
 from itertools import groupby
 from pathlib import Path
@@ -27,6 +28,9 @@ from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
 
 
 class DumpAssetsCommand(ToolkitCommand):
+    # 128 MB
+    filesize = 128 * 1024 * 1024
+
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False):
         super().__init__(print_warning, skip_tracking)
         self.asset_external_id_by_id: dict[int, str] = {}
@@ -72,67 +76,48 @@ class DumpAssetsCommand(ToolkitCommand):
         (output_dir / AssetLoader.folder_name).mkdir(parents=True, exist_ok=True)
         (output_dir / DataSetsLoader.folder_name).mkdir(parents=True, exist_ok=True)
 
-        parquet_engine = self._get_parquet_engine()
-
-        # To set the header correctly in the csv file/parquet table, we need to know the medata columns at the
-        # beginning. Ideally, we could have used the .aggregate_unique_properties() method to look this up directly.
-        # Unfortunately, this method lowercases the metadata keys, which is not what we want. Therefore, we need to
-        # check how many metadata columns there are and continue fetching assets until we have all the metadata
-        # columns, before we start writing the assets to the file.
-        if format_ == "csv" or format_ == "parquet":
-            metadata_cols_count = self._get_metadata_column_count(ToolGlobals.client, data_sets, hierarchies)
-        else:
-            # For the YAML format, we don't need to know the metadata columns in advance
-            metadata_cols_count = 0
-
-        count = 0
-        for assets, metadata_columns in self._find_metadata_columns(
-            ToolGlobals.client.assets(
+        asset_iterator: Iterator[AssetList] = ToolGlobals.client.assets(
                 chunk_size=1000,
                 asset_subtree_external_ids=hierarchies or None,
                 data_set_external_ids=data_set or None,
                 limit=limit,
-            ),
-            metadata_cols_count,
-        ):
-            for group_name, group in self._group_by_hierarchy(ToolGlobals.client, assets):
-                group_write = self._to_write(
-                    ToolGlobals.client, group, expand_metadata=format_ != "yaml", metadata_columns=metadata_columns
-                )
-                clean_name = to_directory_compatible(group_name)
+            )
+        asset_hierarchies = (self._group_by_hierarchy(ToolGlobals.client, assets) for assets in asset_iterator)
+        writeable = ((hierarchy, self._to_write(ToolGlobals.client, assets, format_ != "yaml")) for hierarchy, assets in asset_hierarchies)
+        count = 0
+        if format_ == "yaml":
+            for hierarchy, assets in writeable:
+
+                clean_name = to_directory_compatible(hierarchy)
                 file_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset.{format_}"
-                if file_path.exists() and format_ == "yaml":
+                if file_path.exists():
                     with file_path.open("a") as f:
                         f.write("\n")
-                        f.write(yaml.safe_dump(group_write, sort_keys=False))
-                elif file_path.exists() and format_ == "csv":
-                    pd.DataFrame(group_write).to_csv(file_path, mode="a", index=False, header=False)
-                elif file_path.exists() and format_ == "parquet" and parquet_engine == "fastparquet":
-                    pd.DataFrame(group_write).to_parquet(file_path, index=False, append=True, engine="fastparquet")
-                elif format_ == "parquet" and parquet_engine == "pyarrow":
-                    import pyarrow as pa
-                    import pyarrow.parquet as pq
-
-                    df = pd.DataFrame(group_write)
-                    table = pa.Table.from_pandas(df)
-                    file_dir = file_path.parent / f"{clean_name}.Asset"
-                    file_dir.mkdir(parents=True, exist_ok=True)
-                    pq.write_to_dataset(table, root_path=file_path, partition_cols=["externalId"])
-                elif format_ == "yaml":
-                    file_path.write_text(yaml.safe_dump(group_write, sort_keys=False))
-                elif format_ == "parquet" and parquet_engine == "fastparquet":
-                    pd.DataFrame(group_write).to_parquet(file_path, index=False)
-                elif format_ == "csv":
-                    pd.DataFrame(group_write).to_csv(file_path, index=False)
+                        f.write(yaml.safe_dump(assets, sort_keys=False))
                 else:
-                    raise ToolkitValueError(
-                        f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. "
-                        f"Fastparquet and pyarrow are supported for parquet format got {parquet_engine}."
-                    )
-
-                count += len(group_write)
+                        file_path.write_text(yaml.safe_dump(assets, sort_keys=False))
+                count += len(assets)
+        elif format_ in {"csv", "parquet"}:
+            file_count_by_hierarchy = Counter()
+            dfs = ((hierarchy, self._buffer(assets) for hierarchy, assets in writeable))
+            for hierarchy, df in dfs:
+                clean_name = to_directory_compatible(hierarchy)
+                folder_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset"
+                folder_path.mkdir(parents=True, exist_ok=True)
+                file_count = file_count_by_hierarchy[hierarchy]
+                file_path = folder_path / f"{file_count}.Asset.{format_}"
+                if format_ == "csv":
+                    df.to_csv(file_path, index=False)
+                elif format_ == "parquet":
+                    df.to_parquet(file_path, index=False)
+                file_count_by_hierarchy[hierarchy] += 1
                 if verbose:
-                    print(f"Dumped {len(group_write)} assets in {group_name} hierarchy to {file_path}")
+                    print(f"Dumped {len(df)} assets in {hierarchy} hierarchy to {file_path}")
+                count += len(df)
+        else:
+            raise ToolkitValueError(
+                f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. "
+            )
 
         print(f"Dumped {count} assets to {output_dir}")
 
@@ -167,33 +152,6 @@ class DumpAssetsCommand(ToolkitCommand):
                 yield assets, metadata_columns
                 continue
             stored_assets.extend(assets)
-
-    @staticmethod
-    def _get_parquet_engine() -> str:
-        try:
-            importlib.util.find_spec("fastparquet")
-
-            return "fastparquet"
-        except ImportError:
-            pass
-        try:
-            importlib.util.find_spec("pyarrow")
-
-            return "pyarrow"
-        except ImportError:
-            return "none"
-
-    @staticmethod
-    def _get_metadata_column_count(
-        client: CogniteClient, data_sets: list[str] | None, hierarchies: list[str] | None
-    ) -> int:
-        return client.assets.aggregate_cardinality_properties(
-            "metadata",
-            filter=AssetFilter(
-                data_set_ids=[{"externalId": id_} for id_ in data_sets or []] or None,
-                asset_subtree_ids=[{"externalId": id_} for id_ in hierarchies or []] or None,
-            ),
-        )
 
     def _select_hierarchy_and_data_set(
         self, client: CogniteClient, hierarchy: list[str] | None, data_set: list[str] | None, interactive: bool
@@ -257,9 +215,7 @@ class DumpAssetsCommand(ToolkitCommand):
         for root_id, asset in groupby(sorted(assets, key=lambda a: a.root_id), lambda a: a.root_id):
             yield self._get_asset_external_id(client, root_id), AssetList(list(asset))
 
-    def _to_write(
-        self, client: CogniteClient, assets: AssetList, expand_metadata: bool, metadata_columns: set[str]
-    ) -> list[dict[str, Any]]:
+    def _to_write(self, client: CogniteClient, assets: AssetList, expand_metadata: bool) -> list[dict[str, Any]]:
         write_assets: list[dict[str, Any]] = []
         for asset in assets:
             write = asset.as_write().dump(camel_case=True)
@@ -271,12 +227,6 @@ class DumpAssetsCommand(ToolkitCommand):
                 metadata = write.pop("metadata")
                 for key, value in metadata.items():
                     write[f"metadata.{key}"] = value
-                missing = metadata_columns - set(metadata.keys())
-                for col in missing:
-                    write[f"metadata.{col}"] = None
-            elif expand_metadata:
-                for col in metadata_columns:
-                    write[f"metadata.{col}"] = None
             write_assets.append(write)
         return write_assets
 
