@@ -7,6 +7,7 @@ import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import Transformation, TransformationWrite
 from pytest import MonkeyPatch
+from typer import Context
 
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
@@ -285,8 +286,8 @@ def test_build_custom_project(
 
 
 def test_build_project_selecting_parent_path(
-    build_tmp_path,
-    typer_context,
+    build_tmp_path: Path,
+    typer_context: Context,
 ) -> None:
     expected_resources = {"auth", "data_models", "files", "transformations", "data_sets"}
     build(
