@@ -32,6 +32,8 @@ class DumpAssetsCommand(ToolkitCommand):
     buffer_size = 128 * 1024 * 1024
     # Note the size in memory is not the same as the size on disk,
     # so the resulting file size will vary.
+    encoding = "utf-8"
+    newline = "\n"
 
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False):
         super().__init__(print_warning, skip_tracking)
@@ -107,11 +109,12 @@ class DumpAssetsCommand(ToolkitCommand):
                     clean_name = to_directory_compatible(group)
                     file_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset.{format_}"
                     if file_path.exists():
-                        with file_path.open("a") as f:
+                        with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                             f.write("\n")
                             f.write(yaml.safe_dump(assets, sort_keys=False))
                     else:
-                        file_path.write_text(yaml.safe_dump(assets, sort_keys=False))
+                        with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
+                            f.write(yaml.safe_dump(assets, sort_keys=False))
                     count += len(assets)
                     progress.advance(write_to_file, advance=len(assets))
             elif format_ in {"csv", "parquet"}:
@@ -122,7 +125,7 @@ class DumpAssetsCommand(ToolkitCommand):
                     file_count = file_count_by_hierarchy[group]
                     file_path = folder_path / f"part-{file_count:04}.Asset.{format_}"
                     if format_ == "csv":
-                        df.to_csv(file_path, index=False)
+                        df.to_csv(file_path, index=False, encoding=self.encoding, lineterminator=self.newline)
                     elif format_ == "parquet":
                         df.to_parquet(file_path, index=False)
                     file_count_by_hierarchy[group] += 1
