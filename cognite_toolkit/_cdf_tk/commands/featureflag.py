@@ -97,6 +97,7 @@ class FeatureFlagCommand(ToolkitCommand):
                     style="yellow" if is_enabled else "",
                 )
         print(table)
+        self.feature_flags_warning()
 
     def set(self, flag: str, enabled: bool) -> None:
         fflag = FeatureFlag.to_flag(flag)
@@ -106,7 +107,15 @@ class FeatureFlagCommand(ToolkitCommand):
             )
         FeatureFlag.save_user_settings(fflag, enabled)
         print(f"Feature flag [bold yellow]{flag}[/] has been [bold yellow]{'enabled' if enabled else 'disabled'}[/]")
+        self.feature_flags_warning()
+
+    def feature_flags_warning(self) -> None:
+        print(
+            "[bold red]Warning[/] Feature flags are global for the user and will persist "
+            "across Toolkit installations."
+        )
 
     def reset(self) -> None:
         FeatureFlag.reset_user_settings()
         print("Feature flags have been reset")
+        self.feature_flags_warning()
