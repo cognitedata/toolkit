@@ -15,6 +15,24 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.17] - 2024-07-26
+
+### Changed
+
+- [Feature Preview] `cdf-tk dump asset` now dumps into multiple files and no longer raise an Exception
+  when dumping into `.parquet` format.
+- [Feature Preview] `cdf-tk dump asset` now also dumps labels used by the assets.
+
+### Fixed
+
+- [Feature Preview] `cdf-tk dump asset` now respects the selected `dataset` when set in interactive mode.
+- The Toolkit no longer tries to do variable replacement in `.parquet` files in `cdf-tk build`, which would
+  raise an error.
+- When running `cdf-tk deploy` with a capability that is undocumented but supported in the API, the Toolkit
+  would raise an error. This is now fixed.
+- [Feature Preview] When using `functionExternalID`+`name` to identify a function schedule, the `cdf-tk deploy` command
+  no longer raise a `ValueError`.
+
 ## [0.2.16] - 2024-07-23
 
 ### Changed

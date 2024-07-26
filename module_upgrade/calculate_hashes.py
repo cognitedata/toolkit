@@ -9,7 +9,7 @@ PROJECT_INIT_DIR = TEST_DIR_ROOT / "project_inits"
 #   the old manual migration, cognite_toolkit/_cdf_tk/_migration.yaml
 
 
-def calculate_hashes():
+def calculate_hashes() -> None:
     for directory in PROJECT_INIT_DIR.iterdir():
         version = directory.name.split("_")[1]
         version_hash = calculate_directory_hash(directory / "cognite_modules")

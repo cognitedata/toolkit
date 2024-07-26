@@ -155,6 +155,8 @@ class _TypeHints:
             return typing.Sequence[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
         elif annotation.startswith("Collection[") and annotation.endswith("]"):
             return typing.Collection[cls._create_type_hint_3_10(annotation[11:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
+        elif annotation.startswith("Literal[") and annotation.endswith("]"):
+            return typing.Literal[cls._create_type_hint_3_10(annotation[8:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
         raise NotImplementedError(f"Unsupported conversion of type hint {annotation!r}. {cls._error_msg}")
 
     @classmethod

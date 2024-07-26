@@ -83,6 +83,7 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_content,
     resource_folder_from_path,
     safe_read,
+    safe_write,
 )
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
@@ -325,7 +326,7 @@ class BuildCommand(ToolkitCommand):
         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
 
         content = state.replace_variables(content, source_path.suffix)
-        destination_path.write_text(content)
+        safe_write(destination_path, content)
         state.source_by_build_path[destination_path] = source_path
 
         file_warnings = self.validate(content, source_path, destination_path, state, verbose)

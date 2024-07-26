@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cognite_toolkit"
-version = "0.2.16"
+version = "0.2.17"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
@@ -14,7 +14,7 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 [tool.poetry.dependencies]
 python = "^3.9"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "^7.54.8", extras = ["pandas"]}
+cognite-sdk = {version = "^7.54.11", extras = ["pandas"]}
 cognite-extractor-utils = ">=7"
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"

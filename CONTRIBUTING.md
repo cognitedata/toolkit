@@ -100,7 +100,8 @@ To release a new version of the `cdf-tk` tool and the templates, you need to do 
       comments and that the changes can be easily understood. Also verify that any breaking changes
       are clearly marked as such (`**BREAKING**`).
    2. Do the same update to `CHANGELOG.templates.md` file.
-   3. Update the files with the new version number:
+   3. Update the files with the new version number, this is done with
+      the `cdf bump --patch` (or `--minor`, `--major`, `--alpha`, `--beta`) command.
       - `cognite_toolkit/_version.py`
       - `pyproject.toml`
       - `_system.yaml` (multiple)
