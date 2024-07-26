@@ -1,11 +1,12 @@
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
 import typer
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import Transformation, TransformationWrite
+from cognite.client.data_classes import GroupWrite, Transformation, TransformationWrite
 from pytest import MonkeyPatch
 from typer import Context
 
@@ -322,5 +323,14 @@ def test_deploy_group_with_unknown_acl(
         verbose=False,
     )
 
-    group = cognite_client_approval.created_resources["Group"]
-    assert len(group) == 1
+    groups = cognite_client_approval.created_resources["Group"]
+    assert len(groups) == 1
+    group = cast(GroupWrite, groups[0])
+    assert group.name == "my_group_with_unknown_acl"
+    assert len(group.capabilities) == 1
+    assert group.capabilities[0].dump() == {
+        "someUnknownAcl": {
+            "actions": ["UTTERLY_UNKNOWN"],
+            "scope": {"unknownScope": {"with": ["some", {"strange": "structure"}]}},
+        }
+    }

@@ -1,12 +1,6 @@
 name: 'my_group_with_unknown_acl'
 sourceId: '123'
 capabilities:
-  - videoAcl:
-      actions:
-        - READ
-        - SUBSCRIBE
-      scope:
-        all: {}
   - someUnknownAcl:
         actions:
             - UTTERLY_UNKNOWN

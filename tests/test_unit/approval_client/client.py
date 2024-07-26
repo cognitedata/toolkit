@@ -48,7 +48,7 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
-from cognite.client.data_classes.iam import ProjectSpec, TokenInspection
+from cognite.client.data_classes.iam import GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case
 from requests import Response
@@ -305,6 +305,10 @@ class ApprovalCogniteClient:
             created_resources[resource_cls.__name__].extend(created)
             if resource_cls is View:
                 return write_list_cls(created)
+            if resource_list_cls is GroupList:
+                # Groups needs special handling to convert the write to read
+                # to account for Unknown ACLs.
+                return resource_list_cls(_group_write_to_read(c) for c in created)
             return resource_list_cls.load(
                 [
                     {
@@ -323,6 +327,15 @@ class ApprovalCogniteClient:
                     for c in created
                 ],
                 cognite_client=client,
+            )
+
+        def _group_write_to_read(group: GroupWrite) -> Group:
+            return Group(
+                name=group.name,
+                source_id=group.source_id,
+                capabilities=group.capabilities,
+                metadata=group.metadata,
+                members=group.members,
             )
 
         def upsert(*args, **kwargs) -> Any:
