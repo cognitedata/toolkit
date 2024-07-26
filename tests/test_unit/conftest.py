@@ -84,6 +84,7 @@ def local_tmp_project_path_mutable() -> Path:
 @pytest.fixture
 def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
     environment_variables = {
+        "LOGIN_FLOW": "client_credentials",
         "CDF_PROJECT": "pytest-project",
         "CDF_CLUSTER": "bluefield",
         "IDP_TOKEN_URL": "dummy",
