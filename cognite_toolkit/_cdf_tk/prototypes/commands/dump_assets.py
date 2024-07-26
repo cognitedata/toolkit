@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
+from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, LabelLoader
 from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
 
@@ -39,6 +39,7 @@ class DumpAssetsCommand(ToolkitCommand):
         super().__init__(print_warning, skip_tracking)
         self.asset_external_id_by_id: dict[int, str] = {}
         self.data_set_by_id: dict[int, DataSetWrite] = {}
+        self._used_labels: set[str] = set()
         self._used_data_sets: set[int] = set()
         self._available_data_sets: set[str] | None = None
         self._available_hierarchies: set[str] | None = None
@@ -139,11 +140,11 @@ class DumpAssetsCommand(ToolkitCommand):
 
         print(f"Dumped {count:,} assets to {output_dir}")
 
-        if self.data_set_by_id:
+        if self._used_data_sets:
             to_dump = DataSetWriteList(
                 [self.data_set_by_id[used_dataset] for used_dataset in self._used_data_sets]
             ).dump_yaml()
-            file_path = output_dir / DataSetsLoader.folder_name / "hierarchies.DataSet.yaml"
+            file_path = output_dir / DataSetsLoader.folder_name / "asset.DataSet.yaml"
             if file_path.exists():
                 with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                     f.write("\n")
@@ -153,6 +154,21 @@ class DumpAssetsCommand(ToolkitCommand):
                     f.write(to_dump)
 
             print(f"Dumped {len(self.data_set_by_id):,} data sets to {file_path}")
+
+        if self._used_labels:
+            labels = ToolGlobals.client.labels.retrieve(external_id=list(self._used_labels), ignore_unknown_ids=True)
+            if labels:
+                to_dump = labels.as_write().dump_yaml()
+                file_path = output_dir / LabelLoader.folder_name / "asset.Label.yaml"
+                if file_path.exists():
+                    with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
+                        f.write("\n")
+                        f.write(yaml.safe_dump(to_dump, sort_keys=False))
+                else:
+                    with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
+                        f.write(yaml.safe_dump(to_dump, sort_keys=False))
+
+                print(f"Dumped {len(labels):,} labels to {file_path}")
 
     def _buffer(self, asset_iterator: Iterator[tuple[str, list[dict[str, Any]]]]) -> Iterator[tuple[str, pd.DataFrame]]:
         """Iterates over assets util the buffer reaches the filesize."""
@@ -287,6 +303,9 @@ class DumpAssetsCommand(ToolkitCommand):
                 if "rootId" in write:
                     root_id = write.pop("rootId")
                     write["rootExternalId"] = self._get_asset_external_id(client, root_id)
+                if isinstance(write.get("labels"), list):
+                    write["labels"] = [label["externalId"] for label in write["labels"]]
+                    self._used_labels.update(write["labels"])
                 write_assets.append(write)
             yield group, write_assets
 
