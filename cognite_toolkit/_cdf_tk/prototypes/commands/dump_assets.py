@@ -13,7 +13,7 @@ import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Asset, AssetFilter, AssetList, DataSetWrite, DataSetWriteList
 from cognite.client.exceptions import CogniteAPIError
-from rich.progress import Progress, track
+from rich.progress import Progress, TaskID
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -85,26 +85,21 @@ class DumpAssetsCommand(ToolkitCommand):
         if limit:
             total_assets = min(total_assets, limit)
 
-        asset_iterator = cast(
-            Iterator[AssetList],
-            track(
-                ToolGlobals.client.assets(
-                    chunk_size=1000,
-                    asset_subtree_external_ids=hierarchies or None,
-                    data_set_external_ids=data_set or None,
-                    limit=limit,
-                ),
-                total=total_assets // 1000,
-                description="Retrieving assets",
-            ),
-        )
-
-        grouped_assets = self._group_assets(asset_iterator, ToolGlobals.client, hierarchies, data_sets)
-        writeable = self._to_write(grouped_assets, ToolGlobals.client, expand_metadata=True)
-
-        count = 0
         with Progress() as progress:
-            write_to_file = progress.add_task("Writing to file", total=total_assets)
+            retrieved_assets = progress.add_task("Retrieving assets", total=total_assets)
+            write_to_file = progress.add_task("Writing assets to file(s)", total=total_assets)
+
+            asset_iterator = ToolGlobals.client.assets(
+                chunk_size=1000,
+                asset_subtree_external_ids=hierarchies or None,
+                data_set_external_ids=data_set or None,
+                limit=limit,
+            )
+            asset_iterator = self._log_retrieved(asset_iterator, progress, retrieved_assets)
+            grouped_assets = self._group_assets(asset_iterator, ToolGlobals.client, hierarchies, data_sets)
+            writeable = self._to_write(grouped_assets, ToolGlobals.client, expand_metadata=True)
+
+            count = 0
             if format_ == "yaml":
                 for group, assets in writeable:
                     clean_name = to_directory_compatible(group)
@@ -312,3 +307,9 @@ class DumpAssetsCommand(ToolkitCommand):
             raise ToolkitValueError(f"Data set {data_set_id} does not have an external id")
         self.data_set_by_id[data_set_id] = data_set.as_write()
         return data_set.external_id
+
+    @staticmethod
+    def _log_retrieved(asset_iterator: Iterator[AssetList], progress: Progress, task: TaskID) -> Iterator[AssetList]:
+        for asset_list in asset_iterator:
+            progress.update(task, advance=len(asset_list))
+            yield asset_list
