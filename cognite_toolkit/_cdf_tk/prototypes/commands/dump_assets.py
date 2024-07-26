@@ -39,6 +39,7 @@ class DumpAssetsCommand(ToolkitCommand):
         super().__init__(print_warning, skip_tracking)
         self.asset_external_id_by_id: dict[int, str] = {}
         self.data_set_by_id: dict[int, DataSetWrite] = {}
+        self._used_data_sets: set[int] = set()
         self._available_data_sets: set[str] | None = None
         self._available_hierarchies: set[str] | None = None
 
@@ -139,14 +140,17 @@ class DumpAssetsCommand(ToolkitCommand):
         print(f"Dumped {count:,} assets to {output_dir}")
 
         if self.data_set_by_id:
-            to_dump = DataSetWriteList(self.data_set_by_id.values()).dump_yaml()
+            to_dump = DataSetWriteList(
+                [self.data_set_by_id[used_dataset] for used_dataset in self._used_data_sets]
+            ).dump_yaml()
             file_path = output_dir / DataSetsLoader.folder_name / "hierarchies.DataSet.yaml"
             if file_path.exists():
-                with file_path.open("a") as f:
+                with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                     f.write("\n")
                     f.write(to_dump)
             else:
-                file_path.write_text(to_dump)
+                with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
+                    f.write(to_dump)
 
             print(f"Dumped {len(self.data_set_by_id):,} data sets to {file_path}")
 
@@ -274,6 +278,7 @@ class DumpAssetsCommand(ToolkitCommand):
                 write.pop("parentId", None)
                 if "dataSetId" in write:
                     data_set_id = write.pop("dataSetId")
+                    self._used_data_sets.add(data_set_id)
                     write["dataSetExternalId"] = self._get_data_set_external_id(client, data_set_id)
                 if expand_metadata and "metadata" in write:
                     metadata = write.pop("metadata")
