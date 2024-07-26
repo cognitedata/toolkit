@@ -15,6 +15,7 @@ from cognite.client.data_classes import (
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.loaders import (
     FunctionLoader,
     FunctionScheduleLoader,
@@ -56,6 +57,9 @@ def modify_function_schedule_loader() -> None:
             if self.extra_configs.get(identifier) is None:
                 self.extra_configs[identifier] = {}
             self.extra_configs[identifier]["authentication"] = schedule.pop("authentication", {})
+            if "functionId" in schedule:
+                LowSeverityWarning(f"FunctionId will be ignored in the schedule {schedule.get('functionExternalId', 'Misssing')!r}").print_warning()
+                schedule.pop("functionId", None)
         return FunctionScheduleWriteList.load(schedules)
 
     FunctionScheduleLoader.load_resource = load_resource  # type: ignore[method-assign]
