@@ -77,21 +77,15 @@ class HighSeverityWarning(GeneralWarning):
 @dataclass(frozen=True)
 class ToolkitDependenciesIncludedWarning(GeneralWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
-    message: ClassVar[str] = "Operation may fail due to missing dependencies:"
+    message: ClassVar[str] = "Operation may fail due to missing dependencies"
     dependencies: Union[None, str, list[str]]
 
     def get_message(self) -> str:
-        output = [self.message]
-
-        if self.dependencies:
-            prefix = {"    " * 2}
-            output[0] += ":"
-            if isinstance(self.dependencies, str):
-                output.append(f"{prefix}{self.dependencies}")
-            else:
-                for dependency in self.dependencies:
-                    output.append(f"{prefix}{dependency}")
-        return "\n".join(output)
+        if not self.dependencies:
+            return f"{self.message}."
+        dep = self.dependencies if isinstance(self.dependencies, list) else [self.dependencies]
+        dep_str = ", ".join(f"{d!r}" for d in sorted(dep))
+        return f"{self.message}: {dep_str}."
 
 
 @dataclass(frozen=True)
