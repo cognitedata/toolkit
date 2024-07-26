@@ -29,7 +29,9 @@ from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
 
 class DumpAssetsCommand(ToolkitCommand):
     # 128 MB
-    filesize = 128 * 1024 * 1024
+    buffer_size = 128 * 1024 * 1024
+    # Note the size in memory is not the same as the size on disk,
+    # so the resulting file size will vary.
 
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False):
         super().__init__(print_warning, skip_tracking)
@@ -111,7 +113,7 @@ class DumpAssetsCommand(ToolkitCommand):
                     else:
                         file_path.write_text(yaml.safe_dump(assets, sort_keys=False))
                     count += len(assets)
-                    progress.update(write_to_file, advance=len(assets))
+                    progress.advance(write_to_file, advance=len(assets))
             elif format_ in {"csv", "parquet"}:
                 file_count_by_hierarchy: dict[str, int] = Counter()
                 for group, df in self._buffer(writeable):
@@ -127,7 +129,7 @@ class DumpAssetsCommand(ToolkitCommand):
                     if verbose:
                         print(f"Dumped {len(df):,} assets in {group} to {file_path}")
                     count += len(df)
-                    progress.update(write_to_file, advance=len(df))
+                    progress.advance(write_to_file, advance=len(df))
             else:
                 raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. ")
 
@@ -150,7 +152,7 @@ class DumpAssetsCommand(ToolkitCommand):
         stored_assets: dict[str, pd.DataFrame] = defaultdict(pd.DataFrame)
         for group, assets in asset_iterator:
             stored_assets[group] = pd.concat([stored_assets[group], pd.DataFrame(assets)], ignore_index=True)
-            if stored_assets[group].memory_usage().sum() > self.filesize:
+            if stored_assets[group].memory_usage().sum() > self.buffer_size:
                 yield group, stored_assets.pop(group)
         for group, df in stored_assets.items():
             if not df.empty:
@@ -311,5 +313,5 @@ class DumpAssetsCommand(ToolkitCommand):
     @staticmethod
     def _log_retrieved(asset_iterator: Iterator[AssetList], progress: Progress, task: TaskID) -> Iterator[AssetList]:
         for asset_list in asset_iterator:
-            progress.update(task, advance=len(asset_list))
+            progress.advance(task, advance=len(asset_list))
             yield asset_list
