@@ -237,15 +237,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                 loaded = GroupWrite.load(substituted)
             except ValueError:
                 # The GroupWrite class in the SDK will raise a ValueError if the ACI or scope is not valid or unknown.
-                loaded = GroupWrite(
-                    name=substituted["name"],
-                    source_id=substituted.get("sourceId"),
-                    # We try to load the capabilities and allow unknown capabilities
-                    capabilities=[Capability.load(c, allow_unknown=True) for c in substituted.get("capabilities", [])]
-                    or None,
-                    metadata=substituted.get("metadata"),
-                    members=substituted.get("members"),
-                )
+                loaded = GroupWrite._load(substituted, allow_unknown=True)
                 for capability in loaded.capabilities or []:
                     if isinstance(capability, capabilities.UnknownAcl):
                         msg = (
