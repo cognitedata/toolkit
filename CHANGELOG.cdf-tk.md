@@ -30,6 +30,8 @@ Changes are grouped as follows:
   raise an error.
 - When running `cdf-tk deploy` with a capability that is undocumented but supported in the API, the Toolkit
   would raise an error. This is now fixed.
+- [Feature Preview] When using `functionExternalID`+`name` to identify a function schedule, the `cdf-tk deploy` command
+  no longer raise a `ValueError`.
 
 ## [0.2.16] - 2024-07-23
 
