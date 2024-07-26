@@ -1303,6 +1303,15 @@ def safe_read(file: Path) -> str:
         return file.read_text(encoding="utf-8")
 
 
+def safe_write(file: Path, content: str) -> None:
+    """Falls back on explicit using utf-8 if the default .write_text()"""
+    try:
+        file.write_text(content)
+    except UnicodeEncodeError:
+        # On Windows, we may have issues as the encoding is not always utf-8
+        file.write_text(content, encoding="utf-8")
+
+
 def in_dict(keys: Iterable[str], dictionary: dict) -> bool:
     return all(key in dictionary for key in keys)
 
