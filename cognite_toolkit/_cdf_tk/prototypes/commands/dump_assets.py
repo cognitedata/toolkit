@@ -80,7 +80,6 @@ class DumpAssetsCommand(ToolkitCommand):
             self.data_set_by_id.update({item.id: item.as_write() for item in retrieved if item.id})
 
         (output_dir / AssetLoader.folder_name).mkdir(parents=True, exist_ok=True)
-        (output_dir / DataSetsLoader.folder_name).mkdir(parents=True, exist_ok=True)
 
         total_assets = ToolGlobals.client.assets.aggregate_count(
             filter=AssetFilter(
@@ -140,11 +139,34 @@ class DumpAssetsCommand(ToolkitCommand):
 
         print(f"Dumped {count:,} assets to {output_dir}")
 
+        if self._used_labels:
+            labels = ToolGlobals.client.labels.retrieve(external_id=list(self._used_labels), ignore_unknown_ids=True)
+            if labels:
+                to_dump_dicts = labels.as_write().dump()
+                for label in to_dump_dicts:
+                    if "dataSetId" in label:
+                        data_set_id = label.pop("dataSetId")
+                        self._used_data_sets.add(data_set_id)
+                        label["dataSetExternalId"] = self._get_data_set_external_id(ToolGlobals.client, data_set_id)
+
+                file_path = output_dir / LabelLoader.folder_name / "asset.Label.yaml"
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                if file_path.exists():
+                    with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
+                        f.write("\n")
+                        f.write(yaml.safe_dump(to_dump_dicts, sort_keys=False))
+                else:
+                    with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
+                        f.write(yaml.safe_dump(to_dump_dicts, sort_keys=False))
+
+                print(f"Dumped {len(labels):,} labels to {file_path}")
+
         if self._used_data_sets:
             to_dump = DataSetWriteList(
                 [self.data_set_by_id[used_dataset] for used_dataset in self._used_data_sets]
             ).dump_yaml()
             file_path = output_dir / DataSetsLoader.folder_name / "asset.DataSet.yaml"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
             if file_path.exists():
                 with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                     f.write("\n")
@@ -154,21 +176,6 @@ class DumpAssetsCommand(ToolkitCommand):
                     f.write(to_dump)
 
             print(f"Dumped {len(self.data_set_by_id):,} data sets to {file_path}")
-
-        if self._used_labels:
-            labels = ToolGlobals.client.labels.retrieve(external_id=list(self._used_labels), ignore_unknown_ids=True)
-            if labels:
-                to_dump = labels.as_write().dump_yaml()
-                file_path = output_dir / LabelLoader.folder_name / "asset.Label.yaml"
-                if file_path.exists():
-                    with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
-                        f.write("\n")
-                        f.write(to_dump)
-                else:
-                    with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
-                        f.write(to_dump)
-
-                print(f"Dumped {len(labels):,} labels to {file_path}")
 
     def _buffer(self, asset_iterator: Iterator[tuple[str, list[dict[str, Any]]]]) -> Iterator[tuple[str, pd.DataFrame]]:
         """Iterates over assets util the buffer reaches the filesize."""
