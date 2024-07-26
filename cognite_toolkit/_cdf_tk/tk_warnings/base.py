@@ -10,6 +10,8 @@ from enum import Enum
 from functools import total_ordering
 from typing import Any, ClassVar, Generic, TypeVar
 
+from rich import print
+
 RICH_WARNING_FORMAT = "    [bold yellow]WARNING:[/] "
 RICH_WARNING_DETAIL_FORMAT = f"{'    ' * 2}"
 
@@ -64,6 +66,16 @@ class ToolkitWarning(ABC):
 
     def __str__(self) -> str:
         return self.get_message()
+
+    def print_prepare(self) -> tuple[str, str]:
+        prefix = self.severity.prefix
+        end = "\n" + " " * ((self.severity.prefix_length + 1) // 2)
+        message = self.get_message().replace("\n", end)
+        return prefix, message
+
+    def print_warning(self) -> None:
+        prefix, message = self.print_prepare()
+        print(prefix, message)
 
 
 T_Warning = TypeVar("T_Warning", bound=ToolkitWarning)

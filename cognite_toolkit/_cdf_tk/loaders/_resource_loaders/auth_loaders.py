@@ -249,14 +249,15 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                 for capability in loaded.capabilities or []:
                     if isinstance(capability, capabilities.UnknownAcl):
                         msg = (
-                            f"In group {loaded.name}, unknown capability found: {capability.capability_name}. "
-                            "Will proceed with group creation, and let the API validate the capability."
+                            f"In group {loaded.name!r}, unknown capability found: {capability.capability_name!r}.\n"
+                            "Will proceed with group creation and let the API validate the capability."
                         )
                         if matches := difflib.get_close_matches(
                             capability.capability_name, capabilities.ALL_CAPABILITIES
                         ):
-                            msg += f" If the API rejects the capability, did you mean one of: {matches}?"
-                        print(MediumSeverityWarning(msg).get_message())
+                            msg += f"\nIf the API rejects the capability, could it be that you meant on of: {matches}?"
+                        prefix, warning_msg = MediumSeverityWarning(msg).print_prepare()
+                        print(prefix, warning_msg)
 
             group_write_list.append(loaded)
 
