@@ -80,8 +80,8 @@ class DumpAssetsCommand(ToolkitCommand):
 
         total_assets = ToolGlobals.client.assets.aggregate_count(
             filter=AssetFilter(
-                data_set_ids=[{"externalId": item} for item in data_sets or []] or None,
-                asset_subtree_ids=[{"externalId": item} for item in hierarchies or []] or None,
+                data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
             )
         )
         if limit:
@@ -94,7 +94,7 @@ class DumpAssetsCommand(ToolkitCommand):
             asset_iterator = ToolGlobals.client.assets(
                 chunk_size=1000,
                 asset_subtree_external_ids=hierarchies or None,
-                data_set_external_ids=data_set or None,
+                data_set_external_ids=data_sets or None,
                 limit=limit,
             )
             asset_iterator = self._log_retrieved(asset_iterator, progress, retrieved_assets)
