@@ -1,0 +1,11 @@
+name: 'my_group_with_unknown_acl'
+sourceId: '123'
+capabilities:
+  - someUnknownAcl:
+        actions:
+            - UTTERLY_UNKNOWN
+        scope:
+            unknownScope:
+                with:
+                  - some
+                  - strange: structure

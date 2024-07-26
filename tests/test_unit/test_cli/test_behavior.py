@@ -1,12 +1,14 @@
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
 import typer
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import Transformation, TransformationWrite
+from cognite.client.data_classes import GroupWrite, Transformation, TransformationWrite
 from pytest import MonkeyPatch
+from typer import Context
 
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
@@ -15,7 +17,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.data import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
+from tests.data import BUILD_GROUP_WITH_UNKNOWN_ACL, CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
 from tests.test_unit.approval_client import ApprovalCogniteClient
 from tests.test_unit.utils import mock_read_yaml_file
 
@@ -285,8 +287,8 @@ def test_build_custom_project(
 
 
 def test_build_project_selecting_parent_path(
-    build_tmp_path,
-    typer_context,
+    build_tmp_path: Path,
+    typer_context: Context,
 ) -> None:
     expected_resources = {"auth", "data_models", "files", "transformations", "data_sets"}
     build(
@@ -304,3 +306,31 @@ def test_build_project_selecting_parent_path(
 
     extra_resources = actual_resources - expected_resources
     assert not extra_resources, f"Extra resources: {extra_resources}"
+
+
+def test_deploy_group_with_unknown_acl(
+    typer_context: Context,
+    cognite_client_approval: ApprovalCogniteClient,
+) -> None:
+    deploy(
+        typer_context,
+        build_dir=str(BUILD_GROUP_WITH_UNKNOWN_ACL),
+        build_env_name="dev",
+        interactive=False,
+        drop=False,
+        dry_run=False,
+        include=None,
+        verbose=False,
+    )
+
+    groups = cognite_client_approval.created_resources["Group"]
+    assert len(groups) == 1
+    group = cast(GroupWrite, groups[0])
+    assert group.name == "my_group_with_unknown_acl"
+    assert len(group.capabilities) == 1
+    assert group.capabilities[0].dump() == {
+        "someUnknownAcl": {
+            "actions": ["UTTERLY_UNKNOWN"],
+            "scope": {"unknownScope": {"with": ["some", {"strange": "structure"}]}},
+        }
+    }

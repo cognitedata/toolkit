@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import difflib
 from abc import ABC
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from functools import lru_cache
@@ -45,6 +46,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    MediumSeverityWarning,
     NamespacingConventionWarning,
     PrefixConventionWarning,
     WarningList,
@@ -217,10 +219,10 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         if isinstance(raw, dict):
             raw = [raw]
 
-        for group in raw:
+        for raw_group in raw:
             is_resource_scoped = any(
                 any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
-                for capability in group.get("capabilities", [])
+                for capability in raw_group.get("capabilities", [])
                 for acl in capability
             )
 
@@ -230,7 +232,26 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
                 continue
 
-            group_write_list.append(GroupWrite.load(self._substitute_scope_ids(group, ToolGlobals, skip_validation)))
+            substituted = self._substitute_scope_ids(raw_group, ToolGlobals, skip_validation)
+            try:
+                loaded = GroupWrite.load(substituted)
+            except ValueError:
+                # The GroupWrite class in the SDK will raise a ValueError if the ACI or scope is not valid or unknown.
+                loaded = GroupWrite._load(substituted, allow_unknown=True)
+                for capability in loaded.capabilities or []:
+                    if isinstance(capability, capabilities.UnknownAcl):
+                        msg = (
+                            f"In group {loaded.name!r}, unknown capability found: {capability.capability_name!r}.\n"
+                            "Will proceed with group creation and let the API validate the capability."
+                        )
+                        if matches := difflib.get_close_matches(
+                            capability.capability_name, capabilities.ALL_CAPABILITIES
+                        ):
+                            msg += f"\nIf the API rejects the capability, could it be that you meant on of: {matches}?"
+                        prefix, warning_msg = MediumSeverityWarning(msg).print_prepare()
+                        print(prefix, warning_msg)
+
+            group_write_list.append(loaded)
 
         if len(group_write_list) == 0:
             return None
