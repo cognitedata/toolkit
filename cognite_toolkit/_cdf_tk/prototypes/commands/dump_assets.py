@@ -163,10 +163,10 @@ class DumpAssetsCommand(ToolkitCommand):
                 if file_path.exists():
                     with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                         f.write("\n")
-                        f.write(yaml.safe_dump(to_dump, sort_keys=False))
+                        f.write(to_dump)
                 else:
                     with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
-                        f.write(yaml.safe_dump(to_dump, sort_keys=False))
+                        f.write(to_dump)
 
                 print(f"Dumped {len(labels):,} labels to {file_path}")
 
