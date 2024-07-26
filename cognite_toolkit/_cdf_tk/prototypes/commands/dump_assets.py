@@ -13,7 +13,7 @@ import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Asset, AssetFilter, AssetList, DataSetWrite, DataSetWriteList
 from cognite.client.exceptions import CogniteAPIError
-from rich.progress import track
+from rich.progress import Progress, track
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -103,34 +103,38 @@ class DumpAssetsCommand(ToolkitCommand):
         writeable = self._to_write(grouped_assets, ToolGlobals.client, expand_metadata=True)
 
         count = 0
-        if format_ == "yaml":
-            for group, assets in writeable:
-                clean_name = to_directory_compatible(group)
-                file_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset.{format_}"
-                if file_path.exists():
-                    with file_path.open("a") as f:
-                        f.write("\n")
-                        f.write(yaml.safe_dump(assets, sort_keys=False))
-                else:
-                    file_path.write_text(yaml.safe_dump(assets, sort_keys=False))
-                count += len(assets)
-        elif format_ in {"csv", "parquet"}:
-            file_count_by_hierarchy: dict[str, int] = Counter()
-            for group, df in self._buffer(writeable):
-                folder_path = output_dir / AssetLoader.folder_name / to_directory_compatible(group)
-                folder_path.mkdir(parents=True, exist_ok=True)
-                file_count = file_count_by_hierarchy[group]
-                file_path = folder_path / f"part-{file_count:04}.Asset.{format_}"
-                if format_ == "csv":
-                    df.to_csv(file_path, index=False)
-                elif format_ == "parquet":
-                    df.to_parquet(file_path, index=False)
-                file_count_by_hierarchy[group] += 1
-                if verbose:
-                    print(f"Dumped {len(df):,} assets in {group} to {file_path}")
-                count += len(df)
-        else:
-            raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. ")
+        with Progress() as progress:
+            write_to_file = progress.add_task("Writing to file", total=total_assets)
+            if format_ == "yaml":
+                for group, assets in writeable:
+                    clean_name = to_directory_compatible(group)
+                    file_path = output_dir / AssetLoader.folder_name / f"{clean_name}.Asset.{format_}"
+                    if file_path.exists():
+                        with file_path.open("a") as f:
+                            f.write("\n")
+                            f.write(yaml.safe_dump(assets, sort_keys=False))
+                    else:
+                        file_path.write_text(yaml.safe_dump(assets, sort_keys=False))
+                    count += len(assets)
+                    progress.update(write_to_file, advance=len(assets))
+            elif format_ in {"csv", "parquet"}:
+                file_count_by_hierarchy: dict[str, int] = Counter()
+                for group, df in self._buffer(writeable):
+                    folder_path = output_dir / AssetLoader.folder_name / to_directory_compatible(group)
+                    folder_path.mkdir(parents=True, exist_ok=True)
+                    file_count = file_count_by_hierarchy[group]
+                    file_path = folder_path / f"part-{file_count:04}.Asset.{format_}"
+                    if format_ == "csv":
+                        df.to_csv(file_path, index=False)
+                    elif format_ == "parquet":
+                        df.to_parquet(file_path, index=False)
+                    file_count_by_hierarchy[group] += 1
+                    if verbose:
+                        print(f"Dumped {len(df):,} assets in {group} to {file_path}")
+                    count += len(df)
+                    progress.update(write_to_file, advance=len(df))
+            else:
+                raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. ")
 
         print(f"Dumped {count:,} assets to {output_dir}")
 
