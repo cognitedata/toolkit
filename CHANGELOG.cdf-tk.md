@@ -26,6 +26,8 @@ Changes are grouped as follows:
 ### Fixed
 
 - [Feature Preview] `cdf-tk dump asset` now respects the selected `dataset` when set in interactive mode.
+- The Toolkit no longer tries to do variable replacement in `.parquet` files in `cdf-tk build`, which would
+  raise an error.
 
 ## [0.2.16] - 2024-07-23
 
