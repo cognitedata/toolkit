@@ -88,7 +88,7 @@ class ApprovalCogniteClient:
         # This is used to log all delete operations
         self._deleted_resources: dict[str, list[str | int | dict[str, Any]]] = defaultdict(list)
         # This is used to log all create operations
-        self._created_resources: dict[str, list[CogniteResource | dict[str, Any]]] = defaultdict(list)
+        self.created_resources: dict[str, list[CogniteResource | dict[str, Any]]] = defaultdict(list)
 
         # This is used to log all operations
         self._delete_methods: dict[str, list[MagicMock]] = defaultdict(list)
@@ -287,7 +287,7 @@ class ApprovalCogniteClient:
         return method
 
     def _create_create_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
-        created_resources = self._created_resources
+        created_resources = self.created_resources
         write_resource_cls = resource.write_cls
         write_list_cls = resource.write_list_cls
         resource_cls = resource.resource_cls
@@ -698,11 +698,11 @@ class ApprovalCogniteClient:
         """
         dumped = {}
         if sort:
-            created_resources = sorted(self._created_resources)
+            created_resources = sorted(self.created_resources)
         else:
-            created_resources = list(self._created_resources)
+            created_resources = list(self.created_resources)
         for key in created_resources:
-            values = self._created_resources[key]
+            values = self.created_resources[key]
             if values:
                 dumped_resource = (value.dump(camel_case=True) if hasattr(value, "dump") else value for value in values)
                 if sort:
@@ -768,7 +768,7 @@ class ApprovalCogniteClient:
         Returns:
             A list of all the resources that have been created of a specific type.
         """
-        return self._created_resources.get(resource_type.__name__, [])
+        return self.created_resources.get(resource_type.__name__, [])
 
     def create_calls(self) -> dict[str, int]:
         """This returns all the calls that have been made to the mock client to create methods.
@@ -855,7 +855,7 @@ class ApprovalCogniteClient:
         return dict(not_mocked)
 
     def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:
-        groups = cast(GroupList, self._created_resources[Group.__name__])
+        groups = cast(GroupList, self.created_resources[Group.__name__])
         groups = sorted(groups, key=lambda x: x.name)
         for name, group in itertools.groupby(groups, key=lambda x: x.name):
             yield AuthGroupCalls(name=name, calls=list(group))

@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.data import CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
+from tests.data import BUILD_GROUP_WITH_UNKNOWN_ACL, CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
 from tests.test_unit.approval_client import ApprovalCogniteClient
 from tests.test_unit.utils import mock_read_yaml_file
 
@@ -305,3 +305,22 @@ def test_build_project_selecting_parent_path(
 
     extra_resources = actual_resources - expected_resources
     assert not extra_resources, f"Extra resources: {extra_resources}"
+
+
+def test_deploy_group_with_unknown_acl(
+    typer_context: Context,
+    cognite_client_approval: ApprovalCogniteClient,
+) -> None:
+    deploy(
+        typer_context,
+        build_dir=str(BUILD_GROUP_WITH_UNKNOWN_ACL),
+        build_env_name="dev",
+        interactive=False,
+        drop=False,
+        dry_run=False,
+        include=None,
+        verbose=False,
+    )
+
+    group = cognite_client_approval.created_resources["Group"]
+    assert len(group) == 1
