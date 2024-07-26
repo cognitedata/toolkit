@@ -78,7 +78,6 @@ def modify_function_schedule_loader() -> None:
     FunctionScheduleLoader.retrieve = retrieve  # type: ignore[method-assign, assignment]
 
     def create(self: FunctionScheduleLoader, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
-        items = self._resolve_functions_ext_id(items)
         created = []
         for item in items:
             key = self.get_id(item)
