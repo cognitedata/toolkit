@@ -15,6 +15,18 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Changed
+
+- [Feature Preview] `cdf-tk dump asset` now dumps into multiple files and no longer raise an Exception
+  when dumping into `.parquet` format.
+- [Feature Preview] `cdf-tk dump asset` now also dumps labels used by the assets.
+
+### Fixed
+
+- [Feature Preview] `cdf-tk dump asset` now respects the selected `dataset` when set in interactive mode.
+
 ## [0.2.16] - 2024-07-23
 
 ### Changed
