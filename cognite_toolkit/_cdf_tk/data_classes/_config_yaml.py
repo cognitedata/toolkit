@@ -291,6 +291,11 @@ class BuildEnvironment(Environment):
     def check_source_files_changed(self) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
         for file, hash_ in self.hash_by_source_file.items():
+            if file.suffix in {".csv", ".parquet"}:
+                # When we copy over the source files we use utf-8 encoding, which can change the file hash.
+                # Thus we skip checking the hash for these file types.
+                continue
+
             if not file.exists():
                 warning_list.append(MissingFileWarning(file, attempted_check="source file has changed"))
             elif hash_ != calculate_str_or_file_hash(file):

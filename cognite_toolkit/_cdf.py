@@ -1084,7 +1084,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
                 "-f",
                 help="Format to dump the assets in. Supported formats: yaml, csv, and parquet.",
             ),
-        ] = "yaml",
+        ] = "csv",
         clean_: Annotated[
             bool,
             typer.Option(

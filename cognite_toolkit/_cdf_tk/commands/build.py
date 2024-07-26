@@ -325,7 +325,7 @@ class BuildCommand(ToolkitCommand):
         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
 
         content = state.replace_variables(content, source_path.suffix)
-        destination_path.write_text(content)
+        destination_path.write_text(content, encoding="utf-8")
         state.source_by_build_path[destination_path] = source_path
 
         file_warnings = self.validate(content, source_path, destination_path, state, verbose)

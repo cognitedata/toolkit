@@ -967,7 +967,7 @@ def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None 
 def calculate_str_or_file_hash(content: str | Path) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
-        content = content.read_text()
+        content = content.read_text(encoding="utf-8")
     # Get rid of Windows line endings to make the hash consistent across platforms.
     sha256_hash.update(content.encode("utf-8").replace(b"\r\n", b"\n"))
     return sha256_hash.hexdigest()
