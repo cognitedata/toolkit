@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     FunctionLoader,
     FunctionScheduleLoader,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 
@@ -56,6 +57,11 @@ def modify_function_schedule_loader() -> None:
             if self.extra_configs.get(identifier) is None:
                 self.extra_configs[identifier] = {}
             self.extra_configs[identifier]["authentication"] = schedule.pop("authentication", {})
+            if "functionId" in schedule:
+                LowSeverityWarning(
+                    f"FunctionId will be ignored in the schedule {schedule.get('functionExternalId', 'Misssing')!r}"
+                ).print_warning()
+                schedule.pop("functionId", None)
         return FunctionScheduleWriteList.load(schedules)
 
     FunctionScheduleLoader.load_resource = load_resource  # type: ignore[method-assign]
@@ -78,7 +84,6 @@ def modify_function_schedule_loader() -> None:
     FunctionScheduleLoader.retrieve = retrieve  # type: ignore[method-assign, assignment]
 
     def create(self: FunctionScheduleLoader, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
-        items = self._resolve_functions_ext_id(items)
         created = []
         for item in items:
             key = self.get_id(item)
