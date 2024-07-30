@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
@@ -13,7 +14,7 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
-from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
+from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_write
 
 
 class ImportTransformationCLI(ToolkitCommand):
@@ -81,17 +82,17 @@ class ImportTransformationCLI(ToolkitCommand):
             if not overwrite and destination_transformation.exists():
                 self.warn(LowSeverityWarning(f"File already exists at {destination_transformation}. Skipping."))
                 continue
-            destination_transformation.write_text(yaml.safe_dump(transformation))
+            safe_write(destination_transformation, yaml.safe_dump(transformation))
             if source_query_path is not None:
                 destination_query_path = destination_folder / f"{destination_transformation.stem}.sql"
-                destination_query_path.write_text(safe_read(source_query_path))
+                shutil.copyfile(source_query_path, destination_query_path)
 
             if schedule is not None:
                 destination_schedule = destination_folder / f"{yaml_file.stem}.Schedule.yaml"
-                destination_schedule.write_text(yaml.safe_dump(schedule))
+                safe_write(destination_schedule, yaml.safe_dump(schedule))
             if notifications:
                 destination_notification = destination_folder / f"{yaml_file.stem}.Notification.yaml"
-                destination_notification.write_text(yaml.safe_dump(notifications))
+                safe_write(destination_notification, yaml.safe_dump(notifications))
             if verbose:
                 print(f"Imported {yaml_file} to {destination_folder}.")
             count_by_resource_type["transformation"] += 1
