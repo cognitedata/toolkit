@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- [Feature Preview] In the command `cdf-tk import transformation-cli`, the Toolkit no longer raises
+  an `UnicodeDecodeError` when importing a manifest with a query file that contains special characters
+  on Windows.
+
 ## [0.2.17] - 2024-07-26
 
 ### Changed
