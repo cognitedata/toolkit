@@ -1,0 +1,19 @@
+version: "3"
+
+services:
+  toolkit:
+    build:
+      context: ..
+      dockerfile: ./.devcontainer/Dockerfile
+
+    volumes:
+      # This is where VS Code should expect to find your project's source code and the value of "workspaceFolder" in .devcontainer/devcontainer.json
+      - ..:/workspaces/toolkit:cached
+
+    command: /bin/sh -c "while sleep 1000; do :; done"
+
+    networks:
+      - cognite_dev
+
+networks:
+  cognite_dev:
