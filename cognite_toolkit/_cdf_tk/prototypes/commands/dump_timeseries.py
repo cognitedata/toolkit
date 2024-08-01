@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, LabelLoader
+from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
 from cognite_toolkit._cdf_tk.prototypes.resource_loaders import TimeSeriesLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
@@ -46,7 +46,12 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         super().__init__(print_warning, skip_tracking)
         self.time_series_external_id_by_id: dict[int, str] = {}
         self.data_set_by_id: dict[int, DataSetWrite] = {}
-        self._used_labels: set[str] = set()
+
+        # TODO: not storing the whole asset, only external_id to not blow mem
+        # - but maybe all assets should be dumped too, like assets>datasets?
+        self.asset_by_id: dict[int, str] = {}
+        self._used_assets: set[int] = set()
+
         self._used_data_sets: set[int] = set()
         self._available_data_sets: set[str] | None = None
 
@@ -142,28 +147,6 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
         print(f"Dumped {count:,} time_series to {output_dir}")
 
-        if self._used_labels:
-            labels = ToolGlobals.client.labels.retrieve(external_id=list(self._used_labels), ignore_unknown_ids=True)
-            if labels:
-                to_dump_dicts = labels.as_write().dump()
-                for label in to_dump_dicts:
-                    if "dataSetId" in label:
-                        data_set_id = label.pop("dataSetId")
-                        self._used_data_sets.add(data_set_id)
-                        label["dataSetExternalId"] = self._get_data_set_external_id(ToolGlobals.client, data_set_id)
-
-                file_path = output_dir / LabelLoader.folder_name / "time_series.Label.yaml"
-                file_path.parent.mkdir(parents=True, exist_ok=True)
-                if file_path.exists():
-                    with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
-                        f.write("\n")
-                        f.write(yaml.safe_dump(to_dump_dicts, sort_keys=False))
-                else:
-                    with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
-                        f.write(yaml.safe_dump(to_dump_dicts, sort_keys=False))
-
-                print(f"Dumped {len(labels):,} labels to {file_path}")
-
         if self._used_data_sets:
             to_dump = DataSetWriteList(
                 [self.data_set_by_id[used_dataset] for used_dataset in self._used_data_sets]
@@ -256,6 +239,10 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     data_set_id = write.pop("dataSetId")
                     self._used_data_sets.add(data_set_id)
                     write["dataSetExternalId"] = self._get_data_set_external_id(client, data_set_id)
+                if "assetId" in write:
+                    asset_id = write.pop("assetId")
+                    self._used_assets.add(asset_id)
+                    write["assetExternalId"] = self._get_asset_external_id(client, asset_id)
                 if expand_metadata and "metadata" in write:
                     metadata = write.pop("metadata")
                     for key, value in metadata.items():
@@ -263,9 +250,6 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                 if "rootId" in write:
                     root_id = write.pop("rootId")
                     write["rootExternalId"] = self._get_time_series_external_id(client, root_id)
-                if isinstance(write.get("labels"), list):
-                    write["labels"] = [label["externalId"] for label in write["labels"]]
-                    self._used_labels.update(write["labels"])
                 write_time_series.append(write)
             yield write_time_series
 
@@ -296,6 +280,22 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             raise ToolkitValueError(f"Data set {data_set_id} does not have an external id")
         self.data_set_by_id[data_set_id] = data_set.as_write()
         return data_set.external_id
+
+    def _get_asset_external_id(self, client: CogniteClient, asset_id: int) -> str:
+        if asset_id in self.asset_by_id:
+            return cast(str, self.asset_by_id[asset_id])
+        try:
+            asset = client.assets.retrieve(id=asset_id)
+        except CogniteAPIError as e:
+            raise ToolkitMissingResourceError(f"Failed to retrieve data set {asset_id}: {e}")
+        if asset is None:
+            raise ToolkitMissingResourceError(f"Data set {asset_id} does not exist")
+        if not asset.external_id:
+            raise ToolkitValueError(f"Data set {asset_id} does not have an external id")
+        # TODO: not like data_set storing the whole `asset.as_write()` to not blow the memory
+        # self.asset_by_id[asset_id] = asset.as_write()
+        self.asset_by_id[asset_id] = asset.external_id
+        return asset.external_id
 
     @staticmethod
     def _log_retrieved(
