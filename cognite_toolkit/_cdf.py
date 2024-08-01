@@ -91,7 +91,9 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
     )
 
 default_typer_kws = dict(
-    pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
+    pretty_exceptions_short=False,
+    pretty_exceptions_show_locals=False,
+    pretty_exceptions_enable=False,
 )
 try:
     typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
@@ -314,7 +316,9 @@ def build(
     no_clean: Annotated[
         bool,
         typer.Option(
-            "--no-clean", "-c", help="Whether not to delete the build directory before building the configurations"
+            "--no-clean",
+            "-c",
+            help="Whether not to delete the build directory before building the configurations",
         ),
     ] = False,
     verbose: Annotated[
@@ -338,7 +342,12 @@ def build(
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk build --verbose").get_message())
     cmd.run(
         lambda: cmd.execute(
-            verbose or ctx.obj.verbose, Path(source_dir), Path(build_dir), build_env_name, no_clean, ToolGlobals
+            verbose or ctx.obj.verbose,
+            Path(source_dir),
+            Path(build_dir),
+            build_env_name,
+            no_clean,
+            ToolGlobals,
         )
     )
 
@@ -416,7 +425,14 @@ def deploy(
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk deploy --verbose").get_message())
     cmd.run(
         lambda: cmd.execute(
-            ToolGlobals, build_dir, build_env_name, dry_run, drop, drop_data, include, verbose or ctx.obj.verbose
+            ToolGlobals,
+            build_dir,
+            build_env_name,
+            dry_run,
+            drop,
+            drop_data,
+            include,
+            verbose or ctx.obj.verbose,
         )
     )
 
@@ -479,7 +495,16 @@ def clean(
     ToolGlobals = CDFToolConfig.from_context(ctx)
     if ctx.obj.verbose:
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk clean --verbose").get_message())
-    cmd.run(lambda: cmd.execute(ToolGlobals, build_dir, build_env_name, dry_run, include, verbose or ctx.obj.verbose))
+    cmd.run(
+        lambda: cmd.execute(
+            ToolGlobals,
+            build_dir,
+            build_env_name,
+            dry_run,
+            include,
+            verbose or ctx.obj.verbose,
+        )
+    )
 
 
 @_app.command("collect", hidden=True)
@@ -580,7 +605,13 @@ def auth_verify(
         print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk auth verify --verbose").get_message())
     cmd.run(
         lambda: cmd.execute(
-            ToolGlobals, dry_run, interactive, group_file, update_group, create_group, verbose or ctx.obj.verbose
+            ToolGlobals,
+            dry_run,
+            interactive,
+            group_file,
+            update_group,
+            create_group,
+            verbose or ctx.obj.verbose,
         )
     )
 
@@ -1045,7 +1076,10 @@ def dump_datamodel_cmd(
 
 
 if FeatureFlag.is_enabled(Flags.ASSETS):
-    from cognite_toolkit._cdf_tk.prototypes.commands import DumpAssetsCommand
+    from cognite_toolkit._cdf_tk.prototypes.commands import (
+        DumpAssetsCommand,
+        DumpTimeSeriesCommand,
+    )
 
     @dump_app.command("asset")
     def dump_asset_cmd(
@@ -1068,7 +1102,11 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
         ] = None,
         interactive: Annotated[
             bool,
-            typer.Option("--interactive", "-i", help="Will prompt you to select which assets hierarchies to dump."),
+            typer.Option(
+                "--interactive",
+                "-i",
+                help="Will prompt you to select which assets hierarchies to dump.",
+            ),
         ] = False,
         output_dir: Annotated[
             Path,
@@ -1118,6 +1156,82 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
             lambda: cmd.execute(
                 CDFToolConfig.from_context(ctx),
                 hierarchy,
+                data_set,
+                interactive,
+                output_dir,
+                clean_,
+                limit,
+                format_,  # type: ignore [arg-type]
+                verbose or ctx.obj.verbose,
+            )
+        )
+
+    @dump_app.command("timeseries")
+    def dump_timeseries_cmd(
+        ctx: typer.Context,
+        data_set: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="Data set to dump.",
+            ),
+        ] = None,
+        interactive: Annotated[
+            bool,
+            typer.Option(
+                "--interactive",
+                "-i",
+                help="Will prompt you to select which timeseries to dump.",
+            ),
+        ] = False,
+        output_dir: Annotated[
+            Path,
+            typer.Argument(
+                help="Where to dump the timeseries YAML files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        format_: Annotated[
+            str,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to dump the timeseries in. Supported formats: yaml, csv, and parquet.",
+            ),
+        ] = "csv",
+        clean_: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before pulling the timeseries.",
+            ),
+        ] = False,
+        limit: Annotated[
+            Optional[int],
+            typer.Option(
+                "--limit",
+                "-l",
+                help="Limit the number of timeseries to dump.",
+            ),
+        ] = None,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected timeseries as yaml to the folder specified, defaults to /tmp."""
+        cmd = DumpTimeSeriesCommand()
+        if ctx.obj.verbose:
+            print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump timeseries --verbose").get_message())
+        cmd.run(
+            lambda: cmd.execute(
+                CDFToolConfig.from_context(ctx),
                 data_set,
                 interactive,
                 output_dir,
