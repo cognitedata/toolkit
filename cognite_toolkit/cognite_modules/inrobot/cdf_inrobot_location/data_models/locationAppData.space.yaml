@@ -1,0 +1,3 @@
+space: sp_{{first_root_asset_external_id}}_app_data
+name: sp:inrobot:{{first_root_asset_external_id}}:app_data
+description: Space for {{first_root_asset_external_id}} App Data

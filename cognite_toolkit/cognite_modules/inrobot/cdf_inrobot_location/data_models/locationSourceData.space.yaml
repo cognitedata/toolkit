@@ -1,0 +1,3 @@
+space: sp_{{ first_root_asset_external_id}}_source_data
+name: sp:inrobot:{{ first_root_asset_external_id}}:source
+description: Space for InRobot {{first_root_asset_external_id}} Source Data
