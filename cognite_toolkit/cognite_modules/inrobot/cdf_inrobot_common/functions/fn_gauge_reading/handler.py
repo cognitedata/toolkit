@@ -1,16 +1,14 @@
 """Gauge reader handler."""
+
 import logging
 import sys
-
 from typing import Dict, List, Optional
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes import FileMetadataUpdate, LabelFilter, TimeSeriesUpdate
 from cognite.extractorutils.uploader import TimeSeriesUploadQueue
-
 from common.apm_helpers import _get_position_from_metadata_to_vec3f, create_apm_observation_from_reading
 from common.cdf_helpers import call_vision_api_endpoint, create_annotations, create_missing_labels
-
 
 MAX_GET_JOB_ATTEMPTS = 20
 
@@ -149,7 +147,7 @@ def handle(data, client):
             "Data should contain all keys:  'gauge_type', 'input_label', 'output_label', 'success_label', 'failed_label'"
         )
 
-    if not data["gauge_type"] in SUPPORTED_GAUGES:
+    if data["gauge_type"] not in SUPPORTED_GAUGES:
         raise NotImplementedError(f"Only {SUPPORTED_GAUGES} gauge reading supported, not {data['gauge_type']}")
 
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=logging.BASIC_FORMAT)

@@ -1,11 +1,10 @@
 """Contextualize handler."""
+
 import logging
 import sys
 
 from cognite.client.data_classes import FileMetadataUpdate, TimeSeries
-
 from common.cdf_helpers import create_missing_labels
-
 
 MAX_GET_JOB_ATTEMPTS = 10
 logger = logging.getLogger(__name__)
@@ -28,7 +27,13 @@ def has_label(label_list, label_external_id):
 
 
 def create_timeseries(
-    client, asset, data_set_external_id, time_series_label, gauge_number=1, total_number_of_gauges=1, time_series_naming_tag=""
+    client,
+    asset,
+    data_set_external_id,
+    time_series_label,
+    gauge_number=1,
+    total_number_of_gauges=1,
+    time_series_naming_tag="",
 ):
     """Create time series on the correct format."""
     if time_series_label == "IR_TIME_SERIES":
@@ -112,7 +117,9 @@ def get_timeseries_external_id(client, asset, data_set_external_id, time_series_
         for gauge_number in range(diff):
             logger.info("CREATE GAUGE TIMESERIES")
             new_gauge_number = gauge_number + number_of_timeseries
-            ts = create_timeseries(client, asset, data_set_external_id, time_series_label, new_gauge_number, number_of_gauges)
+            ts = create_timeseries(
+                client, asset, data_set_external_id, time_series_label, new_gauge_number, number_of_gauges
+            )
             ts_external_ids.append(ts.external_id)
     elif number_of_timeseries == 0:
         logger.info("CREATE GAUGE TIMESERIES")
@@ -121,7 +128,9 @@ def get_timeseries_external_id(client, asset, data_set_external_id, time_series_
             ts_external_ids.append(ts.external_id)
         else:
             for gauge_number in range(number_of_gauges):
-                ts = create_timeseries(client, asset, data_set_external_id, time_series_label, gauge_number, number_of_gauges)
+                ts = create_timeseries(
+                    client, asset, data_set_external_id, time_series_label, gauge_number, number_of_gauges
+                )
                 ts_external_ids.append(ts.external_id)
 
     return ts_external_ids
@@ -139,6 +148,7 @@ def get_number_of_gauges(client, asset):
     except Exception as e:
         logger.exception(e)
         return 1
+
 
 def handle(data, client):
     """Contextualize robot data."""
@@ -185,7 +195,6 @@ def handle(data, client):
         number_of_gauges = 1  # Default is one gauge per image
         metadata = file.metadata
         logger.info(f"Processing file with external id: {file.external_id}, id: {file.id}")
-        
 
         update = FileMetadataUpdate(file.id)
         asset = get_asset(client, file)
@@ -247,7 +256,9 @@ def handle(data, client):
             time_series_label = "IR_TIME_SERIES"
             print(f"this is the asset: {asset}")
 
-            ts_eid = get_timeseries_external_id(client, asset, data["data_set_external_id"], time_series_label, number_of_gauges)
+            ts_eid = get_timeseries_external_id(
+                client, asset, data["data_set_external_id"], time_series_label, number_of_gauges
+            )
             if time_series_label == "IR_TIME_SERIES":
                 for i in range(len(ts_eid)):
                     metadata[f"ts_external_id_{i}"] = ts_eid[i]

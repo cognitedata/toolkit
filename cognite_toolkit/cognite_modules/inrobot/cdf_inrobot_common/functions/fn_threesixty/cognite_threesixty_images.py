@@ -1,18 +1,16 @@
 """360 image extractor base class."""
+
 import io
 import logging
 import time
-
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import py360convert
-
 from cognite.client.data_classes import Event, FileMetadata, Label
 from PIL import Image
-
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +29,7 @@ class VectorXYZ:
 
     def to_string(self) -> str:
         """Convert vector so string."""
-        return "{:.4f}, {:.4f}, {:.4f}".format(self.x, self.y, self.z)
+        return f"{self.x:.4f}, {self.y:.4f}, {self.z:.4f}"
 
 
 def translation_to_mm_str_with_offset(translation: VectorXYZ, translation_offset_mm: VectorXYZ, translation_unit: str):
@@ -241,8 +239,8 @@ class CogniteThreeSixtyImageExtractor:
         # Order: F R B L U D
         sxy = [(1, 1), (2, 1), (3, 1), (0, 1), (1, 0), (1, 2)]
         for i, (sx, sy) in enumerate(sxy):
-            face = cube_dice[(sy * w) : (sy + 1) * w, (sx * w) : (sx + 1) * w]  # noqa: E203
-            cube_h[:, (i * w) : (i + 1) * w] = face  # noqa: E203
+            face = cube_dice[(sy * w) : (sy + 1) * w, (sx * w) : (sx + 1) * w]
+            cube_h[:, (i * w) : (i + 1) * w] = face
         return cube_h
 
     def _get_cubemap_images(self, content: Union[str, np.ndarray]) -> Union[Dict[str, str], Dict[str, np.ndarray]]:

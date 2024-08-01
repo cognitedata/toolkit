@@ -1,18 +1,14 @@
 import logging
 import tempfile
-
 from pathlib import Path
 from typing import Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 from cognite.client import CogniteClient
 from cognite.client.data_classes import FileMetadataUpdate, LabelFilter
 from cognite.extractorutils.uploader import TimeSeriesUploadQueue
-
 from common.cdf_helpers import create_missing_labels
-
 
 IMAGE_HEIGHT = 512
 IMAGE_WIDTH = 640
@@ -57,7 +53,6 @@ def handle_failed_upload(client: CogniteClient, id: int, error_message: str, dat
 
 
 def handle(data, client):
-
     print("Start extracting data from the IR raw file.")
 
     if not {"input_label", "output_label", "success_label", "failed_label", "data_set_external_id"} <= data.keys():
@@ -65,7 +60,7 @@ def handle(data, client):
             "Data should contain all keys: 'input_label', 'output_label', 'success_label', 'failed_label', 'data_set_external_id'."
         )
 
-    data_set_id = client.data_sets.retrieve(external_id=data['data_set_external_id']).id
+    data_set_id = client.data_sets.retrieve(external_id=data["data_set_external_id"]).id
 
     files = client.files.list(
         labels=LabelFilter(contains_all=[data["input_label"]]),
@@ -96,7 +91,6 @@ def handle(data, client):
         asset = get_asset(client, file)
 
         with tempfile.TemporaryDirectory(dir="/tmp") as directory:
-
             ir_image_path = str(Path.cwd() / directory / ir_image_filename)
             ir_temperature_path = str(Path.cwd() / directory / ir_temperature_filename)
             ir_raw_path = str(Path.cwd() / directory / ir_raw_filename)

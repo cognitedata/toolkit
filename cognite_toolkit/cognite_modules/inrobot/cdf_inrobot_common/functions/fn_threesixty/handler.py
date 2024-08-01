@@ -1,13 +1,12 @@
 """Gauge reader handler."""
+
 import io
 import json
 import logging
 import sys
-
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
-
 from bosdyn.client.math_helpers import Quat, SE3Pose
 from cognite.client import CogniteClient, global_config
 from cognite.client.data_classes import FileMetadata, FileMetadataList, FileMetadataUpdate, LabelFilter
@@ -15,7 +14,6 @@ from cognite.client.exceptions import CogniteDuplicatedError
 from cognite_threesixty_images import CogniteThreeSixtyImageExtractor, VectorXYZ
 from PIL import Image
 from scipy.spatial.transform import Rotation
-
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=logging.BASIC_FORMAT)
 logger = logging.getLogger(__name__)
@@ -185,7 +183,7 @@ def process_threesixty_files(files: FileMetadataList, client: CogniteClient, dat
 
             # Get waypoint id from metadata
             waypoint_id = file.metadata.get("waypoint_id")
-            print(f'Waypoint id: {waypoint_id}')
+            print(f"Waypoint id: {waypoint_id}")
             if not waypoint_id:
                 client.files.update(FileMetadataUpdate(id=file.id).labels.remove("threesixty"))
                 logger.error(f"Failed to process file {file.external_id}. No waypoint id in the metadata.")
@@ -242,8 +240,7 @@ def handle(data, client):
     # Check that input contains data_set_id
     if "data_set_external_id" not in data.keys():
         raise RuntimeError("Data should contain all keys: data_set_id")
-    data_set_id = client.data_sets.retrieve(external_id=data['data_set_external_id']).id
-
+    data_set_id = client.data_sets.retrieve(external_id=data["data_set_external_id"]).id
 
     # Get all 360 images in the data set id with the label "threesixty"
     # Changed default limit to 1 to process 1 file at a time as the upload_queue in cognite_threesixty_image uploads the whole queue
