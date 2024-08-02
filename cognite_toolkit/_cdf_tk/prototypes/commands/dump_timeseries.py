@@ -26,12 +26,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
-from cognite_toolkit._cdf_tk.prototypes.resource_loaders import TimeSeriesLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
-#
-# TODO: what is the naming convention for TimeSeries, timeseries, time_series, singular or plural?
-#
+# from cognite_toolkit._cdf_tk.prototypes.resource_loaders import TimeSeriesLoader
+TIME_SERIES_FOLDER_NAME = "timeseries"
 
 
 class DumpTimeSeriesCommand(ToolkitCommand):
@@ -87,7 +85,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
             self.data_set_by_id.update({item.id: item.as_write() for item in retrieved if item.id})
 
-        (output_dir / TimeSeriesLoader.folder_name).mkdir(parents=True, exist_ok=True)
+        (output_dir / TIME_SERIES_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
 
         total_time_series = ToolGlobals.client.time_series.aggregate_count(
             filter=TimeSeriesFilter(
@@ -112,7 +110,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             count = 0
             if format_ == "yaml":
                 for time_series in writeable:
-                    file_path = output_dir / TimeSeriesLoader.folder_name / f"TimeSeries.{format_}"
+                    file_path = output_dir / TIME_SERIES_FOLDER_NAME / f"TimeSeries.{format_}"
                     if file_path.exists():
                         with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                             f.write("\n")
@@ -125,7 +123,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             elif format_ in {"csv", "parquet"}:
                 file_count: int = 0  # Counter()
                 for df in self._buffer(writeable):
-                    folder_path = output_dir / TimeSeriesLoader.folder_name
+                    folder_path = output_dir / TIME_SERIES_FOLDER_NAME
                     folder_path.mkdir(parents=True, exist_ok=True)
                     file_path = folder_path / f"part-{file_count:04}.TimeSeries.{format_}"
                     if format_ == "csv":
@@ -165,7 +163,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
     def _buffer(self, time_series_iterator: Iterator[list[dict[str, Any]]]) -> Iterator[pd.DataFrame]:
         """Iterates over time_series until the buffer reaches the filesize."""
-        stored_time_series: pd.DataFrame = pd.DataFrame()
+        stored_time_series = pd.DataFrame()
         for time_series in time_series_iterator:
             stored_time_series = pd.concat(
                 [stored_time_series, pd.DataFrame(time_series)],
@@ -225,16 +223,15 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
     def _to_write(
         self,
-        time_series: Iterator[TimeSeriesList],
+        time_series_lists: Iterator[TimeSeriesList],
         client: CogniteClient,
         expand_metadata: bool,
     ) -> Iterator[list[Any]]:
-        for time_series_list in time_series:
+        for time_series_list in time_series_lists:
             write_time_series: list[dict[str, Any]] = []
             # TODO: how to separate `times_series` as list from `time_series` as one item?
-            for one_time_series in time_series_list:
-                write = one_time_series.as_write().dump(camel_case=True)
-                write.pop("parentId", None)
+            for time_series in time_series_list:
+                write = time_series.as_write().dump(camel_case=True)
                 if "dataSetId" in write:
                     data_set_id = write.pop("dataSetId")
                     self._used_data_sets.add(data_set_id)
@@ -247,9 +244,6 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     metadata = write.pop("metadata")
                     for key, value in metadata.items():
                         write[f"metadata.{key}"] = value
-                if "rootId" in write:
-                    root_id = write.pop("rootId")
-                    write["rootExternalId"] = self._get_time_series_external_id(client, root_id)
                 write_time_series.append(write)
             yield write_time_series
 
@@ -283,7 +277,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
     def _get_asset_external_id(self, client: CogniteClient, asset_id: int) -> str:
         if asset_id in self.asset_by_id:
-            return cast(str, self.asset_by_id[asset_id])
+            return self.asset_by_id[asset_id]
         try:
             asset = client.assets.retrieve(id=asset_id)
         except CogniteAPIError as e:
@@ -292,8 +286,6 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             raise ToolkitMissingResourceError(f"Data set {asset_id} does not exist")
         if not asset.external_id:
             raise ToolkitValueError(f"Data set {asset_id} does not have an external id")
-        # TODO: not like data_set storing the whole `asset.as_write()` to not blow the memory
-        # self.asset_by_id[asset_id] = asset.as_write()
         self.asset_by_id[asset_id] = asset.external_id
         return asset.external_id
 

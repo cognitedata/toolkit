@@ -23,6 +23,13 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
 
     setup_asset_loader.setup_asset_loader()
 
+# TODO: above my head to implement setup_asset_loader.py. Which `_modify` steps to implement?
+# if FeatureFlag.is_enabled(Flags.TIMESERIES):
+#     from cognite_toolkit._cdf_tk.prototypes import setup_timeseries_loader
+
+#     setup_timeseries_loader.setup_timeseries_loader()
+
+
 if FeatureFlag.is_enabled(Flags.MODEL_3D):
     from cognite_toolkit._cdf_tk.prototypes import setup_3D_loader
 
@@ -1076,10 +1083,7 @@ def dump_datamodel_cmd(
 
 
 if FeatureFlag.is_enabled(Flags.ASSETS):
-    from cognite_toolkit._cdf_tk.prototypes.commands import (
-        DumpAssetsCommand,
-        DumpTimeSeriesCommand,
-    )
+    from cognite_toolkit._cdf_tk.prototypes.commands import DumpAssetsCommand
 
     @dump_app.command("asset")
     def dump_asset_cmd(
@@ -1166,9 +1170,21 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
             )
         )
 
+
+if FeatureFlag.is_enabled(Flags.TIMESERIES):
+    from cognite_toolkit._cdf_tk.prototypes.commands import DumpTimeSeriesCommand
+
     @dump_app.command("timeseries")
     def dump_timeseries_cmd(
         ctx: typer.Context,
+        time_series_list: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--timeseries",
+                "-t",
+                help="Timeseries to dump.",
+            ),
+        ] = None,
         data_set: Annotated[
             Optional[list[str]],
             typer.Option(
