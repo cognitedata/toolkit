@@ -6,7 +6,7 @@ This module allows you to quickly set up an InRobot project. There are a few pre
 
 - You must have a 3D model already uploaded in Fusion. Note its model id, its revision id, and its name.
 
-- You must have created 4 groups in your source system: Users_<Location>, Admin_<Location>, Robot_1_<Location>, Run_Function_User. The naming does not matter specifically, but you may need to add more locations and/or robots in the future, so it would be ideal to name the groups accordingly.
+- You must have created 4 groups in your source system: Users*<Location>, Admin*<Location>, Robot*1*<Location>, Run_Function_User. The naming does not matter specifically, but you may need to add more locations and/or robots in the future, so it would be ideal to name the groups accordingly.
 
 - You must have created an app registration for the robot, and added the app registration to the robot user group. Note the client id and the secret for the robot app registration.
 
@@ -26,6 +26,7 @@ Specific inrobot variables you will need to define in your config YAML file:
 | Variable Name                            | Description                                                                                                               |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `first_root_asset_external_id`           | This is the asset external ID for your root asset.                                                                        |
+| `first_location`                         | A human readable name that will be included as part of different location-specific spaces and groups.                     |
 | `inrobot_admin_first_location_source_id` | The ID for the admin group for the location.                                                                              |
 | `inrobot_users_first_location_source_id` | The ID for the users group for the location.                                                                              |
 | `robot_1_first_location_source_id`       | The ID for the robot group for the location.                                                                              |

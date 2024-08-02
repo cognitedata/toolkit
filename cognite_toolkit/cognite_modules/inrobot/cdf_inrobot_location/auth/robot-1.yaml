@@ -1,4 +1,4 @@
-name: "gp_Robot_{{first_root_asset_external_id}}"
+name: "gp_Robot_{{first_location}}"
 sourceId: "{{robot_1_first_location_source_id}}"
 metadata:
   origin: "cdf-project-templates"
@@ -28,8 +28,8 @@ capabilities:
             - "APM_Config"
             - "cognite_app_data"
             - "cdf_apm"
-            - "sp_{{first_root_asset_external_id}}_source_data"
-            - "sp_{{first_root_asset_external_id}}_app_data"
+            - "sp_{{first_location}}_source_data"
+            - "sp_{{first_location}}_app_data"
   - dataModelInstancesAcl:
       actions:
         - WRITE
@@ -38,8 +38,8 @@ capabilities:
           spaceIds:
             - "cognite_app_data"
             - "cdf_apm"
-            - "sp_{{first_root_asset_external_id}}_source_data"
-            - "sp_{{first_root_asset_external_id}}_app_data"
+            - "sp_{{first_location}}_source_data"
+            - "sp_{{first_location}}_app_data"
   - filesAcl:
       actions:
         - READ

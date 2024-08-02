@@ -14,8 +14,8 @@ nodes:
           featureConfiguration:
             rootLocationConfigurations:
               - assetExternalId: "{{ first_root_asset_external_id }}"
-                appDataInstanceSpace: sp_{{ first_root_asset_external_id }}_app_data
-                sourceDataInstanceSpace: sp_{{ first_root_asset_external_id }}_source_data
+                appDataInstanceSpace: sp_{{ first_location }}_app_data
+                sourceDataInstanceSpace: sp_{{ first_location }}_source_data
           customerDataSpaceId: APM_SourceData
           customerDataSpaceVersion: "1"
           name: InRobot APM App Config

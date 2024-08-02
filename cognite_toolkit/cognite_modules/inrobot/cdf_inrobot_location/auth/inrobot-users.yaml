@@ -1,4 +1,4 @@
-name: "gp_InRobot_Users_{{first_root_asset_external_id}}"
+name: "gp_InRobot_Users_{{first_location}}"
 sourceId: "{{inrobot_users_first_location_source_id}}"
 metadata:
   origin: "cdf-project-templates"
@@ -29,8 +29,8 @@ capabilities:
             - "APM_Config"
             - "cdf_apm"
             - "cognite_app_data"
-            - "sp_{{first_root_asset_external_id}}_source_data"
-            - "sp_{{first_root_asset_external_id}}_app_data"
+            - "sp_{{first_location}}_source_data"
+            - "sp_{{first_location}}_app_data"
   - dataModelInstancesAcl:
       actions:
         - WRITE
