@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator
+from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -12,6 +13,7 @@ import questionary
 import yaml
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Asset, AssetFilter, AssetList, DataSetWrite, DataSetWriteList
+from cognite.client.data_classes.filters import Equals
 from cognite.client.exceptions import CogniteAPIError
 from rich.progress import Progress, TaskID
 
@@ -41,8 +43,8 @@ class DumpAssetsCommand(ToolkitCommand):
         self.data_set_by_id: dict[int, DataSetWrite] = {}
         self._used_labels: set[str] = set()
         self._used_data_sets: set[int] = set()
-        self._available_data_sets: set[str] | None = None
-        self._available_hierarchies: set[str] | None = None
+        self._available_data_sets: dict[int, DataSetWrite] | None = None
+        self._available_hierarchies: dict[int, Asset] | None = None
 
     def execute(
         self,
@@ -162,9 +164,10 @@ class DumpAssetsCommand(ToolkitCommand):
                 print(f"Dumped {len(labels):,} labels to {file_path}")
 
         if self._used_data_sets:
-            to_dump = DataSetWriteList(
+            used_datasets = DataSetWriteList(
                 [self.data_set_by_id[used_dataset] for used_dataset in self._used_data_sets]
-            ).dump_yaml()
+            )
+            to_dump = used_datasets.dump_yaml()
             file_path = output_dir / DataSetsLoader.folder_name / "asset.DataSet.yaml"
             file_path.parent.mkdir(parents=True, exist_ok=True)
             if file_path.exists():
@@ -175,7 +178,7 @@ class DumpAssetsCommand(ToolkitCommand):
                 with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
                     f.write(to_dump)
 
-            print(f"Dumped {len(self.data_set_by_id):,} data sets to {file_path}")
+            print(f"Dumped {len(used_datasets):,} data sets to {file_path}")
 
     def _buffer(self, asset_iterator: Iterator[tuple[str, list[dict[str, Any]]]]) -> Iterator[tuple[str, pd.DataFrame]]:
         """Iterates over assets util the buffer reaches the filesize."""
@@ -187,6 +190,60 @@ class DumpAssetsCommand(ToolkitCommand):
         for group, df in stored_assets.items():
             if not df.empty:
                 yield group, df
+
+    @lru_cache
+    def get_assets_choice_count_by_dataset(self, item_id: int, client: CogniteClient) -> int:
+        """Using LRU decorator w/o limit instead of another lookup map."""
+        return client.assets.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
+
+    @lru_cache
+    def get_asset_choice_count_by_root_id(self, item_id: int, client: CogniteClient) -> int:
+        """Using LRU decorator w/o limit instead of another lookup map."""
+        return client.assets.aggregate_count(advanced_filter=Equals("rootId", item_id))
+
+    @lru_cache
+    def get_choice_count(self, item_id: int, item: DataSetWrite, client: CogniteClient) -> int:
+        """Using LRU decorator w/o limit instead of another lookup map."""
+        match item:
+            # code ready for different item counts
+            case DataSetWrite():
+                return client.time_series.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
+            case Asset():
+                return client.assets.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
+            case _:
+                raise TypeError(f"Unsupported item type: {type(item)}")
+
+    def _create_choice(self, item_id: int, item: Asset | DataSetWrite, client: CogniteClient) -> questionary.Choice:
+        """
+        Choice with `title` including name and external_id if they differ.
+        Adding `value` as external_id for the choice.
+        `item_id` and `item` came in separate as item is DataSetWrite w/o `id`.
+        """
+
+        ts_count = None
+        match item:
+            case DataSetWrite():
+                ts_count = self.get_assets_choice_count_by_dataset(item_id, client)
+            case Asset():
+                ts_count = self.get_asset_choice_count_by_root_id(item_id, client)
+            case _:
+                raise TypeError(f"Unsupported item type: {type(item)}")
+
+        return questionary.Choice(
+            title=f"{item.name} ({item.external_id}) [{ts_count:,}]"
+            if item.name != item.external_id
+            else f"({item.external_id}) [{ts_count:,}]",
+            value=item.external_id,
+        )
+
+    def _get_choice_title(self, choice: str | questionary.Choice | dict[str, Any]) -> str:
+        """
+        Accommodates for the fact that the choice, string or a dict, when `sorted(key=..)` is called.
+        So assert confirm the type of the choice and choice.title and then return the title.
+        """
+        assert isinstance(choice, questionary.Choice)
+        assert isinstance(choice.title, str)  # minimum external_id is set
+        return choice.title.lower()
 
     def _select_hierarchy_and_data_set(
         self, client: CogniteClient, hierarchy: list[str] | None, data_set: list[str] | None, interactive: bool
@@ -209,20 +266,26 @@ class DumpAssetsCommand(ToolkitCommand):
             selected_str = "\n".join(selected)
             what = questionary.select(
                 f"\n{selected_str}\nSelect a hierarchy or data set to dump",
-                choices=[
-                    "Hierarchy",
-                    "Data Set",
-                    "Done",
-                ],
+                choices=["Hierarchy", "Data Set", "Done", "Abort"],
             ).ask()
 
             if what == "Done":
                 break
+            elif what == "Abort":
+                return [], []
             elif what == "Hierarchy":
                 _available_hierarchies = self._get_available_hierarchies(client)
                 selected_hierarchy = questionary.checkbox(
-                    "Select a hierarchy",
-                    choices=sorted(item for item in _available_hierarchies if item not in hierarchies),
+                    "Select a hierarchy listed as 'name (external_id) [count]'",
+                    choices=sorted(
+                        [
+                            self._create_choice(item_id, item, client)
+                            for (item_id, item) in _available_hierarchies.items()
+                            if item.external_id not in hierarchies
+                        ],
+                        key=self._get_choice_title,
+                        # sorted cannot find the proper overload
+                    ),  # type: ignore
                 ).ask()
                 if selected_hierarchy:
                     hierarchies.update(selected_hierarchy)
@@ -231,8 +294,16 @@ class DumpAssetsCommand(ToolkitCommand):
             elif what == "Data Set":
                 _available_data_sets = self._get_available_data_sets(client)
                 selected_data_set = questionary.checkbox(
-                    "Select a data set",
-                    choices=sorted(item for item in _available_data_sets if item not in data_sets),
+                    "Select a data set listed as 'name (external_id) [count]'",
+                    choices=sorted(
+                        [
+                            self._create_choice(item_id, item, client)
+                            for (item_id, item) in _available_data_sets.items()
+                            if item.external_id not in data_sets
+                        ],
+                        # sorted cannot find the proper overload
+                        key=self._get_choice_title,
+                    ),  # type: ignore
                 ).ask()
                 if selected_data_set:
                     data_sets.update(selected_data_set)
@@ -240,20 +311,23 @@ class DumpAssetsCommand(ToolkitCommand):
                     print("No data set selected.")
         return list(hierarchies), list(data_sets)
 
-    def _get_available_data_sets(self, client: CogniteClient) -> set[str]:
+    def _get_available_data_sets(self, client: CogniteClient) -> dict[int, DataSetWrite]:
         if self._available_data_sets is None:
             self.data_set_by_id.update({item.id: item.as_write() for item in client.data_sets})
-            self._available_data_sets = {item.external_id for item in self.data_set_by_id.values() if item.external_id}
+            # filter out data sets without external_id
+            self._available_data_sets = {
+                item_id: item for (item_id, item) in self.data_set_by_id.items() if item.external_id
+            }
         return self._available_data_sets
 
-    def _get_available_hierarchies(self, client: CogniteClient) -> set[str]:
+    def _get_available_hierarchies(self, client: CogniteClient) -> dict[int, Asset]:
         if self._available_hierarchies is None:
-            self._available_hierarchies = set()
+            self._available_hierarchies = {}
             for item in client.assets(root=True):
                 if item.id and item.external_id:
                     self.asset_external_id_by_id[item.id] = item.external_id
                 if item.external_id:
-                    self._available_hierarchies.add(item.external_id)
+                    self._available_hierarchies.update({item.id: item})
         return self._available_hierarchies
 
     def _group_assets(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Iterator
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -15,6 +16,7 @@ from cognite.client.data_classes import (
     TimeSeriesFilter,
     TimeSeriesList,
 )
+from cognite.client.data_classes.filters import Equals
 from cognite.client.exceptions import CogniteAPIError
 from rich.progress import Progress, TaskID
 
@@ -45,13 +47,11 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         self.time_series_external_id_by_id: dict[int, str] = {}
         self.data_set_by_id: dict[int, DataSetWrite] = {}
 
-        # TODO: not storing the whole asset, only external_id to not blow mem
-        # - but maybe all assets should be dumped too, like assets>datasets?
         self.asset_by_id: dict[int, str] = {}
         self._used_assets: set[int] = set()
 
         self._used_data_sets: set[int] = set()
-        self._available_data_sets: set[str] | None = None
+        self._available_data_sets: dict[int, DataSetWrite] | None = None
 
     def execute(
         self,
@@ -146,9 +146,10 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         print(f"Dumped {count:,} time_series to {output_dir}")
 
         if self._used_data_sets:
-            to_dump = DataSetWriteList(
+            used_datasets = DataSetWriteList(
                 [self.data_set_by_id[used_dataset] for used_dataset in self._used_data_sets]
-            ).dump_yaml()
+            )
+            to_dump = used_datasets.dump_yaml()
             file_path = output_dir / DataSetsLoader.folder_name / "time_series.DataSet.yaml"
             file_path.parent.mkdir(parents=True, exist_ok=True)
             if file_path.exists():
@@ -159,7 +160,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                 with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
                     f.write(to_dump)
 
-            print(f"Dumped {len(self.data_set_by_id):,} data sets to {file_path}")
+            print(f"Dumped {len(used_datasets):,} data sets to {file_path}")
 
     def _buffer(self, time_series_iterator: Iterator[list[dict[str, Any]]]) -> Iterator[pd.DataFrame]:
         """Iterates over time_series until the buffer reaches the filesize."""
@@ -175,6 +176,36 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                 stored_time_series = pd.DataFrame()
         if not stored_time_series.empty:
             yield stored_time_series
+
+    @lru_cache
+    def get_timeseries_choice_count_by_dataset(self, item_id: int, client: CogniteClient) -> int:
+        """Using LRU decorator w/o limit instead of another lookup map."""
+        return client.time_series.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
+
+    def _create_choice(self, item_id: int, item: DataSetWrite, client: CogniteClient) -> questionary.Choice:
+        """
+        Choice with `title` including name and external_id if they differ.
+        Adding `value` as external_id for the choice.
+        `item_id` and `item` came in separate as item is DataSetWrite w/o `id`.
+        """
+
+        ts_count = self.get_timeseries_choice_count_by_dataset(item_id, client)
+
+        return questionary.Choice(
+            title=f"{item.name} ({item.external_id}) [{ts_count:,}]"
+            if item.name != item.external_id
+            else f"({item.external_id}) [{ts_count:,}]",
+            value=item.external_id,
+        )
+
+    def _get_choice_title(self, choice: str | questionary.Choice | dict[str, Any]) -> str:
+        """
+        Accommodates for the fact that the choice, string or a dict, when `sorted(key=..)` is called.
+        So assert confirm the type of the choice and choice.title and then return the title.
+        """
+        assert isinstance(choice, questionary.Choice)
+        assert isinstance(choice.title, str)  # minimum external_id is set
+        return choice.title.lower()
 
     def _select_data_set(
         self,
@@ -198,16 +229,27 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                 choices=[
                     "Data Set",
                     "Done",
+                    "Abort",
                 ],
             ).ask()
 
             if what == "Done":
                 break
+            elif what == "Abort":
+                return []
             elif what == "Data Set":
                 _available_data_sets = self._get_available_data_sets(client)
                 selected_data_set = questionary.checkbox(
-                    "Select a data set",
-                    choices=sorted(item for item in _available_data_sets if item not in data_sets),
+                    "Select a data set listed as 'name (external_id) [count]'",
+                    choices=sorted(
+                        [
+                            self._create_choice(item_id, item, client)
+                            for (item_id, item) in _available_data_sets.items()
+                            if item.external_id not in data_sets
+                        ],
+                        # sorted cannot find the proper overload
+                        key=self._get_choice_title,
+                    ),  # type: ignore
                 ).ask()
                 if selected_data_set:
                     data_sets.update(selected_data_set)
@@ -215,10 +257,13 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     print("No data set selected.")
         return list(data_sets)
 
-    def _get_available_data_sets(self, client: CogniteClient) -> set[str]:
+    def _get_available_data_sets(self, client: CogniteClient) -> dict[int, DataSetWrite]:
         if self._available_data_sets is None:
             self.data_set_by_id.update({item.id: item.as_write() for item in client.data_sets})
-            self._available_data_sets = {item.external_id for item in self.data_set_by_id.values() if item.external_id}
+            # filter out data sets without external_id
+            self._available_data_sets = {
+                item_id: item for (item_id, item) in self.data_set_by_id.items() if item.external_id
+            }
         return self._available_data_sets
 
     def _to_write(
@@ -229,7 +274,6 @@ class DumpTimeSeriesCommand(ToolkitCommand):
     ) -> Iterator[list[Any]]:
         for time_series_list in time_series_lists:
             write_time_series: list[dict[str, Any]] = []
-            # TODO: how to separate `times_series` as list from `time_series` as one item?
             for time_series in time_series_list:
                 write = time_series.as_write().dump(camel_case=True)
                 if "dataSetId" in write:
