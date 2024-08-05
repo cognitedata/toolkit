@@ -27,11 +27,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
+from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, TimeSeriesLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
-# from cognite_toolkit._cdf_tk.prototypes.resource_loaders import TimeSeriesLoader
-TIME_SERIES_FOLDER_NAME = "timeseries"
+TIME_SERIES_FOLDER_NAME = TimeSeriesLoader.folder_name
 
 
 class DumpTimeSeriesCommand(ToolkitCommand):
@@ -205,7 +204,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         """
         assert isinstance(choice, questionary.Choice)
         assert isinstance(choice.title, str)  # minimum external_id is set
-        return choice.title.lower()
+        return choice.title.casefold()  # superior to lower case like `ß>ss` in German
 
     def _select_data_set(
         self,

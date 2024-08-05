@@ -1171,7 +1171,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
         )
 
 
-if FeatureFlag.is_enabled(Flags.TIMESERIES):
+if FeatureFlag.is_enabled(Flags.TIMESERIES_DUMP):
     from cognite_toolkit._cdf_tk.prototypes.commands import DumpTimeSeriesCommand
 
     @dump_app.command("timeseries")

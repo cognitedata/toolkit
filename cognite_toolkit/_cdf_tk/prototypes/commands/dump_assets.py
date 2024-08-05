@@ -201,16 +201,6 @@ class DumpAssetsCommand(ToolkitCommand):
         """Using LRU decorator w/o limit instead of another lookup map."""
         return client.assets.aggregate_count(advanced_filter=Equals("rootId", item_id))
 
-    @lru_cache
-    def get_choice_count(self, item_id: int, item: Asset | DataSetWrite, client: CogniteClient) -> int:
-        """Using LRU decorator w/o limit instead of another lookup map."""
-        if isinstance(item, DataSetWrite):
-            return client.time_series.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
-        elif isinstance(item, Asset):
-            return client.assets.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
-        else:
-            raise TypeError(f"Unsupported item type: {type(item)}")
-
     def _create_choice(self, item_id: int, item: Asset | DataSetWrite, client: CogniteClient) -> questionary.Choice:
         """
         Choice with `title` including name and external_id if they differ.
@@ -218,7 +208,6 @@ class DumpAssetsCommand(ToolkitCommand):
         `item_id` and `item` came in separate as item is DataSetWrite w/o `id`.
         """
 
-        ts_count = None
         if isinstance(item, DataSetWrite):
             ts_count = self.get_assets_choice_count_by_dataset(item_id, client)
         elif isinstance(item, Asset):
@@ -240,7 +229,7 @@ class DumpAssetsCommand(ToolkitCommand):
         """
         assert isinstance(choice, questionary.Choice)
         assert isinstance(choice.title, str)  # minimum external_id is set
-        return choice.title.lower()
+        return choice.title.casefold()  # superior to lower case like `ß>ss` in German
 
     def _select_hierarchy_and_data_set(
         self, client: CogniteClient, hierarchy: list[str] | None, data_set: list[str] | None, interactive: bool

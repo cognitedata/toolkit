@@ -20,9 +20,9 @@ class Flags(Enum):
     INTERNAL: ClassVar[dict[str, Any]] = {"visible": False, "description": "Does nothing"}
     IMPORT_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the import sub application"}
     ASSETS: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the support for loading assets"}
-    TIMESERIES: ClassVar[dict[str, Any]] = {
+    TIMESERIES_DUMP: ClassVar[dict[str, Any]] = {
         "visible": True,
-        "description": "Enables the support for loading timeseries",
+        "description": "Enables the support to dump timeseries",
     }
     NO_NAMING: ClassVar[dict[str, Any]] = {"visible": True, "description": "Disables the naming convention checks"}
     ROBOTICS: ClassVar[dict[str, Any]] = {"visible": False, "description": "Enables the robotics sub application"}
