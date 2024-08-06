@@ -19,6 +19,35 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- [Feature Preview] improved `--interactive / -i` for `dump asset` and `dump timeseries`
+  - which can list datasets or assets with `clear-name (external_id) [count]`
+
+    ```bash
+    ? Select a data set listed as 'name (external_id) [count]'
+      (Use arrow keys to move, <space> to select, <a> to toggle, <i> to invert)
+    » ○ (WITSML) [286,088]
+      ○ (DBCalculations) [6,007]
+      ○ (SAP) [6]
+      ○ (Wells) [0]
+      ○ (Drilling) [45]
+    ```
+
+  - an "Abort" option is now available
+
+    ```bash
+    No data set selected.
+    Select a data set to dump (Use arrow keys)
+      Data Set
+      Done
+    » Abort
+    ```
+
+- [Feature Preview] new feature `TIMESERIES_DUMP` added
+  - `cdf-tk dump timeseries` now dumps to yaml/csv/parquet
+  - supports `--data-set / -d` selection
+  - supports `--interactive / -i`
+  - feature does not include datapoints
+
 - [Feature Preview] In the command `cdf-tk import transformation-cli`, the Toolkit no longer raises
   an `UnicodeDecodeError` when importing a manifest with a query file that contains special characters
   on Windows.
