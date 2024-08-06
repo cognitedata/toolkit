@@ -92,7 +92,7 @@ When developing, you should use `cdf-tk-dev.py` to run the toolkit. This script 
 correctly (to avoid running the installed cdf-tk package) and also set the `SENTRY_ENABLED` environment
 variable to `false` to avoid sending errors to Sentry.
 In .vscode/launch.json you will see a number of examples of debugging configurations that you can use to debug.
-If you use VSCode or another IDE supporting devcontainers, the very easiest way to set up the environment is to
+If you use VSCode or another IDE supporting devcontainers, the easiest way to set up the environment is to
 run in the Dev Container as configured in .devcontainer. It creates a virtual python environment in .venv/ that
 will automatically be picked up by VSCode or poetry also if you want to run outside the devcontainer.
 
