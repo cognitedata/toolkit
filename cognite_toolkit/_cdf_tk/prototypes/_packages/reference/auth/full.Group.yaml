@@ -1,0 +1,398 @@
+name: []
+source_id: []
+metadata:
+- dict[str, str]
+members:
+- Literal['allUserAccounts']
+- list[str]
+# Make sure to not grant more access than needed
+capabilities:
+- analyticsAcl:
+    actions:
+    - READ
+    - EXECUTE
+    - LIST
+    scope:
+    - all
+- annotationsAcl:
+    actions:
+    - READ
+    - WRITE
+    - SUGGEST
+    - REVIEW
+    scope:
+    - all
+- assetsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- datasetsAcl:
+    actions:
+    - READ
+    - WRITE
+    - OWNER
+    scope:
+    # all
+    # idScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- digitalTwinAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- entitymatchingAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- eventsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- extractionPipelinesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # idScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- extractionRunsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+    # extractionPipelineScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- extractionConfigsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+    # extractionPipelineScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- filesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- functionsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- geospatialAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- geospatialCrsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- groupsAcl:
+    actions:
+    - CREATE
+    - DELETE
+    - READ
+    - LIST
+    - UPDATE
+    scope:
+    # all
+    # currentuserscope: []
+- labelsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- projectsAcl:
+    actions:
+    - READ
+    - CREATE
+    - LIST
+    - UPDATE
+    - DELETE
+    scope:
+    - all
+- rawAcl:
+    actions:
+    - READ
+    - WRITE
+    - LIST
+    scope:
+    # all
+    # tableScope: []
+- relationshipsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- roboticsAcl:
+    actions:
+    - READ
+    - CREATE
+    - UPDATE
+    - DELETE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- securityCategoriesAcl:
+    actions:
+    - MEMBEROF
+    - LIST
+    - CREATE
+    - UPDATE
+    - DELETE
+    scope:
+    # all
+    # idscope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- sequencesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- sessionsAcl:
+    actions:
+    - LIST
+    - CREATE
+    - DELETE
+    scope:
+    - all
+- threedAcl:
+    actions:
+    - READ
+    - CREATE
+    - UPDATE
+    - DELETE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- timeSeriesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+    # idscope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+    # assetRootIdScope: []
+- timeSeriesSubscriptionsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- transformationsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- typesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- wellsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- experimentAcl:
+    actions:
+    - USE
+    scope:
+    - experimentscope: []
+- templateGroupsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- templateInstancesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # datasetScope:
+        # ids:
+        #  - external-id-1
+        #  - external-id-2
+- dataModelInstancesAcl:
+    actions:
+    - READ
+    - WRITE
+    - WRITE_PROPERTIES
+    scope:
+    # all
+    # spaceIdScope: []
+    # spaceScope: []
+- dataModelsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    # all
+    # spaceIdScope: []
+    # dataModelScope: []
+- pipelinesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- documentPipelinesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- filePipelinesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- notificationsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- scheduledCalculationsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- monitoringTasksAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- hostedExtractorsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- visionModelAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- documentFeedbackAcl:
+    actions:
+    - CREATE
+    - READ
+    - DELETE
+    scope:
+    - all
+- workflowOrchestrationAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+    - all
+- userProfilesAcl:
+    actions:
+    - READ
+    scope:
+    - all
+- auditlogAcl:
+    actions:
+    - READ
+    scope:
+    - all

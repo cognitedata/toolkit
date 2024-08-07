@@ -1,0 +1,79 @@
+externalId: ep_sap_extraction_pipeline
+config: 
+  version: 1
+  logger:
+      console:
+          level: INFO
+      file:
+          level: INFO
+          path: C:\Cognite\SapExtractor\sap.log
+  extractor:
+      mode: single
+      upload-queue-size: 50000
+      parallelism: 4
+      delta_padding_minutes: 1
+      chunk_size: 1000
+      state-store:
+          raw:
+              database: sap
+              table: state_store
+  sap:
+  -   type: odata
+      source_name: mys4hana
+      gateway_url: ${SAP_URL}
+      client: '100'
+      username: ${SAP_USERNAME}
+      password: ${SAP_PASSWORD}
+  endpoints:
+  -   source_name: mys4hana
+      name: notification
+      destination:
+          type: raw
+          database: sap
+          table: notification
+      sap_service: API_MAINTNOTIFICATION
+      sap_entity: MaintenanceNotification
+      sap_key:
+      - MaintenanceNotification
+      incremental_field: LastChangeDateTime
+      schedule:
+          type: interval
+          expression: 15m
+  -   source_name: mys4hana
+      name: asset
+      destination:
+          type: raw
+          database: sap
+          table: asset
+      sap_service: API_FUNCTIONALLOCATION
+      sap_entity: FunctionalLocation
+      sap_key:
+      - FunctionalLocation
+  -   source_name: mys4hana
+      name: maintenanceOrder
+      destination:
+          type: raw
+          database: sap
+          table: maintenanceOrder
+      sap_service: API_MAINTENANCEORDER
+      sap_entity: MaintenanceOrder
+      sap_key:
+      - MaintenanceOrder
+      incremental_field: LastChangeDateTime
+      schedule:
+          type: interval
+          expression: 15m
+  -   source_name: mys4hana
+      name: equipment
+      destination:
+          type: raw
+          database: sap
+          table: equipment
+      sap_service: API_EQUIPMENT
+      sap_entity: Equipment
+      sap_key:
+      - Equipment
+      incremental_field: LastChangeDateTime
+      schedule:
+          type: interval
+          expression: 15m

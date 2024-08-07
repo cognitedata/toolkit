@@ -1,0 +1,22 @@
+name: gp_{{ source }}_{{ location }}_reader
+sourceId: '{{ sap_writer_source_id }}'
+metadata:
+  origin: cdf-toolkit
+  sourceName: '{{ sap_reader_source_name }}'
+capabilities:
+- dataModelsAcl:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - {{ idm_model_space }}
+        - {{ core_model_space }}
+- dataModelInstancesAcl:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - 'sp_{{ source }}_{{ location }}_data'
+       

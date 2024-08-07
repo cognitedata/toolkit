@@ -1,0 +1,2 @@
+- space: 'sp_{{ source }}_{{ location }}_data'
+  name: 'sp_{{ source }}_{{ location }}_data'
