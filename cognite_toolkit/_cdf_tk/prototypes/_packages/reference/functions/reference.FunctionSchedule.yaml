@@ -1,0 +1,6 @@
+name: str
+cron_expression: str
+function_id: int | None
+function_external_id: str | None
+description: str | None
+data: dict | None

@@ -1,0 +1,11 @@
+externalId: ep_sap_extraction_pipeline
+name: SAP extraction
+description: SAP extraction
+dataSetExternalId: ds_{{ source }}_{{location}}_population
+rawTables:
+- dbName: sap
+  tableName: equipment
+documentation: '## SAP extractor
+
+  [Virtual machine](https://portal.azure.com/#@cognitedata.com/resource/subscriptions/04a4fb73-dc0f-4584-b3c3-9d0da22ecdd6/resourceGroups/quick-start/providers/Microsoft.Compute/virtualMachines/QuickStartVM/overview)'
+createdBy: Gaetan  Helness

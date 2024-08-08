@@ -1,0 +1,26 @@
+external_id: str
+name: str
+ignore_null_fields: bool
+query: str | None
+destination:
+- type: str | None
+conflict_mode: '''abort'', ''delete'', ''update'', ''upsert'' | None'
+is_public: bool
+source_oidc_credentials:
+- client_id: str
+  client_secret: str
+  scopes: str | list[str]
+  token_uri: str
+  cdf_project_name: str
+  audience: str | None
+destination_oidc_credentials:
+- client_id: str
+  client_secret: str
+  scopes: str | list[str]
+  token_uri: str
+  cdf_project_name: str
+  audience: str | None
+data_set_id: int | None
+source_nonce: NonceCredentials | None
+destination_nonce: NonceCredentials | None
+tags: list[str] | None

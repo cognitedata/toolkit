@@ -1,0 +1,10 @@
+- dbName: sap
+  tableName: equipment
+- dbName: sap
+  tableName: maintenanceOrder
+- dbName: sap
+  tableName: notification
+- dbName: sap
+  tableName: asset
+- dbName: sap
+  tableName: state_store
