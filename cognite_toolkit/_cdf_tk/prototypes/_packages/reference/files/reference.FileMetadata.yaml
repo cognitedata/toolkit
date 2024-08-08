@@ -14,7 +14,7 @@ labels:
   - label_2_ext_id
 - None
 geo_location:
-- type: 'feature'
+- type: '''feature'''
   geometry: Point | MultiPoint | LineString | MultiLineString | Polygon | MultiPolygon
   properties: dict | None
 - None

@@ -1,0 +1,4 @@
+external_id: str
+name: str
+description: str | None
+data_set_id: int | None

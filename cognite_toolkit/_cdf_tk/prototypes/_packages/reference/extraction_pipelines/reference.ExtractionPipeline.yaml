@@ -10,9 +10,9 @@ schedule: str | None
 contacts:
 - - name: str
     email: str
-    '| role': str
+    role: str
     send_notification: True | False
-- '| None'
+- None
 metadata:
 - key1: value1
   key2: value2

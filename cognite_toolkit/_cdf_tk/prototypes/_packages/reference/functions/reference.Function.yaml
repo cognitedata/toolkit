@@ -3,12 +3,12 @@ file_id: int
 external_id: str | None
 description: str | None
 owner: str | None
-function_path: str | None
-secrets: dict | None
-env_vars: dict | None
+function_path: str
+secrets: dict[str, str] | None
+env_vars: dict[str, str] | None
 cpu: float | None
 memory: float | None
-runtime: 'py38 | py39 | py310 | py311 | None'
+runtime: py38 | py39 | py310 | py311 | None
 metadata:
 - key1: value1
   key2: value2

@@ -1,0 +1,19 @@
+external_id: str | None
+instance_id:
+- space: str
+  external_id: str
+- None
+name: str | None
+is_string: bool | None
+metadata:
+- key1: value1
+  key2: value2
+- None
+unit: str | None
+unit_external_id: str | None
+asset_id: int | None
+is_step: bool | None
+description: str | None
+security_categories: list[int] | None
+data_set_id: int | None
+legacy_name: str | None
