@@ -1,0 +1,22 @@
+external_id: str
+name: str
+data_set_id: int
+description: str | None
+raw_tables:
+- - db1: table1
+  - db2: table2
+- None
+schedule: str | None
+contacts:
+- - name: str
+    email: str
+    '| role': str
+    send_notification: True | False
+- '| None'
+metadata:
+- key1: value1
+  key2: value2
+- None
+source: str | None
+documentation: str | None
+created_by: str | None

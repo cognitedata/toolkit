@@ -1,0 +1,3 @@
+external_id: str
+config: str | None
+description: str | None
