@@ -1,0 +1,3 @@
+# Values here are only valid for this module.
+# Space for all nodes and edges ingested by sap_data_ingestion.
+data_space: <change_me>

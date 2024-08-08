@@ -1,10 +1,13 @@
 SELECT
-  CAST(`FunctionalLocation` AS STRING) AS externalId,
-  CAST(`FunctionalLocationName` AS STRING) AS description,
-  CAST('sap.asset' AS STRING) AS sourceId,
-  /*[x,y] as root*/ 
-  CAST(`LastChangeDateTime` AS TIMESTAMP) AS sourceUpdatedTime,
-  CAST(`AcquisitionDate` AS TIMESTAMP) AS sourceCreatedTime,
-  if(`SuperiorFunctionalLocation` != "", node_reference('sp_idm_model', `SuperiorFunctionalLocation`), NULL)  AS parent
+  CAST('data-dumps' AS STRING) AS source,
+  CAST(`Created On` AS TIMESTAMP) AS sourceCreatedTime,
+  CAST(`Created By` AS STRING) AS sourceCreatedUser,
+  CAST(`Functional Loc.` AS STRING) AS sourceId,
+  CAST(`Changed On` AS TIMESTAMP) AS sourceUpdatedTime,
+  CAST(`Changed by` AS STRING) AS sourceUpdatedUser,
+  CAST(`Description` AS STRING) AS description,
+  CAST(`Functional Loc.` AS STRING) AS name,
+  CAST(NULL AS TIMESTAMP) AS lastPathMaterializationTime,
+  CAST(`Functional Loc.` AS STRING) AS externalId
 FROM
-  `sap`.`asset`;
+  `data-dumps`.`data-dumps_dump FLOC RZ14`;
