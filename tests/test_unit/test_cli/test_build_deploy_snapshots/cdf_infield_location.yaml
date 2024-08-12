@@ -104,7 +104,7 @@ Group:
           - cdf_infield
           - cdf_core
           - cdf_apps_shared
-          - <Not Set>
+          - APM_SourceData
   - dataModelInstancesAcl:
       actions:
       - READ
@@ -125,7 +125,7 @@ Group:
           - cognite_app_data
           - sp_infield_first_location_app_data
   metadata:
-    module_version: <Not Set>
+    module_version: 1.1
     origin: cdf-project-templates
   name: gp_infield_first_location_checklist_admins
   sourceId: <change_me>
@@ -198,7 +198,7 @@ Group:
           - cdf_infield
           - cdf_core
           - cdf_apps_shared
-          - <Not Set>
+          - APM_SourceData
   - dataModelInstancesAcl:
       actions:
       - READ
@@ -219,7 +219,7 @@ Group:
           - cognite_app_data
           - sp_infield_first_location_app_data
   metadata:
-    module_version: <Not Set>
+    module_version: 1.1
     origin: cdf-project-templates
   name: gp_infield_first_location_normal_users
   sourceId: <change_me>
@@ -292,7 +292,7 @@ Group:
           - cdf_infield
           - cdf_core
           - cdf_apps_shared
-          - <Not Set>
+          - APM_SourceData
   - dataModelInstancesAcl:
       actions:
       - READ
@@ -313,7 +313,7 @@ Group:
           - cognite_app_data
           - sp_infield_first_location_app_data
   metadata:
-    module_version: <Not Set>
+    module_version: 1.1
     origin: cdf-project-templates
   name: gp_infield_first_location_template_admins
   sourceId: <change_me>
@@ -372,7 +372,7 @@ Group:
           - cdf_infield
           - cdf_core
           - cdf_apps_shared
-          - <Not Set>
+          - APM_SourceData
   - dataModelInstancesAcl:
       actions:
       - READ
@@ -392,7 +392,7 @@ Group:
           spaceIds:
           - cognite_app_data
   metadata:
-    module_version: <Not Set>
+    module_version: 1.1
     origin: cdf-project-templates
   name: gp_infield_first_location_viewers
   sourceId: <change_me>
@@ -494,8 +494,8 @@ Transformation:
     \ just updates all workorders to be from now \n    and into the future. This is\
     \ done for the sake of the demo data.\n    */\n    cast(current_date() as TIMESTAMP)\
     \ as startTime,\n    cast(date_add(current_date(), 7) as TIMESTAMP) as endTime,\n\
-    \    cast(`title` as STRING) as title,\n    '<Not Set>' as rootLocation,\n   \
-    \ 'workmate' as source\n  from\n    `workorder_oid_workmate`.`workorders`;\n"
+    \    cast(`title` as STRING) as title,\n    'first_location_root_asset_external_id'\
+    \ as rootLocation,\n    'workmate' as source\n  from\n    `workorder_oid_workmate`.`workorders`;\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
