@@ -1,0 +1,22 @@
+autoCreateDirectRelations: true
+skipOnVersionConflict: false
+replace: true
+nodes:
+- space: cognite_app_data
+  externalId: '{{first_location}}_config'
+  sources:
+  - source:
+      space: cdf_infield
+      externalId: InFieldLocationConfig
+      version: '1'
+      type: view
+    properties:
+      rootLocationExternalId: '{{first_location_external_id}}' #ads location
+      classicAssetExternalId: '{{first_root_asset_external_id}}'
+      appInstanceSpace: sp_infield_{{first_location}}_app_data
+      # sourceInstanceSpace: sp_asset_{{first_location}}_source
+      accessManagement: 
+        templateAdmins:
+          - gp_infield_{{first_location}}_template_admins
+        checklistAdmins:
+          - gp_infield_{{first_location}}_checklist_admins

@@ -83,7 +83,7 @@ capabilities:
             spaceIds: [
               'APM_Config',
               'cdf_apm',
-              'cognite_app_data', # this space must be created to store user profile information
+              'cognite_app_data', # this space must be created to store user profile and app config information
               'sp_asset_{{first_location}}_source', # from modules/config.yaml
               'sp_infield_{{first_location}}_app_data' # from modules/config.yaml
             ]
