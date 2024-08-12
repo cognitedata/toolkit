@@ -2,7 +2,7 @@ autoCreateDirectRelations: true
 skipOnVersionConflict: false
 replace: true
 nodes:
-- space: cognite_app_data
+- space: cognite_app_data # should we have a separate space to avoid users overwriting config?
   externalId: '{{first_location}}_config'
   sources:
   - source:
