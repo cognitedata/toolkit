@@ -3,7 +3,7 @@ skipOnVersionConflict: false
 replace: true
 nodes:
 - space: cognite_app_data # should we have a separate space to avoid users overwriting config?
-  externalId: '{{first_location}}_config'
+  externalId: '{{location}}_app_config'
   sources:
   - source:
       space: cdf_infield
@@ -11,12 +11,12 @@ nodes:
       version: '1'
       type: view
     properties:
-      rootLocationExternalId: '{{first_location_external_id}}' #ads location
-      classicAssetExternalId: '{{first_root_asset_external_id}}'
-      appInstanceSpace: sp_infield_{{first_location}}_app_data
-      # sourceInstanceSpace: sp_asset_{{first_location}}_source
+      rootLocationExternalId: '{{location_external_id}}' #ads location
+      classicAssetExternalId: '{{location_root_asset_external_id}}'
+      appInstanceSpace: sp_infield_{{location}}_app_data
+      # sourceInstanceSpace: sp_asset_{{location}}_source
       accessManagement: 
         templateAdmins:
-          - gp_infield_{{first_location}}_template_admins
+          - gp_infield_{{location}}_template_admins
         checklistAdmins:
-          - gp_infield_{{first_location}}_checklist_admins
+          - gp_infield_{{location}}_checklist_admins
