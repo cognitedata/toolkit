@@ -20,36 +20,6 @@ Group:
     origin: cdf-project-templates
   name: applications-configuration
   sourceId: <change_me>
-Node:
-- externalId: default_infield_config_minimal
-  instanceType: node
-  sources:
-  - properties:
-      customerDataSpaceId: APM_SourceData
-      customerDataSpaceVersion: '1'
-      featureConfiguration:
-        rootLocationConfigurations:
-        - appDataInstanceSpace: sp_infield_oid_app_data
-          assetExternalId: WMT:VAL
-          checklistAdmins:
-          - gp_infield_oid_checklist_admins
-          sourceDataInstanceSpace: sp_asset_oid_source
-          templateAdmins:
-          - gp_infield_oid_template_admins
-        - appDataInstanceSpace: sp_infield_oid2_app_data
-          assetExternalId: WMT:VAL
-          checklistAdmins:
-          - gp_infield_oid2_checklist_admins
-          sourceDataInstanceSpace: sp_asset_oid2_source
-          templateAdmins:
-          - gp_infield_oid2_template_admins
-      name: Infield APM App Config
-    source:
-      externalId: APM_Config
-      space: APM_Config
-      type: view
-      version: '1'
-  space: APM_Config
 Space:
 - description: Space for Infield App Data
   name: cognite_app_data

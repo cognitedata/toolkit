@@ -396,6 +396,25 @@ Group:
     origin: cdf-project-templates
   name: gp_infield_oid_viewers
   sourceId: <change_me>
+Node:
+- externalId: oid_config
+  instanceType: node
+  sources:
+  - properties:
+      accessManagement:
+        checklistAdmins:
+        - gp_infield_oid_checklist_admins
+        templateAdmins:
+        - gp_infield_oid_template_admins
+      appInstanceSpace: sp_infield_oid_app_data
+      classicAssetExternalId: WMT:VAL
+      rootLocationExternalId: <Not Set>
+    source:
+      externalId: InFieldLocationConfig
+      space: cdf_infield
+      type: view
+      version: '1'
+  space: cognite_app_data
 Space:
 - description: Space for Infield Location App Data
   name: sp:infield:oid:app_data
