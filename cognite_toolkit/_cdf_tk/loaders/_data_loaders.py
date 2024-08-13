@@ -116,7 +116,8 @@ class FileLoader(DataLoader):
         if dry_run:
             return f" Would upload file '{datafile!s}' to file with external_id={external_id!r}", 1
         else:
-            self.client.files.upload(path=str(datafile), overwrite=True, external_id=external_id)
+            self.client.files.upload(path=str(datafile), overwrite=True, external_id=external_id,
+                                     mime_type=meta_data.mime_type)
             return f" Uploaded file '{datafile!s}' to file with external_id={external_id!r}", 1
 
 
