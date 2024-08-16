@@ -1,4 +1,4 @@
 interval: str
-id: None
+id: int | None
 externalId: str | None
 isPaused: bool

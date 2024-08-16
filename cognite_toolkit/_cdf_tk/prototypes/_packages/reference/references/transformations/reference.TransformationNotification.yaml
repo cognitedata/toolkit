@@ -1,3 +1,3 @@
 destination: str
-transformationId: None
+transformationId: int | None
 transformationExternalId: str | None

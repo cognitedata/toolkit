@@ -319,10 +319,20 @@ def validate(target_path: Path) -> None:
 
 
 if __name__ == "__main__":
-    target_path = Path("cognite_toolkit/_cdf_tk/prototypes/_packages/reference")
+    target_path = Path("cognite_toolkit/_cdf_tk/prototypes/_packages/reference/references")
     if Path.exists(target_path):
         shutil.rmtree(target_path)
     Path.mkdir(target_path)
 
     generate(target_path)
     validate(target_path)
+    manifest_file = target_path.parent / Path("manifest.yaml")
+    manifest_content = {
+        "title": "References: reference yaml files for the supported resources",
+        "modules": {
+            "references": {
+                "title": "Reference files",
+            },
+        },
+    }
+    manifest_file.write_text(yaml.dump(manifest_content, sort_keys=False))
