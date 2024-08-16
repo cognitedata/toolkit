@@ -1,0 +1,14 @@
+externalId: tr_idm_Notification_to_asset_upsert
+name: idm_Notification_to_asset_upsert
+destination:
+  type: instances
+  dataModel:
+    space: '{{ model_space }}'
+    externalId: IDM
+    version: v1
+    destinationType: Notification
+  instanceSpace: '{{ data_space }}'
+conflictMode: upsert
+isPublic: true
+ignoreNullFields: true
+dataSetExternalId: '{{ dataset }}'

@@ -6,7 +6,9 @@
     "pi_data_pipeline": {
         "title": "PI Data Pipeline",
     },
-
+    "mqtt_data_pipeline": {
+        "title": "MQTT Data Pipeline",
+    },
     "files_contextualization": {
         "title": "Files Contextualization",
     },
