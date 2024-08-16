@@ -8,9 +8,12 @@ from pathlib import Path
 from typing import Any
 
 import cognite.client.data_classes as data_classes
+import cognite.client.data_classes.data_modeling as dm_data_classes
 import yaml
+from cognite.client.data_classes.data_modeling import ViewApply, ViewId
 from cognite.client.data_classes.iam import Capability
 from cognite.client.data_classes.transformations import OidcCredentials
+from cognite.client.data_classes.transformations.common import TransformationDestination
 from cognite.client.utils._text import to_camel_case
 
 from cognite_toolkit._cdf_tk.loaders import ResourceLoader
@@ -30,7 +33,7 @@ def comment_optional(yaml_str: str) -> str:
 
 IGNORED_ANNOTATIONS = [
     "str",
-    "int",
+    # "int",
     "float",
     "bool",
     "dict",
@@ -45,7 +48,7 @@ IGNORED_ANNOTATIONS = [
     "'allUserAccounts'",
     "list[ViewId]",
     "dict[str, ViewPropertyApply]",
-    "list[ViewId | ViewApply]",
+    # "list[ViewId | ViewApply]",
 ]
 
 
@@ -83,34 +86,63 @@ def expand_acls() -> list[Any]:
     return expanded
 
 
-def expand_parameters(loader_cls: Any, resource_write_cls: Any) -> dict[str, Any]:
-    init = resource_write_cls.__init__
-    signature = inspect.signature(init)
+def expand_transformation_destinations() -> dict[str, Any]:
+    options: dict[str, Any] = {}
+    options["*type"] = []
+    for name, member in inspect.getmembers(TransformationDestination):
+        if isinstance(TransformationDestination.__dict__.get(name), staticmethod):
+            signature = inspect.signature(member)
+            if len(signature.parameters) == 0:
+                options["*type"].append(f'*"{name}"')
+            else:
+                options[f"*{to_camel_case(name)}"] = {k: f"*{v.annotation}" for k, v in signature.parameters.items()}
+    return {"*one of": options}
+
+
+def get_parameters(cls: Any) -> Any:
+    sign = inspect.signature(cls.__init__)
+
+    filtered_params = [param for name, param in sign.parameters.items() if name != "self" and name != "cognite_client"]
+    return sign.replace(parameters=filtered_params).parameters.values()
+
+
+def unpack_annotations(str_annotations: str) -> Any:
+    str_annotations = str_annotations.replace("Sequence[", "list[")
+    str_annotations = re.sub(r"Literal\[(.*?)\]", lambda match: match.group(1), str_annotations)
+
+    pattern = r"\|(?![^\[\]]*\])"
+    annotations = [a.strip() for a in re.split(pattern, str_annotations)]
+
+    if not any([a not in IGNORED_ANNOTATIONS for a in annotations]):
+        return str_annotations
+
+    cognite_classes = {name: obj for name, obj in inspect.getmembers(data_classes) if inspect.isclass(obj)}
+    cognite_classes.update({name: obj for name, obj in inspect.getmembers(dm_data_classes) if inspect.isclass(obj)})
+
+    resolved: dict[str, Any] = {}
+
+    for annotation in annotations:
+        if annotation.startswith("list["):
+            return [unpack_annotations(re.sub(r"list\[(.*?)\]", lambda match: match.group(1), annotation))]
+        else:
+            cls = cognite_classes.get(annotation)
+            if not cls:
+                continue
+            for param in get_parameters(cls):
+                resolved[to_camel_case(param.name)] = unpack_annotations(str(param.annotation))
+
+        return resolved
+
+    return str_annotations
+
+
+def expand_parameters(loader_cls: Any, cls: Any, optional: bool = False) -> dict[str, Any]:
+    parameters = get_parameters(cls)
     params: dict[str, Any] = {}
 
-    for param in signature.parameters.values():
-        if param.name == "self" or param.name == "cognite_client":
-            continue
-
-        str_annotations = str(param.annotation)
-        str_annotations = str_annotations.replace("Sequence[", "list[")
-        str_annotations = re.sub(r"Literal\[(.*?)\]", lambda match: match.group(1), str_annotations)
-
-        if str_annotations == "dict[str, str] | None":
-            str_annotations = "dict[str, str]"
-            params[to_camel_case(param.name)] = {
-                "*optional dict[str,str]": {"*key1": "value1", "*key2": "value2"},
-            }
-            continue
-
-        if param.name == "data_set_id":
-            params["dataSetExternalId"] = param.annotation.replace("int", "str")
-            continue
-
-        pattern = r"\|(?![^\[\]]*\])"
-        annotations = [a.strip() for a in re.split(pattern, str_annotations)]
-
-        if resource_write_cls.__name__ == "ExtractionPipelineWrite":
+    for param in parameters:
+        # resource specifics:
+        if cls.__name__ == "ExtractionPipelineWrite":
             if param.name == "raw_tables":
                 params[to_camel_case(param.name)] = {
                     "*optional list[dict[str, str]]:": [
@@ -130,7 +162,7 @@ def expand_parameters(loader_cls: Any, resource_write_cls: Any) -> dict[str, Any
                 }
                 continue
 
-        elif resource_write_cls.__name__ == "FunctionWrite":
+        elif cls.__name__ == "FunctionWrite":
             if param.name == "runtime":
                 params[param.name] = "py38 | py39 | py310 | py311 | None"
                 continue
@@ -138,7 +170,7 @@ def expand_parameters(loader_cls: Any, resource_write_cls: Any) -> dict[str, Any
             if param.name == "file_id":
                 continue
 
-        elif resource_write_cls.__name__ == "FileMetadataWrite":
+        elif cls.__name__ == "FileMetadataWrite":
             if param.name == "labels":
                 params[param.name] = {"*optional list[Label]": ["*label_1_ext_id", "*label_2_ext_id"]}
                 continue
@@ -163,30 +195,35 @@ def expand_parameters(loader_cls: Any, resource_write_cls: Any) -> dict[str, Any
                 }
                 continue
 
-        elif resource_write_cls.__name__ == "TransformationWrite":
+        elif cls.__name__ == "TransformationWrite":
             if param.name == "source_nonce" or param.name == "destination_nonce":
                 continue
 
             if param.name == "conflict_mode":
-                params[to_camel_case(param.name)] = str_annotations
+                params[to_camel_case(param.name)] = {
+                    "*optional": {"*one of": ['*"abort"', '*"*delete"', '*"update"', '*"upsert"']}
+                }
                 continue
 
             if param.name == "source_oidc_credentials":
-                params["authentication"] = {"*optional OidcCredentials": expand_parameters(loader_cls, OidcCredentials)}
+                params["authentication"] = {
+                    "*optional OidcCredentials": expand_parameters(loader_cls, OidcCredentials, optional=True)
+                }
                 continue
 
             if param.name == "destination_oidc_credentials":
                 continue
 
-        elif resource_write_cls.__name__ == "TimeSeriesWrite":
+            if param.name == "destination":
+                params["destination"] = expand_transformation_destinations()
+                continue
+
+        elif cls.__name__ == "TimeSeriesWrite":
             if param.name == "instance_id":
                 params[to_camel_case(param.name)] = [{"space": "str", "external_id": "str"}, "None"]
                 continue
 
-        elif (
-            resource_write_cls.__name__ == "WorkflowDefinitionUpsert"
-            or resource_write_cls.__name__ == "WorkflowVersionUpsert"
-        ):
+        elif cls.__name__ == "WorkflowDefinitionUpsert" or cls.__name__ == "WorkflowVersionUpsert":
             if param.name == "workflow_definition":
                 params[to_camel_case(param.name)] = {
                     "description": "str | None",
@@ -204,29 +241,31 @@ def expand_parameters(loader_cls: Any, resource_write_cls: Any) -> dict[str, Any
                 }
                 continue
 
-        if not any([a not in IGNORED_ANNOTATIONS for a in annotations]):
-            params[to_camel_case(param.name)] = str_annotations
+        elif cls.__name__ == "GroupWrite":
+            if param.name == "capabilities":
+                params[to_camel_case(param.name)] = expand_acls()
+                continue
+
+        elif cls.__name__ == "DataModelApply":
+            if param.name == "views":
+                params[to_camel_case(param.name)] = {
+                    "*optional list[ViewId | ViewApply]": {
+                        "*one list of": [expand_parameters(cls, ViewId, True), expand_parameters(cls, ViewApply, True)]
+                    }
+                }
+                continue
+
+        if str(param.annotation) == "dict[str, str] | None":
+            params[to_camel_case(param.name)] = {
+                "*optional dict[str,str]": {"*key1": "value1", "*key2": "value2"},
+            }
             continue
 
-        for annotation in annotations:
-            expanded = []
-            try:
-                # groups
-                if annotation == "list[Capability]":
-                    expanded = expand_acls()
-                else:
-                    annotationCls = getattr(data_classes, annotation)
-                    sub = expand_parameters(loader_cls, annotationCls)
-                    expanded.append(sub)
-            except Exception as e:
-                if annotation in IGNORED_ANNOTATIONS:
-                    expanded.append(annotation)
-                    continue
-                print(resource_write_cls.__name__)
-                print(f"Failed to expand {param.name} {annotation}: {e}")
-                raise e
+        if param.name == "data_set_id":
+            params["dataSetExternalId"] = param.annotation.replace("int", "str")
+            continue
 
-            params[to_camel_case(param.name)] = expanded
+        params[to_camel_case(param.name)] = f"{'*' if optional else ''}{unpack_annotations(str(param.annotation))}"
 
     return params
 
@@ -241,7 +280,7 @@ def generate(target_path: Path) -> None:
 
         final_yaml = comment_optional(yaml.dump(ref, sort_keys=False))
 
-        # special case: want caps at the end
+        # special case for groups: want caps at the end
         if "capabilities" in ref:
             caps_yaml = comment_optional(yaml.dump({"capabilities": ref.pop("capabilities")}, sort_keys=False))
             main_yaml = comment_optional(yaml.dump(ref, sort_keys=False))

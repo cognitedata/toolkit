@@ -1,17 +1,22 @@
 name: str
-file_id: int
-external_id: str | None
+externalId: str | None
 description: str | None
 owner: str | None
-function_path: str
-secrets: dict[str, str] | None
-env_vars: dict[str, str] | None
+functionPath: str
+secrets:
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
+envVars:
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
 cpu: float | None
 memory: float | None
 runtime: py38 | py39 | py310 | py311 | None
 metadata:
-- key1: value1
-  key2: value2
-- None
-index_url: str | None
-extra_index_urls: list[str] | None
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
+indexUrl: str | None
+extraIndexUrls: list[str] | None

@@ -1,22 +1,27 @@
-external_id: str
+externalId: str
 name: str
-data_set_id: int
+dataSetExternalId: str
 description: str | None
-raw_tables:
-- - db1: table1
-  - db2: table2
-- None
+rawTables:
+#  optional list[dict[str, str]]::
+#  - db1: table1
+#  - db2: table2
+#  - db3: {}
 schedule: str | None
 contacts:
-- - name: str
-    email: str
-    role: str
-    send_notification: True | False
-- None
+#  optional list[ExtractionPipelineContact] :
+#  - name: str
+#    email: str
+#    role: str
+#    sendNotification: True | False
+#  - name: str
+#    email: str
+#    role: str
+#    sendNotification: True | False
 metadata:
-- key1: value1
-  key2: value2
-- None
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
 source: str | None
 documentation: str | None
-created_by: str | None
+createdBy: str | None

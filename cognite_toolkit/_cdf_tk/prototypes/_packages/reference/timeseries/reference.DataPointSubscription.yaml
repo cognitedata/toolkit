@@ -1,7 +1,7 @@
-external_id: str
-partition_count: int
-time_series_ids: list[ExternalId] | None
+externalId: str
+partitionCount: None
+timeSeriesIds: list[ExternalId] | None
 filter: Filter | None
 name: str | None
 description: str | None
-data_set_id: int | None
+dataSetExternalId: str | None

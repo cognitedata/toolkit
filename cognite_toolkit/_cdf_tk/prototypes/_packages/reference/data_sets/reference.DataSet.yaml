@@ -1,8 +1,8 @@
-external_id: str | None
+externalId: str | None
 name: str | None
 description: str | None
 metadata:
-- key1: value1
-  key2: value2
-- None
-write_protected: bool | None
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
+writeProtected: bool | None

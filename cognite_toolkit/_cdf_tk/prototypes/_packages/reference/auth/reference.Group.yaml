@@ -1,9 +1,9 @@
 name: str
-source_id: str | None
+sourceId: str | None
 metadata:
-- key1: value1
-  key2: value2
-- None
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
 members: '''allUserAccounts'' | list[str] | None'
 capabilities:
 - analyticsAcl:
@@ -21,17 +21,25 @@ capabilities:
     - REVIEW
     scope:
       all: {}
+- assetsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - datasetsAcl:
     actions:
     - READ
     - WRITE
     - OWNER
     scope:
-#       all: {}
-#       idScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        idScope:
+#          ids: list[str]
 - digitalTwinAcl:
     actions:
     - READ
@@ -49,63 +57,52 @@ capabilities:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - extractionPipelinesAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       idScope:
-#         ids:
-#         - str
-#         - str
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        idScope:
+#          ids: list[str]
+#        datasetScope:
+#          ids: list[str]
 - extractionRunsAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
-#       extractionPipelineScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+#        extractionPipelineScope:
+#          ids: list[str]
 - extractionConfigsAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
-#       extractionPipelineScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+#        extractionPipelineScope:
+#          ids: list[str]
 - filesAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - functionsAcl:
     actions:
     - READ
@@ -132,18 +129,18 @@ capabilities:
     - LIST
     - UPDATE
     scope:
-#       all: {}
-#       currentuserscope: {}
+#      one of:
+#        all: {}
+#        currentuserscope: {}
 - labelsAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - projectsAcl:
     actions:
     - READ
@@ -159,18 +156,18 @@ capabilities:
     - WRITE
     - LIST
     scope:
-#       all: {}
-#       tableScope: {}
+#      one of:
+#        all: {}
+#        tableScope: {}
 - relationshipsAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - roboticsAcl:
     actions:
     - READ
@@ -178,11 +175,10 @@ capabilities:
     - UPDATE
     - DELETE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - securityCategoriesAcl:
     actions:
     - MEMBEROF
@@ -191,21 +187,19 @@ capabilities:
     - UPDATE
     - DELETE
     scope:
-#       all: {}
-#       idscope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        idscope:
+#          ids: list[str]
 - sequencesAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - sessionsAcl:
     actions:
     - LIST
@@ -220,46 +214,40 @@ capabilities:
     - UPDATE
     - DELETE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - timeSeriesAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
-#       idscope:
-#         ids:
-#         - str
-#         - str
-#       assetRootIdScope: {}
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+#        idscope:
+#          ids: list[str]
+#        assetRootIdScope: {}
 - timeSeriesSubscriptionsAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - transformationsAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - typesAcl:
     actions:
     - READ
@@ -282,38 +270,38 @@ capabilities:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - templateInstancesAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       datasetScope:
-#         ids:
-#         - str
-#         - str
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
 - dataModelInstancesAcl:
     actions:
     - READ
     - WRITE
     - WRITE_PROPERTIES
     scope:
-#       all: {}
-#       spaceIdScope: {}
-#       spaceScope: {}
+#      one of:
+#        all: {}
+#        spaceIdScope: {}
+#        spaceScope: {}
 - dataModelsAcl:
     actions:
     - READ
     - WRITE
     scope:
-#       all: {}
-#       spaceIdScope: {}
-#       dataModelScope: {}
+#      one of:
+#        all: {}
+#        spaceIdScope: {}
+#        dataModelScope: {}
 - pipelinesAcl:
     actions:
     - READ

@@ -1,4 +1,2 @@
 externalId: str
-name: str
 description: str | None
-dataSetExternalId: str | None
