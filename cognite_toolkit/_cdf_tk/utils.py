@@ -61,6 +61,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitResourceMissingError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._version import __version__
 
 if sys.version_info < (3, 10):
@@ -863,10 +864,9 @@ def load_yaml_inject_variables(
         content = content.replace(f"${{{key}}}", value)
     for match in re.finditer(r"\$\{([^}]+)\}", content):
         environment_variable = match.group(1)
-        print(
-            f"[bold yellow]WARNING:[/] Variable {environment_variable} is not set in the environment. "
-            f"It is expected in {filepath.name}."
-        )
+        MediumSeverityWarning(
+            f"Variable {environment_variable} is not set in the environment. It is expected in {filepath.name}."
+        ).print_warning()
 
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
