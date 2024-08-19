@@ -1,7 +1,7 @@
 arrow==1.0.3
 certifi==2023.11.17
 chardet==4.0.0
-cognite-extractor-utils==1.4.2
+cognite-extractor-utils==1.6.2
 cognite-sdk==2.56.1
 dacite==1.8.1
 decorator==4.4.2
