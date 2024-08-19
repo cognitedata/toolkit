@@ -489,6 +489,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
+
+        # The version is always a string from the API, but can be an int when reading from YAML.
+        local_dumped["version"] = str(local_dumped["version"])
+
         if not cdf_resource.implements:
             return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
