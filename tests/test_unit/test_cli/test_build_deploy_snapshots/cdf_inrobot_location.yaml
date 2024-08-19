@@ -1,0 +1,285 @@
+Group:
+- capabilities:
+  - assetsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - APM_Config
+          - cdf_core
+          - cdf_apm
+          - cdf_infield
+          - cdf_apps_shared
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      - WRITE
+      - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_apm
+          - cognite_app_data
+          - sp_<change_me>_source_data
+          - sp_<change_me>_app_data
+  - eventsAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - filesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - groupsAcl:
+      actions:
+      - CREATE
+      - READ
+      - UPDATE
+      - LIST
+      - DELETE
+      scope:
+        all: {}
+  - threedAcl:
+      actions:
+      - READ
+      - CREATE
+      - UPDATE
+      - DELETE
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+      - READ
+      - LIST
+      scope:
+        all: {}
+  - roboticsAcl:
+      actions:
+      - READ
+      - CREATE
+      - UPDATE
+      - DELETE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - timeSeriesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - functionsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - videoStreamingAcl:
+      actions:
+      - READ
+      - SUBSCRIBE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - videoStreamingAcl:
+      actions:
+      - WRITE
+      scope:
+        all: {}
+  metadata:
+    origin: cdf-project-templates
+  name: gp_InRobot_Admin_<change_me>
+  sourceId: <change_me>
+- capabilities:
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - APM_Config
+          - cdf_apm
+          - cdf_infield
+          - cdf_core
+          - cdf_apps_shared
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - APM_Config
+          - cdf_apm
+          - cognite_app_data
+          - sp_<change_me>_source_data
+          - sp_<change_me>_app_data
+  - dataModelInstancesAcl:
+      actions:
+      - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cognite_app_data
+  - eventsAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - filesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - groupsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - threedAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+      - READ
+      - LIST
+      scope:
+        all: {}
+  - roboticsAcl:
+      actions:
+      - READ
+      - CREATE
+      - UPDATE
+      - DELETE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - timeSeriesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - videoStreamingAcl:
+      actions:
+      - READ
+      - SUBSCRIBE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  metadata:
+    origin: cdf-project-templates
+  name: gp_InRobot_Users_<change_me>
+  sourceId: <change_me>
+- capabilities:
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - APM_Config
+          - cdf_core
+          - cdf_apm
+          - cdf_apps_shared
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - APM_Config
+          - cognite_app_data
+          - cdf_apm
+          - sp_<change_me>_source_data
+          - sp_<change_me>_app_data
+  - dataModelInstancesAcl:
+      actions:
+      - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cognite_app_data
+          - cdf_apm
+          - sp_<change_me>_source_data
+          - sp_<change_me>_app_data
+  - filesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - labelsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - roboticsAcl:
+      actions:
+      - READ
+      - CREATE
+      - UPDATE
+      - DELETE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - videoStreamingAcl:
+      actions:
+      - PUBLISH
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  metadata:
+    origin: cdf-project-templates
+  name: gp_Robot_<change_me>
+  sourceId: <change_me>
+Space:
+- description: Space for <change_me> App Data
+  name: sp:inrobot:<change_me>:app_data
+  space: sp_<change_me>_app_data
+- description: Space for InRobot <change_me> Source Data
+  name: sp:inrobot:<change_me>:source
+  space: sp_<change_me>_source_data
