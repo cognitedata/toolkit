@@ -686,6 +686,13 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in cdf_resource.views or []
         )
 
+        # The version is always a string when returned from the API, but locally YAML can read it as an int.
+        # We need to convert it to a string.
+        local_dumped["version"] = str(local_dumped["version"])
+        local_dumped["views"] = [
+            (*space_external_id, str(version)) for *space_external_id, version in local_dumped["views"]
+        ]
+
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def create(self, items: DataModelApplyList) -> DataModelList:
