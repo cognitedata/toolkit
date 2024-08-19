@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- New modules `cognite_modules/inrobot`.
+
 ## [0.2.17] - 2024-07-26
 
 No changes to templates.
