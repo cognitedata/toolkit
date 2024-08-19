@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.commands import DeployCommand
@@ -9,11 +7,9 @@ from tests.test_unit.approval_client import ApprovalCogniteClient
 
 
 class TestDataModelLoader:
-    def test_update_data_model_random_view_order(self, cognite_client_approval: ApprovalCogniteClient):
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
-        cdf_tool.toolkit_client = cognite_client_approval.mock_client
+    def test_update_data_model_random_view_order(
+        self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient
+    ):
         cdf_data_model = dm.DataModel(
             space="sp_space",
             external_id="my_model",
@@ -43,7 +39,7 @@ class TestDataModelLoader:
             name=None,
         )
 
-        loader = DataModelLoader.create_loader(cdf_tool, None)
+        loader = DataModelLoader.create_loader(cdf_tool_config, None)
         cmd = DeployCommand(print_warning=False)
         to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
             dm.DataModelApplyList([local_data_model]), loader
