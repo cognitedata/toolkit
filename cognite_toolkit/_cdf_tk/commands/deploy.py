@@ -359,12 +359,12 @@ class DeployCommand(ToolkitCommand):
         print_outs = []
         prefix = "Would have " if dry_run else ""
         if to_create:
-            print_outs.append(f"{prefix}Created {_print_ids_or_length(loader.get_ids(to_create))}")
+            print_outs.append(f"{prefix}Created {_print_ids_or_length(loader.get_ids(to_create), limit=20)}")
         if to_update:
-            print_outs.append(f"{prefix}Updated {_print_ids_or_length(loader.get_ids(to_update))}")
+            print_outs.append(f"{prefix}Updated {_print_ids_or_length(loader.get_ids(to_update), limit=20)}")
         if unchanged:
             print_outs.append(
-                f"{'Untouched' if dry_run else 'Unchanged'} {_print_ids_or_length(loader.get_ids(unchanged))}"
+                f"{'Untouched' if dry_run else 'Unchanged'} {_print_ids_or_length(loader.get_ids(unchanged), limit=5)}"
             )
         prefix_message = f" {loader.display_name}: "
         if len(print_outs) == 1:
