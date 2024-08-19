@@ -260,7 +260,7 @@ class DeployCommand(ToolkitCommand):
             nr_of_unchanged += len(unchanged)
 
             if to_create:
-                created = self._create_resources(to_create, loader, verbose)
+                created = self._create_resources(to_create, loader)
                 nr_of_created += created
 
             if to_update:
@@ -374,7 +374,7 @@ class DeployCommand(ToolkitCommand):
         else:
             print(f"{prefix_message}{', '.join(print_outs[:-1])} and {print_outs[-1]}")
 
-    def _create_resources(self, resources: T_CogniteResourceList, loader: ResourceLoader, verbose: bool) -> int:
+    def _create_resources(self, resources: T_CogniteResourceList, loader: ResourceLoader) -> int:
         try:
             created = loader.create(resources)
         except CogniteAPIError as e:
