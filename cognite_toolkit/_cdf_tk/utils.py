@@ -964,6 +964,13 @@ def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None 
     return sha256_hash.hexdigest()
 
 
+def calculate_secure_hash(item: dict[str, Any]) -> str:
+    """Calculate a secure hash of a dictionary"""
+    sha256_hash = hashlib.sha512(usedforsecurity=True)
+    sha256_hash.update(json.dumps(item, sort_keys=True).encode("utf-8"))
+    return sha256_hash.hexdigest()
+
+
 def calculate_str_or_file_hash(content: str | Path) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
