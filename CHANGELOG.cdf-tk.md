@@ -52,6 +52,9 @@ Changes are grouped as follows:
   an `UnicodeDecodeError` when importing a manifest with a query file that contains special characters
   on Windows.
 
+- The Toolkit previously detected a version as changed in the cdf-tk deploy command if it was an integer in
+  a DataModel or View resource file. This issue is now fixed.
+
 ## [0.2.17] - 2024-07-26
 
 ### Changed
