@@ -1,11 +1,10 @@
+module_version: '1.1'
+apm_datamodel_space: 'APM_SourceData'
+
+
 # This first location points to the location created by the cdf_oid_example_data module.
 # When you create your own location by copying the cdf_oid_example_data module to
 # set up data sets and groups, the below needs to refer to the location to define.
-
-module_version: '1'
-apm_datamodel_space: 'APM_SourceData'
-apm_app_config_external_id: 'default-infield-config-minimal'
-
 # RAW databases to load workorders and other workorder data from
 # The below values point to the RAW database in the cdf_oid_example_data and should be
 # changed if you want to load workorders from another RAW database.
@@ -17,6 +16,10 @@ workorder_table_name: 'workorders'
 
 # the following properties are required for
 # infield and must be updated for each location
+
+location: first_location
+location_external_id: first_location_external_id
+location_root_asset_external_id: first_location_root_asset_external_id
 infield_location_checklist_admin_users_source_id: <change_me>
 infield_location_normal_users_source_id: <change_me>
 infield_location_template_admin_users_source_id: <change_me>

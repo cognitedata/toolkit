@@ -11,7 +11,7 @@
     cast(current_date() as TIMESTAMP) as startTime,
     cast(date_add(current_date(), 7) as TIMESTAMP) as endTime,
     cast(`title` as STRING) as title,
-    '{{first_root_asset_external_id}}' as rootLocation,
+    '{{location_root_asset_external_id}}' as rootLocation,
     'workmate' as source
   from
     `{{workorder_raw_db}}`.`{{workorder_table_name}}`;
