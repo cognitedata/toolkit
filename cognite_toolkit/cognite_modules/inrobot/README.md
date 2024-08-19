@@ -2,15 +2,16 @@
 
 This module allows you to quickly set up an InRobot project. There are a few pre-requisites:
 
-- You must have an asset heirarchy already set up. Specifically you will need the external id of the root asset for your location.
-
+- You must have an asset heirarchy already set up. Specifically you will need the external id of the root asset for
+  your location.
 - You must have a 3D model already uploaded in Fusion. Note its model id, its revision id, and its name.
-
-- You must have created 4 groups in your source system: Users*<Location>, Admin*<Location>, Robot*1*<Location>, Run_Function_User. The naming does not matter specifically, but you may need to add more locations and/or robots in the future, so it would be ideal to name the groups accordingly.
-
-- You must have created an app registration for the robot, and added the app registration to the robot user group. Note the client id and the secret for the robot app registration.
-
-- You must have already activated the functions service for your project. This can be done in Fusion, and can take up to 2 hours to become activated.
+- You must have created 4 groups in your source system: Users*<Location>, Admin*<Location>, Robot*1*<Location>,
+ Run_Function_User. The naming does not matter specifically, but you may need to add more locations and/or robots in
+ the future, so it would be ideal to name the groups accordingly.
+- You must have created an app registration for the robot, and added the app registration to the robot user group. Note
+  the client id and the secret for the robot app registration.
+- You must have already activated the functions service for your project. This can be done in Fusion, and can take up
+  to 2 hours to become activated.
 
 This module is meant to be used in conjunction with the toolkit common module and the cdf_apm_base module.
 
