@@ -1,8 +1,9 @@
 """Gauge reader handler."""
+from __future__ import annotations
 
 import logging
 import sys
-from typing import Dict, List, Optional
+from typing import Optional
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes import FileMetadataUpdate, LabelFilter, TimeSeriesUpdate
@@ -54,7 +55,7 @@ def update_ts_metadata(client, file_metadata, metadata_keys):
     client.time_series.update(TimeSeriesUpdate(external_id=file_metadata["ts_external_id"]).metadata.add(metadata))
 
 
-def gauge_reading_attributes_from_response(res: Dict, gauge_type: str) -> Optional[Dict]:
+def gauge_reading_attributes_from_response(res: dict, gauge_type: str) -> Optional[dict]:
     """Return the gauge reading annotations from the API response."""
     if not res:
         logger.error("API call failed. Did not get a response.")
@@ -95,7 +96,7 @@ def gauge_reading_attributes_from_response(res: Dict, gauge_type: str) -> Option
     return data
 
 
-def handle_failed_upload(client: CogniteClient, id: int, error_message: str, data: Dict, metadata: Dict = None):
+def handle_failed_upload(client: CogniteClient, id: int, error_message: str, data: dict, metadata: dict | None = None):
     """Log error message and update a file that has failed."""
     logger.error(error_message)
 
@@ -119,7 +120,7 @@ def handle_failed_upload(client: CogniteClient, id: int, error_message: str, dat
         )
 
 
-def to_input_metadata(keys: List[str], metadata: Dict):
+def to_input_metadata(keys: list[str], metadata: dict):
     return {to_camel_case(key): metadata.get(key) for key in keys}
 
 
@@ -293,7 +294,7 @@ def handle(data, client):
             if data["gauge_type"] == "digital":
                 file.metadata["value"] = read_value
             else:
-                file.metadata["value"] = "%.2f" % read_value
+                file.metadata["value"] = f"{read_value:.2f}"
 
             for key in METADATA[data["gauge_type"]]["all"]:
                 key_attribute = to_camel_case(key)

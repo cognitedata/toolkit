@@ -5,7 +5,7 @@ import logging
 import time
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Union
 
 import numpy as np
 import py360convert
@@ -87,7 +87,7 @@ class ThreesixtyImage:
     station_number: str
     tran_unit: str
     rot_angle_unit: str
-    images: Dict[str, Union[str, np.ndarray]]
+    images: dict[str, Union[str, np.ndarray]]
     threesixty_image_metadata: ThreesixtyImageMetadata
 
 
@@ -110,7 +110,7 @@ class CogniteThreeSixtyImageExtractor:
         """Initialize ThreeSixtyImageExtractor."""
         self.data_set_id: int = data_set_id
         self.mime_type = mime_type
-        self.labels: List[Label] = []
+        self.labels: list[Label] = []
 
     class Faces(Enum):
         left = 0
@@ -133,7 +133,7 @@ class CogniteThreeSixtyImageExtractor:
         translation_unit: str,
         translation_offset_mm: VectorXYZ,
         timestamp: int = 0,
-    ) -> Tuple[Event, List[ImageWithFileMetadata]]:
+    ) -> tuple[Event, list[ImageWithFileMetadata]]:
         """Append station measurement to station list for truview."""
         if timestamp == 0 or timestamp is None:
             timestamp = int(time.time() * 1000)
@@ -186,7 +186,7 @@ class CogniteThreeSixtyImageExtractor:
 
     def _create_cdf_files(
         self, three_sixty_image: ThreesixtyImage, resolution: int = 2048
-    ) -> List[ImageWithFileMetadata]:
+    ) -> list[ImageWithFileMetadata]:
         """Create 360 image files from three sixty image.
 
         Six files per 360 image is created, one file per face.
@@ -243,15 +243,15 @@ class CogniteThreeSixtyImageExtractor:
             cube_h[:, (i * w) : (i + 1) * w] = face
         return cube_h
 
-    def _get_cubemap_images(self, content: Union[str, np.ndarray]) -> Union[Dict[str, str], Dict[str, np.ndarray]]:
+    def _get_cubemap_images(self, content: Union[str, np.ndarray]) -> Union[dict[str, str], dict[str, np.ndarray]]:
         """Create cubemap dict from equirectangular image.
 
         Args:
         content: equirectangular
         Returns:
-        cubemaps (Dict[str,np.ndarray]: {<face>: image})
+        cubemaps (dict[str,np.ndarray]: {<face>: image})
         """
-        if type(content) != np.ndarray:
+        if not isinstance(content, np.ndarray):
             logger.error(
                 f"Unsupported input type: Equirectangular extractor"
                 f"only supports np.ndarray images. Got type {type(content)}"
@@ -261,7 +261,7 @@ class CogniteThreeSixtyImageExtractor:
                 f"only supports np.ndarray images. Got type {type(content)}"
             )
 
-        cubemaps: Dict[str, np.ndarray] = {}
+        cubemaps: dict[str, np.ndarray] = {}
         try:
             logger.info("Creating cubemap images from equirectangular image.")
             im = py360convert.e2c(content, face_w=CUBEMAP_RESOLUTION)

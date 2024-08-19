@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import logging
 import tempfile
 from pathlib import Path
-from typing import Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -38,7 +39,7 @@ def get_asset(client, file):
         return client.assets.retrieve(asset_id)
 
 
-def handle_failed_upload(client: CogniteClient, id: int, error_message: str, data: Dict, metadata: Dict = None):
+def handle_failed_upload(client: CogniteClient, id: int, error_message: str, data: dict, metadata: dict | None = None):
     """Log error message and update a file that has failed."""
     print(error_message)
 

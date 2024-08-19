@@ -4,7 +4,7 @@ import io
 import json
 import logging
 import sys
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 from bosdyn.client.math_helpers import Quat, SE3Pose
@@ -21,7 +21,7 @@ CUBEMAP_RESOLUTION = 1024
 global_config.disable_gzip = True
 
 
-def get_map_transform_from_map(client: CogniteClient, map_external_id: str) -> Optional[Dict]:
+def get_map_transform_from_map(client: CogniteClient, map_external_id: str) -> Optional[dict]:
     """Get the transform of a map in the current project based on mission. We asume the frame has the root frame as parent."""
     project = client._config.project
     map_request = {"items": [{"externalId": map_external_id}]}
@@ -57,7 +57,7 @@ def get_map_transform_from_map(client: CogniteClient, map_external_id: str) -> O
     return None
 
 
-def convert_metadata_to_se3_pose(external_id: str, metadata: Dict[str, Any]) -> Optional[SE3Pose]:
+def convert_metadata_to_se3_pose(external_id: str, metadata: dict[str, Any]) -> Optional[SE3Pose]:
     """Convert metadata to SE3Pose."""
     x = metadata.get("waypoint_tform_body_x")
     y = metadata.get("waypoint_tform_body_x")
@@ -81,7 +81,7 @@ def convert_metadata_to_se3_pose(external_id: str, metadata: Dict[str, Any]) -> 
 
 def get_waypoint_and_pose(
     waypoint_id: str, client: CogniteClient
-) -> Tuple[Optional[Dict[str, Any]], Optional[SE3Pose]]:
+) -> tuple[Optional[dict[str, Any]], Optional[SE3Pose]]:
     """Get a waypoint from the robotics api and return the waypoint and pose."""
     get_waypoints_body = {"items": [{"externalId": waypoint_id}]}
     get_waypoints_response = client.post(
@@ -109,7 +109,7 @@ def create_and_upload_360_files(
     cognite_threesixty_image_extractor: CogniteThreeSixtyImageExtractor,
     robot_pose: SE3Pose,
     image: Image,
-    waypoint: Dict[str, Any],
+    waypoint: dict[str, Any],
     timestamp: int,
 ):
     """Create Cogntie three sixty images."""
