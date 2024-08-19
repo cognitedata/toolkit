@@ -48,3 +48,30 @@ class TestDataModelLoader:
         assert len(to_create) == 0
         assert len(to_change) == 0
         assert len(unchanged) == 1
+
+    def test_are_equal_version_int(self, cdf_tool_config: CDFToolConfig) -> None:
+        local_data_model = dm.DataModelApply.load("""space: sp_space
+externalId: my_model
+version: 1
+views:
+  - space: sp_space
+    externalId: first
+    version: 1
+    type: view
+        """)
+        cdf_data_model = dm.DataModel(
+            space="sp_space",
+            external_id="my_model",
+            version="1",
+            views=[dm.ViewId(space="sp_space", external_id="first", version="1")],
+            last_updated_time=1,
+            created_time=1,
+            description=None,
+            name=None,
+            is_global=False,
+        )
+        loader = DataModelLoader.create_loader(cdf_tool_config, None)
+
+        are_equal, local_dumped, cdf_dumped = loader.are_equal(local_data_model, cdf_data_model, return_dumped=True)
+
+        assert local_dumped == cdf_dumped
