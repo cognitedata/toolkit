@@ -254,6 +254,23 @@ variables:
         infield_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
         infield_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
+    inrobot:
+      first_root_asset_external_id: <change_me>
+      first_location: <change_me>
+      robot_1_dataset_ext_id: ds_robot_1
+      cdf_inrobot_common:
+        run_function_user_group_source_id: <change_me>
+        run_function_client_id: <change_me>
+        run_function_secret: <change_me>
+
+      cdf_inrobot_location:
+        inrobot_admin_first_location_source_id: <change_me>
+        inrobot_users_first_location_source_id: <change_me>
+        robot_1_first_location_source_id: <change_me>
+        three_d_model_name: <change_me>
+        three_d_type: <change_me>
+        three_d_model_id: <change_me>
+        three_d_revision_id: <change_me>
 
   custom_modules:
     
