@@ -84,6 +84,20 @@ See [tests](tests/README.md) for more information on how to run tests.
 
 ## Setting up Environment
 
+In order to develop `cdf-tk` you need to set up a development environment. You need a working python
+installation and a virtual environment. We recommend using `poetry` to set up the environment as this is
+the package tool that the toolkit repo uses also to create the installable python package.
+
+When developing, you should use `cdf-tk-dev.py` to run the toolkit. This script will set the environment and paths
+correctly (to avoid running the installed cdf-tk package) and also set the `SENTRY_ENABLED` environment
+variable to `false` to avoid sending errors to Sentry.
+In .vscode/launch.json you will see a number of examples of debugging configurations that you can use to debug.
+If you use VSCode or another IDE supporting devcontainers, the easiest way to set up the environment is to
+run in the Dev Container as configured in .devcontainer. It creates a virtual python environment in .venv/ that
+will automatically be picked up by VSCode or poetry also if you want to run outside the devcontainer.
+
+### Sentry
+
 When you develop `cdf-tk` you should avoid sending errors to  `sentry`. You can control `sentry` by setting
 the  `environment` variable `SENTRY_ENABLED=false`. This is set automatically when you use the `cdf-tk-dev.py`.
 
