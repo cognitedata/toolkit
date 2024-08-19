@@ -3,10 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from cognite.client.data_classes import (
-    Group,
-)
+from cognite.client.data_classes import Group
 from cognite.client.data_classes._base import CogniteResource, CogniteResourceList
+from cognite.client.data_classes.capabilities import Capability, UnknownAcl
 
 
 @dataclass
@@ -16,11 +15,14 @@ class AuthGroupCalls:
 
     @property
     def last_created_capabilities(self) -> set[str]:
-        return {c._capability_name for c in self.calls[-1].capabilities}
+        return {self._get_capability_name(c) for c in self.calls[-1].capabilities}
 
     @property
     def capabilities_all_calls(self) -> set[str]:
-        return {c._capability_name for call in self.calls for c in call.capabilities}
+        return {self._get_capability_name(c) for call in self.calls for c in call.capabilities}
+
+    def _get_capability_name(self, capability: Capability) -> str:
+        return capability.capability_name if isinstance(capability, UnknownAcl) else capability._capability_name
 
 
 @dataclass
