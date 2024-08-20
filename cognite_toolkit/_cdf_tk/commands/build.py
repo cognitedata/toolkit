@@ -422,26 +422,6 @@ class BuildCommand(ToolkitCommand):
             return True
         return False
 
-    @staticmethod
-    def _get_selected_variables(config_variables: dict[str, Any], modules: ModuleDirectories) -> dict[str, Any]:
-        selected_paths = modules.selected.as_path_parts()
-        available_paths = modules.as_path_parts()
-
-        selected_variables: dict[str, Any] = {}
-        to_check: list[tuple[tuple[str, ...], dict[str, Any]]] = [(tuple(), config_variables)]
-        while to_check:
-            path, current = to_check.pop()
-            for key, value in current.items():
-                if isinstance(value, dict) and (*path, key) in available_paths:
-                    to_check.append(((*path, key), value))
-                    continue
-                if path in selected_paths:
-                    selected = selected_variables
-                    for part in path:
-                        selected = selected.setdefault(part, {})
-                    selected[key] = value
-        return selected_variables
-
     def _to_files_by_resource_directory(self, filepaths: list[Path], module_dir: Path) -> dict[str, ResourceDirectory]:
         # Sort to support 1., 2. etc prefixes
         def sort_key(p: Path) -> tuple[int, int, str]:
@@ -680,7 +660,7 @@ class BuildCommand(ToolkitCommand):
         for unmatched in all_unmatched:
             warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
             variable = unmatched[2:-2]
-            if modules := state.modules_by_variable.get(variable):
+            if modules := modules_by_variable.get(variable):
                 module_str = (
                     f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
                 )
