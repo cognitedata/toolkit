@@ -27,5 +27,4 @@ nodes:
           externalId: Alert
           version: 1
           type: view
-        properties:
-          {{ dict_variable }}
+        properties: {{ a_key }}
