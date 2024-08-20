@@ -1,10 +1,9 @@
 externalId: springfield
 name: Springfield
-description: 'The Springfield site'
+description: 'The Springfield site 2'
 dataModels:
   - space: cdf_cdm_experimental
     externalId: core_data_model
     version: v1
-instanceSpaces:
-  - space: sp_sap_springfield_data
+instanceSpaces: ['sp_sap_springfield_data']
 views: []

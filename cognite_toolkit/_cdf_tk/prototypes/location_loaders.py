@@ -46,18 +46,6 @@ class LocationFilterLoader(
             raise KeyError("LocationFilter must have external_id")
         return item.external_id
 
-    # classmethod
-    # @lru_cache(maxsize=1)
-    # def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-    #     spec = super().get_write_cls_parameter_spec()
-
-    #     spec.add(
-    #         ParameterSpec(
-    #             ("data_models", ANY_INT), frozenset({"dict"}), is_required=False, _is_nullable=False
-    #         )
-    #     )
-    #     return spec
-
     def create(self, items: LocationFilterWriteList) -> LocationFilterList:
         return self.client.locations.location_filters.create(items)
 
