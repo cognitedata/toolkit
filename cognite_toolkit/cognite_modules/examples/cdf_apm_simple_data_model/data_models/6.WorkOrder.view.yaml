@@ -81,7 +81,7 @@ properties:
       externalId: Asset
       space: '{{space}}'
       type: view
-      version: 8069f1498c7f9a
+      version: {{view_Asset_version}}
     type:
       externalId: WorkOrder.linkedAssets
       space: '{{space}}'
@@ -142,7 +142,7 @@ properties:
       externalId: WorkItem
       space: '{{space}}'
       type: view
-      version: 94d2b7121128a2
+      version: {{view_WorkItem_version}}
     type:
       externalId: WorkOrder.workItems
       space: '{{space}}'

@@ -21,6 +21,10 @@ Changes are grouped as follows:
 
 - New modules `cognite_modules/inrobot`.
 
+### Fixed
+
+- In the module `cdf_apm_simple_data_model`. The version of the view `6.WorkOrder.view` was incorrect.
+
 ## [0.2.17] - 2024-07-26
 
 No changes to templates.
