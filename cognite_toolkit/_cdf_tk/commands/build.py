@@ -199,7 +199,7 @@ class BuildCommand(ToolkitCommand):
                 else:
                     print(f"    {MODULE_PATH_SEP.join(module)!s}")
 
-        selected_variables = self._get_selected_variables(config.variables, modules.selected)
+        selected_variables = self._get_selected_variables(config.variables, modules)
         warnings = validate_modules_variables(selected_variables, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
@@ -424,20 +424,18 @@ class BuildCommand(ToolkitCommand):
 
     @staticmethod
     def _get_selected_variables(config_variables: dict[str, Any], modules: ModuleDirectories) -> dict[str, Any]:
-        selected_paths = {
-            module.relative_path.parts[1:i]
-            for module in modules
-            if len(module.relative_path.parts) > 1
-            for i in range(2, len(module.relative_path.parts) + 1)
-        }
+        selected_paths = modules.selected.as_paths()
+        available_paths = modules.as_paths()
+
         selected_variables: dict[str, Any] = {}
         to_check: list[tuple[tuple[str, ...], dict[str, Any]]] = [(tuple(), config_variables)]
         while to_check:
             path, current = to_check.pop()
             for key, value in current.items():
-                if isinstance(value, dict):
+                if isinstance(value, dict) and (*path, key) in available_paths:
                     to_check.append(((*path, key), value))
-                elif path in selected_paths:
+                    continue
+                if path in selected_paths:
                     selected = selected_variables
                     for part in path:
                         selected = selected.setdefault(part, {})

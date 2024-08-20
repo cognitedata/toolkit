@@ -63,6 +63,14 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def selected(self) -> ModuleDirectories:
         return ModuleDirectories([module for module in self if module.is_selected])
 
+    def as_paths(self) -> set[tuple[str, ...]]:
+        return {
+            module.relative_path.parts[:i]
+            for module in self
+            # if len(module.relative_path.parts) > 1
+            for i in range(len(module.relative_path.parts) + 1)
+        }  # | {tuple()} # Include the top level directory
+
     @classmethod
     def load(
         cls,
