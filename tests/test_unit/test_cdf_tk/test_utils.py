@@ -23,6 +23,7 @@ from cognite.client.exceptions import CogniteAuthError
 from cognite.client.testing import CogniteClientMock, monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Variable
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -109,28 +110,28 @@ class TestLoadYamlInjectVariables:
 
 
 @pytest.mark.parametrize(
-    "config_yaml, expected_warnings",
+    "variable, expected_warnings",
     [
         pytest.param(
-            {"sourceId": "<change_me>"},
+            Variable("sourceId", "<change_me>", False, ()),
             [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "")],
             id="Single warning",
         ),
         pytest.param(
-            {"a_module": {"sourceId": "<change_me>"}},
+            Variable("sourceId", "<change_me>", False, ("a_module",)),
             [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "a_module")],
             id="Nested warning",
         ),
         pytest.param(
-            {"a_super_module": {"a_module": {"sourceId": "<change_me>"}}},
+            Variable("sourceId", "<change_me>", False, ("a_super_module", "a_module")),
             [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "a_super_module.a_module")],
             id="Deep nested warning",
         ),
-        pytest.param({"a_module": {"sourceId": "123"}}, [], id="No warning"),
+        pytest.param(Variable("sourceId", "123", False, ("a_module",)), [], id="No warning"),
     ],
 )
-def test_validate_config_yaml(config_yaml: dict[str, Any], expected_warnings: list[TemplateVariableWarning]) -> None:
-    warnings = validate_modules_variables(config_yaml, Path("config.yaml"))
+def test_validate_config_yaml(variable: Variable, expected_warnings: list[TemplateVariableWarning]) -> None:
+    warnings = validate_modules_variables(BuildVariables([variable]), Path("config.yaml"))
 
     assert sorted(warnings) == sorted(expected_warnings)
 

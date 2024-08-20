@@ -4,14 +4,23 @@ import re
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from pathlib import Path
 from typing import Any, SupportsIndex, overload
 
-from ._module_directories import ModuleDirectories
+from ._module_directories import ModuleDirectories, ModuleLocation
 
 
 @dataclass(frozen=True)
 class Variable:
+    """This represent a build variable in a config.[env].file
+
+    Args:
+        key: The name of the variable.
+        value: The value of the variable.
+        is_selected: Whether the variable is selected by the user through Environment.selected
+        location: The location for the variable which is used to determine the module(s) it belongs to
+
+    """
+
     key: str
     value: str | int | float | bool | list[str | int | float | bool] | dict[str, str | int | float | bool]
     is_selected: bool
@@ -54,10 +63,12 @@ class BuildVariables(tuple, Sequence[Variable]):
 
         return cls(variables)
 
-    def get_module_variables(self, relative_path: Path) -> "BuildVariables":
-        raise NotImplementedError
+    def get_module_variables(self, module: ModuleLocation) -> BuildVariables:
+        """Gets the variables for a specific module."""
+        raise NotImplementedError()
+        # return BuildVariables([variable for variable in self if variable.location == tuple(relative_path.parts)])
 
-    def replace_variables(self, content: str, file_suffix: str = ".yaml") -> str:
+    def replace(self, content: str, file_suffix: str = ".yaml") -> str:
         for variable in self:
             replace = variable.value
             _core_patter = rf"{{{{\s*{variable.key}\s*}}}}"
@@ -73,7 +84,6 @@ class BuildVariables(tuple, Sequence[Variable]):
 
         return content
 
-
     # Implemented to get correct type hints
     def __iter__(self) -> Iterator[Variable]:
         return super().__iter__()
@@ -88,5 +98,3 @@ class BuildVariables(tuple, Sequence[Variable]):
         if isinstance(index, slice):
             return BuildVariables(super().__getitem__(index))
         return super().__getitem__(index)
-
-

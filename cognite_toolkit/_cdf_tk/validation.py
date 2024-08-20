@@ -32,13 +32,14 @@ def validate_modules_variables(variables: BuildVariables, filepath: Path) -> War
     Args:
         variables: The variables to check.
         filepath: The filepath of the config.yaml.
-        path: The path in the config.yaml. This is used recursively by this function.
     """
     warning_list: WarningList = WarningList()
     pattern = re.compile(r"<.*?>")
     for variable in variables:
         if isinstance(variable.value, str) and pattern.match(variable.value):
-            warning_list.append(TemplateVariableWarning(filepath, variable.value, variable.key, ".".join(variable.location)))
+            warning_list.append(
+                TemplateVariableWarning(filepath, variable.value, variable.key, ".".join(variable.location))
+            )
     return warning_list
 
 

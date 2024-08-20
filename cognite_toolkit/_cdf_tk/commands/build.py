@@ -8,7 +8,7 @@ import re
 import shutil
 import sys
 import traceback
-from collections import ChainMap, Counter, defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,14 +27,13 @@ from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     INDEX_PATTERN,
     MODULE_PATH_SEP,
-    ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
+    BuildVariables,
     ModuleDirectories,
     SystemYAML,
-    BuildVariables,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -83,7 +82,6 @@ from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_str_or_file_hash,
     get_cicd_environment,
-    module_from_path,
     read_yaml_content,
     resource_folder_from_path,
     safe_read,
@@ -276,7 +274,7 @@ class BuildCommand(ToolkitCommand):
             if verbose:
                 print(f"  [bold green]INFO:[/] Processing module {module.name}")
 
-            module_variables = variables.get_module_variables(module.relative_path)
+            module_variables = variables.get_module_variables(module)
 
             files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
 
@@ -287,7 +285,9 @@ class BuildCommand(ToolkitCommand):
                         source_path, resource_directory_name, module.dir, build_dir
                     )
 
-                    self._replace_variables_validate_to_build_directory(source_path, destination, module_variables, state, verbose)
+                    self._replace_variables_validate_to_build_directory(
+                        source_path, destination, module_variables, state, verbose
+                    )
                     build_folder.append(destination)
 
                 if resource_directory_name == FunctionLoader.folder_name:
@@ -369,7 +369,7 @@ class BuildCommand(ToolkitCommand):
         content = safe_read(source_path)
         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
 
-        content = variables.replace_variables(content, source_path.suffix)
+        content = variables.replace(content, source_path.suffix)
 
         safe_write(destination_path, content)
         state.source_by_build_path[destination_path] = source_path
@@ -675,23 +675,24 @@ class BuildCommand(ToolkitCommand):
         verbose: bool,
     ) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
-        module = module_from_path(source_path)
+        # module = module_from_path(source_path)
         resource_folder = resource_folder_from_path(source_path)
 
         all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
         for unmatched in all_unmatched:
             warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
-            variable = unmatched[2:-2]
-            if modules := state.modules_by_variable.get(variable):
-                module_str = (
-                    f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
-                )
-                print(
-                    f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
-                    f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
-                    f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
-                    f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
-                )
+            raise NotImplementedError()
+            # variable = unmatched[2:-2]
+            # if modules := state.modules_by_variable.get(variable):
+            #     module_str = (
+            #         f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
+            #     )
+            #     print(
+            #         f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+            #         f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
+            #         f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
+            #         f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
+            #     )
 
         if destination.suffix not in {".yaml", ".yml"}:
             return warning_list
@@ -872,33 +873,3 @@ class ResourceDirectory:
 
     resource_files: list[Path] = field(default_factory=list)
     other_files: list[Path] = field(default_factory=list)
-
-
-class _Helpers:
-    @staticmethod
-    def create_local_config(config: dict[str, Any], module_dir: Path) -> Mapping[str, str]:
-        maps = []
-        parts = module_dir.parts
-        for root_module in ROOT_MODULES:
-            if parts[0] != root_module and root_module in parts:
-                parts = parts[parts.index(root_module) :]
-        for no in range(len(parts), -1, -1):
-            if c := config.get(".".join(parts[:no])):
-                maps.append(c)
-        return ChainMap(*maps)
-
-    @classmethod
-    def to_variables_by_module_path(cls, config: dict[str, Any]) -> dict[str, dict[str, str]]:
-        configs: dict[str, dict[str, str]] = {}
-        cls._split_config(config, configs, prefix="")
-        return configs
-
-    @classmethod
-    def _split_config(cls, config: dict[str, Any], configs: dict[str, dict[str, str]], prefix: str = "") -> None:
-        for key, value in config.items():
-            if isinstance(value, dict):
-                if prefix and not prefix.endswith("."):
-                    prefix = f"{prefix}."
-                cls._split_config(value, configs, prefix=f"{prefix}{key}")
-            else:
-                configs.setdefault(prefix.removesuffix("."), {})[key] = value
