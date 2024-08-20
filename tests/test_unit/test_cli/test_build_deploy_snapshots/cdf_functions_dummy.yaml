@@ -8,6 +8,7 @@ Function:
   functionPath: ./src/handler.py
   metadata:
     cdf-toolkit-function-hash: 167a93ebb122be9572a39193e1a6847eeb7c0bbbc2cf6d1ab0c175e46352a62d
+    cdf-toolkit-secret-hash: 05fd62b78df3a4afa1e306e51da28e794ffb1795649382ee76f32d8e291379f83bab6543da166b71e90562758daf5828c397e4419405d280f4c1946f2f891bbb
     version: 0.0.1
   name: example:repeater
   owner: Anonymous

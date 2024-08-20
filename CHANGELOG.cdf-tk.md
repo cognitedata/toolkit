@@ -19,6 +19,9 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- When running `cdf-tk deploy`, the Toolkit would not detect `Function` secrets that were changed, which leads to the
+  `Function` not being updated. This is now fixed.
+
 - [Feature Preview] improved `--interactive / -i` for `dump asset` and `dump timeseries`
   - which can list datasets or assets with `clear-name (external_id) [count]`
 
