@@ -179,3 +179,29 @@ class TestViewLoader:
         actual = ViewLoader.get_dependent_items(item)
 
         assert list(actual) == expected
+
+    def test_are_equal_version_int(self, cdf_tool_config: CDFToolConfig) -> None:
+        local_view = dm.ViewApply.load("""space: sp_space
+externalId: my_view
+version: 1""")
+        cdf_view = dm.View(
+            space="sp_space",
+            external_id="my_view",
+            version="1",
+            last_updated_time=1,
+            created_time=1,
+            description=None,
+            name=None,
+            filter=None,
+            implements=None,
+            writable=True,
+            used_for="node",
+            is_global=False,
+            properties={},
+        )
+
+        loader = ViewLoader.create_loader(cdf_tool_config, None)
+
+        _, local_dumped, cdf_dumped = loader.are_equal(local_view, cdf_view, return_dumped=True)
+
+        assert local_dumped == cdf_dumped
