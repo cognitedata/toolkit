@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
-
-import pytest
-
 from cognite_toolkit._cdf_tk.commands import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, SystemYAML
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import iterate_modules
 from tests.data import PROJECT_FOR_TEST
@@ -31,35 +26,3 @@ class TestBuildConfigYAML:
             dir_.name for dir_ in BUILD_DIR.iterdir() if dir_.is_dir() and dir_.name not in LOADER_BY_FOLDER_NAME
         ]
         assert not invalid_resource_folders, f"Invalid resource folders after build: {invalid_resource_folders}"
-
-    @pytest.mark.parametrize(
-        "modules, expected_available_modules",
-        [
-            pytest.param({"another_module": {}}, ["another_module"], id="Single module"),
-            pytest.param(
-                {
-                    "cognite_modules": {
-                        "top_variable": "my_top_variable",
-                        "a_module": {
-                            "source_id": "123-456-789",
-                        },
-                        "parent_module": {
-                            "parent_variable": "my_parent_variable",
-                            "child_module": {
-                                "dataset_external_id": "ds_my_dataset",
-                            },
-                        },
-                        "module_without_variables": {},
-                    }
-                },
-                ["a_module", "child_module", "module_without_variables"],
-                id="Multiple nested modules",
-            ),
-        ],
-    )
-    def test_available_modules(
-        self, modules: dict[str, Any], expected_available_modules: list[str], dummy_environment: Environment
-    ) -> None:
-        config = BuildConfigYAML(dummy_environment, filepath=Path("dummy"), variables=modules)
-
-        assert sorted(config.available_modules) == sorted(expected_available_modules)

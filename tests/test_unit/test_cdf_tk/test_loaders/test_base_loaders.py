@@ -18,6 +18,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
+from cognite_toolkit._cdf_tk.constants import ROOT_MODULES
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     Environment,
@@ -221,7 +222,9 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
         config.set_environment_variables()
         # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
         config.variables.pop("_cdf_tk", None)
-        config.environment.selected = config.available_modules
+        # Use path syntax to select all modules in the source directory
+        top_directories = {dir_.name for dir_ in source_path.iterdir() if dir_.is_dir()}
+        config.environment.selected = [(root_module,) for root_module in ROOT_MODULES if root_module in top_directories]
 
         source_by_build_path = BuildCommand().build_config(
             build_dir=build_dir,

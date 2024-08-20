@@ -16,6 +16,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
+from cognite_toolkit._cdf_tk.constants import ROOT_MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedResourceError,
@@ -387,15 +388,17 @@ class PullCommand(ToolkitCommand):
         source_path = Path(source_dir)
         if not source_path.is_dir():
             raise ToolkitNotADirectoryError(str(source_path))
-
+        top_source_directories = {dir_.name for dir_ in source_path.iterdir() if dir_.is_dir()}
         with tmp_build_directory() as build_dir:
             system_config = SystemYAML.load_from_directory(source_path, env)
             config = BuildConfigYAML.load_from_directory(source_path, env)
             config.set_environment_variables()
             # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
             config.variables.pop("_cdf_tk", None)
-            # Todo do not use the variables to find the available modules.
-            config.environment.selected = config.available_modules
+            # Use path syntax to select all modules in the source directory
+            config.environment.selected = [
+                (root_module,) for root_module in ROOT_MODULES if root_module in top_source_directories
+            ]
             print(
                 Panel.fit(
                     f"[bold]Building all modules found in {config.filepath} (not only the modules under "
