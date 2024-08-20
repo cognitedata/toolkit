@@ -16,3 +16,4 @@ variables:
       source: src2
       ds_something: ds_something
       dict_variable: empty
+      a_key: some_value
