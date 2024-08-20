@@ -141,5 +141,5 @@ class TestCheckYamlSemantics:
         cmd = BuildCommand(print_warning=False)
         # Only used in error messages
         destination = Path("build/raw/raw.yaml")
-        yaml_warnings = cmd.validate(raw_yaml, source_path, destination, state, False)
+        yaml_warnings = cmd.validate(raw_yaml, source_path, destination, state, {}, False)
         assert not yaml_warnings

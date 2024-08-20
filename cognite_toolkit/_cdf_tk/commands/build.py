@@ -205,7 +205,16 @@ class BuildCommand(ToolkitCommand):
             for warning in warnings:
                 print(f"    {warning.get_message()}")
 
-        state = self.process_config_files(modules.selected, build_dir, variables, verbose)
+        # This structure is used in a hint in case the user misplaces a variable in the wrong module.
+        # From a code architecture perspective, it is not ideal to create this structure here and
+        # then pass it through multiple functions. Unfortunately, I do not see a better way to do this.
+        module_names_by_variable_key: dict[str, list[str]] = defaultdict(list)
+        for variable in variables:
+            for module_location in modules:
+                if variable.location in module_location.relative_path.parts:
+                    module_names_by_variable_key[variable.key].append(module_location.name)
+
+        state = self.process_config_files(modules.selected, build_dir, variables, module_names_by_variable_key, verbose)
         self._check_missing_dependencies(state, source_dir, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
@@ -266,6 +275,7 @@ class BuildCommand(ToolkitCommand):
         modules: ModuleDirectories,
         build_dir: Path,
         variables: BuildVariables,
+        module_names_by_variable_key: dict[str, list[str]],
         verbose: bool = False,
     ) -> _BuildState:
         state = _BuildState()
@@ -285,7 +295,7 @@ class BuildCommand(ToolkitCommand):
                     )
 
                     self._replace_variables_validate_to_build_directory(
-                        source_path, destination, module_variables, state, verbose
+                        source_path, destination, module_variables, state, module_names_by_variable_key, verbose
                     )
                     build_folder.append(destination)
 
@@ -356,7 +366,13 @@ class BuildCommand(ToolkitCommand):
                 )
 
     def _replace_variables_validate_to_build_directory(
-        self, source_path: Path, destination_path: Path, variables: BuildVariables, state: _BuildState, verbose: bool
+        self,
+        source_path: Path,
+        destination_path: Path,
+        variables: BuildVariables,
+        state: _BuildState,
+        module_names_by_variable_key: dict[str, list[str]],
+        verbose: bool,
     ) -> None:
         if verbose:
             print(f"    [bold green]INFO:[/] Processing {source_path.name}")
@@ -371,7 +387,9 @@ class BuildCommand(ToolkitCommand):
         safe_write(destination_path, content)
         state.source_by_build_path[destination_path] = source_path
 
-        file_warnings = self.validate(content, source_path, destination_path, state, verbose)
+        file_warnings = self.validate(
+            content, source_path, destination_path, state, module_names_by_variable_key, verbose
+        )
         if file_warnings:
             self.warning_list.extend(file_warnings)
             # Here we do not use the self.warn method as we want to print the warnings as a group.
@@ -649,6 +667,7 @@ class BuildCommand(ToolkitCommand):
         source_path: Path,
         destination: Path,
         state: _BuildState,
+        module_names_by_variable_key: dict[str, list[str]],
         verbose: bool,
     ) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
@@ -659,15 +678,17 @@ class BuildCommand(ToolkitCommand):
         for unmatched in all_unmatched:
             warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
             variable = unmatched[2:-2]
-            if modules := modules_by_variable.get(variable):
+            if module_names := module_names_by_variable_key.get(variable):
                 module_str = (
-                    f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
+                    f"{module_names[0]!r}"
+                    if len(module_names) == 1
+                    else (", ".join(module_names[:-1]) + f" or {module_names[-1]}")
                 )
                 print(
                     f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
-                    f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
-                    f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
-                    f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
+                    f"\n    the folder structure of the modules, but can also be moved up the config hierarchy to be shared between modules."
+                    f"\n    The variable {variable!r} is defined in the variable section{'s' if len(module_names) > 1 else ''} {module_str}."
+                    f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} the location of {module}."
                 )
 
         if destination.suffix not in {".yaml", ".yml"}:

@@ -1,4 +1,4 @@
-from ._build_variables import BuildVariables, Variable
+from ._build_variables import BuildVariable, BuildVariables
 from ._config_yaml import (
     BuildConfigYAML,
     BuildEnvironment,
@@ -29,6 +29,6 @@ __all__ = [
     "ConfigEntry",
     "ModuleLocation",
     "ModuleDirectories",
-    "Variable",
+    "BuildVariable",
     "BuildVariables",
 ]
