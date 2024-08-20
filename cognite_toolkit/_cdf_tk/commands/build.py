@@ -9,7 +9,7 @@ import shutil
 import sys
 import traceback
 from collections import ChainMap, Counter, defaultdict
-from collections.abc import Hashable, Mapping, Sequence
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -263,37 +263,37 @@ class BuildCommand(ToolkitCommand):
     def process_config_files(
         self,
         project_config_dir: Path,
-        module_directories: Sequence[tuple[Path, list[Path]]],
+        modules: ModuleDirectories,
         build_dir: Path,
         config: BuildConfigYAML,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
     ) -> _BuildState:
         state = _BuildState.create(config)
-        for module_dir, source_paths in module_directories:
+        for module in modules:
             if verbose:
-                print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
+                print(f"  [bold green]INFO:[/] Processing module {module.name}")
 
-            state.update_local_variables(module_dir)
+            state.update_local_variables(module.dir)
 
-            files_by_resource_directory = self._to_files_by_resource_directory(source_paths, module_dir)
+            files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
 
             for resource_directory_name, directory_files in files_by_resource_directory.items():
                 build_folder: list[Path] = []
                 for source_path in directory_files.resource_files:
                     destination = state.create_destination_path(
-                        source_path, resource_directory_name, module_dir, build_dir
+                        source_path, resource_directory_name, module.dir, build_dir
                     )
 
                     self._replace_variables_validate_to_build_directory(source_path, destination, state, verbose)
                     build_folder.append(destination)
 
                 if resource_directory_name == FunctionLoader.folder_name:
-                    self._validate_function_directory(state, directory_files, module_dir)
+                    self._validate_function_directory(state, directory_files, module.dir)
                     self.validate_and_copy_function_directory_to_build(
                         resource_files_build_folder=build_folder,
                         state=state,
-                        module_dir=module_dir,
+                        module_dir=module.dir,
                         build_dir=build_dir,
                     )
                 elif resource_directory_name == FileLoader.folder_name:
@@ -301,14 +301,14 @@ class BuildCommand(ToolkitCommand):
                         file_to_upload=directory_files.other_files,
                         resource_files_build_folder=build_folder,
                         state=state,
-                        module_dir=module_dir,
+                        module_dir=module.dir,
                         build_dir=build_dir,
                         verbose=verbose,
                     )
                 else:
                     for source_path in directory_files.other_files:
                         destination = state.create_destination_path(
-                            source_path, resource_directory_name, module_dir, build_dir
+                            source_path, resource_directory_name, module.dir, build_dir
                         )
                         destination.parent.mkdir(parents=True, exist_ok=True)
                         if (
@@ -422,14 +422,12 @@ class BuildCommand(ToolkitCommand):
         return False
 
     @staticmethod
-    def _get_selected_variables(
-        config_variables: dict[str, Any], module_directories: list[tuple[Path, list[Path]]]
-    ) -> dict[str, Any]:
+    def _get_selected_variables(config_variables: dict[str, Any], modules: ModuleDirectories) -> dict[str, Any]:
         selected_paths = {
-            dir_.parts[1:i]
-            for dir_, _ in module_directories
-            if len(dir_.parts) > 1
-            for i in range(2, len(dir_.parts) + 1)
+            module.dir.parts[1:i]
+            for module in modules
+            if len(module.dir.parts) > 1
+            for i in range(2, len(module.dir.parts) + 1)
         }
         selected_variables: dict[str, Any] = {}
         to_check: list[tuple[tuple[str, ...], dict[str, Any]]] = [(tuple(), config_variables)]

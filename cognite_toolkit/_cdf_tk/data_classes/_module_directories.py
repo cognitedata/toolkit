@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Collection, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
+from typing import SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.utils import iterate_modules
 
@@ -13,20 +14,20 @@ from cognite_toolkit._cdf_tk.utils import iterate_modules
 class ModuleLocation:
     """This represents the location of a module in a directory structure."""
 
-    relative_path: Path
+    dir: Path
     source_absolute_path: Path
     is_selected: bool
     source_paths: list[Path]
 
     @property
     def name(self) -> str:
-        return self.relative_path.name
+        return self.dir.name
 
     @property
     def module_references(self) -> Iterable[str | tuple[str, ...]]:
         """Ways of selecting this module."""
-        yield self.module_name
-        module_parts = self.relative_path.parts
+        yield self.name
+        module_parts = self.dir.parts
         for i in range(1, len(module_parts) + 1):
             yield module_parts[:i]
 
@@ -84,5 +85,20 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def as_parts_by_name(self) -> dict[str, list[tuple[str, ...]]]:
         module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
         for module in self:
-            module_parts_by_name[module.name].append(module.relative_path.parts)
+            module_parts_by_name[module.name].append(module.dir.parts)
         return module_parts_by_name
+
+    # Implemented to get correct type hints
+    def __iter__(self) -> Iterator[ModuleLocation]:
+        return super().__iter__()
+
+    @overload
+    def __getitem__(self, index: SupportsIndex) -> ModuleLocation: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> ModuleDirectories: ...
+
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ModuleLocation | ModuleDirectories:
+        if isinstance(index, slice):
+            return ModuleDirectories(super().__getitem__(index))
+        return super().__getitem__(index)

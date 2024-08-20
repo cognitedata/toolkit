@@ -11,19 +11,19 @@ class TestModuleDirectories:
         expected = ModuleDirectories(
             [
                 ModuleLocation(
-                    relative_path=cognite_modules / Path("a_module"),
+                    dir=cognite_modules / Path("a_module"),
                     source_absolute_path=data.PROJECT_FOR_TEST,
                     is_selected=True,
                     source_paths=[],
                 ),
                 ModuleLocation(
-                    relative_path=cognite_modules / Path("another_module"),
+                    dir=cognite_modules / Path("another_module"),
                     source_absolute_path=data.PROJECT_FOR_TEST,
                     is_selected=True,
                     source_paths=[],
                 ),
                 ModuleLocation(
-                    relative_path=cognite_modules / Path("parent_module") / "child_module",
+                    dir=cognite_modules / Path("parent_module") / "child_module",
                     source_absolute_path=data.PROJECT_FOR_TEST,
                     is_selected=True,
                     source_paths=[],
