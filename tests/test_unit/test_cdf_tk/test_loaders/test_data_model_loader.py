@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.commands import DeployCommand
@@ -9,11 +7,9 @@ from tests.test_unit.approval_client import ApprovalCogniteClient
 
 
 class TestDataModelLoader:
-    def test_update_data_model_random_view_order(self, cognite_client_approval: ApprovalCogniteClient):
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
-        cdf_tool.toolkit_client = cognite_client_approval.mock_client
+    def test_update_data_model_random_view_order(
+        self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient
+    ):
         cdf_data_model = dm.DataModel(
             space="sp_space",
             external_id="my_model",
@@ -43,7 +39,7 @@ class TestDataModelLoader:
             name=None,
         )
 
-        loader = DataModelLoader.create_loader(cdf_tool, None)
+        loader = DataModelLoader.create_loader(cdf_tool_config, None)
         cmd = DeployCommand(print_warning=False)
         to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
             dm.DataModelApplyList([local_data_model]), loader
@@ -52,3 +48,30 @@ class TestDataModelLoader:
         assert len(to_create) == 0
         assert len(to_change) == 0
         assert len(unchanged) == 1
+
+    def test_are_equal_version_int(self, cdf_tool_config: CDFToolConfig) -> None:
+        local_data_model = dm.DataModelApply.load("""space: sp_space
+externalId: my_model
+version: 1
+views:
+  - space: sp_space
+    externalId: first
+    version: 1
+    type: view
+        """)
+        cdf_data_model = dm.DataModel(
+            space="sp_space",
+            external_id="my_model",
+            version="1",
+            views=[dm.ViewId(space="sp_space", external_id="first", version="1")],
+            last_updated_time=1,
+            created_time=1,
+            description=None,
+            name=None,
+            is_global=False,
+        )
+        loader = DataModelLoader.create_loader(cdf_tool_config, None)
+
+        are_equal, local_dumped, cdf_dumped = loader.are_equal(local_data_model, cdf_data_model, return_dumped=True)
+
+        assert local_dumped == cdf_dumped
