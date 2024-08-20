@@ -193,7 +193,8 @@ class BuildCommand(ToolkitCommand):
             raise ToolkitDuplicatedModuleError(
                 f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
             )
-        system_config.validate_modules(available_modules, config.environment.selected)
+
+        system_config.validate_packages(available_modules, config.environment.selected)
 
         selected_modules = config.get_selected_modules(system_config.packages, available_modules, source_dir, verbose)
 

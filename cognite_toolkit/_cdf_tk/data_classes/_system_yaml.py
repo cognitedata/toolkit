@@ -47,7 +47,7 @@ class SystemYAML(ConfigCore):
             },
         )
 
-    def validate_modules(
+    def validate_packages(
         self, available_modules: set[str | tuple[str, ...]], selected_modules_and_packages: list[str | tuple[str, ...]]
     ) -> None:
         selected_packages = {
