@@ -13,5 +13,6 @@
       "before 5am every weekday"
     ]
   }
-]
+],
+  "ignorePaths": ["cognite_toolkit/**"]
 }

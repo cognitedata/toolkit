@@ -489,6 +489,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
+
+        # The version is always a string from the API, but can be an int when reading from YAML.
+        local_dumped["version"] = str(local_dumped["version"])
+
         if not cdf_resource.implements:
             return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
@@ -685,6 +689,13 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         cdf_dumped["views"] = sorted(
             (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in cdf_resource.views or []
         )
+
+        # The version is always a string when returned from the API, but locally YAML can read it as an int.
+        # We need to convert it to a string.
+        local_dumped["version"] = str(local_dumped["version"])
+        local_dumped["views"] = [
+            (*space_external_id, str(version)) for *space_external_id, version in local_dumped["views"]
+        ]
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
