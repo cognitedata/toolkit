@@ -82,6 +82,7 @@ from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_str_or_file_hash,
     get_cicd_environment,
+    module_from_path,
     read_yaml_content,
     resource_folder_from_path,
     safe_read,
@@ -205,7 +206,8 @@ class BuildCommand(ToolkitCommand):
             for warning in warnings:
                 print(f"    {warning.get_message()}")
 
-        state = self.process_config_files(source_dir, modules.selected, build_dir, variables, verbose, ToolGlobals)
+        state = self.process_config_files(modules.selected, build_dir, variables, verbose)
+        self._check_missing_dependencies(state, source_dir, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
@@ -262,12 +264,10 @@ class BuildCommand(ToolkitCommand):
 
     def process_config_files(
         self,
-        project_config_dir: Path,
         modules: ModuleDirectories,
         build_dir: Path,
         variables: BuildVariables,
         verbose: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
     ) -> _BuildState:
         state = _BuildState()
         for module in modules:
@@ -325,8 +325,6 @@ class BuildCommand(ToolkitCommand):
                                 )
                             # Copy the file as is, not variable replacement
                             shutil.copyfile(source_path, destination)
-
-        self._check_missing_dependencies(state, project_config_dir, ToolGlobals)
         return state
 
     def _validate_function_directory(
@@ -675,24 +673,23 @@ class BuildCommand(ToolkitCommand):
         verbose: bool,
     ) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
-        # module = module_from_path(source_path)
+        module = module_from_path(source_path)
         resource_folder = resource_folder_from_path(source_path)
 
         all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
         for unmatched in all_unmatched:
             warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
-            raise NotImplementedError()
-            # variable = unmatched[2:-2]
-            # if modules := state.modules_by_variable.get(variable):
-            #     module_str = (
-            #         f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
-            #     )
-            #     print(
-            #         f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
-            #         f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
-            #         f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
-            #         f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
-            #     )
+            variable = unmatched[2:-2]
+            if modules := state.modules_by_variable.get(variable):
+                module_str = (
+                    f"{modules[0]!r}" if len(modules) == 1 else (", ".join(modules[:-1]) + f" or {modules[-1]}")
+                )
+                print(
+                    f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                    f"\n    the folder structure of the template modules, but can also be moved up the config hierarchy to be shared between modules."
+                    f"\n    The variable {variable!r} is defined in the variable section{'s' if len(modules) > 1 else ''} {module_str}."
+                    f"\n    Check that {'these paths reflect' if len(modules) > 1 else 'this path reflects'} the location of {module}."
+                )
 
         if destination.suffix not in {".yaml", ".yml"}:
             return warning_list
