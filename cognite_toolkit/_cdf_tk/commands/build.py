@@ -425,10 +425,10 @@ class BuildCommand(ToolkitCommand):
     @staticmethod
     def _get_selected_variables(config_variables: dict[str, Any], modules: ModuleDirectories) -> dict[str, Any]:
         selected_paths = {
-            module.dir.parts[1:i]
+            module.relative_path.parts[1:i]
             for module in modules
-            if len(module.dir.parts) > 1
-            for i in range(2, len(module.dir.parts) + 1)
+            if len(module.relative_path.parts) > 1
+            for i in range(2, len(module.relative_path.parts) + 1)
         }
         selected_variables: dict[str, Any] = {}
         to_check: list[tuple[tuple[str, ...], dict[str, Any]]] = [(tuple(), config_variables)]
