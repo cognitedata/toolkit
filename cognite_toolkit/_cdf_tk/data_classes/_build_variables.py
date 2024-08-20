@@ -33,7 +33,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
     The motivation for this class is to provide helper functions for the user to interact with the build variables.
     """
 
-    # Subclassing tuple to make the class immutable. ModuleDirectories is expected to be initialized and
+    # Subclassing tuple to make the class immutable. BuildVariables is expected to be initialized and
     # then used as a read-only object.
     def __new__(cls, collection: Collection[BuildVariable]) -> BuildVariables:
         # Need to override __new__ to as we are subclassing a tuple:
@@ -62,9 +62,9 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                 subpath = (*path, key)
                 if subpath in available_modules and isinstance(value, dict):
                     to_check.append((subpath, value))
-                # elif isinstance(value, dict):
-                #     # Remove this check to support variables with dictionary values.
-                #     continue
+                elif isinstance(value, dict):
+                    # Remove this check to support variables with dictionary values.
+                    continue
                 else:
                     variables.append(BuildVariable(key, value, path in selected_modules, path))
 
