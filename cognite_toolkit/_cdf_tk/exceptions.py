@@ -128,6 +128,9 @@ class ToolkitValueError(ValueError, ToolkitError):
     pass
 
 
+class ToolkitTypeError(TypeError, ToolkitError): ...
+
+
 class ToolkitRequiredValueError(ToolkitError, ValueError):
     pass
 

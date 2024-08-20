@@ -12,7 +12,7 @@ class TestDeployCommand:
     def test_load_files(self, cdf_tool_config: CDFToolConfig) -> None:
         path = MagicMock(spec=Path)
         path.name = "my.View.yaml"
-        path.read_text.side_effect = VIEW_SOURCE_NONE
+        path.read_text.return_value = VIEW_SOURCE_NONE
         cmd = DeployCommand(print_warning=False, skip_tracking=True)
 
         with pytest.raises(TypeError) as e:
@@ -24,7 +24,6 @@ class TestDeployCommand:
 
 
 VIEW_SOURCE_NONE = """- space: dm_domain_generic
-
   externalId: Equipment
   name: Equipment
   version: v1
@@ -38,11 +37,5 @@ VIEW_SOURCE_NONE = """- space: dm_domain_generic
         list: false
         collation: ucs_basic
         type: text
-      nullable: true
-      immutable: false
-      autoIncrement: false
       source:
-      defaultValue:
-      name: id
-      description:
 """
