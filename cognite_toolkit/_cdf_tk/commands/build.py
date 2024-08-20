@@ -31,11 +31,11 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
+    ModuleDirectories,
     SystemYAML,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
-    ToolkitDuplicatedModuleError,
     ToolkitFileExistsError,
     ToolkitNotADirectoryError,
     ToolkitYAMLFormatError,
@@ -175,28 +175,11 @@ class BuildCommand(ToolkitCommand):
                 "To enable them, run 'cdf-tk features set no-naming --disable'."
             )
 
-        module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
-        available_modules: set[str | tuple[str, ...]] = set()
-        for module, _ in iterate_modules(source_dir):
-            available_modules.add(module.name)
-            module_parts = module.relative_to(source_dir).parts
-            for i in range(1, len(module_parts) + 1):
-                available_modules.add(module_parts[:i])
+        modules = ModuleDirectories.load(source_dir, config.environment)
 
-            module_parts_by_name[module.name].append(module.relative_to(source_dir).parts)
+        system_config.validate_packages(modules.available, config.environment.selected)
 
-        if duplicate_modules := {
-            module_name: paths
-            for module_name, paths in module_parts_by_name.items()
-            if len(paths) > 1 and module_name in config.environment.selected
-        }:
-            raise ToolkitDuplicatedModuleError(
-                f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
-            )
-
-        system_config.validate_packages(available_modules, config.environment.selected)
-
-        selected_modules = config.get_selected_modules(system_config.packages, available_modules, source_dir, verbose)
+        selected_modules = config.get_selected_modules(system_config.packages, modules.available, source_dir, verbose)
 
         module_directories = [
             (module_dir, source_paths)

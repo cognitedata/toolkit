@@ -48,7 +48,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def __init__(self, collection: Collection[ModuleLocation]) -> None: ...
 
     @cached_property
-    def available_modules(self) -> set[str | tuple[str, ...]]:
+    def available(self) -> set[str | tuple[str, ...]]:
         return {ref for module_location in self for ref in module_location.module_references}
 
     @classmethod
