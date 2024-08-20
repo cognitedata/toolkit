@@ -15,9 +15,6 @@ import itertools
 import sys
 from typing import Literal
 
-# TODO: see FF solution in _cdf
-# from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
-# from cognite_toolkit._cdf_tk.prototypes.location_loaders import LocationFilterLoader  # type: ignore
 from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
 from ._data_loaders import DatapointsLoader, FileLoader, RawFileLoader
 from ._resource_loaders import (
