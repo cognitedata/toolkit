@@ -87,6 +87,7 @@ Function:
   functionPath: handler.py
   metadata:
     cdf-toolkit-function-hash: c59aa6c790b492bdf98483455c9774921ff7e3b1167e0b96c7951c6d13140f14
+    cdf-toolkit-secret-hash: 3c751aaf4bd17e8ea97201022e5a416a2ac6cd4ab4e5cadfb560bc8a66aba388a0167391a65934653ec1908a610fe609abbde319378e4e517bc0ad49daeff311
     version: 0.0.1
   name: workflow:files:oid:fileshare:annotation
   owner: Anonymous
