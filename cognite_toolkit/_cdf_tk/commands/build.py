@@ -246,18 +246,19 @@ class BuildCommand(ToolkitCommand):
                     f"Package {package} defined in {SystemYAML.file_name!s} is referring "
                     f"the following missing modules {missing}."
                 )
-        # Nothing is Selected
-        if not modules.selected:
-            raise ToolkitEnvError(
-                f"No selected modules specified in {config.filepath!s}, have you configured "
-                f"the environment ({config.environment.name})?"
-            )
 
         # Selected modules does not exists
         if missing := set(selected_modules) - modules.available:
             hint = ModuleDefinition.long(missing, source_dir)
             raise ToolkitMissingModuleError(
                 f"The following selected modules are missing, please check path: {missing}.\n{hint}"
+            )
+
+        # Nothing is Selected
+        if not modules.selected:
+            raise ToolkitEnvError(
+                f"No selected modules specified in {config.filepath!s}, have you configured "
+                f"the environment ({config.environment.name})?"
             )
 
     def process_config_files(
