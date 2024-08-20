@@ -39,9 +39,13 @@ class ModuleLocation:
     def module_references(self) -> Iterable[str | tuple[str, ...]]:
         """Ways of selecting this module."""
         yield self.name
+        yield from self.variable_selected
+
+    @cached_property
+    def variable_selected(self) -> set[tuple[str, ...]]:
+        """All variables matching any part of the module path is used in the module."""
         module_parts = self.relative_path.parts
-        for i in range(1, len(module_parts) + 1):
-            yield module_parts[:i]
+        return {module_parts[:i] for i in range(0, len(module_parts) + 1)}
 
 
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):

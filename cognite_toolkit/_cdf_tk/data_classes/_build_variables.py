@@ -58,15 +58,17 @@ class BuildVariables(tuple, Sequence[Variable]):
                 subpath = (*path, key)
                 if subpath in available and isinstance(value, dict):
                     to_check.append((subpath, value))
+                # elif isinstance(value, dict):
+                #     # Remove this check to support variables with dictionary values.
+                #     continue
                 else:
-                    variables.append(Variable(key, value, subpath in selected, subpath))
+                    variables.append(Variable(key, value, subpath in selected, (*path,)))
 
         return cls(variables)
 
     def get_module_variables(self, module: ModuleLocation) -> BuildVariables:
         """Gets the variables for a specific module."""
-        raise NotImplementedError()
-        # return BuildVariables([variable for variable in self if variable.location == tuple(relative_path.parts)])
+        return BuildVariables([variable for variable in self if variable.location in module.variable_selected])
 
     def replace(self, content: str, file_suffix: str = ".yaml") -> str:
         for variable in self:

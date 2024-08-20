@@ -136,7 +136,7 @@ def test_validate_config_yaml(variable: Variable, expected_warnings: list[Templa
     assert sorted(warnings) == sorted(expected_warnings)
 
 
-def test_calculate_hash_on_folder():
+def test_calculate_hash_on_folder() -> None:
     folder = Path(DATA_FOLDER / "calc_hash_data")
     hash1 = calculate_directory_hash(folder)
     hash2 = calculate_directory_hash(folder)
