@@ -199,14 +199,14 @@ class BuildCommand(ToolkitCommand):
                 else:
                     print(f"    {MODULE_PATH_SEP.join(module)!s}")
 
-        selected_variables = self._get_selected_variables(config.variables, modules)
+        selected_variables = self._get_selected_variables(config.variables, modules.selected)
         warnings = validate_modules_variables(selected_variables, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
             for warning in warnings:
                 print(f"    {warning.get_message()}")
 
-        state = self.process_config_files(source_dir, modules, build_dir, config, verbose, ToolGlobals)
+        state = self.process_config_files(source_dir, modules.selected, build_dir, config, verbose, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)

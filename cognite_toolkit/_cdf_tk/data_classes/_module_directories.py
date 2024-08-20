@@ -59,9 +59,9 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def available(self) -> set[str | tuple[str, ...]]:
         return {ref for module_location in self for ref in module_location.module_references}
 
-    @property
-    def selected(self) -> Iterable[ModuleLocation]:
-        return (module for module in self if module.is_selected)
+    @cached_property
+    def selected(self) -> ModuleDirectories:
+        return ModuleDirectories([module for module in self if module.is_selected])
 
     @classmethod
     def load(
