@@ -178,10 +178,9 @@ class BuildCommand(ToolkitCommand):
                 "To enable them, run 'cdf-tk features set no-naming --disable'."
             )
 
-        selected_modules = config.environment.get_selected_modules(system_config.packages)
-        modules = ModuleDirectories.load(source_dir, selected_modules)
-
-        self._validate_modules(modules, config, system_config, selected_modules, source_dir)
+        user_selected_modules = config.environment.get_selected_modules(system_config.packages)
+        modules = ModuleDirectories.load(source_dir, user_selected_modules)
+        self._validate_modules(modules, config, system_config, user_selected_modules, source_dir)
 
         if verbose:
             print("  [bold green]INFO:[/] Selected packages:")
