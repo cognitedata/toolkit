@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.data import BUILD_GROUP_WITH_UNKNOWN_ACL, CUSTOM_PROJECT, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
+from tests.data import BUILD_GROUP_WITH_UNKNOWN_ACL, PROJECT_NO_COGNITE_MODULES, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
 from tests.test_unit.approval_client import ApprovalCogniteClient
 from tests.test_unit.utils import mock_read_yaml_file
 
@@ -271,7 +271,7 @@ def test_build_custom_project(
     }
     build(
         typer_context,
-        source_dir=str(CUSTOM_PROJECT),
+        source_dir=str(PROJECT_NO_COGNITE_MODULES),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -334,3 +334,18 @@ def test_deploy_group_with_unknown_acl(
             "scope": {"unknownScope": {"with": ["some", {"strange": "structure"}]}},
         }
     }
+
+
+def test_build_project_with_only_top_level_variables(
+    build_tmp_path: Path,
+    typer_context: typer.Context,
+) -> None:
+    build(
+        typer_context,
+        source_dir=str(PROJECT_NO_COGNITE_MODULES),
+        build_dir=str(build_tmp_path),
+        build_env_name="top_level_variables",
+        no_clean=False,
+    )
+
+    assert build_tmp_path.exists()

@@ -15,4 +15,4 @@ variables:
       space: sp_my_space
       source: src2
       ds_something: ds_something
-
+      dict_variable: empty
