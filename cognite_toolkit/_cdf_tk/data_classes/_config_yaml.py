@@ -102,6 +102,17 @@ class Environment:
             ],
         }
 
+    def get_selected_modules(
+        self, modules_by_package: dict[str, list[str | tuple[str, ...]]]
+    ) -> set[str | tuple[str, ...]]:
+        selected_modules: set[str | tuple[str, ...]] = set()
+        for selected in self.selected:
+            if selected in modules_by_package and isinstance(selected, str):
+                selected_modules.update(modules_by_package[selected])
+            else:
+                selected_modules.add(selected)
+        return selected_modules
+
 
 @dataclass
 class ConfigYAMLCore(ABC):

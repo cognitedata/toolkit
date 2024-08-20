@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
-from cognite_toolkit._cdf_tk.data_classes import Environment, ModuleDirectories, ModuleLocation
+from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories, ModuleLocation
 from tests import data
 
 
@@ -13,19 +13,23 @@ class TestModuleDirectories:
                 ModuleLocation(
                     relative_path=cognite_modules / Path("a_module"),
                     source_absolute_path=data.PROJECT_FOR_TEST,
+                    is_selected=True,
+                    source_paths=[],
                 ),
                 ModuleLocation(
                     relative_path=cognite_modules / Path("another_module"),
                     source_absolute_path=data.PROJECT_FOR_TEST,
+                    is_selected=True,
+                    source_paths=[],
                 ),
                 ModuleLocation(
                     relative_path=cognite_modules / Path("parent_module") / "child_module",
                     source_absolute_path=data.PROJECT_FOR_TEST,
+                    is_selected=True,
+                    source_paths=[],
                 ),
             ]
         )
-        actual = ModuleDirectories.load(
-            data.PROJECT_FOR_TEST, Environment("dev", "anders", "dev", selected=[f"{COGNITE_MODULES}/"]), {}
-        )
+        actual = ModuleDirectories.load(data.PROJECT_FOR_TEST, {("cognite_modules",)})
 
         assert actual == expected

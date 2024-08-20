@@ -6,11 +6,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError, ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.utils import iterate_modules
-
-from ._config_yaml import Environment
-from ._system_yaml import SystemYAML
 
 
 @dataclass(frozen=True)
@@ -19,13 +15,11 @@ class ModuleLocation:
 
     relative_path: Path
     source_absolute_path: Path
+    is_selected: bool
+    source_paths: list[Path]
 
     @property
-    def path(self) -> Path:
-        return self.source_absolute_path / self.relative_path
-
-    @property
-    def module_name(self) -> str:
+    def name(self) -> str:
         return self.relative_path.name
 
     @property
@@ -52,59 +46,43 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def available(self) -> set[str | tuple[str, ...]]:
         return {ref for module_location in self for ref in module_location.module_references}
 
+    @property
+    def selected(self) -> Iterable[ModuleLocation]:
+        return (module for module in self if module.is_selected)
+
     @classmethod
     def load(
-        cls, source_dir: Path, environment: Environment, packages: dict[str, list[str | tuple[str, ...]]]
+        cls,
+        source_dir: Path,
+        selected_modules: set[str | tuple[str, ...]],
     ) -> ModuleDirectories:
-        """Loads and validates the modules in the source directory."""
-        module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
+        """Loads the modules in the source directory."""
         module_locations: list[ModuleLocation] = []
-        for module, _ in iterate_modules(source_dir):
-            module_locations.append(ModuleLocation(module.relative_to(source_dir), source_dir))
-            module_parts_by_name[module.name].append(module.relative_to(source_dir).parts)
-
-        cls._check_ambiguous_modules(environment, module_parts_by_name)
-
-        modules = cls(module_locations)
-
-        cls._check_package_modules_exists(modules.available, packages, set(environment.selected))
-
-        return modules
-
-    @classmethod
-    def _check_ambiguous_modules(
-        cls, environment: Environment, module_parts_by_name: dict[str, list[tuple[str, ...]]]
-    ) -> None:
-        """
-        If the user has selected a module by name, and there are multiple modules with that name, raise an error.
-        Note, if the user uses a path to select a module, this error will not be raised.
-        """
-        selected_names = {s for s in environment.selected if isinstance(s, str)}
-        if duplicate_modules := {
-            module_name: paths
-            for module_name, paths in module_parts_by_name.items()
-            if len(paths) > 1 and module_name in selected_names
-        }:
-            raise ToolkitDuplicatedModuleError(
-                f"Ambiguous module selected in config.{environment.name}.yaml:", duplicate_modules
+        for module, source_paths in iterate_modules(source_dir):
+            relative_module_dir = module.relative_to(source_dir)
+            module_locations.append(
+                ModuleLocation(
+                    relative_module_dir,
+                    source_dir,
+                    cls._is_selected_module(relative_module_dir, selected_modules),
+                    source_paths,
+                )
             )
 
+        return cls(module_locations)
+
     @classmethod
-    def _check_package_modules_exists(
-        cls,
-        available_modules: set[str | tuple[str, ...]],
-        packages: dict[str, list[str | tuple[str, ...]]],
-        selected: set[str | tuple[str, ...]],
-    ) -> None:
-        selected_packages = {package for package in selected if isinstance(package, str) and package in packages}
-        for package, modules in packages.items():
-            if package not in selected_packages:
-                # We do not check packages that are not selected.
-                # Typically, the user will delete the modules that are irrelevant for them;
-                # thus we only check the selected packages.
-                continue
-            if missing := set(modules) - available_modules:
-                ToolkitMissingModuleError(
-                    f"Package {package} defined in {SystemYAML.file_name!s} is referring "
-                    f"the following missing modules {missing}."
-                )
+    def _is_selected_module(cls, relative_module_dir: Path, selected: set[str | tuple[str, ...]]) -> bool:
+        """Checks whether a module is selected by the user."""
+        module_parts = relative_module_dir.parts
+        in_selected = relative_module_dir.name in selected or module_parts in selected
+        is_parent_in_selected = any(
+            parent in selected for parent in (module_parts[:i] for i in range(1, len(module_parts)))
+        )
+        return is_parent_in_selected or in_selected
+
+    def as_parts_by_name(self) -> dict[str, list[tuple[str, ...]]]:
+        module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
+        for module in self:
+            module_parts_by_name[module.name].append(module.relative_path.parts)
+        return module_parts_by_name
