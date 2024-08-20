@@ -17,7 +17,12 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.data import BUILD_GROUP_WITH_UNKNOWN_ACL, PROJECT_NO_COGNITE_MODULES, PROJECT_WITH_DUPLICATES, PYTEST_PROJECT
+from tests.data import (
+    BUILD_GROUP_WITH_UNKNOWN_ACL,
+    PROJECT_FOR_TEST,
+    PROJECT_NO_COGNITE_MODULES,
+    PROJECT_WITH_DUPLICATES,
+)
 from tests.test_unit.approval_client import ApprovalCogniteClient
 from tests.test_unit.utils import mock_read_yaml_file
 
@@ -293,7 +298,7 @@ def test_build_project_selecting_parent_path(
     expected_resources = {"auth", "data_models", "files", "transformations", "data_sets"}
     build(
         typer_context,
-        source_dir=str(PYTEST_PROJECT),
+        source_dir=str(PROJECT_FOR_TEST),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,

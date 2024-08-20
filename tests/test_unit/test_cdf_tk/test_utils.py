@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.utils import (
     module_from_path,
 )
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
-from tests.data import DATA_FOLDER, PYTEST_PROJECT
+from tests.data import DATA_FOLDER, PROJECT_FOR_TEST
 from tests.test_unit.utils import PrintCapture
 
 
@@ -397,12 +397,12 @@ class TestModuleFromPath:
 class TestIterateModules:
     def test_modules_project_for_tests(self):
         expected_modules = {
-            PYTEST_PROJECT / "cognite_modules" / "a_module",
-            PYTEST_PROJECT / "cognite_modules" / "another_module",
-            PYTEST_PROJECT / "cognite_modules" / "parent_module" / "child_module",
+            PROJECT_FOR_TEST / "cognite_modules" / "a_module",
+            PROJECT_FOR_TEST / "cognite_modules" / "another_module",
+            PROJECT_FOR_TEST / "cognite_modules" / "parent_module" / "child_module",
         }
 
-        actual_modules = {module for module, _ in iterate_modules(PYTEST_PROJECT)}
+        actual_modules = {module for module, _ in iterate_modules(PROJECT_FOR_TEST)}
 
         assert actual_modules == expected_modules
 

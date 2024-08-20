@@ -4,11 +4,10 @@ from pathlib import Path
 from typing import Literal
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModuleLocation:
     """This represents the location of a module in a directory structure."""
 
-    name: str
     relative_path: Path
     root_module: Literal["cognite_modules", "custom_modules", "modules"]
     root_absolute_path: Path
@@ -17,8 +16,12 @@ class ModuleLocation:
     def path(self) -> Path:
         return self.root_absolute_path / self.relative_path
 
+    @property
+    def module_name(self) -> str:
+        return self.relative_path.name
 
-class ModulesDirectories(list, MutableSequence[ModuleLocation]):
+
+class ModuleDirectories(list, MutableSequence[ModuleLocation]):
     @classmethod
-    def load(cls, source_dir: Path) -> "ModulesDirectories":
+    def load(cls, source_dir: Path) -> "ModuleDirectories":
         raise NotImplementedError()
