@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from pathlib import Path
 from typing import final
 
 from cognite.client.data_classes.capabilities import Capability
@@ -12,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 
 @final
@@ -45,6 +47,15 @@ class LocationFilterLoader(
         if not item.external_id:
             raise KeyError("LocationFilter must have external_id")
         return item.external_id
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> LocationFilterWrite | LocationFilterWriteList:
+        resources = load_yaml_inject_variables(filepath, {})
+        if isinstance(resources, dict):
+            return LocationFilterWrite.load(resources)
+        else:
+            return LocationFilterWriteList.load(resources)
 
     def create(self, items: LocationFilterWriteList) -> LocationFilterList:
         return self.client.locations.location_filters.create(items)
