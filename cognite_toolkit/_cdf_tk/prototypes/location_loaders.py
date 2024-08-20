@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from pathlib import Path
 from typing import final
 
 from cognite.client.data_classes.capabilities import Capability
@@ -13,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 
 @final
@@ -35,20 +33,10 @@ class LocationFilterLoader(
         if not items:
             return []
         return LocationFilterAcl(
-            [LocationFilterAcl.Action.Read, LocationFilterAcl.Action.Write], LocationFilterAcl.Scope.All()
+            actions=[LocationFilterAcl.Action.Read, LocationFilterAcl.Action.Write],
+            scope=LocationFilterAcl.Scope.All(),
+            allow_unknown=True,
         )
-
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> LocationFilterWrite | LocationFilterWriteList:
-        resources = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        # The `authentication` key is custom for this template:
-
-        if isinstance(resources, dict):
-            resources = [resources]
-
-        locationFilters = LocationFilterWriteList([])
-        return locationFilters
 
     @classmethod
     def get_id(self, item: LocationFilter | LocationFilterWrite | dict) -> str:
@@ -57,6 +45,18 @@ class LocationFilterLoader(
         if not item.external_id:
             raise KeyError("LocationFilter must have external_id")
         return item.external_id
+
+    # classmethod
+    # @lru_cache(maxsize=1)
+    # def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+    #     spec = super().get_write_cls_parameter_spec()
+
+    #     spec.add(
+    #         ParameterSpec(
+    #             ("data_models", ANY_INT), frozenset({"dict"}), is_required=False, _is_nullable=False
+    #         )
+    #     )
+    #     return spec
 
     def create(self, items: LocationFilterWriteList) -> LocationFilterList:
         return self.client.locations.location_filters.create(items)

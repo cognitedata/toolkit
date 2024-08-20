@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator, Sequence
 from typing import Any, overload
 
@@ -13,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.locations import (
 
 
 class LocationFiltersAPI(APIClient):
-    _RESOURCE_PATH = "/LocationFilterics/LocationFilters"
+    _RESOURCE_PATH = f"/apps/v1/projects/{os.environ.get('CDF_PROJECT')}/storage/config/locationfilters"
 
     @overload
     def __call__(self) -> Iterator[LocationFilter]: ...

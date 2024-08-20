@@ -11,20 +11,30 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.capabilities import AllScope, Capability, IDScope
+from cognite.client.data_classes.capabilities import AllScope, Capability, IDScope, UnknownAcl
+from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from typing_extensions import Self
-
-
-class LocationFilterDataModel:
-    pass
 
 
 class LocationFilterScene:
     pass
 
 
+@dataclass(frozen=True)
+class LocationFilterDataModel(DataModelId):
+    pass
+
+
+@dataclass(frozen=True)
+class LocationFilterView(ViewId):
+    pass
+
+
+#    represents_entity: Literal["MAINTENANCE_ORDER" "OPERATION" "NOTIFICATION" "ASSET"]
+
+
 @dataclass
-class LocationFilterAcl(Capability):
+class LocationFilterAcl(UnknownAcl):
     _capability_name = "locationFiltersAcl"
     actions: Sequence[Action]
     scope: AllScope | IDScope
@@ -53,7 +63,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         name: str,
         parent_id: int | None = None,
         description: str | None = None,
-        datamodels: list[LocationFilterDataModel] | None = None,
+        data_models: list[DataModelId] | None = None,
         instance_spaces: list[str] | None = None,
         scene: LocationFilterScene | None = None,
         asset_centric: dict[str, Any] | None = None,
@@ -63,7 +73,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         self.name = name
         self.parent_id = parent_id
         self.description = description
-        self.datamodels = datamodels
+        self.data_models = data_models
         self.instance_spaces = instance_spaces
         self.scene = scene
         self.asset_centric = asset_centric
@@ -75,7 +85,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
             name=self.name,
             parent_id=self.parent_id,
             description=self.description,
-            datamodels=self.datamodels,
+            data_models=self.data_models,
             instance_spaces=self.instance_spaces,
             scene=self.scene,
             asset_centric=self.asset_centric,
@@ -91,10 +101,10 @@ class LocationFilterWrite(LocationFilterCore):
             name=resource["name"],
             parent_id=resource.get("parentId"),
             description=resource.get("description"),
-            datamodels=resource.get("datamodels"),
-            instance_spaces=resource.get("instance_spaces"),
+            data_models=resource.get("dataModels"),
+            instance_spaces=resource.get("instanceSpaces"),
             scene=resource.get("scene"),
-            asset_centric=resource.get("asset_centric"),
+            asset_centric=resource.get("asseCentric"),
             views=resource.get("views"),
         )
 
@@ -115,14 +125,14 @@ class LocationFilter(LocationFilterCore):
         updated_time: int,
         parent_id: int | None = None,
         description: str | None = None,
-        datamodels: list[LocationFilterDataModel] | None = None,
+        data_models: list[DataModelId] | None = None,
         instance_spaces: list[str] | None = None,
         scene: LocationFilterScene | None = None,
         asset_centric: dict[str, Any] | None = None,
         views: list[str] | None = None,
     ) -> None:
         super().__init__(
-            external_id, name, parent_id, description, datamodels, instance_spaces, scene, asset_centric, views
+            external_id, name, parent_id, description, data_models, instance_spaces, scene, asset_centric, views
         )
         self.created_time = created_time
         self.updated_time = updated_time
@@ -134,10 +144,10 @@ class LocationFilter(LocationFilterCore):
             name=resource["name"],
             parent_id=resource.get("parentId"),
             description=resource.get("description"),
-            datamodels=resource.get("datamodels"),
-            instance_spaces=resource.get("instance_spaces"),
+            data_models=resource.get("dataModels"),
+            instance_spaces=resource.get("instanceSpaces"),
             scene=resource.get("scene"),
-            asset_centric=resource.get("asset_centric"),
+            asset_centric=resource.get("assetCentric"),
             views=resource.get("views"),
             created_time=resource["createdTime"],
             updated_time=resource["updatedTime"],
