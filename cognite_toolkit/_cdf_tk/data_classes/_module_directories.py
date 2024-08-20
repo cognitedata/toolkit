@@ -44,7 +44,6 @@ class ModuleLocation:
             yield module_parts[:i]
 
 
-@dataclass
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     # Subclassing tuple to make the class immutable. ModuleDirectories is expected to be initialized and
     # then used as a read-only object.
@@ -63,7 +62,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def selected(self) -> ModuleDirectories:
         return ModuleDirectories([module for module in self if module.is_selected])
 
-    def as_paths(self) -> set[tuple[str, ...]]:
+    def as_path_parts(self) -> set[tuple[str, ...]]:
         return {module.relative_path.parts[:i] for module in self for i in range(len(module.relative_path.parts) + 1)}
 
     @classmethod

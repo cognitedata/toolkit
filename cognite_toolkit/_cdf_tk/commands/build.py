@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     ModuleDirectories,
     SystemYAML,
+    BuildVariables,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -199,14 +200,14 @@ class BuildCommand(ToolkitCommand):
                 else:
                     print(f"    {MODULE_PATH_SEP.join(module)!s}")
 
-        selected_variables = self._get_selected_variables(config.variables, modules)
-        warnings = validate_modules_variables(selected_variables, config.filepath)
+        variables = BuildVariables.load(config.variables, modules)
+        warnings = validate_modules_variables(variables.selected, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
             for warning in warnings:
                 print(f"    {warning.get_message()}")
 
-        state = self.process_config_files(source_dir, modules.selected, build_dir, config, verbose, ToolGlobals)
+        state = self.process_config_files(source_dir, modules.selected, build_dir, variables, verbose, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
@@ -266,16 +267,16 @@ class BuildCommand(ToolkitCommand):
         project_config_dir: Path,
         modules: ModuleDirectories,
         build_dir: Path,
-        config: BuildConfigYAML,
+        variables: BuildVariables,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
     ) -> _BuildState:
-        state = _BuildState.create(config)
+        state = _BuildState()
         for module in modules:
             if verbose:
                 print(f"  [bold green]INFO:[/] Processing module {module.name}")
 
-            state.update_local_variables(module.dir)
+            module_variables = variables.get_module_variables(module.relative_path)
 
             files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
 
@@ -286,7 +287,7 @@ class BuildCommand(ToolkitCommand):
                         source_path, resource_directory_name, module.dir, build_dir
                     )
 
-                    self._replace_variables_validate_to_build_directory(source_path, destination, state, verbose)
+                    self._replace_variables_validate_to_build_directory(source_path, destination, module_variables, state, verbose)
                     build_folder.append(destination)
 
                 if resource_directory_name == FunctionLoader.folder_name:
@@ -358,7 +359,7 @@ class BuildCommand(ToolkitCommand):
                 )
 
     def _replace_variables_validate_to_build_directory(
-        self, source_path: Path, destination_path: Path, state: _BuildState, verbose: bool
+        self, source_path: Path, destination_path: Path, variables: BuildVariables, state: _BuildState, verbose: bool
     ) -> None:
         if verbose:
             print(f"    [bold green]INFO:[/] Processing {source_path.name}")
@@ -368,7 +369,8 @@ class BuildCommand(ToolkitCommand):
         content = safe_read(source_path)
         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
 
-        content = state.replace_variables(content, source_path.suffix)
+        content = variables.replace_variables(content, source_path.suffix)
+
         safe_write(destination_path, content)
         state.source_by_build_path[destination_path] = source_path
 
@@ -424,8 +426,8 @@ class BuildCommand(ToolkitCommand):
 
     @staticmethod
     def _get_selected_variables(config_variables: dict[str, Any], modules: ModuleDirectories) -> dict[str, Any]:
-        selected_paths = modules.selected.as_paths()
-        available_paths = modules.as_paths()
+        selected_paths = modules.selected.as_path_parts()
+        available_paths = modules.as_path_parts()
 
         selected_variables: dict[str, Any] = {}
         to_check: list[tuple[tuple[str, ...], dict[str, Any]]] = [(tuple(), config_variables)]
@@ -809,13 +811,11 @@ class BuildCommand(ToolkitCommand):
 
 @dataclass
 class _BuildState:
-    """This is used in the build process to keep track of variables and help with variable replacement.
+    """This is used in the build process to keep track of source of build files and hashes
 
     It contains some counters and convenience dictionaries for easy lookup of variables and modules.
     """
 
-    modules_by_variable: dict[str, list[str]] = field(default_factory=dict)
-    variables_by_module_path: dict[str, dict[str, str]] = field(default_factory=dict)
     source_by_build_path: dict[Path, Path] = field(default_factory=dict)
     hash_by_source_path: dict[Path, str] = field(default_factory=dict)
     index_by_resource_type_counter: Counter[str] = field(default_factory=Counter)
@@ -829,13 +829,6 @@ class _BuildState:
     )
 
     _local_variables: Mapping[str, str] = field(default_factory=dict)
-
-    @property
-    def local_variables(self) -> Mapping[str, str]:
-        return self._local_variables
-
-    def update_local_variables(self, module_dir: Path) -> None:
-        self._local_variables = _Helpers.create_local_config(self.variables_by_module_path, module_dir)
 
     def create_destination_path(
         self, source_path: Path, resource_directory: str, module_dir: Path, build_dir: Path
@@ -866,31 +859,6 @@ class _BuildState:
         destination_path = build_dir / resource_directory / filename
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         return destination_path
-
-    def replace_variables(self, content: str, file_suffix: str = ".yaml") -> str:
-        for name, variable in self.local_variables.items():
-            replace = variable
-            _core_patter = rf"{{{{\s*{name}\s*}}}}"
-            if file_suffix in {".yaml", ".yml", ".json"}:
-                # Preserve data types
-                if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
-                    replace = f'"{replace}"'
-                elif replace is None:
-                    replace = "null"
-                content = re.sub(rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"', str(replace), content)
-            else:
-                content = re.sub(_core_patter, str(replace), content)
-
-        return content
-
-    @classmethod
-    def create(cls, config: BuildConfigYAML) -> _BuildState:
-        variables_by_module_path = _Helpers.to_variables_by_module_path(config.variables)
-        modules_by_variables = defaultdict(list)
-        for module_path, variables in variables_by_module_path.items():
-            for variable in variables:
-                modules_by_variables[variable].append(module_path)
-        return cls(modules_by_variable=modules_by_variables, variables_by_module_path=variables_by_module_path)
 
 
 @dataclass

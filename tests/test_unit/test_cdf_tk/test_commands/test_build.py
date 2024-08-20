@@ -8,7 +8,7 @@ import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
+from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,

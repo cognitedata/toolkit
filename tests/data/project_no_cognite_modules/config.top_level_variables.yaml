@@ -6,6 +6,10 @@ environment:
     - modules/
 
 variables:
+  modules:
+    space: sp_my_space
+    another_module:
+      ds_something: ds_something
   dict_variable:
     featureConfiguration:
       rootLocationConfigurations:
@@ -15,10 +19,6 @@ variables:
     customerDataSpaceId: APM_SourceData # Space where the customer's data model lives
     customerDataSpaceVersion: "1" # this is really the customer data model version
     name: InRobot APM Config 2
-  modules:
-    space: sp_my_space
-    another_module:
-      ds_something: ds_something
   ds_timeseries: ds_timeseries
   source: src
   location: here
