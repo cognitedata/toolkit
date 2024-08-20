@@ -175,9 +175,7 @@ class BuildCommand(ToolkitCommand):
                 "To enable them, run 'cdf-tk features set no-naming --disable'."
             )
 
-        modules = ModuleDirectories.load(source_dir, config.environment)
-
-        system_config.validate_packages(modules.available, config.environment.selected)
+        modules = ModuleDirectories.load(source_dir, config.environment, system_config.packages)
 
         selected_modules = config.get_selected_modules(system_config.packages, modules.available, source_dir, verbose)
 

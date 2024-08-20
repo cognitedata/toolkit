@@ -6,7 +6,7 @@ from tests import data
 
 
 class TestModuleDirectories:
-    def test_load(self):
+    def test_load(self) -> None:
         cognite_modules = Path(COGNITE_MODULES)
         expected = ModuleDirectories(
             [
@@ -25,7 +25,7 @@ class TestModuleDirectories:
             ]
         )
         actual = ModuleDirectories.load(
-            data.PROJECT_FOR_TEST, Environment("dev", "anders", "dev", selected=[f"{COGNITE_MODULES}/"])
+            data.PROJECT_FOR_TEST, Environment("dev", "anders", "dev", selected=[f"{COGNITE_MODULES}/"]), {}
         )
 
         assert actual == expected

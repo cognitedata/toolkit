@@ -74,12 +74,14 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     config.environment = MagicMock(spec=Environment)
     config.environment.name = "dev"
     config.environment.selected = ["module1"]
+    system_yaml = MagicMock(spec=SystemYAML)
+    system_yaml.packages = {}
     with pytest.raises(ToolkitDuplicatedModuleError) as err:
         BuildCommand().build_config(
             build_dir=build_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
             config=config,
-            system_config=MagicMock(spec=SystemYAML),
+            system_config=system_yaml,
         )
     l1, l2, l3, l4, l5 = map(str.strip, str(err.value).splitlines())
     assert l1 == "Ambiguous module selected in config.dev.yaml:"
