@@ -12,7 +12,13 @@ from cognite_toolkit._cdf_tk.utils import iterate_modules
 
 @dataclass(frozen=True)
 class ModuleLocation:
-    """This represents the location of a module in a directory structure."""
+    """This represents the location of a module in a directory structure.
+    Args:
+        dir: The absolute path to the module directory.
+        source_absolute_path: The absolute path to the source directory.
+        is_selected: Whether the module is selected by the user.
+        source_paths: The paths to all files in the module.
+    """
 
     dir: Path
     source_absolute_path: Path
@@ -21,13 +27,19 @@ class ModuleLocation:
 
     @property
     def name(self) -> str:
+        """The name of the module."""
         return self.dir.name
+
+    @property
+    def relative_path(self) -> Path:
+        """The relative path to the module."""
+        return self.dir.relative_to(self.source_absolute_path)
 
     @property
     def module_references(self) -> Iterable[str | tuple[str, ...]]:
         """Ways of selecting this module."""
         yield self.name
-        module_parts = self.dir.parts
+        module_parts = self.relative_path.parts
         for i in range(1, len(module_parts) + 1):
             yield module_parts[:i]
 
@@ -63,7 +75,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
             relative_module_dir = module.relative_to(source_dir)
             module_locations.append(
                 ModuleLocation(
-                    relative_module_dir,
+                    module,
                     source_dir,
                     cls._is_selected_module(relative_module_dir, selected_modules),
                     source_paths,
@@ -85,7 +97,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def as_parts_by_name(self) -> dict[str, list[tuple[str, ...]]]:
         module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
         for module in self:
-            module_parts_by_name[module.name].append(module.dir.parts)
+            module_parts_by_name[module.name].append(module.relative_path.parts)
         return module_parts_by_name
 
     # Implemented to get correct type hints
