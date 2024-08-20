@@ -49,6 +49,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_directory_hash,
+    calculate_secure_hash,
     load_yaml_inject_variables,
 )
 
@@ -149,7 +150,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
 
         # Is changed as part of deployment to the API
         local.file_id = cdf_resource.file_id
-        cdf_resource.secrets = local.secrets
         if cdf_resource.cpu and local.cpu is None:
             local.cpu = cdf_resource.cpu
         if cdf_resource.memory and local.memory is None:
@@ -162,6 +162,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
             # Dry run
             local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+
+        if "secrets" in local_dumped:
+            local_dumped["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(local_dumped["secrets"])
+            local_dumped["secrets"] = {k: "***" for k in local_dumped["secrets"]}
+
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def _is_activated(self, action: str) -> bool:

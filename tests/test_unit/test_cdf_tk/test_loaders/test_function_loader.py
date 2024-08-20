@@ -31,7 +31,6 @@ class TestFunctionLoader:
             name="my_function",
             file_id=123,
             external_id="my_function",
-            metadata={FunctionLoader._MetadataKey.function_hash: calculate_directory_hash(tmp_path / "my_function")},
             secrets={
                 "secret1": "value1",
                 "secret2": "value2",
@@ -42,7 +41,7 @@ class TestFunctionLoader:
             file_id=123,
             external_id="my_function",
             metadata={
-                FunctionLoader._MetadataKey.function_hash: "hash1",
+                FunctionLoader._MetadataKey.function_hash: calculate_directory_hash(tmp_path / "my_function"),
                 FunctionLoader._MetadataKey.secret_hash: calculate_secure_hash(
                     {
                         "secret1": "value1",
@@ -60,7 +59,14 @@ class TestFunctionLoader:
 
         _, local_dumped, cdf_dumped = loader.are_equal(local_function, cdf_function, return_dumped=True)
 
-        assert local_dumped["secrets"] != cdf_dumped["secrets"]
-        local_dumped.pop("secrets")
-        cdf_dumped.pop("secrets")
+        assert (
+            local_dumped["metadata"][FunctionLoader._MetadataKey.secret_hash]
+            != cdf_dumped["metadata"][FunctionLoader._MetadataKey.secret_hash]
+        )
+        local_dumped["metadata"].pop(FunctionLoader._MetadataKey.secret_hash)
+        cdf_dumped["metadata"].pop(FunctionLoader._MetadataKey.secret_hash)
         assert local_dumped == cdf_dumped
+        assert local_function.secrets == {
+            "secret1": "value1",
+            "secret2": "value2",
+        }, "Original object should not be modified"
