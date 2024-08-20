@@ -49,6 +49,11 @@ class ModuleLocation:
 
 
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):
+    """This is an internal representation of the module directories in a source directory.
+
+    The motivation for this class is to provide helper functions for the user to interact with the module directories.
+    """
+
     # Subclassing tuple to make the class immutable. ModuleDirectories is expected to be initialized and
     # then used as a read-only object.
     def __new__(cls, collection: Collection[ModuleLocation]) -> ModuleDirectories:

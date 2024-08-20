@@ -38,6 +38,8 @@ suffix_text: {{ my_suffix_text }}
                 "my_prefix_text": "prefix:",
                 "my_suffix_text": ":suffix",
             },
+            available_modules={tuple()},
+            selected_modules={tuple()},
         )
 
         result = variables.replace(source_yaml)
@@ -63,7 +65,9 @@ suffix_text: {{ my_suffix_text }}
         variables = BuildVariables.load(
             {
                 "dataset_external_id": "ds_external_id",
-            }
+            },
+            available_modules={tuple()},
+            selected_modules={tuple()},
         )
 
         result = variables.replace(source_yaml, file_suffix=".sql")

@@ -6,12 +6,12 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, SupportsIndex, overload
 
-from ._module_directories import ModuleDirectories, ModuleLocation
+from ._module_directories import ModuleLocation
 
 
 @dataclass(frozen=True)
 class Variable:
-    """This represent a build variable in a config.[env].file
+    """This is an internal representation of a  build variable in a config.[env].file
 
     Args:
         key: The name of the variable.
@@ -28,6 +28,11 @@ class Variable:
 
 
 class BuildVariables(tuple, Sequence[Variable]):
+    """This is an internal representation of the build variables in a config.[env].file
+
+    The motivation for this class is to provide helper functions for the user to interact with the build variables.
+    """
+
     # Subclassing tuple to make the class immutable. ModuleDirectories is expected to be initialized and
     # then used as a read-only object.
     def __new__(cls, collection: Collection[Variable]) -> BuildVariables:
@@ -45,24 +50,23 @@ class BuildVariables(tuple, Sequence[Variable]):
     def load(
         cls,
         raw_variable: dict[str, Any],
-        modules: ModuleDirectories,
+        available_modules: set[tuple[str, ...]],
+        selected_modules: set[tuple[str, ...]],
     ) -> BuildVariables:
         """Loads the variables from the user input."""
-        available = modules.as_path_parts()
-        selected = modules.as_path_parts()
         variables = []
         to_check: list[tuple[tuple[str, ...], dict[str, Any]]] = [(tuple(), raw_variable)]
         while to_check:
             path, subdict = to_check.pop()
             for key, value in subdict.items():
                 subpath = (*path, key)
-                if subpath in available and isinstance(value, dict):
+                if subpath in available_modules and isinstance(value, dict):
                     to_check.append((subpath, value))
                 # elif isinstance(value, dict):
                 #     # Remove this check to support variables with dictionary values.
                 #     continue
                 else:
-                    variables.append(Variable(key, value, subpath in selected, (*path,)))
+                    variables.append(Variable(key, value, path in selected_modules, path))
 
         return cls(variables)
 

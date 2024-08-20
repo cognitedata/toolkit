@@ -198,7 +198,7 @@ class BuildCommand(ToolkitCommand):
                 else:
                     print(f"    {MODULE_PATH_SEP.join(module)!s}")
 
-        variables = BuildVariables.load(config.variables, modules)
+        variables = BuildVariables.load(config.variables, modules.as_path_parts(), modules.selected.as_path_parts())
         warnings = validate_modules_variables(variables.selected, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
