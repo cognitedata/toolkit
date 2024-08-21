@@ -30,7 +30,7 @@ def comment_optional(yaml_str: str) -> str:
     return "\n".join(n)
 
 
-IGNORED_ANNOTATIONS = [
+IGNORED_ANNOTATIONS = {
     "str",
     # "int",
     "float",
@@ -47,8 +47,7 @@ IGNORED_ANNOTATIONS = [
     "'allUserAccounts'",
     "list[ViewId]",
     "dict[str, ViewPropertyApply]",
-    # "list[ViewId | ViewApply]",
-]
+}
 
 
 def expand_acls() -> list[Any]:
