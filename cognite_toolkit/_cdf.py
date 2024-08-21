@@ -50,14 +50,6 @@ if FeatureFlag.is_enabled(Flags.NO_NAMING):
 
     turn_off_naming_check.do()
 
-if FeatureFlag.is_enabled(Flags.LOCATION_FILTERS):
-    from cognite_toolkit._cdf_tk.prototypes import setup_location_loaders
-
-    setup_location_loaders.setup_location_loaders()
-
-# from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
-# from cognite_toolkit._cdf_tk.prototypes.location_loaders import LocationFilterLoader  # type: ignore
-
 
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,

@@ -34,10 +34,6 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for loading 3D Model resources",
     }
-    LOCATION_FILTERS: ClassVar[dict[str, Any]] = {
-        "visible": True,
-        "description": "Enables the support for loading Location Filters",
-    }
 
 
 class FeatureFlag:

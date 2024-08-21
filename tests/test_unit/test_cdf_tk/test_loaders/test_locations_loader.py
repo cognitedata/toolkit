@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     LocationFilterScene,
     LocationFilterWrite,
 )
-from cognite_toolkit._cdf_tk.prototypes.location_loaders import LocationFilterLoader
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalCogniteClient
