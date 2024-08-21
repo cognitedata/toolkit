@@ -298,15 +298,14 @@ def generate(target_path: Path) -> None:
 
 def validate(target_path: Path) -> None:
     total_warnings = 0
-    for loader in [
+    for loader_cls in [
         loader for loader in ResourceLoader.__subclasses__() if loader.__name__ not in ["ResourceContainerLoader"]
     ]:
-        write_cls = loader.resource_write_cls  # type: ignore
-        folder = target_path / loader.folder_name
-        file_name = folder / Path(f'reference.{write_cls.__name__.replace("Write","").replace("Apply","")}.yaml')
+        folder = target_path / loader_cls.folder_name
+        file_name = folder / Path(f'reference.{loader_cls.kind}.yaml')
         warnings = validate_resource_yaml(
             data=yaml.safe_load(Path.read_text(file_name)),
-            spec=loader.get_write_cls_parameter_spec(),
+            spec=loader_cls.get_write_cls_parameter_spec(),
             source_file=file_name,
         )
 
