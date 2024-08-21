@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 
 
-# * in a line signifies that the line is a comment, for example where the config has multiple options
+# * in a line signifies that the line is a comment, for example, where the config has multiple options
 def comment_optional(yaml_str: str) -> str:
     n = []
     for line in yaml_str.split("\n"):
