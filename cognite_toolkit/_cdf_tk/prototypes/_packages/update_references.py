@@ -3,7 +3,6 @@ import itertools
 import re
 import shutil
 
-# from cognite.client.data_classes.transformations.common import TransformationDestination
 from pathlib import Path
 from typing import Any
 
