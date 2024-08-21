@@ -271,12 +271,12 @@ def expand_parameters(loader_cls: Any, cls: Any, optional: bool = False) -> dict
 
 
 def generate(target_path: Path) -> None:
-    for loader in [
+    for loader_cls in [
         loader for loader in ResourceLoader.__subclasses__() if loader.__name__ not in ["ResourceContainerLoader"]
     ]:
-        write_cls = loader.resource_write_cls  # type: ignore
+        write_cls = loader_cls.resource_write_cls  # type: ignore
 
-        ref = expand_parameters(loader, write_cls)
+        ref = expand_parameters(loader_cls, write_cls)
 
         final_yaml = comment_optional(yaml.dump(ref, sort_keys=False))
 
@@ -286,10 +286,12 @@ def generate(target_path: Path) -> None:
             main_yaml = comment_optional(yaml.dump(ref, sort_keys=False))
             final_yaml = f"{main_yaml}{caps_yaml}"
 
-        folder = target_path / loader.folder_name
-        file_name = folder / Path(f'reference.{write_cls.__name__.replace("Write","").replace("Apply","")}.yaml')
+        folder = target_path / loader_cls.folder_name
+        file_name = folder / Path(f'reference.{loader_cls.kind}.yaml')
         Path.mkdir(folder, exist_ok=True)
         Path.write_text(file_name, final_yaml)
+
+        print(f"Wrote {file_name}")
 
         print(f"Wrote {file_name}")
 
