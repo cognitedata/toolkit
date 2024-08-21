@@ -9,7 +9,7 @@ import shutil
 import sys
 import traceback
 from collections import ChainMap, Counter, defaultdict
-from collections.abc import Hashable, Mapping, Sequence
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -26,17 +26,21 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     INDEX_PATTERN,
+    MODULE_PATH_SEP,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
+    ModuleDirectories,
     SystemYAML,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
     ToolkitDuplicatedModuleError,
+    ToolkitEnvError,
     ToolkitFileExistsError,
+    ToolkitMissingModuleError,
     ToolkitNotADirectoryError,
     ToolkitYAMLFormatError,
 )
@@ -78,7 +82,6 @@ from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_str_or_file_hash,
     get_cicd_environment,
-    iterate_modules,
     module_from_path,
     read_yaml_content,
     resource_folder_from_path,
@@ -175,42 +178,35 @@ class BuildCommand(ToolkitCommand):
                 "To enable them, run 'cdf-tk features set no-naming --disable'."
             )
 
-        module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
-        available_modules: set[str | tuple[str, ...]] = set()
-        for module, _ in iterate_modules(source_dir):
-            available_modules.add(module.name)
-            module_parts = module.relative_to(source_dir).parts
-            for i in range(1, len(module_parts) + 1):
-                available_modules.add(module_parts[:i])
+        selected_modules = config.environment.get_selected_modules(system_config.packages)
+        modules = ModuleDirectories.load(source_dir, selected_modules)
 
-            module_parts_by_name[module.name].append(module.relative_to(source_dir).parts)
+        self._validate_modules(modules, config, system_config, selected_modules, source_dir)
 
-        if duplicate_modules := {
-            module_name: paths
-            for module_name, paths in module_parts_by_name.items()
-            if len(paths) > 1 and module_name in config.environment.selected
-        }:
-            raise ToolkitDuplicatedModuleError(
-                f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
-            )
-        system_config.validate_modules(available_modules, config.environment.selected)
+        if verbose:
+            print("  [bold green]INFO:[/] Selected packages:")
+            selected_packages = [
+                package for package in system_config.packages if package in config.environment.selected
+            ]
+            if len(selected_packages) == 0:
+                print("    None")
+            for package in selected_packages:
+                print(f"    {package}")
+            print("  [bold green]INFO:[/] Selected modules:")
+            for module in [module.name for module in modules.selected]:
+                if isinstance(module, str):
+                    print(f"    {module}")
+                else:
+                    print(f"    {MODULE_PATH_SEP.join(module)!s}")
 
-        selected_modules = config.get_selected_modules(system_config.packages, available_modules, source_dir, verbose)
-
-        module_directories = [
-            (module_dir, source_paths)
-            for module_dir, source_paths in iterate_modules(source_dir)
-            if self._is_selected_module(module_dir.relative_to(source_dir), selected_modules)
-        ]
-        selected_variables = self._get_selected_variables(config.variables, module_directories)
-
+        selected_variables = self._get_selected_variables(config.variables, modules.selected)
         warnings = validate_modules_variables(selected_variables, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
             for warning in warnings:
                 print(f"    {warning.get_message()}")
 
-        state = self.process_config_files(source_dir, module_directories, build_dir, config, verbose, ToolGlobals)
+        state = self.process_config_files(source_dir, modules.selected, build_dir, config, verbose, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
@@ -218,40 +214,87 @@ class BuildCommand(ToolkitCommand):
             print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
         return state.source_by_build_path
 
+    @staticmethod
+    def _validate_modules(
+        modules: ModuleDirectories,
+        config: BuildConfigYAML,
+        system_yaml: SystemYAML,
+        selected_modules: set[str | tuple[str, ...]],
+        source_dir: Path,
+    ) -> None:
+        # Validations: Ambiguous selection.
+        selected_names = {s for s in config.environment.selected if isinstance(s, str)}
+        if duplicate_modules := {
+            module_name: paths
+            for module_name, paths in modules.as_parts_by_name().items()
+            if len(paths) > 1 and module_name in selected_names
+        }:
+            # If the user has selected a module by name, and there are multiple modules with that name, raise an error.
+            # Note, if the user uses a path to select a module, this error will not be raised.
+            raise ToolkitDuplicatedModuleError(
+                f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
+            )
+        # Package Referenced Modules Exists
+        for package, package_modules in system_yaml.packages.items():
+            if package not in selected_names:
+                # We do not check packages that are not selected.
+                # Typically, the user will delete the modules that are irrelevant for them;
+                # thus we only check the selected packages.
+                continue
+            if missing := set(package_modules) - modules.available:
+                ToolkitMissingModuleError(
+                    f"Package {package} defined in {SystemYAML.file_name!s} is referring "
+                    f"the following missing modules {missing}."
+                )
+
+        # Selected modules does not exists
+        if missing := set(selected_modules) - modules.available:
+            hint = ModuleDefinition.long(missing, source_dir)
+            raise ToolkitMissingModuleError(
+                f"The following selected modules are missing, please check path: {missing}.\n{hint}"
+            )
+
+        # Nothing is Selected
+        if not modules.selected:
+            raise ToolkitEnvError(
+                f"No selected modules specified in {config.filepath!s}, have you configured "
+                f"the environment ({config.environment.name})?"
+            )
+
     def process_config_files(
         self,
         project_config_dir: Path,
-        module_directories: Sequence[tuple[Path, list[Path]]],
+        modules: ModuleDirectories,
         build_dir: Path,
         config: BuildConfigYAML,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
     ) -> _BuildState:
         state = _BuildState.create(config)
-        for module_dir, source_paths in module_directories:
+        for module in modules:
             if verbose:
-                print(f"  [bold green]INFO:[/] Processing module {module_dir.name}")
+                print(f"  [bold green]INFO:[/] Processing module {module.name}")
 
-            state.update_local_variables(module_dir)
+            state.update_local_variables(module.dir)
 
-            files_by_resource_directory = self._to_files_by_resource_directory(source_paths, module_dir)
+            files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
 
             for resource_directory_name, directory_files in files_by_resource_directory.items():
                 build_folder: list[Path] = []
                 for source_path in directory_files.resource_files:
                     destination = state.create_destination_path(
-                        source_path, resource_directory_name, module_dir, build_dir
+                        source_path, resource_directory_name, module.dir, build_dir
                     )
 
                     self._replace_variables_validate_to_build_directory(source_path, destination, state, verbose)
                     build_folder.append(destination)
 
                 if resource_directory_name == FunctionLoader.folder_name:
-                    self._validate_function_directory(state, directory_files, module_dir)
+                    self._validate_function_directory(state, directory_files, module.dir)
                     self.validate_and_copy_function_directory_to_build(
                         resource_files_build_folder=build_folder,
                         state=state,
-                        module_dir=module_dir,
+                        module_dir=module.dir,
                         build_dir=build_dir,
                     )
                 elif resource_directory_name == FileLoader.folder_name:
@@ -259,14 +302,14 @@ class BuildCommand(ToolkitCommand):
                         file_to_upload=directory_files.other_files,
                         resource_files_build_folder=build_folder,
                         state=state,
-                        module_dir=module_dir,
+                        module_dir=module.dir,
                         build_dir=build_dir,
                         verbose=verbose,
                     )
                 else:
                     for source_path in directory_files.other_files:
                         destination = state.create_destination_path(
-                            source_path, resource_directory_name, module_dir, build_dir
+                            source_path, resource_directory_name, module.dir, build_dir
                         )
                         destination.parent.mkdir(parents=True, exist_ok=True)
                         if (
@@ -380,14 +423,12 @@ class BuildCommand(ToolkitCommand):
         return False
 
     @staticmethod
-    def _get_selected_variables(
-        config_variables: dict[str, Any], module_directories: list[tuple[Path, list[Path]]]
-    ) -> dict[str, Any]:
+    def _get_selected_variables(config_variables: dict[str, Any], modules: ModuleDirectories) -> dict[str, Any]:
         selected_paths = {
-            dir_.parts[1:i]
-            for dir_, _ in module_directories
-            if len(dir_.parts) > 1
-            for i in range(2, len(dir_.parts) + 1)
+            module.relative_path.parts[1:i]
+            for module in modules
+            if len(module.relative_path.parts) > 1
+            for i in range(2, len(module.relative_path.parts) + 1)
         }
         selected_variables: dict[str, Any] = {}
         to_check: list[tuple[tuple[str, ...], dict[str, Any]]] = [(tuple(), config_variables)]
@@ -402,15 +443,6 @@ class BuildCommand(ToolkitCommand):
                         selected = selected.setdefault(part, {})
                     selected[key] = value
         return selected_variables
-
-    @staticmethod
-    def _is_selected_module(relative_module_dir: Path, selected_modules: list[str | tuple[str, ...]]) -> bool:
-        module_parts = relative_module_dir.parts
-        is_in_selected_modules = relative_module_dir.name in selected_modules or module_parts in selected_modules
-        is_parent_in_selected_modules = any(
-            parent in selected_modules for parent in (module_parts[:i] for i in range(1, len(module_parts)))
-        )
-        return is_parent_in_selected_modules or is_in_selected_modules
 
     def _to_files_by_resource_directory(self, filepaths: list[Path], module_dir: Path) -> dict[str, ResourceDirectory]:
         # Sort to support 1., 2. etc prefixes

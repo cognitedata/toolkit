@@ -77,7 +77,7 @@ class TestBuildCommand:
         cmd.execute(
             verbose=False,
             build_dir=tmp_path,
-            source_path=data.CUSTOM_PROJECT,
+            source_path=data.PROJECT_NO_COGNITE_MODULES,
             build_env_name="dev",
             no_clean=False,
         )

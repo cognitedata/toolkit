@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
-from tests.data import LOAD_DATA, PYTEST_PROJECT
+from tests.data import LOAD_DATA, PROJECT_FOR_TEST
 from tests.test_unit.approval_client import ApprovalCogniteClient
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator, mock_read_yaml_file
@@ -82,12 +82,12 @@ def test_loader_class(
 class TestDeployResources:
     def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
         build_env_name = "dev"
-        system_config = SystemYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
-        config = BuildConfigYAML.load_from_directory(PYTEST_PROJECT, build_env_name)
+        system_config = SystemYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
+        config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
         config.environment.selected = ["another_module"]
         build_cmd = BuildCommand()
         build_cmd.build_config(
-            BUILD_DIR, PYTEST_PROJECT, config=config, system_config=system_config, clean=True, verbose=False
+            BUILD_DIR, PROJECT_FOR_TEST, config=config, system_config=system_config, clean=True, verbose=False
         )
         expected_order = ["MyView", "MyOtherView"]
         cdf_tool = MagicMock(spec=CDFToolConfig)

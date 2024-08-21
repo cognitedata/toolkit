@@ -1,0 +1,22 @@
+environment:
+  name: dev
+  project: some-project
+  type: dev
+  selected:
+    - modules/
+
+variables:
+  ds_timeseries: ds_timeseries
+  source: src
+  location: here
+  space: sp_my_space
+  ds_something: ds_something
+  dict_variable:
+    featureConfiguration:
+      rootLocationConfigurations:
+        - assetExternalId: some_asset_ext_id
+          appDataInstanceSpace: sp_location_app_data
+          sourceDataInstanceSpace: sp_location_source_data
+    customerDataSpaceId: APM_SourceData # Space where the customer's data model lives
+    customerDataSpaceVersion: "1" # this is really the customer data model version
+    name: InRobot APM Config 2
