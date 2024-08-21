@@ -4,7 +4,6 @@ import inspect
 import itertools
 import re
 import shutil
-
 from pathlib import Path
 from typing import Any
 
@@ -287,7 +286,7 @@ def generate(target_path: Path) -> None:
             final_yaml = f"{main_yaml}{caps_yaml}"
 
         folder = target_path / loader_cls.folder_name
-        file_name = folder / Path(f'reference.{loader_cls.kind}.yaml')
+        file_name = folder / Path(f"reference.{loader_cls.kind}.yaml")
         Path.mkdir(folder, exist_ok=True)
         Path.write_text(file_name, final_yaml)
 
@@ -302,7 +301,7 @@ def validate(target_path: Path) -> None:
         loader for loader in ResourceLoader.__subclasses__() if loader.__name__ not in ["ResourceContainerLoader"]
     ]:
         folder = target_path / loader_cls.folder_name
-        file_name = folder / Path(f'reference.{loader_cls.kind}.yaml')
+        file_name = folder / Path(f"reference.{loader_cls.kind}.yaml")
         warnings = validate_resource_yaml(
             data=yaml.safe_load(Path.read_text(file_name)),
             spec=loader_cls.get_write_cls_parameter_spec(),
