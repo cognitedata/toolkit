@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
+from functools import lru_cache
 from typing import overload
 
 from cognite.client import CogniteClient
 from cognite.client._api_client import APIClient
 from cognite.client.config import ClientConfig
-from cognite.client.exceptions import CogniteNotFoundError
 
 from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     LocationFilter,
@@ -43,7 +43,9 @@ class LocationFiltersAPI(APIClient):
     def __iter__(self) -> Iterator[LocationFilter]:
         return self.__call__()
 
-    def external_id_to_id_dict(self) -> dict[str, int]:
+    @property
+    @lru_cache(maxsize=1)
+    def _ids(self) -> dict[str, int]:
         return {loc.external_id: loc.id for loc in self.list()}
 
     @overload
@@ -61,46 +63,23 @@ class LocationFiltersAPI(APIClient):
             LocationFilter: LocationFilterWrite or list of LocationFilterWrite.
 
         Returns:
-            LocationFilter object.
-
-        """
-        created = []
-        location_filters = location_filter if isinstance(location_filter, Sequence) else [location_filter]
-        for location_filter in location_filters:
-            payload = location_filter.dump(camel_case=True)
-            res = self._post(url_path=self._RESOURCE_PATH, json=payload)
-            created.append(LocationFilter._load(res.json(), cognite_client=self._cognite_client))
-
-        if len(created) > 0:
-            if isinstance(location_filter, Sequence):
-                return LocationFilterList(created)
-            else:
-                return created[0]
-
-        return LocationFilterList([])
-
-    def retrieve(self, id: int | Sequence[int]) -> LocationFilterList:
-        """Retrieve a LocationFilter.
-
-        Args:
-            id: id of the LocationFilter.
-
-        Returns:
-            LocationFilter object.
+            LocationFilter or LocationFilterList
 
         """
 
-        if isinstance(id, Sequence):
-            retrieved = []
-            for x in id:
-                try:
-                    retrieved.append(self.retrieve(x))
-                except CogniteNotFoundError:
-                    continue
-            return LocationFilterList(retrieved)
+        if isinstance(location_filter, LocationFilterWrite):
+            res = self._post(url_path=self._RESOURCE_PATH, json=location_filter.dump())
+            return LocationFilter._load(res.json(), cognite_client=self._cognite_client)
 
-        res = self._get(url_path=self._RESOURCE_PATH + "/{id}")
-        return LocationFilterList._load(res.json()["items"], cognite_client=self._cognite_client)
+        return LocationFilterList(
+            [
+                LocationFilter._load(
+                    self._post(url_path=self._RESOURCE_PATH, json=item.dump()).json(),
+                    cognite_client=self._cognite_client,
+                )
+                for item in location_filter
+            ]
+        )
 
     @overload
     def update(self, location_filter: LocationFilterWrite) -> LocationFilter: ...
@@ -111,50 +90,33 @@ class LocationFiltersAPI(APIClient):
     def update(
         self, location_filter: LocationFilterWrite | Sequence[LocationFilterWrite]
     ) -> LocationFilter | LocationFilterList:
-        """Update a LocationFilter.
-
-        Args:
-            LocationFilter: LocationFilterWrite or list of LocationFilterWrite.
-
-        Returns:
-            LocationFilter object.
-
-        """
-
-        location_filters = location_filter if isinstance(location_filter, Sequence) else [location_filter]
-        updated = []
-        for location_filter in location_filters:
-            payload = location_filter.dump(camel_case=True)
+        if isinstance(location_filter, LocationFilterWrite):
             res = self._put(
-                url_path=self._RESOURCE_PATH + f"/{self.external_id_to_id_dict()[location_filter.external_id]}",
-                json=payload,
+                url_path=f"{self._RESOURCE_PATH}/{self._ids[location_filter.external_id]}",
+                json=location_filter.dump(),
             )
-            loc = LocationFilter._load(res.json(), cognite_client=self._cognite_client)
-            updated.append(loc)
+            return LocationFilter._load(res.json(), cognite_client=self._cognite_client)
 
-        return LocationFilterList(updated)
+        return LocationFilterList(
+            [
+                LocationFilter._load(
+                    self._put(url_path=f"{self._RESOURCE_PATH}/{self._ids[item.external_id]}", json=item.dump()).json(),
+                    cognite_client=self._cognite_client,
+                )
+                for item in location_filter
+            ]
+        )
 
-        # update: dict[str, Any] = {}
-        # res = self._post(url_path=self._RESOURCE_PATH + "/update", json={"items": update})
-        # loaded = LocationFilterList._load(res.json()["items"], cognite_client=self._cognite_client)
-        # return loaded[0] if is_single else loaded
+    def delete(self, ids: int | Sequence[int]) -> int:
+        if isinstance(ids, int):
+            ids = [ids]
 
-    def delete(self, id: int | Sequence[int]) -> None:
-        """Delete a LocationFilter.
-
-             Args:
-        #         id: id LocationFilter.
-        #     Returns:
-        #         None
-        #"""
-        self._delete(url_path=self._RESOURCE_PATH + f"/{id}")
+        n = 0
+        for id in ids:
+            self._delete(url_path=f"{self._RESOURCE_PATH}/{id}")
+            n += 1
+        return n
 
     def list(self) -> LocationFilterList:
-        """List LocationFilters.
-
-        Returns:
-            LocationFilterList
-
-        """
         res = self._post(url_path=self._RESOURCE_PATH + "/list", json={"flat": False})
         return LocationFilterList._load(res.json()["items"], cognite_client=self._cognite_client)
