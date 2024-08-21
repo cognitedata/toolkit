@@ -84,11 +84,6 @@ from cognite.client.data_classes import (
     WorkflowVersionUpsert,
     WorkflowVersionUpsertList,
 )
-
-# WorkflowVersion,
-# WorkflowVersionList,
-# WorkflowVersionUpsert,
-# WorkflowVersionUpsertList,
 from cognite.client.data_classes.data_modeling import (
     Container,
     ContainerApply,

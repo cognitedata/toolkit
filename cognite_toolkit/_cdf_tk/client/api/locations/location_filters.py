@@ -7,6 +7,7 @@ from typing import overload
 from cognite.client import CogniteClient
 from cognite.client._api_client import APIClient
 from cognite.client.config import ClientConfig
+from cognite.client.exceptions import CogniteNotFoundError
 
 from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     LocationFilter,
@@ -80,6 +81,12 @@ class LocationFiltersAPI(APIClient):
                 for item in location_filter
             ]
         )
+
+    def retrieve(self, external_id: str) -> LocationFilter | None:
+        for loc in self.list():
+            if loc.external_id == external_id:
+                return loc
+        raise CogniteNotFoundError(not_found=[external_id])
 
     @overload
     def update(self, location_filter: LocationFilterWrite) -> LocationFilter: ...
