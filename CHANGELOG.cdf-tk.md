@@ -19,6 +19,9 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- When running `cdf-tk deploy`, the Toolkit would not detect `Function` secrets that were changed, which leads to the
+  `Function` not being updated. This is now fixed.
+
 - [Feature Preview] improved `--interactive / -i` for `dump asset` and `dump timeseries`
   - which can list datasets or assets with `clear-name (external_id) [count]`
 
@@ -51,6 +54,9 @@ Changes are grouped as follows:
 - [Feature Preview] In the command `cdf-tk import transformation-cli`, the Toolkit no longer raises
   an `UnicodeDecodeError` when importing a manifest with a query file that contains special characters
   on Windows.
+
+- The Toolkit previously detected a version as changed in the cdf-tk deploy command if it was an integer in
+  a DataModel or View resource file. This issue is now fixed.
 
 ## [0.2.17] - 2024-07-26
 

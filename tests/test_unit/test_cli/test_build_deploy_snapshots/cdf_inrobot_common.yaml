@@ -1,0 +1,211 @@
+DataSet:
+- externalId: ds_robot_1
+  metadata: {}
+  name: Robot 1 Dataset
+  writeProtected: false
+Function:
+- description: Contextualize data uploaded to CDF from robots.
+  envVars:
+    CDF_ENV: dev
+    ENV_TYPE: dev
+  externalId: fn_contextualize_robot_data
+  fileId: -1
+  functionPath: ./handler.py
+  metadata:
+    cdf-toolkit-function-hash: 551b03bfdfe83657d6eee7f45fd8b7efb9e30c25797b01e7d5e87251f8fa7bfc
+  name: Contextualize robot data
+  owner: Robotics team
+  runtime: py39
+- description: Reads the gauge data from the robot.
+  envVars:
+    CDF_ENV: dev
+    ENV_TYPE: dev
+  externalId: fn_gauge_reading
+  fileId: -1
+  functionPath: ./handler.py
+  metadata:
+    cdf-toolkit-function-hash: 20d516db64ed07f80e086483ffeb7389e50600720609b5c0f36fdcf31d3de127
+  name: Gauge reading
+  owner: Robotics team
+  runtime: py39
+- description: Extracts the IR data from the raw IR info.
+  envVars:
+    CDF_ENV: dev
+    ENV_TYPE: dev
+  externalId: fn_get_ir_data_from_ir_raw
+  fileId: -1
+  functionPath: ./handler.py
+  metadata:
+    cdf-toolkit-function-hash: 84e05781c2048ca9769863b84dc3337f361fa39cad57f967df55749e613f5eee
+  name: Get IR data From IR raw
+  owner: Robotics team
+  runtime: py39
+- description: Process 360 images into streetview
+  envVars:
+    CDF_ENV: dev
+    ENV_TYPE: dev
+  externalId: fn_threesixty
+  fileId: -1
+  functionPath: ./handler.py
+  metadata:
+    cdf-toolkit-function-hash: da02145aab6ac6c370ea0134a8b34a534733b8aa9cac18898f645f0fa2e717b5
+  name: Process 360
+  owner: Robotics team
+  runtime: py39
+FunctionSchedule:
+- cronExpression: '* * * * *'
+  data:
+    data_set_external_id: ds_robot_1
+    gauge_context_label: robot_gauge
+    read_dial_gauge_label: read_dial_gauge
+    read_digital_gauge_label: read_digital_gauge
+    read_ir_raw_label: read_ir
+    read_level_gauge_label: read_level_gauge
+    read_multiple_dial_gauges_label: read_multiple_dial_gauges
+    read_valve_label: read_valve
+    spill_detection_label: unprocessed_spill_detection
+  description: Contextualizes the robot data and adds appropriate labels
+  name: contextualize_robot_data
+- cronExpression: '* * * * *'
+  data:
+    data_set_external_id: ds_robot_1
+    failed_label: FAILED_IR
+    input_label: read_ir
+    output_label: ir_finished
+    success_label: SUCCESS_IR
+  description: ''
+  name: get_ir_data
+- cronExpression: '* * * * *'
+  data:
+    failed_label: FAILED
+    gauge_type: dial
+    input_label: read_dial_gauge
+    output_label: gauge_reading
+    success_label: SUCCESS
+  description: Reads the dial gauge data from the robot
+  name: read_dial_gauge
+- cronExpression: '* * * * *'
+  data:
+    data_set_external_id: ds_robot_1
+  description: ''
+  name: threesixty
+Group:
+- capabilities:
+  - datasetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - CREATE
+      - LIST
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - functionsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - labelsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - visionModelAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - eventsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - roboticsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - annotationsAcl:
+      actions:
+      - WRITE
+      scope:
+        all: {}
+  metadata:
+    origin: cdf-project-templates
+  name: gp_Run_Function_User
+  sourceId: <change_me>
+LabelDefinition:
+- dataSetId: 42
+  externalId: read_ir
+  name: read_ir
+- dataSetId: 42
+  externalId: robot_gauge
+  name: robot_gauge
+Node:
+- externalId: default-config
+  instanceType: node
+  sources:
+  - properties:
+      customerDataSpaceId: APM_SourceData
+      customerDataSpaceVersion: '1'
+      featureConfiguration:
+        rootLocationConfigurations:
+        - appDataInstanceSpace: sp_<change_me>_app_data
+          assetExternalId: <change_me>
+          sourceDataInstanceSpace: sp_<change_me>_source_data
+      name: InRobot APM App Config
+    source:
+      externalId: APM_Config
+      space: APM_Config
+      type: view
+      version: '1'
+  space: APM_Config
+Space:
+- description: Space for User and User Preferences Data
+  name: cognite_app_data
+  space: cognite_app_data
