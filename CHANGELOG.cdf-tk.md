@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Location Filter support
+
 ### Fixed
 
 - When running `cdf-tk deploy`, the Toolkit would not detect `Function` secrets that were changed, which leads to the
