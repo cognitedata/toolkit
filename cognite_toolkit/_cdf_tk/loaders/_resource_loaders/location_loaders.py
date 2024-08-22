@@ -43,7 +43,7 @@ class LocationFilterLoader(
         )
 
     @classmethod
-    def get_id(self, item: LocationFilter | LocationFilterWrite | dict) -> str:
+    def get_id(cls, item: LocationFilter | LocationFilterWrite | dict) -> str:
         if isinstance(item, dict):
             return item["externalId"]
         if not item.external_id:
