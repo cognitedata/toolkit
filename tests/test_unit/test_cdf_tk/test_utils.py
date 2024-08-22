@@ -113,21 +113,21 @@ class TestLoadYamlInjectVariables:
     "variable, expected_warnings",
     [
         pytest.param(
-            BuildVariable("sourceId", "<change_me>", False, ()),
+            BuildVariable("sourceId", "<change_me>", False, Path()),
             [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "")],
             id="Single warning",
         ),
         pytest.param(
-            BuildVariable("sourceId", "<change_me>", False, ("a_module",)),
+            BuildVariable("sourceId", "<change_me>", False, Path("a_module")),
             [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "a_module")],
             id="Nested warning",
         ),
         pytest.param(
-            BuildVariable("sourceId", "<change_me>", False, ("a_super_module", "a_module")),
+            BuildVariable("sourceId", "<change_me>", False, Path("a_super_module/a_module")),
             [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "a_super_module.a_module")],
             id="Deep nested warning",
         ),
-        pytest.param(BuildVariable("sourceId", "123", False, ("a_module",)), [], id="No warning"),
+        pytest.param(BuildVariable("sourceId", "123", False, Path("a_module")), [], id="No warning"),
     ],
 )
 def test_validate_config_yaml(variable: BuildVariable, expected_warnings: list[TemplateVariableWarning]) -> None:
