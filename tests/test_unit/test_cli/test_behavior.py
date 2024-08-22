@@ -343,7 +343,6 @@ def test_deploy_group_with_unknown_acl(
     }
 
 
-@pytest.mark.skip("In development")
 def test_build_project_with_only_top_level_variables(
     build_tmp_path: Path,
     typer_context: typer.Context,

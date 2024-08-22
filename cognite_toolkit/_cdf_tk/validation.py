@@ -9,6 +9,7 @@ from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
+from cognite_toolkit._cdf_tk.data_classes import BuildVariables
 from cognite_toolkit._cdf_tk.loaders import NodeLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
@@ -22,26 +23,23 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 __all__ = ["validate_modules_variables", "validate_data_set_is_set", "validate_resource_yaml"]
 
 
-def validate_modules_variables(config: dict[str, Any], filepath: Path, path: str = "") -> WarningList:
+def validate_modules_variables(variables: BuildVariables, filepath: Path) -> WarningList:
     """Checks whether the config file has any issues.
 
     Currently, this checks for:
         * Non-replaced template variables, such as <change_me>.
 
     Args:
-        config: The config to check.
+        variables: The variables to check.
         filepath: The filepath of the config.yaml.
-        path: The path in the config.yaml. This is used recursively by this function.
     """
     warning_list: WarningList = WarningList()
     pattern = re.compile(r"<.*?>")
-    for key, value in config.items():
-        if isinstance(value, str) and pattern.match(value):
-            warning_list.append(TemplateVariableWarning(filepath, value, key, path))
-        elif isinstance(value, dict):
-            if path:
-                path += "."
-            warning_list.extend(validate_modules_variables(value, filepath, f"{path}{key}"))
+    for variable in variables:
+        if isinstance(variable.value, str) and pattern.match(variable.value):
+            warning_list.append(
+                TemplateVariableWarning(filepath, variable.value, variable.key, ".".join(variable.location))
+            )
     return warning_list
 
 

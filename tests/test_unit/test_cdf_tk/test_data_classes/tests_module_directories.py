@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES

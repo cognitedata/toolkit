@@ -39,13 +39,21 @@ class ModuleLocation:
     def module_references(self) -> Iterable[str | tuple[str, ...]]:
         """Ways of selecting this module."""
         yield self.name
+        yield from self.variable_selected
+
+    @cached_property
+    def variable_selected(self) -> set[tuple[str, ...]]:
+        """All variables matching any part of the module path is used in the module."""
         module_parts = self.relative_path.parts
-        for i in range(1, len(module_parts) + 1):
-            yield module_parts[:i]
+        return {module_parts[:i] for i in range(0, len(module_parts) + 1)}
 
 
-@dataclass
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):
+    """This is an internal representation of the module directories in a source directory.
+
+    The motivation for this class is to provide helper functions for the user to interact with the module directories.
+    """
+
     # Subclassing tuple to make the class immutable. ModuleDirectories is expected to be initialized and
     # then used as a read-only object.
     def __new__(cls, collection: Collection[ModuleLocation]) -> ModuleDirectories:
@@ -62,6 +70,9 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     @cached_property
     def selected(self) -> ModuleDirectories:
         return ModuleDirectories([module for module in self if module.is_selected])
+
+    def as_path_parts(self) -> set[tuple[str, ...]]:
+        return {module.relative_path.parts[:i] for module in self for i in range(len(module.relative_path.parts) + 1)}
 
     @classmethod
     def load(
