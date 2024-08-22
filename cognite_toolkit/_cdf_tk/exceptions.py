@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 
 from yaml import YAMLError
 
@@ -56,16 +57,14 @@ class ToolkitDuplicatedResourceError(ToolkitError):
 
 
 class ToolkitDuplicatedModuleError(ToolkitError):
-    def __init__(self, message: str, duplicated: dict[str, list]) -> None:
+    def __init__(self, message: str, duplicated: dict[str, list[Path]]) -> None:
         super().__init__(message)
         self.duplicated = duplicated
 
     def __str__(self) -> str:
-        from cognite_toolkit._cdf_tk.constants import MODULE_PATH_SEP
-
         lines = [super().__str__()]
         for module_name, paths in self.duplicated.items():
-            locations = "\n        ".join(sorted(MODULE_PATH_SEP.join(path) for path in paths))
+            locations = "\n        ".join(sorted(path.as_posix() for path in paths))
             lines.append(f"    {module_name} exists in:\n        {locations}")
         lines.append(
             "    You can use the path syntax to disambiguate between modules with the same name. For example "
@@ -126,6 +125,9 @@ class ToolkitInvalidParameterNameError(ToolkitValidationError):
 
 class ToolkitValueError(ValueError, ToolkitError):
     pass
+
+
+class ToolkitTypeError(TypeError, ToolkitError): ...
 
 
 class ToolkitRequiredValueError(ToolkitError, ValueError):
