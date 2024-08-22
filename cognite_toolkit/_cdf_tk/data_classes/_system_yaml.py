@@ -8,16 +8,16 @@ from packaging.version import Version
 from packaging.version import parse as parse_version
 from rich import print
 
-from cognite_toolkit._cdf_tk.constants import MODULE_PATH_SEP, ROOT_MODULES
+from cognite_toolkit._cdf_tk.constants import ROOT_MODULES
 from cognite_toolkit._cdf_tk.data_classes._base import ConfigCore, _load_version_variable
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingModuleError, ToolkitMissingModulesError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingModulesError
 
 
 @dataclass
 class SystemYAML(ConfigCore):
     file_name: ClassVar[str] = "_system.yaml"
     cdf_toolkit_version: str
-    packages: dict[str, list[str | tuple[str, ...]]] = field(default_factory=dict)
+    packages: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def module_version(self) -> Version:
@@ -36,36 +36,8 @@ class SystemYAML(ConfigCore):
         return cls(
             filepath=filepath,
             cdf_toolkit_version=version,
-            packages={
-                name: [
-                    tuple([part for part in entry.split(MODULE_PATH_SEP) if part])
-                    if MODULE_PATH_SEP in entry
-                    else entry
-                    for entry in package
-                ]
-                for name, package in packages.items()
-            },
+            packages=packages,
         )
-
-    def validate_packages(
-        self, available_modules: set[str | tuple[str, ...]], selected_modules_and_packages: list[str | tuple[str, ...]]
-    ) -> None:
-        selected_packages = {
-            package
-            for package in selected_modules_and_packages
-            if package in self.packages and isinstance(package, str)
-        }
-        for package, modules in self.packages.items():
-            if package not in selected_packages:
-                # We do not check packages that are not selected.
-                # Typically, the user will delete the modules that are irrelevant for them;
-                # thus we only check the selected packages.
-                continue
-            if missing := set(modules) - available_modules:
-                ToolkitMissingModuleError(
-                    f"Package {package} defined in {self.filepath.name!s} is referring "
-                    f"the following missing modules {missing}."
-                )
 
     @staticmethod
     def validate_module_dir(source_path: Path) -> list[Path]:
