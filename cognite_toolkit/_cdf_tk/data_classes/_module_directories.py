@@ -38,13 +38,16 @@ class ModuleLocation:
     @property
     def module_selections(self) -> set[str | Path]:
         """Ways of selecting this module."""
-        return {self.name, *self.relative_parent_paths}
+        return {self.name, self.relative_path, *self.parent_relative_paths}
 
     @cached_property
-    def relative_parent_paths(self) -> set[Path]:
+    def parent_relative_paths(self) -> set[Path]:
         """All relative parent paths of the module."""
         module_parts = self.relative_path
         return {module_parts.parents[i] for i in range(len(module_parts.parts))}
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"
 
 
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):

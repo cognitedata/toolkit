@@ -73,7 +73,13 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
 
     def get_module_variables(self, module: ModuleLocation) -> BuildVariables:
         """Gets the variables for a specific module."""
-        return BuildVariables([variable for variable in self if variable.location in module.relative_parent_paths])
+        return BuildVariables(
+            [
+                variable
+                for variable in self
+                if variable.location == module.relative_path or variable.location in module.parent_relative_paths
+            ]
+        )
 
     def replace(self, content: str, file_suffix: str = ".yaml") -> str:
         for variable in self:
