@@ -15,6 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.18] - 2024-08-22
+
+### Added
+
+- New modules `cognite_modules/inrobot`.
+
+### Fixed
+
+- In the module `cdf_apm_simple_data_model`. The version of the view `6.WorkOrder.view` was incorrect.
+
 ## [0.2.17] - 2024-07-26
 
 No changes to templates.

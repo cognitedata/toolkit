@@ -260,7 +260,7 @@ class DeployCommand(ToolkitCommand):
             nr_of_unchanged += len(unchanged)
 
             if to_create:
-                created = self._create_resources(to_create, loader, verbose)
+                created = self._create_resources(to_create, loader)
                 nr_of_created += created
 
             if to_update:
@@ -359,12 +359,12 @@ class DeployCommand(ToolkitCommand):
         print_outs = []
         prefix = "Would have " if dry_run else ""
         if to_create:
-            print_outs.append(f"{prefix}Created {_print_ids_or_length(loader.get_ids(to_create))}")
+            print_outs.append(f"{prefix}Created {_print_ids_or_length(loader.get_ids(to_create), limit=20)}")
         if to_update:
-            print_outs.append(f"{prefix}Updated {_print_ids_or_length(loader.get_ids(to_update))}")
+            print_outs.append(f"{prefix}Updated {_print_ids_or_length(loader.get_ids(to_update), limit=20)}")
         if unchanged:
             print_outs.append(
-                f"{'Untouched' if dry_run else 'Unchanged'} {_print_ids_or_length(loader.get_ids(unchanged))}"
+                f"{'Untouched' if dry_run else 'Unchanged'} {_print_ids_or_length(loader.get_ids(unchanged), limit=5)}"
             )
         prefix_message = f" {loader.display_name}: "
         if len(print_outs) == 1:
@@ -374,7 +374,7 @@ class DeployCommand(ToolkitCommand):
         else:
             print(f"{prefix_message}{', '.join(print_outs[:-1])} and {print_outs[-1]}")
 
-    def _create_resources(self, resources: T_CogniteResourceList, loader: ResourceLoader, verbose: bool) -> int:
+    def _create_resources(self, resources: T_CogniteResourceList, loader: ResourceLoader) -> int:
         try:
             created = loader.create(resources)
         except CogniteAPIError as e:

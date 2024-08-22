@@ -956,7 +956,7 @@ View:
         externalId: Asset
         space: sp_apm_simple
         type: view
-        version: 8069f1498c7f9a
+        version: '1'
       type:
         externalId: WorkOrder.linkedAssets
         space: sp_apm_simple
@@ -1017,7 +1017,7 @@ View:
         externalId: WorkItem
         space: sp_apm_simple
         type: view
-        version: 94d2b7121128a2
+        version: '1'
       type:
         externalId: WorkOrder.workItems
         space: sp_apm_simple

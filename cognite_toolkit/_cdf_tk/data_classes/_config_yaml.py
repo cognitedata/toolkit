@@ -54,7 +54,7 @@ class Environment:
     name: str
     project: str
     build_type: EnvType
-    selected: list[str | tuple[str, ...]]
+    selected: list[str | Path]
 
     def __post_init__(self) -> None:
         if self.build_type not in _AVAILABLE_ENV_TYPES:
@@ -84,10 +84,7 @@ class Environment:
             project=data["project"],
             build_type=build_type,
             selected=[
-                tuple([part for part in selected.split(MODULE_PATH_SEP) if part])
-                if MODULE_PATH_SEP in selected
-                else selected
-                for selected in data["selected"] or []
+                Path(selected) if MODULE_PATH_SEP in selected else selected for selected in data["selected"] or []
             ],
         )
 
@@ -96,11 +93,17 @@ class Environment:
             "name": self.name,
             "project": self.project,
             "type": self.build_type,
-            "selected": [
-                MODULE_PATH_SEP.join(selected) if isinstance(selected, tuple) else selected
-                for selected in self.selected
-            ],
+            "selected": [selected.as_posix() if isinstance(selected, Path) else selected for selected in self.selected],
         }
+
+    def get_selected_modules(self, modules_by_package: dict[str, list[str]]) -> set[str | Path]:
+        selected_modules: set[str | Path] = set()
+        for selected in self.selected:
+            if selected in modules_by_package and isinstance(selected, str):
+                selected_modules.update(modules_by_package[selected])
+            else:
+                selected_modules.add(selected)
+        return selected_modules
 
 
 @dataclass
@@ -113,21 +116,6 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
     """This is the config.[env].yaml file used in the cdf-tk build command."""
 
     variables: dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def available_modules(self) -> list[str | tuple[str, ...]]:
-        available_modules: list[str | tuple[str, ...]] = []
-        to_check = [self.variables]
-        while to_check:
-            current = to_check.pop()
-            for key, value in current.items():
-                if isinstance(value, dict) and not value:
-                    available_modules.append(key)
-                elif isinstance(value, dict) and any(isinstance(v, dict) for v in value.values()):
-                    to_check.append(value)
-                elif isinstance(value, dict):
-                    available_modules.append(key)
-        return available_modules
 
     @classmethod
     def _file_name(cls, build_env_name: str) -> str:
@@ -197,11 +185,11 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
     def get_selected_modules(
         self,
-        modules_by_package: dict[str, list[str | tuple[str, ...]]],
-        available_modules: set[str | tuple[str, ...]],
+        modules_by_package: dict[str, list[str | Path]],
+        available_modules: set[str | Path],
         source_dir: Path,
         verbose: bool,
-    ) -> list[str | tuple[str, ...]]:
+    ) -> list[str | Path]:
         selected_packages = [
             package
             for package in self.environment.selected
@@ -232,10 +220,10 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         if verbose:
             print("  [bold green]INFO:[/] Selected modules:")
             for module in selected_modules:
-                if isinstance(module, str):
-                    print(f"    {module}")
+                if isinstance(module, Path):
+                    print(f"    {module.as_posix()}")
                 else:
-                    print(f"    {MODULE_PATH_SEP.join(module)!s}")
+                    print(f"    {module}")
         return selected_modules
 
 

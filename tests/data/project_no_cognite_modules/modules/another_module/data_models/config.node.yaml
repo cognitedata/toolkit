@@ -19,3 +19,12 @@ nodes:
           customerDataSpaceId: APM_SourceData # Space where the customer's data model lives
           customerDataSpaceVersion: "1" # this is really the customer data model version
           name: InRobot APM Config
+  - space: {{space}}
+    externalId: random_alert_node
+    sources:
+      - source:
+          space: {{space}}
+          externalId: Alert
+          version: 1
+          type: view
+        properties: {{ a_key }}

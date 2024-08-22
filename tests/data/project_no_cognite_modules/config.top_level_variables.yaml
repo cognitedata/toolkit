@@ -1,0 +1,16 @@
+environment:
+  name: dev
+  project: some-project
+  type: dev
+  selected:
+    - modules/
+
+variables:
+  modules:
+    space: sp_my_space
+    another_module:
+      ds_something: ds_something
+  a_key: some_value
+  ds_timeseries: ds_timeseries
+  source: src
+  location: here

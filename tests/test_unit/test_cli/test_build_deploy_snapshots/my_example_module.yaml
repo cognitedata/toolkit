@@ -31,6 +31,7 @@ Function:
   functionPath: ./src/handler.py
   metadata:
     cdf-toolkit-function-hash: a63720560f48030aaf994e92b02b1de1932514aa79b3115ced9d65fba8440aff
+    cdf-toolkit-secret-hash: d218376a8813e2bb96b70b9f3df07157b0b58f18f3667c64e500032095f4f2cb0f1679ed7034189009131ce2e77cc363d840b478d94d8525cad7d9830a78e129
     version: '1'
   name: first:example:function
   owner: Anonymous

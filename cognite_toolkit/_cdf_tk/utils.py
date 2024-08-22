@@ -61,6 +61,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitResourceMissingError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._version import __version__
 
 if sys.version_info < (3, 10):
@@ -863,10 +864,9 @@ def load_yaml_inject_variables(
         content = content.replace(f"${{{key}}}", value)
     for match in re.finditer(r"\$\{([^}]+)\}", content):
         environment_variable = match.group(1)
-        print(
-            f"[bold yellow]WARNING:[/] Variable {environment_variable} is not set in the environment. "
-            f"It is expected in {filepath.name}."
-        )
+        MediumSeverityWarning(
+            f"Variable {environment_variable} is not set in the environment. It is expected in {filepath.name}."
+        ).print_warning()
 
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
@@ -961,6 +961,13 @@ def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None 
                 # Get rid of Windows line endings to make the hash consistent across platforms.
                 sha256_hash.update(chunk.replace(b"\r\n", b"\n"))
 
+    return sha256_hash.hexdigest()
+
+
+def calculate_secure_hash(item: dict[str, Any]) -> str:
+    """Calculate a secure hash of a dictionary"""
+    sha256_hash = hashlib.sha512(usedforsecurity=True)
+    sha256_hash.update(json.dumps(item, sort_keys=True).encode("utf-8"))
     return sha256_hash.hexdigest()
 
 
