@@ -63,7 +63,7 @@ class LocationFilterAssetCentric:
     timeseries: LocationFilterAssetCentricBaseFilter | None = None
     sequences: LocationFilterAssetCentricBaseFilter | None = None
     data_set_ids: list[int] | None = None
-    asset_subtree_ids: list[dict[str, int | str]] | None = None
+    asset_subtree_ids: list[dict[Literal["id", "externalId"], int | str]] | None = None
     external_id_prefix: str | None = None
 
     @classmethod
