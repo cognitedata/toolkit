@@ -9,4 +9,4 @@ from cognite_toolkit._cdf_tk.client.api.locations.location_filters import Locati
 class LocationsAPI(APIClient):
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: CogniteClient) -> None:
         super().__init__(config, api_version, cognite_client)
-        self.location_filters = LocationFiltersAPI(config, api_version, cognite_client)
+        self.filters = LocationFiltersAPI(config, api_version, cognite_client)

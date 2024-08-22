@@ -108,7 +108,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
     LocationFilter contains information for a single LocationFilter.
 
     Args:
-        externalId: The external ID provided by the client. Must be unique for the resource type.
+        external_id: The external ID provided by the client. Must be unique for the resource type.
         name: The name of the location filter
         parent_id: The ID of the parent location filter
         description: The description of the location filter
