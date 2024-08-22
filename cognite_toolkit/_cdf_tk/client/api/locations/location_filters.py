@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.locations import (
 class LocationFiltersAPI(APIClient):
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: CogniteClient) -> None:
         super().__init__(config, api_version, cognite_client)
-        # this is a very temporary fix to avoid the client concatinating the _RESOURCE_PATH with the ordinary /api/ path.
+        # this is hopefully a very temporary fix to avoid the client concatinating the _RESOURCE_PATH with the ordinary /api/ path.
         self._api_version = None
         self._RESOURCE_PATH = f"/apps/v1/projects/{self._cognite_client.config.project}/storage/config/locationfilters"
 
