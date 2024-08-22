@@ -16,7 +16,6 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, SystemYAML
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedResourceError,
@@ -396,7 +395,7 @@ class PullCommand(ToolkitCommand):
             # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
             config.variables.pop("_cdf_tk", None)
             # Use path syntax to select all modules in the source directory
-            config.environment.selected = [(COGNITE_MODULES,)]
+            config.environment.selected = [Path("")]
             print(
                 Panel.fit(
                     f"[bold]Building all modules found in {config.filepath} (not only the modules under "

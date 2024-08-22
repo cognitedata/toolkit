@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Collection, Iterable, Iterator, Sequence
+from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -36,16 +36,15 @@ class ModuleLocation:
         return self.dir.relative_to(self.source_absolute_path)
 
     @property
-    def module_references(self) -> Iterable[str | tuple[str, ...]]:
+    def module_selections(self) -> set[str | Path]:
         """Ways of selecting this module."""
-        yield self.name
-        yield from self.variable_selected
+        return {self.name, *self.relative_parent_paths}
 
     @cached_property
-    def variable_selected(self) -> set[tuple[str, ...]]:
-        """All variables matching any part of the module path is used in the module."""
-        module_parts = self.relative_path.parts
-        return {module_parts[:i] for i in range(0, len(module_parts) + 1)}
+    def relative_parent_paths(self) -> set[Path]:
+        """All relative parent paths of the module."""
+        module_parts = self.relative_path
+        return {module_parts.parents[i] for i in range(len(module_parts.parts))}
 
 
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):
@@ -64,23 +63,35 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def __init__(self, collection: Collection[ModuleLocation]) -> None: ...
 
     @cached_property
-    def available(self) -> set[str | tuple[str, ...]]:
-        return {ref for module_location in self for ref in module_location.module_references}
+    def available(self) -> set[str | Path]:
+        return {selection for module_location in self for selection in module_location.module_selections}
 
     @cached_property
     def selected(self) -> ModuleDirectories:
         return ModuleDirectories([module for module in self if module.is_selected])
 
-    def as_path_parts(self) -> set[tuple[str, ...]]:
-        return {module.relative_path.parts[:i] for module in self for i in range(len(module.relative_path.parts) + 1)}
+    @cached_property
+    def available_paths(self) -> set[Path]:
+        return {item for item in self.available if isinstance(item, Path)}
+
+    @cached_property
+    def available_names(self) -> set[str]:
+        return {item for item in self.available if isinstance(item, str)}
 
     @classmethod
     def load(
         cls,
         source_dir: Path,
-        selected_modules: set[str | tuple[str, ...]],
+        user_selected_modules: set[str | Path],
     ) -> ModuleDirectories:
-        """Loads the modules in the source directory."""
+        """Loads the modules in the source directory.
+
+        Args:
+            source_dir: The absolute path to the source directory.
+            user_selected_modules: The modules selected by the user either by name or by path.
+
+        """
+
         module_locations: list[ModuleLocation] = []
         for module, source_paths in iterate_modules(source_dir):
             relative_module_dir = module.relative_to(source_dir)
@@ -88,7 +99,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
                 ModuleLocation(
                     module,
                     source_dir,
-                    cls._is_selected_module(relative_module_dir, selected_modules),
+                    cls._is_selected_module(relative_module_dir, user_selected_modules),
                     source_paths,
                 )
             )
@@ -96,20 +107,19 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
         return cls(module_locations)
 
     @classmethod
-    def _is_selected_module(cls, relative_module_dir: Path, selected: set[str | tuple[str, ...]]) -> bool:
+    def _is_selected_module(cls, relative_module_dir: Path, user_selected: set[str | Path]) -> bool:
         """Checks whether a module is selected by the user."""
-        module_parts = relative_module_dir.parts
-        in_selected = relative_module_dir.name in selected or module_parts in selected
-        is_parent_in_selected = any(
-            parent in selected for parent in (module_parts[:i] for i in range(1, len(module_parts)))
+        return (
+            relative_module_dir.name in user_selected
+            or relative_module_dir in user_selected
+            or any(parent in user_selected for parent in relative_module_dir.parents)
         )
-        return is_parent_in_selected or in_selected
 
-    def as_parts_by_name(self) -> dict[str, list[tuple[str, ...]]]:
-        module_parts_by_name: dict[str, list[tuple[str, ...]]] = defaultdict(list)
+    def as_path_by_name(self) -> dict[str, list[Path]]:
+        module_path_by_name: dict[str, list[Path]] = defaultdict(list)
         for module in self:
-            module_parts_by_name[module.name].append(module.relative_path.parts)
-        return module_parts_by_name
+            module_path_by_name[module.name].append(module.relative_path)
+        return module_path_by_name
 
     # Implemented to get correct type hints
     def __iter__(self) -> Iterator[ModuleLocation]:

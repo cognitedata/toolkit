@@ -26,7 +26,6 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     INDEX_PATTERN,
-    MODULE_PATH_SEP,
     TEMPLATE_VARS_FILE_SUFFIXES,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -193,12 +192,9 @@ class BuildCommand(ToolkitCommand):
                 print(f"    {package}")
             print("  [bold green]INFO:[/] Selected modules:")
             for module in [module.name for module in modules.selected]:
-                if isinstance(module, str):
-                    print(f"    {module}")
-                else:
-                    print(f"    {MODULE_PATH_SEP.join(module)!s}")
+                print(f"    {module}")
 
-        variables = BuildVariables.load(config.variables, modules.as_path_parts(), modules.selected.as_path_parts())
+        variables = BuildVariables.load(config.variables, modules.available_paths, modules.selected.available_paths)
         warnings = validate_modules_variables(variables.selected, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
@@ -228,14 +224,14 @@ class BuildCommand(ToolkitCommand):
         modules: ModuleDirectories,
         config: BuildConfigYAML,
         system_yaml: SystemYAML,
-        selected_modules: set[str | tuple[str, ...]],
+        selected_modules: set[str | Path],
         source_dir: Path,
     ) -> None:
         # Validations: Ambiguous selection.
         selected_names = {s for s in config.environment.selected if isinstance(s, str)}
         if duplicate_modules := {
             module_name: paths
-            for module_name, paths in modules.as_parts_by_name().items()
+            for module_name, paths in modules.as_path_by_name().items()
             if len(paths) > 1 and module_name in selected_names
         }:
             # If the user has selected a module by name, and there are multiple modules with that name, raise an error.
@@ -250,17 +246,17 @@ class BuildCommand(ToolkitCommand):
                 # Typically, the user will delete the modules that are irrelevant for them;
                 # thus we only check the selected packages.
                 continue
-            if missing := set(package_modules) - modules.available:
+            if missing_packages := set(package_modules) - modules.available_names:
                 ToolkitMissingModuleError(
                     f"Package {package} defined in {SystemYAML.file_name!s} is referring "
-                    f"the following missing modules {missing}."
+                    f"the following missing modules {missing_packages}."
                 )
 
         # Selected modules does not exists
-        if missing := set(selected_modules) - modules.available:
-            hint = ModuleDefinition.long(missing, source_dir)
+        if missing_modules := set(selected_modules) - modules.available:
+            hint = ModuleDefinition.long(missing_modules, source_dir)
             raise ToolkitMissingModuleError(
-                f"The following selected modules are missing, please check path: {missing}.\n{hint}"
+                f"The following selected modules are missing, please check path: {missing_modules}.\n{hint}"
             )
 
         # Nothing is Selected

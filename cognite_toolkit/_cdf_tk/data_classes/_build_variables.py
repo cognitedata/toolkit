@@ -4,6 +4,7 @@ import re
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
+from pathlib import Path
 from typing import Any, SupportsIndex, overload
 
 from ._module_directories import ModuleLocation
@@ -24,7 +25,7 @@ class BuildVariable:
     key: str
     value: str | int | float | bool | list[str | int | float | bool] | dict[str, str | int | float | bool]
     is_selected: bool
-    location: tuple[str, ...]
+    location: Path
 
 
 class BuildVariables(tuple, Sequence[BuildVariable]):
@@ -50,16 +51,16 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
     def load(
         cls,
         raw_variable: dict[str, Any],
-        available_modules: set[tuple[str, ...]],
-        selected_modules: set[tuple[str, ...]],
+        available_modules: set[Path],
+        selected_modules: set[Path],
     ) -> BuildVariables:
         """Loads the variables from the user input."""
         variables = []
-        to_check: list[tuple[tuple[str, ...], dict[str, Any]]] = [(tuple(), raw_variable)]
+        to_check: list[tuple[Path, dict[str, Any]]] = [(Path(""), raw_variable)]
         while to_check:
             path, subdict = to_check.pop()
             for key, value in subdict.items():
-                subpath = (*path, key)
+                subpath = path / key
                 if subpath in available_modules and isinstance(value, dict):
                     to_check.append((subpath, value))
                 elif isinstance(value, dict):
@@ -72,7 +73,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
 
     def get_module_variables(self, module: ModuleLocation) -> BuildVariables:
         """Gets the variables for a specific module."""
-        return BuildVariables([variable for variable in self if variable.location in module.variable_selected])
+        return BuildVariables([variable for variable in self if variable.location in module.relative_parent_paths])
 
     def replace(self, content: str, file_suffix: str = ".yaml") -> str:
         for variable in self:
