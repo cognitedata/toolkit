@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import contextlib
 
 import pytest
@@ -11,16 +9,13 @@ from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     LocationFilterList,
     LocationFilterWrite,
 )
-from tests.test_integration.constants import RUN_UNIQUE_ID
-
-DESCRIPTIONS = ["Original Description", "Updated Description"]
 
 
 @pytest.fixture(scope="session")
 def existing_location_filter(toolkit_client: ToolkitClient) -> LocationFilter:
     location_filter = LocationFilterWrite(
         name="loc",
-        external_id=f"loc_ext_id_{RUN_UNIQUE_ID}",
+        external_id="loc_ext_id",
     )
     try:
         retrieved = toolkit_client.locations.location_filters.retrieve(location_filter.external_id)
@@ -31,11 +26,10 @@ def existing_location_filter(toolkit_client: ToolkitClient) -> LocationFilter:
 
 
 class TestLocationFilterAPI:
-    @pytest.fixture(scope="session")
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         location_filter = LocationFilterWrite(
             name="loc",
-            external_id=f"loc_ext_id_{RUN_UNIQUE_ID}",
+            external_id="loc_ext_id",
         )
         try:
             with contextlib.suppress(CogniteAPIError):  # Should be CogniteDuplicatedError, but API throws 500 ATM
@@ -54,27 +48,30 @@ class TestLocationFilterAPI:
         with pytest.raises(CogniteNotFoundError):
             toolkit_client.locations.location_filters.retrieve(location_filter.external_id)
 
-    @pytest.fixture(scope="session")
-    @pytest.mark.usefixtures("existing_location_filter")
-    def test_list_location_filters(self, toolkit_client: ToolkitClient) -> None:
+    def test_list_location_filters(
+        self, toolkit_client: ToolkitClient, existing_location_filter: LocationFilter
+    ) -> None:
         location_filters = toolkit_client.locations.location_filters.list()
         assert isinstance(location_filters, LocationFilterList)
         assert len(location_filters) > 0
 
-    @pytest.fixture(scope="session")
-    @pytest.mark.usefixtures("existing_location_filter")
-    def test_iterate_location_filters(self, toolkit_client: ToolkitClient) -> None:
+    def test_iterate_location_filters(
+        self, toolkit_client: ToolkitClient, existing_location_filter: LocationFilter
+    ) -> None:
         for location_filters in toolkit_client.locations.location_filters:
             assert isinstance(location_filters, LocationFilter)
             break
         else:
             pytest.fail("No location filters found")
 
-    @pytest.fixture(scope="session")
     def test_update_location_filter(
         self, toolkit_client: ToolkitClient, existing_location_filter: LocationFilter
     ) -> None:
-        update = existing_location_filter
-        update.description = next(desc for desc in DESCRIPTIONS if desc != existing_location_filter.description)
+        update = existing_location_filter.as_write()
+        original_description = update.description
+        update.description = "New description"
         updated = toolkit_client.locations.location_filters.update(update.as_write())
         assert updated.description == update.description
+        # resetting
+        update.description = original_description
+        toolkit_client.locations.location_filters.update(update.as_write())
