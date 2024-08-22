@@ -3,12 +3,12 @@ from __future__ import annotations
 import pytest
 
 from cognite_toolkit._cdf_tk.data_classes import Environment
-from tests.data import PYTEST_PROJECT
+from tests.data import PROJECT_FOR_TEST
 
 
 @pytest.fixture(scope="session")
 def config_yaml() -> str:
-    return (PYTEST_PROJECT / "config.dev.yaml").read_text()
+    return (PROJECT_FOR_TEST / "config.dev.yaml").read_text()
 
 
 @pytest.fixture(scope="session")
