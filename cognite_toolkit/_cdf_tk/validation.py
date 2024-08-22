@@ -38,7 +38,7 @@ def validate_modules_variables(variables: BuildVariables, filepath: Path) -> War
     for variable in variables:
         if isinstance(variable.value, str) and pattern.match(variable.value):
             warning_list.append(
-                TemplateVariableWarning(filepath, variable.value, variable.key, ".".join(variable.location))
+                TemplateVariableWarning(filepath, variable.value, variable.key, ".".join(variable.location.parts))
             )
     return warning_list
 
