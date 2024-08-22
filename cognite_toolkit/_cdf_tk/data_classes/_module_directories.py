@@ -43,8 +43,7 @@ class ModuleLocation:
     @cached_property
     def parent_relative_paths(self) -> set[Path]:
         """All relative parent paths of the module."""
-        module_parts = self.relative_path
-        return {module_parts.parents[i] for i in range(len(module_parts.parts))}
+        return set(self.relative_path.parents)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"
