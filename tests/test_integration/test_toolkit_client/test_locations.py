@@ -1,7 +1,7 @@
 import contextlib
 
 import pytest
-from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
+from cognite.client.exceptions import CogniteDuplicatedError, CogniteNotFoundError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.locations import (
@@ -23,12 +23,19 @@ def existing_location_filter(toolkit_client: ToolkitClient) -> LocationFilter:
     try:
         retrieved = toolkit_client.locations.location_filters.retrieve(location_filter.external_id)
         return retrieved
-    except CogniteAPIError:
+    except CogniteNotFoundError:
         created = toolkit_client.locations.location_filters.create(location_filter)
         return created
 
 
 class TestLocationFilterAPI:
+    # since the ADS API doesn't enforce uniqueness on external_id, we need to clean up after (before) ourselves
+    @pytest.fixture(scope="class", autouse=True)
+    def reset(self, toolkit_client: ToolkitClient):
+        for location_filter in toolkit_client.locations.location_filters.list():
+            if location_filter.external_id == f"loc_ext_id_{RUN_UNIQUE_ID}":
+                toolkit_client.locations.location_filters.delete(location_filter.id)
+
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         location_filter = LocationFilterWrite(
             name="loc",
@@ -70,5 +77,5 @@ class TestLocationFilterAPI:
     ) -> None:
         update = existing_location_filter
         update.description = next(desc for desc in DESCRIPTIONS if desc != existing_location_filter.description)
-        updated = toolkit_client.locations.location_filters.update(update)
+        updated = toolkit_client.locations.location_filters.update(update.as_write())
         assert updated.description == update.description
