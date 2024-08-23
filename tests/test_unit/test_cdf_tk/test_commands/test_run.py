@@ -23,7 +23,7 @@ def test_get_oneshot_session(toolkit_client_approval: ApprovalToolkitClient):
 
 def test_run_transformation(toolkit_client_approval: ApprovalToolkitClient):
     cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.client = toolkit_client_approval.mock_client
+    cdf_tool._toolkit_client = toolkit_client_approval.mock_client
     cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
     transformation = Transformation(
         name="Test transformation",
@@ -37,7 +37,7 @@ def test_run_transformation(toolkit_client_approval: ApprovalToolkitClient):
 
 def test_run_function(toolkit_client_approval: ApprovalToolkitClient):
     cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.client = toolkit_client_approval.mock_client
+    cdf_tool._toolkit_client = toolkit_client_approval.mock_client
     cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
     function = Function(
         id=1234567890,

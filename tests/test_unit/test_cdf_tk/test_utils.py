@@ -62,9 +62,9 @@ def test_dataset_missing_acl():
 def test_dataset_create():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         instance = CDFToolConfig()
-        instance._client.config.project = "cdf-project-templates"
-        instance._client.iam.compare_capabilities = IAMAPI.compare_capabilities
-        instance._client.iam.token.inspect = Mock(
+        instance._toolkit_client.config.project = "cdf-project-templates"
+        instance._toolkit_client.iam.compare_capabilities = IAMAPI.compare_capabilities
+        instance._toolkit_client.iam.token.inspect = Mock(
             spec=TokenAPI.inspect,
             return_value=TokenInspection(
                 subject="",
@@ -77,7 +77,7 @@ def test_dataset_create():
                             project_scope=ProjectsScope(["cdf-project-templates"]),
                         )
                     ],
-                    cognite_client=instance._client,
+                    cognite_client=instance._toolkit_client,
                 ),
                 projects=[ProjectSpec(url_name="cdf-project-templates", groups=[])],
             ),
@@ -85,7 +85,7 @@ def test_dataset_create():
 
         # the dataset exists
         instance.verify_dataset("test")
-        assert instance._client.data_sets.retrieve.call_count == 1
+        assert instance._toolkit_client.data_sets.retrieve.call_count == 1
 
 
 class TestLoadYamlInjectVariables:
