@@ -10,5 +10,5 @@ class TestFeatureCommand:
         assert FeatureFlag.is_enabled("MODULES_CMD") is False
 
     def test_user_setting_is_read(self):
-        FeatureFlag.save_user_settings(FeatureFlag.to_flag("modules_cmd"), True)
-        assert FeatureFlag.is_enabled(Flags.MODULES_CMD)
+        FeatureFlag.save_user_settings(FeatureFlag.to_flag("internal"), True)
+        assert FeatureFlag.is_enabled(Flags.INTERNAL)

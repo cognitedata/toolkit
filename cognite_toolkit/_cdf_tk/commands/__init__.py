@@ -6,6 +6,7 @@ from .deploy import DeployCommand
 from .describe import DescribeCommand
 from .dump import DumpCommand
 from .featureflag import FeatureFlagCommand
+from .modules import ModulesCommand
 from .pull import PullCommand
 from .run import RunFunctionCommand, RunTransformationCommand
 
@@ -21,4 +22,5 @@ __all__ = [
     "PullCommand",
     "RunFunctionCommand",
     "RunTransformationCommand",
+    "ModulesCommand",
 ]

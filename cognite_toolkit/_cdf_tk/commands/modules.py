@@ -22,17 +22,17 @@ from rich.tree import Tree
 
 import cognite_toolkit
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES, COGNITE_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
-from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, SystemYAML
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.prototypes import _packages
-from cognite_toolkit._cdf_tk.prototypes.commands._changes import (
+from cognite_toolkit._cdf_tk.commands._changes import (
     UPDATE_MODULE_VERSION_DOCSTRING,
     AutomaticChange,
     Changes,
     ManualChange,
     UpdateModuleVersion,
 )
+from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES, COGNITE_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
+from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.prototypes import _packages
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
 from cognite_toolkit._version import __version__

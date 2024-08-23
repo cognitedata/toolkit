@@ -9,7 +9,6 @@ from ._config_yaml import (
 )
 from ._migration_yaml import Change, MigrationYAML, VersionChanges
 from ._module_directories import ModuleDirectories, ModuleLocation
-from ._project_directory import ProjectDirectory, ProjectDirectoryInit, ProjectDirectoryUpgrade
 from ._system_yaml import SystemYAML
 
 __all__ = [
@@ -20,9 +19,6 @@ __all__ = [
     "Change",
     "VersionChanges",
     "MigrationYAML",
-    "ProjectDirectory",
-    "ProjectDirectoryUpgrade",
-    "ProjectDirectoryInit",
     "SystemYAML",
     "Environment",
     "BuildEnvironment",

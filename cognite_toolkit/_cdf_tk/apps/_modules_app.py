@@ -5,11 +5,11 @@ from typing import Annotated, Optional
 import typer
 from rich import print
 
-from cognite_toolkit._cdf_tk.prototypes.commands.modules import ModulesCommand
+from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._version import __version__
 
 
-class Modules(typer.Typer):
+class ModulesApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
@@ -57,6 +57,5 @@ class Modules(typer.Typer):
         cmd = ModulesCommand()
         cmd.upgrade(project_dir=project_dir)
 
-
-# This is a trick to use an f-string for the docstring
-Modules.upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
+    # This is a trick to use an f-string for the docstring
+    upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
