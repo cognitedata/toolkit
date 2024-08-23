@@ -111,7 +111,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         resources: list[dict[str, Any]]
         if filepath.suffix in {".yaml", ".yml"}:
             raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-            resources = [raw] if isinstance(raw, list) else raw  # type: ignore[assignment, list-item]
+            resources = [raw] if isinstance(raw, dict) else raw
         elif filepath.suffix == ".csv" or filepath.suffix == ".parquet":
             if filepath.suffix == ".csv":
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
