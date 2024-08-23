@@ -1,3 +1,145 @@
+DataPostProcessing:
+- description: Process a 360 image into a panoramic view
+  externalId: process_threesixty
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/data_postprocessing/process_threesixty
+    properties:
+      image:
+        additionalProperties: false
+        properties:
+          method:
+            type: string
+          parameters:
+            properties: {}
+            type: object
+        required:
+        - method
+        - parameters
+        type: object
+    title: Process threesixty input
+    type: object
+  method: process_threesixty
+  name: Process a 360 image
+- description: Read dial gauge from an image using Cognite Vision gauge reader
+  externalId: read_dial_gauge
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/data_postprocessing/read_dial_gauge
+    properties:
+      image:
+        additionalProperties: false
+        properties:
+          method:
+            type: string
+          parameters:
+            properties:
+              deadAngle:
+                type: number
+              maxLevel:
+                type: number
+              minLevel:
+                type: number
+              unit:
+                type: string
+            type: object
+        required:
+        - method
+        - parameters
+        type: object
+    title: Read dial gauge input
+    type: object
+  method: read_dial_gauge
+  name: Read dial gauge
+- description: Read digital gauge from an image using Cognite Vision gauge reader
+  externalId: read_digital_gauge
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/data_postprocessing/read_digital_gauge
+    properties:
+      image:
+        additionalProperties: false
+        properties:
+          method:
+            type: string
+          parameters:
+            properties:
+              commaPos:
+                type: integer
+              maxLevel:
+                type: number
+              maxNumDigits:
+                type: integer
+              minLevel:
+                type: number
+              minNumDigits:
+                type: integer
+              unit:
+                type: string
+            type: object
+        required:
+        - method
+        - parameters
+        type: object
+    title: Read digital gauge input
+    type: object
+  method: read_digital_gauge
+  name: Read digital gauge
+- description: Read level gauge from an image using Cognite Vision gauge reader
+  externalId: read_level_gauge
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/data_postprocessing/read_level_gauge
+    properties:
+      image:
+        additionalProperties: false
+        properties:
+          method:
+            type: string
+          parameters:
+            properties:
+              maxLevel:
+                type: number
+              minLevel:
+                type: number
+              unit:
+                type: string
+            type: object
+        required:
+        - method
+        - parameters
+        type: object
+    title: Read level gauge input
+    type: object
+  method: read_level_gauge
+  name: Read level gauge
+- description: Read valve state from an image using Cognite Vision valve reader
+  externalId: read_valve
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/data_postprocessing/read_valve
+    properties:
+      image:
+        additionalProperties: false
+        properties:
+          method:
+            type: string
+          parameters:
+            properties: {}
+            type: object
+        required:
+        - method
+        - parameters
+        type: object
+    title: Read valve state input
+    type: object
+  method: read_valve
+  name: Read valve state
 DataSet:
 - externalId: ds_robot_1
   metadata: {}
@@ -205,6 +347,448 @@ Node:
       type: view
       version: '1'
   space: APM_Config
+RobotCapability:
+- dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/data_handling/acoustic_video
+    properties:
+      uploadInstructions:
+        properties:
+          video:
+            properties:
+              method:
+                const: uploadFile
+                type: string
+              parameters:
+                properties:
+                  filenamePrefix:
+                    type: string
+                required:
+                - filenamePrefix
+                type: object
+            required:
+            - method
+            - parameters
+            type: object
+        required:
+        - video
+        type: object
+    required:
+    - uploadInstructions
+    type: object
+  description: Acoustic video recording
+  externalId: acoustic_video
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/acoustic_video
+    properties:
+      method:
+        type: string
+      parameters:
+        properties:
+          duration:
+            maximum: 120.0
+            minimum: 0.0
+            type: number
+          frequencyFrom:
+            maximum: 42000.0
+            minimum: 0.0
+            type: number
+          frequencyRange:
+            maximum: 8000.0
+            minimum: 2000.0
+            type: number
+          opacity:
+            maximum: 100.0
+            minimum: 0.0
+            type: number
+          threshold:
+            maximum: 100.0
+            minimum: 0.0
+            type: number
+        required:
+        - duration
+        - frequencyFrom
+        - frequencyRange
+        type: object
+    required:
+    - method
+    - parameters
+    title: Acoustic video recording input
+    type: object
+  method: acoustic_video
+  name: Acoustic video recording
+- dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.1.0/data_handling/pt_ir_video
+    properties:
+      uploadInstructions:
+        additionalProperties: false
+        properties:
+          video:
+            additionalProperties: false
+            properties:
+              method:
+                const: uploadFile
+                type: string
+              parameters:
+                properties:
+                  filenamePrefix:
+                    type: string
+                required:
+                - filenamePrefix
+                type: object
+            type: object
+        type: object
+    required:
+    - uploadInstructions
+    type: object
+  description: Pan, tilt, thermal camera for video recording
+  externalId: pt_ir_video
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/pt_ir_video
+    properties:
+      method:
+        type: string
+      parameters:
+        properties:
+          duration:
+            maximum: 120.0
+            minimum: 0.0
+            type: number
+          pan:
+            maximum: 180.0
+            minimum: -180.0
+            type: number
+          tilt:
+            maximum: 90.0
+            minimum: -90.0
+            type: number
+          zoom:
+            maximum: 100.0
+            minimum: 0.0
+            type: number
+        required:
+        - pan
+        - tilt
+        - duration
+        type: object
+    required:
+    - method
+    - parameters
+    title: Pan tilt thermal video recording input
+    type: object
+  method: pt_ir_video
+  name: PT ir video recording
+- dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.1.0/data_handling/ptz
+    properties:
+      uploadInstructions:
+        additionalProperties: false
+        properties:
+          image:
+            additionalProperties: false
+            properties:
+              method:
+                const: uploadFile
+                type: string
+              parameters:
+                properties:
+                  filenamePrefix:
+                    type: string
+                required:
+                - filenamePrefix
+                type: object
+            required:
+            - method
+            - parameters
+            type: object
+        type: object
+    required:
+    - uploadInstructions
+    type: object
+  description: Pan, tilt, zoom camera for image capture.
+  externalId: ptz
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/ptz
+    properties:
+      method:
+        type: string
+      parameters:
+        properties:
+          pan:
+            maximum: 180.0
+            minimum: -180.0
+            type: number
+          tilt:
+            maximum: 90.0
+            minimum: -90.0
+            type: number
+          zoom:
+            maximum: 100.0
+            minimum: 0.0
+            type: number
+        required:
+        - pan
+        - tilt
+        - zoom
+        type: object
+    required:
+    - method
+    - parameters
+    title: PTZ camera input
+    type: object
+  method: ptz
+  name: PTZ camera
+- dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.1.0/data_handling/ptz_ir
+    properties:
+      uploadInstructions:
+        additionalProperties: false
+        properties:
+          image:
+            additionalProperties: false
+            properties:
+              method:
+                const: uploadFile
+                type: string
+              parameters:
+                properties:
+                  filenamePrefix:
+                    type: string
+                required:
+                - filenamePrefix
+                type: object
+            required:
+            - method
+            - parameters
+            type: object
+          raw:
+            additionalProperties: false
+            properties:
+              method:
+                const: uploadFile
+                type: string
+              parameters:
+                properties:
+                  filenamePrefix:
+                    type: string
+                required:
+                - filenamePrefix
+                type: object
+            required:
+            - method
+            - parameters
+            type: object
+        type: object
+    required:
+    - uploadInstructions
+    type: object
+  description: Pan, tilt, zoom camera for thermal image capture.
+  externalId: ptz_ir
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/ptz_ir
+    properties:
+      method:
+        type: string
+      parameters:
+        properties:
+          pan:
+            maximum: 180.0
+            minimum: -180.0
+            type: number
+          tilt:
+            maximum: 90.0
+            minimum: -90.0
+            type: number
+          zoom:
+            maximum: 100.0
+            minimum: 0.0
+            type: number
+        required:
+        - pan
+        - tilt
+        - zoom
+        type: object
+    required:
+    - method
+    - parameters
+    title: PTZ thermal camera input
+    type: object
+  method: ptz_ir
+  name: PTZ thermal camera
+- dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.1.0/data_handling/ptz_video
+    properties:
+      uploadInstructions:
+        additionalProperties: false
+        properties:
+          video:
+            additionalProperties: false
+            properties:
+              method:
+                const: uploadFile
+                type: string
+              parameters:
+                properties:
+                  filenamePrefix:
+                    type: string
+                required:
+                - filenamePrefix
+                type: object
+            required:
+            - method
+            - parameters
+            type: object
+        type: object
+    required:
+    - uploadInstructions
+    type: object
+  description: Pan, tilt, zoom camera for video recording
+  externalId: ptz_video
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/ptz_video
+    properties:
+      method:
+        type: string
+      parameters:
+        properties:
+          duration:
+            maximum: 120.0
+            minimum: 0.0
+            type: number
+          pan:
+            maximum: 180.0
+            minimum: -180.0
+            type: number
+          tilt:
+            maximum: 90.0
+            minimum: -90.0
+            type: number
+          zoom:
+            maximum: 100.0
+            minimum: 0.0
+            type: number
+        required:
+        - pan
+        - tilt
+        - zoom
+        - duration
+        type: object
+    required:
+    - method
+    - parameters
+    title: PTZ video recording input
+    type: object
+  method: ptz_video
+  name: PTZ video recording
+- dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.1.0/data_handling/threesixty
+    properties:
+      uploadInstructions:
+        additionalProperties: false
+        properties:
+          image:
+            additionalProperties: false
+            properties:
+              method:
+                const: uploadFile
+                type: string
+              parameters:
+                properties:
+                  filenamePrefix:
+                    type: string
+                required:
+                - filenamePrefix
+                type: object
+            required:
+            - method
+            - parameters
+            type: object
+        type: object
+    required:
+    - uploadInstructions
+    type: object
+  description: Panoramic 360 degree image capture.
+  externalId: threesixty
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/threesixty
+    properties:
+      method:
+        type: string
+      parameters:
+        properties: {}
+        type: object
+    required:
+    - method
+    - parameters
+    title: 360 camera input
+    type: object
+  method: threesixty
+  name: 360 degree camera
+- dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.1.0/data_handling/threesixty_video
+    properties:
+      uploadInstructions:
+        additionalProperties: false
+        properties:
+          video:
+            additionalProperties: false
+            properties:
+              method:
+                const: uploadFile
+                type: string
+              parameters:
+                properties:
+                  filenamePrefix:
+                    type: string
+                required:
+                - filenamePrefix
+                type: object
+            required:
+            - method
+            - parameters
+            type: object
+        type: object
+    required:
+    - uploadInstructions
+    type: object
+  description: Panoramic 360 degree video recording.
+  externalId: threesixty_video
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/threesixty_video
+    properties:
+      method:
+        type: string
+      parameters:
+        properties: {}
+        type: object
+    required:
+    - method
+    - parameters
+    title: 360 video input
+    type: object
+  method: threesixty_video
+  name: 360 degree video
 Space:
 - description: Space for User and User Preferences Data
   name: cognite_app_data

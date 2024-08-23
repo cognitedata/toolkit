@@ -82,7 +82,7 @@ class TestModulesAPI:
         cognite_toolkit: CogniteToolkit,
         toolkit_client_approval: ApprovalToolkitClient,
         cdf_tool_config: CDFToolConfig,
-    ):
+    ) -> None:
         toolkit_client_approval.return_verify_resources = True
         module = cognite_toolkit.modules.retrieve(module_name)
 
