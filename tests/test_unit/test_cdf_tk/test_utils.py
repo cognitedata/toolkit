@@ -20,9 +20,10 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
-from cognite.client.testing import CogniteClientMock, monkeypatch_cognite_client
+from cognite.client.testing import monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.data_classes import BuildVariable, BuildVariables
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
@@ -41,14 +42,14 @@ from tests.test_unit.utils import PrintCapture
 
 
 def mocked_init(self):
-    self._client = CogniteClientMock()
+    self._toolkit_client = ToolkitClientMock()
     self._cache = CDFToolConfig._Cache()
 
 
 def test_init():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         instance = CDFToolConfig()
-        assert isinstance(instance._client, CogniteClientMock)
+        assert isinstance(instance._toolkit_client, ToolkitClientMock)
 
 
 @pytest.mark.skip("Rewrite to use ApprovalClient")
@@ -85,7 +86,7 @@ def test_dataset_create():
 
         # the dataset exists
         instance.verify_dataset("test")
-        assert instance._toolkit_client.data_sets.retrieve.call_count == 1
+        assert instance.toolkit_client.data_sets.retrieve.call_count == 1
 
 
 class TestLoadYamlInjectVariables:
