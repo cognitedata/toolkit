@@ -20,10 +20,9 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
-from cognite.client.testing import monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.data_classes import BuildVariable, BuildVariables
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
@@ -167,7 +166,7 @@ LOGIN_FLOW=token
 CDF_TOKEN=12345
 # The below variables are the defaults, they are automatically constructed unless they are set.
 CDF_URL=https://my_cluster.cognitedata.com"""
-        with monkeypatch_cognite_client() as _:
+        with monkeypatch_toolkit_client() as _:
             config = CDFToolConfig(token="12345", cluster="my_cluster", project="my_project")
             env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
         not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
@@ -202,7 +201,7 @@ IDP_AUTHORITY_URL=https://login.microsoftonline.com/{tenant}"""
         with mock.patch.dict(os.environ, envs, clear=True):
             with MonkeyPatch.context() as mp:
                 mp.setattr("cognite_toolkit._cdf_tk.utils.OAuthInteractive", MagicMock(spec=OAuthInteractive))
-                with monkeypatch_cognite_client() as _:
+                with monkeypatch_toolkit_client() as _:
                     config = CDFToolConfig()
                     env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
             not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
@@ -240,7 +239,7 @@ IDP_AUDIENCE=https://my_cluster.cognitedata.com"""
                 mp.setattr(
                     "cognite_toolkit._cdf_tk.utils.OAuthClientCredentials", MagicMock(spec=OAuthClientCredentials)
                 )
-                with monkeypatch_cognite_client() as _:
+                with monkeypatch_toolkit_client() as _:
                     config = CDFToolConfig()
                     env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
             not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
