@@ -3,12 +3,11 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import final
 
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     LocationFilter,
-    LocationFilterAcl,
     LocationFilterList,
     LocationFilterWrite,
     LocationFilterWriteList,
@@ -34,9 +33,9 @@ class LocationFilterLoader(
     def get_required_capability(cls, items: LocationFilterWriteList) -> Capability | list[Capability]:
         if not items:
             return []
-        return LocationFilterAcl(
-            actions=[LocationFilterAcl.Action.Read, LocationFilterAcl.Action.Write],
-            scope=LocationFilterAcl.Scope.All(),
+        return LocationFiltersAcl(
+            actions=[LocationFiltersAcl.Action.Read, LocationFiltersAcl.Action.Write],
+            scope=LocationFiltersAcl.Scope.All(),
             allow_unknown=True,
         )
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 # We need to import Sequence from typing and not collections.abc for
 # cognite_toolkit._parameters.read_parameter_from_init_type_hints to work on Python 3.9
@@ -15,7 +15,6 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.capabilities import AllScope, Capability, IDScope
 from cognite.client.data_classes.data_modeling.ids import DataModelId, ViewId
 from typing_extensions import Self
 
@@ -74,22 +73,6 @@ class AssetCentricFilter(CogniteObject):
             asset_subtree_ids=resource.get("assetSubtreeIds"),
             external_id_prefix=resource.get("externalIdPrefix"),
         )
-
-
-@dataclass
-class LocationFilterAcl(Capability):
-    _capability_name = "locationFiltersAcl"
-    actions: Sequence[Action]
-    scope: AllScope | IDScope
-    allow_unknown: bool = field(default=False, compare=False, repr=False)
-
-    class Action(Capability.Action):  # type: ignore [misc]
-        Read = "READ"
-        Write = "WRITE"
-
-    class Scope:
-        All = AllScope
-        SpaceID = IDScope
 
 
 class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):

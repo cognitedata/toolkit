@@ -5,7 +5,7 @@ from cognite.client.data_classes.data_modeling.ids import DataModelId
 
 from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     AssetCentricFilter,
-    LocationFilterAssetCentricBaseFilter,
+    AssetCentricSubFilter,
     LocationFilterScene,
     LocationFilterWrite,
 )
@@ -56,7 +56,7 @@ class TestLocationFilterLoader:
 
     def test_load_filter_write_asset_centric(self, loaded: LocationFilterWrite):
         assert isinstance(loaded.asset_centric, AssetCentricFilter)
-        assert isinstance(loaded.asset_centric.assets, LocationFilterAssetCentricBaseFilter)
+        assert isinstance(loaded.asset_centric.assets, AssetCentricSubFilter)
         assert loaded.asset_centric.asset_subtree_ids[0] == {"externalId": "general-subtree-id-890"}
         assert loaded.asset_centric.assets.asset_subtree_ids[0] == {"id": 345}
         assert loaded.asset_centric.events.asset_subtree_ids[0] == {"externalId": "event-subtree-id-678"}
