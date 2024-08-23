@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC
-from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal
+
+# We need to import Sequence from typing and not collections.abc for
+# cognite_toolkit._parameters.read_parameter_from_init_type_hints to work on Python 3.9
+# is necessary to avoid Ruff changing the import
+from typing import Any, Literal, Sequence  # noqa
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
@@ -50,7 +53,7 @@ class AssetCentricFilter(CogniteObject):
     timeseries: AssetCentricSubFilter | None = None
     sequences: AssetCentricSubFilter | None = None
     data_set_ids: list[int] | None = None
-    asset_subtree_ids: list[dict[str, int | str]] | None = None
+    asset_subtree_ids: list[dict[Literal["id", "externalId"], int | str]] | None = None
     external_id_prefix: str | None = None
 
     @classmethod
