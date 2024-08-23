@@ -62,6 +62,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
 )
 
+from .asset_loaders import AssetLoader
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
 from .data_organization_loaders import DataSetsLoader
 
@@ -76,7 +77,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     list_cls = TimeSeriesList
     list_write_cls = TimeSeriesWriteList
     kind = "TimeSeries"
-    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, AssetLoader})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @classmethod
@@ -108,6 +109,8 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         if "securityCategoryNames" in item:
             for security_category in item["securityCategoryNames"]:
                 yield SecurityCategoryLoader, security_category
+        if "assetExternalId" in item:
+            yield AssetLoader, item["assetExternalId"]
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TimeSeriesWriteList:
         resources = load_yaml_inject_variables(filepath, {})
@@ -130,6 +133,11 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             if resource.get("securityCategories") is None:
                 # Bug in SDK, the read version sets security categories to an empty list.
                 resource["securityCategories"] = []
+            if "assetExternalId" in resource:
+                asset_external_id = resource.pop("assetExternalId")
+                resource["assetId"] = ToolGlobals.verify_asset(
+                    asset_external_id, skip_validation, action="replace assetExternalId with assetId in time series"
+                )
         return TimeSeriesWriteList.load(resources)
 
     def _are_equal(
@@ -209,6 +217,8 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         spec.add(
             ParameterSpec(("securityCategoryNames", ANY_STR), frozenset({"str"}), is_required=False, _is_nullable=False)
         )
+        spec.add(ParameterSpec(("assetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        spec.discard(ParameterSpec(("assetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
         return spec
 
 

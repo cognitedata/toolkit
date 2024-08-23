@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceLoader, SpaceLoader, ViewLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestViewLoader:
@@ -61,11 +61,11 @@ class TestViewLoader:
 
         assert not extra, f"Extra keys: {extra}"
 
-    def test_update_view_with_interface(self, cognite_client_approval: ApprovalCogniteClient):
+    def test_update_view_with_interface(self, toolkit_client_approval: ApprovalToolkitClient):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
-        cdf_tool.toolkit_client = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        cdf_tool.client = toolkit_client_approval.mock_client
+        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
         prop1 = dm.MappedProperty(
             dm.ContainerId(space="sp_space", external_id="container_id"),
             "prop1",
@@ -112,7 +112,7 @@ class TestViewLoader:
             implements=[interface.as_id()],
         )
         # Simulating that the interface and child_cdf are available in CDF
-        cognite_client_approval.append(dm.View, [interface, child_cdf])
+        toolkit_client_approval.append(dm.View, [interface, child_cdf])
 
         loader = ViewLoader.create_loader(cdf_tool, None)
         cmd = DeployCommand(print_warning=False)

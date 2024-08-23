@@ -114,6 +114,10 @@ from cognite.client.data_classes.transformations.notifications import (
     TransformationNotificationWriteList,
 )
 
+from cognite_toolkit._cdf_tk.client.data_classes import (
+    robotics,
+)
+
 from .data_classes import APIResource, Method
 
 # This is used to define the resources that should be mocked in the ApprovalCogniteClient
@@ -511,6 +515,71 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create_3dmodel")],
             "retrieve": [
                 Method(api_class_method="__iter__", mock_class_method="iterate_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="robotics.data_postprocessing",
+        resource_cls=robotics.DataPostProcessing,
+        list_cls=robotics.DataPostProcessingList,
+        _write_cls=robotics.DataPostProcessingWrite,
+        _write_list_cls=robotics.DataPostProcessingWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="robotics.frames",
+        resource_cls=robotics.Frame,
+        list_cls=robotics.FrameList,
+        _write_cls=robotics.FrameWrite,
+        _write_list_cls=robotics.FrameWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="robotics.locations",
+        resource_cls=robotics.Location,
+        list_cls=robotics.LocationList,
+        _write_cls=robotics.LocationWrite,
+        _write_list_cls=robotics.LocationWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="robotics.maps",
+        resource_cls=robotics.Map,
+        list_cls=robotics.MapList,
+        _write_cls=robotics.MapWrite,
+        _write_list_cls=robotics.MapWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="robotics.capabilities",
+        resource_cls=robotics.RobotCapability,
+        list_cls=robotics.RobotCapabilityList,
+        _write_cls=robotics.RobotCapabilityWrite,
+        _write_list_cls=robotics.RobotCapabilityWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),

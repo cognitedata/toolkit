@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, LabelLoader
-from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.asset_loaders import AssetLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
 
 

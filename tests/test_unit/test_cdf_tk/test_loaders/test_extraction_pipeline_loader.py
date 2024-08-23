@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.loaders import (
 )
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
 
@@ -35,13 +35,13 @@ class TestExtractionPipelineDependencies:
     """
 
     def test_load_extraction_pipeline_upsert_create_one(
-        self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        cdf_tool.client = toolkit_client_approval.mock_client
 
-        cognite_client_approval.append(
+        toolkit_client_approval.append(
             ExtractionPipelineConfig,
             ExtractionPipelineConfig(
                 external_id="ep_src_asset",
@@ -50,14 +50,14 @@ class TestExtractionPipelineDependencies:
         )
 
     def test_load_extraction_pipeline_upsert_update_one(
-        self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
-        cdf_tool.toolkit_client = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        cdf_tool.client = toolkit_client_approval.mock_client
+        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
 
-        cognite_client_approval.append(
+        toolkit_client_approval.append(
             ExtractionPipelineConfig,
             ExtractionPipelineConfig(
                 external_id="ep_src_asset",
@@ -79,14 +79,14 @@ class TestExtractionPipelineDependencies:
         assert len(unchanged) == 0
 
     def test_load_extraction_pipeline_delete_one(
-        self, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
-        cdf_tool.toolkit_client = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        cdf_tool.client = toolkit_client_approval.mock_client
+        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
 
-        cognite_client_approval.append(
+        toolkit_client_approval.append(
             ExtractionPipelineConfig,
             ExtractionPipelineConfig(
                 external_id="ep_src_asset",

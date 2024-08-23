@@ -1,3 +1,3 @@
-from .client import ApprovalCogniteClient
+from .client import ApprovalToolkitClient
 
-__all__ = ["ApprovalCogniteClient"]
+__all__ = ["ApprovalToolkitClient"]
