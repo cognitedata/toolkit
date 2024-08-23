@@ -22,14 +22,14 @@ from tests.data import (
     PROJECT_NO_COGNITE_MODULES,
     PROJECT_WITH_DUPLICATES,
 )
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
 
 def test_inject_custom_environmental_variables(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
     init_project: Path,
@@ -64,7 +64,7 @@ def test_inject_custom_environmental_variables(
         include=[],
     )
 
-    transformation = cognite_client_approval.created_resources_of_type(Transformation)[0]
+    transformation = toolkit_client_approval.created_resources_of_type(Transformation)[0]
     assert transformation.source_oidc_credentials.client_id == "my_environment_variable_value"
 
 
@@ -93,7 +93,7 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
 def test_pull_transformation(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
     init_project_mutable: Path,
@@ -131,7 +131,7 @@ def test_pull_transformation(
     # Simulate a change in the transformation in CDF.
     loaded.name = "New transformation name"
     read_transformation = Transformation.load(loaded.dump())
-    cognite_client_approval.append(Transformation, read_transformation)
+    toolkit_client_approval.append(Transformation, read_transformation)
 
     pull_transformation_cmd(
         typer_context,
@@ -148,7 +148,7 @@ def test_pull_transformation(
 
 def test_dump_datamodel(
     build_tmp_path: Path,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
 ) -> None:
@@ -235,10 +235,10 @@ def test_dump_datamodel(
         name=None,
         is_global=False,
     )
-    cognite_client_approval.append(dm.Space, space)
-    cognite_client_approval.append(dm.Container, container)
-    cognite_client_approval.append(dm.View, view)
-    cognite_client_approval.append(dm.DataModel, data_model)
+    toolkit_client_approval.append(dm.Space, space)
+    toolkit_client_approval.append(dm.Container, container)
+    toolkit_client_approval.append(dm.View, view)
+    toolkit_client_approval.append(dm.DataModel, data_model)
 
     dump_datamodel_cmd(
         typer_context,
@@ -315,7 +315,7 @@ def test_build_project_selecting_parent_path(
 
 def test_deploy_group_with_unknown_acl(
     typer_context: Context,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
 ) -> None:
     deploy(
         typer_context,
@@ -328,7 +328,7 @@ def test_deploy_group_with_unknown_acl(
         verbose=False,
     )
 
-    groups = cognite_client_approval.created_resources["Group"]
+    groups = toolkit_client_approval.created_resources["Group"]
     assert len(groups) == 1
     group = cast(GroupWrite, groups[0])
     assert group.name == "my_group_with_unknown_acl"

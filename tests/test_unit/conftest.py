@@ -9,13 +9,13 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
-from cognite.client.testing import monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import Common, main_init
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -43,9 +43,9 @@ def chdir(new_dir: Path) -> Iterator[None]:
 
 
 @pytest.fixture
-def cognite_client_approval() -> ApprovalCogniteClient:
-    with monkeypatch_cognite_client() as client:
-        approval_client = ApprovalCogniteClient(client)
+def toolkit_client_approval() -> ApprovalToolkitClient:
+    with monkeypatch_toolkit_client() as client:
+        approval_client = ApprovalToolkitClient(client)
         yield approval_client
 
 
@@ -82,7 +82,7 @@ def local_tmp_project_path_mutable() -> Path:
 
 
 @pytest.fixture
-def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
+def cdf_tool_config(toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
     environment_variables = {
         "LOGIN_FLOW": "client_credentials",
         "CDF_PROJECT": "pytest-project",
@@ -104,9 +104,9 @@ def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch:
         real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
         # Build must always be executed from root of the project
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
-        cdf_tool.toolkit_client = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        cdf_tool.client = toolkit_client_approval.mock_client
+        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
 
         cdf_tool.environment_variables.side_effect = real_config.environment_variables
         cdf_tool.verify_dataset.return_value = 42
@@ -121,7 +121,7 @@ def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch:
 
 
 @pytest.fixture
-def cdf_tool_config_real(cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
+def cdf_tool_config_real(toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
     monkeypatch.setenv("CDF_PROJECT", "pytest-project")
     monkeypatch.setenv("CDF_CLUSTER", "bluefield")
     monkeypatch.setenv("IDP_TOKEN_URL", "dummy")

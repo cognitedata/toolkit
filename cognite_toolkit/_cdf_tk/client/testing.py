@@ -25,7 +25,7 @@ class ToolkitClientMock(CogniteClientMock):
         if "parent" in kwargs:
             super().__init__(*args, **kwargs)
             return None
-        super().__init__(spec=ToolkitClient, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         # Developer note:
         # - Please add your mocked APIs in chronological order
         # - For nested APIs:

@@ -49,10 +49,10 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import GroupWrite, ProjectSpec, TokenInspection
-from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case
 from requests import Response
 
+from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 
 from .config import API_RESOURCES
@@ -70,7 +70,7 @@ for cap, (scopes, names) in capabilities._VALID_SCOPES_BY_CAPABILITY.items():
 del cap, scopes, names, action, scope
 
 
-class ApprovalCogniteClient:
+class ApprovalToolkitClient:
     """A mock CogniteClient that is used for testing the clean, deploy commands
     of the cognite-toolkit.
 

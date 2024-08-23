@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.loaders import (
 )
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
 
@@ -43,11 +43,11 @@ conflictMode: upsert
 
     def test_no_auth_load(
         self,
-        cognite_client_approval: ApprovalCogniteClient,
+        toolkit_client_approval: ApprovalToolkitClient,
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client, None)
+        loader = TransformationLoader(toolkit_client_approval.mock_client, None)
         mock_read_yaml_file({"transformation.yaml": yaml.CSafeLoader(self.trafo_yaml).get_data()}, monkeypatch)
         loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
         assert loaded.destination_oidc_credentials is None
@@ -55,11 +55,11 @@ conflictMode: upsert
 
     def test_oidc_auth_load(
         self,
-        cognite_client_approval: ApprovalCogniteClient,
+        toolkit_client_approval: ApprovalToolkitClient,
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client, None)
+        loader = TransformationLoader(toolkit_client_approval.mock_client, None)
 
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
@@ -80,11 +80,11 @@ conflictMode: upsert
 
     def test_oidc_raise_if_invalid(
         self,
-        cognite_client_approval: ApprovalCogniteClient,
+        toolkit_client_approval: ApprovalToolkitClient,
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client, None)
+        loader = TransformationLoader(toolkit_client_approval.mock_client, None)
 
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
@@ -100,11 +100,11 @@ conflictMode: upsert
 
     def test_sql_file(
         self,
-        cognite_client_approval: ApprovalCogniteClient,
+        toolkit_client_approval: ApprovalToolkitClient,
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client, None)
+        loader = TransformationLoader(toolkit_client_approval.mock_client, None)
 
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
         resource.pop("query")
@@ -117,11 +117,11 @@ conflictMode: upsert
 
     def test_sql_inline(
         self,
-        cognite_client_approval: ApprovalCogniteClient,
+        toolkit_client_approval: ApprovalToolkitClient,
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client, None)
+        loader = TransformationLoader(toolkit_client_approval.mock_client, None)
 
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
@@ -133,11 +133,11 @@ conflictMode: upsert
 
     def test_if_ambiguous(
         self,
-        cognite_client_approval: ApprovalCogniteClient,
+        toolkit_client_approval: ApprovalToolkitClient,
         cdf_tool_config_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(cognite_client_approval.mock_client, None)
+        loader = TransformationLoader(toolkit_client_approval.mock_client, None)
 
         mock_read_yaml_file({"transformation.yaml": yaml.CSafeLoader(self.trafo_yaml).get_data()}, monkeypatch)
 

@@ -46,7 +46,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
 from tests.data import LOAD_DATA, PROJECT_FOR_TEST
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator, mock_read_yaml_file
 
@@ -62,25 +62,25 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 )
 def test_loader_class(
     loader_cls: type[ResourceLoader],
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
     data_regression: DataRegressionFixture,
 ):
     cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-    cdf_tool.client = cognite_client_approval.mock_client
-    cdf_tool.toolkit_client = cognite_client_approval.mock_client
+    cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+    cdf_tool.client = toolkit_client_approval.mock_client
+    cdf_tool.toolkit_client = toolkit_client_approval.mock_client
     cdf_tool.data_set_id = 999
 
     cmd = DeployCommand(print_warning=False)
     loader = loader_cls.create_loader(cdf_tool, LOAD_DATA)
     cmd.deploy_resources(loader, cdf_tool, dry_run=False)
 
-    dump = cognite_client_approval.dump()
+    dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
 
 
 class TestDeployResources:
-    def test_deploy_resource_order(self, cognite_client_approval: ApprovalCogniteClient):
+    def test_deploy_resource_order(self, toolkit_client_approval: ApprovalToolkitClient):
         build_env_name = "dev"
         system_config = SystemYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
         config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
@@ -91,14 +91,14 @@ class TestDeployResources:
         )
         expected_order = ["MyView", "MyOtherView"]
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
-        cdf_tool.toolkit_client = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        cdf_tool.client = toolkit_client_approval.mock_client
+        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
 
         cmd = DeployCommand(print_warning=False)
         cmd.deploy_resources(ViewLoader.create_loader(cdf_tool, BUILD_DIR), cdf_tool, dry_run=False)
 
-        views = cognite_client_approval.dump(sort=False)["View"]
+        views = toolkit_client_approval.dump(sort=False)["View"]
 
         actual_order = [view["externalId"] for view in views]
 
