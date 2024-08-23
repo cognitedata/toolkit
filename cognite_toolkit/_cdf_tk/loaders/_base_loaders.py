@@ -30,7 +30,7 @@ class Loader(ABC):
     """This is the base class for all loaders
 
     Args:
-        client (CogniteClient): The client to use for interacting with the CDF API.
+        client (ToolkitClient): The client to use for interacting with the CDF API.
         build_dir (Path): The path to the build directory
 
     Class attributes:
@@ -52,7 +52,7 @@ class Loader(ABC):
     _doc_url: str = ""
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        self.client: ToolkitClient = client
+        self.client = client
         self.resource_build_path: Path | None = None
         if build_dir is not None and build_dir.name == self.folder_name:
             raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
