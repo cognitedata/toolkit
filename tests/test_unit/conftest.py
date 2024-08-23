@@ -11,7 +11,7 @@ import pytest
 import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf import Common, main_init
+from cognite_toolkit._cdf import Common
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
@@ -158,30 +158,32 @@ def typer_context_no_cdf_tool_config() -> typer.Context:
 
 @pytest.fixture(scope="session")
 def init_project(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_immutable: Path) -> Path:
-    main_init(
-        typer_context_no_cdf_tool_config,
-        dry_run=False,
-        upgrade=False,
-        git_branch=None,
-        init_dir=str(local_tmp_project_path_immutable),
-        no_backup=True,
-        clean=True,
-    )
-    return local_tmp_project_path_immutable
+    raise NotImplementedError()
+    # main_init(
+    #     typer_context_no_cdf_tool_config,
+    #     dry_run=False,
+    #     upgrade=False,
+    #     git_branch=None,
+    #     init_dir=str(local_tmp_project_path_immutable),
+    #     no_backup=True,
+    #     clean=True,
+    # )
+    # return local_tmp_project_path_immutable
 
 
 @pytest.fixture
 def init_project_mutable(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_mutable: Path) -> Path:
-    main_init(
-        typer_context_no_cdf_tool_config,
-        dry_run=False,
-        upgrade=False,
-        git_branch=None,
-        init_dir=str(local_tmp_project_path_mutable),
-        no_backup=True,
-        clean=True,
-    )
-    return local_tmp_project_path_mutable
+    raise NotImplementedError
+    # main_init(
+    #     typer_context_no_cdf_tool_config,
+    #     dry_run=False,
+    #     upgrade=False,
+    #     git_branch=None,
+    #     init_dir=str(local_tmp_project_path_mutable),
+    #     no_backup=True,
+    #     clean=True,
+    # )
+    # return local_tmp_project_path_mutable
 
 
 @pytest.fixture

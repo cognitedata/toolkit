@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from collections import defaultdict
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
@@ -57,12 +58,12 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
 
     # Subclassing tuple to make the class immutable. ModuleDirectories is expected to be initialized and
     # then used as a read-only object.
-    def __new__(cls, collection: Collection[ModuleLocation]) -> ModuleDirectories:
+    def __new__(cls, collection: Collection[ModuleLocation] | None) -> ModuleDirectories:
         # Need to override __new__ to as we are subclassing a tuple:
         #   https://stackoverflow.com/questions/1565374/subclassing-tuple-with-multiple-init-arguments
-        return super().__new__(cls, tuple(collection))
+        return super().__new__(cls, tuple(collection or []))
 
-    def __init__(self, collection: Collection[ModuleLocation]) -> None: ...
+    def __init__(self, collection: Collection[ModuleLocation] | None) -> None: ...
 
     @cached_property
     def available(self) -> set[str | Path]:
@@ -107,6 +108,19 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
             )
 
         return cls(module_locations)
+
+    def dump(self, source_dir: Path) -> None:
+        """Dumps the module directories to the source directory.
+
+        Args:
+            source_dir: The absolute path to the source directory.
+        """
+        for module in self:
+            module_dir = source_dir / module.relative_path
+            module_dir.mkdir(parents=True, exist_ok=True)
+            for source_file in module.source_paths:
+                relative_file_path = source_file.relative_to(module.dir)
+                shutil.copy(source_file, module_dir / relative_file_path)
 
     @classmethod
     def _is_selected_module(cls, relative_module_dir: Path, user_selected: set[str | Path]) -> bool:
