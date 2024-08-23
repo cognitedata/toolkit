@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
+  `Frame`, and `Location`). These loaders were earlier available as a feature preview.
+
 ## [0.2.18] - 2024-08-22
 
 ### Fixed

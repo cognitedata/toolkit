@@ -70,12 +70,12 @@ class RunFunctionCommand(ToolkitCommand):
 
     def run_function(self, ToolGlobals: CDFToolConfig, external_id: str, payload: str, follow: bool = False) -> bool:
         """Run a function in CDF"""
-        session = get_oneshot_session(ToolGlobals.client)
+        session = get_oneshot_session(ToolGlobals.toolkit_client)
         if session is None:
             print("[bold red]ERROR:[/] Could not get a oneshot session.")
             return False
         try:
-            function = ToolGlobals.client.functions.retrieve(external_id=external_id)
+            function = ToolGlobals.toolkit_client.functions.retrieve(external_id=external_id)
         except Exception as e:
             print("[bold red]ERROR:[/] Could not retrieve function.")
             print(e)
@@ -91,13 +91,13 @@ class RunFunctionCommand(ToolkitCommand):
             return False
 
         def _function_call(id: int, payload: dict[str, Any]) -> FunctionCall | None:
-            (_, bearer) = ToolGlobals.client.config.credentials.authorization_header()
-            session = get_oneshot_session(ToolGlobals.client)
+            (_, bearer) = ToolGlobals.toolkit_client.config.credentials.authorization_header()
+            session = get_oneshot_session(ToolGlobals.toolkit_client)
             if session is None:
                 print("[bold red]ERROR:[/] Could not get a oneshot session.")
                 return None
             nonce = session.nonce
-            ret = ToolGlobals.client.post(
+            ret = ToolGlobals.toolkit_client.post(
                 url=f"/api/v1/projects/{ToolGlobals.project}/functions/{id}/call",
                 json={
                     "data": payload,
@@ -134,7 +134,7 @@ class RunFunctionCommand(ToolkitCommand):
                 total_time += sleep_time
                 time.sleep(sleep_time)
                 sleep_time = min(sleep_time * 2, 60)
-                call_result = ToolGlobals.client.functions.calls.retrieve(
+                call_result = ToolGlobals.toolkit_client.functions.calls.retrieve(
                     call_id=call_result.id or 0, function_id=function.id
                 )
                 if call_result is None:
@@ -153,11 +153,13 @@ class RunFunctionCommand(ToolkitCommand):
             if call_result.error is not None:
                 table.add_row("Error", str(call_result.error.get("message", "Empty error")))
                 table.add_row("Error trace", str(call_result.error.get("trace", "Empty trace")))
-            result = ToolGlobals.client.functions.calls.get_response(
+            result = ToolGlobals.toolkit_client.functions.calls.get_response(
                 call_id=call_result.id or 0, function_id=function.id
             )
             table.add_row("Result", str(json.dumps(result, indent=2, sort_keys=True)))
-            logs = ToolGlobals.client.functions.calls.get_logs(call_id=call_result.id or 0, function_id=function.id)
+            logs = ToolGlobals.toolkit_client.functions.calls.get_logs(
+                call_id=call_result.id or 0, function_id=function.id
+            )
             table.add_row("Logs", str(logs))
             print(table)
         return True
@@ -438,12 +440,12 @@ class RunTransformationCommand(ToolkitCommand):
         """Run a transformation in CDF"""
         if isinstance(external_ids, str):
             external_ids = [external_ids]
-        session = get_oneshot_session(ToolGlobals.client)
+        session = get_oneshot_session(ToolGlobals.toolkit_client)
         if session is None:
             print("[bold red]ERROR:[/] Could not get a oneshot session.")
             return False
         try:
-            transformations: TransformationList = ToolGlobals.client.transformations.retrieve_multiple(
+            transformations: TransformationList = ToolGlobals.toolkit_client.transformations.retrieve_multiple(
                 external_ids=external_ids
             )
         except Exception as e:
@@ -458,14 +460,14 @@ class RunTransformationCommand(ToolkitCommand):
             transformation.source_nonce = nonce
             transformation.destination_nonce = nonce
         try:
-            ToolGlobals.client.transformations.update(transformations)
+            ToolGlobals.toolkit_client.transformations.update(transformations)
         except Exception as e:
             print("[bold red]ERROR:[/] Could not update transformations with oneshot session.")
             print(e)
             return False
         for transformation in transformations:
             try:
-                job = ToolGlobals.client.transformations.run(
+                job = ToolGlobals.toolkit_client.transformations.run(
                     transformation_external_id=transformation.external_id, wait=False
                 )
                 print(f"Running transformation {transformation.external_id}, status {job.status}...")

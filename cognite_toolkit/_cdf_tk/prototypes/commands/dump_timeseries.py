@@ -9,7 +9,6 @@ from typing import Any, Literal, cast
 import pandas as pd
 import questionary
 import yaml
-from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     DataSetWrite,
     DataSetWriteList,
@@ -20,6 +19,7 @@ from cognite.client.data_classes.filters import Equals
 from cognite.client.exceptions import CogniteAPIError
 from rich.progress import Progress, TaskID
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileExistsError,
@@ -72,13 +72,13 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
 
-        data_sets = self._select_data_set(ToolGlobals.client, data_set, interactive)
+        data_sets = self._select_data_set(ToolGlobals.toolkit_client, data_set, interactive)
         if not data_sets:
             raise ToolkitValueError("No data set provided")
 
         if missing := set(data_sets) - {item.external_id for item in self.data_set_by_id.values() if item.external_id}:
             try:
-                retrieved = ToolGlobals.client.data_sets.retrieve_multiple(external_ids=list(missing))
+                retrieved = ToolGlobals.toolkit_client.data_sets.retrieve_multiple(external_ids=list(missing))
             except CogniteAPIError as e:
                 raise ToolkitMissingResourceError(f"Failed to retrieve data sets {data_sets}: {e}")
 
@@ -86,7 +86,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
         (output_dir / TIME_SERIES_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
 
-        total_time_series = ToolGlobals.client.time_series.aggregate_count(
+        total_time_series = ToolGlobals.toolkit_client.time_series.aggregate_count(
             filter=TimeSeriesFilter(
                 data_set_ids=[{"externalId": item} for item in data_sets] or None,
             )
@@ -98,13 +98,13 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             retrieved_time_series = progress.add_task("Retrieving time_series", total=total_time_series)
             write_to_file = progress.add_task("Writing time_series to file(s)", total=total_time_series)
 
-            time_series_iterator = ToolGlobals.client.time_series(
+            time_series_iterator = ToolGlobals.toolkit_client.time_series(
                 chunk_size=1000,
                 data_set_external_ids=data_sets or None,
                 limit=limit,
             )
             time_series_iterator = self._log_retrieved(time_series_iterator, progress, retrieved_time_series)
-            writeable = self._to_write(time_series_iterator, ToolGlobals.client, expand_metadata=True)
+            writeable = self._to_write(time_series_iterator, ToolGlobals.toolkit_client, expand_metadata=True)
 
             count = 0
             if format_ == "yaml":
@@ -177,11 +177,11 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             yield stored_time_series
 
     @lru_cache
-    def get_timeseries_choice_count_by_dataset(self, item_id: int, client: CogniteClient) -> int:
+    def get_timeseries_choice_count_by_dataset(self, item_id: int, client: ToolkitClient) -> int:
         """Using LRU decorator w/o limit instead of another lookup map."""
         return client.time_series.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
 
-    def _create_choice(self, item_id: int, item: DataSetWrite, client: CogniteClient) -> questionary.Choice:
+    def _create_choice(self, item_id: int, item: DataSetWrite, client: ToolkitClient) -> questionary.Choice:
         """
         Choice with `title` including name and external_id if they differ.
         Adding `value` as external_id for the choice.
@@ -208,7 +208,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
     def _select_data_set(
         self,
-        client: CogniteClient,
+        client: ToolkitClient,
         data_set: list[str] | None,
         interactive: bool,
     ) -> list[str]:
@@ -256,7 +256,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     print("No data set selected.")
         return list(data_sets)
 
-    def _get_available_data_sets(self, client: CogniteClient) -> dict[int, DataSetWrite]:
+    def _get_available_data_sets(self, client: ToolkitClient) -> dict[int, DataSetWrite]:
         if self._available_data_sets is None:
             self.data_set_by_id.update({item.id: item.as_write() for item in client.data_sets})
             # filter out data sets without external_id
@@ -268,7 +268,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
     def _to_write(
         self,
         time_series_lists: Iterator[TimeSeriesList],
-        client: CogniteClient,
+        client: ToolkitClient,
         expand_metadata: bool,
     ) -> Iterator[list[Any]]:
         for time_series_list in time_series_lists:
@@ -290,7 +290,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                 write_time_series.append(write)
             yield write_time_series
 
-    def _get_time_series_external_id(self, client: CogniteClient, root_id: int) -> str:
+    def _get_time_series_external_id(self, client: ToolkitClient, root_id: int) -> str:
         if root_id in self.time_series_external_id_by_id:
             return self.time_series_external_id_by_id[root_id]
         try:
@@ -304,7 +304,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         self.time_series_external_id_by_id[root_id] = time_series.external_id
         return time_series.external_id
 
-    def _get_data_set_external_id(self, client: CogniteClient, data_set_id: int) -> str:
+    def _get_data_set_external_id(self, client: ToolkitClient, data_set_id: int) -> str:
         if data_set_id in self.data_set_by_id:
             return cast(str, self.data_set_by_id[data_set_id].external_id)
         try:
@@ -318,7 +318,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         self.data_set_by_id[data_set_id] = data_set.as_write()
         return data_set.external_id
 
-    def _get_asset_external_id(self, client: CogniteClient, asset_id: int) -> str:
+    def _get_asset_external_id(self, client: ToolkitClient, asset_id: int) -> str:
         if asset_id in self.asset_by_id:
             return self.asset_by_id[asset_id]
         try:

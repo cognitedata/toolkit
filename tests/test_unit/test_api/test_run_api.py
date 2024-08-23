@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 from cognite.client.data_classes import Function, Transformation
 
 from cognite_toolkit._api import CogniteToolkit
@@ -8,13 +7,11 @@ from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
-@pytest.mark.skip("Failing due to changes in approval client")
 class TestRunAPI:
     def test_run_transformation(
         self,
         cognite_toolkit: CogniteToolkit,
         toolkit_client_approval: ApprovalToolkitClient,
-        cognite_client_approval: ApprovalToolkitClient,
         cdf_tool_config: CDFToolConfig,
     ) -> None:
         transformation = Transformation(
@@ -23,7 +20,6 @@ class TestRunAPI:
             query="SELECT * FROM timeseries",
         )
         toolkit_client_approval.append(Transformation, transformation)
-        cognite_client_approval.append(Transformation, transformation)
 
         result = cognite_toolkit.run.transformation("test")
 
@@ -33,7 +29,6 @@ class TestRunAPI:
         self,
         cognite_toolkit: CogniteToolkit,
         toolkit_client_approval: ApprovalToolkitClient,
-        cognite_client_approval: ApprovalToolkitClient,
         cdf_tool_config: CDFToolConfig,
     ) -> None:
         function = Function(
@@ -49,7 +44,6 @@ class TestRunAPI:
             secrets={"my_secret": "a_secret,"},
         )
         toolkit_client_approval.append(Function, function)
-        cognite_client_approval.append(Function, function)
 
         result = cognite_toolkit.run.function("test", {"payload": "test"})
 

@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, get_args, ove
 
 import typer
 import yaml
-from cognite.client import ClientConfig, CogniteClient
+from cognite.client import ClientConfig
 from cognite.client.config import global_config
 from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import CreatedSession
@@ -47,11 +47,11 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.data_modeling import View, ViewId
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError
-from cognite.client.testing import CogniteClientMock
 from rich import print
 from rich.prompt import Confirm, Prompt
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
@@ -378,7 +378,7 @@ class CDFToolConfig:
     """Configurations for how to store data in CDF
 
     Properties:
-        client: active CogniteClient
+        toolkit_client: active ToolkitClient
     Functions:
         verify_client: verify that the client has correct credentials and specified access capabilities
         verify_dataset: verify that the data set exists and that the client has access to it
@@ -422,7 +422,6 @@ class CDFToolConfig:
         self._scopes: list[str] = []
         self._audience: str | None = None
         self._credentials_provider: CredentialProvider | None = None
-        self._client: CogniteClient | None = None
         self._toolkit_client: ToolkitClient | None = None
 
         global_config.disable_pypi_version_check = True
@@ -437,15 +436,15 @@ class CDFToolConfig:
 
     def _initialize_in_browser(self) -> None:
         try:
-            self._client = CogniteClient()
+            self._toolkit_client = ToolkitClient()
         except Exception as e:
             raise AuthenticationError(f"Failed to initialize CogniteClient in browser: {e}")
 
         if self._cluster or self._project:
             print("[bold yellow]Warning[/] Cluster and project are arguments ignored when running in the browser.")
-        self._cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
-        self._project = self._client.config.project
-        self._cdf_url = self._client.config.base_url
+        self._cluster = self._toolkit_client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
+        self._project = self._toolkit_client.config.project
+        self._cdf_url = self._toolkit_client.config.base_url
 
     def initialize_from_auth_variables(self, auth: AuthVariables) -> None:
         """Initialize the CDFToolConfig from the AuthVariables and returns whether it was successful or not."""
@@ -504,7 +503,7 @@ class CDFToolConfig:
         else:
             raise AuthenticationError(f"Login flow {auth.login_flow} is not supported.")
 
-        self._client = CogniteClient(
+        self._toolkit_client = ToolkitClient(
             ClientConfig(
                 client_name=self._client_name,
                 base_url=self._cdf_url,
@@ -565,16 +564,9 @@ class CDFToolConfig:
         )
 
     @property
-    def client(self) -> CogniteClient:
-        if self._client is None:
-            raise ValueError("Client is not initialized.")
-        return self._client
-
-    @property
     def toolkit_client(self) -> ToolkitClient:
         if self._toolkit_client is None:
-            client = self.client
-            self._toolkit_client = ToolkitClient(client._config)
+            raise ValueError("ToolkitClient is not initialized.")
         return self._toolkit_client
 
     @property
@@ -625,7 +617,7 @@ class CDFToolConfig:
     def _token_inspection(self) -> TokenInspection:
         if self._cache.token_inspect is None:
             try:
-                self._cache.token_inspect = self.client.iam.token.inspect()
+                self._cache.token_inspect = self.toolkit_client.iam.token.inspect()
             except CogniteAPIError as e:
                 raise AuthorizationError(
                     f"Don't seem to have any access rights. {e}\n"
@@ -636,7 +628,7 @@ class CDFToolConfig:
 
     def verify_authorization(
         self, capabilities: Capability | Sequence[Capability], action: str | None = None
-    ) -> CogniteClient:
+    ) -> ToolkitClient:
         """Verify that the client has correct credentials and required access rights
 
         Args:
@@ -644,10 +636,10 @@ class CDFToolConfig:
             action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
 
         Returns:
-            CogniteClient: Verified client with access rights
+            ToolkitClient: Verified client with access rights
         """
         token_inspect = self._token_inspection
-        missing_capabilities = self.client.iam.compare_capabilities(token_inspect.capabilities, capabilities)
+        missing_capabilities = self.toolkit_client.iam.compare_capabilities(token_inspect.capabilities, capabilities)
         if missing_capabilities:
             missing = "  - \n".join(repr(c) for c in missing_capabilities)
             first_sentence = "Don't have correct access rights"
@@ -661,7 +653,7 @@ class CDFToolConfig:
                 f"Please [blue][link={URL.auth_toolkit}]click here[/link][/blue] to visit the documentation "
                 "and ensure that you have setup authentication for the CDF toolkit correctly."
             )
-        return self.client
+        return self.toolkit_client
 
     def verify_dataset(
         self, data_set_external_id: str, skip_validation: bool = False, action: str | None = None
@@ -692,7 +684,7 @@ class CDFToolConfig:
         )
 
         try:
-            data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
+            data_set = self.toolkit_client.data_sets.retrieve(external_id=data_set_external_id)
         except CogniteAPIError as e:
             raise ResourceRetrievalError(f"Failed to retrieve data set {data_set_external_id}: {e}")
 
@@ -729,7 +721,7 @@ class CDFToolConfig:
             ExtractionPipelinesAcl([ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.All()), action
         )
         try:
-            pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
+            pipeline = self.toolkit_client.extraction_pipelines.retrieve(external_id=external_id)
         except CogniteAPIError as e:
             raise ResourceRetrievalError(f"Failed to retrieve extraction pipeline {external_id}: {e}")
 
@@ -771,7 +763,7 @@ class CDFToolConfig:
             SecurityCategoriesAcl([SecurityCategoriesAcl.Action.List], SecurityCategoriesAcl.Scope.All()), action
         )
 
-        all_security_categories = self.client.iam.security_categories.list(limit=-1)
+        all_security_categories = self.toolkit_client.iam.security_categories.list(limit=-1)
         self._cache.security_categories_by_name.update(
             {sc.name: sc.id for sc in all_security_categories if sc.id and sc.name}
         )
@@ -817,7 +809,7 @@ class CDFToolConfig:
 
         self.verify_authorization(AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.All()), action)
 
-        missing_assets = self.client.assets.retrieve_multiple(
+        missing_assets = self.toolkit_client.assets.retrieve_multiple(
             external_ids=missing_external_ids, ignore_unknown_ids=True
         )
 
@@ -980,11 +972,11 @@ def calculate_str_or_file_hash(content: str | Path) -> str:
     return sha256_hash.hexdigest()
 
 
-def get_oneshot_session(client: CogniteClient) -> CreatedSession | None:
+def get_oneshot_session(client: ToolkitClient) -> CreatedSession | None:
     """Get a oneshot (use once) session for execution in CDF"""
     # Special case as this utility function may be called with a new client created in code,
     # it's hard to mock it in tests.
-    if isinstance(client, CogniteClientMock):
+    if isinstance(client, ToolkitClientMock):
         bearer = "123"
     else:
         (_, bearer) = client.config.credentials.authorization_header()
@@ -1126,7 +1118,7 @@ class YAMLWithComments(UserDict[T_Key, T_Value]):
         return super().values()
 
 
-def retrieve_view_ancestors(client: CogniteClient, parents: list[ViewId], cache: dict[ViewId, View]) -> list[View]:
+def retrieve_view_ancestors(client: ToolkitClient, parents: list[ViewId], cache: dict[ViewId, View]) -> list[View]:
     """Retrieves all ancestors of a view.
 
     This will mutate the cache that is passed in, and return a list of views that are the ancestors of the views in the parents list.

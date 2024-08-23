@@ -56,7 +56,7 @@ def test_build_deploy_module(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_config_only_toolkit: CDFToolConfig,
+    cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
     init_project: Path,
     data_regression,
