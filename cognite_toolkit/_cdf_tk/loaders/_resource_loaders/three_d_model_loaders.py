@@ -17,8 +17,10 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+
+from .data_organization_loaders import DataSetsLoader
 
 
 @final
