@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
+    CogniteObject,
     CogniteResourceList,
     WriteableCogniteResource,
     WriteableCogniteResourceList,
@@ -17,13 +18,13 @@ from typing_extensions import Self
 
 
 @dataclass(frozen=True)
-class LocationFilterScene(DataModelId):
+class LocationFilterScene(CogniteObject):
     external_id: str
     space: str
 
 
 @dataclass(frozen=True)
-class LocationFilterDataModel(DataModelId):
+class LocationFilterDataModel(CogniteObject):
     external_id: str
     space: str
     version: str
@@ -31,56 +32,41 @@ class LocationFilterDataModel(DataModelId):
 
 @dataclass(frozen=True)
 class LocationFilterView(ViewId):
-    external_id: str
-    space: str
-    version: str | None = None
     represents_entity: Literal["MAINTENANCE_ORDER", "OPERATION", "NOTIFICATION", "ASSET"] | None = None
 
 
 @dataclass(frozen=True)
-class LocationFilterAssetCentricBaseFilter:
+class AssetCentricSubFilter(CogniteObject):
     data_set_ids: list[int] | None = None
-    asset_subtree_ids: list[dict[str, str]] | None = None
+    asset_subtree_ids: list[dict[Literal["id", "externalId"], int | str]] | None = None
     external_id_prefix: str | None = None
-
-    @classmethod
-    def load(cls, resource: dict[str, Any]) -> Self:
-        return cls(
-            data_set_ids=resource.get("dataSetIds"),
-            asset_subtree_ids=resource.get("assetSubtreeIds"),
-            external_id_prefix=resource.get("externalIdPrefix"),
-        )
 
 
 @dataclass(frozen=True)
-class LocationFilterAssetCentric:
-    assets: LocationFilterAssetCentricBaseFilter | None = None
-    events: LocationFilterAssetCentricBaseFilter | None = None
-    files: LocationFilterAssetCentricBaseFilter | None = None
-    timeseries: LocationFilterAssetCentricBaseFilter | None = None
-    sequences: LocationFilterAssetCentricBaseFilter | None = None
+class AssetCentricFilter(CogniteObject):
+    assets: AssetCentricSubFilter | None = None
+    events: AssetCentricSubFilter | None = None
+    files: AssetCentricSubFilter | None = None
+    timeseries: AssetCentricSubFilter | None = None
+    sequences: AssetCentricSubFilter | None = None
     data_set_ids: list[int] | None = None
     asset_subtree_ids: list[dict[str, int | str]] | None = None
     external_id_prefix: str | None = None
 
     @classmethod
-    def load(cls, resource: dict[str, Any]) -> Self:
+    def _load_subfilter(cls, resource: dict[str, Any], key: str) -> AssetCentricSubFilter | None:
+        if key in resource:
+            return AssetCentricSubFilter.load(resource[key])
+        return None
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AssetCentricFilter:
         return cls(
-            assets=LocationFilterAssetCentricBaseFilter.load(resource.get("assets", {}))
-            if resource.get("assets")
-            else None,
-            events=LocationFilterAssetCentricBaseFilter.load(resource.get("events", {}))
-            if resource.get("events")
-            else None,
-            files=LocationFilterAssetCentricBaseFilter.load(resource.get("files", {}))
-            if resource.get("files")
-            else None,
-            timeseries=LocationFilterAssetCentricBaseFilter.load(resource.get("timeseries", {}))
-            if resource.get("timeseries")
-            else None,
-            sequences=LocationFilterAssetCentricBaseFilter.load(resource.get("sequences", {}))
-            if resource.get("sequences")
-            else None,
+            assets=cls._load_subfilter(resource, "assets"),
+            events=cls._load_subfilter(resource, "events"),
+            files=cls._load_subfilter(resource, "files"),
+            timeseries=cls._load_subfilter(resource, "timeseries"),
+            sequences=cls._load_subfilter(resource, "sequences"),
             data_set_ids=resource.get("dataSetIds"),
             asset_subtree_ids=resource.get("assetSubtreeIds"),
             external_id_prefix=resource.get("externalIdPrefix"),
@@ -128,7 +114,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         data_models: list[DataModelId] | None = None,
         instance_spaces: list[str] | None = None,
         scene: LocationFilterScene | None = None,
-        asset_centric: LocationFilterAssetCentric | None = None,
+        asset_centric: AssetCentricFilter | None = None,
         views: LocationFilterView | None = None,
     ) -> None:
         self.external_id = external_id
@@ -163,7 +149,7 @@ class LocationFilterWrite(LocationFilterCore):
             [DataModelId.load(item) for item in resource.get("dataModels", {})] if resource.get("dataModels") else None
         )
         asset_centric = (
-            LocationFilterAssetCentric.load(resource.get("assetCentric", {})) if resource.get("assetCentric") else None
+            AssetCentricFilter.load(resource.get("assetCentric", {})) if resource.get("assetCentric") else None
         )
         views = LocationFilterView.load(resource.get("views", {})) if resource.get("views") else None
         return cls(
@@ -208,7 +194,7 @@ class LocationFilter(LocationFilterCore):
         data_models: list[DataModelId] | None = None,
         instance_spaces: list[str] | None = None,
         scene: LocationFilterScene | None = None,
-        asset_centric: LocationFilterAssetCentric | None = None,
+        asset_centric: AssetCentricFilter | None = None,
         views: LocationFilterView | None = None,
     ) -> None:
         super().__init__(

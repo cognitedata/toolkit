@@ -4,7 +4,7 @@ import pytest
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 
 from cognite_toolkit._cdf_tk.client.data_classes.locations import (
-    LocationFilterAssetCentric,
+    AssetCentricFilter,
     LocationFilterAssetCentricBaseFilter,
     LocationFilterScene,
     LocationFilterWrite,
@@ -55,7 +55,7 @@ class TestLocationFilterLoader:
         assert loaded.scene.external_id == "scene-id-012"
 
     def test_load_filter_write_asset_centric(self, loaded: LocationFilterWrite):
-        assert isinstance(loaded.asset_centric, LocationFilterAssetCentric)
+        assert isinstance(loaded.asset_centric, AssetCentricFilter)
         assert isinstance(loaded.asset_centric.assets, LocationFilterAssetCentricBaseFilter)
         assert loaded.asset_centric.asset_subtree_ids[0] == {"externalId": "general-subtree-id-890"}
         assert loaded.asset_centric.assets.asset_subtree_ids[0] == {"id": 345}
