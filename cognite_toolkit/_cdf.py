@@ -18,32 +18,11 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 
-if FeatureFlag.is_enabled(Flags.ASSETS):
-    from cognite_toolkit._cdf_tk.prototypes import setup_asset_loader
-
-    setup_asset_loader.setup_asset_loader()
-
-# TODO: above my head to implement setup_asset_loader.py. Which `_modify` steps to implement?
-# if FeatureFlag.is_enabled(Flags.TIMESERIES):
-#     from cognite_toolkit._cdf_tk.prototypes import setup_timeseries_loader
-
-#     setup_timeseries_loader.setup_timeseries_loader()
-
-
-if FeatureFlag.is_enabled(Flags.MODEL_3D):
-    from cognite_toolkit._cdf_tk.prototypes import setup_3D_loader
-
-    setup_3D_loader.setup_model_3d_loader()
-
 if FeatureFlag.is_enabled(Flags.FUN_SCHEDULE):
     from cognite_toolkit._cdf_tk.prototypes import modify_function_schedule
 
     modify_function_schedule.modify_function_schedule_loader()
 
-if FeatureFlag.is_enabled(Flags.ROBOTICS):
-    from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
-
-    setup_robotics_loaders.setup_robotics_loaders()
 
 if FeatureFlag.is_enabled(Flags.NO_NAMING):
     from cognite_toolkit._cdf_tk.prototypes import turn_off_naming_check

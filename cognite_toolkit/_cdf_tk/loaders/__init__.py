@@ -70,6 +70,8 @@ RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, R
 RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerLoader)]
 
 ResourceTypes: TypeAlias = Literal[
+    "3dmodels",
+    "assets",
     "auth",
     "data_models",
     "data_sets",
@@ -81,7 +83,7 @@ ResourceTypes: TypeAlias = Literal[
     "extraction_pipelines",
     "functions",
     "raw",
-    "workflows",
+    "robotics" "workflows",
 ]
 
 __all__ = [
