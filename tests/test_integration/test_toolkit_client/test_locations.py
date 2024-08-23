@@ -9,19 +9,36 @@ from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     LocationFilterList,
     LocationFilterWrite,
 )
+from tests.test_integration.constants import RUN_UNIQUE_ID
+
+SESSION_EXTERNAL_ID = f"loc_ext_id_{RUN_UNIQUE_ID}"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_before_session(toolkit_client: ToolkitClient):
+    # Cleanup previously created locationfilters
+
+    try:
+        for location_filter in toolkit_client.locations.filters.list():
+            if location_filter.external_id.startswith("loc_ext_id_"):
+                toolkit_client.locations.filters.delete(location_filter.id)
+    except CogniteAPIError:
+        pass
+
+    yield  #
 
 
 @pytest.fixture(scope="session")
 def existing_location_filter(toolkit_client: ToolkitClient) -> LocationFilter:
     location_filter = LocationFilterWrite(
         name="loc",
-        external_id="loc_ext_id",
+        external_id=SESSION_EXTERNAL_ID,
     )
     try:
-        retrieved = toolkit_client.locations.location_filters.retrieve(location_filter.external_id)
+        retrieved = toolkit_client.locations.filters.retrieve(RUN_UNIQUE_ID)
         return retrieved
-    except CogniteNotFoundError:
-        created = toolkit_client.locations.location_filters.create(location_filter)
+    except CogniteAPIError:
+        created = toolkit_client.locations.filters.create(location_filter)
         return created
 
 
@@ -29,36 +46,33 @@ class TestLocationFilterAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         location_filter = LocationFilterWrite(
             name="loc",
-            external_id="loc_ext_id",
+            external_id=SESSION_EXTERNAL_ID,
         )
-        try:
-            with contextlib.suppress(CogniteAPIError):  # Should be CogniteDuplicatedError, but API throws 500 ATM
-                created = toolkit_client.locations.location_filters.create(location_filter)
-                assert isinstance(created, LocationFilter)
-                assert created.as_write().dump() == location_filter.dump()
+        with contextlib.suppress(CogniteAPIError):  # Should be CogniteDuplicatedError, but API throws 500 ATM
+            created = toolkit_client.locations.filters.create(location_filter)
+            assert isinstance(created, LocationFilter)
+            assert created.as_write().dump() == location_filter.dump()
 
-            retrieved = toolkit_client.locations.location_filters.retrieve(location_filter.external_id)
-
+            retrieved = toolkit_client.locations.filters.retrieve(created.id)
             assert isinstance(retrieved, LocationFilter)
             assert retrieved.as_write().dump() == location_filter.dump()
 
-        finally:
-            toolkit_client.locations.location_filters.delete(retrieved.id)
+            toolkit_client.locations.filters.delete(created.id)
 
-        with pytest.raises(CogniteNotFoundError):
-            toolkit_client.locations.location_filters.retrieve(location_filter.external_id)
+            with pytest.raises(CogniteNotFoundError):
+                toolkit_client.locations.filters.retrieve(created.id)
 
     def test_list_location_filters(
         self, toolkit_client: ToolkitClient, existing_location_filter: LocationFilter
     ) -> None:
-        location_filters = toolkit_client.locations.location_filters.list()
+        location_filters = toolkit_client.locations.filters.list()
         assert isinstance(location_filters, LocationFilterList)
         assert len(location_filters) > 0
 
     def test_iterate_location_filters(
         self, toolkit_client: ToolkitClient, existing_location_filter: LocationFilter
     ) -> None:
-        for location_filters in toolkit_client.locations.location_filters:
+        for location_filters in toolkit_client.locations.filters:
             assert isinstance(location_filters, LocationFilter)
             break
         else:
@@ -67,11 +81,7 @@ class TestLocationFilterAPI:
     def test_update_location_filter(
         self, toolkit_client: ToolkitClient, existing_location_filter: LocationFilter
     ) -> None:
-        update = existing_location_filter.as_write()
-        original_description = update.description
+        update = existing_location_filter
         update.description = "New description"
-        updated = toolkit_client.locations.location_filters.update(update.as_write())
+        updated = toolkit_client.locations.filters.update(update.id, update.as_write())
         assert updated.description == update.description
-        # resetting
-        update.description = original_description
-        toolkit_client.locations.location_filters.update(update.as_write())
