@@ -49,10 +49,10 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import GroupWrite, ProjectSpec, TokenInspection
-from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case
 from requests import Response
 
+from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 
 from .config import API_RESOURCES
@@ -70,7 +70,7 @@ for cap, (scopes, names) in capabilities._VALID_SCOPES_BY_CAPABILITY.items():
 del cap, scopes, names, action, scope
 
 
-class ApprovalCogniteClient:
+class ApprovalToolkitClient:
     """A mock CogniteClient that is used for testing the clean, deploy commands
     of the cognite-toolkit.
 
@@ -112,13 +112,19 @@ class ApprovalCogniteClient:
         for resource in API_RESOURCES:
             parts = resource.api_name.split(".")
             mock_api = mock_client
+            skip = False
             for part in parts:
+                if part == "robotics" and isinstance(mock_api, CogniteClientMock):
+                    skip = True
+                    break
                 if not hasattr(mock_api, part):
                     raise ValueError(f"Invalid api name {resource.api_name}, could not find {part}")
                 # To avoid registering the side effect on the mock_client.post.post and use
                 # just mock_client.post instead, we need to skip the "step into" post mock here.
                 if part != "post":
                     mock_api = getattr(mock_api, part)
+            if skip:
+                continue
             for method_type, methods in resource.methods.items():
                 method_factory: Callable = {
                     "create": self._create_create_method,
@@ -322,6 +328,7 @@ class ApprovalCogniteClient:
                         "ignoreNullFields": False,  # Transformations
                         "usedFor": "nodes",  # Views
                         "timeSeriesCount": 10,  # Datapoint subscription
+                        "updatedTime": 0,  # Robotics
                         **c.dump(camel_case=True),
                     }
                     for c in created

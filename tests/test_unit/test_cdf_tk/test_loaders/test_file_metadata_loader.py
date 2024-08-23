@@ -9,7 +9,7 @@ from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
 
 from cognite_toolkit._cdf_tk.loaders import FileMetadataLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 def file_metadata_config_cases() -> Iterable[ParameterSet]:
@@ -100,10 +100,10 @@ class TestLoadResources:
         files: list[str],
         data_set_mapping: dict[str, int],
         expected: FileMetadataWriteList,
-        cognite_client_approval: ApprovalCogniteClient,
+        toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = FileMetadataLoader(cognite_client_approval.client, None)
+        loader = FileMetadataLoader(toolkit_client_approval.client, None)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml_content
         filepath.parent.glob.return_value = [Path(f) for f in files]

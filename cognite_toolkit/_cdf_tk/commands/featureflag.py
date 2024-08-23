@@ -25,14 +25,8 @@ class Flags(Enum):
         "description": "Enables the support to dump timeseries",
     }
     NO_NAMING: ClassVar[dict[str, Any]] = {"visible": True, "description": "Disables the naming convention checks"}
-    ROBOTICS: ClassVar[dict[str, Any]] = {"visible": False, "description": "Enables the robotics sub application"}
     FUN_SCHEDULE: ClassVar[dict[str, Any]] = {
         "visible": True,
-        "description": "The resource function schedule use name instead of cron to uniquely identify the schedule",
-    }
-    MODEL_3D: ClassVar[dict[str, Any]] = {
-        "visible": True,
-        "description": "Enables the support for loading 3D Model resources",
     }
 
 
