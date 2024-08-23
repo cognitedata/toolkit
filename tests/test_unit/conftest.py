@@ -135,14 +135,14 @@ def cdf_tool_config_real(toolkit_client_approval: ApprovalToolkitClient, monkeyp
 
 
 @pytest.fixture
-def typer_context(cdf_tool_config_only_toolkit: CDFToolConfig) -> typer.Context:
+def typer_context(cdf_tool_config: CDFToolConfig) -> typer.Context:
     context = MagicMock(spec=typer.Context)
     context.obj = Common(
         verbose=False,
         override_env=True,
         cluster="pytest",
         project="pytest-project",
-        mockToolGlobals=cdf_tool_config_only_toolkit,
+        mockToolGlobals=cdf_tool_config,
     )
     return context
 
