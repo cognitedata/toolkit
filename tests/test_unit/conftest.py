@@ -133,6 +133,48 @@ def cdf_tool_config(
 
 
 @pytest.fixture
+def cdf_tool_config_only_toolkit(
+    toolkit_client_approval: ApprovalToolkitClient,
+    monkeypatch: MonkeyPatch,
+) -> CDFToolConfig:
+    environment_variables = {
+        "LOGIN_FLOW": "client_credentials",
+        "CDF_PROJECT": "pytest-project",
+        "CDF_CLUSTER": "bluefield",
+        "IDP_TOKEN_URL": "dummy",
+        "IDP_CLIENT_ID": "dummy",
+        "IDP_CLIENT_SECRET": "dummy",
+        "IDP_TENANT_ID": "dummy",
+        "IDP_AUDIENCE": "https://bluefield.cognitedata.com",
+        "IDP_SCOPES": "https://bluefield.cognitedata.com/.default",
+        "CDF_URL": "https://bluefield.cognitedata.com",
+    }
+    existing = {}
+    for key, value in environment_variables.items():
+        existing[key] = os.environ.get(key)
+        os.environ[key] = value
+
+    with chdir(REPO_ROOT):
+        real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
+        # Build must always be executed from root of the project
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        cdf_tool.client = toolkit_client_approval.mock_client
+        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
+
+        cdf_tool.environment_variables.side_effect = real_config.environment_variables
+        cdf_tool.verify_dataset.return_value = 42
+        cdf_tool.data_set_id = 999
+        yield cdf_tool
+
+    for key, value in existing.items():
+        if value is None:
+            del os.environ[key]
+        else:
+            os.environ[key] = value
+
+
+@pytest.fixture
 def cdf_tool_config_real(toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
     monkeypatch.setenv("CDF_PROJECT", "pytest-project")
     monkeypatch.setenv("CDF_CLUSTER", "bluefield")
@@ -144,14 +186,14 @@ def cdf_tool_config_real(toolkit_client_approval: ApprovalToolkitClient, monkeyp
 
 
 @pytest.fixture
-def typer_context(cdf_tool_config: CDFToolConfig) -> typer.Context:
+def typer_context(cdf_tool_config_only_toolkit: CDFToolConfig) -> typer.Context:
     context = MagicMock(spec=typer.Context)
     context.obj = Common(
         verbose=False,
         override_env=True,
         cluster="pytest",
         project="pytest-project",
-        mockToolGlobals=cdf_tool_config,
+        mockToolGlobals=cdf_tool_config_only_toolkit,
     )
     return context
 
