@@ -322,6 +322,7 @@ class ApprovalToolkitClient:
                         "ignoreNullFields": False,  # Transformations
                         "usedFor": "nodes",  # Views
                         "timeSeriesCount": 10,  # Datapoint subscription
+                        "updatedTime": 0,  # Robotics
                         **c.dump(camel_case=True),
                     }
                     for c in created
