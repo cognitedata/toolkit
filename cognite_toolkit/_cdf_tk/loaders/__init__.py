@@ -83,7 +83,8 @@ ResourceTypes: TypeAlias = Literal[
     "extraction_pipelines",
     "functions",
     "raw",
-    "robotics" "workflows",
+    "robotics",
+    "workflows",
 ]
 
 __all__ = [

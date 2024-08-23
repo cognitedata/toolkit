@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, SystemYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
-from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
@@ -266,7 +265,6 @@ def test_build_custom_project(
     build_tmp_path: Path,
     typer_context: typer.Context,
 ) -> None:
-    setup_robotics_loaders.setup_robotics_loaders()
     expected_resources = {
         "timeseries",
         "data_models",

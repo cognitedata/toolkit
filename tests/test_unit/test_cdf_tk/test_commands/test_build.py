@@ -14,7 +14,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
-from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from tests import data
 
@@ -68,8 +67,6 @@ class TestBuildCommand:
         )
 
     def test_custom_project_no_warnings(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        setup_robotics_loaders.setup_robotics_loaders()
-
         cmd = BuildCommand(print_warning=False)
         monkeypatch.setenv("CDF_PROJECT", "some-project")
         cmd.execute(

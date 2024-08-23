@@ -182,7 +182,9 @@ class TestFormatConsistency:
         except requests.exceptions.RequestException:
             return False
 
-    @pytest.mark.parametrize("Loader", LOADER_LIST)
+    @pytest.mark.parametrize(
+        "Loader", [loader for loader in LOADER_LIST if loader.folder_name != "robotics"]
+    )  # Robotics does not have a public doc_url
     def test_loader_has_doc_url(self, Loader: type[Loader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = Loader.create_loader(cdf_tool_config, None)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
