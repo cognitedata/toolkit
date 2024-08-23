@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
+from cognite.client.testing import monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import Common, main_init
@@ -43,9 +44,19 @@ def chdir(new_dir: Path) -> Iterator[None]:
 
 
 @pytest.fixture
-def toolkit_client_approval() -> ApprovalToolkitClient:
-    with monkeypatch_toolkit_client() as client:
-        approval_client = ApprovalToolkitClient(client)
+def cognite_client_approval() -> Iterator[ApprovalToolkitClient]:
+    with monkeypatch_cognite_client() as cognite_client:
+        approval_client = ApprovalToolkitClient(cognite_client)
+        yield approval_client
+
+
+@pytest.fixture
+def toolkit_client_approval(cognite_client_approval: ApprovalToolkitClient) -> Iterator[ApprovalToolkitClient]:
+    with monkeypatch_toolkit_client() as toolkit_client:
+        approval_client = ApprovalToolkitClient(toolkit_client)
+        # Match the state of the approval client to the toolkit client
+        cognite_client_approval._existing_resources = approval_client._existing_resources
+        cognite_client_approval._deleted_resources = approval_client._deleted_resources
         yield approval_client
 
 
@@ -82,7 +93,11 @@ def local_tmp_project_path_mutable() -> Path:
 
 
 @pytest.fixture
-def cdf_tool_config(toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
+def cdf_tool_config(
+    toolkit_client_approval: ApprovalToolkitClient,
+    cognite_client_approval: ApprovalToolkitClient,
+    monkeypatch: MonkeyPatch,
+) -> CDFToolConfig:
     environment_variables = {
         "LOGIN_FLOW": "client_credentials",
         "CDF_PROJECT": "pytest-project",
@@ -104,8 +119,8 @@ def cdf_tool_config(toolkit_client_approval: ApprovalToolkitClient, monkeypatch:
         real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
         # Build must always be executed from root of the project
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
+        cdf_tool.client = cognite_client_approval.mock_client
         cdf_tool.toolkit_client = toolkit_client_approval.mock_client
 
         cdf_tool.environment_variables.side_effect = real_config.environment_variables

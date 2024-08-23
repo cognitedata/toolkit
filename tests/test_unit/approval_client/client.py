@@ -112,13 +112,19 @@ class ApprovalToolkitClient:
         for resource in API_RESOURCES:
             parts = resource.api_name.split(".")
             mock_api = mock_client
+            skip = False
             for part in parts:
+                if part == "robotics" and isinstance(mock_api, CogniteClientMock):
+                    skip = True
+                    break
                 if not hasattr(mock_api, part):
                     raise ValueError(f"Invalid api name {resource.api_name}, could not find {part}")
                 # To avoid registering the side effect on the mock_client.post.post and use
                 # just mock_client.post instead, we need to skip the "step into" post mock here.
                 if part != "post":
                     mock_api = getattr(mock_api, part)
+            if skip:
+                continue
             for method_type, methods in resource.methods.items():
                 method_factory: Callable = {
                     "create": self._create_create_method,
