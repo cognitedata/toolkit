@@ -51,12 +51,9 @@ def cognite_client_approval() -> Iterator[ApprovalToolkitClient]:
 
 
 @pytest.fixture
-def toolkit_client_approval(cognite_client_approval: ApprovalToolkitClient) -> Iterator[ApprovalToolkitClient]:
+def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
     with monkeypatch_toolkit_client() as toolkit_client:
         approval_client = ApprovalToolkitClient(toolkit_client)
-        # Match the state of the approval client to the toolkit client
-        cognite_client_approval._existing_resources = approval_client._existing_resources
-        cognite_client_approval._deleted_resources = approval_client._deleted_resources
         yield approval_client
 
 
