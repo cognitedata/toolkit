@@ -149,7 +149,6 @@ def test_pull_transformation(
 def test_dump_datamodel(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
-    cognite_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
 ) -> None:
@@ -240,11 +239,6 @@ def test_dump_datamodel(
     toolkit_client_approval.append(dm.Container, container)
     toolkit_client_approval.append(dm.View, view)
     toolkit_client_approval.append(dm.DataModel, data_model)
-
-    cognite_client_approval.append(dm.Space, space)
-    cognite_client_approval.append(dm.Container, container)
-    cognite_client_approval.append(dm.View, view)
-    cognite_client_approval.append(dm.DataModel, data_model)
 
     dump_datamodel_cmd(
         typer_context,

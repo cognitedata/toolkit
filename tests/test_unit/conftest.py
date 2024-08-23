@@ -9,7 +9,6 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
-from cognite.client.testing import monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import Common, main_init
@@ -41,13 +40,6 @@ def chdir(new_dir: Path) -> Iterator[None]:
 
     finally:
         os.chdir(current_working_dir)
-
-
-@pytest.fixture
-def cognite_client_approval() -> Iterator[ApprovalToolkitClient]:
-    with monkeypatch_cognite_client() as cognite_client:
-        approval_client = ApprovalToolkitClient(cognite_client)
-        yield approval_client
 
 
 @pytest.fixture
@@ -91,49 +83,6 @@ def local_tmp_project_path_mutable() -> Path:
 
 @pytest.fixture
 def cdf_tool_config(
-    toolkit_client_approval: ApprovalToolkitClient,
-    cognite_client_approval: ApprovalToolkitClient,
-    monkeypatch: MonkeyPatch,
-) -> CDFToolConfig:
-    environment_variables = {
-        "LOGIN_FLOW": "client_credentials",
-        "CDF_PROJECT": "pytest-project",
-        "CDF_CLUSTER": "bluefield",
-        "IDP_TOKEN_URL": "dummy",
-        "IDP_CLIENT_ID": "dummy",
-        "IDP_CLIENT_SECRET": "dummy",
-        "IDP_TENANT_ID": "dummy",
-        "IDP_AUDIENCE": "https://bluefield.cognitedata.com",
-        "IDP_SCOPES": "https://bluefield.cognitedata.com/.default",
-        "CDF_URL": "https://bluefield.cognitedata.com",
-    }
-    existing = {}
-    for key, value in environment_variables.items():
-        existing[key] = os.environ.get(key)
-        os.environ[key] = value
-
-    with chdir(REPO_ROOT):
-        real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
-        # Build must always be executed from root of the project
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-
-        cdf_tool.environment_variables.side_effect = real_config.environment_variables
-        cdf_tool.verify_dataset.return_value = 42
-        cdf_tool.data_set_id = 999
-        yield cdf_tool
-
-    for key, value in existing.items():
-        if value is None:
-            del os.environ[key]
-        else:
-            os.environ[key] = value
-
-
-@pytest.fixture
-def cdf_tool_config_only_toolkit(
     toolkit_client_approval: ApprovalToolkitClient,
     monkeypatch: MonkeyPatch,
 ) -> CDFToolConfig:
