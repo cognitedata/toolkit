@@ -24,7 +24,7 @@ Changes are grouped as follows:
 
 ## Changed
 
-- The resource `FunctionSchedule` is not uniquely identified by `name` instead of `cronExpression` by the Toolkit.
+- The resource `FunctionSchedule` is now uniquely identified by `name` instead of `cronExpression` by the Toolkit.
   This enables multiple schedules with the same cron expression for the same function.
 
 ## [0.2.18] - 2024-08-22

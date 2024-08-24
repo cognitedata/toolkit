@@ -382,7 +382,7 @@ class FunctionScheduleLoader(
         for schedule in schedules:
             if schedule.id:
                 self.client.functions.schedules.delete(id=schedule.id)
-            count += 1
+                count += 1
         return count
 
     def iterate(self) -> Iterable[FunctionSchedule]:
