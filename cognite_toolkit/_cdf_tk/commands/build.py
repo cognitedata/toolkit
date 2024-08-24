@@ -94,8 +94,6 @@ from cognite_toolkit._cdf_tk.validation import (
 )
 from cognite_toolkit._version import __version__
 
-from .featureflag import FeatureFlag, Flags
-
 
 class BuildCommand(ToolkitCommand):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -170,12 +168,6 @@ class BuildCommand(ToolkitCommand):
 
         if issue := config.validate_environment():
             self.warn(issue)
-
-        if FeatureFlag.is_enabled(Flags.NO_NAMING):
-            print(
-                "[bold green]INFO:[/] Naming convention warnings have been disabled. "
-                "To enable them, run 'cdf-tk features set no-naming --disable'."
-            )
 
         user_selected_modules = config.environment.get_selected_modules(system_config.packages)
         modules = ModuleDirectories.load(source_dir, user_selected_modules)

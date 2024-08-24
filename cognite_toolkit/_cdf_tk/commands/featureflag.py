@@ -24,7 +24,6 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support to dump timeseries",
     }
-    NO_NAMING: ClassVar[dict[str, Any]] = {"visible": True, "description": "Disables the naming convention checks"}
 
 
 class FeatureFlag:
