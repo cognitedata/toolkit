@@ -128,7 +128,8 @@ jobs:
       - name: Install cdf-tk
         run: pip install .
       - name: Initialize project
-        run: cdf-tk init demo_project
+        # The old way of setting up a project does not exists any more.
+        run: python ./demo/old_init.py
       - name: "Pre-processing for demo environment"
         run: python ./demo/preproc.py --modules all
       - name: "Build the templates"
