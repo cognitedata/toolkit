@@ -120,7 +120,9 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
             module_dir.mkdir(parents=True, exist_ok=True)
             for source_file in module.source_paths:
                 relative_file_path = source_file.relative_to(module.dir)
-                shutil.copy(source_file, module_dir / relative_file_path)
+                absolute_file_path = module_dir / relative_file_path
+                absolute_file_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(source_file, absolute_file_path)
 
     @classmethod
     def _is_selected_module(cls, relative_module_dir: Path, user_selected: set[str | Path]) -> bool:

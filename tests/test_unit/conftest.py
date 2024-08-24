@@ -13,6 +13,8 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import Common
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.constants import ROOT_PATH
+from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleDirectories
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -158,32 +160,40 @@ def typer_context_no_cdf_tool_config() -> typer.Context:
 
 @pytest.fixture(scope="session")
 def init_project(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_immutable: Path) -> Path:
-    raise NotImplementedError()
-    # main_init(
-    #     typer_context_no_cdf_tool_config,
-    #     dry_run=False,
-    #     upgrade=False,
-    #     git_branch=None,
-    #     init_dir=str(local_tmp_project_path_immutable),
-    #     no_backup=True,
-    #     clean=True,
-    # )
-    # return local_tmp_project_path_immutable
+    ModuleDirectories.load(ROOT_PATH, {Path("")}).dump(local_tmp_project_path_immutable)
+
+    init_config_yaml = InitConfigYAML(
+        Environment("dev", "<customer-dev>", "dev", selected=["cdf_demo_infield", "cdf_oid_example_data"])
+    ).load_defaults(ROOT_PATH)
+
+    config_dev = init_config_yaml.dump_yaml_with_comments()
+    (local_tmp_project_path_immutable / "config.dev.yaml").write_text(config_dev)
+    for file_name in [
+        "README.md",
+        ".gitignore",
+        ".env.tmpl",
+        "_system.yaml",
+    ]:
+        shutil.copy(ROOT_PATH / file_name, local_tmp_project_path_immutable / file_name)
+
+    return local_tmp_project_path_immutable
 
 
 @pytest.fixture
 def init_project_mutable(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_mutable: Path) -> Path:
-    raise NotImplementedError
-    # main_init(
-    #     typer_context_no_cdf_tool_config,
-    #     dry_run=False,
-    #     upgrade=False,
-    #     git_branch=None,
-    #     init_dir=str(local_tmp_project_path_mutable),
-    #     no_backup=True,
-    #     clean=True,
-    # )
-    # return local_tmp_project_path_mutable
+    ModuleDirectories.load(ROOT_PATH, {Path("")}).dump(local_tmp_project_path_mutable)
+
+    init_config_yaml = InitConfigYAML(
+        Environment("dev", "<customer-dev>", "dev", selected=["cdf_demo_infield", "cdf_oid_example_data"])
+    ).load_variables(ROOT_PATH)
+
+    init_config_yaml.dump_yaml_with_comments()
+    # In addition, load the ConfigYAML as well as all
+    # the other files:
+    # * .env.tmpl
+    # * .gitignore
+    # * README.md (all of them)
+    return local_tmp_project_path_mutable
 
 
 @pytest.fixture

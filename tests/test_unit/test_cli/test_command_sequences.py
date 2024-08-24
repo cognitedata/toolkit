@@ -14,7 +14,7 @@ import pytest
 import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf import build, clean, deploy, main_init
+from cognite_toolkit._cdf import build, clean, deploy
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
 from tests.constants import REPO_ROOT
@@ -143,7 +143,7 @@ def test_init_build_clean(
     data_regression,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
-
+    raise NotImplementedError()
     main_init(
         typer_context,
         dry_run=False,

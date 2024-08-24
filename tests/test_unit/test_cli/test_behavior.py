@@ -37,7 +37,7 @@ def test_inject_custom_environmental_variables(
     config_yaml = yaml.safe_load((init_project / "config.dev.yaml").read_text())
     config_yaml["variables"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting a module with a transformation that uses the cicd_clientId variable
-    config_yaml["environment"]["selected_modules_and_packages"] = ["cdf_infield_location"]
+    config_yaml["environment"]["selected"] = ["cdf_infield_location"]
     config_yaml["environment"]["project"] = "pytest"
     mock_read_yaml_file(
         {
