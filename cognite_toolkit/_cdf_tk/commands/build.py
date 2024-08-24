@@ -737,9 +737,6 @@ class BuildCommand(ToolkitCommand):
                         if table_id not in state.ids_by_resource_type[RawTableLoader]:
                             state.ids_by_resource_type[RawTableLoader][table_id] = source_path
 
-                warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
-                warning_list.extend(warnings)
-
                 for dependency in loader.get_dependent_items(item):
                     state.dependencies_by_required[dependency].append((identifier, source_path))
 

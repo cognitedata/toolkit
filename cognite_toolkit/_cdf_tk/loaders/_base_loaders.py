@@ -18,7 +18,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.tk_warnings import WarningList, YAMLFileWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 T_ID = TypeVar("T_ID", bound=Hashable)
@@ -188,13 +187,6 @@ class ResourceLoader(
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
-
-    @classmethod
-    def check_identifier_semantics(
-        cls, identifier: T_ID, filepath: Path, verbose: bool
-    ) -> WarningList[YAMLFileWarning]:
-        """This should be overwritten in subclasses to check the semantics of the identifier."""
-        return WarningList[YAMLFileWarning]()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
