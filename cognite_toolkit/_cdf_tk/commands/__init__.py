@@ -6,11 +6,13 @@ from .deploy import DeployCommand
 from .describe import DescribeCommand
 from .dump import DumpCommand
 from .featureflag import FeatureFlagCommand
+from .init import InitCommand
 from .modules import ModulesCommand
 from .pull import PullCommand
 from .run import RunFunctionCommand, RunTransformationCommand
 
 __all__ = [
+    "InitCommand",
     "AuthCommand",
     "BuildCommand",
     "CollectCommand",

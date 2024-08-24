@@ -20,7 +20,7 @@ Changes are grouped as follows:
 ### Added
 
 - Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
-  `Frame`, and `Location`). These loaders were earlier available as a feature preview.
+  `Frame`, and `Location`). These loaders were earlier available as feature preview.
 
 ## Changed
 
