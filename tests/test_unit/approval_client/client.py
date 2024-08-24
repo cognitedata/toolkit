@@ -19,8 +19,6 @@ from cognite.client.data_classes import (
     ExtractionPipelineConfigWrite,
     FileMetadata,
     FunctionCall,
-    FunctionSchedule,
-    FunctionScheduleWrite,
     Group,
     GroupList,
     ThreeDModel,
@@ -475,11 +473,6 @@ class ApprovalToolkitClient:
             )
             return FileMetadata.load({to_camel_case(k): v for k, v in kwargs.items()})
 
-        def create_function_schedule_api(**kwargs) -> FunctionSchedule:
-            created = FunctionScheduleWrite.load({to_camel_case(k): v for k, v in kwargs.items()})
-            created_resources[resource_cls.__name__].append(created)
-            return FunctionSchedule.load(created.dump(camel_case=True))
-
         def create_3dmodel(
             name: str, data_set_id: int | None = None, metadata: dict[str, str] | None = None
         ) -> ThreeDModel:
@@ -497,7 +490,6 @@ class ApprovalToolkitClient:
                 create_instances,
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
-                create_function_schedule_api,
                 create_3dmodel,
             ]
         }

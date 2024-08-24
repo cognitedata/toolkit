@@ -244,7 +244,7 @@ API_RESOURCES = [
         list_cls=FunctionSchedulesList,
         _write_list_cls=FunctionScheduleWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_function_schedule_api")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
         },
     ),
     APIResource(
