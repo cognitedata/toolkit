@@ -26,6 +26,7 @@ Changes are grouped as follows:
 
 - The resource `FunctionSchedule` is not uniquely identified by `name` instead of `cronExpression` by the Toolkit.
   This enables multiple schedules with the same cron expression for the same function.
+- The Toolkit no longer gives warnings for naming conventions that are not followed.
 
 ## [0.2.18] - 2024-08-22
 
