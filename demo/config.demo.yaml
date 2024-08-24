@@ -5,7 +5,7 @@ environment:
   # This should be a used to specify which modules and packages to deploy locally and in the GitHub Action.
   # You can have multiple deploy commands.
   # Order is important.
-  selected_modules_and_packages:
+  selected:
     - cdf_auth_readwrite_all
     - cdf_demo_infield
     - cdf_oid_example_data
