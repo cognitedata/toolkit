@@ -159,15 +159,24 @@ def typer_context_no_cdf_tool_config() -> typer.Context:
 
 
 @pytest.fixture(scope="session")
-def init_project(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_immutable: Path) -> Path:
-    ModuleDirectories.load(ROOT_PATH, {Path("")}).dump(local_tmp_project_path_immutable)
+def module_directories() -> ModuleDirectories:
+    return ModuleDirectories.load(ROOT_PATH, {Path("")})
+
+
+@pytest.fixture(scope="session")
+def init_project(
+    typer_context_no_cdf_tool_config: typer.Context,
+    module_directories: ModuleDirectories,
+    local_tmp_project_path_immutable: Path,
+) -> Path:
+    module_directories.dump(local_tmp_project_path_immutable)
 
     init_config_yaml = InitConfigYAML(
         Environment("dev", "<customer-dev>", "dev", selected=["cdf_demo_infield", "cdf_oid_example_data"])
     ).load_defaults(ROOT_PATH)
-
     config_dev = init_config_yaml.dump_yaml_with_comments()
     (local_tmp_project_path_immutable / "config.dev.yaml").write_text(config_dev)
+
     for file_name in [
         "README.md",
         ".gitignore",
@@ -180,19 +189,27 @@ def init_project(typer_context_no_cdf_tool_config: typer.Context, local_tmp_proj
 
 
 @pytest.fixture
-def init_project_mutable(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_mutable: Path) -> Path:
-    ModuleDirectories.load(ROOT_PATH, {Path("")}).dump(local_tmp_project_path_mutable)
+def init_project_mutable(
+    typer_context_no_cdf_tool_config: typer.Context,
+    module_directories: ModuleDirectories,
+    local_tmp_project_path_mutable: Path,
+) -> Path:
+    module_directories.dump(local_tmp_project_path_mutable)
 
     init_config_yaml = InitConfigYAML(
         Environment("dev", "<customer-dev>", "dev", selected=["cdf_demo_infield", "cdf_oid_example_data"])
-    ).load_variables(ROOT_PATH)
+    ).load_defaults(ROOT_PATH)
+    config_dev = init_config_yaml.dump_yaml_with_comments()
+    (local_tmp_project_path_mutable / "config.dev.yaml").write_text(config_dev)
 
-    init_config_yaml.dump_yaml_with_comments()
-    # In addition, load the ConfigYAML as well as all
-    # the other files:
-    # * .env.tmpl
-    # * .gitignore
-    # * README.md (all of them)
+    for file_name in [
+        "README.md",
+        ".gitignore",
+        ".env.tmpl",
+        "_system.yaml",
+    ]:
+        shutil.copy(ROOT_PATH / file_name, local_tmp_project_path_mutable / file_name)
+
     return local_tmp_project_path_mutable
 
 
