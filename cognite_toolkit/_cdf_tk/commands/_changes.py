@@ -44,20 +44,20 @@ class ManualChange(Change):
 
 class SystemYAMLMoved(AutomaticChange):
     """The _system.yaml file is now expected to in the root of the project.
-    Before it was expected to be in the cognite_modules folder.
-    This change moves the file to the root of the project.
+Before it was expected to be in the cognite_modules folder.
+This change moves the file to the root of the project.
 
-    Before:
-    ```bash
-        my_project/
-            cognite_modules/
-                _system.yaml
-    ```
-    After:
-    ```bash
-        my_project/
+Before:
+```bash
+    my_project/
+        cognite_modules/
             _system.yaml
-    ```
+```
+After:
+```bash
+    my_project/
+        _system.yaml
+```
     """
 
     deprecated_from = Version("0.2.0a3")
@@ -75,24 +75,24 @@ class SystemYAMLMoved(AutomaticChange):
 
 class RenamedModulesSection(AutomaticChange):
     """The 'modules' section in the config files has been renamed to 'variables'.
-    This change updates the config files to use the new name.
+This change updates the config files to use the new name.
 
-    For example in config.dev.yaml, before:
-    ```yaml
-        modules:
-          cognite_modules:
-            cdf_cluster: ${CDF_CLUSTER}
-            cicd_clientId: ${IDP_CLIENT_ID}
-            cicd_clientSecret: ${IDP_CLIENT_SECRET}
-    ```
-    After:
-    ```yaml
-        variables:
-          cognite_modules:
-            cdf_cluster: ${CDF_CLUSTER}
-            cicd_clientId: ${IDP_CLIENT_ID}
-            cicd_clientSecret: ${IDP_CLIENT_SECRET}
-    ```
+For example in config.dev.yaml, before:
+```yaml
+    modules:
+      cognite_modules:
+        cdf_cluster: ${CDF_CLUSTER}
+        cicd_clientId: ${IDP_CLIENT_ID}
+        cicd_clientSecret: ${IDP_CLIENT_SECRET}
+```
+After:
+```yaml
+    variables:
+      cognite_modules:
+        cdf_cluster: ${CDF_CLUSTER}
+        cicd_clientId: ${IDP_CLIENT_ID}
+        cicd_clientSecret: ${IDP_CLIENT_SECRET}
+```
     """
 
     deprecated_from = Version("0.2.0a3")
@@ -118,8 +118,8 @@ class RenamedModulesSection(AutomaticChange):
 class BuildCleanFlag(AutomaticChange):
     """The `cdf-tk build` command no longer accepts the `--clean` flag.
 
-    The build command now always cleans the build directory before building.
-    To avoid cleaning the build directory, you can use the `--no-clean` flag.
+The build command now always cleans the build directory before building.
+To avoid cleaning the build directory, you can use the `--no-clean` flag.
     """
 
     deprecated_from = Version("0.2.0a3")
@@ -151,7 +151,7 @@ class CommonFunctionCodeNotSupported(ManualChange):
     def instructions(self, files: set[Path]) -> str:
         to_update = []
         for module, py_files in itertools.groupby(sorted(files, key=self.get_module_name), key=self.get_module_name):
-            if module == Path("../prototypes/commands"):
+            if module == Path("."):
                 # This is the common_function_code folder
                 continue
             to_update.append(f"  - In module {module.relative_to(self._project_path).as_posix()!r}:")
@@ -171,23 +171,23 @@ class CommonFunctionCodeNotSupported(ManualChange):
             if file_path.name == "functions":
                 return file_path.parent
             file_path = file_path.parent
-        return Path("../prototypes/commands")
+        return Path(".")
 
 
 class FunctionExternalDataSetIdRenamed(AutomaticChange):
     """The 'externalDataSetId' field in function YAML files has been renamed to 'dataSetExternalId'.
-    This change updates the function YAML files to use the new name.
+This change updates the function YAML files to use the new name.
 
-    The motivation for this change is to make the naming consistent with the rest of the Toolkit.
+The motivation for this change is to make the naming consistent with the rest of the Toolkit.
 
-    For example, in functions/my_function.yaml, before:
-    ```yaml
-    externalDataSetId: my_external_id
-    ```
-    After:
-    ```yaml
-    dataSetExternalId: my_external_id
-    ```
+For example, in functions/my_function.yaml, before:
+```yaml
+externalDataSetId: my_external_id
+```
+After:
+```yaml
+dataSetExternalId: my_external_id
+```
     """
 
     deprecated_from = Version("0.2.0a5")
@@ -208,21 +208,21 @@ class FunctionExternalDataSetIdRenamed(AutomaticChange):
 
 class ConfigYAMLSelectedRenaming(AutomaticChange):
     """The 'environment.selected_modules_and_packages' field in the config.yaml files has been
-    renamed to 'selected'.
-    This change updates the config files to use the new name.
+renamed to 'selected'.
+This change updates the config files to use the new name.
 
-    For example, in config.dev.yaml, before:
-    ```yaml
-    environment:
-      selected_modules_and_packages:
-        - my_module
-    ```
-    After:
-    ```yaml
-    environment:
-      selected:
-        - my_module
-    ```
+For example, in config.dev.yaml, before:
+```yaml
+environment:
+  selected_modules_and_packages:
+    - my_module
+```
+After:
+```yaml
+environment:
+  selected:
+    - my_module
+```
     """
 
     deprecated_from = Version("0.2.0b1")
@@ -241,25 +241,25 @@ class ConfigYAMLSelectedRenaming(AutomaticChange):
 
 class RequiredFunctionLocation(AutomaticChange):
     """Function Resource YAML files are now expected to be in the 'functions' folder.
-    Before they could be in subfolders inside the 'functions' folder.
+Before they could be in subfolders inside the 'functions' folder.
 
-    This change moves the function YAML files to the 'functions' folder.
+This change moves the function YAML files to the 'functions' folder.
 
-    For example, before:
-    ```bash
-        modules/
-          my_module/
-              functions/
-                some_subdirectory/
-                    my_function.yaml
-    ```
-    After:
-    ```bash
-        modules/
-          my_module/
-              functions/
+For example, before:
+```bash
+    modules/
+      my_module/
+          functions/
+            some_subdirectory/
                 my_function.yaml
-    ```
+```
+After:
+```bash
+    modules/
+      my_module/
+          functions/
+            my_function.yaml
+```
     """
 
     deprecated_from = Version("0.2.0b3")
