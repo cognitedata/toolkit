@@ -45,7 +45,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.loaders.data_classes import FunctionScheduleID
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_directory_hash,
@@ -251,7 +252,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
 
 @final
 class FunctionScheduleLoader(
-    ResourceLoader[str, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList]
+    ResourceLoader[
+        FunctionScheduleID, FunctionScheduleWrite, FunctionSchedule, FunctionScheduleWriteList, FunctionSchedulesList
+    ]
 ):
     folder_name = "functions"
     filename_pattern = r"^.*schedule.*$"  # Matches all yaml files who's stem contain *.schedule
@@ -262,7 +265,6 @@ class FunctionScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
-    _split_character = ":"
 
     @property
     def display_name(self) -> str:
@@ -280,16 +282,16 @@ class FunctionScheduleLoader(
         ]
 
     @classmethod
-    def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule | dict) -> str:
+    def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule | dict) -> FunctionScheduleID:
         if isinstance(item, dict):
-            if missing := tuple(k for k in {"functionExternalId", "cronExpression"} if k not in item):
+            if missing := tuple(k for k in {"functionExternalId", "name"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return f"{item['functionExternalId']}{cls._split_character}{item['cronExpression']}"
+            return FunctionScheduleID(item["functionExternalId"], item["name"])
 
-        if item.function_external_id is None or item.cron_expression is None:
-            raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and CronExpression set.")
-        return f"{item.function_external_id}{cls._split_character}{item.cron_expression}"
+        if item.function_external_id is None or item.name is None:
+            raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and Name set.")
+        return FunctionScheduleID(item.function_external_id, item.name)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -303,11 +305,17 @@ class FunctionScheduleLoader(
         if isinstance(schedules, dict):
             schedules = [schedules]
 
-        for sched in schedules:
-            ext_id = f"{sched['functionExternalId']}{self._split_character}{sched['cronExpression']}"
-            if self.extra_configs.get(ext_id) is None:
-                self.extra_configs[ext_id] = {}
-            self.extra_configs[ext_id]["authentication"] = sched.pop("authentication", {})
+        for schedule in schedules:
+            identifier = self.get_id(schedule)
+            if self.extra_configs.get(identifier) is None:
+                self.extra_configs[identifier] = {}
+            self.extra_configs[identifier]["authentication"] = schedule.pop("authentication", {})
+            if "functionId" in schedule:
+                LowSeverityWarning(
+                    f"FunctionId will be ignored in the schedule {schedule.get('functionExternalId', 'Misssing')!r}"
+                ).print_warning()
+                schedule.pop("functionId", None)
+
         return FunctionScheduleWriteList.load(schedules)
 
     def _are_equal(
@@ -326,32 +334,30 @@ class FunctionScheduleLoader(
                     item.function_id = func.id  # type: ignore[assignment]
         return items
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> FunctionSchedulesList:
-        crons_by_function: dict[str, set[str]] = defaultdict(set)
+    def retrieve(self, ids: SequenceNotStr[FunctionScheduleID]) -> FunctionSchedulesList:
+        names_by_function: dict[str, set[str]] = defaultdict(set)
         for id_ in ids:
-            function_external_id, cron = id_.rsplit(self._split_character, 1)
-            crons_by_function[function_external_id].add(cron)
-        functions = FunctionLoader(self.client, None).retrieve(list(crons_by_function))
+            names_by_function[id_.function_external_id].add(id_.name)
+        functions = FunctionLoader(self.client, None).retrieve(list(names_by_function))
         schedules = FunctionSchedulesList([])
         for func in functions:
-            ret = self.client.functions.schedules.list(function_id=func.id, limit=-1)
-            for schedule in ret:
+            function_schedules = self.client.functions.schedules.list(function_id=func.id, limit=-1)
+            for schedule in function_schedules:
                 schedule.function_external_id = func.external_id
             schedules.extend(
                 [
                     schedule
-                    for schedule in ret
-                    if schedule.cron_expression in crons_by_function[cast(str, func.external_id)]
+                    for schedule in function_schedules
+                    if schedule.name in names_by_function[cast(str, func.external_id)]
                 ]
             )
         return schedules
 
     def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
-        items = self._resolve_functions_ext_id(items)
         created = []
         for item in items:
-            key = f"{item.function_external_id}:{item.cron_expression}"
-            auth_config = self.extra_configs.get(key, {}).get("authentication", {})
+            id_ = self.get_id(item)
+            auth_config = self.extra_configs.get(id_, {}).get("authentication", {})
             if "clientId" in auth_config and "clientSecret" in auth_config:
                 client_credentials = ClientCredentials(auth_config["clientId"], auth_config["clientSecret"])
             else:
@@ -359,11 +365,7 @@ class FunctionScheduleLoader(
 
             created.append(
                 self.client.functions.schedules.create(
-                    name=item.name or "",
-                    description=item.description or "",
-                    cron_expression=cast(str, item.cron_expression),
-                    function_id=cast(int, item.function_id),
-                    data=item.data,
+                    item,
                     client_credentials=client_credentials,
                 )
             )
@@ -374,7 +376,7 @@ class FunctionScheduleLoader(
         self.delete(self.get_ids(items))
         return self.create(items)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[FunctionScheduleID]) -> int:
         schedules = self.retrieve(ids)
         count = 0
         for schedule in schedules:

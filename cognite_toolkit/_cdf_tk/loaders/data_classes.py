@@ -32,6 +32,12 @@ from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList
 from rich.table import Table
 
 
+@dataclass(frozen=True)
+class FunctionScheduleID:
+    function_external_id: str
+    name: str
+
+
 @total_ordering
 @dataclass(frozen=True)
 class RawDatabaseTable(WriteableCogniteResource):
