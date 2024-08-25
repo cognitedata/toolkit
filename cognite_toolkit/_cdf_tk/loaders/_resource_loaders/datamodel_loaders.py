@@ -460,8 +460,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return ViewId(space=item["space"], external_id=item["externalId"], version=item["version"])
-        return item.as_id()
+            return ViewId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+
+        return ViewId(item.space, item.external_id, str(item.version))
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
