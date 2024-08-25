@@ -131,12 +131,11 @@ class TestViewLoader:
         loader = ViewLoader.create_loader(cdf_tool_config, None)
         raw_file = """- space: sp_space
   externalId: my_view
-  version: 1
-  properties: {}"""
+  version: 1"""
         file = MagicMock(spec=Path)
         file.read_text.return_value = raw_file
 
-        local_view = loader.load_resource(file, cdf_tool_config, False)
+        local_view: dm.ViewApplyList = loader.load_resource(file, cdf_tool_config, False)
 
         cdf_view = dm.View(
             space="sp_space",
