@@ -473,7 +473,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                 if not isinstance(parent, dict):
                     continue
                 if parent.get("type") == "view" and in_dict(["space", "externalId", "version"], parent):
-                    yield ViewLoader, ViewId(parent["space"], parent["externalId"], parent["version"])
+                    yield (
+                        ViewLoader,
+                        ViewId(parent["space"], parent["externalId"], str(v) if (v := parent.get("version")) else None),
+                    )
         for prop in item.get("properties", {}).values():
             if (container := prop.get("container", {})) and container.get("type") == "container":
                 if in_dict(("space", "externalId"), container):
@@ -481,7 +484,12 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             for key, dct_ in [("source", prop), ("edgeSource", prop), ("source", prop.get("through", {}))]:
                 if source := dct_.get(key, {}):
                     if source.get("type") == "view" and in_dict(("space", "externalId", "version"), source):
-                        yield ViewLoader, ViewId(source["space"], source["externalId"], source["version"])
+                        yield (
+                            ViewLoader,
+                            ViewId(
+                                source["space"], source["externalId"], str(v) if (v := source.get("version")) else None
+                            ),
+                        )
                     elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
                         yield ContainerLoader, ContainerId(source["space"], source["externalId"])
 
@@ -674,7 +682,10 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             yield SpaceLoader, item["space"]
         for view in item.get("views", []):
             if in_dict(("space", "externalId"), view):
-                yield ViewLoader, ViewId(view["space"], view["externalId"], view.get("version"))
+                yield (
+                    ViewLoader,
+                    ViewId(view["space"], view["externalId"], str(v) if (v := view.get("version")) else None),
+                )
 
     def _are_equal(
         self, local: DataModelApply, cdf_resource: DataModel, return_dumped: bool = False
