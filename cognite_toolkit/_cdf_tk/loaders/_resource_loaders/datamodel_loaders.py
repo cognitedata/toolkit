@@ -805,7 +805,14 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
-                    yield ViewLoader, ViewId(identifier["space"], identifier["externalId"], identifier["version"])
+                    yield (
+                        ViewLoader,
+                        ViewId(
+                            identifier["space"],
+                            identifier["externalId"],
+                            str(v) if (v := identifier.get("version")) else None,
+                        ),
+                    )
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
