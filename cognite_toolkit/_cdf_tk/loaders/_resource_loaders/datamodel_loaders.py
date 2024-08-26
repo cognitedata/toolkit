@@ -64,7 +64,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
+from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT, INDEX_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
@@ -963,10 +963,12 @@ class GraphQLLoader(
         model = GraphQLDataModelWrite._load(raw)
 
         filename = filepath.stem.removesuffix(self.kind).removesuffix(".")
-        graphql = filepath.with_name(f"{filename}.graphql")
-        if not graphql.exists():
-            raise ToolkitFileNotFoundError(f"Expected GraphQL file {graphql.name} adjacent to {filepath.as_posix()}")
-        self._dml_cache[model.as_id()] = graphql
+        filename = INDEX_PATTERN.sub("", filename)
+        filename = f"{filename}.graphql"
+        graphql_file = next((f for f in filepath.parent.iterdir() if f.is_file() and f.name.endswith(filename)), None)
+        if graphql_file is None:
+            raise ToolkitFileNotFoundError(f"Expected GraphQL file {filename} adjacent to {filepath.as_posix()}")
+        self._dml_cache[model.as_id()] = graphql_file
         return model
 
     def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
