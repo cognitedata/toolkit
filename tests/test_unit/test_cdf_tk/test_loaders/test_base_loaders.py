@@ -158,6 +158,8 @@ class TestFormatConsistency:
         elif Loader in [GroupResourceScopedLoader]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
 
+            # todo: generate Fakes from location.py
+
         instances = FakeCogniteResourceGenerator(seed=1337).create_instances(loader.list_write_cls)
 
         # special case
