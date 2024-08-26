@@ -965,7 +965,7 @@ class GraphQLLoader(
         filename = filepath.stem.removesuffix(self.kind).removesuffix(".")
         graphql = filepath.with_name(f"{filename}.graphql")
         if not graphql.exists():
-            raise ToolkitFileNotFoundError(f"Epected GraphQL file {graphql.name} adjacent to {filepath.as_posix()}")
+            raise ToolkitFileNotFoundError(f"Expected GraphQL file {graphql.name} adjacent to {filepath.as_posix()}")
         self._dml_cache[model.as_id()] = graphql
         return model
 
