@@ -18,12 +18,6 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 
-if FeatureFlag.is_enabled(Flags.FUN_SCHEDULE):
-    from cognite_toolkit._cdf_tk.prototypes import modify_function_schedule
-
-    modify_function_schedule.modify_function_schedule_loader()
-
-
 if FeatureFlag.is_enabled(Flags.NO_NAMING):
     from cognite_toolkit._cdf_tk.prototypes import turn_off_naming_check
 

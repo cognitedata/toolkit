@@ -19,8 +19,6 @@ from cognite.client.data_classes import (
     ExtractionPipelineConfigWrite,
     FileMetadata,
     FunctionCall,
-    FunctionSchedule,
-    FunctionScheduleWrite,
     Group,
     GroupList,
     ThreeDModel,
@@ -295,11 +293,15 @@ class ApprovalToolkitClient:
 
         def create(*args, **kwargs) -> Any:
             created = []
+            is_single_resource: bool | None = None
             for value in itertools.chain(args, kwargs.values()):
                 if isinstance(value, write_resource_cls):
                     created.append(value)
+                    if is_single_resource is None:
+                        is_single_resource = True
                 elif isinstance(value, Sequence) and all(isinstance(v, write_resource_cls) for v in value):
                     created.extend(value)
+                    is_single_resource = False
                 elif isinstance(value, str) and issubclass(write_resource_cls, Database):
                     created.append(Database(name=value))
             created_resources[resource_cls.__name__].extend(created)
@@ -309,7 +311,8 @@ class ApprovalToolkitClient:
                 # Groups needs special handling to convert the write to read
                 # to account for Unknown ACLs.
                 return resource_list_cls(_group_write_to_read(c) for c in created)
-            return resource_list_cls.load(
+
+            read_list = resource_list_cls.load(
                 [
                     {
                         # These are server set fields, so we need to set them manually
@@ -329,6 +332,9 @@ class ApprovalToolkitClient:
                 ],
                 cognite_client=client,
             )
+            if len(created) == 1 and is_single_resource:
+                return read_list[0]
+            return read_list
 
         def _group_write_to_read(group: GroupWrite) -> Group:
             return Group(
@@ -475,11 +481,6 @@ class ApprovalToolkitClient:
             )
             return FileMetadata.load({to_camel_case(k): v for k, v in kwargs.items()})
 
-        def create_function_schedule_api(**kwargs) -> FunctionSchedule:
-            created = FunctionScheduleWrite.load({to_camel_case(k): v for k, v in kwargs.items()})
-            created_resources[resource_cls.__name__].append(created)
-            return FunctionSchedule.load(created.dump(camel_case=True))
-
         def create_3dmodel(
             name: str, data_set_id: int | None = None, metadata: dict[str, str] | None = None
         ) -> ThreeDModel:
@@ -497,7 +498,6 @@ class ApprovalToolkitClient:
                 create_instances,
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
-                create_function_schedule_api,
                 create_3dmodel,
             ]
         }

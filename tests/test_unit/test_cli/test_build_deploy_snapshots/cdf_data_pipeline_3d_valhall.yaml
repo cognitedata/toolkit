@@ -96,6 +96,7 @@ FunctionSchedule:
   data:
     ExtractionPipelineExtId: ep_ctx_3d_oid_fileshare_annotation
   description: Run every 30 minute
+  functionExternalId: fn_context_3d_oid_fileshare_asset
   name: daily-every-60-min
 Group:
 - capabilities:
