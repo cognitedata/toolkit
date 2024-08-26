@@ -62,11 +62,11 @@ class TestViewLoader:
 
         assert not extra, f"Extra keys: {extra}"
 
-    def test_update_view_with_interface(self, toolkit_client_approval: ApprovalCogniteClient) -> None:
+    def test_update_view_with_interface(self, cognite_client_approval: ApprovalCogniteClient) -> None:
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
+        cdf_tool.client = cognite_client_approval.mock_client
+        cdf_tool.toolkit_client = cognite_client_approval.mock_client
         prop1 = dm.MappedProperty(
             dm.ContainerId(space="sp_space", external_id="container_id"),
             "prop1",
@@ -113,7 +113,7 @@ class TestViewLoader:
             implements=[interface.as_id()],
         )
         # Simulating that the interface and child_cdf are available in CDF
-        toolkit_client_approval.append(dm.View, [interface, child_cdf])
+        cognite_client_approval.append(dm.View, [interface, child_cdf])
 
         loader = ViewLoader.create_loader(cdf_tool, None)
         cmd = DeployCommand(print_warning=False)
@@ -126,7 +126,7 @@ class TestViewLoader:
         assert len(unchanged) == 1
 
     def test_unchanged_view_int_version(
-        self, cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalCogniteClient
+        self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient
     ) -> None:
         loader = ViewLoader.create_loader(cdf_tool_config, None)
         raw_file = """- space: sp_space
@@ -153,7 +153,7 @@ class TestViewLoader:
             properties={},
         )
 
-        toolkit_client_approval.append(dm.View, [cdf_view])
+        cognite_client_approval.append(dm.View, [cdf_view])
 
         cmd = DeployCommand(print_warning=False)
 
