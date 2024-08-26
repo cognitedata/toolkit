@@ -29,6 +29,7 @@ if FeatureFlag.is_enabled(Flags.NO_NAMING):
 
     turn_off_naming_check.do()
 
+from cognite_toolkit._cdf_tk.apps import LandingApp, ModulesApp
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
     BuildCommand,
@@ -41,10 +42,6 @@ from cognite_toolkit._cdf_tk.commands import (
     PullCommand,
     RunFunctionCommand,
     RunTransformationCommand,
-)
-from cognite_toolkit._cdf_tk.data_classes import (
-    ProjectDirectoryInit,
-    ProjectDirectoryUpgrade,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -102,7 +99,8 @@ pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
-
+modules_app = ModulesApp(**default_typer_kws)  # type: ignore [arg-type]
+landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
 
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
@@ -110,23 +108,14 @@ _app.add_typer(run_app, name="run")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
 _app.add_typer(feature_flag_app, name="features")
+_app.add_typer(modules_app, name="modules")
+_app.command("init")(landing_app.main_init)
 
 
 def app() -> NoReturn:
     # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
-        if FeatureFlag.is_enabled(Flags.MODULES_CMD):
-            from cognite_toolkit._cdf_tk.prototypes.landing_app import Landing
-            from cognite_toolkit._cdf_tk.prototypes.modules_app import Modules
-
-            # original init is replaced with the modules subapp
-            modules_app = Modules(**default_typer_kws)  # type: ignore [arg-type]
-            _app.add_typer(modules_app, name="modules")
-            _app.command("init")(Landing().main_init)
-        else:
-            _app.command("init")(main_init)
-
         if FeatureFlag.is_enabled(Flags.IMPORT_CMD):
             from cognite_toolkit._cdf_tk.prototypes.import_app import import_app
 
@@ -600,85 +589,6 @@ def auth_verify(
             verbose or ctx.obj.verbose,
         )
     )
-
-
-def main_init(
-    ctx: typer.Context,
-    dry_run: Annotated[
-        bool,
-        typer.Option(
-            "--dry-run",
-            "-r",
-            help="Whether to do a dry-run, do dry-run if present.",
-        ),
-    ] = False,
-    upgrade: Annotated[
-        bool,
-        typer.Option(
-            "--upgrade",
-            "-u",
-            help="Will upgrade templates in place without overwriting existing config.yaml and other files.",
-        ),
-    ] = False,
-    git_branch: Annotated[
-        Optional[str],
-        typer.Option(
-            "--git",
-            "-g",
-            help="Will download the latest templates from the git repository branch specified. Use `main` to get the very latest templates.",
-        ),
-    ] = None,
-    no_backup: Annotated[
-        bool,
-        typer.Option(
-            "--no-backup",
-            help="Will skip making a backup before upgrading.",
-        ),
-    ] = False,
-    clean: Annotated[
-        bool,
-        typer.Option(
-            "--clean",
-            help="Will delete the new_project directory before starting.",
-        ),
-    ] = False,
-    init_dir: Annotated[
-        str,
-        typer.Argument(
-            help="Directory path to project to initialize or upgrade with templates.",
-        ),
-    ] = "new_project",
-) -> None:
-    """Initialize or upgrade a new CDF project with templates."""
-    project_dir: Union[ProjectDirectoryUpgrade, ProjectDirectoryInit]
-    if upgrade:
-        project_dir = ProjectDirectoryUpgrade(Path.cwd() / f"{init_dir}", dry_run)
-        if project_dir.cognite_module_version == current_version:
-            print("No changes to the toolkit detected.")
-            typer.Exit()
-    else:
-        project_dir = ProjectDirectoryInit(Path.cwd() / f"{init_dir}", dry_run)
-
-    verbose = ctx.obj.verbose
-
-    project_dir.set_source(git_branch)
-
-    project_dir.create_project_directory(clean)
-
-    if isinstance(project_dir, ProjectDirectoryUpgrade):
-        project_dir.do_backup(no_backup, verbose)
-
-    project_dir.print_what_to_copy()
-
-    project_dir.copy(verbose)
-
-    project_dir.upsert_config_yamls(clean)
-
-    if not dry_run:
-        print(Panel(project_dir.done_message()))
-
-    if isinstance(project_dir, ProjectDirectoryUpgrade):
-        project_dir.print_manual_steps()
 
 
 @describe_app.callback(invoke_without_command=True)
