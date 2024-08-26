@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.19] - 2024-08-26
+
+### Fixed
+
+- Views and DataModels with versions that are integers are only being redeployed if they have changed in the
+  `cdf-tk deploy` command. They were earlier always redeployed.
+
 ## [0.2.18] - 2024-08-22
 
 ### Fixed
