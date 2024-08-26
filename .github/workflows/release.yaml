@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - release
+      - release-0.2.*
+
 env:
   PYTHON_VERSION: '3.11'
 jobs:
