@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceTypes,
     ViewLoader,
 )
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.datamodel_loaders import GraphQLLoader
+from cognite_toolkit._cdf_tk.loaders.data_classes import GraphQLDataModel
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     module_from_path,
@@ -122,10 +122,10 @@ class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_dict(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
-    ):
+    ) -> None:
         loader = Loader.create_loader(cdf_tool_config, None)
 
-        if loader.resource_cls in [Transformation, FileMetadata, GraphQLLoader]:
+        if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -152,10 +152,10 @@ class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_list(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
-    ):
+    ) -> None:
         loader = Loader.create_loader(cdf_tool_config, None)
 
-        if loader.resource_cls in [Transformation, FileMetadata, GraphQLLoader]:
+        if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
