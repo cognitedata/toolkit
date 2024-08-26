@@ -40,9 +40,11 @@ class ModulesApp(typer.Typer):
         """Initialize or upgrade a new CDF project with templates interactively."""
 
         cmd = ModulesCommand()
-        cmd.init(
-            init_dir=project_dir,
-            arg_package=arg_package,
+        cmd.run(
+            lambda: cmd.init(
+                init_dir=project_dir,
+                arg_package=arg_package,
+            )
         )
 
     def upgrade(
@@ -55,7 +57,7 @@ class ModulesApp(typer.Typer):
         ] = None,
     ) -> None:
         cmd = ModulesCommand()
-        cmd.upgrade(project_dir=project_dir)
+        cmd.run(lambda: cmd.upgrade(project_dir=project_dir))
 
     # This is a trick to use an f-string for the docstring
     upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
