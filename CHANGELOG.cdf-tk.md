@@ -22,6 +22,11 @@ Changes are grouped as follows:
 - Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
   `Frame`, and `Location`). These loaders were earlier available as a feature preview.
 
+### Fixed
+
+- Views and DataModels with versions that are integers are only being redeployed if they have changed in the
+  `cdf-tk deploy` command. They were earlier always redeployed.
+
 ## [0.2.18] - 2024-08-22
 
 ### Fixed
