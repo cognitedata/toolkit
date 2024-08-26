@@ -28,6 +28,11 @@ Changes are grouped as follows:
   This enables multiple schedules with the same cron expression for the same function.
 - The Toolkit no longer gives warnings for naming conventions that are not followed.
 
+### Fixed
+
+- Views and DataModels with versions that are integers are only being redeployed if they have changed in the
+  `cdf-tk deploy` command. They were earlier always redeployed.
+
 ## [0.2.18] - 2024-08-22
 
 ### Fixed
