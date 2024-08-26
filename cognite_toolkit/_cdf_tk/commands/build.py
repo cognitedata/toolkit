@@ -94,8 +94,6 @@ from cognite_toolkit._cdf_tk.validation import (
 )
 from cognite_toolkit._version import __version__
 
-from .featureflag import FeatureFlag, Flags
-
 
 class BuildCommand(ToolkitCommand):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -170,12 +168,6 @@ class BuildCommand(ToolkitCommand):
 
         if issue := config.validate_environment():
             self.warn(issue)
-
-        if FeatureFlag.is_enabled(Flags.NO_NAMING):
-            print(
-                "[bold green]INFO:[/] Naming convention warnings have been disabled. "
-                "To enable them, run 'cdf-tk features set no-naming --disable'."
-            )
 
         user_selected_modules = config.environment.get_selected_modules(system_config.packages)
         modules = ModuleDirectories.load(source_dir, user_selected_modules)
@@ -736,9 +728,6 @@ class BuildCommand(ToolkitCommand):
                         table_id = RawTableLoader.get_id(item)
                         if table_id not in state.ids_by_resource_type[RawTableLoader]:
                             state.ids_by_resource_type[RawTableLoader][table_id] = source_path
-
-                warnings = loader.check_identifier_semantics(identifier, source_path, verbose)
-                warning_list.extend(warnings)
 
                 for dependency in loader.get_dependent_items(item):
                     state.dependencies_by_required[dependency].append((identifier, source_path))

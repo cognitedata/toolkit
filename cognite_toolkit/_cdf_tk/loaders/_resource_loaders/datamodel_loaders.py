@@ -66,12 +66,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import NodeApplyListWithCall
-from cognite_toolkit._cdf_tk.tk_warnings import (
-    NamespacingConventionWarning,
-    PrefixConventionWarning,
-    WarningList,
-    YAMLFileWarning,
-)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,
@@ -116,32 +110,6 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         if isinstance(item, dict):
             return item["space"]
         return item.space
-
-    @classmethod
-    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
-        warning_list = WarningList[YAMLFileWarning]()
-
-        parts = identifier.split("_")
-        if len(parts) < 2:
-            warning_list.append(
-                NamespacingConventionWarning(
-                    filepath,
-                    "space",
-                    "space",
-                    identifier,
-                    "_",
-                )
-            )
-        elif not identifier.startswith("sp_"):
-            if identifier in {"cognite_app_data", "APM_SourceData", "APM_Config"}:
-                if verbose:
-                    print(
-                        f"      [bold green]INFO:[/] the space {identifier} does not follow the recommended '_' based "
-                        "namespacing because Infield expects this specific name."
-                    )
-            else:
-                warning_list.append(PrefixConventionWarning(filepath, "space", "space", identifier, "sp_"))
-        return warning_list
 
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
