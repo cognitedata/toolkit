@@ -119,7 +119,7 @@ class GraphQLDataModelWrite(_GraphQLDataModelCore):
         description: str | None = None,
         previous_version: str | None = None,
     ) -> None:
-        super().__init__(space=space, external_id=external_id, version=self.version, name=name, description=description)
+        super().__init__(space=space, external_id=external_id, version=version, name=name, description=description)
         self.previous_version = previous_version
 
     @classmethod
@@ -150,7 +150,7 @@ class GraphQLDataModel(_GraphQLDataModelCore):
         name: str | None,
         views: list[ViewId] | None,
     ) -> None:
-        super().__init__(space=space, external_id=external_id, version=self.version, name=name, description=description)
+        super().__init__(space=space, external_id=external_id, version=version, name=name, description=description)
         self.is_global = is_global
         self.last_updated_time = last_updated_time
         self.created_time = created_time
