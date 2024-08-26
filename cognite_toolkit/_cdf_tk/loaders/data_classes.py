@@ -98,7 +98,7 @@ class RawTableList(WriteableCogniteResourceList[RawDatabaseTable, RawDatabaseTab
         return [table.db_name for table in self.data]
 
 
-class GraphQLDataModelCore(DataModelingSchemaResource["GraphQLDataModelWrite"], ABC):
+class _GraphQLDataModelCore(DataModelingSchemaResource["GraphQLDataModelWrite"], ABC):
     def __init__(
         self, space: str, external_id: str, version: str, name: str | None = None, description: str | None = None
     ) -> None:
@@ -109,7 +109,7 @@ class GraphQLDataModelCore(DataModelingSchemaResource["GraphQLDataModelWrite"], 
         return DataModelId(space=self.space, external_id=self.external_id, version=self.version)
 
 
-class GraphQLDataModelWrite(GraphQLDataModelCore):
+class GraphQLDataModelWrite(_GraphQLDataModelCore):
     def __init__(
         self,
         space: str,
@@ -137,7 +137,7 @@ class GraphQLDataModelWrite(GraphQLDataModelCore):
         return self
 
 
-class GraphQLDataModel(GraphQLDataModelCore):
+class GraphQLDataModel(_GraphQLDataModelCore):
     def __init__(
         self,
         space: str,
@@ -176,7 +176,10 @@ class GraphQLDataModel(GraphQLDataModelCore):
             created_time=resource["createdTime"],
             description=resource.get("description"),
             name=resource.get("name"),
-            views=[ViewId(space=view["space"], external_id=view["externalId"]) for view in resource.get("views", [])],
+            views=[
+                ViewId(space=view["space"], external_id=view["externalId"], version=view.get("version"))
+                for view in resource.get("views", [])
+            ],
         )
 
 

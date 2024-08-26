@@ -50,6 +50,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewApplyList,
     ViewList,
 )
+from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
 from cognite.client.data_classes.data_modeling.ids import (
     ContainerId,
     DataModelId,
@@ -64,11 +65,18 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.loaders.data_classes import NodeApplyListWithCall
+from cognite_toolkit._cdf_tk.loaders.data_classes import (
+    GraphQLDataModel,
+    GraphQLDataModelList,
+    GraphQLDataModelWrite,
+    GraphQLDataModelWriteList,
+    NodeApplyListWithCall,
+)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,
@@ -900,36 +908,104 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
         return ParameterSpecSet(node_spec, spec_name=cls.__name__)
 
 
-# class GraphQLLoader(ResourceLoader[DataModelId, ...]):
-#     folder_name = "data_models"
-#     filename_pattern = r"^.*GraphQLSchema"
-#     # resource_cls =
-#     # resource_write_cls =
-#     # list_cls =
-#     # list_write_cls =
-#     kind = "Schema"
-#     dependencies = frozenset({SpaceLoader, ContainerLoader})
-#     _doc_url = "Data-models/operation/createDataModels"
-#
-#     @classmethod
-#     def get_id(cls, item: T_WriteClass | T_WritableCogniteResource | dict) -> DataModelId:
-#         pass
-#
-#     @classmethod
-#     def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
-#         pass
-#
-#     def create(self, items: T_CogniteResourceList) -> Sized:
-#         self.client.data_modeling.graphql.apply_dml()
-#
-#     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
-#         pass
-#
-#     def update(self, items: T_CogniteResourceList) -> Sized:
-#         pass
-#
-#     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
-#         pass
-#
-#     def iterate(self) -> Iterable[T_WritableCogniteResource]:
-#         pass
+class GraphQLLoader(
+    ResourceContainerLoader[
+        DataModelId, GraphQLDataModelWrite, GraphQLDataModel, GraphQLDataModelWriteList, GraphQLDataModelList
+    ]
+):
+    folder_name = "data_models"
+    filename_pattern = r"^.*GraphQLSchema"
+    resource_cls = GraphQLDataModel
+    resource_write_cls = GraphQLDataModelWrite
+    list_cls = GraphQLDataModelList
+    list_write_cls = GraphQLDataModelWriteList
+    kind = "GraphQLSchema"
+    dependencies = frozenset({SpaceLoader, ContainerLoader})
+    item_name = "views"
+    _doc_url = "Data-models/operation/createDataModels"
+
+    def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
+        super().__init__(client, build_dir)
+        self._dml_cache: dict[DataModelId, Path] = {}
+
+    @property
+    def display_name(self) -> str:
+        return "GraphQL schemas"
+
+    @classmethod
+    def get_id(cls, item: GraphQLDataModelWrite | GraphQLDataModel | dict) -> DataModelId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return DataModelId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+        return DataModelId(item.space, item.external_id, str(item.version))
+
+    @classmethod
+    def get_required_capability(cls, items: GraphQLDataModelWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        return DataModelsAcl(
+            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
+        )
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "space" in item:
+            yield SpaceLoader, item["space"]
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> GraphQLDataModelWrite:
+        try:
+            raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
+        except ValueError:
+            raise ToolkitYAMLFormatError(f"Expected only one GraphQL schema in {filepath.name}")
+        model = GraphQLDataModelWrite._load(raw)
+
+        filename = filepath.stem.removesuffix(self.kind).removesuffix(".")
+        graphql = filepath.with_name(f"{filename}.graphql")
+        if not graphql.exists():
+            raise ToolkitFileNotFoundError(f"Epected GraphQL file {graphql.name} adjacent to {filepath.as_posix()}")
+        self._dml_cache[model.as_id()] = graphql
+        return model
+
+    def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
+        created_list: list[DMLApplyResult] = []
+        for item in items:
+            filepath = self._dml_cache.get(item.as_id())
+            if filepath is None:
+                raise ToolkitFileNotFoundError(f"Could not find the GraphQL file for {item.as_id()}")
+            domain_model_language = safe_read(filepath)
+            created = self.client.data_modeling.graphql.apply_dml(
+                item.as_id(),
+                dml=domain_model_language,
+                name=item.name,
+                description=item.description,
+                previous_version=item.previous_version,
+            )
+            created_list.append(created)
+        return created_list
+
+    def retrieve(self, ids: SequenceNotStr[DataModelId]) -> GraphQLDataModelList:
+        result = self.client.data_modeling.data_models.retrieve(list(ids), inline_views=False)
+        return GraphQLDataModelList([GraphQLDataModel._load(d.dump()) for d in result])
+
+    def update(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
+        return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
+        retrieved = self.retrieve(ids)
+        views = {view for dml in retrieved for view in dml.views or []}
+        deleted = len(self.client.data_modeling.data_models.delete(list(ids)))
+        deleted += len(self.client.data_modeling.views.delete(list(views)))
+        return deleted
+
+    def iterate(self) -> Iterable[GraphQLDataModel]:
+        return iter(GraphQLDataModel._load(d.dump()) for d in self.client.data_modeling.data_models)
+
+    def count(self, ids: SequenceNotStr[DataModelId]) -> int:
+        retrieved = self.retrieve(ids)
+        return sum(len(d.views or []) for d in retrieved)
+
+    def drop_data(self, ids: SequenceNotStr[DataModelId]) -> int:
+        return self.delete(ids)
