@@ -64,7 +64,10 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import (
+    ResourceContainerLoader,
+    ResourceLoader,
+)
 from cognite_toolkit._cdf_tk.loaders.data_classes import NodeApplyListWithCall
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -895,3 +898,38 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
             )
         )
         return ParameterSpecSet(node_spec, spec_name=cls.__name__)
+
+
+# class GraphQLLoader(ResourceLoader[DataModelId, ...]):
+#     folder_name = "data_models"
+#     filename_pattern = r"^.*GraphQLSchema"
+#     # resource_cls =
+#     # resource_write_cls =
+#     # list_cls =
+#     # list_write_cls =
+#     kind = "Schema"
+#     dependencies = frozenset({SpaceLoader, ContainerLoader})
+#     _doc_url = "Data-models/operation/createDataModels"
+#
+#     @classmethod
+#     def get_id(cls, item: T_WriteClass | T_WritableCogniteResource | dict) -> DataModelId:
+#         pass
+#
+#     @classmethod
+#     def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
+#         pass
+#
+#     def create(self, items: T_CogniteResourceList) -> Sized:
+#         self.client.data_modeling.graphql.apply_dml()
+#
+#     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
+#         pass
+#
+#     def update(self, items: T_CogniteResourceList) -> Sized:
+#         pass
+#
+#     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
+#         pass
+#
+#     def iterate(self) -> Iterable[T_WritableCogniteResource]:
+#         pass
