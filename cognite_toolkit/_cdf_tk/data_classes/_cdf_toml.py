@@ -52,7 +52,12 @@ class CDFToml:
     modules: ModulesConfig
 
     @classmethod
-    def load(cls, path: Path | None = None) -> CDFToml:
+    def load(cls, path: Path | None = None, use_singleton: bool = True) -> CDFToml:
+        """Loads the cdf.toml file from the given path. If use_singleton is True, the instance will be stored as a
+        singleton and returned on subsequent calls."""
+        global _CDF_TOML
+        if use_singleton and _CDF_TOML:
+            return _CDF_TOML
         path = path or Path.cwd()
         file_path = path / cls.file_name
         if not file_path.exists():
@@ -67,4 +72,10 @@ class CDFToml:
             modules = ModulesConfig.load(raw["modules"])
         except KeyError as e:
             raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
-        return cls(cdf=cdf, modules=modules)
+        instance = cls(cdf=cdf, modules=modules)
+        if use_singleton:
+            _CDF_TOML = instance
+        return instance
+
+
+_CDF_TOML: CDFToml | None = None

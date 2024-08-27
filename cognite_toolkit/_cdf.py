@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
 )
 from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.data_classes import CDFToml
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
     ToolkitFileNotFoundError,
@@ -60,6 +61,8 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         # of transactions for performance monitoring.
         traces_sample_rate=1.0,
     )
+# Should raise if the cdf.toml is not found
+CDF_TOML = CDFToml.load(Path.cwd())
 
 default_typer_kws = dict(
     pretty_exceptions_short=False,
