@@ -23,7 +23,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     CDFToml,
     Environment,
     InitConfigYAML,
-    SystemYAML,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
@@ -209,9 +208,8 @@ def test_resource_types_is_up_to_date() -> None:
 
 def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
     source_path = REPO_ROOT / "cognite_toolkit"
-    env = "dev"
     with tmp_build_directory() as build_dir:
-        system_config = SystemYAML.load_from_directory(source_path, env)
+        cdf_toml = CDFToml.load(source_path)
         config_init = InitConfigYAML(
             Environment(
                 name="not used",
@@ -231,7 +229,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             build_dir=build_dir,
             source_dir=source_path,
             config=config,
-            packages=system_config.packages,
+            packages=cdf_toml.modules.packages,
             clean=True,
             verbose=False,
         )

@@ -12,7 +12,7 @@ from typer import Context
 
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, SystemYAML
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
@@ -73,14 +73,12 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     config.environment = MagicMock(spec=Environment)
     config.environment.name = "dev"
     config.environment.selected = ["module1"]
-    system_yaml = MagicMock(spec=SystemYAML)
-    system_yaml.packages = {}
     with pytest.raises(ToolkitDuplicatedModuleError) as err:
         BuildCommand().build_config(
             build_dir=build_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
             config=config,
-            packages=system_yaml.packages,
+            packages={},
         )
     l1, l2, l3, l4, l5 = map(str.strip, str(err.value).splitlines())
     assert l1 == "Ambiguous module selected in config.dev.yaml:"

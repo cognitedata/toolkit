@@ -15,7 +15,7 @@ from cognite_toolkit._api.data_classes import _DUMMY_ENVIRONMENT, ModuleMeta, Mo
 from cognite_toolkit._cdf import Common, clean, deploy
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES, COGNITE_MODULES_PATH
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, InitConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, CDFToml, Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.loaders import ResourceTypes
 from cognite_toolkit._cdf_tk.utils import iterate_modules
 
@@ -44,13 +44,13 @@ class ModulesAPI:
     def _load_modules(self) -> None:
         source_dir = self._source_dir()
 
-        system_yaml = SystemYAML.load_from_directory(source_dir.parent, self._build_env)
+        cdf_toml = CDFToml.load(source_dir.parent)
         default_config = InitConfigYAML(_DUMMY_ENVIRONMENT).load_defaults(source_dir)
 
         for module, _ in iterate_modules(source_dir):
             module_packages = {
                 package_name
-                for package_name, package_modules in system_yaml.packages.items()
+                for package_name, package_modules in cdf_toml.modules.packages.items()
                 if module.name in package_modules
             }
             self.__module_by_name[module.name] = ModuleMeta._load(
@@ -88,7 +88,7 @@ class ModulesAPI:
             self._build_dir,
             self._source_dir().parent,
             config,
-            packages=SystemYAML.load_from_directory(self._source_dir().parent, self._build_env).packages,
+            packages=CDFToml.load(self._source_dir().parent).modules.packages,
             clean=True,
             verbose=verbose,
         )
