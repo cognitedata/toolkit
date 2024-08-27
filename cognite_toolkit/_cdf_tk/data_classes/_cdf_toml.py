@@ -57,7 +57,7 @@ class CDFToml:
         file_path = path / cls.file_name
         if not file_path.exists():
             raise ToolkitFileNotFoundError(
-                f"Could not find {cls.file_name} in {path}. " f"This file is required to run the toolkit."
+                f"Could not find {cls.file_name} in {path}. This file is required to run the toolkit."
             )
         # TOML files are required to be UTF-8 encoded
         raw = tomllib.loads(file_path.read_text(encoding="utf-8"))
