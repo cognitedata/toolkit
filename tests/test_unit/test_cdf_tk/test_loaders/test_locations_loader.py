@@ -16,9 +16,12 @@ from tests.test_unit.approval_client.client import ApprovalToolkitClient
 
 
 class TestLocationFilterLoader:
-    def test_load_minimum_location_filter(self, cognite_client_approval: ApprovalToolkitClient):
+    def test_load_minimum_location_filter(
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+    ):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
 
         loader = LocationFilterLoader.create_loader(cdf_tool, None)
         loaded = loader.load_resource(
@@ -28,9 +31,9 @@ class TestLocationFilterLoader:
         assert loaded.external_id == "springfield"
 
     @pytest.fixture
-    def loaded(self, cognite_client_approval: ApprovalToolkitClient):
+    def loaded(self, toolkit_client_approval: ApprovalToolkitClient):
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
 
         loader = LocationFilterLoader.create_loader(cdf_tool, None)
         loaded = loader.load_resource(
@@ -38,7 +41,10 @@ class TestLocationFilterLoader:
         )
         return loaded
 
-    def test_load_filter_write(self, loaded: LocationFilterWrite):
+    def test_load_filter_write(
+        self,
+        loaded: LocationFilterWrite,
+    ):
         assert isinstance(loaded, LocationFilterWrite)
         assert loaded.external_id == "unique-external-id-123"
 
