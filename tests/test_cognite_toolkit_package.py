@@ -6,11 +6,8 @@ import sys
 from collections.abc import Iterator
 from datetime import datetime
 from re import Match
-from typing import Any
 
 import pytest
-import yaml
-from packaging import version as version_package
 from packaging.version import Version
 
 from cognite_toolkit._version import __version__
@@ -77,38 +74,6 @@ def test_changelog_entry_date(changelog_name: str) -> None:
         ), f"Date given in the newest entry in '{changelog_name}', {date!r}, is not valid/parsable (YYYY-MM-DD)"
     else:
         assert True
-
-
-@pytest.fixture(scope="session")
-def migrations() -> list[dict[Any]]:
-    migration_yaml = REPO_ROOT / "cognite_toolkit" / "_cdf_tk" / "_migration.yaml"
-    assert migration_yaml.exists(), f"{migration_yaml} does not exist. It has been moved"
-
-    migrations = yaml.safe_load(migration_yaml.read_text())
-    assert isinstance(migrations, list), f"{migration_yaml} should contain a list of migrations"
-    return migrations
-
-
-def test_migration_hash_updated(migrations) -> None:
-    missing_hash = {
-        version_str
-        for entry in migrations
-        if version_package.parse(version_str := entry["version"]) < version_package.parse(__version__)
-        and not entry.get("cognite_modules_hash")
-    }
-
-    # Check the instructions REPO_ROOT / "tests_migrations" / "README.md for more
-    # information on how to update the hash"
-    assert not missing_hash, f"Missing hash for the following versions: {missing_hash}"
-
-
-def test_migration_entry_added(migrations) -> None:
-    last_entry = migrations[0]
-    second_last_entry = migrations[1]
-
-    assert (
-        last_entry["version"] == __version__ or second_last_entry["version"] == __version__
-    ), "The latest entry in _migration.yaml should match the current version"
 
 
 def _parse_changelog(changelog: str) -> Iterator[Match[str]]:

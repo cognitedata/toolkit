@@ -66,12 +66,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import NodeApplyListWithCall
-from cognite_toolkit._cdf_tk.tk_warnings import (
-    NamespacingConventionWarning,
-    PrefixConventionWarning,
-    WarningList,
-    YAMLFileWarning,
-)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,
@@ -116,32 +110,6 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         if isinstance(item, dict):
             return item["space"]
         return item.space
-
-    @classmethod
-    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
-        warning_list = WarningList[YAMLFileWarning]()
-
-        parts = identifier.split("_")
-        if len(parts) < 2:
-            warning_list.append(
-                NamespacingConventionWarning(
-                    filepath,
-                    "space",
-                    "space",
-                    identifier,
-                    "_",
-                )
-            )
-        elif not identifier.startswith("sp_"):
-            if identifier in {"cognite_app_data", "APM_SourceData", "APM_Config"}:
-                if verbose:
-                    print(
-                        f"      [bold green]INFO:[/] the space {identifier} does not follow the recommended '_' based "
-                        "namespacing because Infield expects this specific name."
-                    )
-            else:
-                warning_list.append(PrefixConventionWarning(filepath, "space", "space", identifier, "sp_"))
-        return warning_list
 
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
@@ -460,8 +428,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return ViewId(space=item["space"], external_id=item["externalId"], version=item["version"])
-        return item.as_id()
+            return ViewId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+
+        return ViewId(item.space, item.external_id, str(item.version))
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -472,7 +441,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                 if not isinstance(parent, dict):
                     continue
                 if parent.get("type") == "view" and in_dict(["space", "externalId", "version"], parent):
-                    yield ViewLoader, ViewId(parent["space"], parent["externalId"], parent["version"])
+                    yield (
+                        ViewLoader,
+                        ViewId(parent["space"], parent["externalId"], str(v) if (v := parent.get("version")) else None),
+                    )
         for prop in item.get("properties", {}).values():
             if (container := prop.get("container", {})) and container.get("type") == "container":
                 if in_dict(("space", "externalId"), container):
@@ -480,7 +452,12 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             for key, dct_ in [("source", prop), ("edgeSource", prop), ("source", prop.get("through", {}))]:
                 if source := dct_.get(key, {}):
                     if source.get("type") == "view" and in_dict(("space", "externalId", "version"), source):
-                        yield ViewLoader, ViewId(source["space"], source["externalId"], source["version"])
+                        yield (
+                            ViewLoader,
+                            ViewId(
+                                source["space"], source["externalId"], str(v) if (v := source.get("version")) else None
+                            ),
+                        )
                     elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
                         yield ContainerLoader, ContainerId(source["space"], source["externalId"])
 
@@ -664,8 +641,8 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return DataModelId(space=item["space"], external_id=item["externalId"], version=item["version"])
-        return item.as_id()
+            return DataModelId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+        return DataModelId(item.space, item.external_id, str(item.version))
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -673,7 +650,10 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             yield SpaceLoader, item["space"]
         for view in item.get("views", []):
             if in_dict(("space", "externalId"), view):
-                yield ViewLoader, ViewId(view["space"], view["externalId"], view.get("version"))
+                yield (
+                    ViewLoader,
+                    ViewId(view["space"], view["externalId"], str(v) if (v := view.get("version")) else None),
+                )
 
     def _are_equal(
         self, local: DataModelApply, cdf_resource: DataModel, return_dumped: bool = False
@@ -793,7 +773,14 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
-                    yield ViewLoader, ViewId(identifier["space"], identifier["externalId"], identifier["version"])
+                    yield (
+                        ViewLoader,
+                        ViewId(
+                            identifier["space"],
+                            identifier["externalId"],
+                            str(v) if (v := identifier.get("version")) else None,
+                        ),
+                    )
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 

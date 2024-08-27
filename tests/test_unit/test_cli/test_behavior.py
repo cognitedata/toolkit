@@ -37,7 +37,7 @@ def test_inject_custom_environmental_variables(
     config_yaml = yaml.safe_load((init_project / "config.dev.yaml").read_text())
     config_yaml["variables"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting a module with a transformation that uses the cicd_clientId variable
-    config_yaml["environment"]["selected_modules_and_packages"] = ["cdf_infield_location"]
+    config_yaml["environment"]["selected"] = ["cdf_infield_location"]
     config_yaml["environment"]["project"] = "pytest"
     mock_read_yaml_file(
         {
@@ -149,7 +149,6 @@ def test_pull_transformation(
 def test_dump_datamodel(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
-    cognite_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
 ) -> None:
@@ -240,11 +239,6 @@ def test_dump_datamodel(
     toolkit_client_approval.append(dm.Container, container)
     toolkit_client_approval.append(dm.View, view)
     toolkit_client_approval.append(dm.DataModel, data_model)
-
-    cognite_client_approval.append(dm.Space, space)
-    cognite_client_approval.append(dm.Container, container)
-    cognite_client_approval.append(dm.View, view)
-    cognite_client_approval.append(dm.DataModel, data_model)
 
     dump_datamodel_cmd(
         typer_context,

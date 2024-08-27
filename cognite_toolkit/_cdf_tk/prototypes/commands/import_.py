@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from cognite.client import CogniteClient
 from rich import print
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
@@ -20,14 +20,14 @@ from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_write
 class ImportTransformationCLI(ToolkitCommand):
     def __init__(
         self,
-        get_client: Callable[[], CogniteClient] | None = None,
+        get_client: Callable[[], ToolkitClient] | None = None,
         print_warning: bool = True,
         skip_tracking: bool = False,
     ):
         super().__init__(print_warning, skip_tracking)
         self._dataset_external_id_by_id: dict[int, str] = {}
         # We only initialize the client if we need to look up dataset ids.
-        self._client: CogniteClient | None = None
+        self._client: ToolkitClient | None = None
         self._get_client = get_client
 
     def execute(
@@ -217,7 +217,7 @@ class ImportTransformationCLI(ToolkitCommand):
         return dataset.external_id
 
     @property
-    def client(self) -> CogniteClient:
+    def client(self) -> ToolkitClient:
         if self._client is None:
             if self._get_client is None:
                 raise AuthenticationError(

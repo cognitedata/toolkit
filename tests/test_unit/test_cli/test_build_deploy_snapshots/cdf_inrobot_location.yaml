@@ -1,3 +1,19 @@
+Frame:
+- externalId: <change_me>
+  name: Root frame at the origin of location <change_me>
+- externalId: frame_<change_me>
+  name: Frame <change_me>
+  transform:
+    orientation:
+      w: 1.0
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    parentFrameExternalId: <change_me>
+    translation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
 Group:
 - capabilities:
   - assetsAcl:
@@ -276,6 +292,21 @@ Group:
     origin: cdf-project-templates
   name: gp_Robot_<change_me>
   sourceId: <change_me>
+Location:
+- description: Robot location
+  externalId: <change_me>
+  name: <change_me>
+Map:
+- data:
+    modelId: <change_me>
+    revisionId: <change_me>
+  description: <change_me> <change_me>
+  externalId: <change_me>
+  frameExternalId: frame_<change_me>
+  locationExternalId: <change_me>
+  mapType: <change_me>
+  name: <change_me>
+  scale: 1.0
 Space:
 - description: Space for <change_me> App Data
   name: sp:inrobot:<change_me>:app_data

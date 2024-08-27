@@ -28,6 +28,7 @@ FunctionSchedule:
     dinner: 'today: steak and red wine'
     lunch: 'today: greek salad and water'
   description: Run every day at 8am UTC
+  functionExternalId: fn_example_repeater
   name: daily-8am-utc
 - cronExpression: 0 20 * * *
   data:
@@ -35,4 +36,5 @@ FunctionSchedule:
     dinner: 'tomorrow: steak and red wine'
     lunch: 'tomorrow: greek salad and water'
   description: Run every day at 8pm UTC
+  functionExternalId: fn_example_repeater
   name: daily-8pm-utc

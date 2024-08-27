@@ -95,7 +95,7 @@ def test_auth_verify_happy_path(
         auth_cognite_approval_client.append(resource, data)
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
-    cdf_tool_config.client = auth_cognite_approval_client.mock_client
+    cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
     cmd = AuthCommand(print_warning=False)
 
     cmd.check_auth(cdf_tool_config, admin_group_file=Path(AUTH_DATA / "rw-group.yaml"))
@@ -120,7 +120,7 @@ def test_auth_verify_wrong_capabilities(
         auth_cognite_approval_client.append(resource, data)
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
-    cdf_tool_config.client = auth_cognite_approval_client.mock_client
+    cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
     cmd = AuthCommand(print_warning=False)
 
     cmd.check_auth(cdf_tool_config, admin_group_file=Path(AUTH_DATA / "rw-group.yaml"))
@@ -143,7 +143,7 @@ def test_auth_verify_two_groups(
         auth_cognite_approval_client.append(resource, data)
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
-    cdf_tool_config.client = auth_cognite_approval_client.mock_client
+    cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
     cmd = AuthCommand(print_warning=False)
     cmd.check_auth(cdf_tool_config, admin_group_file=Path(AUTH_DATA / "rw-group.yaml"))
 
@@ -162,14 +162,14 @@ def test_auth_verify_two_groups(
 def test_auth_verify_no_capabilities(
     cdf_tool_config: CDFToolConfig,
     auth_cognite_approval_client: ApprovalToolkitClient,
-    cdf_resources: dict[CogniteResource, Union[CogniteResource, CogniteResourceList]],
+    cdf_resources: dict[type[CogniteResource], Union[CogniteResource, CogniteResourceList]],
 ):
     # Add the pre-loaded data to the approval_client
     for resource, data in cdf_resources.items():
         auth_cognite_approval_client.append(resource, data)
     # Then make sure that the CogniteClient used is the one mocked by
     # the approval_client
-    cdf_tool_config.client = auth_cognite_approval_client.mock_client
+    cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
 
     def mock_verify_client(*args, **kwargs):
         raise Exception("No capabilities")

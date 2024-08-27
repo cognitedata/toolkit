@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import typer
-from cognite.client import CogniteClient
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from .commands.import_ import ImportTransformationCLI
@@ -33,9 +33,9 @@ def transformation_cli(
     # We are lazy loading the client as we only need it if we need to look up dataset ids.
     # This is to ensure the command can be executed without a client if the user does not need to look up dataset ids.
     # (which is likely 99% of the time)
-    def get_client() -> CogniteClient:
+    def get_client() -> ToolkitClient:
         config = CDFToolConfig.from_context(ctx)
-        return config.client
+        return config.toolkit_client
 
     cmd = ImportTransformationCLI(print_warning=True, get_client=get_client)
 

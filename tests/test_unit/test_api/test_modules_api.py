@@ -81,11 +81,9 @@ class TestModulesAPI:
         module_name: str,
         cognite_toolkit: CogniteToolkit,
         toolkit_client_approval: ApprovalToolkitClient,
-        cognite_client_approval: ApprovalToolkitClient,
         cdf_tool_config: CDFToolConfig,
     ) -> None:
         toolkit_client_approval.return_verify_resources = True
-        cognite_client_approval.return_verify_resources = True
         module = cognite_toolkit.modules.retrieve(module_name)
 
         cognite_toolkit.modules.deploy(module, verbose=True)
