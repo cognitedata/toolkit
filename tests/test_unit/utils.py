@@ -44,6 +44,7 @@ from cognite.client.data_classes.workflows import WorkflowTaskOutput, WorkflowTa
 from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
+from cognite_toolkit._cdf_tk.client.data_classes.locations import LocationFilterScene
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 
 
@@ -187,6 +188,8 @@ class FakeCogniteResourceGenerator:
             if resource_cls is Geometry and name == "geometries":
                 # Special case for Geometry to avoid recursion.
                 value = None
+            elif name == "scene":
+                value = self.create_value(LocationFilterScene, var_name=name)
             else:
                 value = self.create_value(type_hint_by_name[name], var_name=name)
 

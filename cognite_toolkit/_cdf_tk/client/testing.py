@@ -7,11 +7,13 @@ from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitClient
 
+from .api.locations import LocationsAPI as LocationsAPI
+from .api.locations.location_filters import LocationFiltersAPI
 from .api.robotics import RoboticsAPI
 from .api.robotics.capabilities import CapabilitiesAPI
 from .api.robotics.data_postprocessing import DataPostProcessingAPI
 from .api.robotics.frames import FramesAPI
-from .api.robotics.locations import LocationsAPI
+from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
 from .api.robotics.maps import MapsAPI
 
 
@@ -36,10 +38,12 @@ class ToolkitClientMock(CogniteClientMock):
         self.robotics = MagicMock()
         self.robotics.robots = MagicMock(spec=RoboticsAPI)
         self.robotics.data_postprocessing = MagicMock(spec_set=DataPostProcessingAPI)
-        self.robotics.locations = MagicMock(spec_set=LocationsAPI)
+        self.robotics.locations = MagicMock(spec_set=RoboticsLocationsAPI)
         self.robotics.frames = MagicMock(spec_set=FramesAPI)
         self.robotics.maps = MagicMock(spec_set=MapsAPI)
         self.robotics.capabilities = MagicMock(spec_set=CapabilitiesAPI)
+        self.locations = MagicMock(spec=LocationsAPI)
+        self.locations.filters = MagicMock(spec=LocationFiltersAPI)
 
 
 @contextmanager

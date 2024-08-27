@@ -114,9 +114,10 @@ class ApprovalToolkitClient:
             mock_api = mock_client
             skip = False
             for part in parts:
-                if part == "robotics" and isinstance(mock_api, CogniteClientMock):
+                if part in ["robotics", "locations"] and isinstance(mock_api, CogniteClientMock):
                     skip = True
                     break
+
                 if not hasattr(mock_api, part):
                     raise ValueError(f"Invalid api name {resource.api_name}, could not find {part}")
                 # To avoid registering the side effect on the mock_client.post.post and use

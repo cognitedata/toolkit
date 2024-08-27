@@ -12,11 +12,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.locations import (
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import LOAD_DATA
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client.client import ApprovalToolkitClient
 
 
 class TestLocationFilterLoader:
-    def test_load_minimum_location_filter(self, cognite_client_approval: ApprovalCogniteClient):
+    def test_load_minimum_location_filter(self, cognite_client_approval: ApprovalToolkitClient):
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
 
@@ -28,7 +28,7 @@ class TestLocationFilterLoader:
         assert loaded.external_id == "springfield"
 
     @pytest.fixture
-    def loaded(self, cognite_client_approval: ApprovalCogniteClient):
+    def loaded(self, cognite_client_approval: ApprovalToolkitClient):
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
 

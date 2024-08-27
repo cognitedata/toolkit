@@ -115,6 +115,7 @@ from cognite.client.data_classes.transformations.notifications import (
 )
 
 from cognite_toolkit._cdf_tk.client.data_classes import (
+    locations,
     robotics,
 )
 
@@ -576,6 +577,19 @@ API_RESOURCES = [
         list_cls=robotics.RobotCapabilityList,
         _write_cls=robotics.RobotCapabilityWrite,
         _write_list_cls=robotics.RobotCapabilityWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="locations.filters",
+        resource_cls=locations.LocationFilter,
+        list_cls=locations.LocationFilterList,
+        _write_cls=locations.LocationFilterWrite,
+        _write_list_cls=locations.LocationFilterWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
