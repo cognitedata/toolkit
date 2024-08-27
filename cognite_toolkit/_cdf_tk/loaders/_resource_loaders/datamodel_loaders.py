@@ -77,8 +77,10 @@ from cognite_toolkit._cdf_tk.loaders.data_classes import (
     GraphQLDataModelWriteList,
     NodeApplyListWithCall,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
+    calculate_str_or_file_hash,
     in_dict,
     load_yaml_inject_variables,
     retrieve_view_ancestors,
@@ -923,10 +925,11 @@ class GraphQLLoader(
     dependencies = frozenset({SpaceLoader, ContainerLoader})
     item_name = "views"
     _doc_url = "Data-models/operation/createDataModels"
+    _hash_name = "CDFToolkitHash:"
 
     def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
         super().__init__(client, build_dir)
-        self._dml_cache: dict[DataModelId, Path] = {}
+        self._graphql_filepath_cache: dict[DataModelId, Path] = {}
 
     @property
     def display_name(self) -> str:
@@ -978,19 +981,28 @@ class GraphQLLoader(
                 raise ToolkitFileNotFoundError(
                     f"Failed to find GraphQL file. Expected {expected_filename} adjacent to {filepath.as_posix()}"
                 )
-            self._dml_cache[model.as_id()] = graphql_file
+            self._graphql_filepath_cache[model.as_id()] = graphql_file
         return models
 
     def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
         created_list: list[DMLApplyResult] = []
         for item in items:
-            filepath = self._dml_cache.get(item.as_id())
+            filepath = self._graphql_filepath_cache.get(item.as_id())
             if filepath is None:
                 raise ToolkitFileNotFoundError(f"Could not find the GraphQL file for {item.as_id()}")
-            domain_model_language = safe_read(filepath)
+            graphql_file_content = safe_read(filepath)
+            # Add hash to detect changes in the graphql file
+            description = item.description or ""
+            hash_ = calculate_str_or_file_hash(graphql_file_content)
+            suffix = f"{self._hash_name}{hash_[:8]}"
+            if len(description) + len(suffix) > 1024:
+                print(LowSeverityWarning(f"Description is too long for {item.as_id()}. Truncating..."))
+                description = description[: 1024 - len(suffix) + 1 - 3] + "..."
+            description += f" {suffix}"
+
             created = self.client.data_modeling.graphql.apply_dml(
                 item.as_id(),
-                dml=domain_model_language,
+                dml=graphql_file_content,
                 name=item.name,
                 description=item.description,
                 previous_version=item.previous_version,
