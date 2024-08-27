@@ -585,6 +585,19 @@ API_RESOURCES = [
         },
     ),
     APIResource(
+        api_name="locations",
+        resource_cls=locations.LocationFilter,
+        list_cls=locations.LocationFilterList,
+        _write_cls=locations.LocationFilterWrite,
+        _write_list_cls=locations.LocationFilterWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
         api_name="locations.filters",
         resource_cls=locations.LocationFilter,
         list_cls=locations.LocationFilterList,

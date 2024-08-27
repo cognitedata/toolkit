@@ -111,9 +111,6 @@ class ApprovalToolkitClient:
             parts = resource.api_name.split(".")
             mock_api = mock_client
             for part in parts:
-                if part in ["robotics", "locations"] and isinstance(mock_api, CogniteClientMock):
-                    break
-
                 if not hasattr(mock_api, part):
                     raise ValueError(f"Invalid api name {resource.api_name}, could not find {part}")
                 # To avoid registering the side effect on the mock_client.post.post and use
