@@ -6,7 +6,13 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitRequiredValueError, ToolkitVersionError
+from cognite_toolkit._cdf_tk.constants import ROOT_MODULES
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
+    ToolkitMissingModulesError,
+    ToolkitRequiredValueError,
+    ToolkitVersionError,
+)
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -22,6 +28,17 @@ class CLIConfig:
     def load(cls, raw: dict[str, Any], source_dir: Path) -> CLIConfig:
         project_dir = source_dir / raw["project_dir"] if "project_dir" in raw else None
         return cls(project_dir=project_dir)
+
+    def get_root_module_paths(self, project_dir: Path | None = None) -> list[Path]:
+        source_path = project_dir or self.project_dir or Path.cwd()
+        sources = [module_dir for root_module in ROOT_MODULES if (module_dir := source_path / root_module).exists()]
+        if not sources:
+            directories = "\n".join(f"   ┣ {name}" for name in ROOT_MODULES[:-1])
+            raise ToolkitMissingModulesError(
+                f"Could not find the source modules directory.\nExpected to find one of the following directories\n"
+                f"{source_path.name}\n{directories}\n   ┗  {ROOT_MODULES[-1]}"
+            )
+        return sources
 
 
 @dataclass

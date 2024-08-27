@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.constants import (
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     BuildVariables,
+    CDFToml,
     ModuleDirectories,
     SystemYAML,
 )
@@ -113,8 +114,8 @@ class BuildCommand(ToolkitCommand):
         if not source_path.is_dir():
             raise ToolkitNotADirectoryError(str(source_path))
 
-        system_config = SystemYAML.load_from_directory(source_path, build_env_name, self.warn, self.user_command)
-        sources = SystemYAML.validate_module_dir(source_path)
+        cdf_toml = CDFToml.load(source_path)
+        sources = cdf_toml.cdf.get_root_module_paths(source_path)
         config = BuildConfigYAML.load_from_directory(source_path, build_env_name, self.warn)
 
         directory_name = "current directory" if source_path == Path(".") else f"project '{source_path!s}'"
@@ -135,7 +136,7 @@ class BuildCommand(ToolkitCommand):
             build_dir=build_dir,
             source_dir=source_path,
             config=config,
-            packages=system_config.packages,
+            packages=cdf_toml.modules.packages,
             clean=not no_clean,
             verbose=verbose,
             ToolGlobals=ToolGlobals,
