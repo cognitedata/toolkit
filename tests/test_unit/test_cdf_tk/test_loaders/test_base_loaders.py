@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_fr
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
+    CDFToml,
     Environment,
     InitConfigYAML,
     SystemYAML,
@@ -82,12 +83,12 @@ def test_loader_class(
 class TestDeployResources:
     def test_deploy_resource_order(self, toolkit_client_approval: ApprovalToolkitClient):
         build_env_name = "dev"
-        system_config = SystemYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
+        cdf_toml = CDFToml.load(PROJECT_FOR_TEST)
         config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
         config.environment.selected = ["another_module"]
         build_cmd = BuildCommand()
         build_cmd.build_config(
-            BUILD_DIR, PROJECT_FOR_TEST, config=config, packages=system_config.packages, clean=True, verbose=False
+            BUILD_DIR, PROJECT_FOR_TEST, config=config, packages=cdf_toml.modules.packages, clean=True, verbose=False
         )
         expected_order = ["MyView", "MyOtherView"]
         cdf_tool = MagicMock(spec=CDFToolConfig)
