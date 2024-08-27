@@ -970,9 +970,9 @@ class GraphQLLoader(
         local_dumped["graphql_file"] = calculate_str_or_file_hash(local_graphql_file)[:8]
 
         description = cdf_resource.description or ""
-        if match := re.match(rf" {self._hash_name}([a-f0-9]{{8}})$", description):
-            cdf_dumped["graphql_file"] = match.group(1)
-            description = description[: -len(match.group(0))]
+        if match := re.match(rf"(.|\n)*( {self._hash_name}([a-f0-9]{{8}}))$", description):
+            cdf_dumped["graphql_file"] = match.group(3)
+            description = description[: -len(match.group(2))]
             cdf_dumped["description"] = description
         else:
             cdf_dumped["graphql_file"] = ""
