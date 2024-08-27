@@ -47,6 +47,7 @@ class TestLocationFilterAPI:
         location_filter = LocationFilterWrite(
             name="loc",
             external_id=SESSION_EXTERNAL_ID,
+            parent_id=f"loc_par_{SESSION_EXTERNAL_ID}",
         )
         with contextlib.suppress(CogniteAPIError):  # Should be CogniteDuplicatedError, but API throws 500 ATM
             created = toolkit_client.locations.filters.create(location_filter)

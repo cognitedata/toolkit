@@ -95,13 +95,13 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         self,
         external_id: str,
         name: str,
-        parent_id: int | None,
-        description: str | None,
-        data_models: list[DataModelId] | None,
-        instance_spaces: list[str] | None,
-        scene: LocationFilterScene | None,
-        asset_centric: AssetCentricFilter | None,
-        views: LocationFilterView | None,
+        parent_id: int | None = None,
+        description: str | None = None,
+        data_models: list[DataModelId] | None = None,
+        instance_spaces: list[str] | None = None,
+        scene: LocationFilterScene | None = None,
+        asset_centric: AssetCentricFilter | None = None,
+        views: LocationFilterView | None = None,
     ) -> None:
         self.external_id = external_id
         self.name = name
