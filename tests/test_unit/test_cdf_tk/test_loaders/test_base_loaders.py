@@ -209,7 +209,7 @@ def test_resource_types_is_up_to_date() -> None:
 def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
     source_path = REPO_ROOT / "cognite_toolkit"
     with tmp_build_directory() as build_dir:
-        cdf_toml = CDFToml.load(source_path)
+        cdf_toml = CDFToml.load(REPO_ROOT)
         config_init = InitConfigYAML(
             Environment(
                 name="not used",

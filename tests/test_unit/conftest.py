@@ -14,7 +14,7 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf import Common
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import ROOT_PATH
-from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleDirectories
+from cognite_toolkit._cdf_tk.data_classes import CDFToml, Environment, InitConfigYAML, ModuleDirectories
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -181,11 +181,19 @@ def init_project(
         "README.md",
         ".gitignore",
         ".env.tmpl",
-        "_system.yaml",
     ]:
         shutil.copy(ROOT_PATH / file_name, local_tmp_project_path_immutable / file_name)
 
     return local_tmp_project_path_immutable
+
+
+@pytest.fixture(scope="session")
+def cdf_toml(init_project: Path):
+    with chdir(init_project):
+        dest = init_project / CDFToml.file_name
+        if not dest.exists():
+            shutil.copy(ROOT_PATH / CDFToml.file_nam_tmpl, dest)
+        yield
 
 
 @pytest.fixture
@@ -206,11 +214,19 @@ def init_project_mutable(
         "README.md",
         ".gitignore",
         ".env.tmpl",
-        "_system.yaml",
     ]:
         shutil.copy(ROOT_PATH / file_name, local_tmp_project_path_mutable / file_name)
 
     return local_tmp_project_path_mutable
+
+
+@pytest.fixture
+def cdf_toml_mutable(init_project_mutable: Path):
+    with chdir(init_project_mutable):
+        dest = init_project_mutable / CDFToml.file_name
+        if not dest.exists():
+            shutil.copy(ROOT_PATH / CDFToml.file_nam_tmpl, dest)
+        yield
 
 
 @pytest.fixture

@@ -62,7 +62,8 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         traces_sample_rate=1.0,
     )
 # Should raise if the cdf.toml is not found
-CDF_TOML = CDFToml.load(Path.cwd())
+if "pytest" not in sys.modules:
+    CDF_TOML = CDFToml.load(Path.cwd())
 
 default_typer_kws = dict(
     pretty_exceptions_short=False,

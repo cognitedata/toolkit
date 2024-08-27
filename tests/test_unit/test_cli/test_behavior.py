@@ -26,6 +26,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
 
+@pytest.mark.usefixtures("cdf_toml")
 def test_inject_custom_environmental_variables(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -88,6 +89,7 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     assert l5.startswith("You can use the path syntax to disambiguate between modules with the same name")
 
 
+@pytest.mark.usefixtures("cdf_toml_mutable")
 def test_pull_transformation(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,

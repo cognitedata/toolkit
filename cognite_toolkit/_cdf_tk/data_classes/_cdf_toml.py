@@ -64,6 +64,7 @@ class CDFToml:
     """This is the configuration for the CLI and Modules"""
 
     file_name: ClassVar[str] = "cdf.toml"
+    file_nam_tmpl: ClassVar[str] = "cdf.toml.tmpl"
 
     cdf: CLIConfig
     modules: ModulesConfig
