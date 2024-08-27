@@ -65,7 +65,7 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT, INDEX_PATTERN
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
@@ -955,21 +955,31 @@ class GraphQLLoader(
         if "space" in item:
             yield SpaceLoader, item["space"]
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> GraphQLDataModelWrite:
-        try:
-            raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables(), required_return_type="dict")
-        except ValueError:
-            raise ToolkitYAMLFormatError(f"Expected only one GraphQL schema in {filepath.name}")
-        model = GraphQLDataModelWrite._load(raw)
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> GraphQLDataModelWriteList:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        raw_list = raw if isinstance(raw, list) else [raw]
+        models = GraphQLDataModelWriteList._load(raw_list)
 
-        filename = filepath.stem.removesuffix(self.kind).removesuffix(".")
-        filename = INDEX_PATTERN.sub("", filename)
-        filename = f"{filename}.graphql"
-        graphql_file = next((f for f in filepath.parent.iterdir() if f.is_file() and f.name.endswith(filename)), None)
-        if graphql_file is None:
-            raise ToolkitFileNotFoundError(f"Expected GraphQL file {filename} adjacent to {filepath.as_posix()}")
-        self._dml_cache[model.as_id()] = graphql_file
-        return model
+        # Find the GraphQL files adjacent to the DML files
+        for model in models:
+            if model.dml is not None:
+                expected_filename = model.dml
+            else:
+                expected_filename = (
+                    f'{INDEX_PATTERN.sub("", filepath.stem.removesuffix(self.kind).removesuffix("."))}.graphql'
+                )
+
+            graphql_file = next(
+                (f for f in filepath.parent.iterdir() if f.is_file() and f.name.endswith(expected_filename)), None
+            )
+            if graphql_file is None:
+                raise ToolkitFileNotFoundError(
+                    f"Failed to find GraphQL file. Expected {expected_filename} adjacent to {filepath.as_posix()}"
+                )
+            self._dml_cache[model.as_id()] = graphql_file
+        return models
 
     def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
         created_list: list[DMLApplyResult] = []

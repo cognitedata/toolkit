@@ -118,9 +118,11 @@ class GraphQLDataModelWrite(_GraphQLDataModelCore):
         name: str | None = None,
         description: str | None = None,
         previous_version: str | None = None,
+        dml: str | None = None,
     ) -> None:
         super().__init__(space=space, external_id=external_id, version=version, name=name, description=description)
         self.previous_version = previous_version
+        self.dml = dml
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> GraphQLDataModelWrite:
