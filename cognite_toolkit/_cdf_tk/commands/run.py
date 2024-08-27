@@ -28,6 +28,30 @@ from ._base import ToolkitCommand
 
 
 class RunFunctionCommand(ToolkitCommand):
+    def run_cdf(
+        self,
+        ToolGlobals: CDFToolConfig,
+        external_id: str | None = None,
+        project_dir: Path | None = None,
+        data: str | None = None,
+        wait: bool = False,
+    ) -> None:
+        # Waiting for PR to merge in PySDK
+        raise NotImplementedError()
+
+    def run_local(
+        self,
+        ToolGlobals: CDFToolConfig,
+        project_dir: Path,
+        build_env_name: str,
+        external_id: str | None = None,
+        data: str | None = None,
+        rebuild_env: bool = False,
+        schedule: str | None = None,
+    ) -> None:
+        # Todo: Run locally with credentials from a schedule.
+        ...
+
     def execute(
         self,
         ToolGlobals: CDFToolConfig,

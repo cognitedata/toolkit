@@ -5,6 +5,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import (
+    RunFunctionCommand,
     RunTransformationCommand,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
@@ -58,17 +59,59 @@ class RunFunctionApp(typer.Typer):
     def run_local(
         ctx: typer.Context,
         external_id: Annotated[
+            Optional[str],
+            typer.Argument(
+                help="External id of the function to run. If not provided, the function "
+                "will be selected interactively.",
+            ),
+        ] = None,
+        project_dir: Annotated[
+            Path,
+            typer.Option(
+                "--project-dir",
+                "-p",
+                help="Path to project directory with the modules. This is used to search for available functions.",
+            ),
+        ] = Path.cwd(),
+        env_name: Annotated[
             str,
             typer.Option(
-                "--external-id",
+                "--env",
                 "-e",
-                prompt=True,
-                help="External id of the function to run.",
+                help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
-        ],
+        ] = "dev",
+        data: Annotated[
+            Optional[str],
+            typer.Option(
+                "--data",
+                "-d",
+                help="Data to pass to the function.",
+            ),
+        ] = None,
+        rebuild_env: Annotated[
+            bool,
+            typer.Option(
+                "--rebuild-env",
+                help="Whether to rebuild the environment before running the function.",
+            ),
+        ] = False,
+        schedule: Annotated[
+            Optional[str],
+            typer.Option(
+                "--schedule",
+                "-s",
+                help="Schedule to run the function with.",
+            ),
+        ] = None,
     ) -> None:
         """This command will run the specified function locally."""
-        print(f"Running function with external id: {external_id}")
+        cmd = RunFunctionCommand()
+        cmd.run(
+            lambda: cmd.run_local(
+                CDFToolConfig.from_context(ctx), project_dir, env_name, external_id, data, rebuild_env, schedule
+            )
+        )
 
     @staticmethod
     def run_cdf(
@@ -106,4 +149,5 @@ class RunFunctionApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
-        print(f"Running function with external id: {external_id} in CDF.")
+        cmd = RunFunctionCommand()
+        cmd.run(lambda: cmd.run_cdf(CDFToolConfig.from_context(ctx), external_id, project_dir, data, wait))
