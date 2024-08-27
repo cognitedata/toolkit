@@ -88,7 +88,7 @@ class ModulesAPI:
             self._build_dir,
             self._source_dir().parent,
             config,
-            system_config=SystemYAML.load_from_directory(self._source_dir().parent, self._build_env),
+            packages=SystemYAML.load_from_directory(self._source_dir().parent, self._build_env).packages,
             clean=True,
             verbose=verbose,
         )

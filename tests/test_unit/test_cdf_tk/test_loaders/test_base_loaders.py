@@ -87,7 +87,7 @@ class TestDeployResources:
         config.environment.selected = ["another_module"]
         build_cmd = BuildCommand()
         build_cmd.build_config(
-            BUILD_DIR, PROJECT_FOR_TEST, config=config, system_config=system_config, clean=True, verbose=False
+            BUILD_DIR, PROJECT_FOR_TEST, config=config, packages=system_config.packages, clean=True, verbose=False
         )
         expected_order = ["MyView", "MyOtherView"]
         cdf_tool = MagicMock(spec=CDFToolConfig)
@@ -230,7 +230,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             build_dir=build_dir,
             source_dir=source_path,
             config=config,
-            system_config=system_config,
+            packages=system_config.packages,
             clean=True,
             verbose=False,
         )

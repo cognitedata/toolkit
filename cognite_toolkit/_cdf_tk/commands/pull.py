@@ -406,7 +406,7 @@ class PullCommand(ToolkitCommand):
                 build_dir=build_dir,
                 source_dir=source_path,
                 config=config,
-                system_config=system_config,
+                packages=system_config.packages,
                 clean=True,
                 verbose=False,
             )

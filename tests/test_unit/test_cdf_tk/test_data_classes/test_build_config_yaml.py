@@ -17,7 +17,7 @@ class TestBuildConfigYAML:
         config.environment.selected = list(available_modules)
 
         BuildCommand().build_config(
-            BUILD_DIR, PROJECT_FOR_TEST, config=config, system_config=system_config, clean=True, verbose=False
+            BUILD_DIR, PROJECT_FOR_TEST, config=config, packages=system_config.packages, clean=True, verbose=False
         )
 
         # The resulting build folder should only have subfolders that are matching the folder name

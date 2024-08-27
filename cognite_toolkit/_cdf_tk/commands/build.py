@@ -135,7 +135,7 @@ class BuildCommand(ToolkitCommand):
             build_dir=build_dir,
             source_dir=source_path,
             config=config,
-            system_config=system_config,
+            packages=system_config.packages,
             clean=not no_clean,
             verbose=verbose,
             ToolGlobals=ToolGlobals,
@@ -146,7 +146,7 @@ class BuildCommand(ToolkitCommand):
         build_dir: Path,
         source_dir: Path,
         config: BuildConfigYAML,
-        system_config: SystemYAML,
+        packages: dict[str, list[str]],
         clean: bool = False,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
@@ -169,15 +169,13 @@ class BuildCommand(ToolkitCommand):
         if issue := config.validate_environment():
             self.warn(issue)
 
-        user_selected_modules = config.environment.get_selected_modules(system_config.packages)
+        user_selected_modules = config.environment.get_selected_modules(packages)
         modules = ModuleDirectories.load(source_dir, user_selected_modules)
-        self._validate_modules(modules, config, system_config, user_selected_modules, source_dir)
+        self._validate_modules(modules, config, packages, user_selected_modules, source_dir)
 
         if verbose:
             print("  [bold green]INFO:[/] Selected packages:")
-            selected_packages = [
-                package for package in system_config.packages if package in config.environment.selected
-            ]
+            selected_packages = [package for package in packages if package in config.environment.selected]
             if len(selected_packages) == 0:
                 print("    None")
             for package in selected_packages:
@@ -215,7 +213,7 @@ class BuildCommand(ToolkitCommand):
     def _validate_modules(
         modules: ModuleDirectories,
         config: BuildConfigYAML,
-        system_yaml: SystemYAML,
+        packages: dict[str, list[str]],
         selected_modules: set[str | Path],
         source_dir: Path,
     ) -> None:
@@ -232,7 +230,7 @@ class BuildCommand(ToolkitCommand):
                 f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
             )
         # Package Referenced Modules Exists
-        for package, package_modules in system_yaml.packages.items():
+        for package, package_modules in packages.items():
             if package not in selected_names:
                 # We do not check packages that are not selected.
                 # Typically, the user will delete the modules that are irrelevant for them;

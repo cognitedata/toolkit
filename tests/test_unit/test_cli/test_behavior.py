@@ -80,7 +80,7 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
             build_dir=build_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
             config=config,
-            system_config=system_yaml,
+            packages=system_yaml.packages,
         )
     l1, l2, l3, l4, l5 = map(str.strip, str(err.value).splitlines())
     assert l1 == "Ambiguous module selected in config.dev.yaml:"
