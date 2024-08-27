@@ -6,7 +6,7 @@ project = "cognite_toolkit"
 # It will be updated by the 'cdf module upgrade' command.
 version = "0.2.18"
 
-[packages]
+[modules.packages]
 data_model_examples = [
     "cdf_auth_readwrite_all",
     "cdf_oid_example_data",
