@@ -192,7 +192,7 @@ def cdf_toml(init_project: Path):
     with chdir(init_project):
         dest = init_project / CDFToml.file_name
         if not dest.exists():
-            shutil.copy(ROOT_PATH / CDFToml.file_nam_tmpl, dest)
+            shutil.copy(ROOT_PATH / CDFToml.file_name_tmpl, dest)
         yield
 
 
@@ -225,7 +225,7 @@ def cdf_toml_mutable(init_project_mutable: Path):
     with chdir(init_project_mutable):
         dest = init_project_mutable / CDFToml.file_name
         if not dest.exists():
-            shutil.copy(ROOT_PATH / CDFToml.file_nam_tmpl, dest)
+            shutil.copy(ROOT_PATH / CDFToml.file_name_tmpl, dest)
         yield
 
 

@@ -129,7 +129,7 @@ class ModulesCommand(ToolkitCommand):
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating config.{environment}.yaml[/]")
             Path(init_dir + f"/config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
-        _cdf_toml_tmpl = Path(resources.files(cognite_toolkit.__name__)) / CDFToml.file_nam_tmpl  # type: ignore[arg-type]
+        _cdf_toml_tmpl = Path(resources.files(cognite_toolkit.__name__)) / CDFToml.file_name_tmpl  # type: ignore[arg-type]
         dest = Path(init_dir).parent / CDFToml.file_name
         if not dest.exists():
             shutil.copy(_cdf_toml_tmpl, dest)
