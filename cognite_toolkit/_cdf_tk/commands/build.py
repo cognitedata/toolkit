@@ -33,7 +33,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariables,
     CDFToml,
     ModuleDirectories,
-    SystemYAML,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -239,7 +238,7 @@ class BuildCommand(ToolkitCommand):
                 continue
             if missing_packages := set(package_modules) - modules.available_names:
                 ToolkitMissingModuleError(
-                    f"Package {package} defined in {SystemYAML.file_name!s} is referring "
+                    f"Package {package} defined in {CDFToml.file_name!s} is referring "
                     f"the following missing modules {missing_packages}."
                 )
 

@@ -374,10 +374,10 @@ class ModulesCommand(ToolkitCommand):
 
     @staticmethod
     def _get_module_version(project_path: Path) -> Version:
-        if (system_yaml := project_path / SystemYAML.file_name).exists():
+        if (system_yaml := project_path / "_system.yaml").exists():
             # From 0.2.0a3 we have the _system.yaml on the root of the project
             content = read_yaml_file(system_yaml)
-        elif (system_yaml := project_path / COGNITE_MODULES / SystemYAML.file_name).exists():
+        elif (system_yaml := project_path / COGNITE_MODULES / "_system.yaml").exists():
             # Up to 0.2.0a2 we have the _system.yaml in the cognite_modules folder
             content = read_yaml_file(system_yaml)
         else:

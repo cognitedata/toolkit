@@ -9,7 +9,6 @@ from packaging.version import Version
 from packaging.version import parse as parse_version
 
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
-from cognite_toolkit._cdf_tk.data_classes import SystemYAML
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
@@ -65,10 +64,10 @@ After:
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._project_path / COGNITE_MODULES / SystemYAML.file_name
+        system_yaml = self._project_path / COGNITE_MODULES / "_system.yaml"
         if not system_yaml.exists():
             return set()
-        new_system_yaml = self._project_path / SystemYAML.file_name
+        new_system_yaml = self._project_path / "_system.yaml"
         system_yaml.rename(new_system_yaml)
         return {system_yaml}
 
@@ -302,7 +301,7 @@ class UpdateModuleVersion(AutomaticChange):
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._project_path / SystemYAML.file_name
+        system_yaml = self._project_path / "_system.yaml"
         if not system_yaml.exists():
             return set()
         raw = safe_read(system_yaml)

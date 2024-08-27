@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, CDFToml
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import iterate_modules
 from tests.data import PROJECT_FOR_TEST
@@ -11,13 +11,13 @@ from tests.test_unit.test_cdf_tk.constants import BUILD_DIR
 class TestBuildConfigYAML:
     def test_build_config_create_valid_build_folder(self, config_yaml: str) -> None:
         build_env_name = "dev"
-        system_config = SystemYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
+        cdf_toml = CDFToml.load(PROJECT_FOR_TEST)
         config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
         available_modules = {module.name for module, _ in iterate_modules(PROJECT_FOR_TEST)}
         config.environment.selected = list(available_modules)
 
         BuildCommand().build_config(
-            BUILD_DIR, PROJECT_FOR_TEST, config=config, packages=system_config.packages, clean=True, verbose=False
+            BUILD_DIR, PROJECT_FOR_TEST, config=config, packages=cdf_toml.modules.packages, clean=True, verbose=False
         )
 
         # The resulting build folder should only have subfolders that are matching the folder name

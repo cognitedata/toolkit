@@ -1,0 +1,29 @@
+[modules]
+# This is the version of the modules. It should not be changed manually.
+# It will be updated by the 'cdf module upgrade' command.
+version = "0.2.18"
+
+[modules.packages]
+data_model_examples = [
+    "cdf_auth_readwrite_all",
+    "cdf_oid_example_data",
+    "cdf_apm_simple_data_model"
+]
+cdf_demo_infield = [
+    "cdf_auth_readwrite_all",
+    "cdf_oid_example_data",
+    "cdf_apm_base",
+    "cdf_infield_common",
+    "cdf_infield_location",
+]
+cdf_infield = [
+    "cdf_auth_readwrite_all",
+    "cdf_apm_base",
+    "cdf_infield_common",
+    "cdf_infield_location",
+]
+example_pump = [
+    "example_pump_asset_hierarchy",
+    "cdf_asset_source_model",
+    "example_pump_data_model",
+]
