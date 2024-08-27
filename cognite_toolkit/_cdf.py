@@ -90,7 +90,6 @@ user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-ty
 modules_app = ModulesApp(**default_typer_kws)  # type: ignore [arg-type]
 landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
 
-
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
 _app.add_typer(RunApp(**default_typer_kws), name="run")
