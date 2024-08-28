@@ -42,10 +42,6 @@ class LocationFiltersAPI(APIClient):
     def __iter__(self) -> Iterator[LocationFilter]:
         return self.__call__()
 
-    # @property
-    # @lru_cache(maxsize=1)
-    # def _ids(self) -> dict[str, int]:
-    #     return {loc.external_id: loc.id for loc in self.list()}
 
     def create(self, location_filter: LocationFilterWrite) -> LocationFilter:
         """Create a new LocationFilter.
