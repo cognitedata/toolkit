@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
+from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
@@ -16,10 +17,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict, load_yaml_inject_variables
 
 from .asset_loaders import AssetLoader
 from .data_organization_loaders import DataSetsLoader
+from .datamodel_loaders import DataModelLoader, SpaceLoader, ViewLoader
 
 
 @final
@@ -152,18 +154,25 @@ class LocationFilterLoader(
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
-        if "assetCentric" not in item:
-            return
-        asset_centric = item["assetCentric"]
-        for data_set_external_id in asset_centric.get("dataSetExternalIds", []):
-            yield DataSetsLoader, data_set_external_id
-        for asset in asset_centric.get("assetSubtreeIds", []):
-            if "externalId" in asset:
-                yield AssetLoader, asset["externalId"]
-        for subfilter_name in cls.subfilter_names:
-            subfilter = asset_centric.get(subfilter_name, {})
-            for data_set_external_id in subfilter.get("dataSetExternalIds", []):
+        if "assetCentric" in item:
+            asset_centric = item["assetCentric"]
+            for data_set_external_id in asset_centric.get("dataSetExternalIds", []):
                 yield DataSetsLoader, data_set_external_id
-            for asset in subfilter.get("assetSubtreeIds", []):
+            for asset in asset_centric.get("assetSubtreeIds", []):
                 if "externalId" in asset:
                     yield AssetLoader, asset["externalId"]
+            for subfilter_name in cls.subfilter_names:
+                subfilter = asset_centric.get(subfilter_name, {})
+                for data_set_external_id in subfilter.get("dataSetExternalIds", []):
+                    yield DataSetsLoader, data_set_external_id
+                for asset in subfilter.get("assetSubtreeIds", []):
+                    if "externalId" in asset:
+                        yield AssetLoader, asset["externalId"]
+        for view in item.get("views", []):
+            if in_dict(["space", "externalId", "version"], view):
+                yield ViewLoader, ViewId(view["space"], view["externalId"], view["version"])
+        for space in item.get("instanceSpaces", []):
+            yield SpaceLoader, space
+        for data_model in item.get("dataModels", []):
+            if in_dict(["space", "externalId", "version"], data_model):
+                yield DataModelLoader, DataModelId(data_model["space"], data_model["externalId"], data_model["version"])
