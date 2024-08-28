@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -28,16 +29,28 @@ from ._base import ToolkitCommand
 
 
 class RunFunctionCommand(ToolkitCommand):
+    virtual_env_dir = "local_function_venvs"
+    default_readme_md = """# Local Function Quality Assurance
+
+This directory contains virtual environments for running functions locally. This is
+intended to test the function before deploying it to CDF or to debug issues with a deployed function.
+
+"""
+
     def run_cdf(
         self,
         ToolGlobals: CDFToolConfig,
         external_id: str | None = None,
         project_dir: Path | None = None,
+        build_env_name: str | None = None,
         data: str | None = None,
         wait: bool = False,
     ) -> None:
+        modules = self._load_modules(project_dir, build_env_name)
+        run_info = self._select_input(modules, external_id, data)
+
         # Waiting for PR to merge in PySDK
-        raise NotImplementedError()
+        self._run_function_cdf(ToolGlobals, run_info, wait)
 
     def run_local(
         self,
@@ -46,11 +59,33 @@ class RunFunctionCommand(ToolkitCommand):
         build_env_name: str,
         external_id: str | None = None,
         data: str | None = None,
+        credentials: str | None = None,
         rebuild_env: bool = False,
-        schedule: str | None = None,
     ) -> None:
         # Todo: Run locally with credentials from a schedule.
-        ...
+        modules = self._load_modules(project_dir, build_env_name)
+        run_info = self._select_input(modules, external_id, data, credentials)
+
+        self._setup_virtual_env(run_info, project_dir, rebuild_env)
+
+        self._run_function_locally(ToolGlobals, run_info)
+
+    def _load_modules(self, project_dir: Path | None, build_env_name: str | None) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def _run_function_cdf(self, ToolGlobals: CDFToolConfig, run_info: RunFunction, wait: bool) -> None:
+        raise NotImplementedError()
+
+    def _select_input(
+        self, modules: dict[str, Any], external_id: str | None, data: str | None, credentials: str | None = None
+    ) -> RunFunction:
+        raise NotImplementedError()
+
+    def _setup_virtual_env(self, run_info: RunFunction, project_dir: Path, rebuild_env: bool) -> None:
+        raise NotImplementedError()
+
+    def _run_function_locally(self, ToolGlobals: CDFToolConfig, run_info: RunFunction) -> None:
+        raise NotImplementedError()
 
     def execute(
         self,
@@ -457,6 +492,14 @@ if __name__ == "__main__":
         if not no_cleanup:
             shutil.rmtree(build_dir)
         return True
+
+
+@dataclass
+class RunFunction:
+    function_external_id: str
+    data: dict[str, Any] | None
+    credentials: dict[str, str]
+    requirement_file: Path | None
 
 
 class RunTransformationCommand(ToolkitCommand):

@@ -109,7 +109,7 @@ class RunFunctionApp(typer.Typer):
         cmd = RunFunctionCommand()
         cmd.run(
             lambda: cmd.run_local(
-                CDFToolConfig.from_context(ctx), project_dir, env_name, external_id, data, rebuild_env, schedule
+                CDFToolConfig.from_context(ctx), project_dir, env_name, external_id, data, schedule, rebuild_env
             )
         )
 
@@ -131,6 +131,14 @@ class RunFunctionApp(typer.Typer):
                 help="Path to project directory with the modules. This is used to search for available functions.",
             ),
         ] = None,
+        env_name: Annotated[
+            str,
+            typer.Option(
+                "--env",
+                "-e",
+                help="Name of the build environment to use. If not provided, the default environment will be used.",
+            ),
+        ] = "dev",
         data: Annotated[
             Optional[str],
             typer.Option(
@@ -150,4 +158,4 @@ class RunFunctionApp(typer.Typer):
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
         cmd = RunFunctionCommand()
-        cmd.run(lambda: cmd.run_cdf(CDFToolConfig.from_context(ctx), external_id, project_dir, data, wait))
+        cmd.run(lambda: cmd.run_cdf(CDFToolConfig.from_context(ctx), external_id, project_dir, env_name, data, wait))
