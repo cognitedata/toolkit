@@ -20,9 +20,10 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
-from cognite.client.testing import CogniteClientMock, monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.data_classes import BuildVariable, BuildVariables
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -35,19 +36,19 @@ from cognite_toolkit._cdf_tk.utils import (
     module_from_path,
 )
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
-from tests.data import DATA_FOLDER, PYTEST_PROJECT
+from tests.data import DATA_FOLDER, PROJECT_FOR_TEST
 from tests.test_unit.utils import PrintCapture
 
 
 def mocked_init(self):
-    self._client = CogniteClientMock()
+    self._toolkit_client = ToolkitClientMock()
     self._cache = CDFToolConfig._Cache()
 
 
 def test_init():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         instance = CDFToolConfig()
-        assert isinstance(instance._client, CogniteClientMock)
+        assert isinstance(instance._toolkit_client, ToolkitClientMock)
 
 
 @pytest.mark.skip("Rewrite to use ApprovalClient")
@@ -61,9 +62,9 @@ def test_dataset_missing_acl():
 def test_dataset_create():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         instance = CDFToolConfig()
-        instance._client.config.project = "cdf-project-templates"
-        instance._client.iam.compare_capabilities = IAMAPI.compare_capabilities
-        instance._client.iam.token.inspect = Mock(
+        instance._toolkit_client.config.project = "cdf-project-templates"
+        instance._toolkit_client.iam.compare_capabilities = IAMAPI.compare_capabilities
+        instance._toolkit_client.iam.token.inspect = Mock(
             spec=TokenAPI.inspect,
             return_value=TokenInspection(
                 subject="",
@@ -76,7 +77,7 @@ def test_dataset_create():
                             project_scope=ProjectsScope(["cdf-project-templates"]),
                         )
                     ],
-                    cognite_client=instance._client,
+                    cognite_client=instance._toolkit_client,
                 ),
                 projects=[ProjectSpec(url_name="cdf-project-templates", groups=[])],
             ),
@@ -84,7 +85,7 @@ def test_dataset_create():
 
         # the dataset exists
         instance.verify_dataset("test")
-        assert instance._client.data_sets.retrieve.call_count == 1
+        assert instance.toolkit_client.data_sets.retrieve.call_count == 1
 
 
 class TestLoadYamlInjectVariables:
@@ -109,33 +110,33 @@ class TestLoadYamlInjectVariables:
 
 
 @pytest.mark.parametrize(
-    "config_yaml, expected_warnings",
+    "variable, expected_warnings",
     [
         pytest.param(
-            {"sourceId": "<change_me>"},
+            BuildVariable("sourceId", "<change_me>", False, Path()),
             [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "")],
             id="Single warning",
         ),
         pytest.param(
-            {"a_module": {"sourceId": "<change_me>"}},
+            BuildVariable("sourceId", "<change_me>", False, Path("a_module")),
             [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "a_module")],
             id="Nested warning",
         ),
         pytest.param(
-            {"a_super_module": {"a_module": {"sourceId": "<change_me>"}}},
+            BuildVariable("sourceId", "<change_me>", False, Path("a_super_module/a_module")),
             [TemplateVariableWarning(Path("config.yaml"), "<change_me>", "sourceId", "a_super_module.a_module")],
             id="Deep nested warning",
         ),
-        pytest.param({"a_module": {"sourceId": "123"}}, [], id="No warning"),
+        pytest.param(BuildVariable("sourceId", "123", False, Path("a_module")), [], id="No warning"),
     ],
 )
-def test_validate_config_yaml(config_yaml: dict[str, Any], expected_warnings: list[TemplateVariableWarning]) -> None:
-    warnings = validate_modules_variables(config_yaml, Path("config.yaml"))
+def test_validate_config_yaml(variable: BuildVariable, expected_warnings: list[TemplateVariableWarning]) -> None:
+    warnings = validate_modules_variables(BuildVariables([variable]), Path("config.yaml"))
 
     assert sorted(warnings) == sorted(expected_warnings)
 
 
-def test_calculate_hash_on_folder():
+def test_calculate_hash_on_folder() -> None:
     folder = Path(DATA_FOLDER / "calc_hash_data")
     hash1 = calculate_directory_hash(folder)
     hash2 = calculate_directory_hash(folder)
@@ -156,7 +157,7 @@ def test_calculate_hash_on_folder():
 
 
 class TestCDFToolConfig:
-    def test_initialize_token(self):
+    def test_initialize_token(self) -> None:
         expected = """# .env file generated by cognite-toolkit
 CDF_CLUSTER=my_cluster
 CDF_PROJECT=my_project
@@ -165,7 +166,7 @@ LOGIN_FLOW=token
 CDF_TOKEN=12345
 # The below variables are the defaults, they are automatically constructed unless they are set.
 CDF_URL=https://my_cluster.cognitedata.com"""
-        with monkeypatch_cognite_client() as _:
+        with monkeypatch_toolkit_client() as _:
             config = CDFToolConfig(token="12345", cluster="my_cluster", project="my_project")
             env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
         not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
@@ -200,7 +201,7 @@ IDP_AUTHORITY_URL=https://login.microsoftonline.com/{tenant}"""
         with mock.patch.dict(os.environ, envs, clear=True):
             with MonkeyPatch.context() as mp:
                 mp.setattr("cognite_toolkit._cdf_tk.utils.OAuthInteractive", MagicMock(spec=OAuthInteractive))
-                with monkeypatch_cognite_client() as _:
+                with monkeypatch_toolkit_client() as _:
                     config = CDFToolConfig()
                     env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
             not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
@@ -238,7 +239,7 @@ IDP_AUDIENCE=https://my_cluster.cognitedata.com"""
                 mp.setattr(
                     "cognite_toolkit._cdf_tk.utils.OAuthClientCredentials", MagicMock(spec=OAuthClientCredentials)
                 )
-                with monkeypatch_cognite_client() as _:
+                with monkeypatch_toolkit_client() as _:
                     config = CDFToolConfig()
                     env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
             not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
@@ -397,12 +398,12 @@ class TestModuleFromPath:
 class TestIterateModules:
     def test_modules_project_for_tests(self):
         expected_modules = {
-            PYTEST_PROJECT / "cognite_modules" / "a_module",
-            PYTEST_PROJECT / "cognite_modules" / "another_module",
-            PYTEST_PROJECT / "cognite_modules" / "parent_module" / "child_module",
+            PROJECT_FOR_TEST / "cognite_modules" / "a_module",
+            PROJECT_FOR_TEST / "cognite_modules" / "another_module",
+            PROJECT_FOR_TEST / "cognite_modules" / "parent_module" / "child_module",
         }
 
-        actual_modules = {module for module, _ in iterate_modules(PYTEST_PROJECT)}
+        actual_modules = {module for module, _ in iterate_modules(PROJECT_FOR_TEST)}
 
         assert actual_modules == expected_modules
 

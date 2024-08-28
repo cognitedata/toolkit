@@ -14,11 +14,11 @@ import pytest
 import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf import build, clean, deploy, main_init
+from cognite_toolkit._cdf import build, clean, deploy
 from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
 from tests.constants import REPO_ROOT
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
 THIS_DIR = Path(__file__).resolve().parent
@@ -55,7 +55,7 @@ def test_build_deploy_module(
     module_path: Path,
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
     init_project: Path,
@@ -80,16 +80,16 @@ def test_build_deploy_module(
         include=[],
     )
 
-    not_mocked = cognite_client_approval.not_mocked_calls()
+    not_mocked = toolkit_client_approval.not_mocked_calls()
     assert not not_mocked, (
         f"The following APIs have been called without being mocked: {not_mocked}, "
         "Please update the list _API_RESOURCES in tests/approval_client.py"
     )
 
-    dump = cognite_client_approval.dump()
+    dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{module_path.name}.yaml")
 
-    for group_calls in cognite_client_approval.auth_create_group_calls():
+    for group_calls in toolkit_client_approval.auth_create_group_calls():
         lost_capabilities = group_calls.capabilities_all_calls - group_calls.last_created_capabilities
         assert (
             not lost_capabilities
@@ -101,7 +101,7 @@ def test_build_deploy_with_dry_run(
     module_path: Path,
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
     init_project: Path,
@@ -125,9 +125,9 @@ def test_build_deploy_with_dry_run(
         include=[],
     )
 
-    create_result = cognite_client_approval.create_calls()
+    create_result = toolkit_client_approval.create_calls()
     assert not create_result, f"No resources should be created in dry run: got these calls: {create_result}"
-    delete_result = cognite_client_approval.delete_calls()
+    delete_result = toolkit_client_approval.delete_calls()
     assert not delete_result, f"No resources should be deleted in dry run: got these calls: {delete_result}"
 
 
@@ -135,28 +135,18 @@ def test_build_deploy_with_dry_run(
 def test_init_build_clean(
     module_path: Path,
     build_tmp_path: Path,
-    local_tmp_project_path_immutable: Path,
     monkeypatch: MonkeyPatch,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
+    init_project: Path,
     data_regression,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
-    main_init(
-        typer_context,
-        dry_run=False,
-        upgrade=False,
-        git_branch=None,
-        init_dir=str(local_tmp_project_path_immutable),
-        no_backup=True,
-        clean=True,
-    )
-
     build(
         typer_context,
-        source_dir=str(local_tmp_project_path_immutable),
+        source_dir=str(init_project),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -170,10 +160,10 @@ def test_init_build_clean(
         include=[],
     )
 
-    not_mocked = cognite_client_approval.not_mocked_calls()
+    not_mocked = toolkit_client_approval.not_mocked_calls()
     assert not not_mocked, (
         f"The following APIs have been called without being mocked: {not_mocked}, "
         "Please update the list _API_RESOURCES in tests/approval_client.py"
     )
-    dump = cognite_client_approval.dump()
+    dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR_CLEAN / f"{module_path.name}.yaml")

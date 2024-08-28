@@ -19,8 +19,6 @@ from cognite.client.data_classes import (
     ExtractionPipelineConfigWrite,
     FileMetadata,
     FunctionCall,
-    FunctionSchedule,
-    FunctionScheduleWrite,
     Group,
     GroupList,
     ThreeDModel,
@@ -49,10 +47,10 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import GroupWrite, ProjectSpec, TokenInspection
-from cognite.client.testing import CogniteClientMock
 from cognite.client.utils._text import to_camel_case
 from requests import Response
 
+from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 
 from .config import API_RESOURCES
@@ -70,7 +68,7 @@ for cap, (scopes, names) in capabilities._VALID_SCOPES_BY_CAPABILITY.items():
 del cap, scopes, names, action, scope
 
 
-class ApprovalCogniteClient:
+class ApprovalToolkitClient:
     """A mock CogniteClient that is used for testing the clean, deploy commands
     of the cognite-toolkit.
 
@@ -295,11 +293,15 @@ class ApprovalCogniteClient:
 
         def create(*args, **kwargs) -> Any:
             created = []
+            is_single_resource: bool | None = None
             for value in itertools.chain(args, kwargs.values()):
                 if isinstance(value, write_resource_cls):
                     created.append(value)
+                    if is_single_resource is None:
+                        is_single_resource = True
                 elif isinstance(value, Sequence) and all(isinstance(v, write_resource_cls) for v in value):
                     created.extend(value)
+                    is_single_resource = False
                 elif isinstance(value, str) and issubclass(write_resource_cls, Database):
                     created.append(Database(name=value))
             created_resources[resource_cls.__name__].extend(created)
@@ -309,7 +311,8 @@ class ApprovalCogniteClient:
                 # Groups needs special handling to convert the write to read
                 # to account for Unknown ACLs.
                 return resource_list_cls(_group_write_to_read(c) for c in created)
-            return resource_list_cls.load(
+
+            read_list = resource_list_cls.load(
                 [
                     {
                         # These are server set fields, so we need to set them manually
@@ -322,12 +325,16 @@ class ApprovalCogniteClient:
                         "ignoreNullFields": False,  # Transformations
                         "usedFor": "nodes",  # Views
                         "timeSeriesCount": 10,  # Datapoint subscription
+                        "updatedTime": 0,  # Robotics
                         **c.dump(camel_case=True),
                     }
                     for c in created
                 ],
                 cognite_client=client,
             )
+            if len(created) == 1 and is_single_resource:
+                return read_list[0]
+            return read_list
 
         def _group_write_to_read(group: GroupWrite) -> Group:
             return Group(
@@ -474,11 +481,6 @@ class ApprovalCogniteClient:
             )
             return FileMetadata.load({to_camel_case(k): v for k, v in kwargs.items()})
 
-        def create_function_schedule_api(**kwargs) -> FunctionSchedule:
-            created = FunctionScheduleWrite.load({to_camel_case(k): v for k, v in kwargs.items()})
-            created_resources[resource_cls.__name__].append(created)
-            return FunctionSchedule.load(created.dump(camel_case=True))
-
         def create_3dmodel(
             name: str, data_set_id: int | None = None, metadata: dict[str, str] | None = None
         ) -> ThreeDModel:
@@ -496,7 +498,6 @@ class ApprovalCogniteClient:
                 create_instances,
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
-                create_function_schedule_api,
                 create_3dmodel,
             ]
         }

@@ -7,7 +7,7 @@ import yaml
 
 from cognite_toolkit._cdf_tk.data_classes import ConfigEntry, Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.utils import YAMLComment, flatten_dict
-from tests.data import PYTEST_PROJECT
+from tests.data import PROJECT_FOR_TEST
 
 
 class TestConfigYAML:
@@ -19,7 +19,7 @@ class TestConfigYAML:
         # Skip all environment variables
         expected_keys = {k for k in expected_keys if not k[0] == "environment"}
 
-        config = InitConfigYAML(dummy_environment).load_defaults(PYTEST_PROJECT)
+        config = InitConfigYAML(dummy_environment).load_defaults(PROJECT_FOR_TEST)
 
         actual_keys = set(config.keys())
         missing = expected_keys - actual_keys
@@ -78,7 +78,7 @@ variable4: "value with #in it" # But a comment after
     def test_persist_variable_with_comment(self, config_yaml: str) -> None:
         custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
 
-        config = InitConfigYAML.load_existing(config_yaml).load_defaults(PYTEST_PROJECT)
+        config = InitConfigYAML.load_existing(config_yaml).load_defaults(PROJECT_FOR_TEST)
 
         dumped = config.dump_yaml_with_comments()
         loaded = yaml.safe_load(dumped)
@@ -92,7 +92,7 @@ variable4: "value with #in it" # But a comment after
         # Removed = Exists in config.yaml but not in the BUILD_CONFIG directory default.config.yaml files
         existing_config_yaml["variables"]["cognite_modules"]["another_module"]["removed_variable"] = "old_value"
 
-        config = InitConfigYAML.load_existing(yaml.safe_dump(existing_config_yaml)).load_defaults(PYTEST_PROJECT)
+        config = InitConfigYAML.load_existing(yaml.safe_dump(existing_config_yaml)).load_defaults(PROJECT_FOR_TEST)
 
         removed = [v for v in config.values() if v.default_value is None]
         # There is already a custom variable in the config.yaml file
@@ -113,7 +113,7 @@ variable4: "value with #in it" # But a comment after
             ("variables", "cognite_modules", "parent_module", "child_module", "source_asset"),
         }
 
-        config = InitConfigYAML(dummy_environment).load_variables(PYTEST_PROJECT, propagate_reused_variables=True)
+        config = InitConfigYAML(dummy_environment).load_variables(PROJECT_FOR_TEST, propagate_reused_variables=True)
 
         missing = expected - set(config.keys())
         extra = set(config.keys()) - expected
@@ -146,8 +146,8 @@ variable4: "value with #in it" # But a comment after
             selected=["cognite_modules/a_module"],
         )
 
-        config_all = InitConfigYAML(environment).load_defaults(PYTEST_PROJECT)
-        config_selected = InitConfigYAML(environment).load_selected_defaults(PYTEST_PROJECT)
+        config_all = InitConfigYAML(environment).load_defaults(PROJECT_FOR_TEST)
+        config_selected = InitConfigYAML(environment).load_selected_defaults(PROJECT_FOR_TEST)
 
         assert len(config_all) > len(config_selected)
         assert ("variables", "cognite_modules", "a_module", "readonly_source_id") in config_all.keys()

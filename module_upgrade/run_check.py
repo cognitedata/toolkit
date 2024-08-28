@@ -16,12 +16,11 @@ from packaging.version import parse as parse_version
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
+from cognite_toolkit._cdf_tk.commands._changes import ManualChange
+from cognite_toolkit._cdf_tk.commands.modules import CLICommands
 from cognite_toolkit._cdf_tk.constants import ROOT_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.prototypes.commands import ModulesCommand
-from cognite_toolkit._cdf_tk.prototypes.commands._changes import ManualChange
-from cognite_toolkit._cdf_tk.prototypes.commands.modules import CLICommands
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, module_from_path
 from cognite_toolkit._version import __version__
 

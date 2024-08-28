@@ -2,21 +2,18 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
 
 import pytest
-import yaml
 from _pytest.monkeypatch import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState, _Helpers
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
+from cognite_toolkit._cdf_tk.commands.build import BuildCommand, _BuildState
+from cognite_toolkit._cdf_tk.data_classes import Environment
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
     ToolkitMissingModuleError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
-from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from tests import data
 
@@ -70,14 +67,12 @@ class TestBuildCommand:
         )
 
     def test_custom_project_no_warnings(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        setup_robotics_loaders.setup_robotics_loaders()
-
         cmd = BuildCommand(print_warning=False)
         monkeypatch.setenv("CDF_PROJECT", "some-project")
         cmd.execute(
             verbose=False,
             build_dir=tmp_path,
-            source_path=data.CUSTOM_PROJECT,
+            source_path=data.PROJECT_NO_COGNITE_MODULES,
             build_env_name="dev",
             no_clean=False,
         )
@@ -139,118 +134,9 @@ tableName: myTable
 class TestCheckYamlSemantics:
     @pytest.mark.parametrize("raw_yaml, source_path", list(valid_yaml_semantics_test_cases()))
     def test_valid_yaml(self, raw_yaml: str, source_path: Path, dummy_environment: Environment):
-        state = _BuildState.create(BuildConfigYAML(dummy_environment, filepath=Path("dummy"), variables={}))
+        state = _BuildState()
         cmd = BuildCommand(print_warning=False)
         # Only used in error messages
         destination = Path("build/raw/raw.yaml")
-        yaml_warnings = cmd.validate(raw_yaml, source_path, destination, state, False)
+        yaml_warnings = cmd.validate(raw_yaml, source_path, destination, state, {}, False)
         assert not yaml_warnings
-
-
-@pytest.fixture()
-def my_config():
-    return {
-        "top_variable": "my_top_variable",
-        "module_a": {
-            "readwrite_source_id": "my_readwrite_source_id",
-            "readonly_source_id": "my_readonly_source_id",
-        },
-        "parent": {"child": {"child_variable": "my_child_variable"}},
-    }
-
-
-def test_split_config(my_config: dict[str, Any]) -> None:
-    expected = {
-        "": {"top_variable": "my_top_variable"},
-        "module_a": {
-            "readwrite_source_id": "my_readwrite_source_id",
-            "readonly_source_id": "my_readonly_source_id",
-        },
-        "parent.child": {"child_variable": "my_child_variable"},
-    }
-    actual = _Helpers.to_variables_by_module_path(my_config)
-
-    assert actual == expected
-
-
-def test_create_local_config(my_config: dict[str, Any]):
-    configs = _Helpers.to_variables_by_module_path(my_config)
-
-    local_config = _Helpers.create_local_config(configs, Path("parent/child/auth/"))
-
-    assert dict(local_config.items()) == {"top_variable": "my_top_variable", "child_variable": "my_child_variable"}
-
-
-class TestBuildState:
-    def test_replace_preserve_data_type(self):
-        source_yaml = """text: {{ my_text }}
-bool: {{ my_bool }}
-integer: {{ my_integer }}
-float: {{ my_float }}
-digit_string: {{ my_digit_string }}
-quoted_string: "{{ my_quoted_string }}"
-list: {{ my_list }}
-null_value: {{ my_null_value }}
-single_quoted_string: '{{ my_single_quoted_string }}'
-composite: 'some_prefix_{{ my_composite }}'
-prefix_text: {{ my_prefix_text }}
-suffix_text: {{ my_suffix_text }}
-"""
-        variables = {
-            "my_text": "some text",
-            "my_bool": True,
-            "my_integer": 123,
-            "my_float": 123.456,
-            "my_digit_string": "123",
-            "my_quoted_string": "456",
-            "my_list": ["one", "two", "three"],
-            "my_null_value": None,
-            "my_single_quoted_string": "789",
-            "my_composite": "the suffix",
-            "my_prefix_text": "prefix:",
-            "my_suffix_text": ":suffix",
-        }
-        state = _BuildState.create(
-            BuildConfigYAML(
-                Environment("dev", "my_project", "dev", ["none"]),
-                Path("dummy"),
-                {"modules": {"my_module": variables}},
-            )
-        )
-        state.update_local_variables(Path("modules") / "my_module")
-
-        result = state.replace_variables(source_yaml)
-
-        loaded = yaml.safe_load(result)
-        assert loaded == {
-            "text": "some text",
-            "bool": True,
-            "integer": 123,
-            "float": 123.456,
-            "digit_string": "123",
-            "quoted_string": "456",
-            "list": ["one", "two", "three"],
-            "null_value": None,
-            "single_quoted_string": "789",
-            "composite": "some_prefix_the suffix",
-            "prefix_text": "prefix:",
-            "suffix_text": ":suffix",
-        }
-
-    def test_replace_not_preserve_type(self):
-        source_yaml = """dataset_id('{{dataset_external_id}}')"""
-        variables = {
-            "dataset_external_id": "ds_external_id",
-        }
-        state = _BuildState.create(
-            BuildConfigYAML(
-                Environment("dev", "my_project", "dev", ["none"]),
-                Path("dummy"),
-                {"modules": {"my_module": variables}},
-            )
-        )
-        state.update_local_variables(Path("modules") / "my_module")
-
-        result = state.replace_variables(source_yaml, file_suffix=".sql")
-
-        assert result == "dataset_id('ds_external_id')"

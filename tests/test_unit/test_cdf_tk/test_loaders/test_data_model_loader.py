@@ -3,12 +3,12 @@ from cognite.client.data_classes import data_modeling as dm
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import DataModelLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestDataModelLoader:
     def test_update_data_model_random_view_order(
-        self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient
+        self, cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
     ):
         cdf_data_model = dm.DataModel(
             space="sp_space",
@@ -25,7 +25,7 @@ class TestDataModelLoader:
             is_global=False,
         )
         # Simulating that the data model is available in CDF
-        cognite_client_approval.append(dm.DataModel, cdf_data_model)
+        toolkit_client_approval.append(dm.DataModel, cdf_data_model)
 
         local_data_model = dm.DataModelApply(
             space="sp_space",

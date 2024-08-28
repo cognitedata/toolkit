@@ -33,7 +33,7 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit._cdf_tk._parameters import ANY_STR, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
 )
 
+from .asset_loaders import AssetLoader
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 
@@ -61,7 +62,7 @@ class FileMetadataLoader(
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
     kind = "FileMetadata"
-    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, LabelLoader})
+    dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, LabelLoader, AssetLoader})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -100,6 +101,8 @@ class FileMetadataLoader(
                     yield LabelLoader, label["externalId"]
                 elif isinstance(label, str):
                     yield LabelLoader, label
+        for asset_external_id in item.get("assetExternalIds", []):
+            yield AssetLoader, asset_external_id
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -151,6 +154,12 @@ class FileMetadataLoader(
                     action="replace securityCategoryNames with securityCategoriesIDs in file metadata",
                 )
                 resource["securityCategories"] = security_categories
+            if "assetExternalIds" in resource:
+                resource["assetIds"] = ToolGlobals.verify_asset(
+                    resource["assetExternalIds"],
+                    skip_validation,
+                    action="replace assetExternalIds with assetIds in file metadata",
+                )
 
         files_metadata: FileMetadataWriteList = FileMetadataWriteList.load(loaded_list)
         for meta in files_metadata:
@@ -230,5 +239,11 @@ class FileMetadataLoader(
         spec.add(
             ParameterSpec(("securityCategoryNames", ANY_STR), frozenset({"str"}), is_required=False, _is_nullable=False)
         )
+        spec.add(ParameterSpec(("assetExternalIds",), frozenset({"list"}), is_required=False, _is_nullable=False))
+        spec.add(
+            ParameterSpec(("assetExternalIds", ANY_INT), frozenset({"int"}), is_required=False, _is_nullable=False)
+        )
+        spec.discard(ParameterSpec(("assetIds",), frozenset({"list"}), is_required=False, _is_nullable=False))
+        spec.discard(ParameterSpec(("assetIds", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False))
 
         return spec

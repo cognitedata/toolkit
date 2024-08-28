@@ -9,7 +9,7 @@ from typing import Any
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from rich import print
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitTypeError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
 )
@@ -88,6 +88,10 @@ class ToolkitCommand:
                     f"Failed to load {filepath.name} with {loader.display_name}. Missing required field: {e}."
                     f"\nPlease compare with the API specification at {loader.doc_url()}."
                 )
+            except TypeError as e:
+                raise ToolkitTypeError(
+                    f"Failed to load {filepath.name} with {loader.display_name}. Wrong type {e!r}"
+                ) from e
             except Exception as e:
                 raise ToolkitYAMLFormatError(
                     f"Failed to load {filepath.name} with {loader.display_name}. Error: {e!r}."

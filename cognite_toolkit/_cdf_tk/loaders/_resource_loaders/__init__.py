@@ -1,3 +1,4 @@
+from .asset_loaders import AssetLoader
 from .auth_loaders import GroupAllScopedLoader, GroupLoader, SecurityCategoryLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 from .datamodel_loaders import ContainerLoader, DataModelLoader, NodeLoader, SpaceLoader, ViewLoader
@@ -6,6 +7,14 @@ from .file_loader import FileMetadataLoader
 from .function_loaders import FunctionLoader, FunctionScheduleLoader
 from .group_scoped_loader import GroupResourceScopedLoader
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
+from .robotics_loaders import (
+    RobotCapabilityLoader,
+    RoboticFrameLoader,
+    RoboticLocationLoader,
+    RoboticMapLoader,
+    RoboticsDataPostProcessingLoader,
+)
+from .three_d_model_loaders import ThreeDModelLoader
 from .timeseries_loaders import DatapointSubscriptionLoader, TimeSeriesLoader
 from .transformation_loaders import TransformationLoader, TransformationNotificationLoader, TransformationScheduleLoader
 from .workflow_loaders import WorkflowLoader, WorkflowVersionLoader
@@ -36,4 +45,11 @@ __all__ = [
     "TransformationNotificationLoader",
     "WorkflowLoader",
     "WorkflowVersionLoader",
+    "AssetLoader",
+    "ThreeDModelLoader",
+    "RoboticFrameLoader",
+    "RoboticMapLoader",
+    "RobotCapabilityLoader",
+    "RoboticLocationLoader",
+    "RoboticsDataPostProcessingLoader",
 ]
