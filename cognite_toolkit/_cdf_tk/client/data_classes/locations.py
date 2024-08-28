@@ -74,6 +74,20 @@ class AssetCentricFilter(CogniteObject):
             external_id_prefix=resource.get("externalIdPrefix"),
         )
 
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case)
+        if self.assets:
+            output["assets"] = self.assets.dump(camel_case)
+        if self.events:
+            output["events"] = self.events.dump(camel_case)
+        if self.files:
+            output["files"] = self.files.dump(camel_case)
+        if self.timeseries:
+            output["timeseries"] = self.timeseries.dump(camel_case)
+        if self.sequences:
+            output["sequences"] = self.sequences.dump(camel_case)
+        return output
+
 
 class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
     """
@@ -125,6 +139,20 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
             asset_centric=self.asset_centric,
             views=self.views,
         )
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case)
+        if self.data_models:
+            output["dataModels" if camel_case else "data_models"] = [
+                data_model.dump(camel_case) for data_model in self.data_models
+            ]
+        if self.scene:
+            output["scene"] = self.scene.dump(camel_case)
+        if self.asset_centric:
+            output["assetCentric"] = self.asset_centric.dump(camel_case)
+        if self.views:
+            output["views"] = self.views.dump(camel_case)
+        return output
 
 
 class LocationFilterWrite(LocationFilterCore):
