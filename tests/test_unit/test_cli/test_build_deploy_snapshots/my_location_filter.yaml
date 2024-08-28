@@ -1,2 +1,13 @@
+LocationFilter:
+- dataModels:
+  - externalId: core_data_model
+    space: cdf_cdm_experimental
+    type: datamodel
+    version: v1
+  description: The Springfield site 2
+  externalId: springfield
+  instanceSpaces:
+  - sp_sap_springfield_data
+  name: Springfield
 SecurityCategory:
 - name: sc_demo_category
