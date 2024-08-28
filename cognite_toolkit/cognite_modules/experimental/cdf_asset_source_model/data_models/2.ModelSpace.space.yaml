@@ -1,3 +1,0 @@
-space: {{model_space}}
-name: {{model_space}}
-description: Space for the model in the ExtendedSourceData data model

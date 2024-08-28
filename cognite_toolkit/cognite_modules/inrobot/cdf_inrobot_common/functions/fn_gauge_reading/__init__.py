@@ -1,1 +1,0 @@
-"""Gauge reader."""

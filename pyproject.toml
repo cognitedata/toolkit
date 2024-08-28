@@ -63,7 +63,9 @@ disallow_incomplete_defs = true
 follow_imports = "normal"
 ignore_missing_imports = true
 exclude = ["cognite_toolkit/cognite_modules",
-            "cognite_toolkit/build*"]
+            "cognite_toolkit/build*",
+            "cognite_toolkit/_cdf_tk/_packages/modules"]
+
 [tool.ruff]
 line-length = 120
 
