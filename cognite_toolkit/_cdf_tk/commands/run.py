@@ -17,9 +17,10 @@ from cognite.client.data_classes.transformations.common import NonceCredentials
 from rich import print
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, module_from_path, safe_read
@@ -54,7 +55,7 @@ class RunFunctionCommand(ToolkitCommand):
         source_path = Path(source_dir)
         if not source_path.exists():
             raise ToolkitFileNotFoundError(f"Could not find source directory {source_path}")
-        _ = SystemYAML.load_from_directory(source_path, build_env_name)
+        _ = CDFToml.load(source_path)
 
         self.run_local_function(
             ToolGlobals=ToolGlobals,
@@ -184,7 +185,7 @@ class RunFunctionCommand(ToolkitCommand):
                 return False
             raise
 
-        system_config = SystemYAML.load_from_directory(source_path, build_env_name)
+        cdf_toml = CDFToml.load(source_path)
         config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
         print(f"[bold]Building for environment {build_env_name} using {source_path!s} as sources...[/bold]")
         config.set_environment_variables()
@@ -207,7 +208,7 @@ class RunFunctionCommand(ToolkitCommand):
             build_dir=build_dir,
             source_dir=source_path,
             config=config,
-            system_config=system_config,
+            packages=cdf_toml.modules.packages,
             clean=True,
             verbose=False,
         )

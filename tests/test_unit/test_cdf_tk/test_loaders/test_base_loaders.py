@@ -17,12 +17,12 @@ from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     Environment,
     InitConfigYAML,
-    SystemYAML,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
@@ -83,12 +83,12 @@ def test_loader_class(
 class TestDeployResources:
     def test_deploy_resource_order(self, toolkit_client_approval: ApprovalToolkitClient):
         build_env_name = "dev"
-        system_config = SystemYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
+        cdf_toml = CDFToml.load(PROJECT_FOR_TEST)
         config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
         config.environment.selected = ["another_module"]
         build_cmd = BuildCommand()
         build_cmd.build_config(
-            BUILD_DIR, PROJECT_FOR_TEST, config=config, system_config=system_config, clean=True, verbose=False
+            BUILD_DIR, PROJECT_FOR_TEST, config=config, packages=cdf_toml.modules.packages, clean=True, verbose=False
         )
         expected_order = ["MyView", "MyOtherView"]
         cdf_tool = MagicMock(spec=CDFToolConfig)
@@ -216,9 +216,8 @@ def test_resource_types_is_up_to_date() -> None:
 
 def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
     source_path = REPO_ROOT / "cognite_toolkit"
-    env = "dev"
     with tmp_build_directory() as build_dir:
-        system_config = SystemYAML.load_from_directory(source_path, env)
+        cdf_toml = CDFToml.load(REPO_ROOT)
         config_init = InitConfigYAML(
             Environment(
                 name="not used",
@@ -238,7 +237,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             build_dir=build_dir,
             source_dir=source_path,
             config=config,
-            system_config=system_config,
+            packages=cdf_toml.modules.packages,
             clean=True,
             verbose=False,
         )
