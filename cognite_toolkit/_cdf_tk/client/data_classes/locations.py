@@ -24,12 +24,27 @@ class LocationFilterScene(CogniteObject):
     external_id: str
     space: str
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            external_id=resource["externalId"],
+            space=resource["space"],
+        )
+
 
 @dataclass(frozen=True)
 class LocationFilterDataModel(CogniteObject):
     external_id: str
     space: str
     version: str
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            external_id=resource["externalId"],
+            space=resource["space"],
+            version=resource["version"],
+        )
 
 
 @dataclass(frozen=True)
