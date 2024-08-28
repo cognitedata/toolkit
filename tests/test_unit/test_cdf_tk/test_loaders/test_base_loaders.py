@@ -283,6 +283,11 @@ class TestResourceLoaders:
         dumped = read_parameters_from_dict(resource_dump)
         spec = loader_cls.get_write_cls_parameter_spec()
 
+        for param in list(dumped):
+            # Required for Location Filter
+            if "dataSetIds" in param.path:
+                dumped.discard(param)
+
         extra = dumped - spec
 
         # The spec is calculated based on the resource class __init__ method.
