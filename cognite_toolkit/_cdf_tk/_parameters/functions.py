@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any
+from typing import Any, Literal, get_args, get_origin
 
 from .constants import ANY_INT, ANY_STR, ANYTHING, BASE_TYPES, CONTAINER_TYPES
 from .data_classes import ParameterSet, ParameterSpec, ParameterSpecSet, ParameterValue
@@ -85,13 +85,18 @@ class ParameterFromInitTypeHints:
                 )
             )
             return
-        if key is not str:
-            raise NotImplementedError("Only string keys are supported")
+        if get_origin(key) is Literal:
+            args = get_args(key)
+            key_path = args[0]
+        elif key is str:
+            key_path = ANY_STR
+        else:
+            raise NotImplementedError("Only Literal and str are supported for dict keys.")
         value_hint = TypeHint(value)
 
         self.parameter_set.add(
             ParameterSpec(
-                (*path, *parent_name, ANY_STR),
+                (*path, *parent_name, key_path),
                 value_hint.frozen_types,
                 is_required=False,
                 _is_nullable=value_hint.is_nullable,

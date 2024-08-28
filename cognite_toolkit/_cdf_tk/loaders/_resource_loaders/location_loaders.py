@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable
+from functools import lru_cache
 from pathlib import Path
 from typing import final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.locations import (
     LocationFilter,
     LocationFilterList,
@@ -15,6 +17,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.locations import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+
+from .asset_loaders import AssetLoader
+from .data_organization_loaders import DataSetsLoader
 
 
 @final
@@ -31,10 +36,13 @@ class LocationFilterLoader(
     _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
     _doc_url = "Location-Filters/operation/createLocationFilter"
 
+    subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
+
     @classmethod
     def get_required_capability(cls, items: LocationFilterWriteList) -> Capability | list[Capability]:
         if not items:
             return []
+        # Todo: Specify space ID scopes:
         return LocationFiltersAcl(
             actions=[LocationFiltersAcl.Action.Read, LocationFiltersAcl.Action.Write],
             scope=LocationFiltersAcl.Scope.All(),
@@ -51,13 +59,27 @@ class LocationFilterLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> LocationFilterWrite | LocationFilterWriteList | None:
+    ) -> LocationFilterWriteList:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        if isinstance(raw_yaml, list):
-            return self.list_write_cls.load(raw_yaml)
-        elif isinstance(raw_yaml, dict):
-            return self.resource_write_cls.load(raw_yaml)
-        return None
+        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        for raw in raw_list:
+            if "assetCentric" not in raw:
+                continue
+            asset_centric = raw["assetCentric"]
+            if "dataSetExternalIds" in asset_centric:
+                data_set_external_ids = asset_centric.pop("dataSetExternalIds")
+                asset_centric["dataSetIds"] = [
+                    ToolGlobals.verify_dataset(data_set_external_id) for data_set_external_id in data_set_external_ids
+                ]
+            for subfilter_name in self.subfilter_names:
+                subfilter = asset_centric.get(subfilter_name, {})
+                if "dataSetExternalIds" in subfilter:
+                    data_set_external_ids = asset_centric[subfilter_name].pop("dataSetExternalIds")
+                    asset_centric[subfilter_name]["dataSetIds"] = [
+                        ToolGlobals.verify_dataset(data_set_external_id)
+                        for data_set_external_id in data_set_external_ids
+                    ]
+        return LocationFilterWriteList._load(raw_list)
 
     def create(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:
         if isinstance(items, LocationFilterWrite):
@@ -92,3 +114,56 @@ class LocationFilterLoader(
 
     def iterate(self) -> Iterable[LocationFilter]:
         return iter(self.client.locations.filters)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(
+            ParameterSpec(
+                (
+                    "assetCentric",
+                    "dataSetExternalIds",
+                ),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=False,
+            )
+        )
+        spec.discard(
+            ParameterSpec(
+                (
+                    "assetCentric",
+                    "dataSetIds",
+                ),
+                frozenset({"int"}),
+                is_required=False,
+                _is_nullable=False,
+            )
+        )
+
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        if "assetCentric" not in item:
+            return
+        asset_centric = item["assetCentric"]
+        for data_set_external_id in asset_centric.get("dataSetExternalIds", []):
+            yield DataSetsLoader, data_set_external_id
+        for asset in asset_centric.get("assetSubtreeIds", []):
+            if "externalId" in asset:
+                yield AssetLoader, asset["externalId"]
+        for subfilter_name in cls.subfilter_names:
+            subfilter = asset_centric.get(subfilter_name, {})
+            for data_set_external_id in subfilter.get("dataSetExternalIds", []):
+                yield DataSetsLoader, data_set_external_id
+            for asset in subfilter.get("assetSubtreeIds", []):
+                if "externalId" in asset:
+                    yield AssetLoader, asset["externalId"]

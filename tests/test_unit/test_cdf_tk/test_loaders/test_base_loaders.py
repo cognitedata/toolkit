@@ -269,13 +269,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
 
 class TestResourceLoaders:
     @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
-    def test_get_write_cls_spec(self, loader_cls: type[ResourceLoader]):
-        if loader_cls is LocationFilterLoader:
-            # TODO: https://cognitedata.atlassian.net/browse/CDF-22363
-            pytest.skip(
-                f"Skipping {loader_cls} because FakeCogniteResourceGenerator doesn't generate cls properties correctly"
-            )
-
+    def test_get_write_cls_spec(self, loader_cls: type[ResourceLoader]) -> None:
         resource = FakeCogniteResourceGenerator(seed=1337, max_list_dict_items=1).create_instance(
             loader_cls.resource_write_cls
         )

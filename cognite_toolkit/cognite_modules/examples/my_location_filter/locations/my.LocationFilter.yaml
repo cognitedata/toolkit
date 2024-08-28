@@ -11,6 +11,6 @@
   name: Springfield Assets
   assetCentric:
     assets:
-      dataSetExternalId: ["ds_location_filter"]
+      dataSetExternalIds: ["ds_location_filter"]
       assetSubtreeIds:
         - externalId: "some_asset"

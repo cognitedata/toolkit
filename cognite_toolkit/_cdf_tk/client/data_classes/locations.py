@@ -55,7 +55,7 @@ class LocationFilterView(ViewId):
 @dataclass
 class AssetCentricSubFilter(CogniteObject):
     data_set_ids: list[int] | None = None
-    asset_subtree_ids: list[dict[Literal["id", "externalId"], int | str]] | None = None
+    asset_subtree_ids: list[dict[Literal["externalId", "id"], int | str]] | None = None
     external_id_prefix: str | None = None
 
 
@@ -67,7 +67,7 @@ class AssetCentricFilter(CogniteObject):
     timeseries: AssetCentricSubFilter | None = None
     sequences: AssetCentricSubFilter | None = None
     data_set_ids: list[int] | None = None
-    asset_subtree_ids: list[dict[Literal["id", "externalId"], int | str]] | None = None
+    asset_subtree_ids: list[dict[Literal["externalId", "id"], int | str]] | None = None
     external_id_prefix: str | None = None
 
     @classmethod
