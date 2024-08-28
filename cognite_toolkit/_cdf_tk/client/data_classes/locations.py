@@ -19,7 +19,7 @@ from cognite.client.data_classes.data_modeling.ids import DataModelId, ViewId
 from typing_extensions import Self
 
 
-@dataclass(frozen=True)
+@dataclass
 class LocationFilterScene(CogniteObject):
     external_id: str
     space: str
@@ -32,7 +32,7 @@ class LocationFilterScene(CogniteObject):
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class LocationFilterDataModel(CogniteObject):
     external_id: str
     space: str
@@ -52,14 +52,14 @@ class LocationFilterView(ViewId):
     represents_entity: Literal["MAINTENANCE_ORDER", "OPERATION", "NOTIFICATION", "ASSET"] | None = None
 
 
-@dataclass(frozen=True)
+@dataclass
 class AssetCentricSubFilter(CogniteObject):
     data_set_ids: list[int] | None = None
     asset_subtree_ids: list[dict[Literal["id", "externalId"], int | str]] | None = None
     external_id_prefix: str | None = None
 
 
-@dataclass(frozen=True)
+@dataclass
 class AssetCentricFilter(CogniteObject):
     assets: AssetCentricSubFilter | None = None
     events: AssetCentricSubFilter | None = None

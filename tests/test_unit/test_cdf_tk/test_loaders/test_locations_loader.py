@@ -44,23 +44,23 @@ class TestLocationFilterLoader:
     def test_load_filter_write(
         self,
         loaded: LocationFilterWrite,
-    ):
+    ) -> None:
         assert isinstance(loaded, LocationFilterWrite)
         assert loaded.external_id == "unique-external-id-123"
 
-    def test_load_filter_write_data_models(self, loaded: LocationFilterWrite):
+    def test_load_filter_write_data_models(self, loaded: LocationFilterWrite) -> None:
         assert isinstance(loaded.data_models[0], DataModelId)
         assert loaded.data_models[0].external_id == "data-model-id-456"
 
-    def test_load_filter_write_instance_spaces(self, loaded: LocationFilterWrite):
+    def test_load_filter_write_instance_spaces(self, loaded: LocationFilterWrite) -> None:
         assert isinstance(loaded.instance_spaces, list)
         assert loaded.instance_spaces[0] == "instance-space-main"
 
-    def test_load_filter_write_scene(self, loaded: LocationFilterWrite):
+    def test_load_filter_write_scene(self, loaded: LocationFilterWrite) -> None:
         assert isinstance(loaded.scene, LocationFilterScene)
         assert loaded.scene.external_id == "scene-id-012"
 
-    def test_load_filter_write_asset_centric(self, loaded: LocationFilterWrite):
+    def test_load_filter_write_asset_centric(self, loaded: LocationFilterWrite) -> None:
         assert isinstance(loaded.asset_centric, AssetCentricFilter)
         assert isinstance(loaded.asset_centric.assets, AssetCentricSubFilter)
         assert loaded.asset_centric.asset_subtree_ids[0] == {"externalId": "general-subtree-id-890"}
