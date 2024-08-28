@@ -42,7 +42,6 @@ class LocationFiltersAPI(APIClient):
     def __iter__(self) -> Iterator[LocationFilter]:
         return self.__call__()
 
-
     def create(self, location_filter: LocationFilterWrite) -> LocationFilter:
         """Create a new LocationFilter.
 
