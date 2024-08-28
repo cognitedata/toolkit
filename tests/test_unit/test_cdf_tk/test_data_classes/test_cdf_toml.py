@@ -1,5 +1,5 @@
 from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.data_classes import CDFToml
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from tests.constants import REPO_ROOT
 
 

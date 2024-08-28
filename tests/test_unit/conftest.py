@@ -12,9 +12,10 @@ import typer
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import Common
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import ROOT_PATH
-from cognite_toolkit._cdf_tk.data_classes import CDFToml, Environment, InitConfigYAML, ModuleDirectories
+from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleDirectories
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
 from tests.test_unit.approval_client import ApprovalToolkitClient
