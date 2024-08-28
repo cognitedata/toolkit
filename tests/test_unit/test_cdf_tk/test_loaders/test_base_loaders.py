@@ -17,10 +17,10 @@ from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
-    CDFToml,
     Environment,
     InitConfigYAML,
 )
