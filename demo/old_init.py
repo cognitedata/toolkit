@@ -17,6 +17,5 @@ if __name__ == "__main__":
         "README.md",
         ".gitignore",
         ".env.tmpl",
-        "_system.yaml",
     ]:
         shutil.copy(ROOT_PATH / file_name, DEMO_PROJECT / file_name)

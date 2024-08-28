@@ -50,6 +50,7 @@ def mock_environments_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> 
     )
 
 
+@pytest.mark.usefixtures("cdf_toml")
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_build_deploy_module(
     module_path: Path,
@@ -96,6 +97,7 @@ def test_build_deploy_module(
         ), f"The group {group_calls.name!r} has lost the capabilities: {', '.join(lost_capabilities)}"
 
 
+@pytest.mark.usefixtures("cdf_toml")
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_build_deploy_with_dry_run(
     module_path: Path,
@@ -131,6 +133,7 @@ def test_build_deploy_with_dry_run(
     assert not delete_result, f"No resources should be deleted in dry run: got these calls: {delete_result}"
 
 
+@pytest.mark.usefixtures("cdf_toml")
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_init_build_clean(
     module_path: Path,

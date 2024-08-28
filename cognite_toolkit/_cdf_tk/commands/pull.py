@@ -15,8 +15,9 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedResourceError,
     ToolkitMissingResourceError,
@@ -389,7 +390,7 @@ class PullCommand(ToolkitCommand):
             raise ToolkitNotADirectoryError(str(source_path))
 
         with tmp_build_directory() as build_dir:
-            system_config = SystemYAML.load_from_directory(source_path, env)
+            cdf_toml = CDFToml.load(source_path)
             config = BuildConfigYAML.load_from_directory(source_path, env)
             config.set_environment_variables()
             # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
@@ -406,7 +407,7 @@ class PullCommand(ToolkitCommand):
                 build_dir=build_dir,
                 source_dir=source_path,
                 config=config,
-                system_config=system_config,
+                packages=cdf_toml.modules.packages,
                 clean=True,
                 verbose=False,
             )
