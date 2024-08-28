@@ -16,6 +16,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.apps import LandingApp, ModulesApp
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
     BuildCommand,
@@ -30,7 +31,6 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
 )
 from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.data_classes import CDFToml
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
     ToolkitFileNotFoundError,

@@ -17,9 +17,10 @@ from cognite.client.data_classes.transformations.common import NonceCredentials
 from rich import print
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, CDFToml
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, module_from_path, safe_read

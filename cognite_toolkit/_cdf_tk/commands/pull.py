@@ -15,8 +15,9 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, CDFToml
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedResourceError,
     ToolkitMissingResourceError,

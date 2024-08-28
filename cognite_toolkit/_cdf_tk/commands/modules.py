@@ -21,6 +21,7 @@ from rich.rule import Rule
 from rich.tree import Tree
 
 import cognite_toolkit
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
     UPDATE_MODULE_VERSION_DOCSTRING,
@@ -30,7 +31,7 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateModuleVersion,
 )
 from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES, COGNITE_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
-from cognite_toolkit._cdf_tk.data_classes import CDFToml, Environment, InitConfigYAML
+from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.prototypes import _packages
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
