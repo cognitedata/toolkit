@@ -7,7 +7,7 @@ else:
     import tomli as tomllib
 
 
-with open(Path(__file__).parent / "_packages.toml", "rb") as f:
-    packages = tomllib.load(f)["packages"]
-    for k, v in packages["items"].items():
-        print(k)
+with open(Path(__file__).parent / "packages.toml", "rb") as f:
+    t = tomllib.load(f)
+    for k, v in t["included"]["packages"]["items"].items():
+        print(f"{k}: {v}")

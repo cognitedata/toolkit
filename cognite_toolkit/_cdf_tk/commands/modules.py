@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from collections.abc import MutableMapping
 from contextlib import suppress
 from importlib import resources
 from pathlib import Path
 from typing import Any, Optional
 
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
+
 import questionary
 import typer
-import yaml
 from packaging.version import Version
 from packaging.version import parse as parse_version
 from rich import print
@@ -21,6 +27,7 @@ from rich.rule import Rule
 from rich.tree import Tree
 
 import cognite_toolkit
+import cognite_toolkit._cdf_tk._packages as _packages
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
@@ -33,9 +40,8 @@ from cognite_toolkit._cdf_tk.commands._changes import (
 from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES, COGNITE_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
 from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.prototypes import _packages
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
+from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from cognite_toolkit._version import __version__
 
 custom_style_fancy = questionary.Style(
@@ -60,16 +66,8 @@ POINTER = INDENT + "▶"
 class Packages(dict, MutableMapping[str, dict[str, Any]]):
     @classmethod
     def load(cls) -> Packages:
-        packages = {}
-        for module in _packages.__all__:
-            manifest = Path(_packages.__file__).parent / module / "manifest.yaml"
-            if not manifest.exists():
-                continue
-            content = safe_read(manifest)
-            if yaml.__with_libyaml__:
-                packages[manifest.parent.name] = yaml.CSafeLoader(content).get_data()
-            else:
-                packages[manifest.parent.name] = yaml.SafeLoader(content).get_data()
+        with Path(_packages.__file__).parent.joinpath("packages.toml").open(mode="rb") as f:
+            packages = tomllib.load(f)["packages"]["items"].items()
         return cls(packages)
 
 
@@ -222,9 +220,11 @@ class ModulesCommand(ToolkitCommand):
                     instruction="Use arrow up/down, press space to select item(s) and enter to save",
                     choices=[
                         questionary.Choice(
-                            value.get("title", key), key, checked=True if key in selected.get(package_id, {}) else False
+                            f"{module_name}: {module_description}",
+                            module_name,
+                            checked=True if module_name in selected.get(package_id, {}) else False,
                         )
-                        for key, value in available[package_id].get("modules", {}).items()
+                        for module_name, module_description in available[package_id].get("modules", {}).items()
                     ],
                     qmark=INDENT,
                     pointer=POINTER,

@@ -1,62 +1,66 @@
-[included.packages]
+[packages]
 version = "0.2.18"
 
-[included.modules.items]
+
+# [modules.items]
+# cdf_auth_readwrite_all = "Read and write access groups for managing all resources"
+# sap_data_pipeline = "Pipeline for ingesting SAP data to the Core Data Model"
+# opc_ua_data_pipeline = "Pipeline for ingesting OPC UA data to the Core Data Model"
+# reference = "Reference module with examples of all supported resources"
+# cdf_fieldops_common = "FieldOps shared configuraton"
+# cdf_infield_location = "InField location configuration"
+# cdf_inrobot_location = "InRobot location configuration"
+# my_module = "Empty module"
+
+
+[packages.items.quickstart]
+title = "Quick Start: A set of modules for a CDF quick start project."
+
+
+[packages.items.quickstart.modules]
 cdf_auth_readwrite_all = "Read and write access groups for managing all resources"
 sap_data_pipeline = "Pipeline for ingesting SAP data to the Core Data Model"
 opc_ua_data_pipeline = "Pipeline for ingesting OPC UA data to the Core Data Model"
-reference = "Reference module with examples of all supported resources"
 cdf_fieldops_common = "FieldOps shared configuraton"
 cdf_infield_location = "InField location configuration"
-cdf_inrobot_location = "InRobot location configuration"
-my_module = "Empty module"
 
 
-[[included.included.packages.items.quickstart]]
-title = "Quick Start: A set of modules for a CDF quick start project."
-modules = [
-    "cdf_auth_readwrite_all",
-    "cdf_fieldops_common",
-    "cdf_infield_location",
-    "sap_data_pipeline",
-    "opc_ua_data_pipeline",
-    "pi_data_pipeline",
-]
-
-[[included.packages.items.inrobot]]
+[packages.items.inrobot]
 title = "InRobot"
-modules = [
-    "cdf_auth_readwrite_all",
-    "cdf_fieldops_common",
-    "cdf_inrobot_location",
-]
 
 
-[[included.packages.items.examples]]
+[packages.items.inrobot.modules]
+cdf_auth_readwrite_all = "Read and write access groups for managing all resources"
+cdf_fieldops_common = "FieldOps shared configuraton"
+cdf_inrobot_location = "InRobot location configuration"
+
+
+[packages.items.examples]
 title = "Examples"
-modules = [
-    "cdf_apm_simple_data_model",
-    "cdf_data_pipeline_3d_valhall",
-    "cdf_data_pipeline_asset_valhall",
-    "cdf_data_pipeline_files_valhall",
-    "cdf_data_pipeline_timeseries_valhall",
-    "cdf_oid_example_data",
 
 
-]
+[packages.items.examples.modules]
+cdf_apm_simple_data_model = ""
+cdf_data_pipeline_3d_valhall = ""
+cdf_data_pipeline_asset_valhall = ""
+cdf_data_pipeline_files_valhall = ""
+cdf_data_pipeline_timeseries_valhall = ""
+cdf_oid_example_data = ""
 
 
-[[included.packages.items.example_pump]]
+[packages.items.example_pump]
 title = "Example Pump"
-modules = [
-    "example_pump_asset_hierarchy",
-    "cdf_asset_source_model",
-    "example_pump_data_model",    
-]
 
 
-[[included.packages.items.empty]]
-title = "Empty example"
-modules = [
-    "my_module",
-]
+[packages.items.example_pump.modules]
+example_pump_asset_hierarchy = ""
+cdf_asset_source_model = ""
+example_pump_data_model = ""   
+
+
+[packages.items.empty]
+empty = "Empty example"
+
+
+[packages.items.empty.modules]
+my_module = "Empty module"
