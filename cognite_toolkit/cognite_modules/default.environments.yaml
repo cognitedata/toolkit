@@ -1,12 +1,12 @@
 dev:
   project: <customer-dev>
   type: dev
-  selected_modules_and_packages:
+  selected:
     - cdf_demo_infield
     - cdf_oid_example_data
 
 prod:
   project: <customer-prod>
   type: prod
-  selected_modules_and_packages:
+  selected:
     - cdf_infield

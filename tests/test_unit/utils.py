@@ -74,7 +74,6 @@ def mock_read_yaml_file(
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr("cognite_toolkit._cdf_tk.data_classes._base.read_yaml_file", fake_read_yaml_file)
-    monkeypatch.setattr("cognite_toolkit._cdf_tk.data_classes._project_directory.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.deploy.read_yaml_file", fake_read_yaml_file)
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.load_yaml_inject_variables", fake_load_yaml_inject_variables)
@@ -82,6 +81,7 @@ def mock_read_yaml_file(
         "cognite_toolkit._cdf_tk.loaders._base_loaders.load_yaml_inject_variables", fake_load_yaml_inject_variables
     )
     for module in [
+        "asset_loaders",
         "auth_loaders",
         "data_organization_loaders",
         "datamodel_loaders",
@@ -90,6 +90,7 @@ def mock_read_yaml_file(
         "function_loaders",
         "timeseries_loaders",
         "transformation_loaders",
+        "three_d_model_loaders",
         "workflow_loaders",
     ]:
         monkeypatch.setattr(

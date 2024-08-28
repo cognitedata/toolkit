@@ -12,10 +12,9 @@ from typer import Context
 
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, SystemYAML
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
-from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
@@ -23,14 +22,15 @@ from tests.data import (
     PROJECT_NO_COGNITE_MODULES,
     PROJECT_WITH_DUPLICATES,
 )
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
 
+@pytest.mark.usefixtures("cdf_toml")
 def test_inject_custom_environmental_variables(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
     init_project: Path,
@@ -38,7 +38,7 @@ def test_inject_custom_environmental_variables(
     config_yaml = yaml.safe_load((init_project / "config.dev.yaml").read_text())
     config_yaml["variables"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting a module with a transformation that uses the cicd_clientId variable
-    config_yaml["environment"]["selected_modules_and_packages"] = ["cdf_infield_location"]
+    config_yaml["environment"]["selected"] = ["cdf_infield_location"]
     config_yaml["environment"]["project"] = "pytest"
     mock_read_yaml_file(
         {
@@ -65,7 +65,7 @@ def test_inject_custom_environmental_variables(
         include=[],
     )
 
-    transformation = cognite_client_approval.created_resources_of_type(Transformation)[0]
+    transformation = toolkit_client_approval.created_resources_of_type(Transformation)[0]
     assert transformation.source_oidc_credentials.client_id == "my_environment_variable_value"
 
 
@@ -74,14 +74,12 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     config.environment = MagicMock(spec=Environment)
     config.environment.name = "dev"
     config.environment.selected = ["module1"]
-    system_yaml = MagicMock(spec=SystemYAML)
-    system_yaml.packages = {}
     with pytest.raises(ToolkitDuplicatedModuleError) as err:
         BuildCommand().build_config(
             build_dir=build_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
             config=config,
-            system_config=system_yaml,
+            packages={},
         )
     l1, l2, l3, l4, l5 = map(str.strip, str(err.value).splitlines())
     assert l1 == "Ambiguous module selected in config.dev.yaml:"
@@ -91,10 +89,11 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     assert l5.startswith("You can use the path syntax to disambiguate between modules with the same name")
 
 
+@pytest.mark.usefixtures("cdf_toml_mutable")
 def test_pull_transformation(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
     init_project_mutable: Path,
@@ -132,7 +131,7 @@ def test_pull_transformation(
     # Simulate a change in the transformation in CDF.
     loaded.name = "New transformation name"
     read_transformation = Transformation.load(loaded.dump())
-    cognite_client_approval.append(Transformation, read_transformation)
+    toolkit_client_approval.append(Transformation, read_transformation)
 
     pull_transformation_cmd(
         typer_context,
@@ -149,7 +148,7 @@ def test_pull_transformation(
 
 def test_dump_datamodel(
     build_tmp_path: Path,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
     cdf_tool_config: CDFToolConfig,
     typer_context: typer.Context,
 ) -> None:
@@ -236,10 +235,10 @@ def test_dump_datamodel(
         name=None,
         is_global=False,
     )
-    cognite_client_approval.append(dm.Space, space)
-    cognite_client_approval.append(dm.Container, container)
-    cognite_client_approval.append(dm.View, view)
-    cognite_client_approval.append(dm.DataModel, data_model)
+    toolkit_client_approval.append(dm.Space, space)
+    toolkit_client_approval.append(dm.Container, container)
+    toolkit_client_approval.append(dm.View, view)
+    toolkit_client_approval.append(dm.DataModel, data_model)
 
     dump_datamodel_cmd(
         typer_context,
@@ -266,7 +265,6 @@ def test_build_custom_project(
     build_tmp_path: Path,
     typer_context: typer.Context,
 ) -> None:
-    setup_robotics_loaders.setup_robotics_loaders()
     expected_resources = {
         "timeseries",
         "data_models",
@@ -317,7 +315,7 @@ def test_build_project_selecting_parent_path(
 
 def test_deploy_group_with_unknown_acl(
     typer_context: Context,
-    cognite_client_approval: ApprovalCogniteClient,
+    toolkit_client_approval: ApprovalToolkitClient,
 ) -> None:
     deploy(
         typer_context,
@@ -330,7 +328,7 @@ def test_deploy_group_with_unknown_acl(
         verbose=False,
     )
 
-    groups = cognite_client_approval.created_resources["Group"]
+    groups = toolkit_client_approval.created_resources["Group"]
     assert len(groups) == 1
     group = cast(GroupWrite, groups[0])
     assert group.name == "my_group_with_unknown_acl"

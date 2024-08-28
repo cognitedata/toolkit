@@ -43,12 +43,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.tk_warnings import (
-    NamespacingConventionWarning,
-    PrefixConventionWarning,
-    WarningList,
-    YAMLFileWarning,
-)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     load_yaml_inject_variables,
@@ -85,16 +79,6 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         if item.external_id is None:
             raise ToolkitRequiredValueError("DataSet must have external_id set.")
         return item.external_id
-
-    @classmethod
-    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
-        warning_list = WarningList[YAMLFileWarning]()
-        parts = identifier.split("_")
-        if len(parts) < 2:
-            warning_list.append(NamespacingConventionWarning(filepath, cls.folder_name, "externalId", identifier, "_"))
-        if not identifier.startswith("ds_"):
-            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "ds_"))
-        return warning_list
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})

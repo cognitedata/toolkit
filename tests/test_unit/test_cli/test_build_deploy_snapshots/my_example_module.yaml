@@ -45,6 +45,7 @@ FunctionSchedule:
     dinner: 'today: steak and red wine'
     lunch: 'today: greek salad and water'
   description: Run every day at 8am UTC
+  functionExternalId: fn_first_function
   name: daily-8am-utc
 LabelDefinition:
 - dataSetId: 42

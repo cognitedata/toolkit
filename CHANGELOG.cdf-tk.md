@@ -15,6 +15,24 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
+  `Frame`, and `Location`). These loaders were earlier available as feature preview.
+
+## Changed
+
+- The resource `FunctionSchedule` is not uniquely identified by `name` instead of `cronExpression` by the Toolkit.
+  This enables multiple schedules with the same cron expression for the same function.
+- The Toolkit no longer gives warnings for naming conventions that are not followed.
+
+### Fixed
+
+- Views and DataModels with versions that are integers are only being redeployed if they have changed in the
+  `cdf-tk deploy` command. They were earlier always redeployed.
+
 ## [0.2.18] - 2024-08-22
 
 ### Fixed

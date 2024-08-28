@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.loaders import (
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import LOAD_DATA
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestGroupLoader:
@@ -75,7 +75,7 @@ class TestGroupLoader:
         assert loaded.name == "unscoped_group_name"
 
     def test_unchanged_new_group(
-        self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+        self, cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
@@ -83,7 +83,7 @@ class TestGroupLoader:
         )
 
         # Simulate that one group is is already in CDF
-        cognite_client_approval.append(
+        toolkit_client_approval.append(
             Group,
             [
                 Group(
@@ -108,7 +108,7 @@ class TestGroupLoader:
         assert len(unchanged) == 1
 
     def test_upsert_group(
-        self, cdf_tool_config: CDFToolConfig, cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch
+        self, cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_config, None)
         loaded = loader.load_resource(
@@ -118,7 +118,7 @@ class TestGroupLoader:
 
         # Simulate that the group is is already in CDF, but with fewer capabilities
         # Simulate that one group is is already in CDF
-        cognite_client_approval.append(
+        toolkit_client_approval.append(
             Group,
             [
                 Group(
@@ -144,8 +144,8 @@ class TestGroupLoader:
             loader,
         )
 
-        assert cognite_client_approval.create_calls()["Group"] == 1
-        assert cognite_client_approval.delete_calls()["Group"] == 1
+        assert toolkit_client_approval.create_calls()["Group"] == 1
+        assert toolkit_client_approval.delete_calls()["Group"] == 1
 
     @pytest.mark.parametrize(
         "item, expected",

@@ -140,6 +140,7 @@ FunctionSchedule:
   data:
     ExtractionPipelineExtId: ep_ctx_timeseries_oid_opcua_asset
   description: Run every 30 minute
+  functionExternalId: fn_context_timeseries_oid_opcua_asset
   name: daily-every-30-min
 Group:
 - capabilities:

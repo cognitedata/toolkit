@@ -28,7 +28,7 @@ def run() -> None:
         all_modules = [module.name for module, _ in iterate_modules(THIS_FOLDER.parent / "cognite_toolkit")]
 
         demo_config = yaml.safe_load(demo_config_path.read_text())
-        demo_config["environment"]["selected_modules_and_packages"] = all_modules
+        demo_config["environment"]["selected"] = all_modules
         destination_path.write_text(yaml.dump(demo_config))
         print(f"Updated {demo_config_path} to include all modules.")
     else:
