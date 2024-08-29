@@ -89,12 +89,12 @@ class LocationFilterLoader(
 
         created = []
         for item in items:
-            created.append(self.client.locations.filters.create(item))
+            created.append(self.client.location_filters.create(item))
         return LocationFilterList(created)
 
     def retrieve(self, external_ids: SequenceNotStr[str]) -> LocationFilterList:
         return LocationFilterList(
-            [loc for loc in self.client.locations.filters.list() if loc.external_id in external_ids]
+            [loc for loc in self.client.location_filters.list() if loc.external_id in external_ids]
         )
 
     def update(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:
@@ -104,18 +104,18 @@ class LocationFilterLoader(
         updated = []
         ids = {item.external_id: item.id for item in self.retrieve([item.external_id for item in items])}
         for update in items:
-            updated.append(self.client.locations.filters.update(ids[update.external_id], update))
+            updated.append(self.client.location_filters.update(ids[update.external_id], update))
         return LocationFilterList(updated)
 
     def delete(self, external_ids: SequenceNotStr[str]) -> int:
         count = 0
         for id in [loc.id for loc in self.retrieve(external_ids)]:
-            self.client.locations.filters.delete(id)
+            self.client.location_filters.delete(id)
             count += 1
         return count
 
     def iterate(self) -> Iterable[LocationFilter]:
-        return iter(self.client.locations.filters)
+        return iter(self.client.location_filters)
 
     @classmethod
     @lru_cache(maxsize=1)

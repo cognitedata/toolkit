@@ -1,3 +1,15 @@
+Asset:
+- dataSetId: 42
+  description: Some asset in the Springfield site used with the location filter
+  externalId: some_asset
+  name: Some Asset
+DataSet:
+- description: This data set contains the location filter for the my_location_filter
+    module.
+  externalId: ds_location_filter_assets
+  metadata: {}
+  name: ds_location_filter_assets
+  writeProtected: false
 LocationFilter:
 - dataModels:
   - externalId: core_data_model
@@ -9,5 +21,13 @@ LocationFilter:
   instanceSpaces:
   - sp_sap_springfield_data
   name: Springfield
+- assetCentric:
+    assets:
+      assetSubtreeIds:
+      - externalId: some_asset
+      dataSetIds:
+      - 42
+  externalId: springfield_assets
+  name: Springfield Assets
 SecurityCategory:
 - name: sc_demo_category

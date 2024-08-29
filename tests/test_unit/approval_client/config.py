@@ -598,7 +598,7 @@ API_RESOURCES = [
         },
     ),
     APIResource(
-        api_name="locations.filters",
+        api_name="location_filters",
         resource_cls=locations.LocationFilter,
         list_cls=locations.LocationFilterList,
         _write_cls=locations.LocationFilterWrite,
