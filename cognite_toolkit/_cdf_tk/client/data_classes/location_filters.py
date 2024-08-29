@@ -200,7 +200,7 @@ class LocationFilter(LocationFilterCore):
 
     Args:
         id: The ID of the location filter
-        externalId: The external ID provided by the client. Must be unique for the resource type.
+        external_id: The external ID provided by the client. Must be unique for the resource type.
         name: The name of the location filter
         parent_id: The ID of the parent location filter
         description: The description of the location filter

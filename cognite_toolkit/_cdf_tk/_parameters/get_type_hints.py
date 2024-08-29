@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import importlib
 import inspect
+import re
 import typing
 from collections import Counter
 from typing import Any, get_type_hints
@@ -124,8 +125,12 @@ class _TypeHints:
             return typing.Union[tuple(alternatives)]
         elif annotation.startswith("dict[") and annotation.endswith("]"):
             if Counter(annotation)[","] > 1:
-                key, rest = annotation[5:-1].split(",", 1)
-                return dict[key.strip(), cls._create_type_hint_3_10(rest.strip(), resource_module_vars, local_vars)]  # type: ignore[misc]
+                # Regex pattern to split on the first comma not inside square brackets
+                pattern = r",(?!(?:[^\[]*\[[^\]]*\])*[^\]]*\])"
+                key, rest = re.split(pattern, annotation[5:-1], maxsplit=1)
+                key_hint = cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars)
+                value_hint = cls._create_type_hint_3_10(rest.strip(), resource_module_vars, local_vars)
+                return dict[key_hint, value_hint]  # type: ignore[misc, valid-type]
             key, value = annotation[5:-1].split(",")
             return dict[  # type: ignore[misc]
                 cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars),
