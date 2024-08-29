@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
   `Frame`, and `Location`). These loaders were earlier available as feature preview.
+- Support for `LocationFilter` in the `locations` folder.
 
 ## Changed
 
