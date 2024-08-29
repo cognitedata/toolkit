@@ -13,37 +13,37 @@ scene:
   space: scene-space-primary
 assetCentric:
   assets:
-    dataSetIds:
-      - 1221
+    dataSetExternalIds:
+      - ds_data_set_123
     assetSubtreeIds:
-      - id: 345
+      - externalId: root-asset
     externalIdPrefix: asset-prefix
   events:
-    dataSetIds:
-      - 123123
+    dataSetExternalIds:
+      - ds_data_set_456
     assetSubtreeIds:
       - externalId: event-subtree-id-678
     externalIdPrefix: event-prefix
   files:
-    dataSetIds:
-      - 132123
+    dataSetExternalIds:
+      - ds_data_set_789
     assetSubtreeIds:
       - externalId: file-subtree-id-901
     externalIdPrefix: file-prefix
   timeseries:
-    dataSetIds:
-      - 123
+    dataSetExternalIds:
+      - ds_data_set_234
     assetSubtreeIds:
       - externalId: timeseries-subtree-id-234
     externalIdPrefix: timeseries-prefix
   sequences:
-    dataSetIds:
-      - 123123
+    dataSetExternalIds:
+      - ds_data_set_567
     assetSubtreeIds:
       - externalId: sequence-subtree-id-567
     externalIdPrefix: sequence-prefix
-  dataSetIds:
-    - 12312
+  dataSetExternalIds:
+    - ds_data_set_890
   assetSubtreeIds:
     - externalId: general-subtree-id-890
   externalIdPrefix: general-prefix

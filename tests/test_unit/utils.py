@@ -92,6 +92,7 @@ def mock_read_yaml_file(
         "timeseries_loaders",
         "transformation_loaders",
         "three_d_model_loaders",
+        "location_loaders",
         "workflow_loaders",
     ]:
         monkeypatch.setattr(
