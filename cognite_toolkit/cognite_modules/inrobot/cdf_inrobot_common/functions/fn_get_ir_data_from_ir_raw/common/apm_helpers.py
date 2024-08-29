@@ -1,15 +1,11 @@
 import json
 import logging
-
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import pytz  # type: ignore
-
 from cognite.client import CogniteClient
-
 from common.dataclass.common import Vec3f
-
 
 logger = logging.getLogger(__name__)
 

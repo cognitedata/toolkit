@@ -1,11 +1,9 @@
 import logging
 import time
-
 from typing import Any, Dict, List
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Annotation, LabelDefinition
-
 
 logger = logging.getLogger(__name__)
 
