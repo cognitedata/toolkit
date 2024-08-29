@@ -31,3 +31,7 @@ LocationFilter:
   name: Springfield Assets
 SecurityCategory:
 - name: sc_demo_category
+Space:
+- description: Space for SAP data for the location filter module.
+  name: SAP Springfield Data
+  space: sp_sap_springfield_data
