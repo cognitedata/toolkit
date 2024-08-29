@@ -71,14 +71,23 @@ class LocationFilterLoader(
             if "dataSetExternalIds" in asset_centric:
                 data_set_external_ids = asset_centric.pop("dataSetExternalIds")
                 asset_centric["dataSetIds"] = [
-                    ToolGlobals.verify_dataset(data_set_external_id) for data_set_external_id in data_set_external_ids
+                    ToolGlobals.verify_dataset(
+                        data_set_external_id,
+                        skip_validation,
+                        action="replace dataSetExternalIds with dataSetIds in location filter",
+                    )
+                    for data_set_external_id in data_set_external_ids
                 ]
             for subfilter_name in self.subfilter_names:
                 subfilter = asset_centric.get(subfilter_name, {})
                 if "dataSetExternalIds" in subfilter:
                     data_set_external_ids = asset_centric[subfilter_name].pop("dataSetExternalIds")
                     asset_centric[subfilter_name]["dataSetIds"] = [
-                        ToolGlobals.verify_dataset(data_set_external_id)
+                        ToolGlobals.verify_dataset(
+                            data_set_external_id,
+                            skip_validation,
+                            action="replace dataSetExternalIds with dataSetIds in location filter",
+                        )
                         for data_set_external_id in data_set_external_ids
                     ]
         return LocationFilterWriteList._load(raw_list)
