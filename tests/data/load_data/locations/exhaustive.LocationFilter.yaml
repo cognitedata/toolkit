@@ -1,0 +1,54 @@
+externalId: unique-external-id-123
+name: "Example Asset Name"
+parentId: 1
+description: "This is a description of the asset."
+dataModels:
+  - externalId: data-model-id-456
+    space: model-space-789
+    version: v1-0-0
+instanceSpaces:
+  - instance-space-main
+scene:
+  externalId: scene-id-012
+  space: scene-space-primary
+assetCentric:
+  assets:
+    dataSetExternalIds:
+      - ds_data_set_123
+    assetSubtreeIds:
+      - externalId: root-asset
+    externalIdPrefix: asset-prefix
+  events:
+    dataSetExternalIds:
+      - ds_data_set_456
+    assetSubtreeIds:
+      - externalId: event-subtree-id-678
+    externalIdPrefix: event-prefix
+  files:
+    dataSetExternalIds:
+      - ds_data_set_789
+    assetSubtreeIds:
+      - externalId: file-subtree-id-901
+    externalIdPrefix: file-prefix
+  timeseries:
+    dataSetExternalIds:
+      - ds_data_set_234
+    assetSubtreeIds:
+      - externalId: timeseries-subtree-id-234
+    externalIdPrefix: timeseries-prefix
+  sequences:
+    dataSetExternalIds:
+      - ds_data_set_567
+    assetSubtreeIds:
+      - externalId: sequence-subtree-id-567
+    externalIdPrefix: sequence-prefix
+  dataSetExternalIds:
+    - ds_data_set_890
+  assetSubtreeIds:
+    - externalId: general-subtree-id-890
+  externalIdPrefix: general-prefix
+views:
+  externalId: view-id-321
+  space: view-space-secondary
+  version: v2-0-0
+  representsEntity: MAINTENANCE_ORDER
