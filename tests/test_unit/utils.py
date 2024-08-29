@@ -44,7 +44,7 @@ from cognite.client.data_classes.workflows import WorkflowTaskOutput, WorkflowTa
 from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
-from cognite_toolkit._cdf_tk.client.data_classes.locations import LocationFilterScene
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterScene
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 
 

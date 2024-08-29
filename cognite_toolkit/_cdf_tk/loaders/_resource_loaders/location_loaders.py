@@ -10,7 +10,7 @@ from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.client.data_classes.locations import (
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
     LocationFilterWrite,

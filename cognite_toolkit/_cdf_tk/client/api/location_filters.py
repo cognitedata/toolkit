@@ -7,7 +7,7 @@ from cognite.client import CogniteClient
 from cognite.client._api_client import APIClient
 from cognite.client.config import ClientConfig
 
-from cognite_toolkit._cdf_tk.client.data_classes.locations import (
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
     LocationFilterWrite,
