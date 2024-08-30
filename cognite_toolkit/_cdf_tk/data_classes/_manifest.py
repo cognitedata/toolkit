@@ -18,8 +18,7 @@ class Manifest:
 
     @classmethod
     def load(cls, manifest_path: Path) -> Manifest:
-        with open(manifest_path) as f:
-            manifest = toml.load(f)
+        manifest = toml.loads(manifest_path.read_text())
         return cls(
             version=manifest["module"]["version"],
             description=manifest["module"].get("description"),
