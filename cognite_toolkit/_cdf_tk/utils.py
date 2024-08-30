@@ -35,7 +35,13 @@ import typer
 import yaml
 from cognite.client import ClientConfig
 from cognite.client.config import global_config
-from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
+from cognite.client.credentials import (
+    CredentialProvider,
+    OAuthClientCredentials,
+    OAuthDeviceCode,
+    OAuthInteractive,
+    Token,
+)
 from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes.capabilities import (
     AssetsAcl,
@@ -78,7 +84,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-LoginFlow: TypeAlias = Literal["client_credentials", "token", "interactive"]
+LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
 
 
 @dataclass
@@ -126,7 +132,7 @@ class AuthVariables:
         default=None,
         metadata=dict(
             env_name="IDP_TENANT_ID",
-            display_name="tenant id",
+            display_name="Tenant id for MS Entra",
             example="12345678-1234-1234-1234-123456789012",
         ),
     )
@@ -154,6 +160,14 @@ class AuthVariables:
             example="https://login.microsoftonline.com/IDP_TENANT_ID",
         ),
     )
+    oidc_discovery_url: str | None = field(
+        default=None,
+        metadata=dict(
+            env_name="IDP_DISCOVERY_URL",
+            display_name="IDP OIDC discovery URL (root URL excl. /.well-known/...)",
+            example="https://<auth0-tenant>.auth0.com/oauth",
+        ),
+    )
 
     def __post_init__(self) -> None:
         # Set defaults based on cluster and tenant_id
@@ -169,13 +183,15 @@ class AuthVariables:
             self.login_flow = "token"
 
     def _set_token_id_defaults(self) -> None:
-        self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
-        self.authority_url = self.authority_url or f"https://login.microsoftonline.com/{self.tenant_id}"
+        if self.tenant_id:
+            self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
+            self.authority_url = self.authority_url or f"https://login.microsoftonline.com/{self.tenant_id}"
 
     def _set_cluster_defaults(self) -> None:
-        self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
-        self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
-        self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
+        if self.cluster:
+            self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
+            self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
+            self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
 
     @classmethod
     def login_flow_options(cls) -> list[str]:
@@ -211,22 +227,42 @@ class AuthVariables:
                 self.token = new_token
             else:
                 print("  Keeping existing token.")
-        elif self.login_flow in ("client_credentials", "interactive"):
+        elif self.login_flow == "device_code":
+            self.tenant_id = reader.prompt_user("tenant_id")
+            if self.tenant_id and len(self.tenant_id.strip()) > 0:
+                self._set_token_id_defaults()
+                # This is the default Cognite app registration for Entra with device code enabled
+                # to be used with the Toolkit.
+                self.client_id = "fb9d503b-ac25-44c7-a75d-8fbcd3a206bd"
+            else:
+                self.client_id = reader.prompt_user("client_id")
+                # The default scope is for Entra, we set the standard here.
+                self.scopes = "IDENTITY user_impersonation profile openid"
+                self.scopes = reader.prompt_user("scopes")
+                self.oidc_discovery_url = reader.prompt_user("oidc_discovery_url")
+        elif self.login_flow == "interactive":
+            # NOTE! Interactive login requires an app registration approved for implicit grant and a redirect URI configured in Azure
+            # to localhost, which is not deemed secure for production use.
+            # https://learn.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-implicit-grant-flow
+            # This flow is thus only supported for Entra for backwards compatibility and should be deprecated in the future.
+            # TODO: deprecate implicit interactive login flow.
             self.tenant_id = reader.prompt_user("tenant_id")
             self._set_token_id_defaults()
             self.client_id = reader.prompt_user("client_id")
-            if self.login_flow == "client_credentials":
-                if new_secret := reader.prompt_user("client_secret", password=True):
-                    self.client_secret = new_secret
-                else:
-                    print("  Keeping existing client secret.")
-
             self.token_url = reader.prompt_user("token_url")
             self.scopes = reader.prompt_user("scopes")
-            if self.login_flow == "interactive":
-                self.authority_url = reader.prompt_user("authority_url")
-            if self.login_flow == "client_credentials":
-                self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
+            self.authority_url = reader.prompt_user("authority_url")
+        elif self.login_flow == "client_credentials":
+            self.tenant_id = reader.prompt_user("tenant_id")
+            self._set_token_id_defaults()
+            self.client_id = reader.prompt_user("client_id")
+            if new_secret := reader.prompt_user("client_secret", password=True):
+                self.client_secret = new_secret
+            else:
+                print("  Keeping existing client secret.")
+            self.token_url = reader.prompt_user("token_url")
+            self.scopes = reader.prompt_user("scopes")
+            self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
         else:
             raise AuthenticationError(f"The login flow {self.login_flow} is not supported")
 
@@ -261,13 +297,18 @@ class AuthVariables:
                 self._write_var("client_id"),
                 self._write_var("client_secret"),
             ]
+        elif self.login_flow == "device_code":
+            lines += [
+                self._write_var("client_id"),
+                self._write_var("oidc_discovery_url"),
+            ]
         elif self.login_flow == "interactive":
             lines += [
                 self._write_var("client_id"),
             ]
         else:
             raise ValueError(f"Login flow {self.login_flow} is not supported.")
-        if self.login_flow in ("client_credentials", "interactive"):
+        if self.login_flow in ("client_credentials", "device_code", "interactive"):
             lines += [
                 "# Note: Either the TENANT_ID or the TENANT_URL must be written.",
                 self._write_var("tenant_id"),
@@ -277,7 +318,7 @@ class AuthVariables:
             "# The below variables are the defaults, they are automatically constructed unless they are set.",
             self._write_var("cdf_url"),
         ]
-        if self.login_flow in ("client_credentials", "interactive"):
+        if self.login_flow in ("client_credentials", "device_code", "interactive"):
             lines += [
                 self._write_var("scopes"),
             ]
@@ -285,7 +326,7 @@ class AuthVariables:
             lines += [
                 self._write_var("authority_url"),
             ]
-        if self.login_flow == "client_credentials":
+        if self.login_flow in ("client_credentials", "device_code"):
             lines += [
                 self._write_var("audience"),
             ]
@@ -295,6 +336,8 @@ class AuthVariables:
     def _write_var(self, var_name: str) -> str:
         value = getattr(self, var_name)
         field_ = _auth_field_by_name[var_name].metadata
+        if value is None:
+            return f"{field_['env_name']}="
         return f"{field_['env_name']}={value}"
 
 
@@ -338,14 +381,12 @@ class AuthReaderValidation:
             raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
 
         extra_args: dict[str, Any] = {}
-        if password is True:
-            extra_args["default"] = ""
-        else:
+        if not password:
             extra_args["default"] = default
+        else:
+            extra_args["password"] = True
         if choices:
             extra_args["choices"] = choices
-        if password is not None:
-            extra_args["password"] = password
 
         if password and current_value:
             prompt = f"You have set {display_name}, change it? (press Enter to keep current value)"
@@ -462,6 +503,30 @@ class CDFToolConfig:
             if not auth.token:
                 raise AuthenticationError("Login flow=token is set but no CDF_TOKEN is not provided.")
             self._credentials_provider = Token(auth.token)
+        elif auth.login_flow == "device_code":
+            # TODO: If the user has submitted the wrong scopes, we may get a valid token that gives 401 on the CDF API.
+            # The user will then have to wait until the token has expired to retry with the correct scopes.
+            # If we add clear_cache=True to the OAuthDeviceCode, the token cache will be cleared.
+            # We could add a cli option to auth verify, e.g. --clear-token-cache, that will clear the cache.
+            if not auth.client_id:
+                raise ValueError("IDP_CLIENT_ID is required for device code login.")
+            if auth.tenant_id:
+                # For Entra, we have defaults for everything, even the app registration as we can use the CDF public app.
+                self._credentials_provider = OAuthDeviceCode.default_for_azure_ad(
+                    tenant_id=auth.tenant_id,
+                    client_id=auth.client_id,
+                    cdf_cluster=self._cluster,
+                )
+            else:
+                if not auth.scopes:
+                    raise ValueError("IDP_SCOPES is required for device code login.")
+                self._credentials_provider = OAuthDeviceCode(
+                    authority_url=None,
+                    oauth_discovery_url=auth.oidc_discovery_url,
+                    client_id=auth.client_id,
+                    scopes=auth.scopes.split(),
+                    audience=auth.audience,
+                )
         elif auth.login_flow == "interactive":
             if auth.scopes:
                 self._scopes = [auth.scopes]
