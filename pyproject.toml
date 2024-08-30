@@ -8,17 +8,17 @@ readme = "README.md"
 documentation = "https://developer.cognite.com/sdks/toolkit/"
 homepage = "https://developer.cognite.com/sdks/toolkit/"
 repository = "https://github.com/cognitedata/toolkit"
-packages = [{include = "cognite_toolkit", from = "."}]
+packages = [{ include = "cognite_toolkit", from = "." }]
 include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "^7.54.11", extras = ["pandas"]}
+cognite-sdk = { version = "^7.54.11", extras = ["pandas"] }
 cognite-extractor-utils = ">=7"
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"
-typer = {version = ">=0.12.0, <1.0", extras = ["all"]}
+typer = { version = ">=0.12.0, <1.0", extras = ["all"] }
 sentry-sdk = "^2.1.0"
 cognite-logger = "^0.6"
 questionary = "^2.0.1"
@@ -27,13 +27,12 @@ tomli = { version = "^2.0.1", python = "<3.11" }
 # 22.0 was when explicit support for 3.11 was added.
 packaging = ">=22.0,<25.0"
 typing-extensions = "^4.0"
-authlib = "^1.3.1"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"
 pre-commit = "^3.6.0"
 pytest = "^8.0.0"
-pytest-icdiff = "*"  # Used for better diffs in pytest
+pytest-icdiff = "*"                               # Used for better diffs in pytest
 pytest-regressions = "^2.4.2"
 pytest-xdist = "^3.6.1"
 pytest-rerunfailures = "^14.0"
@@ -53,9 +52,7 @@ cdf = "cognite_toolkit._cdf:app"
 show_missing = true
 
 [tool.pytest.ini_options]
-markers = [
-    "toolkit: big smoke tests",
-]
+markers = ["toolkit: big smoke tests"]
 
 [tool.mypy]
 check_untyped_defs = true
@@ -63,14 +60,16 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 follow_imports = "normal"
 ignore_missing_imports = true
-exclude = ["cognite_toolkit/cognite_modules",
-            "cognite_toolkit/build*"]
+exclude = ["cognite_toolkit/cognite_modules", "cognite_toolkit/build*"]
 [tool.ruff]
 line-length = 120
 
 [tool.ruff.format]
 # Ruff messes up the docstrings which are expected to be in Markdown format
-exclude = ["cognite_toolkit/_cdf_tk/commands/_changes.py", "cognite_toolkit/cognite_modules/inrobot/*"]
+exclude = [
+    "cognite_toolkit/_cdf_tk/commands/_changes.py",
+    "cognite_toolkit/cognite_modules/inrobot/*",
+]
 
 [build-system]
 requires = ["poetry-core"]
