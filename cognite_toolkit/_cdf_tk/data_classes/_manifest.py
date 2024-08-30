@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import toml
+if sys.version_info >= (3, 11):
+    import toml
+else:
+    import tomli as toml
 
 
 @dataclass(frozen=True)
