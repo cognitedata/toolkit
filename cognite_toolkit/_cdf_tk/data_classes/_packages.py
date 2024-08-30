@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Collection, Sequence
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import overload
+from typing import Optional, overload
 
-import toml
 from cognite.client.utils._text import to_camel_case
 
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
@@ -35,20 +34,16 @@ class Package:
         self._modules[name] = description
 
 
-@dataclass(frozen=True)
-class Packages(Sequence[Package]):
-    """This is an internal representation of the packages in a source directory."""
-
+@dataclass
+class Packages(list[Package]):
     @overload
-    def __init__(self, collection: Collection[Package]) -> None: ...
+    def __init__(self, packages: Iterable[Package]) -> None: ...
 
     @overload
     def __init__(self) -> None: ...
 
-    def __init__(self, collection: Collection[Package] | None = None) -> None:
-        if collection is None:
-            collection = []
-        super().__init__()
+    def __init__(self, packages: Optional[Iterable[Package]] = None) -> None:
+        super().__init__(packages or [])
 
     @classmethod
     def load(
@@ -63,31 +58,10 @@ class Packages(Sequence[Package]):
 
         collected: dict[str, Package] = {}
         for module in modules:
-            if manifest := next((file for file in module.source_paths if file.name == "module.toml"), None):
-                try:
-                    config = toml.load(manifest)
-                    description = config["module"].get("description", None)
-                    for tag in config["packages"]["tags"]:
-                        if tag not in collected:
-                            collected[tag] = Package(name=tag)
-                        collected[tag].add_module(module.name, description)
-
-                except Exception as e:
-                    print(f"Error loading module config for: {module.name}: {e}")
-                    raise e
+            if module.manifest:
+                for tag in module.manifest.tags or []:
+                    if tag not in collected:
+                        collected[tag] = Package(name=tag)
+                    collected[tag].add_module(module.name, module.manifest.description)
 
         return cls(list(collected.values()))
-
-    def __len__(self) -> int:
-        return super().__len__()
-
-    @overload
-    def __getitem__(self, index: int) -> Package: ...
-
-    @overload
-    def __getitem__(self, index: slice) -> Packages: ...
-
-    def __getitem__(self, index: int | slice, /) -> Package | Packages:
-        if isinstance(index, slice):
-            return Packages(super().__getitem__(index))
-        return super().__getitem__(index)
