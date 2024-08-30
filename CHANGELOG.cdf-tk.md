@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
   `Frame`, and `Location`). These loaders were earlier available as feature preview.
+- Support for `LocationFilter` in the `locations` folder.
 
 ## Changed
 
@@ -34,6 +35,10 @@ Changes are grouped as follows:
   `cdf-tk deploy` command. They were earlier always redeployed.
 
 ## [0.2.18] - 2024-08-22
+
+### Added
+
+- Location Filter support
 
 ### Fixed
 
