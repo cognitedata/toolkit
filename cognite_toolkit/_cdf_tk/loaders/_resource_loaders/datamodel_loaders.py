@@ -931,6 +931,8 @@ class GraphQLLoader(
     def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
         super().__init__(client, build_dir)
         self._graphql_filepath_cache: dict[DataModelId, Path] = {}
+        self._views_by_datamodel_id: dict[DataModelId, set[ViewId]] = {}
+        self._dependencies_by_datamodel_id: dict[DataModelId, set[ViewId | DataModelId]] = {}
 
     @property
     def display_name(self) -> str:
@@ -1001,12 +1003,18 @@ class GraphQLLoader(
                 raise ToolkitFileNotFoundError(
                     f"Failed to find GraphQL file. Expected {expected_filename} adjacent to {filepath.as_posix()}"
                 )
-            self._graphql_filepath_cache[model.as_id()] = graphql_file
+            model_id = model.as_id()
+            self._graphql_filepath_cache[model_id] = graphql_file
+            graphql_content = safe_read(graphql_file)
+            self._views_by_datamodel_id[model_id] = self.find_views_in_graphql(graphql_content, model_id)
+            self._dependencies_by_datamodel_id[model_id] = self.find_dependencies_in_graphql(graphql_content, model_id)
         return models
 
     def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
+        creation_order = self._topological_sort(items)
+
         created_list: list[DMLApplyResult] = []
-        for item in items:
+        for item in creation_order:
             item_id = item.as_id()
             graphql_file_content = self._get_graphql_content(item_id)
 
@@ -1058,3 +1066,16 @@ class GraphQLLoader(
 
     def drop_data(self, ids: SequenceNotStr[DataModelId]) -> int:
         return self.delete(ids)
+
+    def _topological_sort(self, items: GraphQLDataModelWriteList) -> list[GraphQLDataModelWrite]:
+        raise NotImplementedError()
+
+    @classmethod
+    def find_views_in_graphql(cls, graphql_content: str, data_model_id: DataModelId) -> set[ViewId]:
+        raise NotImplementedError()
+
+    @classmethod
+    def find_dependencies_in_graphql(
+        cls, graphql_content: str, data_model_id: DataModelId
+    ) -> set[ViewId | DataModelId]:
+        raise NotImplementedError()
