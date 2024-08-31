@@ -154,7 +154,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 37a859320cd8897467026ef0968b1718685a841b388d19a183c8b53918085490
+    cdf-toolkit-function-hash: 622013d2c4c51a7303b43047d9f99c7b119a6e33719f80c7e8e1adaeb84513e9
   name: Contextualize robot data
   owner: Robotics team
   runtime: py39
@@ -166,7 +166,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: be29437a733fbe9a6471930dc514f150a63d0b6701a4eab46536961ecfcd0ce1
+    cdf-toolkit-function-hash: 4a32a7a5b9adc6dc85815b45c3319c2041bcbf7644f043a74a6c3caa0df3edca
   name: Gauge reading
   owner: Robotics team
   runtime: py39
