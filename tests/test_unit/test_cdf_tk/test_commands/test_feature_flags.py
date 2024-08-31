@@ -1,4 +1,4 @@
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag
+from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag
 
 
 class TestFeatureCommand:
