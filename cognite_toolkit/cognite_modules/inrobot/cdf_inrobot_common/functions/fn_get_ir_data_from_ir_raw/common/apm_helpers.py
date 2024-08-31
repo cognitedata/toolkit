@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pytz  # type: ignore
 from cognite.client import CogniteClient
@@ -42,7 +44,7 @@ def create_apm_observation_from_reading(
         view_ids=["APM_Measurement", "Vec3f", "APM_Observation"],
     )
 
-    def _get_view_version(views: List[Dict[str, Any]], view_id: str) -> Optional[str]:
+    def _get_view_version(views: list[dict[str, Any]], view_id: str) -> Optional[str]:
         view = next((item for item in views if item["externalId"] == view_id), None)
         if view is None:
             raise ValueError(f"Could not find view {view_id}")
@@ -161,8 +163,8 @@ def create_apm_observation_from_reading(
 
 
 def _get_views(
-    client: CogniteClient, space: str, datamodel_id: str, datamodel_version: Optional[str] = None, view_ids=List[str]
-) -> List[Dict[str, Any]]:
+    client: CogniteClient, space: str, datamodel_id: str, datamodel_version: Optional[str] = None, view_ids=list[str]
+) -> list[dict[str, Any]]:
     response = client.post(
         f"/api/v1/projects/{client.config.project}/models/datamodels/byids",
         json={
@@ -201,7 +203,7 @@ def _get_views(
     return views["items"]
 
 
-def _get_apm_config(client: CogniteClient, config_external_id: str) -> Optional[Dict[str, Any]]:
+def _get_apm_config(client: CogniteClient, config_external_id: str) -> Optional[dict[str, Any]]:
     space = "APM_Config"
     datamodel_id = "APM_Config"
     view_id = "APM_Config"
@@ -252,7 +254,7 @@ def _get_apm_config(client: CogniteClient, config_external_id: str) -> Optional[
     return apm_config
 
 
-def _get_position_from_metadata_to_vec3f(metadata: Dict[str, Any]) -> Vec3f:
+def _get_position_from_metadata_to_vec3f(metadata: dict[str, Any]) -> Vec3f:
     """Get position from metadata."""
     x = metadata.get("waypoint_tform_body_x")
     y = metadata.get("waypoint_tform_body_x")

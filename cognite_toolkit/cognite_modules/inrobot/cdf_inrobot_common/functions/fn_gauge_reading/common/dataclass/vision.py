@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 
 from common.dataclass.common import Dataclass
 
@@ -12,7 +14,7 @@ class File(Dataclass):
 
 @dataclass
 class RequestCustomModelPrediction(Dataclass):
-    items: List[File]
+    items: list[File]
     modelFile: File
     threshold: float
 
@@ -26,7 +28,7 @@ class Vertex(Dataclass):
 @dataclass
 class Region(Dataclass):
     shape: str  # points, rectangle, polyline, polygon
-    vertices: List[Vertex]
+    vertices: list[Vertex]
 
 
 @dataclass
@@ -39,7 +41,7 @@ class VisionAnnotation(Dataclass):
 @dataclass
 class Item(Dataclass):
     fileId: int
-    annotations: Optional[List[VisionAnnotation]] = None
+    annotations: Optional[list[VisionAnnotation]] = None
     fileExternalId: Optional[str] = None
     width: Optional[float] = None
     height: Optional[float] = None
@@ -48,7 +50,7 @@ class Item(Dataclass):
 @dataclass
 class FailedBatchSchema(Dataclass):
     errorMessage: Optional[str] = None
-    items: Optional[List[File]] = None
+    items: Optional[list[File]] = None
 
 
 @dataclass
@@ -58,7 +60,7 @@ class ResponseCustomModelPrediction(Dataclass):
     startTime: int
     statusTime: int
     jobId: int
-    items: List[Item]
+    items: list[Item]
     modelFile: File
     threshold: Optional[float] = None
-    failedItems: Optional[List[FailedBatchSchema]] = None
+    failedItems: Optional[list[FailedBatchSchema]] = None

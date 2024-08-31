@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import logging
 import time
-from typing import Any, Dict, List
+from typing import Any, Optional
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Annotation, LabelDefinition
@@ -9,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def call_vision_api_endpoint(
-    client: CogniteClient, url: str, input_data: Dict, max_get_job_attempts: int = 20, headers: Dict[str, Any] = None
+    client: CogniteClient, url: str, input_data: dict, max_get_job_attempts: int = 20, headers: Optional[dict[str, Any]] = None
 ):
     """Post to an API endpoint, wait for response and return response."""
     # TODO: Use this function in people detector function (https://cognitedata.atlassian.net/browse/DMVP-855)
@@ -32,7 +34,7 @@ def call_vision_api_endpoint(
     return res
 
 
-def create_missing_labels(client: CogniteClient, label_ids: List[str]):
+def create_missing_labels(client: CogniteClient, label_ids: list[str]):
     """Create missing labels from a list of label IDs."""
     for label_id in label_ids:
         if not check_label_exists(client, label_id):
@@ -47,7 +49,7 @@ def check_label_exists(client: CogniteClient, label_id: str):
 
 def create_annotations(
     client: CogniteClient,
-    gauge_reading_result: Dict,
+    gauge_reading_result: dict,
     file_id: int,
     gauge_type: str,
     bounding_box_label: str,
