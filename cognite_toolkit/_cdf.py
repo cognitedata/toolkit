@@ -30,13 +30,13 @@ from cognite_toolkit._cdf_tk.commands import (
     RunFunctionCommand,
     RunTransformationCommand,
 )
-from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
     ToolkitFileNotFoundError,
     ToolkitInvalidSettingsError,
     ToolkitValidationError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     NodeLoader,
