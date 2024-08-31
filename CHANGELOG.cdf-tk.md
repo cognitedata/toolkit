@@ -33,6 +33,8 @@ Changes are grouped as follows:
 
 - Views and DataModels with versions that are integers are only being redeployed if they have changed in the
   `cdf-tk deploy` command. They were earlier always redeployed.
+- Ignore `.pyc` files when hashing function directories in the `cdf-tk deploy` command. This prevents unnecessary
+  redeployments of functions.
 
 ## [0.2.18] - 2024-08-22
 
