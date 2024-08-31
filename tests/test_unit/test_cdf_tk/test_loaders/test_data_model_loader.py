@@ -1,9 +1,11 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.commands import DeployCommand
+from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.loaders import DataModelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import GraphQLLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import GraphQLDataModel
@@ -117,10 +119,38 @@ type GeneratingUnit {
 
     def test_raise_cycle_error(
         self, cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
-    ) -> None: ...
+    ) -> None:
+        loader = GraphQLLoader.create_loader(cdf_tool_config, None)
+        # The two models are dependent on each other
+        first_file = self._create_mock_file(
+            """type WindTurbine @import(dataModel: {externalId: "SolarModel", version: "v1", space: "second_space"}) {
+name: String}""",
+            "first_space",
+            "WindTurbineModel",
+        )
+        second_file = self._create_mock_file(
+            """type Solar @import(dataModel: {externalId: "WindTurbineModel", version: "v1", space: "first_space"}) {
+        name: String
+            }""",
+            "second_space",
+            "SolarModel",
+        )
+
+        items = loader.load_resource(first_file, cdf_tool_config, skip_validation=True)
+        items.extend(loader.load_resource(second_file, cdf_tool_config, skip_validation=True))
+
+        with pytest.raises(ToolkitCycleError) as e:
+            loader.create(items)
+
+        assert "Cycle detected" in str(e.value)
+        assert [m.external_id for m in e.value.args[1]] == [
+            "WindTurbineModel",
+            "SolarModel",
+            "WindTurbineModel",
+        ]
 
     @staticmethod
-    def _create_mock_file(first_model: str, space: str, external_id: str):
+    def _create_mock_file(first_model: str, space: str, external_id: str) -> MagicMock:
         first_file = MagicMock(spec=Path)
         first_file.read_text.return_value = f"""space: {space}
 externalId: {external_id}

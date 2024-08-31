@@ -1085,9 +1085,9 @@ class GraphQLLoader(
                         if model_id in to_sort:
                             dependencies[item_id].add(model_id)
         try:
-            items_sorted = TopologicalSorter(dependencies).static_order()
+            return [to_sort[item_id] for item_id in TopologicalSorter(dependencies).static_order()]
         except CycleError as e:
             raise ToolkitCycleError(
-                f"Cannot deploy GraphQL schemas. Cycle detected between models {e.args} using the @import directive."
+                f"Cannot create GraphQL schemas. Cycle detected between models {e.args} using the @import directive.",
+                *e.args[1:],
             )
-        return [to_sort[item_id] for item_id in items_sorted]

@@ -98,7 +98,9 @@ class ToolkitValidationError(ToolkitError):
     pass
 
 
-class ToolkitCycleError(CycleError, ToolkitValidationError): ...
+class ToolkitCycleError(CycleError, ToolkitValidationError):
+    def __str__(self) -> str:
+        return self.args[0]
 
 
 class ToolkitYAMLFormatError(YAMLError, ToolkitValidationError):
