@@ -16,6 +16,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support to dump timeseries",
     }
+    GRAPHQL: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for deploying data models as GraphQL schemas",
+    }
 
 
 class FeatureFlag:
