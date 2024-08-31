@@ -25,7 +25,7 @@ import tempfile
 import typing
 from abc import abstractmethod
 from collections import UserDict, defaultdict
-from collections.abc import ItemsView, Iterable, Iterator, KeysView, Sequence, ValuesView
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, MutableSequence, Sequence, ValuesView
 from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -1385,66 +1385,90 @@ class GraphQLParser:
     def _parse(self) -> list[_Entity]:
         entities: list[_Entity] = []
         entity: _Entity | None = None
-        parentheses: list[str] = []
-        directive_content: list[str] | None = None
-        is_directive_start: bool = True
         last_class: Literal["type", "interface"] | None = None
+
+        parentheses: list[str] = []
+
+        directive_tokens: _DirectiveTokens | None = None
+        is_directive_start: bool = False
         for token in self._token_pattern.findall(self.raw):
-            if token in "({[":
+            if token in "({[<":
                 parentheses.append(token)
-            elif token in ")}]":
+            elif token in ")}]>":
                 parentheses.pop()
 
-            if token in ("type", "interface"):
+            is_end_of_entity = bool(parentheses and parentheses[0] == "{")
+
+            if entity and is_end_of_entity:
+                # End of entity definition
+                if directive_tokens and (directive := directive_tokens.create()):
+                    entity.directives.append(directive)
+                directive_tokens = None
+                entities.append(entity)
+                entity = None
+            elif entity is not None:
+                if directive_tokens is not None and not parentheses:
+                    # End of directive
+                    if directive := directive_tokens.create():
+                        entity.directives.append(directive)
+                    directive_tokens = None
+                elif directive_tokens:
+                    # Gather the content of the directive
+                    directive_tokens.append(token)
+                elif token == "@":
+                    is_directive_start = True
+                elif is_directive_start and token in ("import", "view"):
+                    directive_tokens = _DirectiveTokens([token])
+                    is_directive_start = False
+                elif is_directive_start:
+                    # Not a directive we care about
+                    is_directive_start = False
+
+            elif token in ("type", "interface"):
+                # Next token starts a new entity definition
                 last_class = token
             elif last_class is not None:
                 # Start of a new entity definition
                 entity = _Entity(identifier=token, class_=last_class)
                 last_class = None
-            elif entity and parentheses and parentheses[0] == "{":
-                if directive_content:
-                    directive = _Directive.load(directive_content)
-                    if directive:
-                        entity.directives.append(directive)
-                    directive_content = None
-                # End of entity definition
-                entities.append(entity)
-                entity = None
-            elif token == "@":
-                is_directive_start = True
-            elif is_directive_start and token in ("import", "view"):
-                directive_content = [token]
-                is_directive_start = False
-            elif is_directive_start:
-                is_directive_start = False
-            elif directive_content is not None and not parentheses and entity is not None:
-                directive_content.append(token)
-                directive = _Directive.load(directive_content)
-                if directive:
-                    entity.directives.append(directive)
-                directive_content = None
-            elif directive_content is not None:
-                directive_content.append(token)
         return entities
+
+
+class _DirectiveTokens(list, MutableSequence[str]):
+    def create(self) -> _Directive | None:
+        return _Directive.load(self)
 
 
 @dataclass
 class _Directive:
+    # This pattern ignores commas inside }
+    SPLIT_ON_COMMA_PATTERN = re.compile(r",(?![^{]*\})")
+
     @classmethod
     def load(cls, content: list[str]) -> _Directive | None:
         key, *content = content
-        if len(content) > 0 and content[0] == "{":
-            return None
-        data = dict(
-            cls._clean(*pair.strip().split(":"))
-            for pair in "".join(content).removeprefix("(").removesuffix(")").split(",")
-            if pair.strip()
-        )
+        raw_string = "".join(content).removeprefix("(").removesuffix(")")
+        data = typing.cast(dict[str, Any], cls._create_args(raw_string))
         if key == "import":
             return _Import._load(data)
         if key == "view":
             return _ViewDirective._load(data)
         return None
+
+    @classmethod
+    def _create_args(cls, string: str) -> dict[str, Any] | str:
+        if "," not in string:
+            return string
+        output: dict[str, Any] = {}
+        if string[0] == "{" and string[-1] == "}":
+            string = string[1:-1]
+        for pair in cls.SPLIT_ON_COMMA_PATTERN.split(string):
+            stripped = pair.strip()
+            if not stripped or ":" not in stripped:
+                continue
+            key, value = cls._clean(*stripped.split(":", maxsplit=1))
+            output[key] = cls._create_args(value)
+        return output
 
     @classmethod
     def _clean(cls, *args: Any) -> Any:
@@ -1472,9 +1496,9 @@ class _Import(_Directive):
 
     @classmethod
     def _load(cls, data: dict[str, Any]) -> _Import:
-        if not data:
-            return _Import()
-        return _Import(data_model=DataModelId.load(data))
+        if "dataModel" in data:
+            return _Import(data_model=DataModelId.load(data["dataModel"]))
+        return _Import()
 
 
 @dataclass
