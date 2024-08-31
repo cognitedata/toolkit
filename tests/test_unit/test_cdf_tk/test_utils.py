@@ -518,7 +518,7 @@ class TestGraphQLParser:
     @pytest.mark.parametrize("raw, data_model_id, expected_views, dependencies", GraphQLTestCases)
     def test_parse(
         self, raw: str, data_model_id: DataModelId, expected_views: set[ViewId], dependencies: set[ViewId | DataModelId]
-    ):
+    ) -> None:
         parser = GraphQLParser(raw, data_model_id)
 
         assert parser.get_views() == expected_views
