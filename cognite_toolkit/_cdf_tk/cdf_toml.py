@@ -23,12 +23,12 @@ else:
 @dataclass
 class CLIConfig:
     project_dir: Path | None = None
-    feature_flags: dict[str, bool] = field(default_factory=dict)
+    feature_flags: list[str] = field(default_factory=list)
 
     @classmethod
     def load(cls, raw: dict[str, Any], source_dir: Path) -> CLIConfig:
         project_dir = source_dir / raw["project_dir"] if "project_dir" in raw else None
-        return cls(project_dir=project_dir, feature_flags=raw.get("feature_flags", {}))
+        return cls(project_dir=project_dir, feature_flags=raw.get("feature_flags", []))
 
     def get_root_module_paths(self, project_dir: Path | None = None) -> list[Path]:
         source_path = project_dir or self.project_dir or Path.cwd()
@@ -98,9 +98,3 @@ class CDFToml:
 
 
 _CDF_TOML: CDFToml | None = None
-
-if __name__ == "__main__":
-    # This is a test to quickly check that the code works.
-    # also useful to check that when you change cdf.toml it is loaded correctly
-    _ROOT = Path(__file__).parent.parent.parent
-    print(CDFToml.load(_ROOT))
