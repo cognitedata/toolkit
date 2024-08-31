@@ -133,6 +133,7 @@ class GraphQLDataModelWrite(_GraphQLDataModelCore):
             name=resource.get("name"),
             description=resource.get("description"),
             previous_version=resource.get("previousVersion"),
+            dml=resource.get("dml"),
         )
 
     def as_write(self) -> GraphQLDataModelWrite:
