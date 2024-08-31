@@ -104,7 +104,7 @@ dml: model.graphql
         first_model_file.read_text.return_value = first_model
         first_model_file.name = "model.graphql"
         first_model_file.is_file.return_value = True
-        first_file.parent.iterdir.return_value = [first_file]
+        first_file.parent.iterdir.return_value = [first_model_file]
 
         second_file = MagicMock(spec=Path)
         second_file.read_text.return_value = """space: second_space
@@ -116,7 +116,7 @@ dml: model.graphql
         second_model_file.read_text.return_value = second_model
         second_model_file.name = "model.graphql"
         second_model_file.is_file.return_value = True
-        second_file.parent.iterdir.return_value = [second_file]
+        second_file.parent.iterdir.return_value = [second_model_file]
 
         items = loader.load_resource(first_file, cdf_tool_config, skip_validation=True)
         items.extend(loader.load_resource(second_file, cdf_tool_config, skip_validation=True))
