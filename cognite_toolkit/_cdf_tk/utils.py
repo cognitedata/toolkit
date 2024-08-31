@@ -44,7 +44,7 @@ from cognite.client.data_classes.capabilities import (
     ExtractionPipelinesAcl,
     SecurityCategoriesAcl,
 )
-from cognite.client.data_classes.data_modeling import View, ViewId
+from cognite.client.data_classes.data_modeling import DataModelId, View, ViewId
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
@@ -1334,3 +1334,155 @@ def get_cicd_environment() -> str:
         return "azure"
 
     return "local"
+
+
+class GraphQLParser:
+    _token_pattern = re.compile(r"\w+|[^\w\s]")
+
+    def __init__(self, raw: str, data_model_id: DataModelId) -> None:
+        self.raw = raw
+        self.data_model_id = data_model_id
+        self._entities: list[_Entity] | None = None
+
+    def get_views(self) -> set[ViewId]:
+        return {
+            ViewId(self.data_model_id.space, entity.identifier)
+            for entity in self._get_entities()
+            if not entity.is_imported
+        }
+
+    def get_dependencies(self, include_version: bool = False) -> set[ViewId | DataModelId]:
+        dependencies: set[ViewId | DataModelId] = set()
+        for entity in self._get_entities():
+            view_directive: _ViewDirective | None = None
+            is_dependency = False
+            for directive in entity.directives:
+                if isinstance(directive, _Import):
+                    if directive.data_model:
+                        dependencies.add(directive.data_model)
+                        break
+                    is_dependency = True
+                elif isinstance(directive, _ViewDirective):
+                    view_directive = directive
+            if is_dependency and view_directive:
+                dependencies.add(
+                    ViewId(
+                        view_directive.space or self.data_model_id.space,
+                        view_directive.external_id or entity.identifier,
+                        version=view_directive.version if include_version else None,
+                    )
+                )
+            elif is_dependency:
+                # Todo: Warning Likely invalid directive
+                ...
+        return dependencies
+
+    def _get_entities(self) -> list[_Entity]:
+        if self._entities is None:
+            self._entities = self._parse()
+        return self._entities
+
+    def _parse(self) -> list[_Entity]:
+        entities: list[_Entity] = []
+        entity: _Entity | None = None
+        parentheses: list[str] = []
+        directive_content: list[str] | None = None
+        is_directive_start: bool = True
+        last_class: Literal["type", "interface"] | None = None
+        for token in self._token_pattern.findall(self.raw):
+            if token in "({[":
+                parentheses.append(token)
+            elif token in ")}]":
+                parentheses.pop()
+
+            if token in ("type", "interface"):
+                last_class = token
+            elif last_class is not None:
+                # Start of a new entity definition
+                entity = _Entity(identifier=token, class_=last_class)
+                last_class = None
+            elif entity and parentheses and parentheses[0] == "{":
+                if directive_content:
+                    directive = _Directive.load(directive_content)
+                    if directive:
+                        entity.directives.append(directive)
+                    directive_content = None
+                # End of entity definition
+                entities.append(entity)
+                entity = None
+            elif token == "@":
+                is_directive_start = True
+            elif is_directive_start and token in ("import", "view"):
+                directive_content = [token]
+                is_directive_start = False
+            elif is_directive_start:
+                is_directive_start = False
+            elif directive_content is not None and not parentheses and entity is not None:
+                directive_content.append(token)
+                directive = _Directive.load(directive_content)
+                if directive:
+                    entity.directives.append(directive)
+                directive_content = None
+            elif directive_content is not None:
+                directive_content.append(token)
+        return entities
+
+
+@dataclass
+class _Directive:
+    @classmethod
+    def load(cls, content: list[str]) -> _Directive | None:
+        key, *content = content
+        if len(content) > 0 and content[0] == "{":
+            return None
+        data = dict(
+            cls._clean(*pair.strip().split(":"))
+            for pair in "".join(content).removeprefix("(").removesuffix(")").split(",")
+            if pair.strip()
+        )
+        if key == "import":
+            return _Import._load(data)
+        if key == "view":
+            return _ViewDirective._load(data)
+        return None
+
+    @classmethod
+    def _clean(cls, *args: Any) -> Any:
+        return tuple(arg.removeprefix('"').removesuffix('"').removeprefix('"').removesuffix('"') for arg in args)
+
+    @classmethod
+    @abstractmethod
+    def _load(cls, data: dict[str, Any]) -> _Directive: ...
+
+
+@dataclass
+class _ViewDirective(_Directive):
+    space: str | None = None
+    external_id: str | None = None
+    version: str | None = None
+
+    @classmethod
+    def _load(cls, data: dict[str, Any]) -> _ViewDirective:
+        return _ViewDirective(space=data.get("space"), external_id=data.get("externalId"), version=data.get("version"))
+
+
+@dataclass
+class _Import(_Directive):
+    data_model: DataModelId | None = None
+
+    @classmethod
+    def _load(cls, data: dict[str, Any]) -> _Import:
+        if not data:
+            return _Import()
+        return _Import(data_model=DataModelId.load(data))
+
+
+@dataclass
+class _Entity:
+    identifier: str
+    class_: Literal["type", "interface"]
+    directives: list[_Directive] = field(default_factory=list)
+
+    @property
+    def is_imported(self) -> bool:
+        return any(isinstance(directive, _Import) for directive in self.directives)

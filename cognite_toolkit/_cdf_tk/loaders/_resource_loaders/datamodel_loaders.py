@@ -81,6 +81,7 @@ from cognite_toolkit._cdf_tk.loaders.data_classes import (
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
+    GraphQLParser,
     calculate_str_or_file_hash,
     in_dict,
     load_yaml_inject_variables,
@@ -1005,9 +1006,9 @@ class GraphQLLoader(
                 )
             model_id = model.as_id()
             self._graphql_filepath_cache[model_id] = graphql_file
-            graphql_content = safe_read(graphql_file)
-            self._views_by_datamodel_id[model_id] = self.find_views_in_graphql(graphql_content, model_id)
-            self._dependencies_by_datamodel_id[model_id] = self.find_dependencies_in_graphql(graphql_content, model_id)
+            parser = GraphQLParser(safe_read(graphql_file), model_id)
+            self._views_by_datamodel_id[model_id] = parser.get_views()
+            self._dependencies_by_datamodel_id[model_id] = parser.get_dependencies()
         return models
 
     def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
@@ -1068,14 +1069,4 @@ class GraphQLLoader(
         return self.delete(ids)
 
     def _topological_sort(self, items: GraphQLDataModelWriteList) -> list[GraphQLDataModelWrite]:
-        raise NotImplementedError()
-
-    @classmethod
-    def find_views_in_graphql(cls, graphql_content: str, data_model_id: DataModelId) -> set[ViewId]:
-        raise NotImplementedError()
-
-    @classmethod
-    def find_dependencies_in_graphql(
-        cls, graphql_content: str, data_model_id: DataModelId
-    ) -> set[ViewId | DataModelId]:
         raise NotImplementedError()
