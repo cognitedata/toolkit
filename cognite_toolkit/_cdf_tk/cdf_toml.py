@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, ClassVar
 
 from cognite_toolkit import _version
@@ -99,7 +100,7 @@ class CDFToml:
 _CDF_TOML: CDFToml | None = None
 
 if __name__ == "__main__":
-    from pathlib import Path
-
+    # This is a test to quickly check that the code works.
+    # also useful to check that when you change cdf.toml it is loaded correctly
     _ROOT = Path(__file__).parent.parent.parent
     print(CDFToml.load(_ROOT))
