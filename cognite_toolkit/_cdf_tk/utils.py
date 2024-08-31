@@ -1407,11 +1407,13 @@ class GraphQLParser:
                 entities.append(entity)
                 entity = None
             elif entity is not None:
-                if directive_tokens is not None and not parentheses:
+                if directive_tokens is not None and (not parentheses or token == "@"):
                     # End of directive
                     if directive := directive_tokens.create():
                         entity.directives.append(directive)
                     directive_tokens = None
+                    if token == "@":
+                        is_directive_start = True
                 elif directive_tokens:
                     # Gather the content of the directive
                     directive_tokens.append(token)
