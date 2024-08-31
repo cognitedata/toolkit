@@ -123,6 +123,12 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWrite,
     LocationFilterWriteList,
 )
+from cognite_toolkit._cdf_tk.loaders.data_classes import (
+    GraphQLDataModel,
+    GraphQLDataModelList,
+    GraphQLDataModelWrite,
+    GraphQLDataModelWriteList,
+)
 
 from .data_classes import APIResource, Method
 
@@ -600,6 +606,16 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
+        },
+    ),
+    APIResource(
+        api_name="data_modeling.graphql",
+        resource_cls=GraphQLDataModel,
+        list_cls=GraphQLDataModelList,
+        _write_cls=GraphQLDataModelWrite,
+        _write_list_cls=GraphQLDataModelWriteList,
+        methods={
+            "create": [Method(api_class_method="apply_dml", mock_class_method="apply_dml")],
         },
     ),
 ]
