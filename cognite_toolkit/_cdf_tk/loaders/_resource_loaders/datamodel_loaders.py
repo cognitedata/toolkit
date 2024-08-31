@@ -14,8 +14,10 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
 from typing import Any, cast, final
@@ -66,7 +68,7 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT, INDEX_PATTERN
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
@@ -932,7 +934,7 @@ class GraphQLLoader(
     def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
         super().__init__(client, build_dir)
         self._graphql_filepath_cache: dict[DataModelId, Path] = {}
-        self._views_by_datamodel_id: dict[DataModelId, set[ViewId]] = {}
+        self._datamodels_by_view_id: dict[ViewId, set[DataModelId]] = defaultdict(set)
         self._dependencies_by_datamodel_id: dict[DataModelId, set[ViewId | DataModelId]] = {}
 
     @property
@@ -1007,7 +1009,8 @@ class GraphQLLoader(
             model_id = model.as_id()
             self._graphql_filepath_cache[model_id] = graphql_file
             parser = GraphQLParser(safe_read(graphql_file), model_id)
-            self._views_by_datamodel_id[model_id] = parser.get_views()
+            for view in parser.get_views():
+                self._datamodels_by_view_id[view].add(model_id)
             self._dependencies_by_datamodel_id[model_id] = parser.get_dependencies()
         return models
 
@@ -1069,4 +1072,22 @@ class GraphQLLoader(
         return self.delete(ids)
 
     def _topological_sort(self, items: GraphQLDataModelWriteList) -> list[GraphQLDataModelWrite]:
-        raise NotImplementedError()
+        to_sort = {item.as_id(): item for item in items}
+        dependencies: dict[DataModelId, set[DataModelId]] = {}
+        for item in items:
+            item_id = item.as_id()
+            dependencies[item_id] = set()
+            for dependency in self._dependencies_by_datamodel_id.get(item_id, []):
+                if isinstance(dependency, DataModelId) and dependency in to_sort:
+                    dependencies[item_id].add(dependency)
+                elif isinstance(dependency, ViewId):
+                    for model_id in self._datamodels_by_view_id.get(dependency, set()):
+                        if model_id in to_sort:
+                            dependencies[item_id].add(model_id)
+        try:
+            items_sorted = TopologicalSorter(dependencies).static_order()
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Cannot deploy GraphQL schemas. Cycle detected between models {e.args} using the @import directive."
+            )
+        return [to_sort[item_id] for item_id in items_sorted]
