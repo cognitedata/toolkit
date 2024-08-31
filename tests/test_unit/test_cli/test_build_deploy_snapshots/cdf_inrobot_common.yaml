@@ -166,7 +166,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 4a32a7a5b9adc6dc85815b45c3319c2041bcbf7644f043a74a6c3caa0df3edca
+    cdf-toolkit-function-hash: 5942d29f9d438b80e21778527b1f74e825dca4fc0f9fa7ac393083cab315cf50
   name: Gauge reading
   owner: Robotics team
   runtime: py39
