@@ -1150,8 +1150,9 @@ def feature_flag_main(ctx: typer.Context) -> None:
                 "\nDo not enable a flag unless you are familiar with what it does.[/]"
             )
         )
+        print("Use [bold yellow]cdf-tk features list[/] available feature flags")
         print(
-            "Use [bold yellow]cdf-tk features list[/] or [bold yellow]cdf-tk features set <flag> --enabled/--disabled[/]"
+            f"Use [bold yellow]the section cdf.feature_flags in {CDFToml.file_name!r}[/] to enable or disable feature flags."
         )
     return None
 
@@ -1161,49 +1162,7 @@ def feature_flag_list() -> None:
     """List all available feature flags."""
 
     cmd = FeatureFlagCommand()
-    cmd.run(lambda: cmd.list())
-
-
-@feature_flag_app.command("set")
-def feature_flag_set(
-    flag: Annotated[
-        str,
-        typer.Argument(
-            help="Which flag to set",
-        ),
-    ],
-    enable: Annotated[
-        bool,
-        typer.Option(
-            "--enable",
-            "-e",
-            help="Enable the flag.",
-        ),
-    ] = False,
-    disable: Annotated[
-        bool,
-        typer.Option(
-            "--disable",
-            help="Disable the flag.",
-        ),
-    ] = False,
-) -> None:
-    """Enable or disable a feature flag."""
-
-    cmd = FeatureFlagCommand()
-    if enable and disable:
-        raise ToolkitValidationError("Cannot enable and disable a flag at the same time.")
-    if not enable and not disable:
-        raise ToolkitValidationError("Must specify either --enable or --disable.")
-    cmd.run(lambda: cmd.set(flag, enable))
-
-
-@feature_flag_app.command("reset")
-def feature_flag_reset() -> None:
-    """Reset all feature flags to their default values."""
-
-    cmd = FeatureFlagCommand()
-    cmd.run(lambda: cmd.reset())
+    cmd.run(cmd.list)
 
 
 @user_app.callback(invoke_without_command=True)
