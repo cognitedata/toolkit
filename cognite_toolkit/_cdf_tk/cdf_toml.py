@@ -23,11 +23,12 @@ else:
 @dataclass
 class CLIConfig:
     project_dir: Path | None = None
+    feature_flags: list[str] = field(default_factory=list)
 
     @classmethod
     def load(cls, raw: dict[str, Any], source_dir: Path) -> CLIConfig:
         project_dir = source_dir / raw["project_dir"] if "project_dir" in raw else None
-        return cls(project_dir=project_dir)
+        return cls(project_dir=project_dir, feature_flags=raw.get("feature_flags", []))
 
     def get_root_module_paths(self, project_dir: Path | None = None) -> list[Path]:
         source_path = project_dir or self.project_dir or Path.cwd()
