@@ -384,6 +384,9 @@ class ModulesCommand(ToolkitCommand):
             raise ToolkitRequiredValueError("No system.yaml file found in project.")
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
+    def list(self, project_dir: str | Path | None = None) -> None:
+        raise NotImplementedError("Not implemented yet.")
+
 
 class CLICommands:
     @classmethod

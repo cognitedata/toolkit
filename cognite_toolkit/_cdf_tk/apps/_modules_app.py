@@ -15,6 +15,7 @@ class ModulesApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
         self.command()(self.upgrade)
+        self.command()(self.list)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""
@@ -61,3 +62,15 @@ class ModulesApp(typer.Typer):
 
     # This is a trick to use an f-string for the docstring
     upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
+
+    def list(
+        self,
+        project_dir: Annotated[
+            Optional[str],
+            typer.Argument(
+                help="Directory path to project to list modules.",
+            ),
+        ] = None,
+    ) -> None:
+        cmd = ModulesCommand()
+        cmd.run(lambda: cmd.list(project_dir=project_dir))
