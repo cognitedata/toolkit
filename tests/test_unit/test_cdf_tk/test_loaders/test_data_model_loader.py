@@ -90,7 +90,7 @@ class TestGraphQLLoader:
         # The first model is dependent on the second model
         first_file = self._create_mock_file(
             """
-type WindTurbine @import @view(space: "second_space", externalId: "GeneratingUnit", version: "v1") @import{
+type WindTurbine @import @view(space: "second_space", externalId: "GeneratingUnit", version: "v1"){
 name: String}""",
             "first_space",
             "WindTurbineModel",
@@ -101,7 +101,7 @@ type GeneratingUnit {
         name: String
             }""",
             "second_space",
-            "GeneratingUnit",
+            "GeneratingUnitModel",
         )
 
         items = loader.load_resource(first_file, cdf_tool_config, skip_validation=True)
@@ -112,7 +112,7 @@ type GeneratingUnit {
         created = toolkit_client_approval.created_resources_of_type(GraphQLDataModel)
 
         assert len(created) == 2
-        assert created[0].external_id == "GeneratingUnit"
+        assert created[0].external_id == "GeneratingUnitModel"
         assert created[1].external_id == "WindTurbineModel"
 
     def test_raise_cycle_error(
