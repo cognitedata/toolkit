@@ -104,6 +104,7 @@ class BuildInfo(ConfigCore):
                 verbose=False,
             )
         # Need to reuse the build_info.{}.yaml if needs_rebuild is not none.
+        # Also remember to dump the build_info.{}.yaml to the project_dir when rebuild is done.
         return cls._from_build(source_by_build_path, build_env)
 
     @classmethod
