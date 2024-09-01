@@ -159,6 +159,11 @@ class ResourceLoader(
 
     @classmethod
     @abstractmethod
+    def dump_id(self, id: T_ID) -> dict[str, Any]:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
     def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 

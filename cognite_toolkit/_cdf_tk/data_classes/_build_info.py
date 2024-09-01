@@ -84,19 +84,11 @@ class ResourceBuildInfo(Generic[T_ID]):
 
     @classmethod
     def load(cls, data: dict[str, Any], resource_folder: str) -> ResourceBuildInfo:
-        from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, ResourceLoader
+        from cognite_toolkit._cdf_tk.loaders import ResourceLoader, get_loader
 
-        identifier_raw = data["identifier"]
         kind = data["kind"]
-        if resource_folder not in LOADER_BY_FOLDER_NAME:
-            raise ValueError(f"Unknown resource folder: {resource_folder}")
-        loader = cast(
-            ResourceLoader, next(loader for loader in LOADER_BY_FOLDER_NAME[resource_folder] if loader.kind == kind)
-        )
-        if isinstance(identifier_raw, dict):
-            identifier = loader.get_id(identifier_raw)
-        else:
-            raise TypeError(f"Cannot load {identifier_raw} into {cls.__name__}, invalid type={type(identifier_raw)}")
+        loader = cast(ResourceLoader, get_loader(resource_folder, kind))
+        identifier = loader.get_id(data["identifier"])
 
         return cls(
             location=BuildLocation.load(data["location"]),
@@ -104,23 +96,14 @@ class ResourceBuildInfo(Generic[T_ID]):
             identifier=identifier,
         )
 
-    def dump(self) -> dict[str, Any]:
-        if hasattr(self.identifier, "dump"):
-            id_ = self.identifier.dump(camel_case=False)
-        elif isinstance(self.identifier, str):
-            # Handle special cases where the identifier is a string
-            key_name = {
-                "space": "space",
-                "3DModel": "name",
-            }.get(self.kind, "external_id")
-            id_ = {key_name: self.identifier}
-        else:
-            raise TypeError(
-                f"Cannot dump {self.identifier} into {self.__class__}, invalid type={type(self.identifier)}"
-            )
+    def dump(self, resource_folder: str) -> dict[str, Any]:
+        from cognite_toolkit._cdf_tk.loaders import ResourceLoader, get_loader
+
+        loader = cast(ResourceLoader, get_loader(resource_folder, self.kind))
+        dumped = loader.get_id(self.identifier)
 
         return {
-            "identifier": id_,
+            "identifier": dumped,
             "location": self.location.dump(),
             "kind": self.kind,
         }
@@ -207,7 +190,7 @@ class BuildInfo(ConfigCore):
 
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildInfo:
-        return cls(filepath, ModulesInfo.load(data))
+        return cls(filepath, ModulesInfo.load(data["modules"]))
 
     @classmethod
     def rebuild(cls, project_dir: Path, build_env: str, needs_rebuild: set[Path] | None = None) -> BuildInfo:
