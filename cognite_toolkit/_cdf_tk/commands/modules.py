@@ -385,7 +385,8 @@ class ModulesCommand(ToolkitCommand):
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
     def list(self, project_dir: str | Path | None = None) -> None:
-        raise NotImplementedError("Not implemented yet.")
+        project_path = Path(project_dir or ".")
+        raise NotImplementedError(f"Not implemented yet {project_path}")
 
 
 class CLICommands:
