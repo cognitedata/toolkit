@@ -56,3 +56,23 @@ class BuildInfo(ConfigCore):
     @classmethod
     def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildInfo:
         return cls(filepath, ModulesInfo.load(data))
+
+
+class ModuleResources:
+    """This class is used to retrieve resource information from the build info.
+
+    It is responsible for ensuring that the build info is up-to-date with the
+    latest changes in the source directory.
+    """
+
+    def __init__(self, project_dir: Path, build_env: str) -> None:
+        self._build_info = BuildInfo.load_from_directory(project_dir, build_env)
+
+    def list(self) -> ModuleList:
+        raise NotImplementedError
+
+    def retrieve_resource(self, kind: str, identifier: T_ID) -> ResourceInfo[T_ID]:
+        raise NotImplementedError
+
+    def retrieve_resources(self, kind: str) -> ResourceList:
+        raise NotImplementedError

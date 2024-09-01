@@ -1,3 +1,4 @@
+from ._build_info import ModuleResources
 from ._build_variables import BuildVariable, BuildVariables
 from ._config_yaml import (
     BuildConfigYAML,
@@ -20,4 +21,5 @@ __all__ = [
     "ModuleDirectories",
     "BuildVariable",
     "BuildVariables",
+    "ModuleResources",
 ]
