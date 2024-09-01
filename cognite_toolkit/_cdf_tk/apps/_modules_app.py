@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -76,7 +74,7 @@ class ModulesApp(typer.Typer):
             str,
             typer.Option(
                 "--env",
-                help="Build environment to use. Defaults to 'dev'.",
+                help="Build environment to use.",
             ),
         ] = "dev",
         verbose: Annotated[
