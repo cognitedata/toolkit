@@ -1,63 +1,36 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitVersionError
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, UnexpectedFileLocationWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
 
 @dataclass
 class ConfigCore(ABC):
-    """Base class for the two build config files (global.yaml and [env].config.yaml)"""
+    """Base class for config files."""
 
+    filename: ClassVar[str]
     filepath: Path
 
     @classmethod
-    @abstractmethod
-    def _file_name(cls, build_env_name: str) -> str:
-        raise NotImplementedError
+    def get_filename(cls, build_env: str) -> str:
+        return cls.filename.format(build_env=build_env)
 
     @classmethod
-    def load_from_directory(
-        cls: type[T_BuildConfig],
-        source_path: Path,
-        build_env_name: str,
-        warn: Callable[[ToolkitWarning], None] | None = None,
-        command: str | None = None,
-    ) -> T_BuildConfig:
-        file_name = cls._file_name(build_env_name)
-        filepath = source_path / file_name
-        filepath = filepath if filepath.is_file() else Path.cwd() / file_name
-        if (
-            (old_filepath := (source_path / "cognite_modules" / file_name)).is_file()
-            and not filepath.is_file()
-            and file_name == "_system.yaml"
-        ):
-            # This is a fallback for the old location of the system file
-            warning = UnexpectedFileLocationWarning(filepath.name, f"cognite_toolkit/{old_filepath.name}")
-            if warn is not None:
-                warn(warning)
-            else:
-                print(warning.get_message())
-            filepath = old_filepath
-        elif not filepath.is_file():
-            if not (result := next(source_path.glob(f"**/{file_name}"), None)):
-                raise ToolkitFileNotFoundError(f"{file_name!r} does not exist.")
+    def load_from_directory(cls: type[T_BuildConfig], source_path: Path, build_env: str) -> T_BuildConfig:
+        filename = cls.get_filename(build_env)
+        filepath = source_path / filename
+        filepath = filepath if filepath.is_file() else Path.cwd() / filename
+        if not filepath.is_file():
+            raise ToolkitFileNotFoundError(f"{filename!r} does not exist.")
 
-            relative = result.absolute().relative_to(Path.cwd())
-            hint = "/".join(relative.parts[:-1])
-            if command:
-                hint = f"{command} {hint}"
-            raise ToolkitFileNotFoundError(f"{file_name!r} does not exist. Did you mean {hint!r}?")
-
-        return cls.load(read_yaml_file(filepath), build_env_name, filepath)
+        return cls.load(read_yaml_file(filepath), build_env, filepath)
 
     @classmethod
     @abstractmethod

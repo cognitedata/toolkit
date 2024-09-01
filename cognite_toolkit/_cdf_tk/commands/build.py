@@ -115,7 +115,7 @@ class BuildCommand(ToolkitCommand):
 
         cdf_toml = CDFToml.load(source_path)
         sources = cdf_toml.cdf.get_root_module_paths(source_path)
-        config = BuildConfigYAML.load_from_directory(source_path, build_env_name, self.warn)
+        config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
 
         directory_name = "current directory" if source_path == Path(".") else f"project '{source_path!s}'"
         module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
