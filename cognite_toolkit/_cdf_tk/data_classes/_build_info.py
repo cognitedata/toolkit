@@ -115,9 +115,6 @@ class BuildInfo(ConfigCore):
         # To avoid circular imports
         from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 
-        if needs_rebuild is None:
-            raise NotImplementedError()
-
         with tmp_build_directory() as build_dir:
             cdf_toml = CDFToml.load()
             config = BuildConfigYAML.load_from_directory(project_dir, build_env)
