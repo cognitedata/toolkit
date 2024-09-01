@@ -156,7 +156,7 @@ class BuildCommand(ToolkitCommand):
         clean: bool = False,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
-    ) -> ModuleBuildList:
+    ) -> tuple[ModuleBuildList, dict[Path, Path]]:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
             shutil.rmtree(build_dir)
@@ -215,7 +215,7 @@ class BuildCommand(ToolkitCommand):
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
             print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
-        return build
+        return build, state.source_by_build_path
 
     @staticmethod
     def _validate_modules(

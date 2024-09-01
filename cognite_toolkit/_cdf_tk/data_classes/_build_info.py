@@ -48,7 +48,11 @@ class BuildLocationLazy(BuildLocation):
 
 @dataclass
 class BuildLocationEager(BuildLocation):
-    hash: str
+    _hash: str
+
+    @property
+    def hash(self) -> str:
+        return self._hash
 
 
 @dataclass
@@ -126,7 +130,7 @@ class BuildInfo(ConfigCore):
             else:
                 # Use path syntax to select only the modules that need to be rebuilt
                 config.environment.selected = list(needs_rebuild)
-            build = BuildCommand().build_config(
+            build, _ = BuildCommand().build_config(
                 build_dir=build_dir,
                 source_dir=project_dir,
                 config=config,
