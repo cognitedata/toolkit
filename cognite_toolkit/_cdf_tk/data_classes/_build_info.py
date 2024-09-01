@@ -196,9 +196,10 @@ class ModuleResources:
             self._has_rebuilt = True
 
     def list(self) -> ModuleBuildList:
-        current_modules = ModuleDirectories.load(self._project_dir, set())
         # Check if the build info is up-to-date
-        if not self._has_rebuilt and (needs_rebuild := self._build_info.compare_modules(current_modules)):
-            self._build_info = BuildInfo.rebuild(self._project_dir, self._build_env, needs_rebuild)
+        if not self._has_rebuilt:
+            current_modules = ModuleDirectories.load(self._project_dir, set())
+            if needs_rebuild := self._build_info.compare_modules(current_modules):
+                self._build_info = BuildInfo.rebuild(self._project_dir, self._build_env, needs_rebuild)
             self._has_rebuilt = True
         return self._build_info.modules.modules
