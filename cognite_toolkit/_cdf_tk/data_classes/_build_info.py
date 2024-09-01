@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Iterator, MutableSequence
+from collections.abc import Collection, Iterator, MutableSequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar, Generic, SupportsIndex, overload
 
+from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_str_or_file_hash, tmp_build_directory
@@ -76,6 +77,9 @@ class ModuleBuildInfo:
 @dataclass
 class ModuleBuildList(list, MutableSequence[ModuleBuildInfo]):
     # Implemented to get correct type hints
+    def __init__(self, collection: Collection[ModuleBuildInfo] | None = None) -> None:
+        super().__init__(collection or [])
+
     def __iter__(self) -> Iterator[ModuleBuildInfo]:
         return super().__iter__()
 
@@ -113,6 +117,7 @@ class BuildInfo(ConfigCore):
     @classmethod
     def rebuild(cls, project_dir: Path, build_env: str, needs_rebuild: set[Path] | None = None) -> BuildInfo:
         # To avoid circular imports
+        # Ideally, this class should be in a separate module
         from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 
         with tmp_build_directory() as build_dir:
@@ -135,13 +140,38 @@ class BuildInfo(ConfigCore):
                 clean=True,
                 verbose=False,
             )
-        # Need to reuse the build_info.{}.yaml if needs_rebuild is not none.
-        # Also remember to dump the build_info.{}.yaml to the project_dir when rebuild is done.
-        return cls._from_build(build, build_env)
+
+        new_build = cls(
+            filepath=project_dir / cls.get_filename(build_env),
+            modules=ModulesInfo(version=_version.__version__, modules=build),
+        )
+        if needs_rebuild is not None and (existing := cls._get_existing(project_dir, build_env)):
+            # Merge the existing modules with the new modules
+            new_modules_by_path = {module.location.path: module for module in new_build.modules.modules}
+            module_list = ModuleBuildList(
+                [
+                    new_modules_by_path[existing_module.location.path]
+                    if existing_module.location.path in new_modules_by_path
+                    else existing_module
+                    for existing_module in existing.modules.modules
+                ]
+            )
+            new_build.modules.modules = module_list
+
+        new_build.dump_to_file()
+        return new_build
 
     @classmethod
-    def _from_build(cls, build: ModuleBuildList, build_env: str) -> BuildInfo:
-        raise NotImplementedError()
+    def _get_existing(cls, project_dir: Path, build_env: str) -> BuildInfo | None:
+        try:
+            existing = cls.load_from_directory(project_dir, build_env)
+        except FileNotFoundError:
+            return None
+        if existing.modules.modules != _version.__version__:
+            return None
+        return existing
+
+    def dump_to_file(self) -> None: ...
 
     def compare_modules(self, current_modules: ModuleDirectories) -> set[Path]:
         raise NotImplementedError()
