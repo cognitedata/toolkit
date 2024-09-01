@@ -403,7 +403,7 @@ class PullCommand(ToolkitCommand):
                     f"'selected_modules_and_packages') from {source_path}...[/]"
                 )
             )
-            source_by_build_path = BuildCommand().build_config(
+            build = BuildCommand().build_config(
                 build_dir=build_dir,
                 source_dir=source_path,
                 config=config,

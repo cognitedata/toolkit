@@ -31,8 +31,14 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
+    BuildLocationEager,
+    BuildLocationLazy,
     BuildVariables,
+    ModuleBuildInfo,
+    ModuleBuildList,
     ModuleDirectories,
+    ResourceBuildInfo,
+    ResourceBuildList,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -150,7 +156,7 @@ class BuildCommand(ToolkitCommand):
         clean: bool = False,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
-    ) -> dict[Path, Path]:
+    ) -> ModuleBuildList:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
             shutil.rmtree(build_dir)
@@ -200,14 +206,16 @@ class BuildCommand(ToolkitCommand):
                 if variable.location in module_location.relative_path.parts:
                     module_names_by_variable_key[variable.key].append(module_location.name)
 
-        state = self.process_config_files(modules.selected, build_dir, variables, module_names_by_variable_key, verbose)
+        state, build = self.process_config_files(
+            modules.selected, build_dir, variables, module_names_by_variable_key, verbose
+        )
         self._check_missing_dependencies(state, source_dir, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
             print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
-        return state.source_by_build_path
+        return build
 
     @staticmethod
     def _validate_modules(
@@ -263,7 +271,8 @@ class BuildCommand(ToolkitCommand):
         variables: BuildVariables,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool = False,
-    ) -> _BuildState:
+    ) -> tuple[_BuildState, ModuleBuildList]:
+        build = ModuleBuildList()
         state = _BuildState()
         for module in modules:
             if verbose:
@@ -273,6 +282,7 @@ class BuildCommand(ToolkitCommand):
 
             files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
 
+            build_resources: dict[str, ResourceBuildList] = defaultdict(ResourceBuildList)
             for resource_directory_name, directory_files in files_by_resource_directory.items():
                 build_folder: list[Path] = []
                 for source_path in directory_files.resource_files:
@@ -280,10 +290,11 @@ class BuildCommand(ToolkitCommand):
                         source_path, resource_directory_name, module.dir, build_dir
                     )
 
-                    self._replace_variables_validate_to_build_directory(
+                    resource_info = self._replace_variables_validate_to_build_directory(
                         source_path, destination, module_variables, state, module_names_by_variable_key, verbose
                     )
                     build_folder.append(destination)
+                    build_resources[resource_directory_name].extend(resource_info)
 
                 if resource_directory_name == FunctionLoader.folder_name:
                     self._validate_function_directory(state, directory_files, module.dir)
@@ -320,7 +331,19 @@ class BuildCommand(ToolkitCommand):
                                 )
                             # Copy the file as is, not variable replacement
                             shutil.copyfile(source_path, destination)
-        return state
+
+            build.append(
+                ModuleBuildInfo(
+                    name=module.name,
+                    location=BuildLocationLazy(
+                        path=module.relative_path,
+                        absolute_path=module.dir,
+                    ),
+                    build_variables=module_variables,
+                    resources=build_resources,
+                )
+            )
+        return state, build
 
     def _validate_function_directory(
         self, state: _BuildState, directory_files: ResourceDirectory, module_dir: Path
@@ -359,7 +382,7 @@ class BuildCommand(ToolkitCommand):
         state: _BuildState,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool,
-    ) -> None:
+    ) -> ResourceBuildList:
         if verbose:
             print(f"    [bold green]INFO:[/] Processing {source_path.name}")
 
@@ -367,20 +390,22 @@ class BuildCommand(ToolkitCommand):
 
         content = safe_read(source_path)
         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
+        location = BuildLocationEager(source_path, state.hash_by_source_path[source_path])
 
         content = variables.replace(content, source_path.suffix)
 
         safe_write(destination_path, content)
         state.source_by_build_path[destination_path] = source_path
 
-        file_warnings = self.validate(
-            content, source_path, destination_path, state, module_names_by_variable_key, verbose
+        file_warnings, identifiers, kind = self.validate(
+            content, source_path, destination_path, state, module_names_by_variable_key
         )
         if file_warnings:
             self.warning_list.extend(file_warnings)
             # Here we do not use the self.warn method as we want to print the warnings as a group.
             if self.print_warning:
                 print(str(file_warnings))
+        return ResourceBuildList(ResourceBuildInfo(identifier, location, kind) for identifier in identifiers)
 
     def _check_missing_dependencies(
         self, state: _BuildState, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None
@@ -654,8 +679,7 @@ class BuildCommand(ToolkitCommand):
         destination: Path,
         state: _BuildState,
         module_names_by_variable_key: dict[str, list[str]],
-        verbose: bool,
-    ) -> WarningList[FileReadWarning]:
+    ) -> tuple[WarningList[FileReadWarning], list[Hashable], str]:
         warning_list = WarningList[FileReadWarning]()
         module = module_from_path(source_path)
         resource_folder = resource_folder_from_path(source_path)
@@ -678,7 +702,7 @@ class BuildCommand(ToolkitCommand):
                 )
 
         if destination.suffix not in {".yaml", ".yml"}:
-            return warning_list
+            return warning_list, [], "Unknown"
 
         try:
             parsed = yaml.safe_load(content)
@@ -691,7 +715,7 @@ class BuildCommand(ToolkitCommand):
 
         loader = self._get_loader(resource_folder, destination, source_path)
         if loader is None or not issubclass(loader, ResourceLoader):
-            return warning_list
+            return warning_list, [], "Unknown"
 
         api_spec = self._get_api_spec(loader, destination)
         is_dict_item = isinstance(parsed, dict)
@@ -703,6 +727,7 @@ class BuildCommand(ToolkitCommand):
         else:
             items = [parsed] if is_dict_item else parsed
 
+        identifiers: list[Hashable] = []
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no
 
@@ -713,6 +738,7 @@ class BuildCommand(ToolkitCommand):
                 warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
 
             if identifier:
+                identifiers.append(identifier)
                 if first_seen := state.ids_by_resource_type[loader].get(identifier):
                     if loader is not RawDatabaseLoader:
                         # RAW Database will pick up all Raw Tables, so we don't want to warn about duplicates.
@@ -737,7 +763,7 @@ class BuildCommand(ToolkitCommand):
             data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)
             warning_list.extend(data_set_warnings)
 
-        return warning_list
+        return warning_list, identifiers, loader.kind
 
     def _get_api_spec(self, loader: type[ResourceLoader], destination: Path) -> ParameterSpecSet | None:
         api_spec: ParameterSpecSet | None = None

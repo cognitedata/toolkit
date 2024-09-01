@@ -937,7 +937,10 @@ def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
 
 
 def calculate_directory_hash(
-    directory: Path, exclude_prefixes: set[str] | None = None, ignore_files: set[str] | None = None
+    directory: Path,
+    exclude_prefixes: set[str] | None = None,
+    ignore_files: set[str] | None = None,
+    shorten: bool = False,
 ) -> str:
     sha256_hash = hashlib.sha256()
 
@@ -957,7 +960,10 @@ def calculate_directory_hash(
                 # Get rid of Windows line endings to make the hash consistent across platforms.
                 sha256_hash.update(chunk.replace(b"\r\n", b"\n"))
 
-    return sha256_hash.hexdigest()
+    calculated = sha256_hash.hexdigest()
+    if shorten:
+        return calculated[:8]
+    return calculated
 
 
 def calculate_secure_hash(item: dict[str, Any]) -> str:
@@ -967,13 +973,16 @@ def calculate_secure_hash(item: dict[str, Any]) -> str:
     return sha256_hash.hexdigest()
 
 
-def calculate_str_or_file_hash(content: str | Path) -> str:
+def calculate_str_or_file_hash(content: str | Path, shorten: bool = False) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
         content = content.read_text(encoding="utf-8")
     # Get rid of Windows line endings to make the hash consistent across platforms.
     sha256_hash.update(content.encode("utf-8").replace(b"\r\n", b"\n"))
-    return sha256_hash.hexdigest()
+    calculated = sha256_hash.hexdigest()
+    if shorten:
+        return calculated[:8]
+    return calculated
 
 
 def get_oneshot_session(client: ToolkitClient) -> CreatedSession | None:

@@ -1,4 +1,13 @@
-from ._build_info import ModuleResources
+from ._build_info import (
+    BuildLocation,
+    BuildLocationEager,
+    BuildLocationLazy,
+    ModuleBuildInfo,
+    ModuleBuildList,
+    ModuleResources,
+    ResourceBuildInfo,
+    ResourceBuildList,
+)
 from ._build_variables import BuildVariable, BuildVariables
 from ._config_yaml import (
     BuildConfigYAML,
@@ -22,4 +31,11 @@ __all__ = [
     "BuildVariable",
     "BuildVariables",
     "ModuleResources",
+    "BuildLocation",
+    "ResourceBuildInfo",
+    "ResourceBuildList",
+    "ModuleBuildInfo",
+    "ModuleBuildList",
+    "BuildLocationEager",
+    "BuildLocationLazy",
 ]

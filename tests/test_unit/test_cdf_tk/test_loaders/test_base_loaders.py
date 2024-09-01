@@ -233,7 +233,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
         # Use path syntax to select all modules in the source directory
         config.environment.selected = [Path()]
 
-        source_by_build_path = BuildCommand().build_config(
+        build = BuildCommand().build_config(
             build_dir=build_dir,
             source_dir=source_path,
             config=config,
