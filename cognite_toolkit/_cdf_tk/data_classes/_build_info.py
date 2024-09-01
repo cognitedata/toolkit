@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import MutableSequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic
+from typing import ClassVar, Generic
 
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
 
@@ -44,4 +44,5 @@ class ModulesInfo:
 
 @dataclass
 class BuildInfo:
+    filename: ClassVar[str] = "build_info.{build_env}.yaml"
     modules: ModulesInfo
