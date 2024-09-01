@@ -389,7 +389,7 @@ class BuildCommand(ToolkitCommand):
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
         content = safe_read(source_path)
-        state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
+        state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content, shorten=True)
         location = BuildLocationEager(source_path, state.hash_by_source_path[source_path])
 
         content = variables.replace(content, source_path.suffix)
