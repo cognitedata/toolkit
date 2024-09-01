@@ -393,12 +393,14 @@ class ModulesCommand(ToolkitCommand):
         table.add_column("Module", style="bold")
         table.add_column("Resource Folders", style="bold")
         table.add_column("Resources", style="bold")
+        table.add_column("Location", style="bold")
 
         for module in modules.list():
             table.add_row(
                 module.name,
                 f"{len(module.resources):,}",
                 f"{sum(len(resources) for resources in module.resources.values()):,}",
+                module.location.path.as_posix(),
             )
 
         print(table)
