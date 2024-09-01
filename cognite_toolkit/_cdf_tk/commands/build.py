@@ -190,7 +190,7 @@ class BuildCommand(ToolkitCommand):
             for module in [module.name for module in modules.selected]:
                 print(f"    {module}")
 
-        variables = BuildVariables.load(config.variables, modules.available_paths, modules.selected.available_paths)
+        variables = BuildVariables.load_raw(config.variables, modules.available_paths, modules.selected.available_paths)
         warnings = validate_modules_variables(variables.selected, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))

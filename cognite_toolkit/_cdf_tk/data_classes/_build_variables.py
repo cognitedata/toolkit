@@ -5,7 +5,7 @@ from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal, SupportsIndex, overload
+from typing import Any, SupportsIndex, overload
 
 from ._module_directories import ModuleLocation
 
@@ -35,6 +35,10 @@ class BuildVariable:
             "location": self.location.as_posix(),
         }
 
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> BuildVariable:
+        return cls(data["key"], data["value"], data["is_selected"], Path(data["location"]))
+
 
 class BuildVariables(tuple, Sequence[BuildVariable]):
     """This is an internal representation of the build variables in a config.[env].file
@@ -56,7 +60,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         return BuildVariables([variable for variable in self if variable.is_selected])
 
     @classmethod
-    def load(
+    def load_raw(
         cls,
         raw_variable: dict[str, Any],
         available_modules: set[Path],
@@ -78,6 +82,11 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                     variables.append(BuildVariable(key, value, path in selected_modules, path))
 
         return cls(variables)
+
+    @classmethod
+    def load(cls, data: list[dict[str, Any]]) -> BuildVariables:
+        """Loads the variables from a dictionary."""
+        return cls([BuildVariable.load(variable) for variable in data])
 
     def get_module_variables(self, module: ModuleLocation) -> BuildVariables:
         """Gets the variables for a specific module."""
@@ -120,13 +129,5 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
             return BuildVariables(super().__getitem__(index))
         return super().__getitem__(index)
 
-    @overload
-    def dump(self, as_pairs: Literal[True] = True) -> dict[str, Any]: ...
-
-    @overload
-    def dump(self, as_pairs: Literal[False] = False) -> list[dict[str, Any]]: ...
-
-    def dump(self, as_pairs: bool = False) -> dict[str, Any] | list[dict[str, Any]]:
-        if as_pairs:
-            return {variable.key: variable.value for variable in self}
+    def dump(self) -> list[dict[str, Any]]:
         return [variable.dump() for variable in self]
