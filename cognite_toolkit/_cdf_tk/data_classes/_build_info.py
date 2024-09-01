@@ -31,7 +31,7 @@ class ResourceList(list, MutableSequence[ResourceInfo]): ...
 
 
 @dataclass
-class ModuleInfo:
+class ModuleBuildInfo:
     name: str
     location: Location
     build_variables: dict[str, str | int | float | bool | None]
@@ -39,18 +39,18 @@ class ModuleInfo:
 
 
 @dataclass
-class ModuleList(list, MutableSequence[ModuleInfo]):
+class ModuleList(list, MutableSequence[ModuleBuildInfo]):
     # Implemented to get correct type hints
-    def __iter__(self) -> Iterator[ModuleInfo]:
+    def __iter__(self) -> Iterator[ModuleBuildInfo]:
         return super().__iter__()
 
     @overload
-    def __getitem__(self, index: SupportsIndex) -> ModuleInfo: ...
+    def __getitem__(self, index: SupportsIndex) -> ModuleBuildInfo: ...
 
     @overload
     def __getitem__(self, index: slice) -> ModuleList: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ModuleInfo | ModuleList:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ModuleBuildInfo | ModuleList:
         if isinstance(index, slice):
             return ModuleList(super().__getitem__(index))
         return super().__getitem__(index)
