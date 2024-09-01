@@ -97,6 +97,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
@@ -284,6 +288,10 @@ class FunctionScheduleLoader(
                 [SessionsAcl.Action.List, SessionsAcl.Action.Create, SessionsAcl.Action.Delete], SessionsAcl.Scope.All()
             ),
         ]
+
+    @classmethod
+    def dump_id(cls, id: FunctionScheduleID) -> dict[str, Any]:
+        return id.dump(camel_case=True)
 
     @classmethod
     def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule | dict) -> FunctionScheduleID:

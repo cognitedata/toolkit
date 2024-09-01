@@ -159,7 +159,7 @@ class ResourceLoader(
 
     @classmethod
     @abstractmethod
-    def dump_id(self, id: T_ID) -> dict[str, Any]:
+    def dump_id(cls, id: T_ID) -> dict[str, Any]:
         raise NotImplementedError()
 
     @classmethod

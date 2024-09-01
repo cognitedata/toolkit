@@ -111,6 +111,10 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
             return item["space"]
         return item.space
 
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"space": id}
+
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
 
@@ -219,6 +223,10 @@ class ContainerLoader(
                 raise KeyError(*missing)
             return ContainerId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
+
+    @classmethod
+    def dump_id(cls, id: ContainerId) -> dict[str, Any]:
+        return id.dump(include_type=False)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -433,6 +441,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return ViewId(item.space, item.external_id, str(item.version))
 
     @classmethod
+    def dump_id(cls, id: ViewId) -> dict[str, Any]:
+        return id.dump(include_type=False)
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
@@ -645,6 +657,10 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return DataModelId(item.space, item.external_id, str(item.version))
 
     @classmethod
+    def dump_id(cls, id: DataModelId) -> dict[str, Any]:
+        return id.dump(include_type=False)
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
@@ -765,6 +781,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
                 raise KeyError(*missing)
             return NodeId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
+
+    @classmethod
+    def dump_id(cls, id: NodeId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
