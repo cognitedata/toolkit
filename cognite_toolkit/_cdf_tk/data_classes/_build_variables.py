@@ -5,7 +5,7 @@ from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, SupportsIndex, overload
+from typing import Any, Literal, SupportsIndex, overload
 
 from ._module_directories import ModuleLocation
 
@@ -26,6 +26,14 @@ class BuildVariable:
     value: str | int | float | bool | list[str | int | float | bool] | dict[str, str | int | float | bool]
     is_selected: bool
     location: Path
+
+    def dump(self) -> dict[str, Any]:
+        return {
+            "key": self.key,
+            "value": self.value,
+            "is_selected": self.is_selected,
+            "location": self.location.as_posix(),
+        }
 
 
 class BuildVariables(tuple, Sequence[BuildVariable]):
@@ -111,3 +119,14 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         if isinstance(index, slice):
             return BuildVariables(super().__getitem__(index))
         return super().__getitem__(index)
+
+    @overload
+    def dump(self, as_pairs: Literal[True] = True) -> dict[str, Any]: ...
+
+    @overload
+    def dump(self, as_pairs: Literal[False] = False) -> list[dict[str, Any]]: ...
+
+    def dump(self, as_pairs: bool = False) -> dict[str, Any] | list[dict[str, Any]]:
+        if as_pairs:
+            return {variable.key: variable.value for variable in self}
+        return [variable.dump() for variable in self]
