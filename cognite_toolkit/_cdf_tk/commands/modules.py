@@ -385,7 +385,7 @@ class ModulesCommand(ToolkitCommand):
             raise ToolkitRequiredValueError("No system.yaml file found in project.")
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
-    def list(self, project_dir: str | Path, build_env_name: str, verbose: bool) -> None:
+    def list(self, project_dir: str | Path, build_env_name: str) -> None:
         project_dir = Path(project_dir)
         modules = ModuleResources(project_dir, build_env_name)
 
@@ -395,8 +395,6 @@ class ModulesCommand(ToolkitCommand):
         table.add_column("Resources", style="bold")
 
         for module in modules.list():
-            if verbose:
-                print("Details for module", module.name)
             table.add_row(
                 module.name,
                 f"{len(module.resources):,}",

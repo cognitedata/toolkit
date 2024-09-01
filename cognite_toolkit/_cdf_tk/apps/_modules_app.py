@@ -77,15 +77,6 @@ class ModulesApp(typer.Typer):
                 help="Build environment to use.",
             ),
         ] = "dev",
-        verbose: Annotated[
-            bool,
-            typer.Option(
-                "--verbose",
-                "-v",
-                help="Show more information.",
-                is_flag=True,
-            ),
-        ] = False,
     ) -> None:
         cmd = ModulesCommand()
-        cmd.run(lambda: cmd.list(project_dir=project_dir, build_env_name=build_env, verbose=verbose))
+        cmd.run(lambda: cmd.list(project_dir=project_dir, build_env_name=build_env))
