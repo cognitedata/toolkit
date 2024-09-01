@@ -47,6 +47,13 @@ class BuildLocation:
             "hash": self.hash,
         }
 
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> BuildLocation:
+        return BuildLocationEager(
+            path=Path(data["path"]),
+            _hash=data["hash"],
+        )
+
 
 @dataclass
 class BuildLocationLazy(BuildLocation):
@@ -80,8 +87,22 @@ class ResourceBuildInfo(Generic[T_ID]):
         raise NotImplementedError
 
     def dump(self) -> dict[str, Any]:
+        if hasattr(self.identifier, "dump"):
+            id_ = self.identifier.dump(camel_case=False)
+        elif isinstance(self.identifier, str):
+            # Handle special cases where the identifier is a string
+            key_name = {
+                "space": "space",
+                "3DModel": "name",
+            }.get(self.kind, "external_id")
+            id_ = {key_name: self.identifier}
+        else:
+            raise TypeError(
+                f"Cannot dump {self.identifier} into {self.__class__}, invalid type={type(self.identifier)}"
+            )
+
         return {
-            "identifier": self.identifier,
+            "identifier": id_,
             "location": self.location.dump(),
             "kind": self.kind,
         }
