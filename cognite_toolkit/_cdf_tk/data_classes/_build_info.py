@@ -3,9 +3,11 @@ from __future__ import annotations
 from collections.abc import MutableSequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Generic
+from typing import Any, ClassVar, Generic
 
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
+
+from ._base import ConfigCore
 
 
 @dataclass
@@ -41,8 +43,16 @@ class ModulesInfo:
     version: str
     modules: ModuleList
 
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> ModulesInfo:
+        raise NotImplementedError
+
 
 @dataclass
-class BuildInfo:
+class BuildInfo(ConfigCore):
     filename: ClassVar[str] = "build_info.{build_env}.yaml"
     modules: ModulesInfo
+
+    @classmethod
+    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> BuildInfo:
+        return cls(filepath, ModulesInfo.load(data))

@@ -7,7 +7,7 @@ from typing import Any, ClassVar, TypeVar
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitVersionError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitRequiredValueError, ToolkitVersionError
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
 
@@ -30,7 +30,10 @@ class ConfigCore(ABC):
         if not filepath.is_file():
             raise ToolkitFileNotFoundError(f"{filename!r} does not exist.")
 
-        return cls.load(read_yaml_file(filepath), build_env, filepath)
+        try:
+            return cls.load(read_yaml_file(filepath), build_env, filepath)
+        except KeyError as e:
+            raise ToolkitRequiredValueError(f"Required field {e.args} is missing in {filename!r}.") from e
 
     @classmethod
     @abstractmethod
