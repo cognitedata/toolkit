@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
@@ -66,11 +67,27 @@ class ModulesApp(typer.Typer):
     def list(
         self,
         project_dir: Annotated[
-            Optional[str],
+            Path,
             typer.Argument(
-                help="Directory path to project to list modules.",
+                help="Directory path to project to list modules. Defaults to current directory.",
             ),
-        ] = None,
+        ] = Path.cwd(),
+        build_env: Annotated[
+            str,
+            typer.Option(
+                "--env",
+                help="Build environment to use. Defaults to 'dev'.",
+            ),
+        ] = "dev",
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Show more information.",
+                is_flag=True,
+            ),
+        ] = False,
     ) -> None:
         cmd = ModulesCommand()
-        cmd.run(lambda: cmd.list(project_dir=project_dir))
+        cmd.run(lambda: cmd.list(project_dir=project_dir, build_env_name=build_env, verbose=verbose))

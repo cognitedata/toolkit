@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import MutableSequence
+from collections.abc import Iterator, MutableSequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Generic
+from typing import Any, ClassVar, Generic, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
 
@@ -35,7 +35,21 @@ class ModuleInfo:
 
 
 @dataclass
-class ModuleList(list, MutableSequence[ModuleInfo]): ...
+class ModuleList(list, MutableSequence[ModuleInfo]):
+    # Implemented to get correct type hints
+    def __iter__(self) -> Iterator[ModuleInfo]:
+        return super().__iter__()
+
+    @overload
+    def __getitem__(self, index: SupportsIndex) -> ModuleInfo: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> ModuleList: ...
+
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ModuleInfo | ModuleList:
+        if isinstance(index, slice):
+            return ModuleList(super().__getitem__(index))
+        return super().__getitem__(index)
 
 
 @dataclass

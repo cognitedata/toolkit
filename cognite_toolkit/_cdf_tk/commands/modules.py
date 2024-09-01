@@ -18,6 +18,7 @@ from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.rule import Rule
+from rich.table import Table
 from rich.tree import Tree
 
 import cognite_toolkit
@@ -31,7 +32,7 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     UpdateModuleVersion,
 )
 from cognite_toolkit._cdf_tk.constants import ALT_CUSTOM_MODULES, COGNITE_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
-from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML
+from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleResources
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.prototypes import _packages
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
@@ -384,9 +385,25 @@ class ModulesCommand(ToolkitCommand):
             raise ToolkitRequiredValueError("No system.yaml file found in project.")
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
-    def list(self, project_dir: str | Path | None = None) -> None:
-        project_path = Path(project_dir or ".")
-        raise NotImplementedError(f"Not implemented yet {project_path}")
+    def list(self, project_dir: str | Path, build_env_name: str, verbose: bool) -> None:
+        project_dir = Path(project_dir)
+        modules = ModuleResources(project_dir, build_env_name)
+
+        table = Table(title=f"{project_dir.name} {build_env_name} modules")
+        table.add_column("Module", style="bold")
+        table.add_column("Resource Folders", style="bold")
+        table.add_column("Resources", style="bold")
+
+        for module in modules.list():
+            if verbose:
+                print("Details for module", module.name)
+            table.add_row(
+                module.name,
+                f"{len(module.resources):,}",
+                f"{sum(len(resources) for resources in module.resources.values()):,}",
+            )
+
+        print(table)
 
 
 class CLICommands:
