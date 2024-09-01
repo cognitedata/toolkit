@@ -405,7 +405,7 @@ class BuildCommand(ToolkitCommand):
             # Here we do not use the self.warn method as we want to print the warnings as a group.
             if self.print_warning:
                 print(str(file_warnings))
-        return ResourceBuildList(ResourceBuildInfo(identifier, location, kind) for identifier in identifiers)
+        return ResourceBuildList([ResourceBuildInfo(identifier, location, kind) for identifier in identifiers])
 
     def _check_missing_dependencies(
         self, state: _BuildState, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None

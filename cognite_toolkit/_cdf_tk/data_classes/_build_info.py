@@ -109,7 +109,24 @@ class ResourceBuildInfo(Generic[T_ID]):
         }
 
 
-class ResourceBuildList(list, MutableSequence[ResourceBuildInfo]): ...
+class ResourceBuildList(list, MutableSequence[ResourceBuildInfo]):
+    # Implemented to get correct type hints
+    def __init__(self, collection: Collection[ResourceBuildInfo] | None = None) -> None:
+        super().__init__(collection or [])
+
+    def __iter__(self) -> Iterator[ResourceBuildInfo]:
+        return super().__iter__()
+
+    @overload
+    def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfo: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> ResourceBuildList: ...
+
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfo | ResourceBuildList:
+        if isinstance(index, slice):
+            return ResourceBuildList(super().__getitem__(index))
+        return super().__getitem__(index)
 
 
 @dataclass
@@ -137,7 +154,7 @@ class ModuleBuildInfo:
             "location": self.location.dump(),
             "build_variables": self.build_variables.dump(),
             "resources": {
-                key: [resource.dump() for resource in resources] for key, resources in self.resources.items()
+                key: [resource.dump(key) for resource in resources] for key, resources in self.resources.items()
             },
         }
 
