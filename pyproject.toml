@@ -54,6 +54,12 @@ cdf = "cognite_toolkit._cdf:app"
 show_missing = true
 
 [tool.pytest.ini_options]
+minversion = 8.0
+testpaths = [
+    "tests",
+    # In the case of doctests.
+    "cognite_toolkit",
+]
 markers = [
     "toolkit: big smoke tests",
 ]
