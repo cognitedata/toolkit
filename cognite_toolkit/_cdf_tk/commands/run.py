@@ -23,6 +23,7 @@ from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
 from cognite.client.utils import ms_to_datetime
 from rich import print
+from rich.progress import Progress
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
@@ -54,7 +55,7 @@ intended to test the function before deploying it to CDF or to debug issues with
         external_id: str | None = None,
         data: str | None = None,
         wait: bool = False,
-    ) -> None:
+    ) -> bool:
         resources = ModuleResources(project_dir, build_env_name)
         functions = resources.list_resources(str, "functions", FunctionLoader.kind)
         if external_id is None:
@@ -93,15 +94,15 @@ intended to test the function before deploying it to CDF or to debug issues with
                 }
                 if len(options) == 0:
                     print("No schedules found for this function.")
-                    return
-                selected = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
-                config = cast(
-                    FunctionScheduleWrite,
-                    resources.retrieve_resource_config(options[selected], ToolGlobals.environment_variables()),
-                )
-                if config.data is None:
-                    raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
-                input_data = config.data
+                else:
+                    selected = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
+                    config = cast(
+                        FunctionScheduleWrite,
+                        resources.retrieve_resource_config(options[selected], ToolGlobals.environment_variables()),
+                    )
+                    if config.data is None:
+                        raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
+                    input_data = config.data
         client = ToolGlobals.toolkit_client
 
         function = client.functions.retrieve(external_id=external_id)
@@ -121,9 +122,39 @@ intended to test the function before deploying it to CDF or to debug issues with
         table.add_row("Created time", str(ms_to_datetime(result.start_time)))
         print(table)
 
-        if wait:
-            print("Awaiting results from function call...")
-            return
+        if not wait:
+            return True
+
+        max_time = client.functions.limits().timeout_minutes * 60
+        with Progress() as progress:
+            call_task = progress.add_task("Waiting for function call to complete...", total=max_time)
+            start_time = time.time()
+            duration = 0.0
+            sleep_time = 1
+            while result.status.casefold() == "running" and duration < max_time:
+                time.sleep(sleep_time)
+                sleep_time = min(sleep_time * 2, 60)
+                result.update()
+                duration = time.time() - start_time
+                progress.advance(call_task, advance=duration)
+            progress.stop()
+        table = Table(title=f"Function {external_id}, id {function.id}")
+        table.add_column("Info", justify="left")
+        table.add_column("Value", justify="left", style="green")
+        table.add_row("Call id", str(result.id))
+        table.add_row("Status", str(result.status))
+        table.add_row("Created time", str(ms_to_datetime(result.start_time)))
+        table.add_row("Finished time", str(ms_to_datetime(result.end_time or 0)))
+        table.add_row("Duration", str((result.end_time or 1) - (result.start_time or 1)))
+        if result.error is not None:
+            table.add_row("Error", str(result.error.get("message", "Empty error")))
+            table.add_row("Error trace", str(result.error.get("trace", "Empty trace")))
+        response = client.functions.calls.get_response(call_id=result.id or 0, function_id=function.id)
+        table.add_row("Result", str(json.dumps(response, indent=2, sort_keys=True)))
+        logs = ToolGlobals.toolkit_client.functions.calls.get_logs(call_id=result.id or 0, function_id=function.id)
+        table.add_row("Logs", str(logs))
+        print(table)
+        return True
 
     def run_local(
         self,
