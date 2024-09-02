@@ -81,12 +81,12 @@ class RunFunctionApp(typer.Typer):
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
         ] = "dev",
-        data: Annotated[
+        schedule: Annotated[
             Optional[str],
             typer.Option(
-                "--data",
-                "-d",
-                help="Data to pass to the function.",
+                "--schedule",
+                "-s",
+                help="Schedule to run the function with (if any). The data and credentials will be taken from the schedule.",
             ),
         ] = None,
         rebuild_env: Annotated[
@@ -96,20 +96,12 @@ class RunFunctionApp(typer.Typer):
                 help="Whether to rebuild the environment before running the function.",
             ),
         ] = False,
-        schedule: Annotated[
-            Optional[str],
-            typer.Option(
-                "--schedule",
-                "-s",
-                help="Schedule to run the function with.",
-            ),
-        ] = None,
     ) -> None:
         """This command will run the specified function locally."""
         cmd = RunFunctionCommand()
         cmd.run(
             lambda: cmd.run_local(
-                CDFToolConfig.from_context(ctx), project_dir, env_name, external_id, data, schedule, rebuild_env
+                CDFToolConfig.from_context(ctx), project_dir, env_name, external_id, schedule, rebuild_env
             )
         )
 
@@ -139,12 +131,12 @@ class RunFunctionApp(typer.Typer):
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
         ] = "dev",
-        data: Annotated[
+        schedule: Annotated[
             Optional[str],
             typer.Option(
-                "--data",
-                "-d",
-                help="Data to pass to the function. This can be specified in with the function configuration.",
+                "--schedule",
+                "-s",
+                help="The name of the schedule to pick the data from",
             ),
         ] = None,
         wait: Annotated[
@@ -158,4 +150,6 @@ class RunFunctionApp(typer.Typer):
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
         cmd = RunFunctionCommand()
-        cmd.run(lambda: cmd.run_cdf(CDFToolConfig.from_context(ctx), project_dir, env_name, external_id, data, wait))
+        cmd.run(
+            lambda: cmd.run_cdf(CDFToolConfig.from_context(ctx), project_dir, env_name, external_id, schedule, wait)
+        )

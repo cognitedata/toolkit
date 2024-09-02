@@ -156,7 +156,7 @@ class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[
         return [resource.identifier for resource in self]
 
 
-class ResourceBuildListFull(ResourceBuildList[T_ID]):
+class ResourceBuildFullList(ResourceBuildList[T_ID]):
     # Implemented to get correct type hints
     def __init__(self, collection: Collection[ResourceBuildInfoFull[T_ID]] | None = None) -> None:
         super().__init__(collection or [])
@@ -168,11 +168,11 @@ class ResourceBuildListFull(ResourceBuildList[T_ID]):
     def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfoFull[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ResourceBuildListFull[T_ID]: ...
+    def __getitem__(self, index: slice) -> ResourceBuildFullList[T_ID]: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfoFull[T_ID] | ResourceBuildListFull[T_ID]:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfoFull[T_ID] | ResourceBuildFullList[T_ID]:
         if isinstance(index, slice):
-            return ResourceBuildListFull[T_ID](super().__getitem__(index))
+            return ResourceBuildFullList[T_ID](super().__getitem__(index))
         return cast(ResourceBuildInfoFull[T_ID], super().__getitem__(index))
 
 
@@ -226,8 +226,8 @@ class ModuleBuildList(list, MutableSequence[ModuleBuildInfo]):
             return ModuleBuildList(super().__getitem__(index))
         return super().__getitem__(index)
 
-    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildListFull[T_ID]:
-        return ResourceBuildListFull[T_ID](
+    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildFullList[T_ID]:
+        return ResourceBuildFullList[T_ID](
             [
                 resource.create_full(module, resource_dir)
                 for module in self
@@ -395,7 +395,7 @@ class ModuleResources:
 
     def list_resources(
         self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str
-    ) -> ResourceBuildListFull[T_ID]:
+    ) -> ResourceBuildFullList[T_ID]:
         if not self._has_rebuilt:
             if needs_rebuild := self._build_info.compare_modules(
                 self._current_modules, self._current_variables, {resource_dir}

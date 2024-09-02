@@ -17,6 +17,7 @@ from cognite.client.data_classes import (
     FunctionCall,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
+    FunctionWrite,
     FunctionWriteList,
 )
 from cognite.client.data_classes.transformations import TransformationList
@@ -29,7 +30,7 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, ModuleResources
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, ModuleResources, ResourceBuildInfoFull
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import FunctionScheduleID
@@ -53,13 +54,13 @@ intended to test the function before deploying it to CDF or to debug issues with
         project_dir: Path,
         build_env_name: str,
         external_id: str | None = None,
-        data: str | None = None,
+        schedule: str | None = None,
         wait: bool = False,
     ) -> bool:
         resources = ModuleResources(project_dir, build_env_name)
         is_interactive = external_id is None
-        external_id = self._get_function(external_id, resources)
-        input_data = self._get_input_data(ToolGlobals, data, external_id, resources)
+        external_id = self._get_function(external_id, resources).identifier
+        input_data = self._get_input_data(ToolGlobals, schedule, external_id, resources)
 
         client = ToolGlobals.toolkit_client
         function = client.functions.retrieve(external_id=external_id)
@@ -123,22 +124,30 @@ intended to test the function before deploying it to CDF or to debug issues with
         return True
 
     @staticmethod
-    def _get_function(external_id: str | None, resources: ModuleResources) -> str:
-        functions = resources.list_resources(str, "functions", FunctionLoader.kind)
+    def _get_function(external_id: str | None, resources: ModuleResources) -> ResourceBuildInfoFull[str]:
+        function_builds_by_identifier = {
+            build.identifier: build for build in resources.list_resources(str, "functions", FunctionLoader.kind)
+        }
+
         if external_id is None:
-            external_id = questionary.select("Select function to run", choices=functions.identifiers).ask()
-        elif external_id not in functions.identifiers:
+            external_id = questionary.select(
+                "Select function to run", choices=list(function_builds_by_identifier.keys())
+            ).ask()
+        elif external_id not in function_builds_by_identifier.keys():
             raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
-        return external_id
+        return function_builds_by_identifier[external_id]
 
     @staticmethod
     def _get_input_data(
-        ToolGlobals: CDFToolConfig, data: str | None, external_id: str, resources: ModuleResources
+        ToolGlobals: CDFToolConfig, schedule_name: str | None, external_id: str, resources: ModuleResources
     ) -> dict | None:
-        if data is None and not questionary.confirm("Do you want to provide input data for the function?").ask():
+        if (
+            schedule_name is None
+            and not questionary.confirm("Do you want to provide input data for the function?").ask()
+        ):
             return None
         schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
-        if data is None:
+        if schedule_name is None:
             # Interactive mode
             options = {
                 schedule.identifier.name: schedule
@@ -151,11 +160,14 @@ intended to test the function before deploying it to CDF or to debug issues with
             selected = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
         else:
             for schedule in schedules:
-                if schedule.identifier.function_external_id == external_id and schedule.identifier.name == data:
+                if (
+                    schedule.identifier.function_external_id == external_id
+                    and schedule.identifier.name == schedule_name
+                ):
                     selected = schedule
                     break
             else:
-                raise ToolkitMissingResourceError(f"Could not find data for schedule {data}")
+                raise ToolkitMissingResourceError(f"Could not find data for schedule {schedule_name}")
 
         config = cast(
             FunctionScheduleWrite,
@@ -171,22 +183,26 @@ intended to test the function before deploying it to CDF or to debug issues with
         project_dir: Path,
         build_env_name: str,
         external_id: str | None = None,
-        data: str | None = None,
-        credentials: str | None = None,
+        schedule: str | None = None,
         rebuild_env: bool = False,
     ) -> None:
-        # Todo: Run locally with credentials from a schedule.
         resources = ModuleResources(project_dir, build_env_name)
-        external_id = self._get_function(external_id, resources)
+        function_build = self._get_function(external_id, resources)
+        # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
+        input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources)
 
-        self._setup_virtual_env(external_id, project_dir, rebuild_env)
+        function_local = resources.retrieve_resource_config(function_build, ToolGlobals.environment_variables())
 
-        self._run_function_locally(ToolGlobals, external_id)
+        self._setup_virtual_env(function_local, function_build, rebuild_env)
 
-    def _setup_virtual_env(self, external_id: str, project_dir: Path, rebuild_env: bool) -> None:
+        self._run_function_locally(ToolGlobals, function_build, input_data)
+
+    def _setup_virtual_env(self, function: FunctionWrite, build: ResourceBuildInfoFull[str], rebuild_env: bool) -> None:
         raise NotImplementedError()
 
-    def _run_function_locally(self, ToolGlobals: CDFToolConfig, external_id: str) -> None:
+    def _run_function_locally(
+        self, ToolGlobals: CDFToolConfig, build: ResourceBuildInfoFull[str], input_data: dict | None
+    ) -> None:
         raise NotImplementedError()
 
     def execute(
