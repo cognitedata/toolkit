@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import (
     Database,
@@ -44,6 +45,7 @@ from cognite.client.data_classes.data_modeling import (
     VersionedDataModelingId,
     View,
 )
+from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
 from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import GroupWrite, ProjectSpec, TokenInspection
@@ -52,6 +54,7 @@ from requests import Response
 
 from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
+from cognite_toolkit._cdf_tk.loaders.data_classes import GraphQLDataModelWrite
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
@@ -326,6 +329,7 @@ class ApprovalToolkitClient:
                         "usedFor": "nodes",  # Views
                         "timeSeriesCount": 10,  # Datapoint subscription
                         "updatedTime": 0,  # Robotics
+                        "id": 42,  # LocationFilters
                         **c.dump(camel_case=True),
                     }
                     for c in created
@@ -488,6 +492,27 @@ class ApprovalToolkitClient:
             created_resources[resource_cls.__name__].append(created)
             return created
 
+        def apply_dml(
+            id: dm.DataModelId,
+            dml: str,
+            name: str | None = None,
+            description: str | None = None,
+            previous_version: str | None = None,
+        ) -> DMLApplyResult:
+            created = GraphQLDataModelWrite(
+                id.space, id.external_id, id.version, dml, name, description, previous_version
+            )
+            created_resources[resource_cls.__name__].append(created)
+            return DMLApplyResult(
+                space=id.space,
+                external_id=id.external_id,
+                version=id.version,
+                description=description,
+                name=name,
+                last_updated_time="1",
+                created_time="1",
+            )
+
         available_create_methods = {
             fn.__name__: fn
             for fn in [
@@ -499,6 +524,7 @@ class ApprovalToolkitClient:
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
                 create_3dmodel,
+                apply_dml,
             ]
         }
         if mock_method not in available_create_methods:

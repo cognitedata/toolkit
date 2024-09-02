@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from graphlib import CycleError
 from pathlib import Path
 
 from yaml import YAMLError
@@ -95,6 +96,11 @@ class ToolkitFileExistsError(FileExistsError, ToolkitError):
 
 class ToolkitValidationError(ToolkitError):
     pass
+
+
+class ToolkitCycleError(CycleError, ToolkitValidationError):
+    def __str__(self) -> str:
+        return self.args[0]
 
 
 class ToolkitYAMLFormatError(YAMLError, ToolkitValidationError):

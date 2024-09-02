@@ -11,6 +11,7 @@ variables:
       ds_timeseries: ds_timeseries
       source: src
       location: here
+      space: sp_graphql_space
     another_module:
       space: sp_my_space
       source: src2

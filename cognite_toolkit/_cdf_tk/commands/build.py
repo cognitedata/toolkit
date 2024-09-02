@@ -21,6 +21,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
@@ -30,9 +31,14 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
+    BuildLocationEager,
+    BuildLocationLazy,
     BuildVariables,
+    ModuleBuildInfo,
+    ModuleBuildList,
     ModuleDirectories,
-    SystemYAML,
+    ResourceBuildInfo,
+    ResourceBuildList,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -113,9 +119,9 @@ class BuildCommand(ToolkitCommand):
         if not source_path.is_dir():
             raise ToolkitNotADirectoryError(str(source_path))
 
-        system_config = SystemYAML.load_from_directory(source_path, build_env_name, self.warn, self.user_command)
-        sources = SystemYAML.validate_module_dir(source_path)
-        config = BuildConfigYAML.load_from_directory(source_path, build_env_name, self.warn)
+        cdf_toml = CDFToml.load(source_path)
+        sources = cdf_toml.cdf.get_root_module_paths(source_path)
+        config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
 
         directory_name = "current directory" if source_path == Path(".") else f"project '{source_path!s}'"
         module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
@@ -135,7 +141,7 @@ class BuildCommand(ToolkitCommand):
             build_dir=build_dir,
             source_dir=source_path,
             config=config,
-            system_config=system_config,
+            packages=cdf_toml.modules.packages,
             clean=not no_clean,
             verbose=verbose,
             ToolGlobals=ToolGlobals,
@@ -146,11 +152,11 @@ class BuildCommand(ToolkitCommand):
         build_dir: Path,
         source_dir: Path,
         config: BuildConfigYAML,
-        system_config: SystemYAML,
+        packages: dict[str, list[str]],
         clean: bool = False,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
-    ) -> dict[Path, Path]:
+    ) -> tuple[ModuleBuildList, dict[Path, Path]]:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
             shutil.rmtree(build_dir)
@@ -169,15 +175,13 @@ class BuildCommand(ToolkitCommand):
         if issue := config.validate_environment():
             self.warn(issue)
 
-        user_selected_modules = config.environment.get_selected_modules(system_config.packages)
+        user_selected_modules = config.environment.get_selected_modules(packages)
         modules = ModuleDirectories.load(source_dir, user_selected_modules)
-        self._validate_modules(modules, config, system_config, user_selected_modules, source_dir)
+        self._validate_modules(modules, config, packages, user_selected_modules, source_dir)
 
         if verbose:
             print("  [bold green]INFO:[/] Selected packages:")
-            selected_packages = [
-                package for package in system_config.packages if package in config.environment.selected
-            ]
+            selected_packages = [package for package in packages if package in config.environment.selected]
             if len(selected_packages) == 0:
                 print("    None")
             for package in selected_packages:
@@ -186,7 +190,7 @@ class BuildCommand(ToolkitCommand):
             for module in [module.name for module in modules.selected]:
                 print(f"    {module}")
 
-        variables = BuildVariables.load(config.variables, modules.available_paths, modules.selected.available_paths)
+        variables = BuildVariables.load_raw(config.variables, modules.available_paths, modules.selected.available_paths)
         warnings = validate_modules_variables(variables.selected, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
@@ -202,20 +206,22 @@ class BuildCommand(ToolkitCommand):
                 if variable.location in module_location.relative_path.parts:
                     module_names_by_variable_key[variable.key].append(module_location.name)
 
-        state = self.process_config_files(modules.selected, build_dir, variables, module_names_by_variable_key, verbose)
+        state, build = self.process_config_files(
+            modules.selected, build_dir, variables, module_names_by_variable_key, verbose
+        )
         self._check_missing_dependencies(state, source_dir, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
             print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
-        return state.source_by_build_path
+        return build, state.source_by_build_path
 
     @staticmethod
     def _validate_modules(
         modules: ModuleDirectories,
         config: BuildConfigYAML,
-        system_yaml: SystemYAML,
+        packages: dict[str, list[str]],
         selected_modules: set[str | Path],
         source_dir: Path,
     ) -> None:
@@ -232,7 +238,7 @@ class BuildCommand(ToolkitCommand):
                 f"Ambiguous module selected in config.{config.environment.name}.yaml:", duplicate_modules
             )
         # Package Referenced Modules Exists
-        for package, package_modules in system_yaml.packages.items():
+        for package, package_modules in packages.items():
             if package not in selected_names:
                 # We do not check packages that are not selected.
                 # Typically, the user will delete the modules that are irrelevant for them;
@@ -240,7 +246,7 @@ class BuildCommand(ToolkitCommand):
                 continue
             if missing_packages := set(package_modules) - modules.available_names:
                 ToolkitMissingModuleError(
-                    f"Package {package} defined in {SystemYAML.file_name!s} is referring "
+                    f"Package {package} defined in {CDFToml.file_name!s} is referring "
                     f"the following missing modules {missing_packages}."
                 )
 
@@ -265,7 +271,8 @@ class BuildCommand(ToolkitCommand):
         variables: BuildVariables,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool = False,
-    ) -> _BuildState:
+    ) -> tuple[_BuildState, ModuleBuildList]:
+        build = ModuleBuildList()
         state = _BuildState()
         for module in modules:
             if verbose:
@@ -275,6 +282,7 @@ class BuildCommand(ToolkitCommand):
 
             files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
 
+            build_resources: dict[str, ResourceBuildList] = defaultdict(ResourceBuildList)
             for resource_directory_name, directory_files in files_by_resource_directory.items():
                 build_folder: list[Path] = []
                 for source_path in directory_files.resource_files:
@@ -282,10 +290,11 @@ class BuildCommand(ToolkitCommand):
                         source_path, resource_directory_name, module.dir, build_dir
                     )
 
-                    self._replace_variables_validate_to_build_directory(
+                    resource_info = self._replace_variables_validate_to_build_directory(
                         source_path, destination, module_variables, state, module_names_by_variable_key, verbose
                     )
                     build_folder.append(destination)
+                    build_resources[resource_directory_name].extend(resource_info)
 
                 if resource_directory_name == FunctionLoader.folder_name:
                     self._validate_function_directory(state, directory_files, module.dir)
@@ -322,7 +331,19 @@ class BuildCommand(ToolkitCommand):
                                 )
                             # Copy the file as is, not variable replacement
                             shutil.copyfile(source_path, destination)
-        return state
+
+            build.append(
+                ModuleBuildInfo(
+                    name=module.name,
+                    location=BuildLocationLazy(
+                        path=module.relative_path,
+                        absolute_path=module.dir,
+                    ),
+                    build_variables=module_variables,
+                    resources=build_resources,
+                )
+            )
+        return state, build
 
     def _validate_function_directory(
         self, state: _BuildState, directory_files: ResourceDirectory, module_dir: Path
@@ -361,28 +382,30 @@ class BuildCommand(ToolkitCommand):
         state: _BuildState,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool,
-    ) -> None:
+    ) -> ResourceBuildList:
         if verbose:
             print(f"    [bold green]INFO:[/] Processing {source_path.name}")
 
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
         content = safe_read(source_path)
-        state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content)
+        state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content, shorten=True)
+        location = BuildLocationEager(source_path, state.hash_by_source_path[source_path])
 
         content = variables.replace(content, source_path.suffix)
 
         safe_write(destination_path, content)
         state.source_by_build_path[destination_path] = source_path
 
-        file_warnings = self.validate(
-            content, source_path, destination_path, state, module_names_by_variable_key, verbose
+        file_warnings, identifiers, kind = self.validate(
+            content, source_path, destination_path, state, module_names_by_variable_key
         )
         if file_warnings:
             self.warning_list.extend(file_warnings)
             # Here we do not use the self.warn method as we want to print the warnings as a group.
             if self.print_warning:
                 print(str(file_warnings))
+        return ResourceBuildList([ResourceBuildInfo(identifier, location, kind) for identifier in identifiers])
 
     def _check_missing_dependencies(
         self, state: _BuildState, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None
@@ -656,8 +679,7 @@ class BuildCommand(ToolkitCommand):
         destination: Path,
         state: _BuildState,
         module_names_by_variable_key: dict[str, list[str]],
-        verbose: bool,
-    ) -> WarningList[FileReadWarning]:
+    ) -> tuple[WarningList[FileReadWarning], list[Hashable], str]:
         warning_list = WarningList[FileReadWarning]()
         module = module_from_path(source_path)
         resource_folder = resource_folder_from_path(source_path)
@@ -680,7 +702,7 @@ class BuildCommand(ToolkitCommand):
                 )
 
         if destination.suffix not in {".yaml", ".yml"}:
-            return warning_list
+            return warning_list, [], "Unknown"
 
         try:
             parsed = yaml.safe_load(content)
@@ -693,7 +715,7 @@ class BuildCommand(ToolkitCommand):
 
         loader = self._get_loader(resource_folder, destination, source_path)
         if loader is None or not issubclass(loader, ResourceLoader):
-            return warning_list
+            return warning_list, [], "Unknown"
 
         api_spec = self._get_api_spec(loader, destination)
         is_dict_item = isinstance(parsed, dict)
@@ -705,6 +727,7 @@ class BuildCommand(ToolkitCommand):
         else:
             items = [parsed] if is_dict_item else parsed
 
+        identifiers: list[Hashable] = []
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no
 
@@ -715,6 +738,7 @@ class BuildCommand(ToolkitCommand):
                 warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
 
             if identifier:
+                identifiers.append(identifier)
                 if first_seen := state.ids_by_resource_type[loader].get(identifier):
                     if loader is not RawDatabaseLoader:
                         # RAW Database will pick up all Raw Tables, so we don't want to warn about duplicates.
@@ -739,7 +763,7 @@ class BuildCommand(ToolkitCommand):
             data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)
             warning_list.extend(data_set_warnings)
 
-        return warning_list
+        return warning_list, identifiers, loader.kind
 
     def _get_api_spec(self, loader: type[ResourceLoader], destination: Path) -> ParameterSpecSet | None:
         api_spec: ParameterSpecSet | None = None

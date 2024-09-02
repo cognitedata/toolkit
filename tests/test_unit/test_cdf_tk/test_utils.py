@@ -18,6 +18,7 @@ from cognite.client.data_classes.capabilities import (
     ProjectCapabilityList,
     ProjectsScope,
 )
+from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.data_classes.iam import ProjectSpec
 from cognite.client.exceptions import CogniteAuthError
 from pytest import MonkeyPatch
@@ -29,6 +30,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
 from cognite_toolkit._cdf_tk.utils import (
     AuthVariables,
     CDFToolConfig,
+    GraphQLParser,
     calculate_directory_hash,
     flatten_dict,
     iterate_modules,
@@ -419,3 +421,105 @@ def test_flatten_dict(input_: dict[str, Any], expected: dict[str, Any]) -> None:
     actual = flatten_dict(input_)
 
     assert actual == expected
+
+
+SPACE = "sp_my_space"
+DATA_MODEL = DataModelId(SPACE, "MyDataModel", "v1")
+GraphQLTestCases = [
+    pytest.param(
+        """interface Creatable @view(space: "cdf_apps_shared", version: "v1") @import {
+  visibility: String
+  createdBy: CDF_User
+  updatedBy: CDF_User
+  isArchived: Boolean
+}""",
+        DATA_MODEL,
+        set(),
+        {ViewId("cdf_apps_shared", "Creatable", "v1")},
+        id="Imported interface",
+    ),
+    pytest.param(
+        """"@code WOOL"
+type WorkOrderObjectListItem @import(dataModel: {externalId: "MaintenanceDOM", version: "2_2_0", space: "EDG-COR-ALL-DMD"}) {
+  ...
+}""",
+        DATA_MODEL,
+        set(),
+        {DataModelId(space="EDG-COR-ALL-DMD", external_id="MaintenanceDOM", version="2_2_0")},
+        id="Imported data model",
+    ),
+    pytest.param(
+        '''
+"""
+@name        Notification
+@description This is a SAP notification object.
+@code        NOTI
+"""
+type Notification @container(indexes: [{identifier: "refCostCenterIndex", indexType: BTREE, fields: ["refCostCenter"]}, {identifier: "createdDateIndex", indexType: BTREE, fields: ["createdDate"], cursorable: true}]) @import(dataModel: {externalId: "MaintenanceDOM", version: "2_2_0", space: "EDG-COR-ALL-DMD"}) {
+  ...
+  }
+''',
+        DATA_MODEL,
+        set(),
+        {DataModelId(space="EDG-COR-ALL-DMD", external_id="MaintenanceDOM", version="2_2_0")},
+        id="Imported data model with unused container directive",
+    ),
+    pytest.param(
+        '''
+    """
+@code WKCC
+@Description Work Center Category in SAP
+"""
+type WorkCenterCategory {
+    """
+    @name Name
+    """
+    name: String!
+    """
+    @name Description
+    """
+    description: String
+    """
+    @name Code
+    """
+    code: String
+}''',
+        DATA_MODEL,
+        {ViewId(SPACE, "WorkCenterCategory", None)},
+        set(),
+        id="Simple type",
+    ),
+    pytest.param(
+        """type Cdf3dConnectionProperties
+  @import
+  @view(space: "cdf_3d_schema", version: "1")
+  @edge
+  @container(
+    constraints: [
+      {
+        identifier: "uniqueNodeRevisionConstraint"
+        constraintType: UNIQUENESS
+        fields: ["revisionId", "revisionNodeId"]
+      }
+    ]
+  ) {
+  revisionId: Int64!
+  revisionNodeId: Int64!
+}""",
+        DATA_MODEL,
+        set(),
+        {ViewId("cdf_3d_schema", "Cdf3dConnectionProperties", "1")},
+        id="Edge type",
+    ),
+]
+
+
+class TestGraphQLParser:
+    @pytest.mark.parametrize("raw, data_model_id, expected_views, dependencies", GraphQLTestCases)
+    def test_parse(
+        self, raw: str, data_model_id: DataModelId, expected_views: set[ViewId], dependencies: set[ViewId | DataModelId]
+    ) -> None:
+        parser = GraphQLParser(raw, data_model_id)
+
+        assert parser.get_views() == expected_views
+        assert parser.get_dependencies(include_version=True) == dependencies

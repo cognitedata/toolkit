@@ -117,6 +117,18 @@ from cognite.client.data_classes.transformations.notifications import (
 from cognite_toolkit._cdf_tk.client.data_classes import (
     robotics,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
+    LocationFilter,
+    LocationFilterList,
+    LocationFilterWrite,
+    LocationFilterWriteList,
+)
+from cognite_toolkit._cdf_tk.loaders.data_classes import (
+    GraphQLDataModel,
+    GraphQLDataModelList,
+    GraphQLDataModelWrite,
+    GraphQLDataModelWriteList,
+)
 
 from .data_classes import APIResource, Method
 
@@ -581,6 +593,29 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
+        },
+    ),
+    APIResource(
+        api_name="location_filters",
+        resource_cls=LocationFilter,
+        list_cls=LocationFilterList,
+        _write_cls=LocationFilterWrite,
+        _write_list_cls=LocationFilterWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="data_modeling.graphql",
+        resource_cls=GraphQLDataModel,
+        list_cls=GraphQLDataModelList,
+        _write_cls=GraphQLDataModelWrite,
+        _write_list_cls=GraphQLDataModelWriteList,
+        methods={
+            "create": [Method(api_class_method="apply_dml", mock_class_method="apply_dml")],
         },
     ),
 ]

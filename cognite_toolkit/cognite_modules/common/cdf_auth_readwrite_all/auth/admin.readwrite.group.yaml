@@ -135,3 +135,9 @@ capabilities:
         - DELETE
       scope:
         all: {}
+  - locationFiltersAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}

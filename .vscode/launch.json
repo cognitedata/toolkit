@@ -35,7 +35,7 @@
       "program": "./cdf-tk-dev.py",
       "args": [
         "deploy",
-        "--dry-run",
+        //"--dry-run",
         //"--drop",
         //"--drop-data",
         "--env=local",

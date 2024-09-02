@@ -12,7 +12,7 @@ from typer import Context
 
 from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, SystemYAML
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
@@ -26,6 +26,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
 
+@pytest.mark.usefixtures("cdf_toml")
 def test_inject_custom_environmental_variables(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -73,14 +74,12 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     config.environment = MagicMock(spec=Environment)
     config.environment.name = "dev"
     config.environment.selected = ["module1"]
-    system_yaml = MagicMock(spec=SystemYAML)
-    system_yaml.packages = {}
     with pytest.raises(ToolkitDuplicatedModuleError) as err:
         BuildCommand().build_config(
             build_dir=build_tmp_path,
             source_dir=PROJECT_WITH_DUPLICATES,
             config=config,
-            system_config=system_yaml,
+            packages={},
         )
     l1, l2, l3, l4, l5 = map(str.strip, str(err.value).splitlines())
     assert l1 == "Ambiguous module selected in config.dev.yaml:"
@@ -90,6 +89,7 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     assert l5.startswith("You can use the path syntax to disambiguate between modules with the same name")
 
 
+@pytest.mark.usefixtures("cdf_toml_mutable")
 def test_pull_transformation(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -124,7 +124,7 @@ def test_pull_transformation(
         transformation = loader.load_resource(transformation_yaml, cdf_tool_config, skip_validation=True)
         # Write back original content
         transformation_yaml.write_text(original)
-        return transformation
+        return cast(TransformationWrite, transformation)
 
     loaded = load_transformation()
 
