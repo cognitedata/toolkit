@@ -58,7 +58,9 @@ intended to test the function before deploying it to CDF or to debug issues with
     ) -> bool:
         resources = ModuleResources(project_dir, build_env_name)
         functions = resources.list_resources(str, "functions", FunctionLoader.kind)
+        is_interactive = False
         if external_id is None:
+            is_interactive = True
             external_id = questionary.select("Select function to run", choices=functions.identifiers).ask()
         elif external_id not in functions.identifiers:
             raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
@@ -103,11 +105,15 @@ intended to test the function before deploying it to CDF or to debug issues with
                     if config.data is None:
                         raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
                     input_data = config.data
+
         client = ToolGlobals.toolkit_client
 
         function = client.functions.retrieve(external_id=external_id)
         if function is None:
             raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
+
+        if is_interactive:
+            wait = questionary.confirm("Do you want to wait for the function to complete?").ask()
 
         session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
 
