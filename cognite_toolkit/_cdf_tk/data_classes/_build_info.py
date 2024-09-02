@@ -11,11 +11,13 @@ import yaml
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.loaders import ResourceTypes
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
+from cognite_toolkit._cdf_tk.loaders import ResourceTypes, get_loader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_str_or_file_hash,
+    load_yaml_inject_variables,
     safe_read,
     safe_write,
     tmp_build_directory,
@@ -110,7 +112,7 @@ class ResourceBuildInfo(Generic[T_ID]):
             "kind": self.kind,
         }
 
-    def create_full(self, module: ModuleBuildInfo) -> ResourceBuildInfoFull[T_ID]:
+    def create_full(self, module: ModuleBuildInfo, resource_dir: str) -> ResourceBuildInfoFull[T_ID]:
         return ResourceBuildInfoFull(
             identifier=self.identifier,
             location=self.location,
@@ -118,6 +120,7 @@ class ResourceBuildInfo(Generic[T_ID]):
             build_variables=module.build_variables,
             module_name=module.name,
             module_location=module.location.path,
+            resource_dir=resource_dir,
         )
 
 
@@ -126,6 +129,7 @@ class ResourceBuildInfoFull(ResourceBuildInfo[T_ID]):
     build_variables: BuildVariables
     module_name: str
     module_location: Path
+    resource_dir: str
 
 
 class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[T_ID]):
@@ -225,7 +229,7 @@ class ModuleBuildList(list, MutableSequence[ModuleBuildInfo]):
     def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildListFull[T_ID]:
         return ResourceBuildListFull[T_ID](
             [
-                resource.create_full(module)
+                resource.create_full(module, resource_dir)
                 for module in self
                 for resource in module.resources.get(resource_dir, [])
                 if resource.kind == kind
@@ -399,10 +403,18 @@ class ModuleResources:
                 self._build_info = BuildInfo.rebuild(self._project_dir, self._build_env, needs_rebuild)
         return self._build_info.modules.modules.get_resources(id_type, resource_dir, kind)
 
-    def retrieve_resource_config(self, build: ResourceBuildInfoFull) -> str:
-        content = safe_read(self._project_dir / build.location.path)
-
-        return build.build_variables.replace(content)
+    def retrieve_resource_config(self, build: ResourceBuildInfoFull, environment_variables: dict[str, Any]) -> Any:
+        content = safe_read(build.location.path)
+        content = build.build_variables.replace(content)
+        loader = cast(ResourceLoader, get_loader(build.resource_dir, build.kind))
+        raw = load_yaml_inject_variables(content, environment_variables)
+        if isinstance(raw, dict):
+            return loader.resource_write_cls.load(raw, build.identifier)
+        elif isinstance(raw, list):
+            for item in raw:
+                if loader.get_id(item) == build.identifier:
+                    return loader.resource_write_cls.load(item)
+        raise ToolkitMissingResourceError(f"Resource {build.identifier} not found in {build.location.path}")
 
     def list(self) -> ModuleBuildList:
         # Check if the build info is up to date

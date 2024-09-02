@@ -10,7 +10,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import questionary
 from cognite.client.data_classes import (
@@ -69,8 +69,10 @@ intended to test the function before deploying it to CDF or to debug issues with
                 schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
                 for schedule in schedules:
                     if schedule.identifier.function_external_id == external_id and schedule.identifier.name == data:
-                        schedule_raw = resources.retrieve_resource_config(schedule)
-                        config = FunctionScheduleWrite.load(schedule_raw)
+                        config = cast(
+                            FunctionScheduleWrite,
+                            resources.retrieve_resource_config(schedule, ToolGlobals.environment_variables()),
+                        )
                         if config.data is None:
                             raise ToolkitMissingResourceError(
                                 f"The schedule {schedule.identifier.name} does not have data"
@@ -92,8 +94,10 @@ intended to test the function before deploying it to CDF or to debug issues with
                     print("No schedules found for this function.")
                     return
                 selected = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
-                schedule_raw = resources.retrieve_resource_config(options[selected])
-                config = FunctionScheduleWrite.load(schedule_raw)
+                config = cast(
+                    FunctionScheduleWrite,
+                    resources.retrieve_resource_config(options[selected], ToolGlobals.environment_variables()),
+                )
                 if config.data is None:
                     raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
                 input_data = config.data
@@ -106,9 +110,9 @@ intended to test the function before deploying it to CDF or to debug issues with
         session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
 
         result = ToolGlobals.toolkit_client.functions.call(
-            external_id=external_id, data=input_data, nonce=session.nonce
+            external_id=external_id, data=input_data, wait=False, nonce=session.nonce
         )
-        table = Table(title=f"Function {external_id}, id {result.id}")
+        table = Table(title=f"Function {external_id}, id {function.id}")
         table.add_column("Info", justify="left")
         table.add_column("Value", justify="left", style="green")
         table.add_row("Call id", str(result.id))
