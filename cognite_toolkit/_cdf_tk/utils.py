@@ -859,9 +859,7 @@ def load_yaml_inject_variables(
         content = content.replace(f"${{{key}}}", value)
     for match in re.finditer(r"\$\{([^}]+)\}", content):
         environment_variable = match.group(1)
-        suffix = ""
-        if isinstance(filepath, Path):
-            suffix = f" It is expected in {filepath.name}."
+        suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
         MediumSeverityWarning(f"Variable {environment_variable} is not set in the environment.{suffix}").print_warning()
 
     if yaml.__with_libyaml__:
