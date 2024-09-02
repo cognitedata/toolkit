@@ -118,7 +118,7 @@ class ExtractionPipelineLoader(
                         yield RawTableLoader, RawDatabaseTable._load(entry)
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
         resources = load_yaml_inject_variables(filepath, {})
         if isinstance(resources, dict):
@@ -247,7 +247,7 @@ class ExtractionPipelineConfigLoader(
             yield ExtractionPipelineLoader, item["externalId"]
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
         resources = load_yaml_inject_variables(filepath, {})
         if isinstance(resources, dict):

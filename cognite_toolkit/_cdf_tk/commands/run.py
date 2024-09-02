@@ -26,7 +26,6 @@ from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, ModuleResource
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import FunctionScheduleID
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, module_from_path, safe_read
 
 from ._base import ToolkitCommand
@@ -57,9 +56,10 @@ intended to test the function before deploying it to CDF or to debug issues with
         elif external_id not in functions.identifiers:
             raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
 
+        input_data: dict | None = None
         if data is not None:
             try:
-                data = json.loads(data)
+                input_data = json.loads(data)
             except json.JSONDecodeError:
                 schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
                 for schedule in schedules:
@@ -69,12 +69,36 @@ intended to test the function before deploying it to CDF or to debug issues with
                             schedule_raw, ToolGlobals, skip_validation=False
                         )[0]
                         if config.data is None:
-                            self.warn(LowSeverityWarning(f"Could not find data for schedule {data}"))
-                        else:
-                            data = config.data
+                            raise ToolkitMissingResourceError(
+                                f"The schedule {schedule.identifier.name} does not have data"
+                            )
 
-        result = ToolGlobals.toolkit_client.functions.call(external_id=external_id, data=data, wait=wait)
-        result.get_logs()
+                        input_data = config.data
+                        break
+                else:
+                    raise ToolkitMissingResourceError(f"Could not find data for schedule {data}")
+        elif input_data is None:
+            if questionary.confirm("Do you want to provide input data for the function?"):
+                schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
+                options = {
+                    schedule.identifier.name: schedule
+                    for schedule in schedules
+                    if schedule.identifier.function_external_id == external_id
+                }
+                if len(options) == 0:
+                    print("No schedules found for this function.")
+                    return
+                selected = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
+                schedule_raw = resources.retrieve_resource_config(options[selected])
+                config = FunctionScheduleLoader.create_loader(ToolGlobals, None).load_resource(
+                    schedule_raw, ToolGlobals, skip_validation=False
+                )[0]
+                if config.data is None:
+                    raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
+                input_data = config.data
+
+        result = ToolGlobals.toolkit_client.functions.call(external_id=external_id, data=input_data, wait=wait)
+        print(result.dump())
 
     def run_local(
         self,
@@ -98,10 +122,10 @@ intended to test the function before deploying it to CDF or to debug issues with
 
         self._run_function_locally(ToolGlobals, external_id)
 
-    def _setup_virtual_env(self, run_info: RunFunction, project_dir: Path, rebuild_env: bool) -> None:
+    def _setup_virtual_env(self, external_id: str, project_dir: Path, rebuild_env: bool) -> None:
         raise NotImplementedError()
 
-    def _run_function_locally(self, ToolGlobals: CDFToolConfig, run_info: RunFunction) -> None:
+    def _run_function_locally(self, ToolGlobals: CDFToolConfig, external_id: str) -> None:
         raise NotImplementedError()
 
     def execute(

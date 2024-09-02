@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_str_or_file_hash,
+    safe_read,
     safe_write,
     tmp_build_directory,
 )
@@ -109,6 +110,23 @@ class ResourceBuildInfo(Generic[T_ID]):
             "kind": self.kind,
         }
 
+    def create_full(self, module: ModuleBuildInfo) -> ResourceBuildInfoFull[T_ID]:
+        return ResourceBuildInfoFull(
+            identifier=self.identifier,
+            location=self.location,
+            kind=self.kind,
+            build_variables=module.build_variables,
+            module_name=module.name,
+            module_location=module.location.path,
+        )
+
+
+@dataclass
+class ResourceBuildInfoFull(ResourceBuildInfo[T_ID]):
+    build_variables: BuildVariables
+    module_name: str
+    module_location: Path
+
 
 class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[T_ID]):
     # Implemented to get correct type hints
@@ -132,6 +150,26 @@ class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[
     @property
     def identifiers(self) -> list[T_ID]:
         return [resource.identifier for resource in self]
+
+
+class ResourceBuildListFull(ResourceBuildList[T_ID]):
+    # Implemented to get correct type hints
+    def __init__(self, collection: Collection[ResourceBuildInfoFull[T_ID]] | None = None) -> None:
+        super().__init__(collection or [])
+
+    def __iter__(self) -> Iterator[ResourceBuildInfoFull[T_ID]]:
+        return cast(Iterator[ResourceBuildInfoFull[T_ID]], super().__iter__())
+
+    @overload
+    def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfoFull[T_ID]: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> ResourceBuildListFull[T_ID]: ...
+
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfoFull[T_ID] | ResourceBuildListFull[T_ID]:
+        if isinstance(index, slice):
+            return ResourceBuildListFull[T_ID](super().__getitem__(index))
+        return cast(ResourceBuildInfoFull[T_ID], super().__getitem__(index))
 
 
 @dataclass
@@ -184,10 +222,10 @@ class ModuleBuildList(list, MutableSequence[ModuleBuildInfo]):
             return ModuleBuildList(super().__getitem__(index))
         return super().__getitem__(index)
 
-    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildList[T_ID]:
-        return ResourceBuildList[T_ID](
+    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildListFull[T_ID]:
+        return ResourceBuildListFull[T_ID](
             [
-                resource
+                resource.create_full(module)
                 for module in self
                 for resource in module.resources.get(resource_dir, [])
                 if resource.kind == kind
@@ -351,13 +389,20 @@ class ModuleResources:
             config_yaml.variables, self._current_modules.available_paths, self._current_modules.selected.available_paths
         )
 
-    def list_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildList[T_ID]:
+    def list_resources(
+        self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str
+    ) -> ResourceBuildListFull[T_ID]:
         if not self._has_rebuilt:
             if needs_rebuild := self._build_info.compare_modules(
                 self._current_modules, self._current_variables, {resource_dir}
             ):
                 self._build_info = BuildInfo.rebuild(self._project_dir, self._build_env, needs_rebuild)
         return self._build_info.modules.modules.get_resources(id_type, resource_dir, kind)
+
+    def retrieve_resource_config(self, build: ResourceBuildInfoFull) -> str:
+        content = safe_read(self._project_dir / build.location.path)
+
+        return build.build_variables.replace(content)
 
     def list(self) -> ModuleBuildList:
         # Check if the build info is up to date

@@ -193,7 +193,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return group
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> GroupWrite | GroupWriteList | None:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
 

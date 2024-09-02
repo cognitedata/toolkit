@@ -63,6 +63,7 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitInvalidParameterNameError,
+    ToolkitNotSupported,
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
@@ -176,8 +177,10 @@ class TransformationLoader(
         return query_file
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationWrite | TransformationWriteList:
+        if isinstance(filepath, str):
+            raise ToolkitNotSupported("Loading transformations from strings is not supported.")
         resources = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
 
@@ -363,7 +366,7 @@ class TransformationScheduleLoader(
             yield TransformationLoader, item["externalId"]
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(raw, dict):

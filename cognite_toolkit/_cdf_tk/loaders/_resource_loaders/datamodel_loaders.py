@@ -68,7 +68,7 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT, INDEX_PATTERN
-from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitFileNotFoundError, ToolkitNotSupported
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
@@ -265,7 +265,7 @@ class ContainerLoader(
                         )
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ContainerApply | ContainerApplyList | None:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         dict_items = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
@@ -856,7 +856,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyListWithCall:
+    def load_resource(
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> NodeApplyListWithCall:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         return NodeApplyListWithCall._load(raw, cognite_client=self.client)
 
@@ -1008,8 +1010,11 @@ class GraphQLLoader(
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> GraphQLDataModelWriteList:
+        if isinstance(filepath, str):
+            raise ToolkitNotSupported(f"Loading from string is not supported for {self.kind}")
+
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         raw_list = raw if isinstance(raw, list) else [raw]
         models = GraphQLDataModelWriteList._load(raw_list)

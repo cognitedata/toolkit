@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ParameterSpec,
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
+    ToolkitNotSupported,
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
@@ -109,8 +110,11 @@ class FileMetadataLoader(
             yield AssetLoader, asset_external_id
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FileMetadataWrite | FileMetadataWriteList:
+        if isinstance(filepath, str):
+            raise ToolkitNotSupported("Loading from string is not supported for FileMetadataLoader")
+
         loaded = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
 
         file_to_upload_by_source_name: dict[str, Path] = {

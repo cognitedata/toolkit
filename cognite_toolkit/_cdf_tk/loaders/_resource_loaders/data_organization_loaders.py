@@ -84,7 +84,9 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
+    def load_resource(
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
 
         data_sets = [resource] if isinstance(resource, dict) else resource
@@ -237,7 +239,7 @@ class LabelLoader(
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> LabelDefinitionWrite | LabelDefinitionWriteList | None:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         items: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml

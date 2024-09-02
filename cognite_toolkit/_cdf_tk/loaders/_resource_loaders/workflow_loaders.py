@@ -92,7 +92,9 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> WorkflowUpsertList:
+    def load_resource(
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> WorkflowUpsertList:
         resource = load_yaml_inject_variables(filepath, {})
 
         workflows = [resource] if isinstance(resource, dict) else resource
@@ -181,7 +183,7 @@ class WorkflowVersionLoader(
             yield WorkflowLoader, item["workflowExternalId"]
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> WorkflowVersionUpsertList:
         resource = load_yaml_inject_variables(filepath, {})
 
