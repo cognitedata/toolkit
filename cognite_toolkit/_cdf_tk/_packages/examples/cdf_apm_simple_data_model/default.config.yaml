@@ -1,0 +1,14 @@
+# Values here are only valid for this module.
+# The raw database values here point to the RAW data loaded in the cdf_oid_example_data
+# module. If you have changed the default values in that module, you need to change them here as well.
+default_location: oid
+source_asset: workmate
+source_workorder: workmate
+source_timeseries: pi
+datamodel: apm_simple
+space: sp_apm_simple
+datamodel_version: '1'
+view_Asset_version: '1'
+view_WorkOrder_version: '1'
+view_WorkItem_version: '1'
+pause_transformations: true

@@ -1,0 +1,80 @@
+externalId: WorkItem
+name: WorkItem
+space: '{{space}}'
+version: '{{view_WorkItem_version}}'
+properties:
+  criticality:
+    container:
+      externalId: WorkItem
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: criticality
+    name: criticality
+  description:
+    container:
+      externalId: WorkItem
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: description
+    name: description
+  isCompleted:
+    container:
+      externalId: WorkItem
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: isCompleted
+    name: isCompleted
+  itemInfo:
+    container:
+      externalId: WorkItem
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: itemInfo
+    name: itemInfo
+  itemName:
+    container:
+      externalId: WorkItem
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: itemName
+    name: itemName
+  linkedAssets:
+    direction: outwards
+    connectionType: multiEdgeConnection
+    name: linkedAssets
+    source:
+      externalId: Asset
+      space: '{{space}}'
+      type: view
+      version: '{{view_Asset_version}}'
+    type:
+      externalId: WorkItem.linkedAssets
+      space: '{{space}}'
+  method:
+    container:
+      externalId: WorkItem
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: method
+    name: method
+  title:
+    container:
+      externalId: WorkItem
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: title
+    name: title
+  toBeDone:
+    container:
+      externalId: WorkItem
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: toBeDone
+    name: toBeDone
+  workOrder:
+    container:
+      externalId: WorkItem
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: workOrder
+    name: workOrder

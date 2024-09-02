@@ -1,0 +1,9 @@
+[module]
+version = "0.0.0"
+description = ""
+
+[packages]
+tags = [
+    "inrobot",
+    "quickstart"
+]

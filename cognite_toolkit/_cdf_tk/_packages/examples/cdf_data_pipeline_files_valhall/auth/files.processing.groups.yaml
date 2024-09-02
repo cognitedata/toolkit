@@ -1,0 +1,88 @@
+# This role is used for the processing of asset data, creating an asset hierarchy 
+name: 'gp_files_{{location_name}}_processing'
+sourceId: '{{files_location_processing_group_source_id}}'
+metadata:
+  origin: 'cdf-project-templates'
+capabilities:
+  - rawAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        tableScope: {
+          dbsToTables: {'files_{{location_name}}_{{source_name}}':{} }
+        }
+  - sessionsAcl:
+      actions:
+        - LIST
+        - CREATE
+        - DELETE
+      scope:
+        all: {}
+  - assetsAcl: 
+      actions:      
+        - READ
+        - WRITE
+      scope: 
+        datasetScope: {
+            ids: ['ds_asset_{{location_name}}']
+        }
+  - filesAcl: 
+      actions:      
+        - READ
+        - WRITE
+      scope: 
+        datasetScope: {
+            ids: ['ds_files_{{location_name}}']
+        }
+  - extractionConfigsAcl: 
+      actions:      
+        - READ
+        - WRITE
+      scope: 
+        datasetScope: {
+            ids: ['ds_files_{{location_name}}']
+        }
+  - extractionRunsAcl: 
+      actions:      
+        - READ
+        - WRITE
+      scope: 
+        datasetScope: {
+            ids: ['ds_files_{{location_name}}']
+        }
+  - annotationsAcl: 
+      actions: 
+        - READ
+        - WRITE
+        - SUGGEST
+        - REVIEW
+      scope:
+        all: {}
+  - entitymatchingAcl: 
+      actions: 
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - labelsAcl: 
+      actions: 
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - functionsAcl: 
+      actions: 
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - transformationsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        datasetScope: {
+            ids: ['ds_files_{{location_name}}']
+        }
+  

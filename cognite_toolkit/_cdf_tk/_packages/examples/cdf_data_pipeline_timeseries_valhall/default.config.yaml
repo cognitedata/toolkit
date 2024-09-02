@@ -1,0 +1,27 @@
+# This is the configuration file used for the example data from The Open Industrial Data (oid)
+#
+# The data originates from a single compressor on Aker BP’s Valhall oil platform 
+# in the North Sea. Aker BP selected the first stage compressor on the Valhall 
+# because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
+# specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all' 
+
+version: 0.0.1
+
+# location based on OID example data
+location_name: oid
+
+# specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
+source_name: opcua
+timeseries_dataset: ds_timeseries_oid
+external_root_id_asset: WMT:VAL
+
+# configuration for local OPC-UA simulator ( not part of CDF)
+opcua_endpoint_url: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer
+opcua_id_prefix: "opc-ua:"
+opcua_root_namespace_uri: http://www.prosysopc.com/OPCUA/SimulationNodes/
+opcua_root_node_id: s=85/0:Simulation
+
+# source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+timeseries_location_extractor_group_source_id: <change_me>
+timeseries_location_processing_group_source_id: <change_me>
+timeseries_location_read_group_source_id: <change_me>

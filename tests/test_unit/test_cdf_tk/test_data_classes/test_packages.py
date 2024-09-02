@@ -13,7 +13,7 @@ class TestPackages:
     def test_load(self) -> None:
         packages = Packages.load(PACKAGE_FOR_TEST)
         assert packages is not None
-        assert len(packages) == 3
+        assert len(packages) == 5
         assert len(packages[0].modules) > 0
 
     def test_fail_on_invalid_tag(self) -> None:

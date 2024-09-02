@@ -1,0 +1,3 @@
+externalId: tr_timeseries_{{default_location}}_{{source_timeseries}}_apm_simple_load_timeseries2assets
+interval: '{{scheduleHourly}}'
+isPaused : {{pause_transformations}}

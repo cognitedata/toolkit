@@ -1,0 +1,102 @@
+externalId: Asset
+name: Asset
+space: '{{space}}'
+version: '{{view_Asset_version}}'
+properties:
+  areaId:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: areaId
+    name: areaId
+  categoryId:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: categoryId
+    name: categoryId
+  children:
+    direction: outwards
+    connectionType: multiEdgeConnection
+    name: children
+    source:
+      externalId: Asset
+      space: '{{space}}'
+      type: view
+      version: '{{view_Asset_version}}'
+    type:
+      externalId: Asset.children
+      space: '{{space}}'
+  createdDate:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: createdDate
+    name: createdDate
+  description:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: description
+    name: description
+  documents:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: documents
+    name: documents
+  isActive:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: isActive
+    name: isActive
+  isCriticalLine:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: isCriticalLine
+    name: isCriticalLine
+  metrics:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: metrics
+    name: metrics
+  parent:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: parent
+    name: parent
+  sourceDb:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: sourceDb
+    name: sourceDb
+  tag:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: tag
+    name: tag
+  updatedDate:
+    container:
+      externalId: Asset
+      space: '{{space}}'
+      type: container
+    containerPropertyIdentifier: updatedDate
+    name: updatedDate
+

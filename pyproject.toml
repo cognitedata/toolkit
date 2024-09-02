@@ -72,13 +72,13 @@ follow_imports = "normal"
 ignore_missing_imports = true
 exclude = ["cognite_toolkit/cognite_modules",
             "cognite_toolkit/build*", 
-            "tests/data/package"]
+            "tests/data/_packages","cognite_toolkit/_cdf_tk/_packages/*"]
 [tool.ruff]
 line-length = 120
 
 [tool.ruff.format]
 # Ruff messes up the docstrings which are expected to be in Markdown format
-exclude = ["cognite_toolkit/_cdf_tk/commands/_changes.py", "cognite_toolkit/cognite_modules/inrobot/*", "tests/data/package/inrobot/*"]
+exclude = ["cognite_toolkit/_cdf_tk/commands/_changes.py", "cognite_toolkit/cognite_modules/inrobot/*", "tests/data/_packages/inrobot/*", "cognite_toolkit/_cdf_tk/_packages/*"]
 
 [build-system]
 requires = ["poetry-core"]

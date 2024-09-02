@@ -1,0 +1,3 @@
+externalId: 'tr_files_{{location_name}}_{{source_name}}_file_metadata'
+interval: '{{scheduleHourly}}'
+isPaused: {{pause_transformations}}

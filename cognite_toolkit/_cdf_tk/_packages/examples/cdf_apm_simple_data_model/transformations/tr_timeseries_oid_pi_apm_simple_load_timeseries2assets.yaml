@@ -1,0 +1,25 @@
+externalId: tr_timeseries_{{default_location}}_{{source_timeseries}}_apm_simple_load_timeseries2assets
+name: timeseries:{{default_location}}:{{source_timeseries}}:apm_simple:load_timeseries2assets
+destination:
+  dataModel:
+    space: {{space}}
+    externalId: {{datamodel}}
+    version: '1'
+    destinationType: Asset
+  instanceSpace: {{space}}
+  type: instances
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+dataSetExternalId: ds_transformations_{{default_location}}
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the cicd_scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the cicd_audience
+  audience: {{cicd_audience}}

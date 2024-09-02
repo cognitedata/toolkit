@@ -1,0 +1,3 @@
+- externalId: {{data_set}}
+  name: Lift Pump Stations
+  description: This dataset contains the lift pump stations.

@@ -1,0 +1,18 @@
+- externalId: 'cdf_tooklit:example_timeseries'
+  name: 'CDF Toolkit Example Timeseries'
+  dataSetExternalId: ds_timeseries_{{example_variable}}
+  isString: false
+  metadata:
+    foo: 'bar'
+  isStep: false
+  description: This is an example timeseries used to demonstrate how to create a custom module
+    in the Cognite Data Fusion Toolkit.
+- externalId: 'cdf_tooklit:example_timeseries:2'
+  name: 'CDF Toolkit Example Timeseries 2'
+  dataSetExternalId: ds_timeseries_{{example_variable}}
+  metadata:
+    bar: 'foo'
+  isString: false
+  isStep: false
+  description: This is an example timeseries used to demonstrate how to create a custom module
+    in the Cognite Data Fusion Toolkit.

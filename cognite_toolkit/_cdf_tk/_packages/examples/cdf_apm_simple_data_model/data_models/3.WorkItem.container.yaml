@@ -1,0 +1,93 @@
+externalId: WorkItem
+name: WorkItem
+properties:
+  criticality:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: criticality
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  description:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: description
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  isCompleted:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: isCompleted
+    nullable: true
+    type:
+      list: false
+      type: boolean
+  itemInfo:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: itemInfo
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  itemName:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: itemName
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  method:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: method
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  title:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: title
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  toBeDone:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: toBeDone
+    nullable: true
+    type:
+      list: false
+      type: boolean
+  workOrder:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: workOrder
+    nullable: true
+    type:
+      container: null
+      type: direct
+      list: false
+space: '{{space}}'
+usedFor: node

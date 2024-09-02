@@ -1,0 +1,14 @@
+- name: "daily-8am-utc"
+  functionExternalId: 'fn_first_function'
+  description: "Run every day at 8am UTC"
+  cronExpression: "0 8 * * *"
+  data:
+    breakfast: "today: peanut butter sandwich and coffee"
+    lunch: "today: greek salad and water"
+    dinner: "today: steak and red wine"
+  authentication:
+    # Credentials to use to run the function in this schedule.
+    # In this example, we just use the main deploy credentials, so the result is the same, but use a different set of
+    # credentials (env variables) if you want to run the function with different permissions.
+    clientId: {{cicd_clientId}}
+    clientSecret: {{cicd_clientSecret}}

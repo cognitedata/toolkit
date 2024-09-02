@@ -1,0 +1,37 @@
+# The directory with the function code should have the same name
+# and externalId as the function itself as defined below.
+- name: 'context:files:{{location_name}}:{{source_name}}:annotation'
+  externalId: 'fn_context_files_{{location_name}}_{{source_name}}_annotation'
+  owner: 'Anonymous'
+  description: 'Contextualization of P&ID files creating annotations'
+  metadata:
+    version: '{{version}}'
+  envVars:
+    # The below two environment variables are set by the Toolkit
+    ENV_TYPE: '${CDF_BUILD_TYPE}'
+    CDF_ENV: '${CDF_ENVIRON}'
+  # Number of cores, not available in Azure
+  cpu: 0.60
+  runtime: 'py311'
+  functionPath: 'handler.py'
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: 'ds_files_{{location_name}}'
+- name: 'workflow:files:{{location_name}}:{{source_name}}:annotation'
+  externalId: 'fn_workflow_files_{{location_name}}_{{source_name}}_annotation'
+  owner: 'Anonymous'
+  description: 'Workflow scheduler for Contextualization of P&ID files creating annotations'
+  metadata:
+    version: '{{version}}'
+  envVars:
+    # The below two environment variables are set by the Toolkit
+    ENV_TYPE: '${CDF_BUILD_TYPE}'
+    CDF_ENV: '${CDF_ENVIRON}'
+  # Number of cores, not available in Azure
+  cpu: 0.60
+  runtime: 'py311'
+  functionPath: 'handler.py'
+  secrets: 
+    client-id: {{cicd_clientId}}
+    client-secret: {{cicd_clientSecret}}
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: 'ds_files_{{location_name}}'

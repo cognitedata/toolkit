@@ -1,0 +1,23 @@
+[packages]
+description = "Built-in Cognite packages"
+
+
+[packages.quickstart]
+title = "Quick Start"
+description = "Get started with Cognite Data Fusion in minutes."
+
+[packages.infield]
+title = "InField"
+description = "Real-time data into the hands of the field worker."
+
+[packages.inrobot]
+title = "InRobot"
+description = "Robotic operations and data capture"
+
+[packages.references]
+title = "References"
+description = "Reference files for all supported resoucre types"
+
+[packages.examples]
+title = "Examples"
+description = "Examples of how to configure Cognite Data Fusion"

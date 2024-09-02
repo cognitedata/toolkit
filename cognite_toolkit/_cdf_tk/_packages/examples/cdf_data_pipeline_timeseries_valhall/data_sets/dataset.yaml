@@ -1,0 +1,15 @@
+externalId: ds_timeseries_{{location_name}}
+name:  timeseries:{{location_name}}
+description: Time series data for {{location_name}} extracted live from OPC-UA simulator and static examples from PI (OID data)
+metadata:
+  consoleSource:
+    names:
+      - '{{source_name}}'
+      - 'pi - static OID test data'
+  rawTables:
+    - databaseName: timeseries_{{location_name}}_{{source_name}}
+      tableName: 'contextualization_good'
+    - databaseName: 'timeseries_{{location_name}}_{{source_name}}'
+      tableName: 'contextualization_bad'
+    - databaseName: 'timeseries_{{location_name}}_{{source_name}}'
+      tableName: 'contextualization_manual_input'

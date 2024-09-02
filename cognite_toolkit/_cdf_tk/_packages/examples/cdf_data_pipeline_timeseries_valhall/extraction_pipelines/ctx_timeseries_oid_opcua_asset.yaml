@@ -1,0 +1,57 @@
+externalId: 'ep_ctx_timeseries_{{location_name}}_{{source_name}}_asset'
+name: 'ctx:timeseries:{{location_name}}:{{source_name}}:asset'
+dataSetExternalId: 'ds_timeseries_{{location_name}}'
+description: 'Contextualization of time series and assets for  {{location_name}}:{{source_name}}'
+rawTables:
+  - dbName: 'timeseries_{{location_name}}_{{source_name}}'
+    tableName: 'contextualization_good'
+  - dbName: 'timeseries_{{location_name}}_{{source_name}}'
+    tableName: 'contextualization_bad'
+  - dbName: 'timeseries_{{location_name}}_{{source_name}}'
+    tableName: 'contextualization_manual_input'
+    
+source: '{{source_name}}'
+documentation: >
+  # Time series and assets Contextualization
+ 
+  The Time series and assets Contextualization runs as a process in CDF Functions. Process triggers on new time series that not is connected to an asset.
+  The process stages are as follows:
+
+
+  ```
+    Read configuration and start process by:
+    1. Read RAW table with manual mappings and extract all rows not contextualized
+    2. Apply manual mappings from TS to Asset - this will overwrite any existing mapping
+    3. Read all time series not matched (or all if runAll is True)
+    4. Read all assets
+    5. Run ML contextualization to match TS -> Assets
+    6. Update TS with mapping
+    7. Write results matched (good) not matched (bad) to RAW
+    8. Output in good/bad table can then be used in workflow to update manual mappings
+  ```
+
+  Default configuration is provided as part of the deployment, but can be overwritten by configuration provided in configuration section below:
+ 
+  ```
+   # if True, run without writing any annotations to CDF
+   debug: False
+   # if True run contextualization on all time series, if False only run on time series that not is linked to an asset
+   runAll: False
+   # RAW DB used to store input and results for contextualization
+   rawdb: 'timeseries_{{location_name}}_{{source_name}}'
+   # RAW table used to store all manual input for mapping that should be used in contextualization
+   # This table could be populated from earlier mappings that are approved or used for manual override
+   rawTableManual: 'contextualization_manual_input'
+   # RAW table used to store all mapping that was automatically approved as good
+   rawTableGood: 'contextualization_good'
+   # RAW table used to store all mapping that NOT was automatically approved
+   rawTableBad: 'contextualization_bad'
+   # Prefix used for all time series that is used in contextualization
+   timeSeriesPrefix: [pi_, opc-ua]
+   # List of externalId for root assets to be used for contextualization
+   assetRootExtIds: [{{external_root_id_asset}}]
+   # Number between 0 and 1, indication of strict the matching should be 1 = only exact matches
+   matchThreshold: 0.85
+
+  ```
+

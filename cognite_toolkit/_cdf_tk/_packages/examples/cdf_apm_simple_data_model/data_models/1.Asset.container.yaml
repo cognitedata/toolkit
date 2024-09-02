@@ -1,0 +1,116 @@
+externalId: Asset
+name: Asset
+properties:
+  areaId:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: areaId
+    nullable: true
+    type:
+      list: false
+      type: int32
+  categoryId:
+    autoIncrement: false
+    default_value: null
+    description: null
+    name: categoryId
+    nullable: true
+    type:
+      list: false
+      type: int32
+  createdDate:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: createdDate
+    nullable: true
+    type:
+      list: false
+      type: timestamp
+  description:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: description
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  documents:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: documents
+    nullable: true
+    type:
+      list: true
+      type: file
+  isActive:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: isActive
+    nullable: true
+    type:
+      list: false
+      type: boolean
+  isCriticalLine:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: isCriticalLine
+    nullable: true
+    type:
+      list: false
+      type: boolean
+  metrics:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: metrics
+    nullable: true
+    type:
+      list: true
+      type: timeseries
+  parent:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: parent
+    nullable: true
+    type:
+      type: direct
+      list: false
+  sourceDb:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: sourceDb
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  tag:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: tag
+    nullable: true
+    type:
+      collation: ucs_basic
+      list: false
+      type: text
+  updatedDate:
+    autoIncrement: false
+    defaultValue: null
+    description: null
+    name: updatedDate
+    nullable: true
+    type:
+      list: false
+      type: timestamp
+space: '{{space}}'
+usedFor: node

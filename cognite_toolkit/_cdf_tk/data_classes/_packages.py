@@ -22,6 +22,7 @@ class Package:
     """
 
     name: str
+    title: str
     description: str | None = None
     _modules: dict[str, str | None] = field(default_factory=dict)
 
@@ -30,9 +31,10 @@ class Package:
         return self._modules or {}
 
     @classmethod
-    def load(cls, package_definition: dict) -> Package:
+    def load(cls, name: str, package_definition: dict) -> Package:
         return cls(
-            name=package_definition["name"],
+            name=name,
+            title=package_definition["title"],
             description=package_definition.get("description"),
         )
 
@@ -51,6 +53,12 @@ class Packages(list, MutableSequence[Package]):
     def __init__(self, packages: Optional[Iterable[Package]] = None) -> None:
         super().__init__(packages or [])
 
+    def get_by_name(self, name: str) -> Package:
+        for package in self:
+            if package.name == name:
+                return package
+        raise KeyError(f"Package {name} not found")
+
     @classmethod
     def load(
         cls,
@@ -62,7 +70,6 @@ class Packages(list, MutableSequence[Package]):
             modules: The module directories to load the packages from.
         """
 
-        # TODO: read from cdf.toml singleton
         package_definition_path = path / "package.toml"
         if not package_definition_path.exists():
             raise FileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
@@ -71,7 +78,7 @@ class Packages(list, MutableSequence[Package]):
         collected: dict[str, Package] = {}
         for package_name, package_definition in package_definitions.items():
             if isinstance(package_definition, dict):
-                collected[package_name] = Package.load(package_definition)
+                collected[package_name] = Package.load(package_name, package_definition)
 
         module_directories = ModuleDirectories.load(path, set())
         for module in module_directories:
