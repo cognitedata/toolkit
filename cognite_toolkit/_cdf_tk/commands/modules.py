@@ -389,8 +389,8 @@ class ModulesCommand(ToolkitCommand):
         project_dir = Path(project_dir)
         modules = ModuleResources(project_dir, build_env_name)
 
-        table = Table(title=f"{project_dir.name} {build_env_name} modules")
-        table.add_column("Module", style="bold")
+        table = Table(title=f"{build_env_name} {project_dir.name} modules")
+        table.add_column("Module Name", style="bold")
         table.add_column("Resource Folders", style="bold")
         table.add_column("Resources", style="bold")
         table.add_column("Location", style="bold")
