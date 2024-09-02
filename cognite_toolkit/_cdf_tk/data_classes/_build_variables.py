@@ -27,17 +27,19 @@ class BuildVariable:
     is_selected: bool
     location: Path
 
-    def dump(self) -> dict[str, Any]:
-        value: str | int | float | bool | list[str | int | float | bool]
+    @property
+    def value_variable(self) -> str | int | float | bool | list[str | int | float | bool]:
+        """Returns the value of the variable as a variable."""
         if isinstance(self.value, tuple):
             # Convert the tuple back to a list to make it JSON serializable
-            value = list(self.value)
+            return list(self.value)
         else:
-            value = self.value
+            return self.value
 
+    def dump(self) -> dict[str, Any]:
         return {
             "key": self.key,
-            "value": value,
+            "value": self.value_variable,
             "is_selected": self.is_selected,
             "location": self.location.as_posix(),
         }
@@ -113,7 +115,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
 
     def replace(self, content: str, file_suffix: str = ".yaml") -> str:
         for variable in self:
-            replace = variable.value
+            replace = variable.value_variable
             _core_patter = rf"{{{{\s*{variable.key}\s*}}}}"
             if file_suffix in {".yaml", ".yml", ".json"}:
                 # Preserve data types
