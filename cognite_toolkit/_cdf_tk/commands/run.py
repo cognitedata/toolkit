@@ -143,15 +143,19 @@ intended to test the function before deploying it to CDF or to debug issues with
                 result.update()
                 duration = time.time() - start_time
                 progress.advance(call_task, advance=duration)
+            progress.advance(call_task, advance=max_time - duration)
             progress.stop()
         table = Table(title=f"Function {external_id}, id {function.id}")
         table.add_column("Info", justify="left")
         table.add_column("Value", justify="left", style="green")
         table.add_row("Call id", str(result.id))
         table.add_row("Status", str(result.status))
-        table.add_row("Created time", str(ms_to_datetime(result.start_time)))
-        table.add_row("Finished time", str(ms_to_datetime(result.end_time or 0)))
-        table.add_row("Duration", str((result.end_time or 1) - (result.start_time or 1)))
+        created_time = ms_to_datetime(result.start_time)
+        finished_time = ms_to_datetime(result.end_time or (datetime.datetime.now().timestamp() * 1000))
+        table.add_row("Created time", str(created_time))
+        table.add_row("Finished time", str(finished_time))
+        run_time = finished_time - created_time
+        table.add_row("Duration", f"{run_time.total_seconds():,} seconds")
         if result.error is not None:
             table.add_row("Error", str(result.error.get("message", "Empty error")))
             table.add_row("Error trace", str(result.error.get("trace", "Empty trace")))
