@@ -100,7 +100,7 @@ class ResourceBuildInfo(Generic[T_ID]):
         from cognite_toolkit._cdf_tk.loaders import ResourceLoader, get_loader
 
         loader = cast(ResourceLoader, get_loader(resource_folder, self.kind))
-        dumped = loader.get_id(self.identifier)
+        dumped = loader.dump_id(self.identifier)
 
         return {
             "identifier": dumped,
