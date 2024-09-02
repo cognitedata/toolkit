@@ -936,7 +936,9 @@ def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
     return (base_path / path).resolve()
 
 
-def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None = None) -> str:
+def calculate_directory_hash(
+    directory: Path, exclude_prefixes: set[str] | None = None, ignore_files: set[str] | None = None
+) -> str:
     sha256_hash = hashlib.sha256()
 
     # Walk through each file in the directory
@@ -944,6 +946,8 @@ def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None 
         if filepath.is_dir():
             continue
         if exclude_prefixes and any(filepath.name.startswith(prefix) for prefix in exclude_prefixes):
+            continue
+        if ignore_files and filepath.suffix in ignore_files:
             continue
         relative_path = filepath.relative_to(directory)
         sha256_hash.update(relative_path.as_posix().encode("utf-8"))
