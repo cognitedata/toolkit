@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.20] - 2024-08-31
+
+### Fixed
+
+- Ignore `.pyc` files when hashing function directories in the `cdf-tk deploy` command. This prevents unnecessary
+  redeployments of functions.
+
 ## [0.2.19] - 2024-08-26
 
 ### Fixed

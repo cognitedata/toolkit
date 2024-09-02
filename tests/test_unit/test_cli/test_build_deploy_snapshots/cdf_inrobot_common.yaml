@@ -12,7 +12,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 551b03bfdfe83657d6eee7f45fd8b7efb9e30c25797b01e7d5e87251f8fa7bfc
+    cdf-toolkit-function-hash: f2a7ea24c30371e0a9f8a03cc978427446884941cb4c4edcf17357ae0c1e1bea
   name: Contextualize robot data
   owner: Robotics team
   runtime: py39
@@ -24,7 +24,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 20d516db64ed07f80e086483ffeb7389e50600720609b5c0f36fdcf31d3de127
+    cdf-toolkit-function-hash: c89875cd477c1710d6a48253e2eef3fef5800fda629b93fa75d47a24f2ebd30f
   name: Gauge reading
   owner: Robotics team
   runtime: py39
@@ -36,7 +36,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 84e05781c2048ca9769863b84dc3337f361fa39cad57f967df55749e613f5eee
+    cdf-toolkit-function-hash: fe1a674e6a860d2078649db18cebcb7431430a6c272ffc7cb92f29e5a1463dc0
   name: Get IR data From IR raw
   owner: Robotics team
   runtime: py39
