@@ -35,7 +35,7 @@ class Package:
 
 
 @dataclass
-class Packages(list[Package]):
+class Packages(list, MutableSequence[Package]):
     @overload
     def __init__(self, packages: Iterable[Package]) -> None: ...
 
