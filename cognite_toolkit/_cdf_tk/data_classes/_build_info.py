@@ -277,12 +277,19 @@ class BuildInfo(ConfigCore):
         content = f"{self.top_warning}\n{content}"
         safe_write(self.filepath, content)
 
-    def compare_modules(self, current_modules: ModuleDirectories) -> set[Path]:
-        current_module_hash_by_path = {module.relative_path: module.hash for module in current_modules}
-        cached_hash_by_path = {module.location.path: module.location.hash for module in self.modules.modules}
+    def compare_modules(self, current_modules: ModuleDirectories, current_variables: BuildVariables) -> set[Path]:
+        current_module_by_path = {module.relative_path: module for module in current_modules}
+        cached_module_by_path = {module.location.path: module for module in self.modules.modules}
         needs_rebuild = set()
-        for path, current_hash in current_module_hash_by_path.items():
-            if path not in cached_hash_by_path or current_hash != cached_hash_by_path[path]:
+        for path, current_module in current_module_by_path.items():
+            if path not in cached_module_by_path:
+                needs_rebuild.add(path)
+                continue
+            cached_module = cached_module_by_path[path]
+            if current_module.hash != cached_module.location.hash:
+                needs_rebuild.add(path)
+            current_module_variables = current_variables.get_module_variables(current_module)
+            if set(current_module_variables) != set(cached_module.build_variables):
                 needs_rebuild.add(path)
         return needs_rebuild
 
@@ -308,8 +315,12 @@ class ModuleResources:
     def list(self) -> ModuleBuildList:
         # Check if the build info is up to date
         if not self._has_rebuilt:
-            current_modules = ModuleDirectories.load(self._project_dir, set())
-            if needs_rebuild := self._build_info.compare_modules(current_modules):
+            current_modules = ModuleDirectories.load(self._project_dir, {Path("")})
+            config_yaml = BuildConfigYAML.load_from_directory(self._project_dir, self._build_env)
+            current_variables = BuildVariables.load_raw(
+                config_yaml.variables, current_modules.available_paths, current_modules.selected.available_paths
+            )
+            if needs_rebuild := self._build_info.compare_modules(current_modules, current_variables):
                 self._build_info = BuildInfo.rebuild(self._project_dir, self._build_env, needs_rebuild)
             self._has_rebuilt = True
         return self._build_info.modules.modules

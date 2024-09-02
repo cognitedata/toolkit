@@ -23,7 +23,7 @@ class BuildVariable:
     """
 
     key: str
-    value: str | int | float | bool | list[str | int | float | bool] | dict[str, str | int | float | bool]
+    value: str | int | float | bool | tuple[str | int | float | bool]
     is_selected: bool
     location: Path
 
@@ -37,7 +37,12 @@ class BuildVariable:
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> BuildVariable:
-        return cls(data["key"], data["value"], data["is_selected"], Path(data["location"]))
+        if isinstance(data["value"], list):
+            # Convert the list to a tuple to make it hashable
+            value = tuple(data["value"])
+        else:
+            value = data["value"]
+        return cls(data["key"], value, data["is_selected"], Path(data["location"]))
 
 
 class BuildVariables(tuple, Sequence[BuildVariable]):
@@ -79,7 +84,8 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                     # Remove this check to support variables with dictionary values.
                     continue
                 else:
-                    variables.append(BuildVariable(key, value, path in selected_modules, path))
+                    hashable_values = tuple(value) if isinstance(value, list) else value
+                    variables.append(BuildVariable(key, hashable_values, path in selected_modules, path))
 
         return cls(variables)
 
