@@ -21,6 +21,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
+from cognite.client.utils import ms_to_datetime
 from rich import print
 from rich.table import Table
 
@@ -112,12 +113,12 @@ intended to test the function before deploying it to CDF or to debug issues with
         result = ToolGlobals.toolkit_client.functions.call(
             external_id=external_id, data=input_data, wait=False, nonce=session.nonce
         )
-        table = Table(title=f"Function {external_id}, id {function.id}")
+        table = Table(title=f"Function {external_id!r}, id {function.id!r}")
         table.add_column("Info", justify="left")
         table.add_column("Value", justify="left", style="green")
         table.add_row("Call id", str(result.id))
         table.add_row("Status", str(result.status))
-        table.add_row("Created time", str(datetime.datetime.fromtimestamp((result.start_time or 1000) / 1000)))
+        table.add_row("Created time", str(ms_to_datetime(result.start_time)))
         print(table)
 
         if wait:
