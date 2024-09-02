@@ -4,9 +4,7 @@ description = "Cognite InField"
 
 [packages]
 tags = [
-    "InField",
-    "Field Operations",  
-    "Quickstart"
+    "infield",
 ]
 # [modules.items]
 # cdf_auth_readwrite_all = "Read and write access groups for managing all resources"

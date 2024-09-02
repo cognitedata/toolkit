@@ -1,0 +1,22 @@
+# TODO: move to cdf.toml
+[packages]
+description = "Built-in Cognite packages"
+
+[packages.infield]
+name = "InField"
+description = "Put real-time data into the hands of every field worker."
+
+[packages.inrobot]
+name = "InRobot"
+description = "Capture and integrate a broad spectrum of robotics inspection data with other IT and OT data through AI-assisted, optimized data management."
+# "InField" = "Cognite InField"
+
+# tags = [
+#     "InField",
+#     "Field Operations",  
+#     "Quickstart"
+# ]
+# [modules.items]
+# cdf_auth_readwrite_all = "Read and write access groups for managing all resources"
+# sap_data_pipeline = "Pipeline for ingesting SAP data to the Core Data Model"
+# opc_ua_data_pipeline = "Pipeline for ingesting OPC UA data to the Core Data Model"

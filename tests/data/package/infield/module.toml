@@ -1,0 +1,10 @@
+[module]
+version = "0.2.18"
+name = "InField"
+description = "Cognite InField"
+
+[packages]
+tags = [
+    "infield",
+    "quickstart",  
+]

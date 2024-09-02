@@ -8,7 +8,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import SupportsIndex, overload
 
-from cognite_toolkit._cdf_tk.data_classes._manifest import Manifest
+from cognite_toolkit._cdf_tk.data_classes._module_toml import ModuleToml
 from cognite_toolkit._cdf_tk.utils import iterate_modules
 
 
@@ -48,10 +48,11 @@ class ModuleLocation:
         return set(self.relative_path.parents)
 
     @cached_property
-    def manifest(self) -> Manifest | None:
-        """The manifest of the module."""
-        if manifest_file := next(self.dir.glob("**/module.toml"), None):
-            return Manifest.load(manifest_file)
+    def module_toml(self) -> ModuleToml | None:
+        """The module toml of the module."""
+        module_toml_file = self.dir / "module.toml"
+        if module_toml_file.exists():
+            return ModuleToml.load(module_toml_file)
         return None
 
     def __repr__(self) -> str:

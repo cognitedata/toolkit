@@ -11,13 +11,13 @@ else:
 
 
 @dataclass(frozen=True)
-class Manifest:
+class ModuleToml:
     version: str
     description: str | None
     tags: list[str] = field(default_factory=list)
 
     @classmethod
-    def load(cls, manifest_path: Path) -> Manifest:
+    def load(cls, manifest_path: Path) -> ModuleToml:
         manifest = toml.loads(manifest_path.read_text())
         return cls(
             version=manifest["module"]["version"],

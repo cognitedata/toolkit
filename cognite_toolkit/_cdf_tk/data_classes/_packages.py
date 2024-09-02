@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Iterable, MutableSequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional, overload
 
-from cognite.client.utils._text import to_camel_case
-
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
+
+if sys.version_info >= (3, 11):
+    import toml
+else:
+    import tomli as toml
 
 
 @dataclass
@@ -14,21 +19,22 @@ class Package:
     """A package represents a bundle of modules.
     Args:
         name: the unique identifier of the package.
-        source_absolute_path: The absolute path to the source directory.
-        is_selected: Whether the module is selected by the user.
-        source_paths: The paths to all files in the module.
     """
 
     name: str
+    description: str | None = None
     _modules: dict[str, str | None] = field(default_factory=dict)
-
-    @property
-    def description(self) -> str | None:
-        return to_camel_case(self.name)
 
     @property
     def modules(self) -> dict[str, str | None]:
         return self._modules or {}
+
+    @classmethod
+    def load(cls, package_definition: dict) -> Package:
+        return cls(
+            name=package_definition["name"],
+            description=package_definition.get("description"),
+        )
 
     def add_module(self, name: str, description: str | None = None) -> None:
         self._modules[name] = description
@@ -48,7 +54,7 @@ class Packages(list, MutableSequence[Package]):
     @classmethod
     def load(
         cls,
-        modules: ModuleDirectories,
+        path: Path,  # todo: relative to org dir
     ) -> Packages:
         """Loads the packages in the source directory.
 
@@ -56,12 +62,24 @@ class Packages(list, MutableSequence[Package]):
             modules: The module directories to load the packages from.
         """
 
+        # TODO: read from cdf.toml singleton
+        package_definition_path = path / "package.toml"
+        if not package_definition_path.exists():
+            raise FileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
+        package_definitions = toml.loads(package_definition_path.read_text())["packages"]
+
         collected: dict[str, Package] = {}
-        for module in modules:
-            if module.manifest:
-                for tag in module.manifest.tags or []:
-                    if tag not in collected:
-                        collected[tag] = Package(name=tag)
-                    collected[tag].add_module(module.name, module.manifest.description)
+        for package_name, package_definition in package_definitions.items():
+            if isinstance(package_definition, dict):
+                collected[package_name] = Package.load(package_definition)
+
+        module_directories = ModuleDirectories.load(path, set())
+        for module in module_directories:
+            if module.module_toml:
+                for tag in module.module_toml.tags or []:
+                    if tag in collected:
+                        collected[tag].add_module(module.name, module.module_toml.description)
+                    else:
+                        raise ValueError(f"Tag {tag} not found in package manifest toml")
 
         return cls(list(collected.values()))
