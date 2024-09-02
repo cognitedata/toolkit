@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.utils import (
     tmp_build_directory,
 )
 
+from ..loaders import ResourceTypes
 from ._base import ConfigCore
 from ._build_variables import BuildVariables
 from ._config_yaml import BuildConfigYAML
@@ -109,23 +110,23 @@ class ResourceBuildInfo(Generic[T_ID]):
         }
 
 
-class ResourceBuildList(list, MutableSequence[ResourceBuildInfo]):
+class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[T_ID]):
     # Implemented to get correct type hints
-    def __init__(self, collection: Collection[ResourceBuildInfo] | None = None) -> None:
+    def __init__(self, collection: Collection[ResourceBuildInfo[T_ID]] | None = None) -> None:
         super().__init__(collection or [])
 
-    def __iter__(self) -> Iterator[ResourceBuildInfo]:
+    def __iter__(self) -> Iterator[ResourceBuildInfo[T_ID]]:
         return super().__iter__()
 
     @overload
-    def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfo: ...
+    def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfo[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ResourceBuildList: ...
+    def __getitem__(self, index: slice) -> ResourceBuildList[T_ID]: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfo | ResourceBuildList:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfo[T_ID] | ResourceBuildList[T_ID]:
         if isinstance(index, slice):
-            return ResourceBuildList(super().__getitem__(index))
+            return ResourceBuildList[T_ID](super().__getitem__(index))
         return super().__getitem__(index)
 
 
@@ -313,6 +314,11 @@ class ModuleResources:
         except FileNotFoundError:
             self._build_info = BuildInfo.rebuild(project_dir, build_env)
             self._has_rebuilt = True
+
+    def list_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildList[T_ID]:
+        # New Modules -> Rebuild if has function.
+        # Existing Modules -> Rebuild if has function and has changed.
+        raise NotImplementedError()
 
     def list(self) -> ModuleBuildList:
         # Check if the build info is up to date

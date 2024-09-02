@@ -312,7 +312,7 @@ class FunctionScheduleLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> FunctionScheduleWrite | FunctionScheduleWriteList | None:
+    ) -> FunctionScheduleWriteList:
         schedules = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(schedules, dict):
             schedules = [schedules]

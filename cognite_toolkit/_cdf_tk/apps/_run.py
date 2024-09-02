@@ -124,13 +124,13 @@ class RunFunctionApp(typer.Typer):
             ),
         ] = None,
         project_dir: Annotated[
-            Optional[Path],
+            Path,
             typer.Option(
                 "--project-dir",
                 "-p",
                 help="Path to project directory with the modules. This is used to search for available functions.",
             ),
-        ] = None,
+        ] = Path.cwd(),
         env_name: Annotated[
             str,
             typer.Option(
@@ -158,4 +158,4 @@ class RunFunctionApp(typer.Typer):
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
         cmd = RunFunctionCommand()
-        cmd.run(lambda: cmd.run_cdf(CDFToolConfig.from_context(ctx), external_id, project_dir, env_name, data, wait))
+        cmd.run(lambda: cmd.run_cdf(CDFToolConfig.from_context(ctx), project_dir, env_name, external_id, data, wait))

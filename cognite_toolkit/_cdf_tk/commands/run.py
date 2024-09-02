@@ -21,11 +21,13 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, ModuleResources
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, module_from_path, safe_read
 
+from ..loaders.data_classes import FunctionScheduleID
 from ._base import ToolkitCommand
 
 
@@ -41,17 +43,37 @@ intended to test the function before deploying it to CDF or to debug issues with
     def run_cdf(
         self,
         ToolGlobals: CDFToolConfig,
+        project_dir: Path,
+        build_env_name: str,
         external_id: str | None = None,
-        project_dir: Path | None = None,
-        build_env_name: str | None = None,
         data: str | None = None,
         wait: bool = False,
     ) -> None:
-        modules = self._load_modules(project_dir, build_env_name)
-        run_info = self._select_input(modules, external_id, data)
+        resources = ModuleResources(project_dir, build_env_name)
+        functions = resources.list_resources(str, "functions", FunctionLoader.kind)
+        if external_id is None:
+            external_id = self._select_function(functions)
+        elif external_id not in functions:
+            raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
 
-        # Waiting for PR to merge in PySDK
-        self._run_function_cdf(ToolGlobals, run_info, wait)
+        if data is not None:
+            try:
+                data = json.loads(data)
+            except json.JSONDecodeError:
+                schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
+                for schedule in schedules:
+                    if schedule.identifier.function_external_id == external_id and schedule.identifier.name == data:
+                        schedule_raw = resources.retrieve_resource_config(schedule)
+                        config = FunctionScheduleLoader.create_loader(ToolGlobals, None).load_resource(
+                            schedule_raw, ToolGlobals, skip_validation=False
+                        )[0]
+                        if config.data is None:
+                            self.warn(LowSeverityWarning(f"Could not find data for schedule {data}"))
+                        else:
+                            data = config.data
+
+        result = ToolGlobals.toolkit_client.functions.call(external_id=external_id, data=data, wait=wait)
+        result.get_logs()
 
     def run_local(
         self,
@@ -64,15 +86,11 @@ intended to test the function before deploying it to CDF or to debug issues with
         rebuild_env: bool = False,
     ) -> None:
         # Todo: Run locally with credentials from a schedule.
-        modules = self._load_modules(project_dir, build_env_name)
         run_info = self._select_input(modules, external_id, data, credentials)
 
         self._setup_virtual_env(run_info, project_dir, rebuild_env)
 
         self._run_function_locally(ToolGlobals, run_info)
-
-    def _load_modules(self, project_dir: Path | None, build_env_name: str | None) -> dict[str, Any]:
-        raise NotImplementedError
 
     def _run_function_cdf(self, ToolGlobals: CDFToolConfig, run_info: RunFunction, wait: bool) -> None:
         raise NotImplementedError()
