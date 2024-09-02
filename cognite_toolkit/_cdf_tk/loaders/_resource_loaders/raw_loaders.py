@@ -82,7 +82,7 @@ class RawDatabaseLoader(
         return {"dbName": id.db_name}
 
     def load_resource(
-        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> RawDatabaseTable | RawTableList | None:
         resource = super().load_resource(filepath, ToolGlobals, skip_validation)
         if resource is None:
@@ -205,9 +205,7 @@ class RawTableLoader(
         if "dbName" in item:
             yield RawDatabaseLoader, RawDatabaseTable(item["dbName"])
 
-    def load_resource(
-        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> RawTableList | None:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> RawTableList | None:
         resource = super().load_resource(filepath, ToolGlobals, skip_validation)
         if resource is None:
             return None

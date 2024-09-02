@@ -13,7 +13,12 @@ from pathlib import Path
 from typing import Any
 
 import questionary
-from cognite.client.data_classes import FunctionCall, FunctionScheduleWriteList, FunctionWriteList
+from cognite.client.data_classes import (
+    FunctionCall,
+    FunctionScheduleWrite,
+    FunctionScheduleWriteList,
+    FunctionWriteList,
+)
 from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
 from rich import print
@@ -65,9 +70,7 @@ intended to test the function before deploying it to CDF or to debug issues with
                 for schedule in schedules:
                     if schedule.identifier.function_external_id == external_id and schedule.identifier.name == data:
                         schedule_raw = resources.retrieve_resource_config(schedule)
-                        config = FunctionScheduleLoader.create_loader(ToolGlobals, None).load_resource(
-                            schedule_raw, ToolGlobals, skip_validation=False
-                        )[0]
+                        config = FunctionScheduleWrite.load(schedule_raw)
                         if config.data is None:
                             raise ToolkitMissingResourceError(
                                 f"The schedule {schedule.identifier.name} does not have data"
@@ -90,15 +93,32 @@ intended to test the function before deploying it to CDF or to debug issues with
                     return
                 selected = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
                 schedule_raw = resources.retrieve_resource_config(options[selected])
-                config = FunctionScheduleLoader.create_loader(ToolGlobals, None).load_resource(
-                    schedule_raw, ToolGlobals, skip_validation=False
-                )[0]
+                config = FunctionScheduleWrite.load(schedule_raw)
                 if config.data is None:
                     raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
                 input_data = config.data
+        client = ToolGlobals.toolkit_client
 
-        result = ToolGlobals.toolkit_client.functions.call(external_id=external_id, data=input_data, wait=wait)
-        print(result.dump())
+        function = client.functions.retrieve(external_id=external_id)
+        if function is None:
+            raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
+
+        session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+
+        result = ToolGlobals.toolkit_client.functions.call(
+            external_id=external_id, data=input_data, nonce=session.nonce
+        )
+        table = Table(title=f"Function {external_id}, id {result.id}")
+        table.add_column("Info", justify="left")
+        table.add_column("Value", justify="left", style="green")
+        table.add_row("Call id", str(result.id))
+        table.add_row("Status", str(result.status))
+        table.add_row("Created time", str(datetime.datetime.fromtimestamp((result.start_time or 1000) / 1000)))
+        print(table)
+
+        if wait:
+            print("Awaiting results from function call...")
+            return
 
     def run_local(
         self,

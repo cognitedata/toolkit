@@ -42,7 +42,6 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitNotSupported,
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
@@ -107,10 +106,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(
-        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionWrite | FunctionWriteList | None:
-        if isinstance(filepath, str):
-            raise ToolkitNotSupported("FunctionLoader.load_resource does not support str as filepath.")
         if filepath.parent.name != self.folder_name:
             # Functions configs needs to be in the root function folder.
             # This is to allow arbitrary YAML files inside the function code folder.
@@ -314,7 +311,7 @@ class FunctionScheduleLoader(
             yield FunctionLoader, item["functionExternalId"]
 
     def load_resource(
-        self, filepath: Path | str, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionScheduleWriteList:
         schedules = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(schedules, dict):
