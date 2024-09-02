@@ -971,6 +971,10 @@ class GraphQLLoader(
         return DataModelId(item.space, item.external_id, str(item.version))
 
     @classmethod
+    def dump_id(cls, id: DataModelId) -> dict[str, Any]:
+        return id.dump(include_type=False)
+
+    @classmethod
     def get_required_capability(cls, items: GraphQLDataModelWriteList) -> Capability | list[Capability]:
         if not items:
             return []
